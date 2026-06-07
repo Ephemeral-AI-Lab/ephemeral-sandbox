@@ -61,6 +61,14 @@ pub const API_V1_COMMAND_CANCEL: &str = "api.v1.command.cancel";
 pub const API_V1_COMMAND_COLLECT_COMPLETED: &str = "api.v1.command.collect_completed";
 /// Count live command sessions.
 pub const API_V1_COMMAND_SESSION_COUNT: &str = "api.v1.command_session_count";
+/// Cancel every workspace run owned by one caller (`caller_id == agent_run_id`):
+/// discards the caller's command session(s) and exits its isolated workspace if
+/// open. The agent-core per-run cancellation RPC.
+pub const API_V1_CANCEL_WORKSPACE_RUNS_BY_CALLER: &str =
+    "api.v1.cancel_workspace_runs_by_caller_id";
+/// Cancel every workspace run in the sandbox (whole-sandbox sweep backstop):
+/// discards all command sessions, exits all isolated callers, reaps orphans.
+pub const API_V1_CANCEL_WORKSPACE_RUNS: &str = "api.v1.cancel_workspace_runs";
 
 /// Built-in daemon ops expected to be available over the wire.
 pub const BUILTIN_DAEMON_OPS: &[&str] = &[
@@ -93,4 +101,6 @@ pub const BUILTIN_DAEMON_OPS: &[&str] = &[
     API_V1_COMMAND_CANCEL,
     API_V1_COMMAND_COLLECT_COMPLETED,
     API_V1_COMMAND_SESSION_COUNT,
+    API_V1_CANCEL_WORKSPACE_RUNS_BY_CALLER,
+    API_V1_CANCEL_WORKSPACE_RUNS,
 ];

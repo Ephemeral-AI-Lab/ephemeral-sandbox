@@ -63,7 +63,11 @@ impl AgentRunControlFactory {
     fn build(&self, agent_run_id: AgentRunId, persistence: AgentRunPersistence) -> Arc<AgentRunControl> {
         let notifications = NotificationService::new();
         let foreground = Arc::new(self.foreground.create(agent_run_id.clone()));
-        let background = self.background.create();
+        // The handle carries a clone of this factory so its `spawn` can mint each
+        // subagent its own ephemeral control (spec §8.1/§11.3). This is value
+        // capability only — the factory holds no `AgentRunControl`, so there is
+        // no reference cycle.
+        let background = self.background.create(self.clone());
         let heartbeat = self.background.spawn_heartbeat(&background, &notifications);
         Arc::new(AgentRunControl::assemble(AgentRunControlParts {
             agent_run_id,

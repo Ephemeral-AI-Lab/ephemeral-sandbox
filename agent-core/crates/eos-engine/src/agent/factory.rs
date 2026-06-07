@@ -284,7 +284,7 @@ mod tests {
             tool_metadata: metadata(),
             notifier: NotificationService::new(),
             cancellation: crate::AgentRunCancellation::new(),
-            foreground: Arc::new(crate::ForegroundExecutorFactory::default().create(AgentRunId::new_v4())),
+            foreground: Arc::new(crate::ForegroundExecutorFactory.create(AgentRunId::new_v4())),
             audit: None,
             run_handles: None,
         })
@@ -316,7 +316,7 @@ mod tests {
             tool_metadata: metadata(),
             notifier: NotificationService::new(),
             cancellation: crate::AgentRunCancellation::new(),
-            foreground: Arc::new(crate::ForegroundExecutorFactory::default().create(AgentRunId::new_v4())),
+            foreground: Arc::new(crate::ForegroundExecutorFactory.create(AgentRunId::new_v4())),
             audit: None,
             run_handles: None,
         })
@@ -341,7 +341,7 @@ mod tests {
             tool_metadata: metadata(),
             notifier: NotificationService::new(),
             cancellation: crate::AgentRunCancellation::new(),
-            foreground: Arc::new(crate::ForegroundExecutorFactory::default().create(AgentRunId::new_v4())),
+            foreground: Arc::new(crate::ForegroundExecutorFactory.create(AgentRunId::new_v4())),
             audit: None,
             run_handles: None,
         })

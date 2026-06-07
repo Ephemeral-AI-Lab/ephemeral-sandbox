@@ -213,6 +213,30 @@ pub fn caller_has_active_handle(caller_id: &str) -> bool {
         .is_some()
 }
 
+/// Tear down `caller_id`'s isolated workspace if open: namespace/network/cgroup,
+/// release the lease, discard the upperdir (never published). The single
+/// isolated-teardown primitive shared by `op_exit` and the workspace-run cancel
+/// surface. Returns `Err(IsolatedError::NotOpen)` when the caller is not
+/// isolated (the cancel surface treats that as a no-op).
+pub fn exit_isolated(caller_id: &str, grace_s: Option<f64>) -> Result<Value, IsolatedError> {
+    with_state(|state| state.session.exit(&CallerId(caller_id.to_owned()), grace_s))
+}
+
+/// Exit every open isolated workspace and reap orphaned resources (the
+/// whole-sandbox cancel sweep). Returns the number of callers exited.
+pub fn exit_all_and_reap(grace_s: Option<f64>) -> usize {
+    let mut guard = lock_state_cell();
+    let Some(state) = guard.as_mut() else {
+        return 0;
+    };
+    let callers = state.session.list_open_callers();
+    for caller in &callers {
+        let _ = state.session.exit(&CallerId(caller.clone()), grace_s);
+    }
+    state.session.reap_orphan_resources();
+    callers.len()
+}
+
 pub fn ttl_sweep() -> usize {
     let mut guard = lock_state_cell();
     let Some(state) = guard.as_mut() else {

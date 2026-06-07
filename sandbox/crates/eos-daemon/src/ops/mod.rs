@@ -8,3 +8,4 @@ pub(crate) mod files;
 pub(crate) mod isolated_workspace;
 pub(crate) mod plugins;
 pub(crate) mod registry;
+pub(crate) mod workspace_run;

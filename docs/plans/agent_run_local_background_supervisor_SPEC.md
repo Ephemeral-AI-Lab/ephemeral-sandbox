@@ -1423,8 +1423,8 @@ Status values: `Not started`, `In progress`, `Blocked`, `Done`.
 | --- | --- | --- | --- |
 | 0. Contract alignment | Done | tracks daemon registry work | agent-core scope and sandbox assumptions are explicit |
 | 1. State variants | Done | none | cancelled state compiles and persists |
-| 2. Run control and registry | In progress | none | each run can own cancellation, foreground, notifications, and finalization |
-| 3. Local supervisor composition | Not started | none | factories create per-run background handles and notifiers |
+| 2. Run control and registry | Done | none | each run can own cancellation, foreground, notifications, and finalization |
+| 3. Local supervisor composition | In progress | none | factories create per-run background handles and notifiers |
 | 4. Lane handles and heartbeat | Not started | completion collection interface only | lanes own records, handles, and heartbeat wiring |
 | 5. Sandbox registry integration | Blocked on sandbox work | requires daemon registry implementation | one per-caller cancel RPC is wired and tested |
 | 6. Agent-core cancellation ports | Not started | Phase 5 for command-session teardown proof | `cancel_task` and `cancel_agent_run` are awaited and idempotent |

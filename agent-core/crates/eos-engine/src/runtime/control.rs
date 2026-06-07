@@ -159,12 +159,14 @@ impl AgentRunFinalization {
     /// for persisted runs, finish the durable `agent_run` row with the cancelled
     /// terminal payload. Ephemeral runs skip the durable completion.
     pub async fn finish_cancelled(&self, reason: &str) -> Result<(), EngineError> {
-        if let Some(handle) = self
+        // Take the handle out from under the lock before awaiting, so no
+        // `MutexGuard` is held across the `.await`.
+        let message_record = self
             .message_record
             .lock()
             .expect("message-record lock")
-            .take()
-        {
+            .take();
+        if let Some(handle) = message_record {
             handle.finish(NodeFinishStatus::Failed).await?;
         }
         if matches!(self.persistence, AgentRunPersistence::Persisted { .. }) {

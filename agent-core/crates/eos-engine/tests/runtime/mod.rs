@@ -9,8 +9,9 @@ use eos_agent_def::{AgentDefinition, AgentRegistry, AgentRole};
 use eos_agent_message_records::{AgentMessageRecords, AgentRunRecordKind};
 use eos_audit::NoopAuditSink;
 use eos_engine::{
-    run_agent, AgentRunInput, AgentRunResult, EngineRunHandles, EventCallback, EventSourceFactory,
-    StreamEvent, ToolRegistryExtender,
+    run_agent, AgentRunControlFactory, AgentRunInput, AgentRunRegistry, AgentRunResult,
+    BackgroundSupervisorFactory, EngineRunHandles, EventCallback, EventSourceFactory,
+    ForegroundExecutorFactory, StreamEvent, ToolRegistryExtender,
 };
 use eos_llm_client::{LlmClient, LlmRequest, LlmStream, ProviderError, ToolSpec};
 use eos_skills::SkillRegistry;
@@ -20,10 +21,10 @@ use eos_testkit::{
     FakeTransport,
 };
 use eos_tools::{
-    BackgroundInflightReport, BackgroundSupervisorPort, ExecutionMetadata, OutputShape,
-    RegisteredTool, SandboxToolService, SkillToolService, SpawnedSubagent, StartedSubagent,
-    StartedWorkflowHandle, ToolConfigSet, ToolError, ToolExecutor, ToolIntent, ToolName,
-    ToolRegistry, ToolResult, WorkflowControlPort,
+    BackgroundInflightReport, BackgroundSupervisorPort, ExecutionMetadata, NotificationSink,
+    OutputShape, RegisteredTool, SandboxToolService, SkillToolService, SpawnedSubagent,
+    StartedSubagent, StartedWorkflowHandle, SystemNotification, ToolConfigSet, ToolError,
+    ToolExecutor, ToolIntent, ToolName, ToolRegistry, ToolResult, WorkflowControlPort,
 };
 use eos_types::{AgentRunId, JsonObject, SubagentSessionId, WorkflowSessionId};
 use serde_json::json;
@@ -363,7 +364,7 @@ fn input(
     tool_metadata.workspace_root = "/tmp".to_owned();
 
     let foreground = Arc::new(
-        eos_engine::ForegroundExecutorFactory::default().create(agent_run_id.clone()),
+        eos_engine::ForegroundExecutorFactory.create(agent_run_id.clone()),
     );
     AgentRunInput {
         agent,
@@ -710,4 +711,104 @@ async fn run_agent_routes_ask_advisor_through_child_advisor_run() {
                 && metadata["verdict"] == json!("approve")
         )
     }));
+}
+
+// ---------------------------------------------------------------------------
+// Per-agent-run ownership (spec §6, §17): each run owns its own
+// AgentRunControl / NotificationService; the registry arbitrates finalization.
+// ---------------------------------------------------------------------------
+
+fn control_factory() -> AgentRunControlFactory {
+    let handles = EngineRunHandles {
+        agent_run_store: Arc::new(RecordingAgentRunStore::default()),
+        llm_client: Arc::new(NoopLlmClient),
+        event_source_factory: None,
+        agent_registry: Arc::new(Vec::new().into_iter().collect::<AgentRegistry>()),
+        tool_config: Arc::new(
+            ToolConfigSet::load_from_dir(&test_tools_root()).expect("tool config loads"),
+        ),
+        sandbox_service: SandboxToolService::new(Arc::new(FakeTransport)),
+        root_submission: None,
+        skill_service: SkillToolService::new(Arc::new(SkillRegistry::new())),
+        tool_registry_extender: None,
+        audit: Arc::new(NoopAuditSink),
+        message_records: None,
+        workspace_root: "/tmp".to_owned(),
+    };
+    AgentRunControlFactory::new(
+        ForegroundExecutorFactory,
+        // A long interval keeps the per-run heartbeat idle for the duration of
+        // the test (no command sessions → no RPC); the control's drop aborts it.
+        BackgroundSupervisorFactory::new(
+            handles,
+            Arc::new(FakeTransport),
+            std::time::Duration::from_secs(3600),
+        ),
+    )
+}
+
+/// Spec §17 (Runtime Wiring + Background Notifications): two live runs own
+/// independent notification queues, and `AgentRunControl::notifications()`
+/// returns clones of the *same* queue (the instance-identity invariant). A
+/// notification enqueued for run A must never be drainable by run B.
+#[tokio::test]
+async fn per_run_controls_own_independent_notifiers() {
+    let factory = control_factory();
+    let run_a: AgentRunId = "run-a".parse().expect("run a");
+    let run_b: AgentRunId = "run-b".parse().expect("run b");
+    let a = factory.persisted(run_a, "task-a".parse().expect("task a"));
+    let b = factory.persisted(run_b, "task-b".parse().expect("task b"));
+
+    a.notifications()
+        .notify_system(SystemNotification {
+            event: "completed".to_owned(),
+            message: "from-a".to_owned(),
+        })
+        .await
+        .expect("enqueue into A");
+
+    // Cross-agent isolation: B's notifier never sees A's notification.
+    assert!(
+        b.notifications().drain().await.is_empty(),
+        "workflow agent B must not drain workflow agent A's completion"
+    );
+    // Instance identity: a *different clone* of A's queue drains the same item.
+    let drained = a.notifications().drain().await;
+    assert_eq!(drained.len(), 1, "A's own notifier delivers via any clone");
+    assert_eq!(drained[0].message, "from-a");
+}
+
+/// Spec §6.4 (+ the natural-vs-cancel finalization arbitration): the registry
+/// resolves a live run by task, the `Running -> Claimed` claim is a one-shot CAS
+/// (repeat claims no-op), and a claimed entry is no longer addressable as live.
+#[tokio::test]
+async fn registry_claim_is_one_shot_and_resolves_by_task() {
+    let factory = control_factory();
+    let run_a: AgentRunId = "run-a".parse().expect("run a");
+    let task_a: TaskId = "task-a".parse().expect("task a");
+    let control = factory.persisted(run_a.clone(), task_a.clone());
+
+    let registry = AgentRunRegistry::new();
+    registry.insert(control);
+    assert_eq!(registry.agent_run_for_task(&task_a), Some(run_a.clone()));
+    assert!(registry.get(&run_a).is_some(), "live run is addressable");
+
+    assert!(
+        registry.begin_cancel(&run_a).is_some(),
+        "first claim wins and returns the control"
+    );
+    assert!(
+        registry.begin_cancel(&run_a).is_none(),
+        "second claim sees Claimed and no-ops (natural-vs-cancel arbitration)"
+    );
+    assert!(
+        registry.get(&run_a).is_none(),
+        "a claimed entry is no longer 'Running'"
+    );
+
+    registry.finish_cancel(&run_a);
+    assert!(
+        registry.agent_run_for_task(&task_a).is_none(),
+        "finish_cancel removes both indices"
+    );
 }

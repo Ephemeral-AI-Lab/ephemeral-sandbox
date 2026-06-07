@@ -367,6 +367,32 @@ pub const fn cleanup_command_sessions_for_caller(_caller_id: &str, _grace_s: Opt
     0
 }
 
+/// Cancel and discard every live command session across all callers (the
+/// whole-sandbox cancel sweep). Returns the number cancelled.
+#[cfg(target_os = "linux")]
+pub fn cancel_all_command_sessions(grace_s: Option<f64>) -> usize {
+    command_session_manager().cancel_all(grace_s)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub const fn cancel_all_command_sessions(_grace_s: Option<f64>) -> usize {
+    0
+}
+
+/// Total live command sessions across all callers — the registry-backed answer
+/// to "is any command session active in the sandbox?".
+#[cfg(target_os = "linux")]
+#[must_use]
+pub fn total_active_command_sessions() -> usize {
+    command_session_manager().count_by_caller(None)
+}
+
+#[cfg(not(target_os = "linux"))]
+#[must_use]
+pub const fn total_active_command_sessions() -> usize {
+    0
+}
+
 /// Periodic reaper (sense-2 §2.4, §3): enforce the per-session timeout backstop
 /// and finalize any session whose child has exited without a live poller,
 /// parking the completion for the heartbeat. The runner enforces the per-call

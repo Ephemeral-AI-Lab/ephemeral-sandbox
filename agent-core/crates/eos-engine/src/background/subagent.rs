@@ -16,8 +16,8 @@ use eos_agent_def::{AgentName, AgentType};
 use eos_agent_message_records::AgentRunRecordKind;
 use eos_llm_client::Message;
 use eos_tools::ports::{
-    BackgroundInflightReport, BackgroundSupervisorPort, SpawnedSubagent, StartedSubagent,
-    StartedWorkflowHandle,
+    BackgroundInflightReport, BackgroundSupervisorPort, CommandSessionSupervisorPort,
+    SpawnedSubagent, StartedSubagent, StartedWorkflowHandle,
 };
 use eos_tools::{ExecutionMetadata, ToolError, ToolResult, WorkflowControlPort};
 use eos_types::{AgentRunId, JsonObject, SubagentSessionId, WorkflowSessionId};
@@ -25,10 +25,7 @@ use serde_json::{json, Value};
 
 use super::handle::BackgroundSupervisorHandle;
 use super::supervisor::{BackgroundTaskStatus, SubagentRecord};
-use crate::notifications::NotificationService;
-use crate::{
-    run_agent, AgentRunCancellation, AgentRunInput, AgentRunResult, ForegroundExecutorFactory,
-};
+use crate::{run_agent, AgentRunInput, AgentRunResult};
 
 const RECURSION_MESSAGE: &str = "run_subagent: subagents may not spawn further subagents. \
      This is a hard contract — handle the work directly or submit your findings via the terminal tool.";
@@ -225,19 +222,23 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
         tool_input.insert("prompt".to_owned(), json!(prompt));
 
         let child_run_id = AgentRunId::new_v4();
-        let child_notifier = NotificationService::new();
-        let child_foreground =
-            Arc::new(ForegroundExecutorFactory::default().create(child_run_id.clone()));
+        // §11.3: the subagent owns its OWN ephemeral `AgentRunControl` — its own
+        // notifier, foreground executor, background supervisor, and
+        // command-completion heartbeat. Because that heartbeat drains to the
+        // subagent's own notifier, the subagent **can** own command sessions
+        // (their `[BACKGROUND COMPLETED]` reaches the subagent, not the parent).
+        // The subagent's terminal `SubagentRecord` still settles on the PARENT
+        // supervisor (`self`) so the parent observes the child's completion.
+        let subagent_control = self.control_factory().ephemeral(child_run_id.clone());
+        let child_background = subagent_control.background();
+        let child_background_port: Arc<dyn BackgroundSupervisorPort> =
+            Arc::new(child_background.clone());
+        let child_command_port: Arc<dyn CommandSessionSupervisorPort> = Arc::new(child_background);
         let mut child_meta = ctx.clone();
         child_meta.agent_name = sub_def.name.as_str().to_owned();
         child_meta.agent_run_id = Some(child_run_id.clone());
         child_meta.conversation = Arc::from(Vec::<Message>::new());
         child_meta.tool_use_id = None;
-        // A subagent must not register background command sessions: the single
-        // per-request heartbeat drains only to the root sink, so a subagent's
-        // `[BACKGROUND COMPLETED]` would mis-route to the root conversation
-        // (anchor §5/D5). Clearing the port makes a subagent's `exec_command`
-        // run foreground-only — no supervisor registration, no heartbeat notify.
 
         let run_input = AgentRunInput {
             agent: sub_def,
@@ -250,11 +251,11 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
             tool_metadata: child_meta,
             attempt_submission: None,
             workflow_control: None,
-            background_supervisor: Some(Arc::new(self.clone())),
-            command_session_supervisor: None,
-            notifier: child_notifier,
-            cancellation: AgentRunCancellation::new(),
-            foreground: child_foreground,
+            background_supervisor: Some(child_background_port),
+            command_session_supervisor: Some(child_command_port),
+            notifier: subagent_control.notifications(),
+            cancellation: subagent_control.cancellation(),
+            foreground: subagent_control.foreground(),
             persist_agent_run: false,
             record_kind: AgentRunRecordKind::Subagent {
                 parent_agent_run_id: caller_agent_run_id.clone(),
@@ -285,6 +286,10 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
             );
             let driver_task_id = task_id.clone();
             let join = tokio::spawn(async move {
+                // Hold the subagent's control for the whole run so its
+                // command-completion heartbeat stays alive; dropping it when the
+                // run settles aborts the heartbeat (RAII, no leaked task).
+                let _subagent_control = subagent_control;
                 let run = run_agent(&handles, run_input, None).await;
                 let (status, result, exit_code) = classify_run(run);
                 {
@@ -458,7 +463,10 @@ mod tests {
     use eos_testkit::{agent_def, test_tools_root, FakeTransport};
     use eos_tools::{SandboxToolService, SkillToolService, ToolConfigSet};
 
-    use crate::EngineRunHandles;
+    use crate::{
+        AgentRunControlFactory, BackgroundSupervisorFactory, EngineRunHandles,
+        ForegroundExecutorFactory,
+    };
 
     use super::*;
 
@@ -551,8 +559,20 @@ mod tests {
         }
     }
 
+    fn test_control_factory(agents: Vec<AgentDefinition>) -> AgentRunControlFactory {
+        AgentRunControlFactory::new(
+            ForegroundExecutorFactory,
+            BackgroundSupervisorFactory::new(
+                handles(agents),
+                Arc::new(FakeTransport),
+                std::time::Duration::from_secs(3600),
+            ),
+        )
+    }
+
     fn handle_with_agents(agents: Vec<AgentDefinition>) -> BackgroundSupervisorHandle {
-        BackgroundSupervisorHandle::new(handles(agents), Arc::new(FakeTransport))
+        let control_factory = test_control_factory(agents.clone());
+        BackgroundSupervisorHandle::new(handles(agents), Arc::new(FakeTransport), control_factory)
     }
 
     fn metadata_for(agent_name: &str, agent_run_id: &str) -> ExecutionMetadata {

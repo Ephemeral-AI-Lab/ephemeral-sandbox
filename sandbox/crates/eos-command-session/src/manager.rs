@@ -323,11 +323,18 @@ impl CommandSessionManager {
         self.registry.push_completed(completion);
     }
 
+    /// Cancel and discard every command session owned by `caller_id` (the
+    /// per-caller workspace-run teardown). Cancelled sessions discard their
+    /// overlay and push no completion (the caller initiated the cancel).
     #[must_use]
     pub fn cleanup_caller(&self, caller_id: &str, grace_s: Option<f64>) -> usize {
         #[cfg(target_os = "linux")]
         {
-            self.cleanup_caller_linux(caller_id, grace_s)
+            let caller_id = caller_id.trim();
+            if caller_id.is_empty() {
+                return 0;
+            }
+            self.cancel_and_drain(self.registry.caller_sessions(caller_id), grace_s)
         }
         #[cfg(not(target_os = "linux"))]
         {
@@ -336,13 +343,26 @@ impl CommandSessionManager {
         }
     }
 
-    #[cfg(target_os = "linux")]
-    fn cleanup_caller_linux(&self, caller_id: &str, grace_s: Option<f64>) -> usize {
-        let caller_id = caller_id.trim();
-        if caller_id.is_empty() {
-            return 0;
+    /// Cancel and discard every live command session in the sandbox (the
+    /// whole-sandbox sweep backstop). Like `cleanup_caller` but across all
+    /// callers; cancelled sessions discard and push no completion.
+    #[must_use]
+    pub fn cancel_all(&self, grace_s: Option<f64>) -> usize {
+        #[cfg(target_os = "linux")]
+        {
+            self.cancel_and_drain(self.registry.live(), grace_s)
         }
-        let sessions: Vec<Arc<CommandSession>> = self.registry.caller_sessions(caller_id);
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = grace_s;
+            0
+        }
+    }
+
+    /// Cancel every session, then reap+discard within `grace`, finalizing any
+    /// stragglers. Returns the number of sessions that were live at entry.
+    #[cfg(target_os = "linux")]
+    fn cancel_and_drain(&self, sessions: Vec<Arc<CommandSession>>, grace_s: Option<f64>) -> usize {
         if sessions.is_empty() {
             return 0;
         }

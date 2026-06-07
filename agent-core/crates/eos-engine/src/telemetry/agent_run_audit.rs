@@ -251,7 +251,7 @@ mod tests {
             notifier: NotificationService::new(),
             cancellation: crate::AgentRunCancellation::new(),
             foreground: Arc::new(
-                crate::ForegroundExecutorFactory::default()
+                crate::ForegroundExecutorFactory
                     .create("run-audit".parse().expect("agent run id")),
             ),
             audit: None,

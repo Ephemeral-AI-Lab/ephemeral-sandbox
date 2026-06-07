@@ -4,7 +4,9 @@ use eos_protocol::ops as protocol_ops;
 
 use crate::dispatcher::Handler;
 
-use super::{audit, checkpoint, command_sessions, control, files, isolated_workspace, plugins};
+use super::{
+    audit, checkpoint, command_sessions, control, files, isolated_workspace, plugins, workspace_run,
+};
 
 #[derive(Clone, Copy)]
 pub(crate) struct BuiltinOp {
@@ -128,6 +130,14 @@ pub(crate) const BUILTIN_OPS: &[BuiltinOp] = &[
     BuiltinOp {
         wire: protocol_ops::API_V1_COMMAND_SESSION_COUNT,
         handler: command_sessions::op_command_session_count,
+    },
+    BuiltinOp {
+        wire: protocol_ops::API_V1_CANCEL_WORKSPACE_RUNS_BY_CALLER,
+        handler: workspace_run::op_cancel_workspace_runs_by_caller_id,
+    },
+    BuiltinOp {
+        wire: protocol_ops::API_V1_CANCEL_WORKSPACE_RUNS,
+        handler: workspace_run::op_cancel_workspace_runs,
     },
 ];
 

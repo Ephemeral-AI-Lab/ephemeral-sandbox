@@ -18,6 +18,7 @@ use tokio::task::JoinHandle;
 use super::handle::BackgroundSupervisorHandle;
 use super::heartbeat::spawn_command_completion_heartbeat;
 use crate::notifications::NotificationService;
+use crate::runtime::AgentRunControlFactory;
 use crate::EngineRunHandles;
 
 /// Request-scoped, immutable factory for per-agent-run background supervisors.
@@ -52,10 +53,11 @@ impl BackgroundSupervisorFactory {
     }
 
     /// Mint a fresh per-agent-run background supervisor handle with an empty
-    /// ledger.
+    /// ledger. `control_factory` is the request-scoped factory clone the handle
+    /// uses to give each subagent its own ephemeral control (spec §8.1/§11.3).
     #[must_use]
-    pub fn create(&self) -> BackgroundSupervisorHandle {
-        BackgroundSupervisorHandle::new(self.handles.clone(), self.transport.clone())
+    pub fn create(&self, control_factory: AgentRunControlFactory) -> BackgroundSupervisorHandle {
+        BackgroundSupervisorHandle::new(self.handles.clone(), self.transport.clone(), control_factory)
     }
 
     /// The durable agent-run store, used by a control's finalization to finish a

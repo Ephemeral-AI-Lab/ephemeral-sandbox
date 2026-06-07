@@ -16,15 +16,20 @@ use eos_types::AgentRunId;
 use tokio::sync::Mutex;
 
 use super::supervisor::{BackgroundTaskSupervisor, CommandSessionCancelTarget};
+use crate::runtime::AgentRunControlFactory;
 use crate::EngineRunHandles;
 
 /// The run dependencies the subagent driver needs, threaded in at the
-/// composition root: the engine run handles (registry + stores + client + workspace root).
+/// composition root: the engine run handles (registry + stores + client +
+/// workspace root) and a clone of the request-scoped [`AgentRunControlFactory`]
+/// so `spawn` can mint each subagent its **own** ephemeral `AgentRunControl`
+/// (own notifier, supervisor, heartbeat, and command sessions) — spec §8.2/§11.3.
 #[derive(Clone)]
 pub struct BackgroundSupervisorHandle {
     inner: Arc<Mutex<BackgroundTaskSupervisor>>,
     pub(super) handles: EngineRunHandles,
     transport: Arc<dyn SandboxTransport>,
+    control_factory: AgentRunControlFactory,
 }
 
 impl std::fmt::Debug for BackgroundSupervisorHandle {
@@ -35,14 +40,20 @@ impl std::fmt::Debug for BackgroundSupervisorHandle {
 }
 
 impl BackgroundSupervisorHandle {
-    /// Create the shared supervisor with the run handles the subagent driver
-    /// needs. The ledger starts empty.
+    /// Create the per-agent-run supervisor with the run handles the subagent
+    /// driver needs and the control factory used to mint per-subagent controls.
+    /// The ledger starts empty.
     #[must_use]
-    pub fn new(handles: EngineRunHandles, transport: Arc<dyn SandboxTransport>) -> Self {
+    pub fn new(
+        handles: EngineRunHandles,
+        transport: Arc<dyn SandboxTransport>,
+        control_factory: AgentRunControlFactory,
+    ) -> Self {
         Self {
             inner: Arc::new(Mutex::new(BackgroundTaskSupervisor::new())),
             handles,
             transport,
+            control_factory,
         }
     }
 
@@ -50,6 +61,11 @@ impl BackgroundSupervisorHandle {
     #[must_use]
     pub fn inner(&self) -> Arc<Mutex<BackgroundTaskSupervisor>> {
         self.inner.clone()
+    }
+
+    /// The control factory used to mint each subagent its own ephemeral control.
+    pub(super) fn control_factory(&self) -> &AgentRunControlFactory {
+        &self.control_factory
     }
 
     /// Cancel all background work tracked for one parent agent run. This is the
@@ -153,7 +169,20 @@ mod tests {
     use eos_types::{JsonObject, SandboxId, WorkflowId, WorkflowSessionId};
     use serde_json::json;
 
+    use crate::{BackgroundSupervisorFactory, ForegroundExecutorFactory};
+
     use super::*;
+
+    fn test_control_factory(transport: Arc<dyn SandboxTransport>) -> AgentRunControlFactory {
+        AgentRunControlFactory::new(
+            ForegroundExecutorFactory,
+            BackgroundSupervisorFactory::new(
+                handles(transport.clone()),
+                transport,
+                std::time::Duration::from_secs(3600),
+            ),
+        )
+    }
 
     #[derive(Debug)]
     struct NoopLlmClient;
@@ -331,7 +360,11 @@ mod tests {
     #[tokio::test]
     async fn parent_exit_cancels_workflows_and_command_sessions() {
         let transport = Arc::new(RecordingTransport::default());
-        let handle = BackgroundSupervisorHandle::new(handles(transport.clone()), transport.clone());
+        let handle = BackgroundSupervisorHandle::new(
+            handles(transport.clone()),
+            transport.clone(),
+            test_control_factory(transport.clone()),
+        );
         let agent_run_id: AgentRunId = "agent-a".parse().expect("agent run id");
         let workflow = StartedWorkflowHandle {
             workflow_id: WorkflowId::new_v4(),
@@ -371,7 +404,11 @@ mod tests {
     #[tokio::test]
     async fn parent_exit_settles_workflow_without_workflow_control() {
         let transport = Arc::new(RecordingTransport::default());
-        let handle = BackgroundSupervisorHandle::new(handles(transport.clone()), transport);
+        let handle = BackgroundSupervisorHandle::new(
+            handles(transport.clone()),
+            transport.clone(),
+            test_control_factory(transport),
+        );
         let agent_run_id: AgentRunId = "agent-a".parse().expect("agent run id");
         let workflow = StartedWorkflowHandle {
             workflow_id: WorkflowId::new_v4(),

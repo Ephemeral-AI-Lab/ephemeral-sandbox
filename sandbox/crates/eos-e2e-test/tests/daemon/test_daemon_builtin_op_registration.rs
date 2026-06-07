@@ -20,6 +20,8 @@ const SKIP: &[&str] = &[
     ops::API_ISOLATED_WORKSPACE_EXIT,
     ops::API_ISOLATED_WORKSPACE_TEST_RESET,
     ops::API_AUDIT_RESET_FLOOR,
+    // Would cancel + discard every workspace run in the shared lease.
+    ops::API_V1_CANCEL_WORKSPACE_RUNS,
 ];
 
 #[test]

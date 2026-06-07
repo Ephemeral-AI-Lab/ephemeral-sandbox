@@ -110,7 +110,7 @@ pub async fn run_request(
     // heartbeat, and cancellation token); the registry makes live runs
     // addressable for recursive cancellation.
     let control_factory = Arc::new(AgentRunControlFactory::new(
-        ForegroundExecutorFactory::default(),
+        ForegroundExecutorFactory,
         BackgroundSupervisorFactory::new(
             services.engine_run_handles(&workspace_root),
             services.sandbox.transport.clone(),

@@ -49,7 +49,7 @@ fn ctx(source: Arc<dyn EventSource>) -> QueryContext {
         notifier: NotificationService::new(),
         cancellation: eos_engine::AgentRunCancellation::new(),
         foreground: Arc::new(
-            eos_engine::ForegroundExecutorFactory::default().create(AgentRunId::new_v4()),
+            eos_engine::ForegroundExecutorFactory.create(AgentRunId::new_v4()),
         ),
         audit: None,
         run_handles: None,
