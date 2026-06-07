@@ -83,12 +83,6 @@ impl CommandResponse {
     }
 
     #[must_use]
-    pub fn with_stdout(mut self, stdout: String) -> Self {
-        self.stdout = stdout;
-        self
-    }
-
-    #[must_use]
     pub fn with_last_lines(mut self, last_n_lines: usize) -> Self {
         self.stdout = tail_lines(&self.stdout, last_n_lines);
         self

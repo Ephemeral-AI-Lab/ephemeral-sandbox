@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use crate::CommandSessionConfig;
 
 pub(crate) trait CommandSessionWaitTarget<T> {
-    fn try_finalize(&self, publish_completion: bool) -> Option<T>;
+    fn try_finalize(&self) -> Option<T>;
     fn transcript_len(&self) -> u64;
     fn read_output_since(&self, start_offset: u64) -> String;
 }
@@ -27,7 +27,7 @@ where
     let deadline = Instant::now() + Duration::from_millis(yield_time_ms);
     let (mut last_off, mut last_change) = (start_offset, Instant::now());
     loop {
-        if let Some(result) = session.try_finalize(false) {
+        if let Some(result) = session.try_finalize() {
             return WaitOutcome::Completed(result);
         }
         let off = session.transcript_len();
@@ -58,7 +58,7 @@ mod tests {
     }
 
     impl CommandSessionWaitTarget<&'static str> for FakeWaitTarget {
-        fn try_finalize(&self, _publish_completion: bool) -> Option<&'static str> {
+        fn try_finalize(&self) -> Option<&'static str> {
             None
         }
 

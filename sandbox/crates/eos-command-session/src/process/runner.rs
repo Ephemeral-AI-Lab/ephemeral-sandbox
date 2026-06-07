@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use crate::transcript::TranscriptTimestampPrefixer;
 
-use super::{interrupt_process_group, open_pty_pair, terminate_process_group};
+use super::{open_pty_pair, terminate_process_group};
 
 pub struct CommandSessionProcess {
     pgid: Option<i32>,
@@ -64,7 +64,6 @@ impl CommandCompletionStatus {
         process_exit: CommandProcessExit,
         runner: Option<&CommandRunnerResult>,
         cancelled: bool,
-        interrupted: bool,
     ) -> Self {
         let mut exit_code = runner
             .map(CommandRunnerResult::exit_code)
@@ -74,7 +73,7 @@ impl CommandCompletionStatus {
             .and_then(CommandRunnerResult::status)
             .unwrap_or("error")
             .to_owned();
-        if cancelled || (interrupted && matches!(exit_code, 130 | -2)) {
+        if cancelled {
             status = "cancelled".to_owned();
             exit_code = 130;
         }
@@ -156,12 +155,6 @@ impl CommandSessionProcess {
 
     pub fn write_stdin(&self, bytes: &[u8]) -> io::Result<()> {
         lock(&self.writer).write_all(bytes)
-    }
-
-    pub fn interrupt(&self) {
-        if let Some(pgid) = self.pgid {
-            interrupt_process_group(pgid);
-        }
     }
 
     pub fn terminate(&self) {

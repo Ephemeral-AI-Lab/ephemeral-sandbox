@@ -39,7 +39,7 @@
     },
     {
       "id": "eos-command-session-transcript-progress",
-      "title": "Cursors",
+      "title": "Transcript Progress",
       "description": "Timestamped transcript progress remains observable through read_progress and operation-scoped stdin responses.",
       "tags": [
         "eos-command-session"
@@ -48,23 +48,23 @@
     {
       "id": "eos-command-session-transcript-recycling",
       "title": "Transcript Recycling",
-      "description": "PTY transcript logs are transient capture files and are removed after finite pre-yield completion, collect-completed finalization, cancellation, termination, external process death, parallel prompt cleanup, and isolated command cancellation.",
+      "description": "PTY transcript logs are transient capture files and are removed after finite pre-yield completion, collect-completed finalization, cancellation, external process death, parallel prompt cleanup, and isolated command cancellation.",
       "tags": [
         "eos-command-session"
       ]
     },
     {
-      "id": "eos-command-session-terminate-kills-group",
-      "title": "Terminate Kills Group",
-      "description": "Command termination cancels the owned process group, drains command sessions, releases leases, and leaves no descendant marker processes.",
+      "id": "eos-command-session-cancel-kills-group",
+      "title": "Cancel Kills Group",
+      "description": "Command cancellation tears down the owned process group, drains command sessions, releases leases, and leaves no descendant marker processes.",
       "tags": [
         "eos-command-session"
       ]
     },
     {
-      "id": "eos-command-session-sigint-interrupt",
-      "title": "Sigint Interrupt",
-      "description": "A Ctrl-C (`\\u0003`) stdin payload interrupts the foreground process through the SIGINT path, finalizes with a non-ok interrupt-shaped exit, drains the session, and recycles the transcript log.",
+      "id": "eos-command-session-teardown-control-cancel",
+      "title": "Teardown Control Cancel",
+      "description": "Ctrl-C (`\\u0003`) and Ctrl-D (`\\u0004`) stdin payloads both route to command-session cancel, drain the session, and recycle the transcript log.",
       "tags": [
         "eos-command-session"
       ]
@@ -176,7 +176,7 @@
     {
       "id": "eos-command-session-isolated-prompt-parity",
       "title": "Isolated Prompt Parity",
-      "description": "Isolated command sessions accept prompt input, support empty polling and collect-completed reads, cancel cleanly, and discard private command writes on isolated exit.",
+      "description": "Isolated command sessions accept prompt input, support read_progress snapshots and collect-completed reads, cancel cleanly, and discard private command writes on isolated exit.",
       "tags": [
         "eos-command-session"
       ]
@@ -191,41 +191,39 @@
       "checklist": [
         "eos-command-session-lifecycle",
         "eos-command-session-transcript-recycling",
-        "eos-command-session-terminate-kills-group"
+        "eos-command-session-cancel-kills-group"
       ]
     },
     {
       "id": "eos-command-session-core-lifecycle",
       "name": "eos-command-session-core-lifecycle",
-      "description": "Groups `exec_returns_session_id`, `write_stdin_echo`, `collect_completed_drains`, `finite_exec_before_yield_recycles_transient_transcript_file`, `completed_session_removes_transcript_file`, `cancel_unblocks`, `session_count_accuracy`, `exec_timeout`, `output_transcript_timestamp`, `cancel_by_invocation_id_reports_already_done_for_idle_id`, and `sigint_char_interrupts_foreground`: command-session handles, stdin, completion drain, finite pre-yield transcript recycling, long-running transcript removal, timeout, timestamped transcript output, Ctrl-C/SIGINT interruption, and cancel status remain coherent.",
+      "description": "Groups `exec_returns_session_id`, `exec_command_outputs_timestamped_transcript_lines`, `write_stdin_echo`, `read_command_progress_returns_stateless_tail_snapshot`, `collect_completed_drains`, `collect_completed_preserves_full_timestamped_transcript`, `finite_exec_before_yield_recycles_transient_transcript_file`, `completed_session_removes_transcript_file`, `cancel_unblocks`, `session_count_accuracy`, `exec_timeout`, `output_burst_returns_full_timestamped_transcript`, `cancel_by_invocation_id_reports_already_done_for_idle_id`, `write_stdin_ctrl_d_reaps_marker_process`, and `ctrl_c_char_cancels_command_session`: command-session handles, stdin, completion drain, finite pre-yield transcript recycling, long-running transcript removal, timeout, timestamped transcript output, read_progress snapshots, Ctrl-C/Ctrl-D cancellation, and cancel status remain coherent.",
       "command": "cargo test -p eos-e2e-test --features e2e --test eos-command-session lifecycle -- --nocapture",
       "checklist": [
         "eos-command-session-lifecycle",
+        "eos-command-session-transcript-progress",
         "eos-command-session-transcript-recycling",
-        "eos-command-session-sigint-interrupt"
+        "eos-command-session-teardown-control-cancel"
       ]
     },
     {
       "id": "eos-command-session-output-and-detached-process-contract",
       "name": "eos-command-session-output-and-detached-process-contract",
-      "description": "Groups `command_session_transcript_progress_no_replay`, `write_stdin_terminate_reaps_marker_process`, `nohup_child_keeps_session_running`, and `setsid_nohup_contract`: operation-scoped stdin responses do not replay, termination reaps same-pgid marker children and removes transcript logs, plain `nohup` keeps the session running, and `setsid nohup` is accepted as an escaped detached child.",
+      "description": "Groups `nohup_child_keeps_session_running` and `setsid_nohup_contract`: plain `nohup` keeps the session running, and `setsid nohup` is accepted as an escaped detached child.",
       "command": "cargo test -p eos-e2e-test --features e2e --test eos-command-session nohup -- --nocapture",
       "checklist": [
-        "eos-command-session-transcript-progress",
-        "eos-command-session-transcript-recycling",
-        "eos-command-session-terminate-kills-group",
         "eos-command-session-detached-child-contract"
       ]
     },
     {
       "id": "eos-command-session-ephemeral-workspace-process-group",
       "name": "eos-command-session-ephemeral-workspace-process-group",
-      "description": "Groups `exec_simple`, `lingering_child_keeps_session_running`, `session_completes_only_after_all_subprocesses_exit`, `write_stdin_terminate_kills_whole_session`, and `cancel_reaps_lingering_descendant`: ephemeral workspace commands honor process-group completion, termination semantics, and transcript-log recycling.",
+      "description": "Groups `exec_simple`, `lingering_child_keeps_session_running`, `session_completes_only_after_all_subprocesses_exit`, `cancel_kills_whole_session`, and `cancel_reaps_lingering_descendant`: ephemeral workspace commands honor process-group completion, cancellation semantics, and transcript-log recycling.",
       "command": "cargo test -p eos-e2e-test --features e2e --test eos-command-session ephemeral_workspace -- --nocapture",
       "checklist": [
         "eos-command-session-ephemeral-process-group",
         "eos-command-session-transcript-recycling",
-        "eos-command-session-terminate-kills-group"
+        "eos-command-session-cancel-kills-group"
       ]
     },
     {
@@ -248,7 +246,7 @@
         "eos-command-session-invisible-background-process",
         "eos-command-session-lifecycle",
         "eos-command-session-transcript-recycling",
-        "eos-command-session-terminate-kills-group"
+        "eos-command-session-cancel-kills-group"
       ]
     },
     {
@@ -268,7 +266,7 @@
     {
       "id": "eos-command-session-parallel-prompt-load",
       "name": "eos-command-session-parallel-prompt-load",
-      "description": "Uses `parallel_prompt_sessions_ladder_stays_isolated_and_bounded`: prompt-style sessions start at `1/3/6/12`, each worker receives its own stdin payload, empty polling does not replay consumed output, cancellation drains every session, transcript logs are recycled, and active leases return to zero.",
+      "description": "Uses `parallel_prompt_sessions_ladder_stays_isolated_and_bounded`: prompt-style sessions start at `1/3/6/12`, each worker receives its own stdin payload, read_progress snapshots do not replay consumed output, cancellation drains every session, transcript logs are recycled, and active leases return to zero.",
       "command": "cargo test -p eos-e2e-test --features e2e --test eos-command-session parallel_prompt -- --nocapture",
       "checklist": [
         "eos-command-session-parallel-prompt-load",
@@ -296,7 +294,7 @@
     {
       "id": "eos-command-session-isolated-prompt-parity",
       "name": "eos-command-session-isolated-prompt-parity",
-      "description": "Uses `iws_prompt_stdin_poll_cancel_private_discard`: an isolated prompt command accepts stdin, writes private isolated workspace content, does not replay consumed output on empty polls, stays uncollected until cancellation, recycles its isolated transcript, and discards its private file after isolated exit.",
+      "description": "Uses `iws_prompt_stdin_poll_cancel_private_discard`: an isolated prompt command accepts stdin, writes private isolated workspace content, read_progress snapshots do not replay consumed output, stays uncollected until cancellation, recycles its isolated transcript, and discards its private file after isolated exit.",
       "command": "cargo test -p eos-e2e-test --features e2e --test eos-command-session iws_prompt_stdin -- --nocapture",
       "checklist": [
         "eos-command-session-isolated-prompt-parity",

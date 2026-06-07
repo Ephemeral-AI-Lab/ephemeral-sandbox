@@ -3,8 +3,8 @@
 //! The session exit condition is process-GROUP based: a foreground command that
 //! backgrounds a same-pgid child stays RUNNING until ALL members exit (a fresh-ns
 //! exec is NEWUSER|NEWNS only, so the runner scope-waits on the whole group). A
-//! `write_stdin` terminate (or cancel) kills the entire group, and no descendant
-//! is left behind. All children use BOUNDED sleeps + unique markers so any
+//! command-session cancel kills the entire group, and no descendant is left
+//! behind. All children use BOUNDED sleeps + unique markers so any
 //! early-return leak self-heals and never collides with another test.
 
 use std::time::{Duration, Instant};
@@ -125,12 +125,12 @@ fn session_completes_only_after_all_subprocesses_exit() -> Result<()> {
 }
 
 #[test]
-fn write_stdin_terminate_kills_whole_session() -> Result<()> {
+fn cancel_kills_whole_session() -> Result<()> {
     let Some(pool) = live_pool_or_skip()? else {
         return Ok(());
     };
     let lease = pool.acquire()?;
-    // A stdin reader PLUS a same-pgid background sleeper: a terminate must kill the
+    // A stdin reader PLUS a same-pgid background sleeper: cancel must kill the
     // entire group, not just the foreground reader.
     let exec = lease.call_ok(
         ops::API_V1_EXEC_COMMAND,
@@ -142,15 +142,15 @@ fn write_stdin_terminate_kills_whole_session() -> Result<()> {
     assert_eq!(as_str(&exec, "status")?, "running", "{exec}");
     let id = as_str(&exec, "command_session_id")?.to_owned();
 
-    // Terminate kills the whole session, so its hardened outcome is
+    // Cancel kills the whole session, so its hardened outcome is
     // success:false; use `call` to read the terminal envelope, not `call_ok`.
-    let terminated = lease.call(
+    let cancelled = lease.call(
         ops::API_V1_COMMAND_CANCEL,
         json!({"command_session_id": &id}),
     )?;
     assert!(
-        matches!(as_str(&terminated, "status")?, "cancelled" | "ok" | "error"),
-        "terminate must drive the session to a terminal status: {terminated}"
+        matches!(as_str(&cancelled, "status")?, "cancelled" | "ok" | "error"),
+        "cancel must drive the session to a terminal status: {cancelled}"
     );
     wait_for_session_count(&lease, 0)?;
     wait_for_command_session_transcript_recycled(&lease, &id)?;
@@ -179,7 +179,7 @@ fn cancel_reaps_lingering_descendant() -> Result<()> {
     );
 
     cancel(&lease, &id)?;
-    // The group-targeted terminate must reap the same-pgid descendant: no orphan.
+    // The group-targeted cancel must reap the same-pgid descendant: no orphan.
     wait_for_marker_count(&lease, &marker, 0)?;
     Ok(())
 }

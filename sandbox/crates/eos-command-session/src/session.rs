@@ -275,7 +275,6 @@ impl CommandSession {
             process_exit,
             runner.as_ref(),
             cancelled,
-            false,
         );
         let response = self.finalize_with_output(
             completion.status(),
@@ -333,10 +332,7 @@ fn write_final_response(
 
 #[cfg(target_os = "linux")]
 impl CommandSessionWaitTarget<Result<CommandResponse, CommandSessionError>> for CommandSession {
-    fn try_finalize(
-        &self,
-        _publish_completion: bool,
-    ) -> Option<Result<CommandResponse, CommandSessionError>> {
+    fn try_finalize(&self) -> Option<Result<CommandResponse, CommandSessionError>> {
         self.try_finalize_process()
     }
 

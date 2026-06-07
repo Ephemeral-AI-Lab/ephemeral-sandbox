@@ -83,7 +83,7 @@ fn assert_teardown_control_reaps_marker_process(
     let id = as_str(&started, "command_session_id")?.to_owned();
     wait_for_marker_at_least(lease, &marker, 1)?;
 
-    let terminated = lease.call(
+    let cancelled = lease.call(
         ops::API_V1_WRITE_STDIN,
         json!({
             "command_session_id": &id,
@@ -92,14 +92,14 @@ fn assert_teardown_control_reaps_marker_process(
         }),
     )?;
     assert_eq!(
-        as_str(&terminated, "status")?,
+        as_str(&cancelled, "status")?,
         "cancelled",
-        "{label} should route to command-session cancel: {terminated}"
+        "{label} should route to command-session cancel: {cancelled}"
     );
     assert_eq!(
-        as_i64(&terminated, "exit_code")?,
+        as_i64(&cancelled, "exit_code")?,
         130,
-        "{label} should share the cancelled exit shape: {terminated}"
+        "{label} should share the cancelled exit shape: {cancelled}"
     );
     wait_for_session_count(lease, 0)?;
     wait_for_command_session_transcript_recycled(lease, &id)?;
@@ -858,7 +858,7 @@ fn external_signal_kill_is_structured() -> Result<()> {
     let lease = pool.acquire()?;
     let marker = process_marker();
     // A separate container process SIGKILLs the foreground out from under the
-    // session — no cancel/terminate API call is involved. The runner must reap the
+    // session — no cancel API call is involved. The runner must reap the
     // signal death, finalize the session, park exactly one completion, and release
     // the lease.
     let started = lease.call_ok(

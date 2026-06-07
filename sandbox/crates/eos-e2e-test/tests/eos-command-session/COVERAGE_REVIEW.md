@@ -2,7 +2,7 @@
 
 Scope: `sandbox/crates/eos-e2e-test/tests/eos-command-session`. This is a review of
 `exec_command` / `write_stdin` coverage plus the four behaviors asked about
-(natural return, killed-via-`write_stdin`, killed-by-other-process, long-lived
+(natural return, cancelled via `write_stdin`/cancel, killed-by-other-process, long-lived
 output-emitting-but-running). The §4 drafts below were turned into real tests;
 the generated `readme.md` / `readme.json` / `index.html` bundle is left untouched
 (regenerate it from the test files separately).
@@ -25,7 +25,7 @@ Eleven tests were added across four modules. All compile, pass `clippy`, and
 | C | `setsid_descendant_escapes_and_leaks_in_ephemeral` | ephemeral | ✅ |
 | C | `nonsetsid_detach_vectors_stay_tracked` | ephemeral | ✅ |
 | C | `setsid_descendant_reaped_on_isolated_exit` | isolated | ✅ |
-| #1 SIGINT | `sigint_char_interrupts_foreground` | lifecycle | ✅ |
+| #1 teardown controls | `write_stdin_ctrl_d_reaps_marker_process`, `ctrl_c_char_cancels_command_session` | lifecycle | ✅ |
 | #2 stdin (bounded) | `stdin_to_non_reading_consumer_stays_bounded_and_cancellable` | error_and_backpressure | ✅ |
 
 Empirically confirmed by the live run: (1) external/self signal kill surfaces a
@@ -34,8 +34,8 @@ while a same-pgid peer survives keeps the session `running`; (3) the
 **ephemeral path leaks** an escaped `setsid` descendant past lease release while
 the **isolated path reaps** it via its cgroup — and cgroup delegation *is*
 available in the live container (the flagged risk did not materialize);
-(4) a `\x03` char through `write_stdin` finalizes the session as cancelled with
-`exit_code == 130` via the explicit SIGINT path, distinct from terminate.
+(4) `\x03` and `\x04` chars through `write_stdin` both finalize the session as
+cancelled with `exit_code == 130` through the same cancel path.
 
 Two of the originally-deferred secondary items turned out to be **product gaps,
 not testable behaviors** — see §6. `eos-command-session-uncollected-completion-gc`
@@ -51,10 +51,10 @@ case wedges the daemon).
 | Question | Verdict | Evidence (existing tests) | Gap |
 |---|---|---|---|
 | Good coverage of `exec_command`? | **Mostly yes** | `exec_simple`, `exec_returns_session_id`, `exec_timeout`, `output_transcript_timestamp`, `nonzero_exit_and_stderr_are_structured`, `missing_command_*`, 12 `command_matrix_*` families | No external-kill/signal family; matrix is all clean-exit foreground |
-| Good coverage of `write_stdin`? | **Mostly yes** | `write_stdin_echo`, `command_session_transcript_progress_no_replay`, `command_sessions_accept_stdin_and_release_on_cancel`, terminate tests, prompt/backpressure polls | No write to a completed session; no large-stdin backpressure; no SIGINT-char path |
+| Good coverage of `write_stdin`? | **Mostly yes** | `write_stdin_echo`, `command_session_transcript_progress_no_replay`, `command_sessions_accept_stdin_and_release_on_cancel`, Ctrl-C/Ctrl-D cancel tests, prompt/backpressure reads | No write to a completed session; no large-stdin backpressure |
 | Natural return of a session? | **Covered** | `exec_simple` (exit 0), `collect_completed_drains`, `session_completes_only_after_all_subprocesses_exit` | — |
-| Killed through `write_stdin` (terminate)? | **Covered** | `write_stdin_terminate_reaps_marker_process`, `write_stdin_terminate_kills_whole_session`, `command_sessions_cancel_cleans_descendant_processes` | — |
-| Killed by **other** process (external signal)? | **NOT covered** | none — only the API-driven cancel/terminate path is tested | **Headline gap A** |
+| Cancelled through `write_stdin` controls or cancel API? | **Covered** | `write_stdin_ctrl_d_reaps_marker_process`, `ctrl_c_char_cancels_command_session`, `cancel_kills_whole_session`, `command_sessions_cancel_cleans_descendant_processes` | — |
+| Killed by **other** process (external signal)? | **NOT covered** | none — only the API-driven cancel path is tested | **Headline gap A** |
 | Long-lived, **emits output but stays running** (nohup / invisible bg)? | **Partial** | `lingering_child_keeps_session_running`, `nohup_child_keeps_session_running`, `setsid_nohup_contract` (all use **silent** sleepers; setsid uses a bounded `sleep 4`) | **Headline gaps B & C** |
 
 Bottom line: the happy paths and the two API-driven kill paths are solid. The
@@ -77,7 +77,7 @@ real leak.
   `eos-command-session/src/process/runner.rs:39`:
   `status.signal().map(|signal| -i64::from(signal))` → an externally-killed
   process yields a **negative** `exit_code` (e.g. `-9`, `-15`, `-11`). No test
-  reads this path; all kills go through `terminate`/`cancel`.
+  reads this path; API-driven teardown goes through cancel.
 - **Reaping is asymmetric between modes** (the key to gap C):
   - *Ephemeral / fresh-ns (default):* `unshare(NEWUSER | NEWNS)` only — **no
     `NEWPID`** (`fresh_ns.rs:124`). Teardown =
@@ -86,7 +86,7 @@ real leak.
     `EphemeralCommandPrepareContext`. The code says so out loud: *"We
     deliberately do not `killpg` the old children … lease cleanup is left to
     LayerStack GC"* (`services/command_session/mod.rs:347`). Process reaping is
-    **pgid-only** (`killpg` on cancel/terminate/timeout). → a `setsid`/double-fork
+    **pgid-only** (`killpg` on cancel/timeout). → a `setsid`/double-fork
     escapee gets a new pgid, dodges `killpg`, has no PID-ns and no cgroup
     backstop, and **survives session completion and lease release**.
   - *Isolated:* allocates a `cgroup_path` (`isolated-workspace/src/command_session/prepare.rs:79`)
@@ -98,8 +98,8 @@ real leak.
   always empty (asserted today only for *foreground-completing* commands in
   `nonzero_exit_and_stderr_are_structured`). Whether a **still-running**
   stderr-only emitter surfaces its stderr is unverified.
-- **SIGINT path exists** (`process/signal.rs` `interrupt_process_group`) but no
-  test reaches it.
+- **Ctrl-C/Ctrl-D teardown controls are API cancel shortcuts.** There is no
+  separate SIGINT tool path; both control chars route to command-session cancel.
 
 ---
 
@@ -107,7 +107,7 @@ real leak.
 
 ### A — Killed by another process (external signal)
 No test drives a session to termination by a signal that did **not** come from
-`cancel`/`terminate`. The negative-`exit_code` mapping (`runner.rs:39`), the
+`cancel`. The negative-`exit_code` mapping (`runner.rs:39`), the
 status reported for signal death, lease release, and one-shot completion under
 external kill are all unverified. Includes self-kill (`kill -9 $$`), a second
 `exec_command` doing `pkill -f <marker>`, and a crash (`SIGSEGV`).
@@ -163,10 +163,10 @@ Drafted tests:
   finish, then `write_stdin`/`cancel` its id *before* collecting; assert a
   structured terminal status (already-done / completed), distinct from the
   `command_session_not_found` returned for a never-existing id.
-- **[S] `sigint_char_interrupts_foreground`** — **first verify `write_stdin`
-  `chars` reach the PTY raw**; if so, send `\x03` and assert the interruptible
-  foreground takes the `interrupt_process_group` (SIGINT) path, distinct from
-  `terminate`. If chars are line-buffered/cooked, downgrade to a checklist note.
+- **[S] `ctrl_c_char_cancels_command_session` / `write_stdin_ctrl_d_reaps_marker_process`** —
+  send `\x03` and `\x04` as standalone stdin payloads and assert both route to
+  command-session cancel, return `exit_code == 130`, drain the session, and reap
+  same-pgid marker children.
 
 Checklist:
 - [ ] `eos-command-session-external-signal-kill`: A session killed by an
@@ -179,9 +179,9 @@ Checklist:
 - [ ] `eos-command-session-write-stdin-to-completed`: `write_stdin`/`cancel`
   against a completed-but-uncollected session returns a structured terminal
   status, not a generic not-found.
-- [ ] `eos-command-session-sigint-interrupt`: A `\x03` char through `write_stdin`
-  drives the SIGINT/`interrupt_process_group` path (pending confirmation that
-  stdin chars reach the PTY raw).
+- [ ] `eos-command-session-teardown-control-cancel`: `\x03` and `\x04` through
+  `write_stdin` both route to command-session cancel and share the same cleanup
+  behavior.
 
 ### `test_eos_command_session_ephemeral_workspace.rs` (process-group semantics)
 Drafted tests:
@@ -283,7 +283,7 @@ external-kill smoke if gap-A coverage should also be visible at the wire layer.
    `external_kill_of_foreground_keeps_group_running`. Exercises the untested
    `runner.rs:39` signal path.
 3. **B** — live background emitter + running stderr visibility.
-4. **D/E/F** (secondary) — write-stdin-to-completed, SIGINT char, stdin
+4. **D/E/F** (secondary) — write-stdin-to-completed, teardown-control cancel, stdin
    backpressure, uncollected-completion GC.
 
 ---
