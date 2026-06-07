@@ -41,5 +41,9 @@ eos-testkit = { workspace = true }
 name = "terminal"
 path = "tests/terminal/mod.rs"
 
+[[test]]
+name = "query"
+path = "tests/query/mod.rs"
+
 [lints]
 workspace = true

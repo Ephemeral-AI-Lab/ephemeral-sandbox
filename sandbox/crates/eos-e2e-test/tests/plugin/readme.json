@@ -130,6 +130,14 @@
       "tags": [
         "plugin"
       ]
+    },
+    {
+      "id": "plugin-reload-dispatch-race",
+      "title": "Reload Dispatch Race",
+      "description": "Concurrent plugin dispatches during a package reload each return a structured payload (success, or a structured error through the worker swap window), the reload succeeds and reconnects the route, and the post-reload steady state runs the reloaded digest with a single worker process.",
+      "tags": [
+        "plugin"
+      ]
     }
   ],
   "test": [
@@ -193,6 +201,17 @@
       "checklist": [
         "plugin-service-cleanup",
         "plugin-write-allowed"
+      ]
+    },
+    {
+      "id": "plugin_reload_dispatch_race",
+      "name": "plugin_reload_dispatch_race",
+      "description": "Uses `concurrent_dispatch_during_reload_stays_structured`: N `plugin.generic.query` dispatches race an `api.plugin.ensure` package reload; every dispatch returns a structured payload through the worker swap, the reload reconnects the route, and the steady state routes to the reloaded digest with a single worker process.",
+      "command": "cargo test -p eos-e2e-test --features e2e --test plugin concurrent_dispatch_during_reload_stays_structured -- --nocapture",
+      "checklist": [
+        "plugin-reload-dispatch-race",
+        "plugin-service-cleanup",
+        "plugin-refresh-singleflight"
       ]
     }
   ]

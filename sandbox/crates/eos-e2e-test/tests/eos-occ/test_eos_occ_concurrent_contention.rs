@@ -54,7 +54,9 @@ fn single_overlay_exec_batches_multi_file_writes_into_one_layer() -> Result<()> 
     for index in 0..files {
         let path = format!("{dir}/file-{index}.txt");
         assert!(
-            changed.iter().any(|value| value.as_str() == Some(path.as_str())),
+            changed
+                .iter()
+                .any(|value| value.as_str() == Some(path.as_str())),
             "the batched overlay capture should publish {path}: {exec}"
         );
     }
@@ -64,7 +66,10 @@ fn single_overlay_exec_batches_multi_file_writes_into_one_layer() -> Result<()> 
         "manifest_depth",
     )?;
     let delta = after - before;
-    assert!(delta >= 1, "at least one layer should publish: before={before} after={after}");
+    assert!(
+        delta >= 1,
+        "at least one layer should publish: before={before} after={after}"
+    );
     assert!(
         delta < i64::try_from(files).unwrap_or(i64::MAX),
         "one overlay capture must batch {files} disjoint writes into fewer than {files} layers (delta={delta}): before={before} after={after}"
@@ -102,7 +107,9 @@ fn concurrent_disjoint_anchor_edits_stay_atomic_and_coherent() -> Result<()> {
     let lease = pool.acquire()?;
     let path = format!("occ/concurrent-edit-{}.txt", unique_suffix());
     let lines = 6;
-    let seed: String = (0..lines).map(|index| format!("LINE{index}=orig\n")).collect();
+    let seed: String = (0..lines)
+        .map(|index| format!("LINE{index}=orig\n"))
+        .collect();
     lease.call_ok(
         ops::API_V1_WRITE_FILE,
         json!({"path": path, "content": seed, "overwrite": true}),
@@ -142,7 +149,9 @@ fn concurrent_disjoint_anchor_edits_stay_atomic_and_coherent() -> Result<()> {
         .collect::<Result<_>>()?;
 
     assert!(
-        responses.iter().any(|response| as_bool(response, "success").unwrap_or(false)),
+        responses
+            .iter()
+            .any(|response| as_bool(response, "success").unwrap_or(false)),
         "at least one concurrent disjoint-anchor edit should apply: {responses:?}"
     );
     for response in &responses {
@@ -175,7 +184,10 @@ fn concurrent_disjoint_anchor_edits_stay_atomic_and_coherent() -> Result<()> {
             edited += 1;
         }
     }
-    assert!(edited >= 1, "at least one edit must be reflected in the final file: {read}");
+    assert!(
+        edited >= 1,
+        "at least one edit must be reflected in the final file: {read}"
+    );
 
     let metrics = wait_for_active_leases(&lease, 0)?;
     assert_eq!(as_i64(&metrics, "active_leases")?, 0, "{metrics}");

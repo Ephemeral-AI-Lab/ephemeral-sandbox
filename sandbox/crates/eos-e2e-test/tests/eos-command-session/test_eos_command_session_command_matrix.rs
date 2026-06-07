@@ -321,6 +321,176 @@ fn parallel_command_matrix_load_stays_bounded() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn parallel_prompt_sessions_ladder_stays_isolated_and_bounded() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let levels = pool.workload().concurrency_levels.clone();
+    ensure!(
+        levels == [1, 3, 6, 12],
+        "command-session workload.concurrency_levels should use [1, 3, 6, 12], got {levels:?}"
+    );
+    let lease = pool.acquire()?;
+    let timeout_s = workload_timeout_s(&pool);
+
+    for level in levels {
+        let barrier = Arc::new(Barrier::new(level));
+        let handles: Vec<_> = (0..level)
+            .map(|index| {
+                let client = lease.client().clone();
+                let root = lease.root().to_owned();
+                let caller_id = lease.caller_id().to_owned();
+                let barrier = Arc::clone(&barrier);
+                thread::spawn(move || -> Result<()> {
+                    barrier.wait();
+                    let marker = format!("prompt-worker:{level}:{index}");
+                    let prompt_cmd = format!(
+                        "python3 -u -c 'import sys,time; \
+marker={marker:?}; \
+print(\"prompt:\" + marker, flush=True); \
+payload=sys.stdin.readline().strip(); \
+print(\"reply:\" + marker + \":\" + payload, flush=True); \
+time.sleep(60)'"
+                    );
+                    let started = request_with_identity(
+                        &client,
+                        ops::API_V1_EXEC_COMMAND,
+                        &root,
+                        &caller_id,
+                        json!({
+                            "cmd": prompt_cmd,
+                            "yield_time_ms": 500,
+                            "timeout_seconds": timeout_s + 60,
+                            "max_output_tokens": 2000
+                        }),
+                    )?;
+                    ensure!(
+                        as_str(&started, "status")? == "running",
+                        "parallel prompt worker should stay running: {started}"
+                    );
+                    ensure!(
+                        output_contains(&started, &format!("prompt:{marker}")),
+                        "parallel prompt worker should expose its own prompt: {started}"
+                    );
+                    let session_id = as_str(&started, "command_session_id")?.to_owned();
+                    let prompt_needle = format!("prompt:{marker}");
+                    let reply_needle = format!("reply:{marker}:payload-{level}-{index}");
+
+                    let answered = request_with_identity(
+                        &client,
+                        ops::API_V1_WRITE_STDIN,
+                        &root,
+                        &caller_id,
+                        json!({
+                            "command_session_id": &session_id,
+                            "chars": format!("payload-{level}-{index}\n"),
+                            "yield_time_ms": 1500,
+                            "max_output_tokens": 2000
+                        }),
+                    )?;
+                    ensure!(
+                        !output_contains(&answered, &prompt_needle),
+                        "parallel prompt stdin cursor must not replay prompt output: {answered}"
+                    );
+                    let reply = if output_contains(&answered, &reply_needle) {
+                        answered
+                    } else {
+                        poll_stdin_cursor_until_contains(
+                            &client,
+                            &root,
+                            &caller_id,
+                            &session_id,
+                            &reply_needle,
+                            &prompt_needle,
+                            Instant::now() + Duration::from_secs(timeout_s.min(15)),
+                        )?
+                    };
+                    ensure!(
+                        output_contains(&reply, &reply_needle),
+                        "parallel prompt worker should echo its own payload: {reply}"
+                    );
+
+                    let quiet = request_with_identity(
+                        &client,
+                        ops::API_V1_WRITE_STDIN,
+                        &root,
+                        &caller_id,
+                        json!({
+                            "command_session_id": &session_id,
+                            "chars": "",
+                            "yield_time_ms": 250,
+                            "max_output_tokens": 2000
+                        }),
+                    )?;
+                    ensure!(
+                        !output_contains(&quiet, &format!("reply:{marker}:payload")),
+                        "parallel prompt empty poll must not replay consumed output: {quiet}"
+                    );
+
+                    let cancel = request_with_identity(
+                        &client,
+                        ops::API_V1_COMMAND_CANCEL,
+                        &root,
+                        &caller_id,
+                        json!({"command_session_id": &session_id, "max_output_tokens": 2000}),
+                    )?;
+                    ensure_terminalish_status(&cancel)?;
+                    Ok(())
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            handle
+                .join()
+                .map_err(|_| anyhow!("parallel prompt worker panicked"))??;
+        }
+        wait_for_session_count(&lease, 0)?;
+        let metrics = wait_for_active_leases(&lease, 0)?;
+        ensure!(
+            as_i64(&metrics, "active_leases")? == 0,
+            "parallel prompt level {level} should not leak leases: {metrics}"
+        );
+    }
+    Ok(())
+}
+
+fn poll_stdin_cursor_until_contains(
+    client: &eos_e2e_test::client::ProtocolClient,
+    root: &str,
+    caller_id: &str,
+    session_id: &str,
+    needle: &str,
+    forbidden_replay: &str,
+    deadline: Instant,
+) -> Result<Value> {
+    let mut last = None;
+    while Instant::now() < deadline {
+        let poll = request_with_identity(
+            client,
+            ops::API_V1_WRITE_STDIN,
+            root,
+            caller_id,
+            json!({
+                "command_session_id": session_id,
+                "chars": "",
+                "yield_time_ms": 250,
+                "max_output_tokens": 2000
+            }),
+        )?;
+        ensure!(
+            !output_contains(&poll, forbidden_replay),
+            "stdin cursor poll must not replay prompt output: {poll}"
+        );
+        if output_contains(&poll, needle) {
+            return Ok(poll);
+        }
+        last = Some(poll);
+    }
+    bail!("stdin cursor did not surface {needle:?} before deadline; last poll: {last:?}");
+}
+
 fn command_families(dir: &str) -> Vec<CommandFamily> {
     vec![
         CommandFamily {

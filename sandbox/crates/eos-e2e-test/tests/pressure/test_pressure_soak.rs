@@ -134,14 +134,24 @@ fn mixed_workload_soak_keeps_counters_and_storage_bounded() -> Result<()> {
             .collect::<Vec<_>>()
     );
 
-    // Storage must not creep with round count: the working set is fixed and
-    // squash reclaims superseded layers, so late-round storage stays within a
-    // generous factor of mid-soak storage rather than scaling with rounds.
-    let (_, mid_storage) = storage_samples[rounds / 2];
-    let (_, final_storage) = storage_samples[rounds - 1];
+    // Storage must not creep with round count. With a fixed working set, squash
+    // makes storage a bounded sawtooth (grow per round, reclaim at squash), so
+    // the storage *ceiling* in the second half stays near the first half rather
+    // than climbing as a staircase. Comparing half-maxima is robust to exactly
+    // where a squash lands relative to the sampling boundary.
+    let storages: Vec<i64> = storage_samples.iter().map(|(_, bytes)| *bytes).collect();
+    let mid = rounds / 2;
+    let first_half_max = storages[..mid].iter().copied().max().unwrap_or(0);
+    let second_half_max = storages[mid..].iter().copied().max().unwrap_or(0);
     assert!(
-        final_storage <= mid_storage * 3,
-        "soak storage must not creep with round count (mid={mid_storage}, final={final_storage}): {storage_samples:?}"
+        second_half_max <= first_half_max * 2,
+        "soak storage ceiling must not grow with round count (first_half_max={first_half_max}, second_half_max={second_half_max}): {storage_samples:?}"
+    );
+    // Squash must actively reclaim during the soak: at least one round-over-round
+    // storage decrease, proving the bound comes from reclamation, not luck.
+    assert!(
+        storages.windows(2).any(|pair| pair[1] < pair[0]),
+        "auto-squash should reclaim storage at least once during the soak: {storage_samples:?}"
     );
 
     let ready = lease.call_ok(ops::API_RUNTIME_READY, json!({}))?;

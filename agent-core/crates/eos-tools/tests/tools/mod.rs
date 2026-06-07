@@ -1,6 +1,10 @@
 use super::*;
 use crate::hooks::Hook;
 
+mod helper_terminals;
+mod isolated_workspace;
+mod submission;
+
 // AC-tools-09: every registered tool has a typed ToolName + an intent (no
 // String keys; intent is mandatory). Covers GC-tools-04/05.
 #[test]

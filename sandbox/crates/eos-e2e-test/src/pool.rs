@@ -285,6 +285,17 @@ impl<'p> NodeLease<'p> {
     pub fn audit_tap(&self) -> Result<AuditTap> {
         AuditTap::baseline(self.client().clone(), self.pool.config.audit_pull_limit)
     }
+
+    /// Hard-restart this lease's in-container daemon (kill + respawn), exercising
+    /// startup recovery. The daemon is healthy again on return: in-memory daemon
+    /// state is reset while on-disk LayerStack and persisted isolated-handle state
+    /// survive for startup reconciliation.
+    ///
+    /// # Errors
+    /// Returns an error if the daemon cannot be restarted or never becomes ready.
+    pub fn restart_daemon(&self) -> Result<()> {
+        self.node().container.restart_daemon(&self.pool.config)
+    }
 }
 
 impl Drop for NodeLease<'_> {

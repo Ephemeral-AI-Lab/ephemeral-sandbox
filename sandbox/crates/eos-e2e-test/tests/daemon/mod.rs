@@ -22,6 +22,7 @@ use serde_json::{json, Value};
 const E2E_CONFIG: &str = "crates/eos-e2e-test/tests/daemon/config/default.test.yml";
 
 mod test_daemon_audit_pagination_and_reset;
+mod test_daemon_builtin_mutating_op_contracts;
 mod test_daemon_builtin_op_registration;
 mod test_daemon_cancel_control;
 mod test_daemon_heartbeat_control;

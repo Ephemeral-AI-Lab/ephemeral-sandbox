@@ -144,6 +144,22 @@
       "tags": [
         "eos-isolated-workspace"
       ]
+    },
+    {
+      "id": "isolated_workspace-cross-mode-consistency",
+      "title": "Isolated Workspace Cross Mode Consistency",
+      "description": "Public writes from non-isolated callers can advance OCC while an isolated caller is open, but the isolated pin/private upperdir stays stable and is discarded without overwriting public state.",
+      "tags": [
+        "eos-isolated-workspace"
+      ]
+    },
+    {
+      "id": "isolated_workspace-daemon-restart-reconciliation",
+      "title": "Isolated Workspace Daemon Restart Reconciliation",
+      "description": "A hard daemon restart runs startup orphan reconciliation, reaping an open isolated handle so `list_open` empties, releasing its snapshot lease with none stranded, and serving fresh isolated enters again.",
+      "tags": [
+        "eos-isolated-workspace"
+      ]
     }
   ],
   "test": [
@@ -220,6 +236,29 @@
         "isolated_workspace-exec-private-discard",
         "isolated_workspace-no-publish",
         "isolated_workspace-discard-exit"
+      ]
+    },
+    {
+      "id": "isolated_workspace_cross_mode_consistency",
+      "name": "isolated_workspace_cross_mode_consistency",
+      "description": "Groups `isolated_private_same_path_does_not_overwrite_public_publish` and `isolated_pin_hides_later_public_paths_until_exit`: same-path private isolated writes do not overwrite public publishes after exit, and an isolated manifest pin remains stable while later public paths stay hidden until the caller exits.",
+      "command": "cargo test -p eos-e2e-test --features e2e --test eos-isolated-workspace cross_mode -- --nocapture",
+      "checklist": [
+        "isolated_workspace-cross-mode-consistency",
+        "isolated_workspace-no-publish",
+        "isolated_workspace-discard-exit",
+        "isolated_workspace-tool-routing-contract"
+      ]
+    },
+    {
+      "id": "isolated_workspace_daemon_restart_reconciliation",
+      "name": "isolated_workspace_daemon_restart_reconciliation",
+      "description": "Uses `daemon_restart_reaps_orphaned_isolated_handle`: an open isolated handle holds a snapshot lease, the daemon is hard-restarted, and startup reconciliation reaps the now-orphaned handle (`list_open` empty), leaves no stranded snapshot lease, and serves a fresh enter/exit cleanly afterward.",
+      "command": "cargo test -p eos-e2e-test --features e2e --test eos-isolated-workspace daemon_restart_reaps_orphaned_isolated_handle -- --nocapture",
+      "checklist": [
+        "isolated_workspace-daemon-restart-reconciliation",
+        "isolated_workspace-exit-cleanup",
+        "isolated_workspace-lifecycle-pin"
       ]
     }
   ]

@@ -549,7 +549,10 @@ fn commit_races_inflight_writes_stays_structured_and_coherent() -> Result<()> {
         ops::API_BUILD_WORKSPACE_BASE,
         json!({"workspace_root": lease.workspace_root(), "reset": true}),
     )?;
-    let base_read = lease.call_ok(ops::API_V1_READ_FILE, json!({"path": "commit/race/base.txt"}))?;
+    let base_read = lease.call_ok(
+        ops::API_V1_READ_FILE,
+        json!({"path": "commit/race/base.txt"}),
+    )?;
     assert_eq!(as_str(&base_read, "content")?, "base\n", "{base_read}");
 
     // Every writer that claimed success must be durable and coherent after the
@@ -569,7 +572,10 @@ fn commit_races_inflight_writes_stays_structured_and_coherent() -> Result<()> {
     }
 
     let ready = lease.call_ok(ops::API_RUNTIME_READY, json!({}))?;
-    assert!(as_bool(&ready, "ready")?, "daemon must stay ready after commit race: {ready}");
+    assert!(
+        as_bool(&ready, "ready")?,
+        "daemon must stay ready after commit race: {ready}"
+    );
     let metrics = wait_for_active_leases(&lease, 0)?;
     assert_eq!(as_i64(&metrics, "active_leases")?, 0, "{metrics}");
     Ok(())

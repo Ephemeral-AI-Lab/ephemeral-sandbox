@@ -100,6 +100,38 @@
       "tags": [
         "eos-command-session"
       ]
+    },
+    {
+      "id": "eos-command-session-parallel-prompt-load",
+      "title": "Parallel Prompt Load",
+      "description": "Prompt-style command sessions run at the configured `1/3/6/12` ladder with isolated stdin payloads, no cursor replay, clean cancellation, and zero leaked sessions or leases.",
+      "tags": [
+        "eos-command-session"
+      ]
+    },
+    {
+      "id": "eos-command-session-negative-invalid",
+      "title": "Negative Invalid",
+      "description": "Nonzero exits, missing commands, unknown session ids, bogus stdin/cancel requests, and collect-completed misses return structured payloads without leaking sessions or leases.",
+      "tags": [
+        "eos-command-session"
+      ]
+    },
+    {
+      "id": "eos-command-session-output-backpressure",
+      "title": "Output Backpressure",
+      "description": "Large PTY output bursts honor `max_output_tokens`, preserve UTF-8 boundaries across cursor polls, and remain cancellable without leaked sessions or leases.",
+      "tags": [
+        "eos-command-session"
+      ]
+    },
+    {
+      "id": "eos-command-session-isolated-prompt-parity",
+      "title": "Isolated Prompt Parity",
+      "description": "Isolated command sessions accept prompt input, support empty polling and collect-completed reads, cancel cleanly, and discard private command writes on isolated exit.",
+      "tags": [
+        "eos-command-session"
+      ]
     }
   ],
   "test": [
@@ -163,6 +195,42 @@
         "eos-command-session-parallel-load",
         "eos-command-session-cursors",
         "eos-command-session-lifecycle"
+      ]
+    },
+    {
+      "id": "eos-command-session-parallel-prompt-load",
+      "name": "eos-command-session-parallel-prompt-load",
+      "description": "Uses `parallel_prompt_sessions_ladder_stays_isolated_and_bounded`: prompt-style sessions start at `1/3/6/12`, each worker receives its own stdin payload, empty polling does not replay consumed output, cancellation drains every session, and active leases return to zero.",
+      "command": "cargo test -p eos-e2e-test --features e2e --test eos-command-session parallel_prompt -- --nocapture",
+      "checklist": [
+        "eos-command-session-parallel-prompt-load",
+        "eos-command-session-prompt-read-cancel",
+        "eos-command-session-parallel-load",
+        "eos-command-session-cursors"
+      ]
+    },
+    {
+      "id": "eos-command-session-negative-invalid-and-backpressure",
+      "name": "eos-command-session-negative-invalid-and-backpressure",
+      "description": "Groups `nonzero_exit_and_stderr_are_structured`, `missing_command_and_invalid_session_ids_are_structured`, and `output_backpressure_preserves_utf8_and_drains_on_cancel`: nonzero shell exits, missing commands, unknown session ids, empty collect-completed reads, capped large output, UTF-8-safe cursor chunks, and post-pressure cancellation all return coherent protocol payloads and drain resources.",
+      "command": "cargo test -p eos-e2e-test --features e2e --test eos-command-session error_and_backpressure -- --nocapture",
+      "checklist": [
+        "eos-command-session-negative-invalid",
+        "eos-command-session-output-backpressure",
+        "eos-command-session-lifecycle",
+        "eos-command-session-cursors"
+      ]
+    },
+    {
+      "id": "eos-command-session-isolated-prompt-parity",
+      "name": "eos-command-session-isolated-prompt-parity",
+      "description": "Uses `iws_prompt_stdin_poll_cancel_private_discard`: an isolated prompt command accepts stdin, writes private isolated workspace content, does not replay consumed output on empty polls, stays uncollected until cancellation, and discards its private file after isolated exit.",
+      "command": "cargo test -p eos-e2e-test --features e2e --test eos-command-session iws_prompt_stdin -- --nocapture",
+      "checklist": [
+        "eos-command-session-isolated-prompt-parity",
+        "eos-command-session-isolated-cleanup",
+        "eos-command-session-prompt-read-cancel",
+        "eos-command-session-cursors"
       ]
     }
   ]

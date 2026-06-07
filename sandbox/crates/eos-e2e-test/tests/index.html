@@ -684,6 +684,22 @@
           "tags": [
             "eos-isolated-workspace"
           ]
+        },
+        {
+          "id": "isolated_workspace-cross-mode-consistency",
+          "title": "Isolated Workspace Cross Mode Consistency",
+          "description": "Public writes from non-isolated callers can advance OCC while an isolated caller is open, but the isolated pin/private upperdir stays stable and is discarded without overwriting public state.",
+          "tags": [
+            "eos-isolated-workspace"
+          ]
+        },
+        {
+          "id": "isolated_workspace-daemon-restart-reconciliation",
+          "title": "Isolated Workspace Daemon Restart Reconciliation",
+          "description": "A hard daemon restart runs startup orphan reconciliation, reaping an open isolated handle so `list_open` empties, releasing its snapshot lease with none stranded, and serving fresh isolated enters again.",
+          "tags": [
+            "eos-isolated-workspace"
+          ]
         }
       ],
       "test": [
@@ -760,6 +776,29 @@
             "isolated_workspace-exec-private-discard",
             "isolated_workspace-no-publish",
             "isolated_workspace-discard-exit"
+          ]
+        },
+        {
+          "id": "isolated_workspace_cross_mode_consistency",
+          "name": "isolated_workspace_cross_mode_consistency",
+          "description": "Groups `isolated_private_same_path_does_not_overwrite_public_publish` and `isolated_pin_hides_later_public_paths_until_exit`: same-path private isolated writes do not overwrite public publishes after exit, and an isolated manifest pin remains stable while later public paths stay hidden until the caller exits.",
+          "command": "cargo test -p eos-e2e-test --features e2e --test eos-isolated-workspace cross_mode -- --nocapture",
+          "checklist": [
+            "isolated_workspace-cross-mode-consistency",
+            "isolated_workspace-no-publish",
+            "isolated_workspace-discard-exit",
+            "isolated_workspace-tool-routing-contract"
+          ]
+        },
+        {
+          "id": "isolated_workspace_daemon_restart_reconciliation",
+          "name": "isolated_workspace_daemon_restart_reconciliation",
+          "description": "Uses `daemon_restart_reaps_orphaned_isolated_handle`: an open isolated handle holds a snapshot lease, the daemon is hard-restarted, and startup reconciliation reaps the now-orphaned handle (`list_open` empty), leaves no stranded snapshot lease, and serves a fresh enter/exit cleanly afterward.",
+          "command": "cargo test -p eos-e2e-test --features e2e --test eos-isolated-workspace daemon_restart_reaps_orphaned_isolated_handle -- --nocapture",
+          "checklist": [
+            "isolated_workspace-daemon-restart-reconciliation",
+            "isolated_workspace-exit-cleanup",
+            "isolated_workspace-lifecycle-pin"
           ]
         }
       ]
@@ -1303,6 +1342,38 @@
           "tags": [
             "eos-command-session"
           ]
+        },
+        {
+          "id": "eos-command-session-parallel-prompt-load",
+          "title": "Parallel Prompt Load",
+          "description": "Prompt-style command sessions run at the configured `1/3/6/12` ladder with isolated stdin payloads, no cursor replay, clean cancellation, and zero leaked sessions or leases.",
+          "tags": [
+            "eos-command-session"
+          ]
+        },
+        {
+          "id": "eos-command-session-negative-invalid",
+          "title": "Negative Invalid",
+          "description": "Nonzero exits, missing commands, unknown session ids, bogus stdin/cancel requests, and collect-completed misses return structured payloads without leaking sessions or leases.",
+          "tags": [
+            "eos-command-session"
+          ]
+        },
+        {
+          "id": "eos-command-session-output-backpressure",
+          "title": "Output Backpressure",
+          "description": "Large PTY output bursts honor `max_output_tokens`, preserve UTF-8 boundaries across cursor polls, and remain cancellable without leaked sessions or leases.",
+          "tags": [
+            "eos-command-session"
+          ]
+        },
+        {
+          "id": "eos-command-session-isolated-prompt-parity",
+          "title": "Isolated Prompt Parity",
+          "description": "Isolated command sessions accept prompt input, support empty polling and collect-completed reads, cancel cleanly, and discard private command writes on isolated exit.",
+          "tags": [
+            "eos-command-session"
+          ]
         }
       ],
       "test": [
@@ -1366,6 +1437,42 @@
             "eos-command-session-parallel-load",
             "eos-command-session-cursors",
             "eos-command-session-lifecycle"
+          ]
+        },
+        {
+          "id": "eos-command-session-parallel-prompt-load",
+          "name": "eos-command-session-parallel-prompt-load",
+          "description": "Uses `parallel_prompt_sessions_ladder_stays_isolated_and_bounded`: prompt-style sessions start at `1/3/6/12`, each worker receives its own stdin payload, empty polling does not replay consumed output, cancellation drains every session, and active leases return to zero.",
+          "command": "cargo test -p eos-e2e-test --features e2e --test eos-command-session parallel_prompt -- --nocapture",
+          "checklist": [
+            "eos-command-session-parallel-prompt-load",
+            "eos-command-session-prompt-read-cancel",
+            "eos-command-session-parallel-load",
+            "eos-command-session-cursors"
+          ]
+        },
+        {
+          "id": "eos-command-session-negative-invalid-and-backpressure",
+          "name": "eos-command-session-negative-invalid-and-backpressure",
+          "description": "Groups `nonzero_exit_and_stderr_are_structured`, `missing_command_and_invalid_session_ids_are_structured`, and `output_backpressure_preserves_utf8_and_drains_on_cancel`: nonzero shell exits, missing commands, unknown session ids, empty collect-completed reads, capped large output, UTF-8-safe cursor chunks, and post-pressure cancellation all return coherent protocol payloads and drain resources.",
+          "command": "cargo test -p eos-e2e-test --features e2e --test eos-command-session error_and_backpressure -- --nocapture",
+          "checklist": [
+            "eos-command-session-negative-invalid",
+            "eos-command-session-output-backpressure",
+            "eos-command-session-lifecycle",
+            "eos-command-session-cursors"
+          ]
+        },
+        {
+          "id": "eos-command-session-isolated-prompt-parity",
+          "name": "eos-command-session-isolated-prompt-parity",
+          "description": "Uses `iws_prompt_stdin_poll_cancel_private_discard`: an isolated prompt command accepts stdin, writes private isolated workspace content, does not replay consumed output on empty polls, stays uncollected until cancellation, and discards its private file after isolated exit.",
+          "command": "cargo test -p eos-e2e-test --features e2e --test eos-command-session iws_prompt_stdin -- --nocapture",
+          "checklist": [
+            "eos-command-session-isolated-prompt-parity",
+            "eos-command-session-isolated-cleanup",
+            "eos-command-session-prompt-read-cancel",
+            "eos-command-session-cursors"
           ]
         }
       ]
@@ -1521,6 +1628,22 @@
           "tags": [
             "pressure"
           ]
+        },
+        {
+          "id": "pressure-cross-mode-public-isolated",
+          "title": "Cross Mode Public Isolated",
+          "description": "Public and isolated callers race same-path writes at `1/3/6/12`; isolated callers keep private content while open, public content survives after isolated exit, and all leases drain.",
+          "tags": [
+            "pressure"
+          ]
+        },
+        {
+          "id": "pressure-soak",
+          "title": "Soak",
+          "description": "A mixed file/exec/command-cancel round over a fixed working set, repeated many times, keeps the leak counters (active leases and command sessions) at zero every round, auto-squash bounds manifest depth and reclaims storage as a sawtooth so storage does not creep with round count, and the daemon stays ready throughout.",
+          "tags": [
+            "pressure"
+          ]
         }
       ],
       "test": [
@@ -1631,6 +1754,29 @@
             "pressure-concurrent-squash",
             "pressure-squash-bound",
             "pressure-ladder-file",
+            "pressure-recovery-cleanup"
+          ]
+        },
+        {
+          "id": "pressure-cross-mode-public-isolated-ladder",
+          "name": "pressure-cross-mode-public-isolated-ladder",
+          "description": "Uses `public_and_isolated_same_path_ladder_1_3_6_12`: each configured ladder level opens isolated callers, races private isolated writes against public same-path writes, verifies private content while handles are open, exits every isolated caller, and proves public content is the surviving shared-workspace state with leases at zero.",
+          "command": "cargo test -p eos-e2e-test --features e2e --test pressure public_and_isolated_same_path_ladder -- --nocapture",
+          "checklist": [
+            "pressure-cross-mode-public-isolated",
+            "pressure-isolated-cap",
+            "pressure-ladder-file",
+            "pressure-recovery-cleanup"
+          ]
+        },
+        {
+          "id": "pressure-mixed-workload-soak",
+          "name": "pressure-mixed-workload-soak",
+          "description": "Uses `mixed_workload_soak_keeps_counters_and_storage_bounded`: a mixed fanout-write / overlay-exec / command-cancel round over a fixed working set runs many times; active leases and command sessions return to zero every round, auto-squash keeps manifest depth bounded and reclaims storage (sawtooth, no per-round creep), and the daemon stays ready after the soak.",
+          "command": "cargo test -p eos-e2e-test --features e2e --test pressure mixed_workload_soak -- --nocapture",
+          "checklist": [
+            "pressure-soak",
+            "pressure-squash-bound",
             "pressure-recovery-cleanup"
           ]
         }
@@ -1768,6 +1914,14 @@
           "tags": [
             "plugin"
           ]
+        },
+        {
+          "id": "plugin-reload-dispatch-race",
+          "title": "Reload Dispatch Race",
+          "description": "Concurrent plugin dispatches during a package reload each return a structured payload (success, or a structured error through the worker swap window), the reload succeeds and reconnects the route, and the post-reload steady state runs the reloaded digest with a single worker process.",
+          "tags": [
+            "plugin"
+          ]
         }
       ],
       "test": [
@@ -1831,6 +1985,17 @@
           "checklist": [
             "plugin-service-cleanup",
             "plugin-write-allowed"
+          ]
+        },
+        {
+          "id": "plugin_reload_dispatch_race",
+          "name": "plugin_reload_dispatch_race",
+          "description": "Uses `concurrent_dispatch_during_reload_stays_structured`: N `plugin.generic.query` dispatches race an `api.plugin.ensure` package reload; every dispatch returns a structured payload through the worker swap, the reload reconnects the route, and the steady state routes to the reloaded digest with a single worker process.",
+          "command": "cargo test -p eos-e2e-test --features e2e --test plugin concurrent_dispatch_during_reload_stays_structured -- --nocapture",
+          "checklist": [
+            "plugin-reload-dispatch-race",
+            "plugin-service-cleanup",
+            "plugin-refresh-singleflight"
           ]
         }
       ]

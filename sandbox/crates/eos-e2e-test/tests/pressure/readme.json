@@ -149,6 +149,22 @@
       "tags": [
         "pressure"
       ]
+    },
+    {
+      "id": "pressure-cross-mode-public-isolated",
+      "title": "Cross Mode Public Isolated",
+      "description": "Public and isolated callers race same-path writes at `1/3/6/12`; isolated callers keep private content while open, public content survives after isolated exit, and all leases drain.",
+      "tags": [
+        "pressure"
+      ]
+    },
+    {
+      "id": "pressure-soak",
+      "title": "Soak",
+      "description": "A mixed file/exec/command-cancel round over a fixed working set, repeated many times, keeps the leak counters (active leases and command sessions) at zero every round, auto-squash bounds manifest depth and reclaims storage as a sawtooth so storage does not creep with round count, and the daemon stays ready throughout.",
+      "tags": [
+        "pressure"
+      ]
     }
   ],
   "test": [
@@ -259,6 +275,29 @@
         "pressure-concurrent-squash",
         "pressure-squash-bound",
         "pressure-ladder-file",
+        "pressure-recovery-cleanup"
+      ]
+    },
+    {
+      "id": "pressure-cross-mode-public-isolated-ladder",
+      "name": "pressure-cross-mode-public-isolated-ladder",
+      "description": "Uses `public_and_isolated_same_path_ladder_1_3_6_12`: each configured ladder level opens isolated callers, races private isolated writes against public same-path writes, verifies private content while handles are open, exits every isolated caller, and proves public content is the surviving shared-workspace state with leases at zero.",
+      "command": "cargo test -p eos-e2e-test --features e2e --test pressure public_and_isolated_same_path_ladder -- --nocapture",
+      "checklist": [
+        "pressure-cross-mode-public-isolated",
+        "pressure-isolated-cap",
+        "pressure-ladder-file",
+        "pressure-recovery-cleanup"
+      ]
+    },
+    {
+      "id": "pressure-mixed-workload-soak",
+      "name": "pressure-mixed-workload-soak",
+      "description": "Uses `mixed_workload_soak_keeps_counters_and_storage_bounded`: a mixed fanout-write / overlay-exec / command-cancel round over a fixed working set runs many times; active leases and command sessions return to zero every round, auto-squash keeps manifest depth bounded and reclaims storage (sawtooth, no per-round creep), and the daemon stays ready after the soak.",
+      "command": "cargo test -p eos-e2e-test --features e2e --test pressure mixed_workload_soak -- --nocapture",
+      "checklist": [
+        "pressure-soak",
+        "pressure-squash-bound",
         "pressure-recovery-cleanup"
       ]
     }

@@ -36,6 +36,7 @@ pub struct DaemonContainer {
     name: String,
     client: ProtocolClient,
     daemon_log_path: String,
+    token: String,
     keep: bool,
 }
 
@@ -123,6 +124,7 @@ impl DaemonContainer {
                 .join("runtime.log")
                 .to_string_lossy()
                 .into_owned(),
+            token: token.clone(),
             keep,
         };
         match container.bringup(config, &token, config_yaml) {
@@ -192,6 +194,7 @@ impl DaemonContainer {
                 .join("runtime.log")
                 .to_string_lossy()
                 .into_owned(),
+            token: token.clone(),
             keep: true,
         };
         let addr = container.resolve_addr(config.tcp_port)?;
@@ -341,6 +344,49 @@ impl DaemonContainer {
         // goes after them and before the command. Everything after the command
         // token is passed through verbatim.
         docker(&docker_exec_args(&self.name, argv))
+    }
+
+    /// Restart the in-container `eosd`: hard-kill (SIGKILL) the running daemon so
+    /// graceful-shutdown cleanup does NOT run, clear the stale socket/pid, then
+    /// re-spawn it with the same socket, pid, log, TCP port, and auth token, and
+    /// block until it answers heartbeat. The published container port is owned by
+    /// Docker, so the existing wire client stays valid across the restart. This
+    /// exercises daemon startup-recovery paths (e.g. isolated-handle orphan
+    /// reconciliation); the spawn mirrors [`Self::bringup`].
+    ///
+    /// # Errors
+    /// Returns an error if the respawn exec fails or the daemon never becomes
+    /// ready within the configured budget.
+    pub fn restart_daemon(&self, config: &Config) -> Result<()> {
+        let daemon_dir = path_str(&config.remote_daemon_dir)?;
+        let remote_eosd_path = path_str(&config.remote_eosd_path)?;
+        let teardown = format!(
+            "kill -9 \"$(cat {daemon_dir}/runtime.pid 2>/dev/null)\" 2>/dev/null; \
+             pkill -9 -f 'eosd daemon' 2>/dev/null; sleep 1; \
+             rm -f {daemon_dir}/runtime.sock {daemon_dir}/runtime.pid"
+        );
+        let _ = self.exec(&["sh", "-lc", &teardown]);
+        self.exec(&[
+            "-d",
+            &remote_eosd_path,
+            "daemon",
+            "--spawn",
+            "--socket",
+            &format!("{daemon_dir}/runtime.sock"),
+            "--pid-file",
+            &format!("{daemon_dir}/runtime.pid"),
+            "--log-file",
+            &format!("{daemon_dir}/runtime.log"),
+            "--tcp-host",
+            "0.0.0.0",
+            "--tcp-port",
+            &config.tcp_port.to_string(),
+            "--auth-token",
+            &self.token,
+        ])
+        .context("respawn eosd daemon")?;
+        self.await_ready(&self.client, config.ready_timeout)
+            .context("daemon not ready after restart")
     }
 
     /// Best-effort tail of the daemon log for diagnostics (not an oracle).

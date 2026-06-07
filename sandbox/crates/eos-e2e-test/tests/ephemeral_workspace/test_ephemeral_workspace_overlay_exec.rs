@@ -297,8 +297,12 @@ fn exec_upperdir_is_flat_across_base_sizes() -> Result<()> {
     // than at a single point.
     let mut upperdirs = Vec::new();
     for (index, file_count) in [1usize, 5, 15].into_iter().enumerate() {
-        let total =
-            seed_base_files(&lease, &format!("perf/flat/base-{index}"), file_count, 1_000_000)?;
+        let total = seed_base_files(
+            &lease,
+            &format!("perf/flat/base-{index}"),
+            file_count,
+            1_000_000,
+        )?;
         let exec = lease.call_ok(
             ops::API_V1_EXEC_COMMAND,
             json!({
