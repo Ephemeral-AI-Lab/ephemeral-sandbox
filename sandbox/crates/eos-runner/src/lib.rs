@@ -42,6 +42,8 @@
 pub mod error;
 pub mod fresh_ns;
 #[cfg(target_os = "linux")]
+mod mount_mask;
+#[cfg(target_os = "linux")]
 mod path;
 pub mod request;
 pub mod setns;
@@ -67,9 +69,9 @@ pub use request::{Fd, NsFds, RunMode, RunRequest, RunResult, RunnerVerb, ToolCal
 ///
 /// Returns [`RunnerError`] when the request is invalid for the selected mode,
 /// namespace setup fails, overlay mounting fails, or child execution fails.
-pub fn run(request: &RunRequest) -> Result<RunResult, RunnerError> {
+pub fn run(request: &RunRequest, config: &config::RunnerConfig) -> Result<RunResult, RunnerError> {
     match request.mode {
-        RunMode::FreshNs => fresh_ns::run_fresh_ns(request),
+        RunMode::FreshNs => fresh_ns::run_fresh_ns(request, config),
         RunMode::SetNs => setns::run_setns(request),
     }
 }

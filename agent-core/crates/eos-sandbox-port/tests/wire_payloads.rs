@@ -170,13 +170,14 @@ async fn read_file_payload_has_path_and_caller_but_omits_description() {
     assert_eq!(payload["caller_id"], json!("agent-1"));
     assert_eq!(payload["path"], json!("src/x.rs"));
     assert_eq!(timeout_s, READ_FILE_TIMEOUT_S);
-    // NOTE (flagged in the coverage review): read_file omits `description` even
-    // though ReadFileRequest's flattened base declares it — a schema-vs-payload
-    // divergence. Pinned here as current behavior; a fix that adds it should
-    // update this assertion.
+    // read_file does not send `description`, unlike the mutation/lifecycle verbs
+    // (write/edit/isolated) that carry it. `description` is the optional audit
+    // label on the shared base; a pure read isn't an audited mutation, so its
+    // absence is consistent with intent. Pinned so the payload shape can't drift
+    // silently (update if reads ever start sending a description).
     assert!(
         !payload.contains_key("description"),
-        "read_file currently sends no description (schema/payload divergence)"
+        "a read carries no audit description, unlike the mutation verbs"
     );
 }
 

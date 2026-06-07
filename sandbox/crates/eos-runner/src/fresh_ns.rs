@@ -18,7 +18,7 @@ use std::fs;
 #[cfg(target_os = "linux")]
 use std::os::unix::process::CommandExt;
 #[cfg(target_os = "linux")]
-use std::path::Path;
+use std::path::{Path, PathBuf};
 #[cfg(target_os = "linux")]
 use std::process::{Command, Stdio};
 #[cfg(target_os = "linux")]
@@ -64,7 +64,10 @@ use command::*;
 /// Returns [`RunnerError`] when namespace setup, overlay mounting, request
 /// validation, or child execution fails.
 #[cfg(target_os = "linux")]
-pub fn run_fresh_ns(request: &RunRequest) -> Result<RunResult, RunnerError> {
+pub fn run_fresh_ns(
+    request: &RunRequest,
+    config: &crate::config::RunnerConfig,
+) -> Result<RunResult, RunnerError> {
     //   sequence: unshare(CLONE_NEWUSER|CLONE_NEWNS) on this single-threaded child,
     //   write /proc/self/{uid_map,setgroups,gid_map}, mount overlay at
     //   workspace_root, setsid + spawn the tool, then build the result JSON and
@@ -87,7 +90,12 @@ pub fn run_fresh_ns(request: &RunRequest) -> Result<RunResult, RunnerError> {
     let _mount_guard = eos_overlay::mount_overlay(&request.workspace_root.0, &handle)?;
     let mount_s = mount_start.elapsed().as_secs_f64();
 
-    execute_tool(request, mount_s, Instant::now())
+    execute_tool(
+        request,
+        mount_s,
+        Instant::now(),
+        Some(&config.mount_mask.hidden_paths),
+    )
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -97,7 +105,10 @@ pub fn run_fresh_ns(request: &RunRequest) -> Result<RunResult, RunnerError> {
 ///
 /// Always returns [`RunnerError::Unsupported`] outside Linux because the
 /// namespace syscalls do not exist.
-pub fn run_fresh_ns(_request: &RunRequest) -> Result<RunResult, RunnerError> {
+pub fn run_fresh_ns(
+    _request: &RunRequest,
+    _config: &crate::config::RunnerConfig,
+) -> Result<RunResult, RunnerError> {
     Err(RunnerError::Unsupported)
 }
 
@@ -142,9 +153,10 @@ pub(crate) fn execute_tool(
     request: &RunRequest,
     mount_s: f64,
     run_start: Instant,
+    hidden_paths: Option<&[PathBuf]>,
 ) -> Result<RunResult, RunnerError> {
     match &request.tool_call.verb {
-        RunnerVerb::ExecCommand => execute_shell(request, mount_s, run_start),
+        RunnerVerb::ExecCommand => execute_shell(request, mount_s, run_start, hidden_paths),
         RunnerVerb::PluginService => execute_plugin_service(request, mount_s, run_start),
         RunnerVerb::Unknown(verb) => Ok(error_result(
             2,
@@ -212,9 +224,13 @@ fn execute_shell(
     request: &RunRequest,
     mount_s: f64,
     run_start: Instant,
+    hidden_paths: Option<&[PathBuf]>,
 ) -> Result<RunResult, RunnerError> {
     let argv = shell_argv(request)?;
     let cwd = shell_cwd(request)?;
+    if let Some(hidden_paths) = hidden_paths {
+        crate::mount_mask::mask_model_shell_paths(hidden_paths)?;
+    }
     let mut command = Command::new(&argv[0]);
     command
         .args(&argv[1..])

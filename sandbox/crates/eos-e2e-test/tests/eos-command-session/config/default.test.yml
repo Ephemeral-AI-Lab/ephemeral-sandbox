@@ -3,6 +3,10 @@ isolated_workspace:
   upperdir_bytes: 67108864
   memavail_fraction: 0.9
 
+daemon:
+  command_sessions:
+    default_timeout_s: 1
+
 eos_e2e_test:
   pool:
     sandboxes: 4

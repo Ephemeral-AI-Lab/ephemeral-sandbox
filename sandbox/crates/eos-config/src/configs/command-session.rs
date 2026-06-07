@@ -7,6 +7,7 @@ use serde::Deserialize;
 pub struct CommandSessionConfig {
     pub scratch_root: PathBuf,
     pub default_yield_time_ms: u64,
+    pub default_timeout_s: u64,
     pub quiet_ms: u64,
     pub cancel_wait_ms: u64,
     pub output_drain_grace_ms: u64,
@@ -20,6 +21,7 @@ impl Default for CommandSessionConfig {
         Self {
             scratch_root: PathBuf::from("/eos/scratch/command-sessions"),
             default_yield_time_ms: 1000,
+            default_timeout_s: 600,
             quiet_ms: 50,
             cancel_wait_ms: 500,
             output_drain_grace_ms: 500,

@@ -65,6 +65,9 @@ pub fn op_exec_command(args: &Value, _context: DispatchContext<'_>) -> Result<Va
     let command_config = command_session_config();
     #[cfg(not(target_os = "linux"))]
     let _ = &cmd;
+    #[cfg(target_os = "linux")]
+    let timeout_seconds = Some(exec_timeout_seconds(args, &command_config));
+    #[cfg(not(target_os = "linux"))]
     let timeout_seconds = optional_u64(args, "timeout")
         .or_else(|| optional_u64(args, "timeout_seconds"))
         .map(u64_to_f64_saturating);
@@ -126,6 +129,15 @@ pub fn op_exec_command(args: &Value, _context: DispatchContext<'_>) -> Result<Va
             None,
         ))
     }
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn exec_timeout_seconds(args: &Value, config: &crate::config::CommandSessionConfig) -> f64 {
+    u64_to_f64_saturating(
+        optional_u64(args, "timeout")
+            .or_else(|| optional_u64(args, "timeout_seconds"))
+            .unwrap_or(config.default_timeout_s),
+    )
 }
 
 // Dispatcher op handlers share the `Result<Value, DaemonError>` ABI even when

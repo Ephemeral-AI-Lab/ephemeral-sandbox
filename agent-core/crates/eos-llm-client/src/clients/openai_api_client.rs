@@ -414,11 +414,14 @@ mod tests {
 
     // NOTE (flagged in the coverage review): like the Anthropic decoder,
     // `decode_openai`'s `match value.get("type")` has no "error" arm, so an
-    // in-stream provider error event is silently swallowed (no completion, no
-    // Err — `decode_fixture`'s unwrap would panic here if an Err were produced).
-    // Pins current behavior; a fix that surfaces provider errors should update it.
+    // in-stream provider error event yields no completion and no `Err` at the
+    // decoder boundary (`decode_fixture`'s unwrap would panic if an Err were
+    // produced). The loop later maps the missing completion to a generic
+    // stream-ended error, so the cost is the lost provider error text (degraded
+    // diagnostics), not a swallowed failure. Pins decoder-level behavior; update
+    // if a fix surfaces the provider error.
     #[tokio::test]
-    async fn in_stream_error_event_is_currently_swallowed() {
+    async fn in_stream_error_event_is_swallowed_at_decoder_level() {
         let sse = concat!(
             "data: {\"type\": \"response.output_text.delta\", \"delta\": \"Hi\"}\n",
             "\n",

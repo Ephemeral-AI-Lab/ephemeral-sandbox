@@ -1,12 +1,16 @@
 //! Typed schema for the runner section of `sandbox/config/prd.yml`.
 //!
-//! This is schema-only; runtime environment policy is still wired by the
-//! existing runner code until the config-infra wiring phase.
+//! The namespace runner loads this section for mount masking. Runtime
+//! environment policy is still wired by the existing runner helpers until the
+//! config-infra wiring phase.
+
+use std::path::PathBuf;
 
 use serde::Deserialize;
 
 use crate::configs::validate::{
-    require_non_empty, require_non_empty_items, require_u64_at_least, ConfigFieldError,
+    require_absolute, require_non_empty, require_non_empty_items, require_u64_at_least,
+    ConfigFieldError,
 };
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -14,6 +18,7 @@ use crate::configs::validate::{
 pub struct RunnerConfig {
     pub child_wait_poll_ms: u64,
     pub env: RunnerEnvConfig,
+    pub mount_mask: RunnerMountMaskConfig,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -24,6 +29,12 @@ pub struct RunnerEnvConfig {
     pub default_path: String,
     pub testbed_path_prefix: Vec<String>,
     pub git_optional_locks: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RunnerMountMaskConfig {
+    pub hidden_paths: Vec<PathBuf>,
 }
 
 impl RunnerConfig {
@@ -40,6 +51,15 @@ impl RunnerConfig {
             &self.env.testbed_path_prefix,
             "runner.env.testbed_path_prefix",
         )?;
+        if self.mount_mask.hidden_paths.is_empty() {
+            return Err(ConfigFieldError::new(
+                "runner.mount_mask.hidden_paths",
+                "must not be empty",
+            ));
+        }
+        for path in &self.mount_mask.hidden_paths {
+            require_absolute(path, "runner.mount_mask.hidden_paths")?;
+        }
         Ok(())
     }
 }
@@ -66,6 +86,14 @@ mod tests {
         let mut cfg = prd_config();
         cfg.env.default_path.clear();
         assert_invalid(cfg, "runner.env.default_path");
+
+        let mut cfg = prd_config();
+        cfg.mount_mask.hidden_paths.clear();
+        assert_invalid(cfg, "runner.mount_mask.hidden_paths");
+
+        let mut cfg = prd_config();
+        cfg.mount_mask.hidden_paths.push(PathBuf::from("relative"));
+        assert_invalid(cfg, "runner.mount_mask.hidden_paths");
     }
 
     fn prd_config() -> RunnerConfig {

@@ -130,6 +130,11 @@ impl DaemonConfig {
             "daemon.command_sessions.default_yield_time_ms",
         )?;
         require_u64_at_least(
+            self.command_sessions.default_timeout_s,
+            1,
+            "daemon.command_sessions.default_timeout_s",
+        )?;
+        require_u64_at_least(
             self.command_sessions.quiet_ms,
             1,
             "daemon.command_sessions.quiet_ms",
@@ -223,6 +228,10 @@ mod tests {
         let mut cfg = prd_config();
         cfg.command_sessions.cancel_wait_ms = 0;
         assert_invalid(cfg, "daemon.command_sessions.cancel_wait_ms");
+
+        let mut cfg = prd_config();
+        cfg.command_sessions.default_timeout_s = 0;
+        assert_invalid(cfg, "daemon.command_sessions.default_timeout_s");
 
         let mut cfg = prd_config();
         cfg.plugin.ppc_root = PathBuf::from("relative");

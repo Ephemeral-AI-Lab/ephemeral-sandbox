@@ -449,14 +449,17 @@ mod tests {
             .await
     }
 
-    // NOTE (flagged in the coverage review): an in-stream provider `error` frame
-    // is currently SILENTLY SWALLOWED — `decode_anthropic`'s `match
-    // value.get("type")` has no "error" arm, so an error frame falls through
-    // `_ => {}` and the stream ends with neither an `AssistantMessageComplete`
-    // nor an `Err`. This pins that (likely-buggy) behavior so a future fix that
-    // surfaces provider errors trips this test and is made deliberately.
+    // NOTE (flagged in the coverage review): `decode_anthropic`'s
+    // `match value.get("type")` has no "error" arm, so an in-stream provider
+    // `error` frame falls through `_ => {}` — the decoder emits no completion and
+    // no `Err`. This is not a silent system-wide drop: `loop_.rs` turns the
+    // missing completion into a generic `EngineError::Internal("provider stream
+    // ended without assistant completion")`. So the real cost is DEGRADED
+    // DIAGNOSTICS (the provider's actual error text is lost), not a swallowed
+    // failure. This pins the decoder-level behavior; a fix that surfaces the
+    // provider error as an `Err` should update this test.
     #[tokio::test]
-    async fn in_stream_error_frame_is_currently_swallowed() {
+    async fn in_stream_error_frame_is_swallowed_at_decoder_level() {
         let sse = concat!(
             "event: content_block_start\n",
             "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n",
@@ -473,10 +476,12 @@ mod tests {
             event,
             Ok(LlmStreamEvent::AssistantTextDelta { text }) if text == "hi"
         )));
-        // The error frame surfaces neither an Err nor a terminal completion.
+        // At the decoder boundary the error frame yields neither an `Err` nor a
+        // terminal completion (the loop later maps the missing completion to a
+        // generic stream-ended error).
         assert!(
             results.iter().all(Result::is_ok),
-            "an in-stream error frame is currently swallowed, not surfaced as Err"
+            "the decoder does not surface the provider error frame as an Err"
         );
         assert!(
             !results

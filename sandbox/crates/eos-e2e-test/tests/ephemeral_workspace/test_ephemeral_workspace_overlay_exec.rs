@@ -122,6 +122,93 @@ fn exec_write_outside_workspace_is_not_captured() -> Result<()> {
 }
 
 #[test]
+fn exec_mount_mask_uses_test_config_hidden_paths() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let lease = pool.acquire()?;
+    lease
+        .container()
+        .exec(&[
+            "sh",
+            "-lc",
+            "rm -rf /tmp/eos-mask-test && mkdir -p /tmp/eos-mask-test && printf host > /tmp/eos-mask-test/host-visible.txt",
+        ])
+        .context("seed extra mount-mask probe dir")?;
+
+    let exec = lease.call_ok(
+        ops::API_V1_EXEC_COMMAND,
+        json!({
+            "cmd": r#"set -eu
+mount_fstype() {
+  awk -v target="$1" '
+    $5 == target {
+      for (i = 1; i <= NF; i++) {
+        if ($i == "-") {
+          fstype = $(i + 1)
+          found = 1
+        }
+      }
+    }
+    END {
+      if (found) {
+        print fstype
+      } else {
+        print "missing"
+      }
+    }
+  ' /proc/self/mountinfo
+}
+dir_state() {
+  if [ -d "$1" ] && [ -z "$(ls -A "$1" 2>/dev/null)" ]; then
+    printf empty
+  else
+    printf visible
+  fi
+}
+printf 'proc=%s\n' "$(test -r /proc/self/mountinfo && printf visible || printf hidden)"
+printf 'eos_fs=%s\n' "$(mount_fstype /eos)"
+printf 'eos_state=%s\n' "$(dir_state /eos)"
+printf 'cgroup_fs=%s\n' "$(mount_fstype /sys/fs/cgroup)"
+printf 'cgroup_state=%s\n' "$(dir_state /sys/fs/cgroup)"
+printf 'extra_fs=%s\n' "$(mount_fstype /tmp/eos-mask-test)"
+printf 'extra_state=%s\n' "$(dir_state /tmp/eos-mask-test)"
+"#,
+            "yield_time_ms": 1000,
+            "timeout_seconds": 10,
+            "max_output_tokens": 2000
+        }),
+    )?;
+    assert_eq!(as_str(&exec, "status")?, "ok", "{exec}");
+    let output = stdout(&exec);
+    for expected in [
+        "proc=visible",
+        "eos_fs=tmpfs",
+        "eos_state=empty",
+        "cgroup_fs=tmpfs",
+        "cgroup_state=empty",
+        "extra_fs=tmpfs",
+        "extra_state=empty",
+    ] {
+        assert!(
+            output.lines().any(|line| line == expected),
+            "missing {expected:?} in mount-mask probe output {output:?}; response={exec}"
+        );
+    }
+
+    let host_probe = lease
+        .container()
+        .exec(&["sh", "-lc", "cat /tmp/eos-mask-test/host-visible.txt"])
+        .context("read extra mount-mask probe dir after exec")?;
+    assert_eq!(
+        host_probe.trim(),
+        "host",
+        "fresh namespace mask must not mutate the container mount namespace"
+    );
+    Ok(())
+}
+
+#[test]
 fn foreground_exec_recycles_overlay_scratch() -> Result<()> {
     let Some(pool) = live_pool_or_skip()? else {
         return Ok(());

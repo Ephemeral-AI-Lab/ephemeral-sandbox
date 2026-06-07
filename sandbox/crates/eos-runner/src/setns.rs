@@ -56,7 +56,7 @@ pub fn run_setns(request: &RunRequest) -> Result<RunResult, RunnerError> {
     let ns_fds = require_ns_fds(request)?;
     join_cgroup(request)?;
     join_namespaces(&ns_fds)?;
-    crate::fresh_ns::execute_tool(request, 0.0, Instant::now())
+    crate::fresh_ns::execute_tool(request, 0.0, Instant::now(), None)
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -85,7 +85,10 @@ pub fn run_setns(_request: &RunRequest) -> Result<RunResult, RunnerError> {
 /// Returns [`RunnerError`] when required namespace/overlay paths are missing,
 /// `setns` fails, or the overlay mount fails.
 #[cfg(target_os = "linux")]
-pub fn setns_overlay_mount(request: &RunRequest) -> Result<(), RunnerError> {
+pub fn setns_overlay_mount(
+    request: &RunRequest,
+    config: &crate::config::RunnerConfig,
+) -> Result<(), RunnerError> {
     //   setns(ns_fds.user, CLONE_NEWUSER); setns(ns_fds.mnt, CLONE_NEWNS); then build
     //   OverlayHandle (newest-first lowerdirs + upper/work) and mount the overlay.
     let ns_fds = require_ns_fds(request)?;
@@ -109,6 +112,7 @@ pub fn setns_overlay_mount(request: &RunRequest) -> Result<(), RunnerError> {
         workdir: workdir.clone(),
     };
     let guard = eos_overlay::mount_overlay(&request.workspace_root.0, &handle)?;
+    crate::mount_mask::mask_model_shell_paths(&config.mount_mask.hidden_paths)?;
     // The setns mount helper is a one-shot process. The mounted overlay must
     // outlive this helper and remain pinned by the target mount namespace until
     // isolated teardown, matching the Rust helper that exits after mounting.
@@ -123,7 +127,10 @@ pub fn setns_overlay_mount(request: &RunRequest) -> Result<(), RunnerError> {
 ///
 /// Always returns [`RunnerError::Unsupported`] outside Linux because `setns(2)`
 /// is unavailable.
-pub fn setns_overlay_mount(_request: &RunRequest) -> Result<(), RunnerError> {
+pub fn setns_overlay_mount(
+    _request: &RunRequest,
+    _config: &crate::config::RunnerConfig,
+) -> Result<(), RunnerError> {
     Err(RunnerError::Unsupported)
 }
 

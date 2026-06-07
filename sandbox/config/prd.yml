@@ -20,6 +20,7 @@ daemon:
   command_sessions:
     scratch_root: /eos/scratch/command-sessions
     default_yield_time_ms: 1000
+    default_timeout_s: 600
     quiet_ms: 50
     cancel_wait_ms: 500
     output_drain_grace_ms: 500
@@ -62,6 +63,11 @@ isolated_workspace:
 
 runner:
   child_wait_poll_ms: 5
+  mount_mask:
+    hidden_paths:
+      - /eos
+      - /proc
+      - /sys/fs/cgroup
   env:
     inherit_keys: [PATH, HOME, USER, LANG, LC_ALL, TERM, TZ]
     restricted_keys:

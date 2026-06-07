@@ -40,6 +40,7 @@ fn default_command_session_config() -> CommandSessionConfig {
     CommandSessionConfig {
         scratch_root: std::path::PathBuf::from("/eos/scratch/command-sessions"),
         default_yield_time_ms: 1000,
+        default_timeout_s: 600,
         quiet_ms: 50,
         cancel_wait_ms: 500,
         output_drain_grace_ms: 500,

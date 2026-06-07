@@ -1,5 +1,6 @@
 //! `eosd ns-runner` subcommand adapter.
 
+use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
@@ -16,6 +17,8 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
     let request_json = read_payload(config.request_path.as_ref())?;
     let request: eos_runner::RunRequest =
         serde_json::from_str(&request_json).context("failed to decode ns-runner request JSON")?;
+    let runner_config = load_runner_config()?;
+    let mut output_target = OutputTarget::open(config.output_path.as_ref())?;
     if config.remount_overlay {
         remount_overlay_from_request(&request).context("ns-runner remount overlay failed")?;
         let result = eos_runner::RunResult {
@@ -24,11 +27,11 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
         };
         let output =
             serde_json::to_vec(&result).context("failed to encode ns-runner result JSON")?;
-        write_payload(config.output_path.as_ref(), &output)?;
+        write_payload(&mut output_target, &output)?;
         return Ok(());
     }
     if config.mount_overlay {
-        eos_runner::setns::setns_overlay_mount(&request)
+        eos_runner::setns::setns_overlay_mount(&request, &runner_config)
             .context("ns-runner setns overlay mount failed")?;
         let result = eos_runner::RunResult {
             exit_code: 0,
@@ -36,7 +39,7 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
         };
         let output =
             serde_json::to_vec(&result).context("failed to encode ns-runner result JSON")?;
-        write_payload(config.output_path.as_ref(), &output)?;
+        write_payload(&mut output_target, &output)?;
         return Ok(());
     }
     if config.configure_dns {
@@ -48,13 +51,22 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
         };
         let output =
             serde_json::to_vec(&result).context("failed to encode ns-runner result JSON")?;
-        write_payload(config.output_path.as_ref(), &output)?;
+        write_payload(&mut output_target, &output)?;
         return Ok(());
     }
-    let result = eos_runner::run(&request).context("ns-runner failed")?;
+    let result = eos_runner::run(&request, &runner_config).context("ns-runner failed")?;
     let output = serde_json::to_vec(&result).context("failed to encode ns-runner result JSON")?;
-    write_payload(config.output_path.as_ref(), &output)?;
+    write_payload(&mut output_target, &output)?;
     Ok(())
+}
+
+fn load_runner_config() -> Result<eos_runner::config::RunnerConfig> {
+    let config = eos_config::load_prd()
+        .context("load sandbox/config/prd.yml")?
+        .section::<eos_runner::config::RunnerConfig>("runner")
+        .context("deserialize runner config section")?;
+    config.validate().context("validate runner config")?;
+    Ok(config)
 }
 
 struct RunnerCliConfig {
@@ -167,25 +179,43 @@ fn read_payload(path: Option<&PathBuf>) -> Result<String> {
     Ok(payload)
 }
 
-fn write_payload(path: Option<&PathBuf>, payload: &[u8]) -> Result<()> {
-    if let Some(path) = path {
-        if let Some(parent) = path
-            .parent()
-            .filter(|parent| !parent.as_os_str().is_empty())
-        {
-            std::fs::create_dir_all(parent)
-                .with_context(|| format!("failed to create output dir {}", parent.display()))?;
+enum OutputTarget {
+    File(File),
+    Stdout,
+}
+
+impl OutputTarget {
+    fn open(path: Option<&PathBuf>) -> Result<Self> {
+        if let Some(path) = path {
+            if let Some(parent) = path
+                .parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+            {
+                std::fs::create_dir_all(parent)
+                    .with_context(|| format!("failed to create output dir {}", parent.display()))?;
+            }
+            return File::create(path)
+                .map(Self::File)
+                .with_context(|| format!("failed to create ns-runner output {}", path.display()));
         }
-        std::fs::write(path, payload)
-            .with_context(|| format!("failed to write ns-runner output {}", path.display()))?;
-    } else {
-        let mut stdout = std::io::stdout().lock();
-        stdout
+        Ok(Self::Stdout)
+    }
+}
+
+fn write_payload(target: &mut OutputTarget, payload: &[u8]) -> Result<()> {
+    match target {
+        OutputTarget::File(file) => file
             .write_all(payload)
-            .context("failed to write ns-runner output to stdout")?;
-        stdout
-            .write_all(b"\n")
-            .context("failed to terminate ns-runner output line")?;
+            .context("failed to write ns-runner output")?,
+        OutputTarget::Stdout => {
+            let mut stdout = std::io::stdout().lock();
+            stdout
+                .write_all(payload)
+                .context("failed to write ns-runner output to stdout")?;
+            stdout
+                .write_all(b"\n")
+                .context("failed to terminate ns-runner output line")?;
+        }
     }
     Ok(())
 }

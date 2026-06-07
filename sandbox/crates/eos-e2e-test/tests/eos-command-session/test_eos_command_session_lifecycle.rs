@@ -38,11 +38,74 @@ fn cancel_session(lease: &eos_e2e_test::NodeLease<'_>, id: &str) -> Result<Value
     Ok(cancelled)
 }
 
+fn wait_for_transcript_logs(lease: &NodeLease<'_>, expected: &[String]) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        let current = command_session_transcript_logs(lease)?;
+        if current == expected {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            bail!("transcript logs did not settle at {expected:?}; last {current:?}");
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+}
+
 fn process_marker() -> String {
     format!(
         "eos_e2e_command_session_{}",
         unique_suffix().replace('-', "_")
     )
+}
+
+fn assert_teardown_control_reaps_marker_process(
+    lease: &NodeLease<'_>,
+    label: &str,
+    chars: &str,
+) -> Result<()> {
+    let marker = process_marker();
+    let started = lease.call_ok(
+        ops::API_V1_EXEC_COMMAND,
+        json!({
+            "cmd": format!(
+                "bash -lc 'bash -c \"exec -a {marker} sleep 60\" & python3 -u -c \"import sys,time; print(\\\"{label}-ready\\\", flush=True); sys.stdin.readline(); time.sleep(60)\"'"
+            ),
+            "yield_time_ms": 1500,
+            "timeout_seconds": 120
+        }),
+    )?;
+    assert_eq!(as_str(&started, "status")?, "running", "{started}");
+    assert!(
+        stdout(&started).contains(&format!("{label}-ready")),
+        "stdin reader should be ready before {label} teardown: {started}"
+    );
+    let id = as_str(&started, "command_session_id")?.to_owned();
+    wait_for_marker_at_least(lease, &marker, 1)?;
+
+    let terminated = lease.call(
+        ops::API_V1_WRITE_STDIN,
+        json!({
+            "command_session_id": &id,
+            "chars": chars,
+            "yield_time_ms": 3000
+        }),
+    )?;
+    assert_eq!(
+        as_str(&terminated, "status")?,
+        "cancelled",
+        "{label} should route to command-session cancel: {terminated}"
+    );
+    assert_eq!(
+        as_i64(&terminated, "exit_code")?,
+        130,
+        "{label} should share the cancelled exit shape: {terminated}"
+    );
+    wait_for_session_count(lease, 0)?;
+    wait_for_command_session_transcript_recycled(lease, &id)?;
+    wait_for_active_leases(lease, 0)?;
+    wait_for_marker_count(lease, &marker, 0, Duration::from_secs(3))?;
+    Ok(())
 }
 
 #[test]
@@ -66,12 +129,14 @@ fn write_stdin_echo() -> Result<()> {
     let started = lease.call_ok(
         ops::API_V1_EXEC_COMMAND,
         json!({
-            "cmd": "python3 -u -c 'import sys,time; print(\"ready\", flush=True); line=sys.stdin.readline().strip(); print(\"got:\" + line, flush=True); time.sleep(60)'",
+            "cmd": "python3 -u -c 'import sys; print(\"ready\", flush=True); line=sys.stdin.readline().strip(); print(\"got:\" + line, flush=True)'",
             "yield_time_ms": 500,
             "timeout_seconds": 120
         }),
     )?;
     let id = as_str(&started, "command_session_id")?.to_owned();
+    let transcript_path = command_session_transcript_path(&id);
+    wait_for_container_path(&lease, &transcript_path, true, Duration::from_secs(3))?;
     let stdin = lease.call_ok(
         ops::API_V1_WRITE_STDIN,
         json!({
@@ -80,11 +145,18 @@ fn write_stdin_echo() -> Result<()> {
             "yield_time_ms": 2000
         }),
     )?;
-    assert!(
-        stdout(&stdin).contains("got:payload"),
-        "stdin write should return command output: {stdin}"
+    assert_eq!(
+        as_str(&stdin, "status")?,
+        "ok",
+        "stdin write should let the command exit naturally: {stdin}"
     );
-    cancel_session(&lease, &id)?;
+    assert!(
+        stdout(&stdin).contains("ready") && stdout(&stdin).contains("got:payload"),
+        "stdin-triggered completion should return the full captured output: {stdin}"
+    );
+    wait_for_session_count(&lease, 0)?;
+    wait_for_container_path(&lease, &transcript_path, false, Duration::from_secs(3))?;
+    wait_for_active_leases(&lease, 0)?;
     Ok(())
 }
 
@@ -138,7 +210,65 @@ fn read_command_progress_returns_stateless_tail_snapshot() -> Result<()> {
             && stdout(&progress).contains("cursor-second:payload"),
         "progress reads are stateless tail snapshots, not cursor polls: {progress}"
     );
+    let tail = lease.call_ok(
+        ops::API_V1_COMMAND_READ_PROGRESS,
+        json!({
+            "command_session_id": &id,
+            "last_n_lines": 1
+        }),
+    )?;
+    assert!(
+        stdout(&tail).contains("cursor-second:payload") && !stdout(&tail).contains("cursor-first"),
+        "last_n_lines should bound the read-progress tail without consuming state: {tail}"
+    );
     cancel_session(&lease, &id)?;
+    Ok(())
+}
+
+#[test]
+fn read_command_progress_finalizes_completed_session_and_recycles_transcript() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let lease = pool.acquire()?;
+    let started = lease.call_ok(
+        ops::API_V1_EXEC_COMMAND,
+        json!({
+            "cmd": "sh -c 'echo progress-start; sleep 1; echo progress-end'",
+            "yield_time_ms": 100,
+            "timeout_seconds": 10
+        }),
+    )?;
+    assert_eq!(as_str(&started, "status")?, "running", "{started}");
+    let id = as_str(&started, "command_session_id")?.to_owned();
+    let transcript_path = command_session_transcript_path(&id);
+    wait_for_container_path(&lease, &transcript_path, true, Duration::from_secs(3))?;
+
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let progress = lease.call_ok(
+            ops::API_V1_COMMAND_READ_PROGRESS,
+            json!({
+                "command_session_id": &id,
+                "last_n_lines": 10
+            }),
+        )?;
+        if as_str(&progress, "status")? == "ok" {
+            assert!(
+                stdout(&progress).contains("progress-start")
+                    && stdout(&progress).contains("progress-end"),
+                "read_progress completion should return the final output tail: {progress}"
+            );
+            break;
+        }
+        if Instant::now() >= deadline {
+            bail!("read_progress did not finalize the completed session: {progress}");
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    wait_for_session_count(&lease, 0)?;
+    wait_for_container_path(&lease, &transcript_path, false, Duration::from_secs(3))?;
+    wait_for_active_leases(&lease, 0)?;
     Ok(())
 }
 
@@ -203,9 +333,8 @@ fn finite_exec_before_yield_recycles_transient_transcript_file() -> Result<()> {
     let completed = lease.call_ok(
         ops::API_V1_EXEC_COMMAND,
         json!({
-            "cmd": format!("printf '{marker}\\n'"),
-            "yield_time_ms": 3000,
-            "timeout_seconds": 30
+            "cmd": format!("printf '{marker}-a\\n{marker}-b\\n{marker}-c\\n'"),
+            "yield_time_ms": 3000
         }),
     )?;
     assert_eq!(
@@ -218,16 +347,14 @@ fn finite_exec_before_yield_recycles_transient_transcript_file() -> Result<()> {
         "finite command should not expose a background session handle: {completed}"
     );
     assert!(
-        stdout(&completed).contains(&marker),
-        "finite command should return stdout in the initial response: {completed}"
+        stdout(&completed).contains(&format!("{marker}-a"))
+            && stdout(&completed).contains(&format!("{marker}-b"))
+            && stdout(&completed).contains(&format!("{marker}-c")),
+        "finite command should return its full stdout in the initial response: {completed}"
     );
     wait_for_session_count(&lease, 0)?;
     wait_for_active_leases(&lease, 0)?;
-    let after = command_session_transcript_logs(&lease)?;
-    assert_eq!(
-        after, before,
-        "finite command may create an internal transcript, but it must recycle it before returning"
-    );
+    wait_for_transcript_logs(&lease, &before)?;
     Ok(())
 }
 
@@ -253,7 +380,7 @@ fn completed_session_removes_transcript_file() -> Result<()> {
     let completion = collect_completion(&lease, &id, Duration::from_secs(10))?;
     let result = completion.get("result").context("completion result")?;
     assert!(
-        stdout(result).contains("transcript-end"),
+        stdout(result).contains("transcript-start") && stdout(result).contains("transcript-end"),
         "completion should carry the final stdout: {completion}"
     );
     wait_for_session_count(&lease, 0)?;
@@ -308,16 +435,37 @@ fn exec_timeout() -> Result<()> {
         return Ok(());
     };
     let lease = pool.acquire()?;
-    // A timed-out command is killed, so its hardened outcome is success:false;
-    // use `call` to read the structured terminal envelope rather than `call_ok`.
-    let exec = lease.call(
+    let before = command_session_transcript_logs(&lease)?;
+    let start = Instant::now();
+    let timed_out = lease.call(
         ops::API_V1_EXEC_COMMAND,
-        json!({"cmd": "sleep 2", "yield_time_ms": 2500, "timeout_seconds": 1}),
+        json!({
+            "cmd": "sleep 5",
+            "yield_time_ms": 2500
+        }),
     )?;
     assert!(
-        matches!(as_str(&exec, "status")?, "timeout" | "error" | "cancelled"),
-        "timeout path should return a non-ok status: {exec}"
+        start.elapsed() < Duration::from_secs(4),
+        "omitted timeout should return before the 5s command can finish: {timed_out}"
     );
+    assert!(
+        matches!(
+            as_str(&timed_out, "status")?,
+            "timed_out" | "error" | "cancelled"
+        ),
+        "omitted timeout should use the suite default_timeout_s=1: {timed_out}"
+    );
+    assert!(
+        matches!(as_i64(&timed_out, "exit_code")?, 124 | -9 | 130),
+        "timeout may surface as runner timeout or daemon reaper kill: {timed_out}"
+    );
+    assert!(
+        timed_out.get("command_session_id").is_none(),
+        "foreground timeout should not expose a recycled background handle: {timed_out}"
+    );
+    wait_for_session_count(&lease, 0)?;
+    wait_for_active_leases(&lease, 0)?;
+    wait_for_transcript_logs(&lease, &before)?;
     Ok(())
 }
 
@@ -367,43 +515,7 @@ fn write_stdin_ctrl_d_reaps_marker_process() -> Result<()> {
         return Ok(());
     };
     let lease = pool.acquire()?;
-    let marker = process_marker();
-    let started = lease.call_ok(
-        ops::API_V1_EXEC_COMMAND,
-        json!({
-            "cmd": format!(
-                "bash -lc 'bash -c \"exec -a {marker} sleep 60\" & python3 -u -c \"import sys,time; print(\\\"ctrl-d-ready\\\", flush=True); sys.stdin.readline(); time.sleep(60)\"'"
-            ),
-            "yield_time_ms": 1500,
-            "timeout_seconds": 120
-        }),
-    )?;
-    assert_eq!(as_str(&started, "status")?, "running", "{started}");
-    assert!(
-        stdout(&started).contains("ctrl-d-ready"),
-        "stdin reader should be ready before Ctrl-D teardown: {started}"
-    );
-    let id = as_str(&started, "command_session_id")?.to_owned();
-    wait_for_marker_at_least(&lease, &marker, 1)?;
-
-    // Exact Ctrl-D is the public teardown path through write_stdin.
-    let terminated = lease.call(
-        ops::API_V1_WRITE_STDIN,
-        json!({
-            "command_session_id": &id,
-            "chars": "\u{4}",
-            "yield_time_ms": 3000
-        }),
-    )?;
-    assert!(
-        matches!(as_str(&terminated, "status")?, "cancelled" | "ok" | "error"),
-        "Ctrl-D should return a terminal status: {terminated}"
-    );
-    wait_for_session_count(&lease, 0)?;
-    wait_for_command_session_transcript_recycled(&lease, &id)?;
-    wait_for_active_leases(&lease, 0)?;
-    wait_for_marker_count(&lease, &marker, 0, Duration::from_secs(3))?;
-    Ok(())
+    assert_teardown_control_reaps_marker_process(&lease, "ctrl-d", "\u{4}")
 }
 
 #[test]
@@ -662,6 +774,10 @@ fn external_signal_kill_is_structured() -> Result<()> {
         signal_coded_exit(as_i64(result, "exit_code")?),
         "external SIGKILL should surface a signal-coded exit_code: {completion}"
     );
+    assert!(
+        stdout(result).contains("kill-ready"),
+        "external SIGKILL completion should preserve output captured before death: {completion}"
+    );
     wait_for_session_count(&lease, 0)?;
     wait_for_command_session_transcript_recycled(&lease, &id)?;
     wait_for_active_leases(&lease, 0)?;
@@ -824,37 +940,5 @@ fn ctrl_c_char_cancels_command_session() -> Result<()> {
         return Ok(());
     };
     let lease = pool.acquire()?;
-    // A Ctrl-C (`\x03`) char through write_stdin is the public teardown channel:
-    // it routes through command-session cancel and does not get forwarded as PTY
-    // input.
-    let started = lease.call_ok(
-        ops::API_V1_EXEC_COMMAND,
-        json!({
-            "cmd": "bash -lc 'echo sigint-ready; exec sleep 60'",
-            "yield_time_ms": 1000,
-            "timeout_seconds": 120
-        }),
-    )?;
-    assert_eq!(as_str(&started, "status")?, "running", "{started}");
-    assert!(stdout(&started).contains("sigint-ready"), "{started}");
-    let id = as_str(&started, "command_session_id")?.to_owned();
-
-    let interrupted = lease.call(
-        ops::API_V1_WRITE_STDIN,
-        json!({
-            "command_session_id": &id,
-            "chars": "\u{3}",
-            "yield_time_ms": 2000
-        }),
-    )?;
-    assert_eq!(
-        as_str(&interrupted, "status")?,
-        "cancelled",
-        "{interrupted}"
-    );
-    assert_eq!(as_i64(&interrupted, "exit_code")?, 130, "{interrupted}");
-    wait_for_session_count(&lease, 0)?;
-    wait_for_command_session_transcript_recycled(&lease, &id)?;
-    wait_for_active_leases(&lease, 0)?;
-    Ok(())
+    assert_teardown_control_reaps_marker_process(&lease, "ctrl-c", "\u{3}")
 }

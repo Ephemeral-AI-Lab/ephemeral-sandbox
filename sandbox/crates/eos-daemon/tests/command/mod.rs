@@ -33,6 +33,25 @@ fn optional_u64_accepts_unsigned_and_nonnegative_signed_numbers() {
 }
 
 #[test]
+fn exec_timeout_uses_config_default_only_when_omitted() {
+    let config = crate::config::CommandSessionConfig {
+        default_timeout_s: 600,
+        ..crate::config::CommandSessionConfig::default()
+    };
+
+    assert_eq!(exec_timeout_seconds(&json!({}), &config), 600.0);
+    assert_eq!(exec_timeout_seconds(&json!({"timeout": 12}), &config), 12.0);
+    assert_eq!(
+        exec_timeout_seconds(&json!({"timeout_seconds": 34}), &config),
+        34.0
+    );
+    assert_eq!(
+        exec_timeout_seconds(&json!({"timeout": 12, "timeout_seconds": 34}), &config),
+        12.0
+    );
+}
+
+#[test]
 fn command_session_cancel_suppresses_background_completion_publication() {
     assert!(should_publish_command_session_completion(true, false, true));
     assert!(!should_publish_command_session_completion(true, true, true));
