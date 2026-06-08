@@ -10,7 +10,6 @@ use crate::types::{EphemeralWorkspace, PublishOutcome};
 #[derive(Debug, Clone)]
 pub struct FinalizeRequest {
     pub workspace: EphemeralWorkspace,
-    pub command_started_at: Option<Instant>,
 }
 
 /// Capture and publish result for one ephemeral workspace.
@@ -33,7 +32,6 @@ pub fn finalize_publishable_workspace<P>(
 where
     P: WorkspacePublisherPort,
 {
-    let total_start = Instant::now();
     let capture = capture_for_publish(&request.workspace.dirs.upperdir)?;
     let publish_start = Instant::now();
     let publish = publisher.publish_upperdir_changes(
@@ -43,15 +41,9 @@ where
         &capture.path_kinds,
     )?;
 
-    let mut timings = EphemeralTimings::new(total_start.elapsed().as_secs_f64());
-    timings.capture_s = Some(capture.capture_s);
-    timings.publish_s = Some(publish_start.elapsed().as_secs_f64());
-    if let Some(started_at) = request.command_started_at {
-        timings.insert_extra(
-            "command.elapsed_s",
-            serde_json::json!(started_at.elapsed().as_secs_f64()),
-        );
-    }
+    let timings = EphemeralTimings {
+        publish_s: Some(publish_start.elapsed().as_secs_f64()),
+    };
 
     Ok(FinalizeOutcome {
         capture,

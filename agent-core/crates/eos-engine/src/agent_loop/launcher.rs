@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use eos_agent_ports::{
-    AgentExecutionMetadataService, AgentLoopLauncher, AgentLoopOutcome, AgentLoopOutcomeKind,
-    StartAgentLoopRequest, StartedAgentLoop,
+    agent_loop_cancel_pair, AgentExecutionMetadataService, AgentLoopLauncher, AgentLoopOutcome,
+    AgentLoopOutcomeKind, StartAgentLoopRequest, StartedAgentLoop,
 };
 use tokio::sync::oneshot;
 
@@ -91,12 +91,14 @@ impl TokioAgentLoopLauncher {
 impl AgentLoopLauncher for TokioAgentLoopLauncher {
     fn start_agent_loop(&self, request: StartAgentLoopRequest) -> StartedAgentLoop {
         let (outcome_sender, outcome_receiver) = oneshot::channel();
+        let (cancel_handle, cancel_signal) = agent_loop_cancel_pair();
         let event_source = self.event_source.resolve(&request);
         let loop_executor = AgentLoopExecutor::new(
             event_source,
             Arc::clone(&self.loop_hooks),
             Arc::clone(&self.tool_registry_factory),
             Arc::clone(&self.metadata_service),
+            cancel_signal,
         );
 
         tokio::spawn(async move {
@@ -104,7 +106,10 @@ impl AgentLoopLauncher for TokioAgentLoopLauncher {
             let _ignored = outcome_sender.send(outcome);
         });
 
-        StartedAgentLoop { outcome_receiver }
+        StartedAgentLoop {
+            outcome_receiver,
+            cancel_handle,
+        }
     }
 }
 
@@ -112,6 +117,7 @@ impl AgentLoopLauncher for TokioAgentLoopLauncher {
 #[must_use]
 pub fn start_agent_loop(_request: StartAgentLoopRequest) -> StartedAgentLoop {
     let (outcome_sender, outcome_receiver) = oneshot::channel();
+    let (cancel_handle, _cancel_signal) = agent_loop_cancel_pair();
     tokio::spawn(async move {
         let _ignored = outcome_sender.send(AgentLoopOutcome {
             kind: AgentLoopOutcomeKind::LoopFailed {
@@ -122,5 +128,8 @@ pub fn start_agent_loop(_request: StartAgentLoopRequest) -> StartedAgentLoop {
             total_token_count: None,
         });
     });
-    StartedAgentLoop { outcome_receiver }
+    StartedAgentLoop {
+        outcome_receiver,
+        cancel_handle,
+    }
 }

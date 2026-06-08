@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -130,9 +130,9 @@
         <span class="rs-self">self</span>.completed_turns &gt;= <span class="rs-self">self</span>.tool_call_limit.max(1)
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-state-rs.html#item-struct-AgentLoopState-17">AgentLoopState</a></code></summary><table><tbody><tr id="method-fmt-41"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-31">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-state-rs.html#item-struct-AgentLoopState-17">AgentLoopState</a></code></summary><table><tbody><tr id="method-fmt-41"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-33">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-agent-loop-state-rs.html#item-struct-AgentLoopState-17">AgentLoopState</a>&quot;)
             .field(&quot;agent_run_id&quot;, &amp;<span class="rs-self">self</span>.agent_run_id)
             .field(&quot;conversation_messages&quot;, &amp;<span class="rs-self">self</span>.conversation_messages.len())
@@ -159,7 +159,7 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-state-rs.html#item-fn-inert-subagent-sessions-110">inert_subagent_sessions</a>() -&gt; <span class="rs-type">SubagentToolService</span> {
-    <span class="rs-type">SubagentToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+    <span class="rs-type">SubagentToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         |_agent_run_id| <span class="rs-kw">async</span> {},
         |_agent_run_id, _reason| <span class="rs-kw">async</span> { <span class="rs-kw">false</span> },
         || <span class="rs-kw">async</span> { 0 },
@@ -181,7 +181,7 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-state-rs.html#item-fn-inert-workflow-sessions-119">inert_workflow_sessions</a>() -&gt; <span class="rs-type">WorkflowToolService</span> {
-    <span class="rs-type">WorkflowToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(|_workflow| <span class="rs-kw">async</span> {})
+    <span class="rs-type">WorkflowToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(|_workflow| <span class="rs-kw">async</span> {})
 }
 </code></pre>
 </details>
@@ -198,7 +198,7 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-state-rs.html#item-fn-inert-command-sessions-123">inert_command_sessions</a>() -&gt; <span class="rs-type">CommandSessionToolService</span> {
-    <span class="rs-type">CommandSessionToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(|_command_session_id, _sandbox_id| <span class="rs-kw">async</span> {})
+    <span class="rs-type">CommandSessionToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(|_command_session_id, _sandbox_id| <span class="rs-kw">async</span> {})
 }
 </code></pre>
 </details>
@@ -252,7 +252,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-agent-loop-state-rs.html#item-struct-AgentLoopState-17">AgentLoopState</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-agent-loop-state-rs.html#item-struct-AgentLoopState-17">AgentLoopState</a>&quot;)
             .field(&quot;agent_run_id&quot;, &amp;<span class="rs-self">self</span>.agent_run_id)
             .field(&quot;conversation_messages&quot;, &amp;<span class="rs-self">self</span>.conversation_messages.len())
@@ -322,7 +322,7 @@
 }
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-state-rs.html#item-fn-inert-subagent-sessions-110">inert_subagent_sessions</a>() -&gt; <span class="rs-type">SubagentToolService</span> {
-    <span class="rs-type">SubagentToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+    <span class="rs-type">SubagentToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         |_agent_run_id| <span class="rs-kw">async</span> {},
         |_agent_run_id, _reason| <span class="rs-kw">async</span> { <span class="rs-kw">false</span> },
         || <span class="rs-kw">async</span> { 0 },
@@ -331,11 +331,11 @@
 }
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-state-rs.html#item-fn-inert-workflow-sessions-119">inert_workflow_sessions</a>() -&gt; <span class="rs-type">WorkflowToolService</span> {
-    <span class="rs-type">WorkflowToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(|_workflow| <span class="rs-kw">async</span> {})
+    <span class="rs-type">WorkflowToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(|_workflow| <span class="rs-kw">async</span> {})
 }
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-state-rs.html#item-fn-inert-command-sessions-123">inert_command_sessions</a>() -&gt; <span class="rs-type">CommandSessionToolService</span> {
-    <span class="rs-type">CommandSessionToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(|_command_session_id, _sandbox_id| <span class="rs-kw">async</span> {})
+    <span class="rs-type">CommandSessionToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(|_command_session_id, _sandbox_id| <span class="rs-kw">async</span> {})
 }
 </code></pre>
 </section>

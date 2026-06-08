@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -144,16 +144,16 @@
   <code class="signature">pub(crate :: background) struct <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a></code>
   <p class="docstring">Tracks subagent background sessions for one agent run.</p>
   <div class="tags"><span>derive: Clone</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>sessions</td><td><code>Arc &lt; Mutex &lt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionState-83">SubagentSessionState</a> &gt; &gt;</code></td></tr><tr><td>private</td><td>agent_run_service</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr><tr><td>private</td><td>notification</td><td><code><a class="symbol-link" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-106"><td>constructor</td><td>new</td><td><code>pub(crate :: background) fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> (agent_run_id : AgentRunId , agent_run_service : Arc &lt; dyn AgentRunApi &gt; , notification : <a class="symbol-link" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a> ,) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>sessions</td><td><code>Arc &lt; Mutex &lt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionState-83">SubagentSessionState</a> &gt; &gt;</code></td></tr><tr><td>private</td><td>agent_run_service</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr><tr><td>private</td><td>notification</td><td><code><a class="symbol-link" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-106"><td>constructor</td><td>new</td><td><code>pub(crate :: background) fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> (agent_run_id : AgentRunId , agent_run_service : Arc &lt; dyn AgentRunApi &gt; , notification : <a class="symbol-link" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a> ,) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::background) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::background) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         agent_run_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
         notification: <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             agent_run_id,
-            sessions: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionState-83">SubagentSessionState</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>())),
+            sessions: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionState-83">SubagentSessionState</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>())),
             agent_run_service,
             notification,
         }
@@ -222,7 +222,7 @@
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::background) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-poll-completions-188">poll_completions</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentCompletion-76">SubagentCompletion</a>&gt; {
         <span class="rs-kw">let</span> running = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#method-running-agent-runs-203">running_agent_runs</a>().<span class="rs-kw">await</span>;
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> completions = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> completions = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         <span class="rs-kw">for</span> agent_run_id <span class="rs-kw">in</span> running {
             <span class="rs-kw">let</span> terminal = <span class="rs-kw">match</span> <span class="rs-self">self</span>
                 .agent_run_service
@@ -302,9 +302,9 @@
         <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-trait-BackgroundSessionManager-67">BackgroundSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-cancel-49">cancel</a>(<span class="rs-self">self</span>, reason).<span class="rs-kw">await</span>;
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a></code></summary><table><tbody><tr id="method-fmt-98"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-31">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a></code></summary><table><tbody><tr id="method-fmt-98"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-33">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a>&quot;)
             .field(&quot;agent_run_id&quot;, &amp;<span class="rs-self">self</span>.agent_run_id)
             .finish_non_exhaustive()
@@ -688,10 +688,10 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-fn-manager-380">manager</a>(notifier: &amp;<a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a> {
-        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             &quot;owner-run&quot;.parse().expect(&quot;agent run id&quot;),
-            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-FakeAgentRunService-466">FakeAgentRunService</a>),
-            <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(notifier.clone()),
+            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-FakeAgentRunService-466">FakeAgentRunService</a>),
+            <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(notifier.clone()),
         )
     }
 </code></pre>
@@ -738,7 +738,7 @@
   <summary>code</summary>
   <pre><code>    #[test]
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-submission-payload-settles-completed-and-finished-524">submission_payload_settles_completed_and_finished</a>() {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> terminal = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> terminal = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;output&quot;.to_owned(), json!(&quot;partial but delivered&quot;));
         terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;is_error&quot;.to_owned(), json!(<span class="rs-kw">true</span>));
         terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;metadata&quot;.to_owned(), json!({}));
@@ -788,7 +788,7 @@
   <summary>code</summary>
   <pre><code>    #[tokio::test]
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-count-cancel-and-completion-notification-are-manager-owned-548">count_cancel_and_completion_notification_are_manager_owned</a>() {
-        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         <span class="rs-kw">let</span> manager = <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-fn-manager-380">manager</a>(&amp;notifier);
         <span class="rs-kw">let</span> running_id: <span class="rs-type">AgentRunId</span> = &quot;run-sub-1&quot;.parse().expect(&quot;agent run id&quot;);
         manager
@@ -929,7 +929,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a>&quot;)
             .field(&quot;agent_run_id&quot;, &amp;<span class="rs-self">self</span>.agent_run_id)
             .finish_non_exhaustive()
@@ -937,14 +937,14 @@
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::background) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::background) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         agent_run_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
         notification: <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             agent_run_id,
-            sessions: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionState-83">SubagentSessionState</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>())),
+            sessions: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionState-83">SubagentSessionState</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>())),
             agent_run_service,
             notification,
         }
@@ -1005,7 +1005,7 @@
 
     <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::background) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-poll-completions-188">poll_completions</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentCompletion-76">SubagentCompletion</a>&gt; {
         <span class="rs-kw">let</span> running = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#method-running-agent-runs-203">running_agent_runs</a>().<span class="rs-kw">await</span>;
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> completions = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> completions = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         <span class="rs-kw">for</span> agent_run_id <span class="rs-kw">in</span> running {
             <span class="rs-kw">let</span> terminal = <span class="rs-kw">match</span> <span class="rs-self">self</span>
                 .agent_run_service
@@ -1333,10 +1333,10 @@
     }
 
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-fn-manager-380">manager</a>(notifier: &amp;<a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a> {
-        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             &quot;owner-run&quot;.parse().expect(&quot;agent run id&quot;),
-            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-FakeAgentRunService-466">FakeAgentRunService</a>),
-            <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(notifier.clone()),
+            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-FakeAgentRunService-466">FakeAgentRunService</a>),
+            <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(notifier.clone()),
         )
     }
 
@@ -1357,7 +1357,7 @@
 
     #[test]
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-submission-payload-settles-completed-and-finished-524">submission_payload_settles_completed_and_finished</a>() {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> terminal = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> terminal = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;output&quot;.to_owned(), json!(&quot;partial but delivered&quot;));
         terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;is_error&quot;.to_owned(), json!(<span class="rs-kw">true</span>));
         terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;metadata&quot;.to_owned(), json!({}));
@@ -1381,7 +1381,7 @@
 
     #[tokio::test]
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-count-cancel-and-completion-notification-are-manager-owned-548">count_cancel_and_completion_notification_are_manager_owned</a>() {
-        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         <span class="rs-kw">let</span> manager = <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-fn-manager-380">manager</a>(&amp;notifier);
         <span class="rs-kw">let</span> running_id: <span class="rs-type">AgentRunId</span> = &quot;run-sub-1&quot;.parse().expect(&quot;agent run id&quot;);
         manager

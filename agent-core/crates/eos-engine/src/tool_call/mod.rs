@@ -1,7 +1,7 @@
 //! Post-message tool dispatch.
 
-mod dispatch;
 pub(crate) mod batch;
+mod dispatch;
 pub(crate) mod execution;
 mod hooks;
 

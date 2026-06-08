@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -64,9 +64,9 @@
   </div>
   <code class="signature">pub(crate) struct <a class="symbol-link" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a></code>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: PartialEq</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>sampled_at_monotonic_s</td><td><code>f64</code></td></tr><tr><td>private</td><td>rss_bytes</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>private</td><td>cpu_user_s</td><td><code>Option &lt; f64 &gt;</code></td></tr><tr><td>private</td><td>cpu_system_s</td><td><code>Option &lt; f64 &gt;</code></td></tr><tr><td>private</td><td>io_read_bytes</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>private</td><td>io_write_bytes</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>private</td><td>io_read_ops</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>private</td><td>io_write_ops</td><td><code>Option &lt; i64 &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-24"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> (sampled_at_monotonic_s : f64) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>sampled_at_monotonic_s</td><td><code>f64</code></td></tr><tr><td>private</td><td>rss_bytes</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>private</td><td>cpu_user_s</td><td><code>Option &lt; f64 &gt;</code></td></tr><tr><td>private</td><td>cpu_system_s</td><td><code>Option &lt; f64 &gt;</code></td></tr><tr><td>private</td><td>io_read_bytes</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>private</td><td>io_write_bytes</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>private</td><td>io_read_ops</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>private</td><td>io_write_ops</td><td><code>Option &lt; i64 &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-24"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> (sampled_at_monotonic_s : f64) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(sampled_at_monotonic_s: f64) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(sampled_at_monotonic_s: f64) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             sampled_at_monotonic_s,
             rss_bytes: <span class="rs-type">None</span>,
@@ -94,7 +94,7 @@
 </details></td></tr><tr id="method-into-payload-47"><td>method</td><td>into_payload</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-engine--src-telemetry-resource-sample-rs.html#method-into-payload-47">into_payload</a> (self) -&gt; JsonObject</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#method-into-payload-47">into_payload</a>(<span class="rs-self">self</span>) -&gt; <span class="rs-type">JsonObject</span> {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(
             &quot;sampled_at_monotonic_s&quot;.to_owned(),
             json!(<span class="rs-self">self</span>.sampled_at_monotonic_s),
@@ -123,7 +123,7 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-capture-process-resource-sample-64">capture_process_resource_sample</a>() -&gt; <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>&gt; {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-monotonic-s-83">monotonic_s</a>());
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-monotonic-s-83">monotonic_s</a>());
     <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-fill-from-ps-88">fill_from_ps</a>(&amp;<span class="rs-kw">mut</span> sample);
     <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-fill-from-linux-proc-121">fill_from_linux_proc</a>(&amp;<span class="rs-kw">mut</span> sample);
     sample.<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#method-has-values-37">has_values</a>().then_some(sample)
@@ -181,7 +181,7 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-monotonic-s-83">monotonic_s</a>() -&gt; f64 {
-    <span class="rs-kw">static</span> <span class="rs-type">START</span>: <span class="rs-type">OnceLock</span>&lt;<span class="rs-type">Instant</span>&gt; = <span class="rs-type">OnceLock</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">static</span> <span class="rs-type">START</span>: <span class="rs-type">OnceLock</span>&lt;<span class="rs-type">Instant</span>&gt; = <span class="rs-type">OnceLock</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     <span class="rs-type">START</span>.get_or_init(<span class="rs-type">Instant</span>::now).elapsed().as_secs_f64()
 }
 </code></pre>
@@ -201,7 +201,7 @@
   <pre><code>#[cfg(unix)]
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-fill-from-ps-88">fill_from_ps</a>(sample: &amp;<span class="rs-kw">mut</span> <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>) {
     <span class="rs-kw">let</span> pid = std::process::<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-id-64">id</a>().to_string();
-    <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(output) = <span class="rs-type">Command</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(&quot;ps&quot;)
+    <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(output) = <span class="rs-type">Command</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(&quot;ps&quot;)
         .args([&quot;-o&quot;, &quot;rss=&quot;, &quot;-o&quot;, &quot;utime=&quot;, &quot;-o&quot;, &quot;stime=&quot;, &quot;-p&quot;])
         .arg(pid)
         .output()
@@ -426,7 +426,7 @@
   <summary>code</summary>
   <pre><code>    #[test]
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-ps-line-populates-rss-and-cpu-fields-201">ps_line_populates_rss_and_cpu_fields</a>() {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(7.0);
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(7.0);
 
         <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-apply-ps-line-111">apply_ps_line</a>(&amp;<span class="rs-kw">mut</span> sample, &quot;  1360   0:00.02   0:00.01&quot;);
 
@@ -451,7 +451,7 @@
   <summary>code</summary>
   <pre><code>    #[test]
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-payload-omits-unavailable-values-213">payload_omits_unavailable_values</a>() {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(3.0);
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(3.0);
         sample.rss_bytes = <span class="rs-type">Some</span>(4096);
 
         <span class="rs-kw">let</span> payload = sample.<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#method-into-payload-47">into_payload</a>();
@@ -495,7 +495,7 @@
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(sampled_at_monotonic_s: f64) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(sampled_at_monotonic_s: f64) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             sampled_at_monotonic_s,
             rss_bytes: <span class="rs-type">None</span>,
@@ -519,7 +519,7 @@
     }
 
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#method-into-payload-47">into_payload</a>(<span class="rs-self">self</span>) -&gt; <span class="rs-type">JsonObject</span> {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(
             &quot;sampled_at_monotonic_s&quot;.to_owned(),
             json!(<span class="rs-self">self</span>.sampled_at_monotonic_s),
@@ -536,7 +536,7 @@
 }
 
 <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-capture-process-resource-sample-64">capture_process_resource_sample</a>() -&gt; <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>&gt; {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-monotonic-s-83">monotonic_s</a>());
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-monotonic-s-83">monotonic_s</a>());
     <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-fill-from-ps-88">fill_from_ps</a>(&amp;<span class="rs-kw">mut</span> sample);
     <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-fill-from-linux-proc-121">fill_from_linux_proc</a>(&amp;<span class="rs-kw">mut</span> sample);
     sample.<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#method-has-values-37">has_values</a>().then_some(sample)
@@ -555,14 +555,14 @@
 }
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-monotonic-s-83">monotonic_s</a>() -&gt; f64 {
-    <span class="rs-kw">static</span> <span class="rs-type">START</span>: <span class="rs-type">OnceLock</span>&lt;<span class="rs-type">Instant</span>&gt; = <span class="rs-type">OnceLock</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">static</span> <span class="rs-type">START</span>: <span class="rs-type">OnceLock</span>&lt;<span class="rs-type">Instant</span>&gt; = <span class="rs-type">OnceLock</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     <span class="rs-type">START</span>.get_or_init(<span class="rs-type">Instant</span>::now).elapsed().as_secs_f64()
 }
 
 #[cfg(unix)]
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-fill-from-ps-88">fill_from_ps</a>(sample: &amp;<span class="rs-kw">mut</span> <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>) {
     <span class="rs-kw">let</span> pid = std::process::<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-id-64">id</a>().to_string();
-    <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(output) = <span class="rs-type">Command</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(&quot;ps&quot;)
+    <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(output) = <span class="rs-type">Command</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(&quot;ps&quot;)
         .args([&quot;-o&quot;, &quot;rss=&quot;, &quot;-o&quot;, &quot;utime=&quot;, &quot;-o&quot;, &quot;stime=&quot;, &quot;-p&quot;])
         .arg(pid)
         .output()
@@ -674,7 +674,7 @@
 
     #[test]
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-ps-line-populates-rss-and-cpu-fields-201">ps_line_populates_rss_and_cpu_fields</a>() {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(7.0);
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(7.0);
 
         <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-apply-ps-line-111">apply_ps_line</a>(&amp;<span class="rs-kw">mut</span> sample, &quot;  1360   0:00.02   0:00.01&quot;);
 
@@ -686,7 +686,7 @@
 
     #[test]
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#item-fn-payload-omits-unavailable-values-213">payload_omits_unavailable_values</a>() {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(3.0);
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> sample = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-resource-sample-rs.html#item-struct-ProcessResourceSample-11">ProcessResourceSample</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(3.0);
         sample.rss_bytes = <span class="rs-type">Some</span>(4096);
 
         <span class="rs-kw">let</span> payload = sample.<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-resource-sample-rs.html#method-into-payload-47">into_payload</a>();

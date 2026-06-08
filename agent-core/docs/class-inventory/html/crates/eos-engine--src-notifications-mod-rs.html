@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -65,11 +65,11 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a></code>
   <p class="docstring">Queue-backed notification sink for tools and hooks.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Default</span><span>port/service</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>queue</td><td><code>Arc &lt; Mutex &lt; VecDeque &lt; ToolNotification &gt; &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-115"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> () -&gt; Self</code><p class="docstring">Create an empty service.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>queue</td><td><code>Arc &lt; Mutex &lt; VecDeque &lt; ToolNotification &gt; &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-115"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> () -&gt; Self</code><p class="docstring">Create an empty service.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Create an empty service.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>() -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>() -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>()
     }
 </code></pre>
@@ -141,12 +141,12 @@
 #[must_use]
 <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-notifications-mod-rs.html#item-fn-make-default-notification-rules-57">make_default_notification_rules</a>() -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-trait-NotificationRule-26">NotificationRule</a>&gt;&gt; {
     <span class="rs-kw">let</span> rules: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-trait-NotificationRule-26">NotificationRule</a>&gt;&gt; = vec![
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(&quot;75%&quot;, 3, 4)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(&quot;100%&quot;, 1, 1)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(&quot;125%&quot;, 5, 4)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-terminal-reminder-rs.html#item-struct-TerminalCallReminder-13">TerminalCallReminder</a>),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(&quot;75%&quot;, 3, 4)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(&quot;100%&quot;, 1, 1)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(&quot;125%&quot;, 5, 4)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-terminal-reminder-rs.html#item-struct-TerminalCallReminder-13">TerminalCallReminder</a>),
     ];
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen = std::collections::<span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen = std::collections::<span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     rules
         .into_iter()
         .filter(|rule| seen.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(rule.<a class="symbol-link rs-fn" href="eos-engine--src-notifications-mod-rs.html#method-name-29">name</a>()))
@@ -299,12 +299,12 @@
 #[must_use]
 <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-notifications-mod-rs.html#item-fn-make-default-notification-rules-57">make_default_notification_rules</a>() -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-trait-NotificationRule-26">NotificationRule</a>&gt;&gt; {
     <span class="rs-kw">let</span> rules: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-trait-NotificationRule-26">NotificationRule</a>&gt;&gt; = vec![
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(&quot;75%&quot;, 3, 4)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(&quot;100%&quot;, 1, 1)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(&quot;125%&quot;, 5, 4)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-terminal-reminder-rs.html#item-struct-TerminalCallReminder-13">TerminalCallReminder</a>),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(&quot;75%&quot;, 3, 4)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(&quot;100%&quot;, 1, 1)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-tool-budget-rs.html#item-struct-ToolCallBudget-11">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(&quot;125%&quot;, 5, 4)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rules-terminal-reminder-rs.html#item-struct-TerminalCallReminder-13">TerminalCallReminder</a>),
     ];
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen = std::collections::<span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen = std::collections::<span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     rules
         .into_iter()
         .filter(|rule| seen.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(rule.<a class="symbol-link rs-fn" href="eos-engine--src-notifications-mod-rs.html#method-name-29">name</a>()))
@@ -354,7 +354,7 @@
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a> {
     <span class="rs-comment">/// Create an empty service.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>() -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>() -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>()
     }
 

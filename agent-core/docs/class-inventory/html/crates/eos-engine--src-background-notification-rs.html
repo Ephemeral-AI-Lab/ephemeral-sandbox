@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -65,11 +65,11 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a></code>
   <p class="docstring">Centralized renderer + delivery adapter wrapping one agent run's notifier.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Default</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>notifications</td><td><code><a class="symbol-link" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-129"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> (notifications : <a class="symbol-link" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>) -&gt; Self</code><p class="docstring">Wrap the agent run's notification service.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>notifications</td><td><code><a class="symbol-link" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-129"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> (notifications : <a class="symbol-link" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>) -&gt; Self</code><p class="docstring">Wrap the agent run's notification service.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Wrap the agent run's notification service.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(notifications: <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(notifications: <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> { notifications }
     }
 </code></pre>
@@ -211,9 +211,9 @@
     <span class="rs-comment">/// notifier never sees it (instance isolation, §13.1).</span>
     #[tokio::test]
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-notification-rs.html#item-fn-emits-subagent-completion-into-its-own-notifier-159">emits_subagent_completion_into_its_own_notifier</a>() {
-        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
-        <span class="rs-kw">let</span> other = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
-        <span class="rs-kw">let</span> emitter = <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(notifier.clone());
+        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
+        <span class="rs-kw">let</span> other = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
+        <span class="rs-kw">let</span> emitter = <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(notifier.clone());
 
         emitter
             .<a class="symbol-link rs-fn" href="eos-engine--src-background-notification-rs.html#method-emit-141">emit</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-enum-BackgroundCompletion-19">BackgroundCompletion</a>::<span class="rs-type">Subagent</span> {
@@ -376,7 +376,7 @@
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a> {
     <span class="rs-comment">/// Wrap the agent run's notification service.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(notifications: <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(notifications: <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> { notifications }
     }
 
@@ -409,9 +409,9 @@
     <span class="rs-comment">/// notifier never sees it (instance isolation, §13.1).</span>
     #[tokio::test]
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-notification-rs.html#item-fn-emits-subagent-completion-into-its-own-notifier-159">emits_subagent_completion_into_its_own_notifier</a>() {
-        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
-        <span class="rs-kw">let</span> other = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
-        <span class="rs-kw">let</span> emitter = <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(notifier.clone());
+        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
+        <span class="rs-kw">let</span> other = <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
+        <span class="rs-kw">let</span> emitter = <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(notifier.clone());
 
         emitter
             .<a class="symbol-link rs-fn" href="eos-engine--src-background-notification-rs.html#method-emit-141">emit</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-enum-BackgroundCompletion-19">BackgroundCompletion</a>::<span class="rs-type">Subagent</span> {

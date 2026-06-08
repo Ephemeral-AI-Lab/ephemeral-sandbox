@@ -109,12 +109,27 @@ impl EventSource for ScriptedByAgentSource {
     }
 }
 
+/// Return the scripted agent route implied by the request's terminal tool set,
+/// constrained to routes the caller can serve.
+#[must_use]
+pub fn request_route_key_for(request: &LlmRequest, available_routes: &[&str]) -> String {
+    let candidates = request_route_candidates(request);
+    for &candidate in candidates {
+        if available_routes.contains(&candidate) {
+            return candidate.to_owned();
+        }
+    }
+    available_routes
+        .first()
+        .copied()
+        .unwrap_or("root")
+        .to_owned()
+}
+
 /// A factory that always returns the given scripted turns.
 #[must_use]
 pub fn factory_from(turns: Vec<Vec<StreamEvent>>) -> EventSourceFactory {
-    Arc::new(move |_request| {
-        Arc::new(ScriptedSource::new(turns.clone())) as Arc<dyn EventSource>
-    })
+    Arc::new(move |_request| Arc::new(ScriptedSource::new(turns.clone())) as Arc<dyn EventSource>)
 }
 
 /// A factory where the `root` agent plays `root_turns` then blocks (stays

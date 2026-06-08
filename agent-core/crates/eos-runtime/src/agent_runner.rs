@@ -28,8 +28,8 @@ use eos_tools::{AttemptSubmissionPort, AttemptSubmissionService};
 use eos_types::{AgentRunId, WorkflowApi};
 use eos_workflow::{AgentLaunch, AgentRunReport, AgentRunner, Result as WorkflowResult};
 
-use crate::runtime_services::RuntimeServices;
 use crate::runtime_services::build_agent_loop_launcher;
+use crate::runtime_services::RuntimeServices;
 
 /// Runtime adapter over the shared engine loop, supplied to `AttemptDeps.runner`.
 pub(crate) struct RuntimeAgentRunner {
@@ -83,7 +83,9 @@ impl AgentRunner for RuntimeAgentRunner {
 
         let (loop_launcher, agent_run_api_cell) = build_agent_loop_launcher(
             self.services.clone(),
-            Some(AttemptSubmissionService::new(self.attempt_submission.clone())),
+            Some(AttemptSubmissionService::new(
+                self.attempt_submission.clone(),
+            )),
             self.workflow_service.clone(),
         );
         let agent_runs = Arc::new(RunnerAgentRunService::new(

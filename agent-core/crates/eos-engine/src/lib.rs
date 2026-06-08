@@ -11,7 +11,10 @@ mod support;
 mod telemetry;
 pub mod tool_call;
 
-pub use agent_loop::{start_agent_loop, AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory, TokioAgentLoopLauncher};
+pub use agent_loop::{
+    start_agent_loop, AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory,
+    TokioAgentLoopLauncher,
+};
 pub use background::{
     BackgroundCompletion, BackgroundManagers, BackgroundNotificationEmitter,
     BackgroundSessionStatus, BackgroundTeardownService,

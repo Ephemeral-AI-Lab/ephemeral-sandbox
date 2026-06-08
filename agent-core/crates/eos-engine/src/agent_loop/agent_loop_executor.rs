@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use eos_agent_ports::{
-    AgentExecutionMetadataService, AgentLoopOutcome, ExecutionMetadataBuildInput,
-    StartAgentLoopRequest,
+    AgentExecutionMetadataService, AgentLoopCancelSignal, AgentLoopOutcome,
+    ExecutionMetadataBuildInput, StartAgentLoopRequest,
 };
 use eos_llm_client::{ContentBlock, LlmRequest, Message, UsageSnapshot};
 use eos_tool_ports::{RegisteredTool, ToolName, ToolResult};
@@ -25,6 +25,7 @@ pub(crate) struct AgentLoopExecutor {
     loop_hooks: Arc<dyn AgentLoopHooks>,
     tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
     metadata_service: Arc<dyn AgentExecutionMetadataService>,
+    cancel_signal: AgentLoopCancelSignal,
 }
 
 impl std::fmt::Debug for AgentLoopExecutor {
@@ -39,12 +40,14 @@ impl AgentLoopExecutor {
         loop_hooks: Arc<dyn AgentLoopHooks>,
         tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
         metadata_service: Arc<dyn AgentExecutionMetadataService>,
+        cancel_signal: AgentLoopCancelSignal,
     ) -> Self {
         Self {
             event_source,
             loop_hooks,
             tool_registry_factory,
             metadata_service,
+            cancel_signal,
         }
     }
 
@@ -72,6 +75,11 @@ impl AgentLoopExecutor {
         self.loop_hooks.on_start(&state).await;
 
         loop {
+            if let Some(reason) = self.cancel_signal.reason() {
+                let outcome = state.loop_failed_summary(format!("agent loop cancelled: {reason}"));
+                self.loop_hooks.on_complete(&outcome).await;
+                return outcome;
+            }
             if state.turn_limit_reached() {
                 let outcome = state.loop_failed_summary(
                     "agent loop exited without a terminal tool submission".to_owned(),
@@ -148,7 +156,9 @@ impl AgentLoopExecutor {
         };
         state
             .conversation_messages
-            .push(eos_agent_ports::AgentLoopMessage::UserMessage(result_message));
+            .push(eos_agent_ports::AgentLoopMessage::UserMessage(
+                result_message,
+            ));
 
         match dispatch.submission_outcome {
             Some(outcome) if outcome.is_terminal => {
@@ -178,7 +188,9 @@ impl AgentLoopExecutor {
                     rejections
                         .iter()
                         .find(|rejection| rejection.tool_use_id == call.tool_use_id.as_str())
-                        .map(|rejection| result_block(&call.tool_use_id, &rejection_result(&rejection.message)))
+                        .map(|rejection| {
+                            result_block(&call.tool_use_id, &rejection_result(&rejection.message))
+                        })
                 })
                 .collect();
             return Ok(LoopToolDispatchOutcome {

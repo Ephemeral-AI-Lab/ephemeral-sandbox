@@ -2707,14 +2707,14 @@
       "path": "crates/eos-agent-ports",
       "stats": {
         "modules": 11,
-        "items": 22,
-        "structs": 9,
+        "items": 27,
+        "structs": 11,
         "enums": 8,
         "traits": 3,
-        "functions": 0,
-        "impls": 2,
-        "fields": 65,
-        "methods": 11
+        "functions": 1,
+        "impls": 4,
+        "fields": 68,
+        "methods": 13
       },
       "modules": [
         {
@@ -2932,6 +2932,11 @@
                   "name": "outcome_receiver",
                   "visibility": "pub",
                   "ty": "oneshot :: Receiver < AgentLoopOutcome >"
+                },
+                {
+                  "name": "cancel_handle",
+                  "visibility": "pub",
+                  "ty": "AgentLoopCancelHandle"
                 }
               ],
               "variants": [],
@@ -2945,6 +2950,126 @@
               "file": "crates/eos-agent-ports/src/agent_loop/launcher.rs",
               "module": "agent_loop::launcher",
               "line": 13
+            },
+            {
+              "kind": "struct",
+              "name": "AgentLoopCancelHandle",
+              "visibility": "pub",
+              "signature": "pub struct AgentLoopCancelHandle",
+              "fields": [
+                {
+                  "name": "sender",
+                  "visibility": "private",
+                  "ty": "watch :: Sender < Option < String > >"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Cooperative cancellation handle for one agent loop.",
+              "tags": [
+                "derive: Clone",
+                "derive: Debug"
+              ],
+              "file": "crates/eos-agent-ports/src/agent_loop/launcher.rs",
+              "module": "agent_loop::launcher",
+              "line": 22
+            },
+            {
+              "kind": "impl",
+              "name": "impl AgentLoopCancelHandle",
+              "visibility": "private",
+              "signature": "impl AgentLoopCancelHandle",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "cancel",
+                  "signature": "pub fn cancel (& self , reason : impl Into < String >)",
+                  "kind": "method",
+                  "docs": "Request loop cancellation. The first reason wins.",
+                  "line": 29
+                }
+              ],
+              "impl_target": "AgentLoopCancelHandle",
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "impl"
+              ],
+              "file": "crates/eos-agent-ports/src/agent_loop/launcher.rs",
+              "module": "agent_loop::launcher",
+              "line": 28
+            },
+            {
+              "kind": "struct",
+              "name": "AgentLoopCancelSignal",
+              "visibility": "pub",
+              "signature": "pub struct AgentLoopCancelSignal",
+              "fields": [
+                {
+                  "name": "receiver",
+                  "visibility": "private",
+                  "ty": "watch :: Receiver < Option < String > >"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Loop-side cancellation signal.",
+              "tags": [
+                "derive: Clone",
+                "derive: Debug"
+              ],
+              "file": "crates/eos-agent-ports/src/agent_loop/launcher.rs",
+              "module": "agent_loop::launcher",
+              "line": 37
+            },
+            {
+              "kind": "impl",
+              "name": "impl AgentLoopCancelSignal",
+              "visibility": "private",
+              "signature": "impl AgentLoopCancelSignal",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "reason",
+                  "signature": "pub fn reason (& self) -> Option < String >",
+                  "kind": "method",
+                  "docs": "Current cancellation reason, if cancellation has been requested.",
+                  "line": 44
+                }
+              ],
+              "impl_target": "AgentLoopCancelSignal",
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "impl"
+              ],
+              "file": "crates/eos-agent-ports/src/agent_loop/launcher.rs",
+              "module": "agent_loop::launcher",
+              "line": 43
+            },
+            {
+              "kind": "fn",
+              "name": "agent_loop_cancel_pair",
+              "visibility": "pub",
+              "signature": "pub fn agent_loop_cancel_pair () -> (AgentLoopCancelHandle , AgentLoopCancelSignal)",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Build a cancel handle/signal pair for one loop.",
+              "tags": [
+                "must_use"
+              ],
+              "file": "crates/eos-agent-ports/src/agent_loop/launcher.rs",
+              "module": "agent_loop::launcher",
+              "line": 51
             }
           ]
         },
@@ -3761,14 +3886,14 @@
       "path": "crates/eos-agent-runner",
       "stats": {
         "modules": 6,
-        "items": 21,
-        "structs": 3,
+        "items": 26,
+        "structs": 4,
         "enums": 0,
         "traits": 0,
-        "functions": 13,
-        "impls": 5,
-        "fields": 6,
-        "methods": 14
+        "functions": 16,
+        "impls": 6,
+        "fields": 9,
+        "methods": 16
       },
       "modules": [
         {
@@ -3837,6 +3962,11 @@
                   "name": "outcome_tx",
                   "visibility": "private",
                   "ty": "watch :: Sender < Option < AgentRunOutcome > >"
+                },
+                {
+                  "name": "cancel_handle",
+                  "visibility": "private",
+                  "ty": "AgentLoopCancelHandle"
                 }
               ],
               "variants": [],
@@ -3864,35 +3994,35 @@
                   "signature": "pub fn new () -> Self",
                   "kind": "constructor",
                   "docs": "Create an empty registry.",
-                  "line": 28
+                  "line": 29
                 },
                 {
                   "name": "insert",
-                  "signature": "pub(crate) async fn insert (& self , agent_run_id : AgentRunId)",
+                  "signature": "pub(crate) async fn insert (& self , agent_run_id : AgentRunId , cancel_handle : AgentLoopCancelHandle ,)",
                   "kind": "method",
                   "docs": null,
-                  "line": 34
+                  "line": 35
                 },
                 {
-                  "name": "publish",
-                  "signature": "pub(crate) async fn publish (& self , agent_run_id : & AgentRunId , outcome : AgentRunOutcome)",
+                  "name": "take",
+                  "signature": "pub(crate) async fn take (& self , agent_run_id : & AgentRunId ,) -> Option < ActiveAgentRunCompletion >",
                   "kind": "method",
                   "docs": null,
-                  "line": 42
+                  "line": 47
                 },
                 {
                   "name": "current_outcome",
                   "signature": "pub(crate) async fn current_outcome (& self , agent_run_id : & AgentRunId ,) -> Option < AgentRunOutcome >",
                   "kind": "method",
                   "docs": null,
-                  "line": 49
+                  "line": 61
                 },
                 {
                   "name": "subscribe",
                   "signature": "pub(crate) async fn subscribe (& self , agent_run_id : & AgentRunId ,) -> Result < watch :: Receiver < Option < AgentRunOutcome > > , AgentRunError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 60
+                  "line": 72
                 }
               ],
               "impl_target": "ActiveAgentRuns",
@@ -3903,7 +4033,67 @@
               ],
               "file": "crates/eos-agent-runner/src/active_agent_runs.rs",
               "module": "active_agent_runs",
-              "line": 27
+              "line": 28
+            },
+            {
+              "kind": "struct",
+              "name": "ActiveAgentRunCompletion",
+              "visibility": "pub(crate)",
+              "signature": "pub(crate) struct ActiveAgentRunCompletion",
+              "fields": [
+                {
+                  "name": "outcome_tx",
+                  "visibility": "private",
+                  "ty": "watch :: Sender < Option < AgentRunOutcome > >"
+                },
+                {
+                  "name": "cancel_handle",
+                  "visibility": "private",
+                  "ty": "AgentLoopCancelHandle"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-agent-runner/src/active_agent_runs.rs",
+              "module": "active_agent_runs",
+              "line": 85
+            },
+            {
+              "kind": "impl",
+              "name": "impl ActiveAgentRunCompletion",
+              "visibility": "private",
+              "signature": "impl ActiveAgentRunCompletion",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "cancel",
+                  "signature": "pub(crate) fn cancel (& self , reason : & str)",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 91
+                },
+                {
+                  "name": "publish",
+                  "signature": "pub(crate) fn publish (self , outcome : AgentRunOutcome)",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 95
+                }
+              ],
+              "impl_target": "ActiveAgentRunCompletion",
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "impl"
+              ],
+              "file": "crates/eos-agent-runner/src/active_agent_runs.rs",
+              "module": "active_agent_runs",
+              "line": 90
             }
           ]
         },
@@ -3989,6 +4179,24 @@
             },
             {
               "kind": "fn",
+              "name": "finish_agent_run_cancelled",
+              "visibility": "pub(crate)",
+              "signature": "pub(crate) async fn finish_agent_run_cancelled (store : & dyn AgentRunStore , agent_run_id : & AgentRunId , reason : & str ,) -> Result < () , AgentRunError >",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "async"
+              ],
+              "file": "crates/eos-agent-runner/src/agent_run_persistence.rs",
+              "module": "agent_run_persistence",
+              "line": 52
+            },
+            {
+              "kind": "fn",
               "name": "completion_from_agent_run",
               "visibility": "pub(crate)",
               "signature": "pub(crate) fn completion_from_agent_run (agent_run_id : & AgentRunId , run : & AgentRun ,) -> Option < AgentRunOutcome >",
@@ -4001,7 +4209,7 @@
               "tags": [],
               "file": "crates/eos-agent-runner/src/agent_run_persistence.rs",
               "module": "agent_run_persistence",
-              "line": 52
+              "line": 65
             },
             {
               "kind": "fn",
@@ -4017,7 +4225,39 @@
               "tags": [],
               "file": "crates/eos-agent-runner/src/agent_run_persistence.rs",
               "module": "agent_run_persistence",
-              "line": 81
+              "line": 104
+            },
+            {
+              "kind": "fn",
+              "name": "cancelled_payload",
+              "visibility": "private",
+              "signature": "fn cancelled_payload (reason : & str) -> JsonObject",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-agent-runner/src/agent_run_persistence.rs",
+              "module": "agent_run_persistence",
+              "line": 113
+            },
+            {
+              "kind": "fn",
+              "name": "is_cancelled_payload",
+              "visibility": "private",
+              "signature": "fn is_cancelled_payload (payload : & JsonObject) -> bool",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-agent-runner/src/agent_run_persistence.rs",
+              "module": "agent_run_persistence",
+              "line": 120
             }
           ]
         },
@@ -4192,21 +4432,21 @@
                   "signature": "async fn wait_for_agent_outcome (& self , agent_run_id : & AgentRunId ,) -> Result < AgentRunOutcome , AgentRunError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 162
+                  "line": 164
                 },
                 {
                   "name": "poll_agent_run_outcome",
                   "signature": "async fn poll_agent_run_outcome (& self , agent_run_id : & AgentRunId ,) -> Result < Option < AgentRunOutcome > , AgentRunError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 180
+                  "line": 182
                 },
                 {
                   "name": "cancel_agent_run",
                   "signature": "async fn cancel_agent_run (& self , agent_run_id : & AgentRunId , reason : & str ,) -> Result < () , AgentRunError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 198
+                  "line": 200
                 }
               ],
               "impl_target": "AgentRunService",
@@ -4237,7 +4477,7 @@
               ],
               "file": "crates/eos-agent-runner/src/agent_run_service.rs",
               "module": "agent_run_service",
-              "line": 216
+              "line": 225
             },
             {
               "kind": "fn",
@@ -4253,7 +4493,7 @@
               "tags": [],
               "file": "crates/eos-agent-runner/src/agent_run_service.rs",
               "module": "agent_run_service",
-              "line": 247
+              "line": 257
             },
             {
               "kind": "fn",
@@ -4269,7 +4509,7 @@
               "tags": [],
               "file": "crates/eos-agent-runner/src/agent_run_service.rs",
               "module": "agent_run_service",
-              "line": 273
+              "line": 283
             },
             {
               "kind": "fn",
@@ -4285,7 +4525,7 @@
               "tags": [],
               "file": "crates/eos-agent-runner/src/agent_run_service.rs",
               "module": "agent_run_service",
-              "line": 286
+              "line": 296
             },
             {
               "kind": "fn",
@@ -4301,7 +4541,7 @@
               "tags": [],
               "file": "crates/eos-agent-runner/src/agent_run_service.rs",
               "module": "agent_run_service",
-              "line": 309
+              "line": 319
             }
           ]
         },
@@ -10836,7 +11076,7 @@
         "traits": 6,
         "functions": 153,
         "impls": 81,
-        "fields": 250,
+        "fields": 251,
         "methods": 227
       },
       "modules": [
@@ -10869,6 +11109,11 @@
                   "name": "metadata_service",
                   "visibility": "private",
                   "ty": "Arc < dyn AgentExecutionMetadataService >"
+                },
+                {
+                  "name": "cancel_signal",
+                  "visibility": "private",
+                  "ty": "AgentLoopCancelSignal"
                 }
               ],
               "variants": [],
@@ -10879,7 +11124,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/agent_loop/agent_loop_executor.rs",
               "module": "agent_loop::agent_loop_executor",
-              "line": 22
+              "line": 23
             },
             {
               "kind": "impl",
@@ -10894,7 +11139,7 @@
                   "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
                   "kind": "method",
                   "docs": null,
-                  "line": 31
+                  "line": 33
                 }
               ],
               "impl_target": "AgentLoopExecutor",
@@ -10906,7 +11151,7 @@
               ],
               "file": "crates/eos-engine/src/agent_loop/agent_loop_executor.rs",
               "module": "agent_loop::agent_loop_executor",
-              "line": 30
+              "line": 32
             },
             {
               "kind": "impl",
@@ -10918,38 +11163,38 @@
               "methods": [
                 {
                   "name": "new",
-                  "signature": "pub(crate) fn new (event_source : Arc < dyn EventSource > , loop_hooks : Arc < dyn AgentLoopHooks > , tool_registry_factory : Arc < dyn AgentLoopToolRegistryFactory > , metadata_service : Arc < dyn AgentExecutionMetadataService > ,) -> Self",
+                  "signature": "pub(crate) fn new (event_source : Arc < dyn EventSource > , loop_hooks : Arc < dyn AgentLoopHooks > , tool_registry_factory : Arc < dyn AgentLoopToolRegistryFactory > , metadata_service : Arc < dyn AgentExecutionMetadataService > , cancel_signal : AgentLoopCancelSignal ,) -> Self",
                   "kind": "constructor",
                   "docs": null,
-                  "line": 37
+                  "line": 39
                 },
                 {
                   "name": "execute_agent_loop",
                   "signature": "pub(crate) async fn execute_agent_loop (self , request : StartAgentLoopRequest ,) -> AgentLoopOutcome",
                   "kind": "method",
                   "docs": null,
-                  "line": 51
+                  "line": 55
                 },
                 {
                   "name": "execute_assistant_turn",
                   "signature": "async fn execute_assistant_turn (& self , state : & mut AgentLoopState ,) -> Result < AssistantTurnResult , EngineError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 104
+                  "line": 113
                 },
                 {
                   "name": "dispatch_tool_batch",
                   "signature": "async fn dispatch_tool_batch (& self , state : & AgentLoopState , calls : & [ToolUseRequest] ,) -> Result < LoopToolDispatchOutcome , EngineError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 161
+                  "line": 170
                 },
                 {
                   "name": "execute_registered_tool",
                   "signature": "async fn execute_registered_tool (& self , state : & AgentLoopState , call : & ToolUseRequest , tool : & RegisteredTool , conversation : Arc < [Message] > ,) -> Result < ToolResult , EngineError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 233
+                  "line": 242
                 }
               ],
               "impl_target": "AgentLoopExecutor",
@@ -10960,7 +11205,7 @@
               ],
               "file": "crates/eos-engine/src/agent_loop/agent_loop_executor.rs",
               "module": "agent_loop::agent_loop_executor",
-              "line": 36
+              "line": 38
             },
             {
               "kind": "enum",
@@ -10997,7 +11242,7 @@
               ],
               "file": "crates/eos-engine/src/agent_loop/agent_loop_executor.rs",
               "module": "agent_loop::agent_loop_executor",
-              "line": 256
+              "line": 265
             },
             {
               "kind": "struct",
@@ -11024,7 +11269,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/agent_loop/agent_loop_executor.rs",
               "module": "agent_loop::agent_loop_executor",
-              "line": 269
+              "line": 278
             },
             {
               "kind": "fn",
@@ -11040,7 +11285,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/agent_loop/agent_loop_executor.rs",
               "module": "agent_loop::agent_loop_executor",
-              "line": 274
+              "line": 283
             },
             {
               "kind": "fn",
@@ -11056,7 +11301,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/agent_loop/agent_loop_executor.rs",
               "module": "agent_loop::agent_loop_executor",
-              "line": 298
+              "line": 307
             },
             {
               "kind": "fn",
@@ -11072,7 +11317,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/agent_loop/agent_loop_executor.rs",
               "module": "agent_loop::agent_loop_executor",
-              "line": 317
+              "line": 326
             },
             {
               "kind": "fn",
@@ -11088,7 +11333,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/agent_loop/agent_loop_executor.rs",
               "module": "agent_loop::agent_loop_executor",
-              "line": 328
+              "line": 337
             },
             {
               "kind": "fn",
@@ -11104,7 +11349,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/agent_loop/agent_loop_executor.rs",
               "module": "agent_loop::agent_loop_executor",
-              "line": 338
+              "line": 347
             }
           ]
         },
@@ -11600,7 +11845,7 @@
               ],
               "file": "crates/eos-engine/src/agent_loop/launcher.rs",
               "module": "agent_loop::launcher",
-              "line": 111
+              "line": 116
             }
           ]
         },
@@ -25725,15 +25970,15 @@
       "name": "eos-runtime",
       "path": "crates/eos-runtime",
       "stats": {
-        "modules": 19,
-        "items": 87,
-        "structs": 23,
+        "modules": 20,
+        "items": 92,
+        "structs": 24,
         "enums": 1,
         "traits": 0,
-        "functions": 35,
-        "impls": 27,
-        "fields": 72,
-        "methods": 57
+        "functions": 36,
+        "impls": 30,
+        "fields": 75,
+        "methods": 62
       },
       "modules": [
         {
@@ -25966,7 +26211,7 @@
               ],
               "file": "crates/eos-runtime/src/entry.rs",
               "module": "entry",
-              "line": 32
+              "line": 33
             },
             {
               "kind": "fn",
@@ -25982,7 +26227,7 @@
               "tags": [],
               "file": "crates/eos-runtime/src/entry.rs",
               "module": "entry",
-              "line": 48
+              "line": 49
             },
             {
               "kind": "fn",
@@ -26000,7 +26245,7 @@
               ],
               "file": "crates/eos-runtime/src/entry.rs",
               "module": "entry",
-              "line": 59
+              "line": 60
             },
             {
               "kind": "fn",
@@ -26018,7 +26263,7 @@
               ],
               "file": "crates/eos-runtime/src/entry.rs",
               "module": "entry",
-              "line": 276
+              "line": 270
             }
           ]
         },
@@ -27589,6 +27834,158 @@
           ]
         },
         {
+          "path": "crates/eos-runtime/src/runtime_services/cancel_port.rs",
+          "module": "runtime_services::cancel_port",
+          "items": [
+            {
+              "kind": "struct",
+              "name": "RuntimeCancelPort",
+              "visibility": "pub(crate)",
+              "signature": "pub(crate) struct RuntimeCancelPort",
+              "fields": [
+                {
+                  "name": "task_store",
+                  "visibility": "private",
+                  "ty": "Arc < dyn TaskStore >"
+                },
+                {
+                  "name": "agent_run_store",
+                  "visibility": "private",
+                  "ty": "Arc < dyn AgentRunStore >"
+                },
+                {
+                  "name": "agent_run_api",
+                  "visibility": "private",
+                  "ty": "Arc < OnceLock < Arc < dyn AgentRunApi > > >"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Request-scoped cancellation port wired to the runner service.",
+              "tags": [
+                "derive: Clone",
+                "port/service"
+              ],
+              "file": "crates/eos-runtime/src/runtime_services/cancel_port.rs",
+              "module": "runtime_services::cancel_port",
+              "line": 11
+            },
+            {
+              "kind": "impl",
+              "name": "impl std :: fmt :: Debug for RuntimeCancelPort",
+              "visibility": "private",
+              "signature": "impl std :: fmt :: Debug for RuntimeCancelPort",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "fmt",
+                  "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 20
+                }
+              ],
+              "impl_target": "RuntimeCancelPort",
+              "trait_name": "std :: fmt :: Debug",
+              "docs": null,
+              "tags": [
+                "impl",
+                "trait-impl"
+              ],
+              "file": "crates/eos-runtime/src/runtime_services/cancel_port.rs",
+              "module": "runtime_services::cancel_port",
+              "line": 19
+            },
+            {
+              "kind": "impl",
+              "name": "impl RuntimeCancelPort",
+              "visibility": "private",
+              "signature": "impl RuntimeCancelPort",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "new",
+                  "signature": "pub(crate) fn new (task_store : Arc < dyn TaskStore > , agent_run_store : Arc < dyn AgentRunStore > , agent_run_api : Arc < OnceLock < Arc < dyn AgentRunApi > > > ,) -> Self",
+                  "kind": "constructor",
+                  "docs": null,
+                  "line": 27
+                },
+                {
+                  "name": "cancel_live_run_for_task",
+                  "signature": "async fn cancel_live_run_for_task (& self , task_id : & TaskId , reason : & str ,) -> Result < () , ToolError >",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 39
+                }
+              ],
+              "impl_target": "RuntimeCancelPort",
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "impl"
+              ],
+              "file": "crates/eos-runtime/src/runtime_services/cancel_port.rs",
+              "module": "runtime_services::cancel_port",
+              "line": 26
+            },
+            {
+              "kind": "impl",
+              "name": "impl CancelPort for RuntimeCancelPort",
+              "visibility": "private",
+              "signature": "impl CancelPort for RuntimeCancelPort",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "cancel_task",
+                  "signature": "async fn cancel_task (& self , task_id : & TaskId , reason : & str) -> Result < () , ToolError >",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 56
+                },
+                {
+                  "name": "cancel_agent_run",
+                  "signature": "async fn cancel_agent_run (& self , agent_run_id : & AgentRunId , reason : & str ,) -> Result < () , ToolError >",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 74
+                }
+              ],
+              "impl_target": "RuntimeCancelPort",
+              "trait_name": "CancelPort",
+              "docs": null,
+              "tags": [
+                "async_trait",
+                "impl",
+                "trait-impl"
+              ],
+              "file": "crates/eos-runtime/src/runtime_services/cancel_port.rs",
+              "module": "runtime_services::cancel_port",
+              "line": 54
+            },
+            {
+              "kind": "fn",
+              "name": "cancelled_terminal",
+              "visibility": "private",
+              "signature": "fn cancelled_terminal (reason : & str) -> JsonObject",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-runtime/src/runtime_services/cancel_port.rs",
+              "module": "runtime_services::cancel_port",
+              "line": 89
+            }
+          ]
+        },
+        {
           "path": "crates/eos-runtime/src/runtime_services/cancel_registry.rs",
           "module": "runtime_services::cancel_registry",
           "items": [
@@ -28018,7 +28415,7 @@
               ],
               "file": "crates/eos-runtime/src/runtime_services/mod.rs",
               "module": "runtime_services",
-              "line": 33
+              "line": 35
             },
             {
               "kind": "impl",
@@ -28033,28 +28430,28 @@
                   "signature": "pub fn builder () -> RuntimeServicesBuilder",
                   "kind": "associated-fn",
                   "docs": "Start building runtime services.",
-                  "line": 50
+                  "line": 52
                 },
                 {
                   "name": "state_reader",
                   "signature": "pub fn state_reader (& self) -> StateReader",
                   "kind": "method",
                   "docs": "Narrow read-side store handles for the backend composition root (spec\n§State Reader): the request, task, and agent-run stores only, exposed as\ntyped trait objects — never a `sqlx` pool or the agent-core table layout.",
-                  "line": 55
+                  "line": 57
                 },
                 {
                   "name": "message_records",
                   "signature": "pub fn message_records (& self) -> Option < AgentMessageRecords >",
                   "kind": "method",
                   "docs": "File-backed agent-node message record reader/writer, when configured.",
-                  "line": 67
+                  "line": 69
                 },
                 {
                   "name": "flush_audit",
                   "signature": "pub fn flush_audit (& self)",
                   "kind": "method",
                   "docs": "Flush and join the buffered audit writer thread, if any.",
-                  "line": 73
+                  "line": 75
                 }
               ],
               "impl_target": "RuntimeServices",
@@ -28065,7 +28462,7 @@
               ],
               "file": "crates/eos-runtime/src/runtime_services/mod.rs",
               "module": "runtime_services",
-              "line": 49
+              "line": 51
             }
           ]
         },
@@ -33637,11 +34034,11 @@
       "path": "crates/eos-testkit",
       "stats": {
         "modules": 6,
-        "items": 19,
+        "items": 20,
         "structs": 3,
         "enums": 0,
         "traits": 0,
-        "functions": 11,
+        "functions": 12,
         "impls": 5,
         "fields": 4,
         "methods": 7
@@ -33904,6 +34301,24 @@
             },
             {
               "kind": "fn",
+              "name": "request_route_key_for",
+              "visibility": "pub",
+              "signature": "pub fn request_route_key_for (request : & LlmRequest , available_routes : & [& str]) -> String",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Return the scripted agent route implied by the request's terminal tool set,\nconstrained to routes the caller can serve.",
+              "tags": [
+                "must_use"
+              ],
+              "file": "crates/eos-testkit/src/llm.rs",
+              "module": "llm",
+              "line": 112
+            },
+            {
+              "kind": "fn",
               "name": "factory_from",
               "visibility": "pub",
               "signature": "pub fn factory_from (turns : Vec < Vec < StreamEvent > >) -> EventSourceFactory",
@@ -33918,7 +34333,7 @@
               ],
               "file": "crates/eos-testkit/src/llm.rs",
               "module": "llm",
-              "line": 112
+              "line": 125
             },
             {
               "kind": "fn",
@@ -33936,7 +34351,7 @@
               ],
               "file": "crates/eos-testkit/src/llm.rs",
               "module": "llm",
-              "line": 120
+              "line": 133
             },
             {
               "kind": "fn",
@@ -33954,7 +34369,7 @@
               ],
               "file": "crates/eos-testkit/src/llm.rs",
               "module": "llm",
-              "line": 131
+              "line": 144
             },
             {
               "kind": "fn",
@@ -33970,7 +34385,7 @@
               "tags": [],
               "file": "crates/eos-testkit/src/llm.rs",
               "module": "llm",
-              "line": 146
+              "line": 159
             },
             {
               "kind": "fn",
@@ -33986,7 +34401,7 @@
               "tags": [],
               "file": "crates/eos-testkit/src/llm.rs",
               "module": "llm",
-              "line": 159
+              "line": 172
             },
             {
               "kind": "fn",
@@ -34004,7 +34419,7 @@
               ],
               "file": "crates/eos-testkit/src/llm.rs",
               "module": "llm",
-              "line": 182
+              "line": 195
             },
             {
               "kind": "fn",
@@ -34022,7 +34437,7 @@
               ],
               "file": "crates/eos-testkit/src/llm.rs",
               "module": "llm",
-              "line": 212
+              "line": 225
             }
           ]
         },

@@ -165,12 +165,6 @@ impl IsolatedNetwork {
         }
     }
 
-    /// Whether [`initialize`](Self::initialize) has installed the bridge + rules.
-    #[must_use]
-    pub const fn initialized(&self) -> bool {
-        self.initialized
-    }
-
     /// Install the bridge + MASQUERADE + IMDS drop (+ optional RFC1918 deny).
     /// Idempotent for table/chain creation; rule insertion mirrors Rust's
     /// sequential `nft add rule` calls.

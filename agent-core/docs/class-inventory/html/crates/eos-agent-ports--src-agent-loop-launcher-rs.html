@@ -23,9 +23,9 @@
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
   <div><b>11</b><span>modules</span></div>
-  <div><b>22</b><span>items</span></div>
-  <div><b>65</b><span>fields</span></div>
-  <div><b>11</b><span>methods</span></div>
+  <div><b>27</b><span>items</span></div>
+  <div><b>68</b><span>fields</span></div>
+  <div><b>13</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,8 +41,8 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><span class="folder">agent_loop</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-ports.html"><span>contracts.rs</span><small>4/0</small></a></li><li><a class="file-link active" href="eos-agent-ports--src-agent-loop-launcher-rs.html"><span>launcher.rs</span><small>2/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-agent-loop-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li></ul></li><li><a class="file-link" href="eos-agent-ports--src-agent-name-rs.html"><span>agent_name.rs</span><small>2/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-agent-run-api-rs.html"><span>agent_run_api.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-agent-run-outcome-rs.html"><span>agent_run_outcome.rs</span><small>2/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-agent-state-rs.html"><span>agent_state.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-error-rs.html"><span>error.rs</span><small>2/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-metadata-service-rs.html"><span>metadata_service.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-spawn-agent-request-rs.html"><span>spawn_agent_request.rs</span><small>3/0</small></a></li></ul></li></ul></nav>
-  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="agent_loop::launcher crates/eos-agent-ports/src/agent_loop/launcher.rs AgentLoopLauncher StartedAgentLoop">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><span class="folder">agent_loop</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-ports.html"><span>contracts.rs</span><small>4/0</small></a></li><li><a class="file-link active" href="eos-agent-ports--src-agent-loop-launcher-rs.html"><span>launcher.rs</span><small>4/1</small></a></li><li><a class="file-link" href="eos-agent-ports--src-agent-loop-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li></ul></li><li><a class="file-link" href="eos-agent-ports--src-agent-name-rs.html"><span>agent_name.rs</span><small>2/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-agent-run-api-rs.html"><span>agent_run_api.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-agent-run-outcome-rs.html"><span>agent_run_outcome.rs</span><small>2/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-agent-state-rs.html"><span>agent_state.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-error-rs.html"><span>error.rs</span><small>2/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-metadata-service-rs.html"><span>metadata_service.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-ports--src-spawn-agent-request-rs.html"><span>spawn_agent_request.rs</span><small>3/0</small></a></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="agent_loop::launcher crates/eos-agent-ports/src/agent_loop/launcher.rs AgentLoopLauncher StartedAgentLoop AgentLoopCancelHandle impl AgentLoopCancelHandle AgentLoopCancelSignal impl AgentLoopCancelSignal agent_loop_cancel_pair">
   <div class="module-head">
     <div>
       <h2>src/agent_loop/launcher.rs</h2>
@@ -50,13 +50,13 @@
     </div>
     <div class="module-stats">
       <span>file owns</span>
-      <span>2 types</span>
-      <span>0 impls</span>
-      <span>0 fns</span>
-      <span>1 methods</span>
+      <span>4 types</span>
+      <span>2 impls</span>
+      <span>1 fns</span>
+      <span>3 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-StartedAgentLoop-13" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct StartedAgentLoop pub pub struct StartedAgentLoop crates/eos-agent-ports/src/agent_loop/launcher.rs outcome_receiver oneshot :: Receiver &lt; AgentLoopOutcome &gt; ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-StartedAgentLoop-13" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct StartedAgentLoop pub pub struct StartedAgentLoop crates/eos-agent-ports/src/agent_loop/launcher.rs outcome_receiver oneshot :: Receiver &lt; AgentLoopOutcome &gt; cancel_handle AgentLoopCancelHandle ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>StartedAgentLoop</h3>
@@ -65,9 +65,50 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-StartedAgentLoop-13">StartedAgentLoop</a></code>
   <p class="docstring">Handle returned after an agent loop has been started.</p>
   <div class="tags"><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>outcome_receiver</td><td><code>oneshot :: Receiver &lt; <a class="symbol-link" href="eos-agent-ports.html#item-struct-AgentLoopOutcome-33">AgentLoopOutcome</a> &gt;</code></td></tr></tbody></table>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>outcome_receiver</td><td><code>oneshot :: Receiver &lt; <a class="symbol-link" href="eos-agent-ports.html#item-struct-AgentLoopOutcome-33">AgentLoopOutcome</a> &gt;</code></td></tr><tr><td>pub</td><td>cancel_handle</td><td><code><a class="symbol-link" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelHandle-22">AgentLoopCancelHandle</a></code></td></tr></tbody></table>
 
   <p class="source">crates/eos-agent-ports/src/agent_loop/launcher.rs:13</p>
+</article><article id="item-struct-AgentLoopCancelHandle-22" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AgentLoopCancelHandle pub pub struct AgentLoopCancelHandle crates/eos-agent-ports/src/agent_loop/launcher.rs sender watch :: Sender &lt; Option &lt; String &gt; &gt; ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>AgentLoopCancelHandle</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelHandle-22">AgentLoopCancelHandle</a></code>
+  <p class="docstring">Cooperative cancellation handle for one agent loop.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>sender</td><td><code>watch :: Sender &lt; Option &lt; String &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-cancel-29"><td>method</td><td>cancel</td><td><code>pub fn <a class="symbol-link" href="eos-agent-ports--src-agent-loop-launcher-rs.html#method-cancel-29">cancel</a> (&amp; self , reason : impl Into &lt; String &gt;)</code><p class="docstring">Request loop cancellation. The first reason wins.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Request loop cancellation. The first reason wins.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-ports--src-agent-loop-launcher-rs.html#method-cancel-29">cancel</a>(&amp;<span class="rs-self">self</span>, reason: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) {
+        <span class="rs-kw">if</span> <span class="rs-self">self</span>.sender.borrow().is_none() {
+            <span class="rs-kw">let</span> _ignored = <span class="rs-self">self</span>.sender.send(<span class="rs-type">Some</span>(reason.into()));
+        }
+    }
+</code></pre>
+</details></td></tr></tbody></table>
+
+  <p class="source">crates/eos-agent-ports/src/agent_loop/launcher.rs:22</p>
+</article><article id="item-struct-AgentLoopCancelSignal-37" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AgentLoopCancelSignal pub pub struct AgentLoopCancelSignal crates/eos-agent-ports/src/agent_loop/launcher.rs receiver watch :: Receiver &lt; Option &lt; String &gt; &gt; ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>AgentLoopCancelSignal</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-37">AgentLoopCancelSignal</a></code>
+  <p class="docstring">Loop-side cancellation signal.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>receiver</td><td><code>watch :: Receiver &lt; Option &lt; String &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-reason-44"><td>method</td><td>reason</td><td><code>pub fn <a class="symbol-link" href="eos-agent-ports--src-agent-loop-launcher-rs.html#method-reason-44">reason</a> (&amp; self) -&gt; Option &lt; String &gt;</code><p class="docstring">Current cancellation reason, if cancellation has been requested.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Current cancellation reason, if cancellation has been requested.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-ports--src-agent-loop-launcher-rs.html#method-reason-44">reason</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
+        <span class="rs-self">self</span>.receiver.borrow().clone()
+    }
+</code></pre>
+</details></td></tr></tbody></table>
+
+  <p class="source">crates/eos-agent-ports/src/agent_loop/launcher.rs:37</p>
 </article><article id="item-trait-AgentLoopLauncher-7" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait AgentLoopLauncher pub pub trait AgentLoopLauncher crates/eos-agent-ports/src/agent_loop/launcher.rs  start_agent_loop fn start_agent_loop (&amp; self , request : StartAgentLoopRequest) -&gt; StartedAgentLoop">
   <div class="item-head">
     <span class="kind">trait</span>
@@ -85,6 +126,30 @@
 </details></td></tr></tbody></table>
 
   <p class="source">crates/eos-agent-ports/src/agent_loop/launcher.rs:7</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-agent-loop-cancel-pair-51" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn agent_loop_cancel_pair pub pub fn agent_loop_cancel_pair () -&gt; (AgentLoopCancelHandle , AgentLoopCancelSignal) crates/eos-agent-ports/src/agent_loop/launcher.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>agent_loop_cancel_pair</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub fn <a class="symbol-link" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-fn-agent-loop-cancel-pair-51">agent_loop_cancel_pair</a> () -&gt; (<a class="symbol-link" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelHandle-22">AgentLoopCancelHandle</a> , <a class="symbol-link" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-37">AgentLoopCancelSignal</a>)</code>
+  <p class="docstring">Build a cancel handle/signal pair for one loop.</p>
+  <div class="tags"><span>must_use</span></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-comment">/// Build a cancel handle/signal pair for one loop.</span>
+#[must_use]
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-fn-agent-loop-cancel-pair-51">agent_loop_cancel_pair</a>() -&gt; (<a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelHandle-22">AgentLoopCancelHandle</a>, <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-37">AgentLoopCancelSignal</a>) {
+    <span class="rs-kw">let</span> (sender, receiver) = watch::channel(<span class="rs-type">None</span>);
+    (
+        <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelHandle-22">AgentLoopCancelHandle</a> { sender },
+        <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-37">AgentLoopCancelSignal</a> { receiver },
+    )
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-agent-ports/src/agent_loop/launcher.rs:51</p>
 </article></div>
 </section></div>
 </main>
@@ -95,7 +160,7 @@
   </div>
   <pre class="file-source"><code><span class="rs-comment">//! Agent-loop launcher contract.</span>
 
-<span class="rs-kw">use</span> tokio::sync::oneshot;
+<span class="rs-kw">use</span> tokio::sync::{oneshot, watch};
 
 <span class="rs-kw">use</span> <span class="rs-kw">super</span>::{<a class="symbol-link rs-type" href="eos-agent-ports.html#item-struct-AgentLoopOutcome-33">AgentLoopOutcome</a>, <a class="symbol-link rs-type" href="eos-agent-ports.html#item-struct-StartAgentLoopRequest-7">StartAgentLoopRequest</a>};
 
@@ -110,6 +175,47 @@
 <span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-StartedAgentLoop-13">StartedAgentLoop</a> {
     <span class="rs-comment">/// Receives the terminal loop outcome.</span>
     <span class="rs-kw">pub</span> outcome_receiver: oneshot::<span class="rs-type">Receiver</span>&lt;<a class="symbol-link rs-type" href="eos-agent-ports.html#item-struct-AgentLoopOutcome-33">AgentLoopOutcome</a>&gt;,
+    <span class="rs-comment">/// Cooperative cancellation handle for the running loop.</span>
+    <span class="rs-kw">pub</span> cancel_handle: <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelHandle-22">AgentLoopCancelHandle</a>,
+}
+
+<span class="rs-comment">/// Cooperative cancellation handle for one agent loop.</span>
+#[derive(<span class="rs-type">Clone</span>, <span class="rs-type">Debug</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelHandle-22">AgentLoopCancelHandle</a> {
+    sender: watch::<span class="rs-type">Sender</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;&gt;,
+}
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelHandle-22">AgentLoopCancelHandle</a> {
+    <span class="rs-comment">/// Request loop cancellation. The first reason wins.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-ports--src-agent-loop-launcher-rs.html#method-cancel-29">cancel</a>(&amp;<span class="rs-self">self</span>, reason: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) {
+        <span class="rs-kw">if</span> <span class="rs-self">self</span>.sender.borrow().is_none() {
+            <span class="rs-kw">let</span> _ignored = <span class="rs-self">self</span>.sender.send(<span class="rs-type">Some</span>(reason.into()));
+        }
+    }
+}
+
+<span class="rs-comment">/// Loop-side cancellation signal.</span>
+#[derive(<span class="rs-type">Clone</span>, <span class="rs-type">Debug</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-37">AgentLoopCancelSignal</a> {
+    receiver: watch::<span class="rs-type">Receiver</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;&gt;,
+}
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-37">AgentLoopCancelSignal</a> {
+    <span class="rs-comment">/// Current cancellation reason, if cancellation has been requested.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-ports--src-agent-loop-launcher-rs.html#method-reason-44">reason</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
+        <span class="rs-self">self</span>.receiver.borrow().clone()
+    }
+}
+
+<span class="rs-comment">/// Build a cancel handle/signal pair for one loop.</span>
+#[must_use]
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-fn-agent-loop-cancel-pair-51">agent_loop_cancel_pair</a>() -&gt; (<a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelHandle-22">AgentLoopCancelHandle</a>, <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-37">AgentLoopCancelSignal</a>) {
+    <span class="rs-kw">let</span> (sender, receiver) = watch::channel(<span class="rs-type">None</span>);
+    (
+        <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelHandle-22">AgentLoopCancelHandle</a> { sender },
+        <a class="symbol-link rs-type" href="eos-agent-ports--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-37">AgentLoopCancelSignal</a> { receiver },
+    )
 }
 </code></pre>
 </section>

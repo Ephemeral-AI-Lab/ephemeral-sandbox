@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use eos_agent_ports::{AgentRunError, AgentRunOutcome};
+use eos_agent_ports::{AgentLoopCancelHandle, AgentRunError, AgentRunOutcome};
 use eos_types::AgentRunId;
 use tokio::sync::{watch, Mutex};
 
@@ -22,6 +22,7 @@ impl std::fmt::Debug for ActiveAgentRuns {
 #[derive(Clone)]
 struct ActiveAgentRun {
     outcome_tx: watch::Sender<Option<AgentRunOutcome>>,
+    cancel_handle: AgentLoopCancelHandle,
 }
 
 impl ActiveAgentRuns {
@@ -31,19 +32,30 @@ impl ActiveAgentRuns {
         Self::default()
     }
 
-    pub(crate) async fn insert(&self, agent_run_id: AgentRunId) {
+    pub(crate) async fn insert(
+        &self,
+        agent_run_id: AgentRunId,
+        cancel_handle: AgentLoopCancelHandle,
+    ) {
         let (outcome_tx, _) = watch::channel(None);
+        self.inner.lock().await.insert(
+            agent_run_id,
+            ActiveAgentRun {
+                outcome_tx,
+                cancel_handle,
+            },
+        );
+    }
+
+    pub(crate) async fn take(&self, agent_run_id: &AgentRunId) -> Option<ActiveAgentRunCompletion> {
         self.inner
             .lock()
             .await
-            .insert(agent_run_id, ActiveAgentRun { outcome_tx });
-    }
-
-    pub(crate) async fn publish(&self, agent_run_id: &AgentRunId, outcome: AgentRunOutcome) {
-        let handle = self.inner.lock().await.remove(agent_run_id);
-        if let Some(handle) = handle {
-            let _ignored = handle.outcome_tx.send(Some(outcome));
-        }
+            .remove(agent_run_id)
+            .map(|handle| ActiveAgentRunCompletion {
+                outcome_tx: handle.outcome_tx,
+                cancel_handle: handle.cancel_handle,
+            })
     }
 
     pub(crate) async fn current_outcome(
@@ -67,5 +79,20 @@ impl ActiveAgentRuns {
             .get(agent_run_id)
             .map(|handle| handle.outcome_tx.subscribe())
             .ok_or_else(|| AgentRunError::NotActiveInProcess(agent_run_id.clone()))
+    }
+}
+
+pub(crate) struct ActiveAgentRunCompletion {
+    outcome_tx: watch::Sender<Option<AgentRunOutcome>>,
+    cancel_handle: AgentLoopCancelHandle,
+}
+
+impl ActiveAgentRunCompletion {
+    pub(crate) fn cancel(&self, reason: &str) {
+        self.cancel_handle.cancel(reason.to_owned());
+    }
+
+    pub(crate) fn publish(self, outcome: AgentRunOutcome) {
+        let _ignored = self.outcome_tx.send(Some(outcome));
     }
 }

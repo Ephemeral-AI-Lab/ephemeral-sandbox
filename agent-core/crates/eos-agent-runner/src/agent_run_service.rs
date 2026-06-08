@@ -15,8 +15,8 @@ use tokio::sync::oneshot;
 use crate::active_agent_runs::ActiveAgentRuns;
 use crate::agent_loop_request::build_start_agent_loop_request;
 use crate::agent_run_persistence::{
-    completion_from_agent_run, create_agent_run_if_requested, finish_agent_run_if_requested,
-    tool_result_payload,
+    completion_from_agent_run, create_agent_run_if_requested, finish_agent_run_cancelled,
+    finish_agent_run_if_requested, tool_result_payload,
 };
 
 /// Agent-run lifecycle service.
@@ -130,7 +130,10 @@ impl AgentRunApi for AgentRunService {
         }
 
         let agent_def = (**agent_def).clone();
-        let agent_run_id = request.agent_run_id.clone().unwrap_or_else(AgentRunId::new_v4);
+        let agent_run_id = request
+            .agent_run_id
+            .clone()
+            .unwrap_or_else(AgentRunId::new_v4);
         let persistence_requested = create_agent_run_if_requested(
             &*self.agent_run_store,
             request.persist,
@@ -143,7 +146,9 @@ impl AgentRunApi for AgentRunService {
             build_start_agent_loop_request(&agent_def, request, agent_run_id.clone());
         let started = self.agent_loop_launcher.start_agent_loop(start_request);
 
-        self.active_agent_runs.insert(agent_run_id.clone()).await;
+        self.active_agent_runs
+            .insert(agent_run_id.clone(), started.cancel_handle)
+            .await;
         let service = self.clone();
         let forward_agent_run_id = agent_run_id.clone();
         tokio::spawn(async move {
@@ -200,6 +205,11 @@ impl AgentRunApi for AgentRunService {
         agent_run_id: &AgentRunId,
         reason: &str,
     ) -> Result<(), AgentRunError> {
+        let completion = self.active_agent_runs.take(agent_run_id).await;
+        if let Some(completion) = &completion {
+            completion.cancel(reason);
+        }
+        finish_agent_run_cancelled(&*self.agent_run_store, agent_run_id, reason).await?;
         let outcome = AgentRunOutcome {
             agent_run_id: agent_run_id.clone(),
             status: AgentRunStatus::Cancelled,
@@ -208,7 +218,9 @@ impl AgentRunApi for AgentRunService {
             token_count: None,
             error: Some(reason.to_owned()),
         };
-        self.active_agent_runs.publish(agent_run_id, outcome).await;
+        if let Some(completion) = completion {
+            completion.publish(outcome);
+        }
         Ok(())
     }
 }
@@ -219,7 +231,11 @@ async fn forward_agent_loop_outcome(
     persistence_requested: bool,
     outcome_receiver: oneshot::Receiver<AgentLoopOutcome>,
 ) {
-    let outcome = match outcome_receiver.await {
+    let received = outcome_receiver.await;
+    let Some(completion) = service.active_agent_runs.take(&agent_run_id).await else {
+        return;
+    };
+    let outcome = match received {
         Ok(outcome) => {
             service
                 .finalize_agent_run_from_agent_loop_outcome(
@@ -238,10 +254,7 @@ async fn forward_agent_loop_outcome(
                 .await
         }
     };
-    service
-        .active_agent_runs
-        .publish(&agent_run_id, outcome)
-        .await;
+    completion.publish(outcome);
 }
 
 fn agent_run_outcome_from_loop(
@@ -251,7 +264,9 @@ fn agent_run_outcome_from_loop(
     let message_history = loop_messages_to_llm_messages(outcome.final_conversation_messages);
     let total_token_count = outcome.total_token_count;
     match outcome.kind {
-        AgentLoopOutcomeKind::TerminalToolSubmitted { outcome: tool_result } => AgentRunOutcome {
+        AgentLoopOutcomeKind::TerminalToolSubmitted {
+            outcome: tool_result,
+        } => AgentRunOutcome {
             agent_run_id,
             status: AgentRunStatus::Completed,
             submission_payload: Some(tool_result_payload(&tool_result)),
@@ -270,9 +285,7 @@ fn agent_run_outcome_from_loop(
     }
 }
 
-fn loop_messages_to_llm_messages(
-    messages: Vec<eos_agent_ports::AgentLoopMessage>,
-) -> Vec<Message> {
+fn loop_messages_to_llm_messages(messages: Vec<eos_agent_ports::AgentLoopMessage>) -> Vec<Message> {
     messages
         .into_iter()
         .filter_map(|message| match message {

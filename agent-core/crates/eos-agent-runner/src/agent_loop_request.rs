@@ -26,13 +26,20 @@ fn initial_loop_messages(
     initial_messages: Vec<Message>,
 ) -> Vec<AgentLoopMessage> {
     let mut messages = Vec::with_capacity(initial_messages.len().saturating_add(1));
-    if let Some(system_prompt) = agent.system_prompt.as_ref().filter(|text| !text.trim().is_empty())
+    if let Some(system_prompt) = agent
+        .system_prompt
+        .as_ref()
+        .filter(|text| !text.trim().is_empty())
     {
         messages.push(AgentLoopMessage::SystemPrompt(system_prompt.clone()));
     }
-    messages.extend(initial_messages.into_iter().map(|message| match message.role {
-        MessageRole::User => AgentLoopMessage::UserMessage(message),
-        MessageRole::Assistant => AgentLoopMessage::AssistantMessage(message),
-    }));
+    messages.extend(
+        initial_messages
+            .into_iter()
+            .map(|message| match message.role {
+                MessageRole::User => AgentLoopMessage::UserMessage(message),
+                MessageRole::Assistant => AgentLoopMessage::AssistantMessage(message),
+            }),
+    );
     messages
 }

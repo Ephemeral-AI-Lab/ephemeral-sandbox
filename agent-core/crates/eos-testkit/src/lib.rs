@@ -28,8 +28,8 @@ mod sandbox;
 pub use agents::{agent_def, test_tools_root};
 pub use engine::run_until;
 pub use llm::{
-    factory_by_agent, factory_from, factory_root_blocks_after, text_turn, tool_use_turn,
-    ScriptedSource,
+    factory_by_agent, factory_from, factory_root_blocks_after, request_route_key_for, text_turn,
+    tool_use_turn, ScriptedByAgentSource, ScriptedSource,
 };
 pub use meta::metadata;
 pub use sandbox::FakeTransport;

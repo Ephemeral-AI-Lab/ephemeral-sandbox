@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -70,7 +70,7 @@
   <pre><code>    <span class="rs-comment">/// Build a fresh foreground executor for one agent run.</span>
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-create-31">create</a>(&amp;<span class="rs-self">self</span>, agent_run_id: <span class="rs-type">AgentRunId</span>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a> {
-        <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(agent_run_id)
+        <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(agent_run_id)
     }
 </code></pre>
 </details></td></tr></tbody></table>
@@ -109,13 +109,13 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a></code>
   <p class="docstring">Per-agent-run registry of foreground cancelable effects.</p>
   <div class="tags"></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>resources</td><td><code>Mutex &lt; HashMap &lt; <a class="symbol-link" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundResourceId-38">ForegroundResourceId</a> , std :: sync :: Arc &lt; dyn CancelableResource &gt; &gt; &gt;</code></td></tr><tr><td>private</td><td>inline_agent_runs</td><td><code>Mutex &lt; HashMap &lt; AgentRunId , <a class="symbol-link" href="eos-engine--src-runtime-foreground-rs.html#item-struct-InlineAgentRunHandle-42">InlineAgentRunHandle</a> &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-65"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> (agent_run_id : AgentRunId) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>resources</td><td><code>Mutex &lt; HashMap &lt; <a class="symbol-link" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundResourceId-38">ForegroundResourceId</a> , std :: sync :: Arc &lt; dyn CancelableResource &gt; &gt; &gt;</code></td></tr><tr><td>private</td><td>inline_agent_runs</td><td><code>Mutex &lt; HashMap &lt; AgentRunId , <a class="symbol-link" href="eos-engine--src-runtime-foreground-rs.html#item-struct-InlineAgentRunHandle-42">InlineAgentRunHandle</a> &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-65"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> (agent_run_id : AgentRunId) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(agent_run_id: <span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(agent_run_id: <span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             agent_run_id,
-            resources: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>()),
-            inline_agent_runs: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>()),
+            resources: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>()),
+            inline_agent_runs: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>()),
         }
     }
 </code></pre>
@@ -198,9 +198,9 @@
         <span class="rs-type">Ok</span>(())
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a></code></summary><table><tbody><tr id="method-fmt-57"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-31">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a></code></summary><table><tbody><tr id="method-fmt-57"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-33">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a>&quot;)
             .field(&quot;agent_run_id&quot;, &amp;<span class="rs-self">self</span>.agent_run_id)
             .finish_non_exhaustive()
@@ -279,7 +279,7 @@
         <span class="rs-kw">let</span> executor = <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutorFactory-23">ForegroundExecutorFactory</a>.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-create-31">create</a>(&quot;owner-run&quot;.parse().expect(&quot;agent run id&quot;));
         <span class="rs-kw">let</span> advisor_run: <span class="rs-type">AgentRunId</span> = &quot;advisor-run&quot;.parse().expect(&quot;agent run id&quot;);
         executor.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-register-inline-agent-run-90">register_inline_agent_run</a>(advisor_run.clone());
-        <span class="rs-kw">let</span> resource = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-RecordingResource-184">RecordingResource</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>());
+        <span class="rs-kw">let</span> resource = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-RecordingResource-184">RecordingResource</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>());
         executor.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-register-resource-73">register_resource</a>(<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundResourceId-38">ForegroundResourceId</a>(&quot;advisor&quot;.to_owned()), resource.clone());
 
         <span class="rs-kw">let</span> cancel_port = <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-RecordingCancelPort-154">RecordingCancelPort</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>();
@@ -354,7 +354,7 @@
     <span class="rs-comment">/// Build a fresh foreground executor for one agent run.</span>
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-create-31">create</a>(&amp;<span class="rs-self">self</span>, agent_run_id: <span class="rs-type">AgentRunId</span>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a> {
-        <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(agent_run_id)
+        <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(agent_run_id)
     }
 }
 
@@ -377,7 +377,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a>&quot;)
             .field(&quot;agent_run_id&quot;, &amp;<span class="rs-self">self</span>.agent_run_id)
             .finish_non_exhaustive()
@@ -385,11 +385,11 @@
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutor-49">ForegroundExecutor</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(agent_run_id: <span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(agent_run_id: <span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             agent_run_id,
-            resources: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>()),
-            inline_agent_runs: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>()),
+            resources: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>()),
+            inline_agent_runs: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>()),
         }
     }
 
@@ -526,7 +526,7 @@
         <span class="rs-kw">let</span> executor = <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutorFactory-23">ForegroundExecutorFactory</a>.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-create-31">create</a>(&quot;owner-run&quot;.parse().expect(&quot;agent run id&quot;));
         <span class="rs-kw">let</span> advisor_run: <span class="rs-type">AgentRunId</span> = &quot;advisor-run&quot;.parse().expect(&quot;agent run id&quot;);
         executor.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-register-inline-agent-run-90">register_inline_agent_run</a>(advisor_run.clone());
-        <span class="rs-kw">let</span> resource = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-RecordingResource-184">RecordingResource</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>());
+        <span class="rs-kw">let</span> resource = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-RecordingResource-184">RecordingResource</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>());
         executor.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-register-resource-73">register_resource</a>(<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundResourceId-38">ForegroundResourceId</a>(&quot;advisor&quot;.to_owned()), resource.clone());
 
         <span class="rs-kw">let</span> cancel_port = <a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-RecordingCancelPort-154">RecordingCancelPort</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>();

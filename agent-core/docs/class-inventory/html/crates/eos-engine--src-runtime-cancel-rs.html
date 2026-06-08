@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -65,20 +65,20 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-runtime-cancel-rs.html#item-struct-EngineCancelPort-29">EngineCancelPort</a></code>
   <p class="docstring">Request-scoped implementation of the recursive cancellation primitives.</p>
   <div class="tags"><span>derive: Clone</span><span>port/service</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>registry</td><td><code><a class="symbol-link" href="eos-engine--src-runtime-registry-rs.html#item-struct-AgentRunRegistry-23">AgentRunRegistry</a></code></td></tr><tr><td>private</td><td>task_store</td><td><code>Arc &lt; dyn TaskStore &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-43"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> (registry : <a class="symbol-link" href="eos-engine--src-runtime-registry-rs.html#item-struct-AgentRunRegistry-23">AgentRunRegistry</a> , task_store : Arc &lt; dyn TaskStore &gt;) -&gt; Self</code><p class="docstring">Wire the port with the live-run registry and task store.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>registry</td><td><code><a class="symbol-link" href="eos-engine--src-runtime-registry-rs.html#item-struct-AgentRunRegistry-23">AgentRunRegistry</a></code></td></tr><tr><td>private</td><td>task_store</td><td><code>Arc &lt; dyn TaskStore &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-43"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> (registry : <a class="symbol-link" href="eos-engine--src-runtime-registry-rs.html#item-struct-AgentRunRegistry-23">AgentRunRegistry</a> , task_store : Arc &lt; dyn TaskStore &gt;) -&gt; Self</code><p class="docstring">Wire the port with the live-run registry and task store.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Wire the port with the live-run registry and task store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(registry: <a class="symbol-link rs-type" href="eos-engine--src-runtime-registry-rs.html#item-struct-AgentRunRegistry-23">AgentRunRegistry</a>, task_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(registry: <a class="symbol-link rs-type" href="eos-engine--src-runtime-registry-rs.html#item-struct-AgentRunRegistry-23">AgentRunRegistry</a>, task_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             registry,
             task_store,
         }
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-runtime-cancel-rs.html#item-struct-EngineCancelPort-29">EngineCancelPort</a></code></summary><table><tbody><tr id="method-fmt-37"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-31">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-runtime-cancel-rs.html#item-struct-EngineCancelPort-29">EngineCancelPort</a></code></summary><table><tbody><tr id="method-fmt-37"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-33">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-runtime-cancel-rs.html#item-struct-EngineCancelPort-29">EngineCancelPort</a>&quot;).finish_non_exhaustive()
     }
 </code></pre>
@@ -161,7 +161,7 @@
   <summary>code</summary>
   <pre><code><span class="rs-comment">/// The cancelled task terminal payload (spec §14): `{ fail_reason, reason }`.</span>
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-runtime-cancel-rs.html#item-fn-cancelled-terminal-53">cancelled_terminal</a>(reason: &amp;str) -&gt; <span class="rs-type">JsonObject</span> {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> terminal = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> terminal = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;fail_reason&quot;.to_owned(), &quot;cancelled&quot;.into());
     terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;reason&quot;.to_owned(), reason.into());
     terminal
@@ -214,7 +214,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-runtime-cancel-rs.html#item-struct-EngineCancelPort-29">EngineCancelPort</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-runtime-cancel-rs.html#item-struct-EngineCancelPort-29">EngineCancelPort</a>&quot;).finish_non_exhaustive()
     }
 }
@@ -222,7 +222,7 @@
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-runtime-cancel-rs.html#item-struct-EngineCancelPort-29">EngineCancelPort</a> {
     <span class="rs-comment">/// Wire the port with the live-run registry and task store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(registry: <a class="symbol-link rs-type" href="eos-engine--src-runtime-registry-rs.html#item-struct-AgentRunRegistry-23">AgentRunRegistry</a>, task_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(registry: <a class="symbol-link rs-type" href="eos-engine--src-runtime-registry-rs.html#item-struct-AgentRunRegistry-23">AgentRunRegistry</a>, task_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             registry,
             task_store,
@@ -232,7 +232,7 @@
 
 <span class="rs-comment">/// The cancelled task terminal payload (spec §14): `{ fail_reason, reason }`.</span>
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-runtime-cancel-rs.html#item-fn-cancelled-terminal-53">cancelled_terminal</a>(reason: &amp;str) -&gt; <span class="rs-type">JsonObject</span> {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> terminal = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> terminal = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;fail_reason&quot;.to_owned(), &quot;cancelled&quot;.into());
     terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;reason&quot;.to_owned(), reason.into());
     terminal

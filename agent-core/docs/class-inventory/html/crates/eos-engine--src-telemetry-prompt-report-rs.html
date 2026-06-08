@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -65,11 +65,11 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportRecorder-18">PromptReportRecorder</a></code>
   <p class="docstring">File-backed prompt-report recorder.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>path</td><td><code>PathBuf</code></td></tr><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>agent</td><td><code>String</code></td></tr><tr><td>private</td><td>model</td><td><code>String</code></td></tr><tr><td>private</td><td>state</td><td><code>Arc &lt; Mutex &lt; <a class="symbol-link" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportState-13">PromptReportState</a> &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-66"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> (path : impl Into &lt; PathBuf &gt; , agent_run_id : AgentRunId , agent : impl Into &lt; String &gt; , model : impl Into &lt; String &gt; ,) -&gt; Self</code><p class="docstring">Create a recorder writing append-only JSONL at `path`.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>path</td><td><code>PathBuf</code></td></tr><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>agent</td><td><code>String</code></td></tr><tr><td>private</td><td>model</td><td><code>String</code></td></tr><tr><td>private</td><td>state</td><td><code>Arc &lt; Mutex &lt; <a class="symbol-link" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportState-13">PromptReportState</a> &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-66"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> (path : impl Into &lt; PathBuf &gt; , agent_run_id : AgentRunId , agent : impl Into &lt; String &gt; , model : impl Into &lt; String &gt; ,) -&gt; Self</code><p class="docstring">Create a recorder writing append-only JSONL at `path`.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Create a recorder writing append-only JSONL at `path`.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         path: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">PathBuf</span>&gt;,
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         agent: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;,
@@ -80,7 +80,7 @@
             agent_run_id,
             agent: agent.into(),
             model: model.into(),
-            state: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportState-13">PromptReportState</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>())),
+            state: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportState-13">PromptReportState</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>())),
         }
     }
 </code></pre>
@@ -119,7 +119,7 @@
         <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(parent) = <span class="rs-self">self</span>.path.parent() {
             tokio::fs::create_dir_all(parent).<span class="rs-kw">await</span>?;
         }
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>()
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>()
             .<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-create-31">create</a>(<span class="rs-kw">true</span>)
             .append(<span class="rs-kw">true</span>)
             .open(&amp;<span class="rs-self">self</span>.path)
@@ -268,7 +268,7 @@
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-prompt-report-rs.html#item-fn-prompt-report-matches-golden-191">prompt_report_matches_golden</a>() {
         <span class="rs-kw">let</span> dir = tempfile::tempdir().expect(&quot;temp dir&quot;);
         <span class="rs-kw">let</span> path = dir.<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-prompt-report-rs.html#method-path-83">path</a>().join(&quot;prompt.jsonl&quot;);
-        <span class="rs-kw">let</span> recorder = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportRecorder-18">PromptReportRecorder</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <span class="rs-kw">let</span> recorder = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportRecorder-18">PromptReportRecorder</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             &amp;path,
             &quot;run-1&quot;.parse().expect(&quot;valid run id&quot;),
             &quot;root&quot;,
@@ -276,7 +276,7 @@
         );
         <span class="rs-kw">let</span> seq = recorder.<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-prompt-report-rs.html#method-next-seq-89">next_seq</a>().<span class="rs-kw">await</span>;
         <span class="rs-kw">let</span> messages = vec![<span class="rs-type">Message</span>::from_user_text(&quot;hello&quot;)];
-        <span class="rs-kw">let</span> tools = vec![<span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <span class="rs-kw">let</span> tools = vec![<span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             &quot;read_file&quot;,
             &quot;read&quot;,
             json!({&quot;<span class="rs-kw">type</span>&quot;:&quot;object&quot;})
@@ -440,7 +440,7 @@
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportRecorder-18">PromptReportRecorder</a> {
     <span class="rs-comment">/// Create a recorder writing append-only JSONL at `path`.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         path: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">PathBuf</span>&gt;,
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         agent: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;,
@@ -451,7 +451,7 @@
             agent_run_id,
             agent: agent.into(),
             model: model.into(),
-            state: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportState-13">PromptReportState</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>())),
+            state: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportState-13">PromptReportState</a>::<a class="symbol-link rs-fn" href="eos-engine--src-runtime-control-rs.html#method-default-39">default</a>())),
         }
     }
 
@@ -482,7 +482,7 @@
         <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(parent) = <span class="rs-self">self</span>.path.parent() {
             tokio::fs::create_dir_all(parent).<span class="rs-kw">await</span>?;
         }
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>()
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>()
             .<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-create-31">create</a>(<span class="rs-kw">true</span>)
             .append(<span class="rs-kw">true</span>)
             .open(&amp;<span class="rs-self">self</span>.path)
@@ -567,7 +567,7 @@
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-prompt-report-rs.html#item-fn-prompt-report-matches-golden-191">prompt_report_matches_golden</a>() {
         <span class="rs-kw">let</span> dir = tempfile::tempdir().expect(&quot;temp dir&quot;);
         <span class="rs-kw">let</span> path = dir.<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-prompt-report-rs.html#method-path-83">path</a>().join(&quot;prompt.jsonl&quot;);
-        <span class="rs-kw">let</span> recorder = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportRecorder-18">PromptReportRecorder</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <span class="rs-kw">let</span> recorder = <a class="symbol-link rs-type" href="eos-engine--src-telemetry-prompt-report-rs.html#item-struct-PromptReportRecorder-18">PromptReportRecorder</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             &amp;path,
             &quot;run-1&quot;.parse().expect(&quot;valid run id&quot;),
             &quot;root&quot;,
@@ -575,7 +575,7 @@
         );
         <span class="rs-kw">let</span> seq = recorder.<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-prompt-report-rs.html#method-next-seq-89">next_seq</a>().<span class="rs-kw">await</span>;
         <span class="rs-kw">let</span> messages = vec![<span class="rs-type">Message</span>::from_user_text(&quot;hello&quot;)];
-        <span class="rs-kw">let</span> tools = vec![<span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <span class="rs-kw">let</span> tools = vec![<span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             &quot;read_file&quot;,
             &quot;read&quot;,
             json!({&quot;<span class="rs-kw">type</span>&quot;:&quot;object&quot;})

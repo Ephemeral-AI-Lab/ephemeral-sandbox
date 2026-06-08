@@ -182,7 +182,6 @@ fn run_plugin_overlay_once(
                 },
                 dirs: dirs.clone(),
             },
-            command_started_at: None,
         },
     )
     .map_err(ephemeral_daemon_error)?;

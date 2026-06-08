@@ -150,7 +150,7 @@ impl WorkspaceRunManager {
         let prepared = match prepare_ephemeral_command(context, snapshot, prepare_request) {
             Ok(prepared) => prepared,
             Err(error) => {
-                self.release_lease(&root, &lease_id);
+                release_lease(&root, &lease_id);
                 return Err(error.into());
             }
         };
@@ -159,7 +159,7 @@ impl WorkspaceRunManager {
             Ok(session) => session,
             Err(error) => {
                 discard_ephemeral_command(&workspace.dirs);
-                self.release_lease(&root, &lease_id);
+                release_lease(&root, &lease_id);
                 return Err(error);
             }
         };
@@ -478,10 +478,6 @@ impl WorkspaceRunManager {
             });
         }
         response
-    }
-
-    fn release_lease(&self, root: &Path, lease_id: &str) {
-        let _ = LayerStack::open(root.to_path_buf()).and_then(|mut stack| stack.release_lease(lease_id));
     }
 }
 

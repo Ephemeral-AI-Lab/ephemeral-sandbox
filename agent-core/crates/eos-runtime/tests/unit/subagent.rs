@@ -21,7 +21,10 @@ mod subagent_lifecycle {
     use crate::entry::root_task_id_for;
     use crate::runtime_services::support::build_test_state;
     use crate::runtime_services::EventSourceFactory;
-    use eos_testkit::{agent_def, text_turn, tool_use_turn, ScriptedSource};
+    use eos_testkit::{
+        agent_def, request_route_key_for, text_turn, tool_use_turn, ScriptedByAgentSource,
+        ScriptedSource,
+    };
 
     fn stream_of(events: Vec<StreamEvent>) -> EngineStream {
         Box::pin(futures::stream::iter(events.into_iter().map(Ok)))
@@ -87,17 +90,13 @@ mod subagent_lifecycle {
             tool_use_turn("toolu_root", "submit_root_outcome", payload.clone()),
         ];
         let advisor_turns = vec![approve_turn()];
-        let factory: EventSourceFactory = Arc::new(move |def: &AgentDefinition| {
-            match def.name.as_str() {
-                // The explorer never finishes without cancellation.
-                "explorer" => {
-                    Arc::new(ScriptedSource::new_blocking(Vec::new())) as Arc<dyn EventSource>
-                }
-                "advisor" => {
-                    Arc::new(ScriptedSource::new(advisor_turns.clone())) as Arc<dyn EventSource>
-                }
-                _ => Arc::new(ScriptedSource::new(root_turns.clone())) as Arc<dyn EventSource>,
-            }
+        let factory: EventSourceFactory = Arc::new(move |_request| {
+            let scripts = std::collections::HashMap::from([
+                ("root".to_owned(), root_turns.clone()),
+                ("advisor".to_owned(), advisor_turns.clone()),
+            ]);
+            Arc::new(ScriptedByAgentSource::new(scripts).with_blocking_route("explorer"))
+                as Arc<dyn EventSource>
         });
 
         let (state, _dir) = build_test_state(
@@ -192,6 +191,23 @@ mod subagent_lifecycle {
         }
     }
 
+    struct FinishRoutingSource {
+        root: FinishProbeSource,
+        explorer: ScriptedSource,
+        advisor: ScriptedSource,
+    }
+
+    #[async_trait]
+    impl EventSource for FinishRoutingSource {
+        async fn stream(&self, request: &LlmRequest) -> Result<EngineStream, EngineError> {
+            match request_route_key_for(request, &["root", "explorer", "advisor"]).as_str() {
+                "explorer" => self.explorer.stream(request).await,
+                "advisor" => self.advisor.stream(request).await,
+                _ => self.root.stream(request).await,
+            }
+        }
+    }
+
     // D1/D3 end-to-end: a real explorer child runs, calls
     // `submit_exploration_result`, and completion reaches the root as a
     // `[BACKGROUND COMPLETED]` notification — no test-only fake supervisor.
@@ -205,20 +221,17 @@ mod subagent_lifecycle {
             json!({"summary": "the bug is at foo.rs:10", "findings": ["foo.rs:10"]}),
         )];
         let advisor_turns = vec![approve_turn()];
-        let factory: EventSourceFactory =
-            Arc::new(move |def: &AgentDefinition| match def.name.as_str() {
-                "explorer" => {
-                    Arc::new(ScriptedSource::new(explorer_turns.clone())) as Arc<dyn EventSource>
-                }
-                "advisor" => {
-                    Arc::new(ScriptedSource::new(advisor_turns.clone())) as Arc<dyn EventSource>
-                }
-                _ => Arc::new(FinishProbeSource {
+        let factory: EventSourceFactory = Arc::new(move |_request| {
+            Arc::new(FinishRoutingSource {
+                root: FinishProbeSource {
                     started: Arc::new(AtomicBool::new(false)),
                     asked_advisor: Arc::new(AtomicBool::new(false)),
                     saw_finished: saw_finished_factory.clone(),
-                }) as Arc<dyn EventSource>,
-            });
+                },
+                explorer: ScriptedSource::new(explorer_turns.clone()),
+                advisor: ScriptedSource::new(advisor_turns.clone()),
+            }) as Arc<dyn EventSource>
+        });
 
         let (state, _dir) = build_test_state(
             Some(factory),
@@ -276,6 +289,21 @@ mod subagent_lifecycle {
         }
     }
 
+    struct RejectionRoutingSource {
+        root: RejectionProbe,
+        advisor: ScriptedSource,
+    }
+
+    #[async_trait]
+    impl EventSource for RejectionRoutingSource {
+        async fn stream(&self, request: &LlmRequest) -> Result<EngineStream, EngineError> {
+            if request_route_key_for(request, &["root", "advisor"]) == "advisor" {
+                return self.advisor.stream(request).await;
+            }
+            self.root.stream(request).await
+        }
+    }
+
     // D2: an unknown dispatch is rejected in-band with the Rust message and
     // mints no record, while the root still completes (the rejection is an
     // in-band tool error, not a wedge).
@@ -299,16 +327,15 @@ mod subagent_lifecycle {
         let rejection: Arc<std::sync::Mutex<Option<String>>> =
             Arc::new(std::sync::Mutex::new(None));
         let rejection_probe = rejection.clone();
-        let factory: EventSourceFactory =
-            Arc::new(move |def: &AgentDefinition| match def.name.as_str() {
-                "advisor" => {
-                    Arc::new(ScriptedSource::new(advisor_turns.clone())) as Arc<dyn EventSource>
-                }
-                _ => Arc::new(RejectionProbe {
+        let factory: EventSourceFactory = Arc::new(move |_request| {
+            Arc::new(RejectionRoutingSource {
+                root: RejectionProbe {
                     turns: std::sync::Mutex::new(root_turns.clone()),
                     rejection: rejection_probe.clone(),
-                }) as Arc<dyn EventSource>,
-            });
+                },
+                advisor: ScriptedSource::new(advisor_turns.clone()),
+            }) as Arc<dyn EventSource>
+        });
 
         // No "explorer" agent registered → run_subagent must reject "not registered".
         let (state, _dir) =

@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -93,7 +93,7 @@
         };
         <span class="rs-kw">if</span> subagents &gt; 0 {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Deny</span>(
-                <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+                <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                     <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-subagent-in-flight-message-45">subagent_in_flight_message</a>(subagents, tool),
                     &quot;no_background_sessions&quot;,
                 )
@@ -112,7 +112,7 @@
             .<span class="rs-kw">await</span>?;
         <span class="rs-kw">if</span> !outstanding.is_empty() {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Deny</span>(
-                <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+                <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                     format!(
                         &quot;<span class="rs-type">BLOCKED</span>: {} delegated workflow(s) are still outstanding <span class="rs-kw">for</span> this agent run. \
                          <span class="rs-type">Use</span> check_workflow_status to collect them or cancel_workflow to stop them \
@@ -135,7 +135,7 @@
 
     <span class="rs-kw">let</span> <span class="rs-type">Some</span>(transport) = services.sandbox_transport() <span class="rs-kw">else</span> {
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Deny</span>(
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                 format!(
                     &quot;<span class="rs-type">BLOCKED</span>: could not confirm background-task state from the sandbox daemon, \
                      so {} is refused to avoid orphaning <span class="rs-kw">in</span>-flight work. <span class="rs-type">Retry</span> shortly.&quot;,
@@ -160,13 +160,13 @@
                 <span class="rs-comment">// Fail-OPEN: stamp the override reason in the pass-phase</span>
                 <span class="rs-comment">// metadata so the audit trail distinguishes a bailout from a</span>
                 <span class="rs-comment">// normal pass (Rust `daemon_unavailable_bailout`).</span>
-                <span class="rs-kw">let</span> <span class="rs-kw">mut</span> meta = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+                <span class="rs-kw">let</span> <span class="rs-kw">mut</span> meta = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
                 meta.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;policy&quot;.to_owned(), json!(&quot;no_background_sessions&quot;));
                 meta.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;reason&quot;.to_owned(), json!(&quot;daemon_unavailable_bailout&quot;));
                 <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Pass</span>(meta));
             }
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Deny</span>(
-                    <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+                    <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                         format!(
                             &quot;<span class="rs-type">BLOCKED</span>: could not confirm background-task state from the sandbox daemon, \
                              so {} is refused to avoid orphaning <span class="rs-kw">in</span>-flight work. <span class="rs-type">Retry</span> shortly.&quot;,
@@ -180,7 +180,7 @@
     };
     <span class="rs-kw">if</span> daemon &gt; 0 {
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Deny</span>(
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                 <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-command-session-in-flight-message-53">command_session_in_flight_message</a>(daemon, tool),
                 &quot;no_background_sessions&quot;,
             )
@@ -385,7 +385,7 @@
         };
         <span class="rs-kw">if</span> subagents &gt; 0 {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Deny</span>(
-                <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+                <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                     <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-subagent-in-flight-message-45">subagent_in_flight_message</a>(subagents, tool),
                     &quot;no_background_sessions&quot;,
                 )
@@ -404,7 +404,7 @@
             .<span class="rs-kw">await</span>?;
         <span class="rs-kw">if</span> !outstanding.is_empty() {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Deny</span>(
-                <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+                <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                     format!(
                         &quot;<span class="rs-type">BLOCKED</span>: {} delegated workflow(s) are still outstanding <span class="rs-kw">for</span> this agent run. \
                          <span class="rs-type">Use</span> check_workflow_status to collect them or cancel_workflow to stop them \
@@ -427,7 +427,7 @@
 
     <span class="rs-kw">let</span> <span class="rs-type">Some</span>(transport) = services.sandbox_transport() <span class="rs-kw">else</span> {
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Deny</span>(
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                 format!(
                     &quot;<span class="rs-type">BLOCKED</span>: could not confirm background-task state from the sandbox daemon, \
                      so {} is refused to avoid orphaning <span class="rs-kw">in</span>-flight work. <span class="rs-type">Retry</span> shortly.&quot;,
@@ -452,13 +452,13 @@
                 <span class="rs-comment">// Fail-OPEN: stamp the override reason in the pass-phase</span>
                 <span class="rs-comment">// metadata so the audit trail distinguishes a bailout from a</span>
                 <span class="rs-comment">// normal pass (Rust `daemon_unavailable_bailout`).</span>
-                <span class="rs-kw">let</span> <span class="rs-kw">mut</span> meta = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+                <span class="rs-kw">let</span> <span class="rs-kw">mut</span> meta = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
                 meta.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;policy&quot;.to_owned(), json!(&quot;no_background_sessions&quot;));
                 meta.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;reason&quot;.to_owned(), json!(&quot;daemon_unavailable_bailout&quot;));
                 <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Pass</span>(meta));
             }
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Deny</span>(
-                    <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+                    <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                         format!(
                             &quot;<span class="rs-type">BLOCKED</span>: could not confirm background-task state from the sandbox daemon, \
                              so {} is refused to avoid orphaning <span class="rs-kw">in</span>-flight work. <span class="rs-type">Retry</span> shortly.&quot;,
@@ -472,7 +472,7 @@
     };
     <span class="rs-kw">if</span> daemon &gt; 0 {
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Deny</span>(
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-struct-HookDenial-29">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                 <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-command-session-in-flight-message-53">command_session_in_flight_message</a>(daemon, tool),
                 &quot;no_background_sessions&quot;,
             )

@@ -157,15 +157,6 @@ impl CommandSession {
         &self.command
     }
 
-    /// Seconds since the session started — the elapsed time the scaffold cancel
-    /// path records on the workspace outcome. (On Linux the reaped command
-    /// carries its own elapsed time.)
-    #[cfg(not(target_os = "linux"))]
-    #[must_use]
-    pub fn elapsed_s(&self) -> f64 {
-        self.started_at.elapsed().as_secs_f64()
-    }
-
     #[cfg(target_os = "linux")]
     pub fn write_process_stdin(&self, chars: &str) -> Result<(), CommandSessionError> {
         self.process.write_stdin(chars.as_bytes())?;

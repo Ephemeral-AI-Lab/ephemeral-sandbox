@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -65,10 +65,10 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundManagers-167">BackgroundManagers</a></code>
   <p class="docstring">Cloneable aggregate for one agent run's background session runtime.</p>
   <div class="tags"><span>derive: Clone</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>runtime</td><td><code>Arc &lt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionRuntime-78">BackgroundSessionRuntime</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-182"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> (agent_run_id : AgentRunId , agent_run_service : Arc &lt; dyn AgentRunApi &gt; , command_service : Arc &lt; dyn SandboxCommandApi &gt; , completion_poll_interval : Duration , notifications : <a class="symbol-link" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a> , workflow_service : &amp; Arc &lt; OnceLock &lt; Arc &lt; dyn WorkflowApi &gt; &gt; &gt; ,) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>runtime</td><td><code>Arc &lt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionRuntime-78">BackgroundSessionRuntime</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-182"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> (agent_run_id : AgentRunId , agent_run_service : Arc &lt; dyn AgentRunApi &gt; , command_service : Arc &lt; dyn SandboxCommandApi &gt; , completion_poll_interval : Duration , notifications : <a class="symbol-link" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a> , workflow_service : &amp; Arc &lt; OnceLock &lt; Arc &lt; dyn WorkflowApi &gt; &gt; &gt; ,) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         agent_run_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
         command_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SandboxCommandApi</span>&gt;,
@@ -77,7 +77,7 @@
         workflow_service: &amp;<span class="rs-type">Arc</span>&lt;<span class="rs-type">OnceLock</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">WorkflowApi</span>&gt;&gt;&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
-            runtime: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionRuntime-78">BackgroundSessionRuntime</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+            runtime: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionRuntime-78">BackgroundSessionRuntime</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                 agent_run_id,
                 agent_run_service,
                 command_service,
@@ -109,7 +109,7 @@
   <pre><code>    #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-teardown-service-215">teardown_service</a>(&amp;<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a> {
         <span class="rs-kw">let</span> background = <span class="rs-self">self</span>.clone();
-        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">move</span> |reason| {
+        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">move</span> |reason| {
             <span class="rs-kw">let</span> background = background.clone();
             <span class="rs-kw">async</span> <span class="rs-kw">move</span> { background.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-teardown-208">teardown</a>(&amp;reason).<span class="rs-kw">await</span> }
         })
@@ -123,7 +123,7 @@
         <span class="rs-kw">let</span> cancel = <span class="rs-self">self</span>.clone();
         <span class="rs-kw">let</span> count = <span class="rs-self">self</span>.clone();
         <span class="rs-kw">let</span> cancel_all = <span class="rs-self">self</span>.clone();
-        <span class="rs-type">SubagentToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <span class="rs-type">SubagentToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             <span class="rs-kw">move</span> |agent_run_id| {
                 <span class="rs-kw">let</span> service = register.clone();
                 <span class="rs-kw">async</span> <span class="rs-kw">move</span> {
@@ -172,7 +172,7 @@
   <pre><code>    #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-workflow-tool-service-274">workflow_tool_service</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">WorkflowToolService</span> {
         <span class="rs-kw">let</span> register = <span class="rs-self">self</span>.clone();
-        <span class="rs-type">WorkflowToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">move</span> |workflow| {
+        <span class="rs-type">WorkflowToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">move</span> |workflow| {
             <span class="rs-kw">let</span> service = register.clone();
             <span class="rs-kw">async</span> <span class="rs-kw">move</span> {
                 service
@@ -189,7 +189,7 @@
   <pre><code>    #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-command-session-tool-service-289">command_session_tool_service</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">CommandSessionToolService</span> {
         <span class="rs-kw">let</span> register = <span class="rs-self">self</span>.clone();
-        <span class="rs-type">CommandSessionToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">move</span> |command_session_id, sandbox_id| {
+        <span class="rs-type">CommandSessionToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">move</span> |command_session_id, sandbox_id| {
             <span class="rs-kw">let</span> service = register.clone();
             <span class="rs-kw">async</span> <span class="rs-kw">move</span> {
                 service
@@ -201,9 +201,9 @@
         })
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundManagers-167">BackgroundManagers</a></code></summary><table><tbody><tr id="method-fmt-174"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-31">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundManagers-167">BackgroundManagers</a></code></summary><table><tbody><tr id="method-fmt-174"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-33">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundManagers-167">BackgroundManagers</a>&quot;)
             .field(&quot;agent_run_id&quot;, <span class="rs-self">self</span>.runtime.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-agent-run-id-134">agent_run_id</a>())
             .finish_non_exhaustive()
@@ -264,7 +264,7 @@
   </div>
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a></code>
   <div class="tags"><span>derive: Clone</span><span>port/service</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>teardown</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-type-BackgroundTeardownCallback-30">BackgroundTeardownCallback</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-350"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> &lt; Teardown , TeardownFuture &gt; (teardown : Teardown) -&gt; Self where Teardown : Fn (String) -&gt; TeardownFuture + Send + Sync + &#x27;static , TeardownFuture : Future &lt; Output = BackgroundSessionCounts &gt; + Send + &#x27;static ,</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>teardown</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-type-BackgroundTeardownCallback-30">BackgroundTeardownCallback</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-350"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> &lt; Teardown , TeardownFuture &gt; (teardown : Teardown) -&gt; Self where Teardown : Fn (String) -&gt; TeardownFuture + Send + Sync + &#x27;static , TeardownFuture : Future &lt; Output = BackgroundSessionCounts &gt; + Send + &#x27;static ,</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> new&lt;<span class="rs-type">Teardown</span>, <span class="rs-type">TeardownFuture</span>&gt;(teardown: <span class="rs-type">Teardown</span>) -&gt; <span class="rs-self">Self</span>
@@ -273,7 +273,7 @@
         <span class="rs-type">TeardownFuture</span>: <span class="rs-type">Future</span>&lt;<span class="rs-type">Output</span> = <span class="rs-type">BackgroundSessionCounts</span>&gt; + <span class="rs-type">Send</span> + &#x27;<span class="rs-kw">static</span>,
     {
         <span class="rs-self">Self</span> {
-            teardown: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">move</span> |reason| <span class="rs-type">Box</span>::pin(<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-teardown-208">teardown</a>(reason))),
+            teardown: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">move</span> |reason| <span class="rs-type">Box</span>::pin(<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-teardown-208">teardown</a>(reason))),
         }
     }
 </code></pre>
@@ -283,9 +283,9 @@
         (<span class="rs-self">self</span>.teardown)(reason.to_owned()).<span class="rs-kw">await</span>
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a></code></summary><table><tbody><tr id="method-fmt-367"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-31">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a></code></summary><table><tbody><tr id="method-fmt-367"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-33">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>&quot;)
             .finish_non_exhaustive()
     }
@@ -328,9 +328,9 @@
   <code class="signature">pub(super) struct <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionRuntime-78">BackgroundSessionRuntime</a></code>
   <p class="docstring">Per-agent-run aggregate for background session accounting and lifecycle.</p>
   <div class="tags"></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>agent_run_service</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr><tr><td>private</td><td>subagent_session_manager</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a></code></td></tr><tr><td>private</td><td>workflow_session_manager</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-struct-WorkflowSessionManager-70">WorkflowSessionManager</a></code></td></tr><tr><td>private</td><td>command_session_manager</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-struct-CommandSessionManager-90">CommandSessionManager</a></code></td></tr><tr><td>private</td><td>_subagent_monitor</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionMonitor-215">SubagentSessionMonitor</a></code></td></tr><tr><td>private</td><td>_workflow_monitor</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-struct-WorkflowSessionMonitor-199">WorkflowSessionMonitor</a></code></td></tr><tr><td>private</td><td>_command_monitor</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-struct-CommandSessionMonitor-212">CommandSessionMonitor</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-91"><td>constructor</td><td>new</td><td><code>pub(super) fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> (agent_run_id : AgentRunId , agent_run_service : Arc &lt; dyn AgentRunApi &gt; , command_service : Arc &lt; dyn SandboxCommandApi &gt; , completion_poll_interval : Duration , notifications : <a class="symbol-link" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a> , workflow_service : <a class="symbol-link" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-type-WorkflowServiceCell-13">WorkflowServiceCell</a> ,) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>agent_run_service</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr><tr><td>private</td><td>subagent_session_manager</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a></code></td></tr><tr><td>private</td><td>workflow_session_manager</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-struct-WorkflowSessionManager-70">WorkflowSessionManager</a></code></td></tr><tr><td>private</td><td>command_session_manager</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-struct-CommandSessionManager-90">CommandSessionManager</a></code></td></tr><tr><td>private</td><td>_subagent_monitor</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionMonitor-215">SubagentSessionMonitor</a></code></td></tr><tr><td>private</td><td>_workflow_monitor</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-struct-WorkflowSessionMonitor-199">WorkflowSessionMonitor</a></code></td></tr><tr><td>private</td><td>_command_monitor</td><td><code><a class="symbol-link" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-struct-CommandSessionMonitor-212">CommandSessionMonitor</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-91"><td>constructor</td><td>new</td><td><code>pub(super) fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> (agent_run_id : AgentRunId , agent_run_service : Arc &lt; dyn AgentRunApi &gt; , command_service : Arc &lt; dyn SandboxCommandApi &gt; , completion_poll_interval : Duration , notifications : <a class="symbol-link" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a> , workflow_service : <a class="symbol-link" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-type-WorkflowServiceCell-13">WorkflowServiceCell</a> ,) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">super</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">super</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         agent_run_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
         command_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SandboxCommandApi</span>&gt;,
@@ -338,19 +338,19 @@
         notifications: <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>,
         workflow_service: <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-type-WorkflowServiceCell-13">WorkflowServiceCell</a>,
     ) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-kw">let</span> notification = <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(notifications);
-        <span class="rs-kw">let</span> subagent_session_manager = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <span class="rs-kw">let</span> notification = <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(notifications);
+        <span class="rs-kw">let</span> subagent_session_manager = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             agent_run_id.clone(),
             agent_run_service.clone(),
             notification.clone(),
         );
-        <span class="rs-kw">let</span> workflow_session_manager = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-struct-WorkflowSessionManager-70">WorkflowSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <span class="rs-kw">let</span> workflow_session_manager = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-struct-WorkflowSessionManager-70">WorkflowSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             agent_run_id.clone(),
             workflow_service,
             notification.clone(),
         );
         <span class="rs-kw">let</span> command_session_manager =
-            <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-struct-CommandSessionManager-90">CommandSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(agent_run_id.clone(), command_service, notification);
+            <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-struct-CommandSessionManager-90">CommandSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(agent_run_id.clone(), command_service, notification);
         <span class="rs-kw">let</span> subagent_monitor = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionMonitor-215">SubagentSessionMonitor</a>::<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-spawn-223">spawn</a>(
             subagent_session_manager.clone(),
             completion_poll_interval,
@@ -429,9 +429,9 @@
   <code class="signature">pub(crate) struct <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionFinalizer-373">BackgroundSessionFinalizer</a></code>
   <p class="docstring">Normal-exit background cleanup for one agent run.</p>
   <div class="tags"></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>background</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a> &gt;</code></td></tr><tr><td>private</td><td>armed</td><td><code>bool</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-380"><td>constructor</td><td>new</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> (background : Option &lt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a> &gt;) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>background</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a> &gt;</code></td></tr><tr><td>private</td><td>armed</td><td><code>bool</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-380"><td>constructor</td><td>new</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> (background : Option &lt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a> &gt;) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(background: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>&gt;) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(background: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             background,
             armed: <span class="rs-kw">true</span>,
@@ -580,7 +580,7 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-fn-recording-background-446">recording_background</a>(tx: mpsc::<span class="rs-type">UnboundedSender</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a> {
-        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">move</span> |reason| {
+        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">move</span> |reason| {
             <span class="rs-kw">let</span> tx = tx.clone();
             <span class="rs-kw">async</span> <span class="rs-kw">move</span> {
                 tx.send(reason).expect(&quot;send cleanup&quot;);
@@ -613,7 +613,7 @@
         <span class="rs-kw">let</span> background = <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-fn-recording-background-446">recording_background</a>(tx);
 
         {
-            <span class="rs-kw">let</span> _finalizer = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionFinalizer-373">BackgroundSessionFinalizer</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">Some</span>(background));
+            <span class="rs-kw">let</span> _finalizer = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionFinalizer-373">BackgroundSessionFinalizer</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">Some</span>(background));
         }
 
         <span class="rs-kw">let</span> reason = timeout(<span class="rs-type">Duration</span>::from_millis(100), rx.recv())
@@ -724,7 +724,7 @@
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionRuntime-78">BackgroundSessionRuntime</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">super</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+    <span class="rs-kw">pub</span>(<span class="rs-kw">super</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         agent_run_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
         command_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SandboxCommandApi</span>&gt;,
@@ -732,19 +732,19 @@
         notifications: <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>,
         workflow_service: <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-type-WorkflowServiceCell-13">WorkflowServiceCell</a>,
     ) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-kw">let</span> notification = <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(notifications);
-        <span class="rs-kw">let</span> subagent_session_manager = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <span class="rs-kw">let</span> notification = <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(notifications);
+        <span class="rs-kw">let</span> subagent_session_manager = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionManager-88">SubagentSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             agent_run_id.clone(),
             agent_run_service.clone(),
             notification.clone(),
         );
-        <span class="rs-kw">let</span> workflow_session_manager = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-struct-WorkflowSessionManager-70">WorkflowSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <span class="rs-kw">let</span> workflow_session_manager = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-workflow-session-manager-rs.html#item-struct-WorkflowSessionManager-70">WorkflowSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             agent_run_id.clone(),
             workflow_service,
             notification.clone(),
         );
         <span class="rs-kw">let</span> command_session_manager =
-            <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-struct-CommandSessionManager-90">CommandSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(agent_run_id.clone(), command_service, notification);
+            <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-struct-CommandSessionManager-90">CommandSessionManager</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(agent_run_id.clone(), command_service, notification);
         <span class="rs-kw">let</span> subagent_monitor = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-struct-SubagentSessionMonitor-215">SubagentSessionMonitor</a>::<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-spawn-223">spawn</a>(
             subagent_session_manager.clone(),
             completion_poll_interval,
@@ -807,7 +807,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundManagers-167">BackgroundManagers</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundManagers-167">BackgroundManagers</a>&quot;)
             .field(&quot;agent_run_id&quot;, <span class="rs-self">self</span>.runtime.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-agent-run-id-134">agent_run_id</a>())
             .finish_non_exhaustive()
@@ -816,7 +816,7 @@
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundManagers-167">BackgroundManagers</a> {
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         agent_run_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
         command_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SandboxCommandApi</span>&gt;,
@@ -825,7 +825,7 @@
         workflow_service: &amp;<span class="rs-type">Arc</span>&lt;<span class="rs-type">OnceLock</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">WorkflowApi</span>&gt;&gt;&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
-            runtime: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionRuntime-78">BackgroundSessionRuntime</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+            runtime: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionRuntime-78">BackgroundSessionRuntime</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                 agent_run_id,
                 agent_run_service,
                 command_service,
@@ -851,7 +851,7 @@
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-teardown-service-215">teardown_service</a>(&amp;<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a> {
         <span class="rs-kw">let</span> background = <span class="rs-self">self</span>.clone();
-        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">move</span> |reason| {
+        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">move</span> |reason| {
             <span class="rs-kw">let</span> background = background.clone();
             <span class="rs-kw">async</span> <span class="rs-kw">move</span> { background.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-teardown-208">teardown</a>(&amp;reason).<span class="rs-kw">await</span> }
         })
@@ -863,7 +863,7 @@
         <span class="rs-kw">let</span> cancel = <span class="rs-self">self</span>.clone();
         <span class="rs-kw">let</span> count = <span class="rs-self">self</span>.clone();
         <span class="rs-kw">let</span> cancel_all = <span class="rs-self">self</span>.clone();
-        <span class="rs-type">SubagentToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+        <span class="rs-type">SubagentToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
             <span class="rs-kw">move</span> |agent_run_id| {
                 <span class="rs-kw">let</span> service = register.clone();
                 <span class="rs-kw">async</span> <span class="rs-kw">move</span> {
@@ -910,7 +910,7 @@
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-workflow-tool-service-274">workflow_tool_service</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">WorkflowToolService</span> {
         <span class="rs-kw">let</span> register = <span class="rs-self">self</span>.clone();
-        <span class="rs-type">WorkflowToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">move</span> |workflow| {
+        <span class="rs-type">WorkflowToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">move</span> |workflow| {
             <span class="rs-kw">let</span> service = register.clone();
             <span class="rs-kw">async</span> <span class="rs-kw">move</span> {
                 service
@@ -925,7 +925,7 @@
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-command-session-tool-service-289">command_session_tool_service</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">CommandSessionToolService</span> {
         <span class="rs-kw">let</span> register = <span class="rs-self">self</span>.clone();
-        <span class="rs-type">CommandSessionToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">move</span> |command_session_id, sandbox_id| {
+        <span class="rs-type">CommandSessionToolService</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">move</span> |command_session_id, sandbox_id| {
             <span class="rs-kw">let</span> service = register.clone();
             <span class="rs-kw">async</span> <span class="rs-kw">move</span> {
                 service
@@ -990,7 +990,7 @@
         <span class="rs-type">TeardownFuture</span>: <span class="rs-type">Future</span>&lt;<span class="rs-type">Output</span> = <span class="rs-type">BackgroundSessionCounts</span>&gt; + <span class="rs-type">Send</span> + &#x27;<span class="rs-kw">static</span>,
     {
         <span class="rs-self">Self</span> {
-            teardown: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">move</span> |reason| <span class="rs-type">Box</span>::pin(<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-teardown-208">teardown</a>(reason))),
+            teardown: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">move</span> |reason| <span class="rs-type">Box</span>::pin(<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#method-teardown-208">teardown</a>(reason))),
         }
     }
 
@@ -1000,7 +1000,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>&quot;)
             .finish_non_exhaustive()
     }
@@ -1013,7 +1013,7 @@
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionFinalizer-373">BackgroundSessionFinalizer</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(background: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>&gt;) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(background: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             background,
             armed: <span class="rs-kw">true</span>,
@@ -1080,7 +1080,7 @@
     <span class="rs-kw">use</span> <span class="rs-kw">super</span>::*;
 
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-fn-recording-background-446">recording_background</a>(tx: mpsc::<span class="rs-type">UnboundedSender</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a> {
-        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">move</span> |reason| {
+        <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundTeardownService-344">BackgroundTeardownService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">move</span> |reason| {
             <span class="rs-kw">let</span> tx = tx.clone();
             <span class="rs-kw">async</span> <span class="rs-kw">move</span> {
                 tx.send(reason).expect(&quot;send cleanup&quot;);
@@ -1100,7 +1100,7 @@
         <span class="rs-kw">let</span> background = <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-fn-recording-background-446">recording_background</a>(tx);
 
         {
-            <span class="rs-kw">let</span> _finalizer = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionFinalizer-373">BackgroundSessionFinalizer</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">Some</span>(background));
+            <span class="rs-kw">let</span> _finalizer = <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-mod-rs.html#item-struct-BackgroundSessionFinalizer-373">BackgroundSessionFinalizer</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">Some</span>(background));
         }
 
         <span class="rs-kw">let</span> reason = timeout(<span class="rs-type">Duration</span>::from_millis(100), rx.recv())

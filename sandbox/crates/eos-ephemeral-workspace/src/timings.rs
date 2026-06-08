@@ -1,8 +1,6 @@
-use std::collections::BTreeMap;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// Basic resource stats for a captured upperdir tree.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -13,16 +11,12 @@ pub struct TreeResourceStats {
     pub bytes: u64,
 }
 
-/// Timing DTO local to ephemeral workspace policy.
+/// Timing DTO local to ephemeral workspace policy. Carries the publish phase
+/// duration captured during finalize; the daemon reads it as a fallback for the
+/// OCC commit timing when the publisher does not report one.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct EphemeralTimings {
-    pub lease_acquire_s: Option<f64>,
-    pub runner_s: Option<f64>,
-    pub capture_s: Option<f64>,
     pub publish_s: Option<f64>,
-    pub cleanup_s: Option<f64>,
-    pub total_s: f64,
-    pub extra: BTreeMap<String, Value>,
 }
 
 impl TreeResourceStats {
@@ -31,20 +25,6 @@ impl TreeResourceStats {
         let mut stats = Self::default();
         collect_path(path, &mut stats);
         stats
-    }
-}
-
-impl EphemeralTimings {
-    #[must_use]
-    pub fn new(total_s: f64) -> Self {
-        Self {
-            total_s,
-            ..Self::default()
-        }
-    }
-
-    pub fn insert_extra(&mut self, key: impl Into<String>, value: Value) {
-        self.extra.insert(key.into(), value);
     }
 }
 

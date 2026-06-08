@@ -1,8 +1,6 @@
 //! Agent runtime snapshot for metadata and audit rendering.
 
-use eos_types::{
-    AgentRunId, AttemptId, IterationId, RequestId, SandboxId, TaskId, WorkflowId,
-};
+use eos_types::{AgentRunId, AttemptId, IterationId, RequestId, SandboxId, TaskId, WorkflowId};
 
 /// Current runtime metadata facts for one agent run.
 #[derive(Debug, Clone)]

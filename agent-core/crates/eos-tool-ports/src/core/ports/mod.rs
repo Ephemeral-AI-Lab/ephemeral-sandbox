@@ -97,8 +97,7 @@ pub struct SystemNotification {
 #[async_trait]
 pub trait NotificationSink: Sealed + Send + Sync {
     /// Surface one system notification.
-    async fn notify_system(&self, notification: SystemNotification)
-        -> Result<(), ToolError>;
+    async fn notify_system(&self, notification: SystemNotification) -> Result<(), ToolError>;
 }
 
 /// A non-leaf effect a tool creates that must be torn down on cancellation.

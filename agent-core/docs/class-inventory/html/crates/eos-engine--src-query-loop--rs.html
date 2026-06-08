@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -143,7 +143,7 @@
             <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stream = source.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-36">stream</a>(&amp;run_request.request).<span class="rs-kw">await</span>?;
             <span class="rs-kw">let</span> <span class="rs-kw">mut</span> final_message: <span class="rs-type">Option</span>&lt;<span class="rs-type">Message</span>&gt; = <span class="rs-type">None</span>;
             <span class="rs-kw">let</span> <span class="rs-kw">mut</span> final_usage: <span class="rs-type">Option</span>&lt;<span class="rs-type">UsageSnapshot</span>&gt; = <span class="rs-type">None</span>;
-            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> streamed_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> streamed_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
 
             <span class="rs-kw">while</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(item) = stream.next().<span class="rs-kw">await</span> {
                 <span class="rs-kw">let</span> event = <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-events-rs.html#item-fn-stamp-identity-162">stamp_identity</a>(item?, &amp;ctx.agent_name, &amp;ctx.agent_run_id);
@@ -178,7 +178,7 @@
                     .<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-prompt-report-rs.html#method-record-assistant-143">record_assistant</a>(run_request.prompt_report_seq, &amp;message, usage)
                     .<span class="rs-kw">await</span>?;
             }
-            <span class="rs-kw">let</span> tool_uses = <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-tool-uses-from-message-298">tool_uses_from_message</a>(&amp;message);
+            <span class="rs-kw">let</span> tool_uses = <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-tool-uses-from-message-307">tool_uses_from_message</a>(&amp;message);
             <span class="rs-kw">for</span> call <span class="rs-kw">in</span> &amp;tool_uses {
                 <span class="rs-kw">if</span> !streamed_tool_use_ids.contains(&amp;call.tool_use_id) {
                     ctx.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-record-tool-call-132">record_tool_call</a>();
@@ -277,11 +277,11 @@
     <h3>tool_uses_from_message</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-engine.html#item-fn-tool-uses-from-message-298">tool_uses_from_message</a> (message : &amp; Message) -&gt; Vec &lt; <a class="symbol-link" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a> &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-engine.html#item-fn-tool-uses-from-message-307">tool_uses_from_message</a> (message : &amp; Message) -&gt; Vec &lt; <a class="symbol-link" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-tool-uses-from-message-298">tool_uses_from_message</a>(message: &amp;<span class="rs-type">Message</span>) -&gt; <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-tool-uses-from-message-307">tool_uses_from_message</a>(message: &amp;<span class="rs-type">Message</span>) -&gt; <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a>&gt; {
     message
         .content
         .iter()
@@ -453,11 +453,11 @@
     <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">ToolExecutionCompleted</span> {
         agent_name: ctx.agent_name.clone(),
         agent_run_id: <span class="rs-type">Some</span>(ctx.agent_run_id.clone()),
-        tool_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+        tool_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
         output: <a class="symbol-link rs-fn" href="eos-engine--src-query-loop--rs.html#item-fn-terminal-not-submitted-message-32">terminal_not_submitted_message</a>(ctx),
         is_error: <span class="rs-kw">true</span>,
         tool_use_id: <a class="symbol-link rs-fn" href="eos-engine--src-query-loop--rs.html#item-fn-synthetic-tool-use-id-40">synthetic_tool_use_id</a>()?,
-        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
         is_terminal: <span class="rs-kw">false</span>,
     })
 }
@@ -516,7 +516,7 @@
     &quot;terminal_not_submitted&quot;.parse().map_err(<a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>::from)
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-tool-uses-from-message-298">tool_uses_from_message</a>(message: &amp;<span class="rs-type">Message</span>) -&gt; <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-tool-uses-from-message-307">tool_uses_from_message</a>(message: &amp;<span class="rs-type">Message</span>) -&gt; <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a>&gt; {
     message
         .content
         .iter()
@@ -597,11 +597,11 @@
     <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">ToolExecutionCompleted</span> {
         agent_name: ctx.agent_name.clone(),
         agent_run_id: <span class="rs-type">Some</span>(ctx.agent_run_id.clone()),
-        tool_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+        tool_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
         output: <a class="symbol-link rs-fn" href="eos-engine--src-query-loop--rs.html#item-fn-terminal-not-submitted-message-32">terminal_not_submitted_message</a>(ctx),
         is_error: <span class="rs-kw">true</span>,
         tool_use_id: <a class="symbol-link rs-fn" href="eos-engine--src-query-loop--rs.html#item-fn-synthetic-tool-use-id-40">synthetic_tool_use_id</a>()?,
-        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
         is_terminal: <span class="rs-kw">false</span>,
     })
 }
@@ -648,7 +648,7 @@
             <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stream = source.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-36">stream</a>(&amp;run_request.request).<span class="rs-kw">await</span>?;
             <span class="rs-kw">let</span> <span class="rs-kw">mut</span> final_message: <span class="rs-type">Option</span>&lt;<span class="rs-type">Message</span>&gt; = <span class="rs-type">None</span>;
             <span class="rs-kw">let</span> <span class="rs-kw">mut</span> final_usage: <span class="rs-type">Option</span>&lt;<span class="rs-type">UsageSnapshot</span>&gt; = <span class="rs-type">None</span>;
-            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> streamed_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> streamed_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
 
             <span class="rs-kw">while</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(item) = stream.next().<span class="rs-kw">await</span> {
                 <span class="rs-kw">let</span> event = <a class="symbol-link rs-fn" href="eos-engine--src-telemetry-events-rs.html#item-fn-stamp-identity-162">stamp_identity</a>(item?, &amp;ctx.agent_name, &amp;ctx.agent_run_id);
@@ -683,7 +683,7 @@
                     .<a class="symbol-link rs-fn" href="eos-engine--src-telemetry-prompt-report-rs.html#method-record-assistant-143">record_assistant</a>(run_request.prompt_report_seq, &amp;message, usage)
                     .<span class="rs-kw">await</span>?;
             }
-            <span class="rs-kw">let</span> tool_uses = <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-tool-uses-from-message-298">tool_uses_from_message</a>(&amp;message);
+            <span class="rs-kw">let</span> tool_uses = <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-tool-uses-from-message-307">tool_uses_from_message</a>(&amp;message);
             <span class="rs-kw">for</span> call <span class="rs-kw">in</span> &amp;tool_uses {
                 <span class="rs-kw">if</span> !streamed_tool_use_ids.contains(&amp;call.tool_use_id) {
                     ctx.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-record-tool-call-132">record_tool_call</a>();

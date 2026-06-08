@@ -143,10 +143,7 @@ pub fn finalize_ephemeral_command(
     let run_dir = workspace.dirs.run_dir.clone();
     let finalize = finalize_publishable_workspace(
         publisher,
-        FinalizeRequest {
-            workspace,
-            command_started_at: None,
-        },
+        FinalizeRequest { workspace },
     )
     .map_err(finalize_error)?;
     let files = publish_files(&finalize.publish)?;

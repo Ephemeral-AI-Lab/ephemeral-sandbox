@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -65,17 +65,17 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a></code>
   <p class="docstring">Provider-backed event source.</p>
   <div class="tags"><span>derive: Clone</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>client</td><td><code>Arc &lt; dyn LlmClient &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-27"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-37">new</a> (client : Arc &lt; dyn LlmClient &gt;) -&gt; Self</code><p class="docstring">Create an event source from a provider-neutral client.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>client</td><td><code>Arc &lt; dyn LlmClient &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-27"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine.html#method-new-39">new</a> (client : Arc &lt; dyn LlmClient &gt;) -&gt; Self</code><p class="docstring">Create an event source from a provider-neutral client.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Create an event source from a provider-neutral client.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(client: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">LlmClient</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(client: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">LlmClient</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> { client }
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a></code></summary><table><tbody><tr id="method-fmt-20"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-31">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a></code></summary><table><tbody><tr id="method-fmt-20"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine.html#method-fmt-33">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a>&quot;)
             .finish_non_exhaustive()
     }
@@ -123,12 +123,12 @@
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-adapt-event-34">adapt_event</a>(event: <span class="rs-type">LlmStreamEvent</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt; {
     <span class="rs-kw">match</span> event {
         <span class="rs-type">LlmStreamEvent</span>::<span class="rs-type">AssistantTextDelta</span> { text } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">AssistantTextDelta</span> {
-            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             agent_run_id: <span class="rs-type">None</span>,
             text,
         }),
         <span class="rs-type">LlmStreamEvent</span>::<span class="rs-type">ReasoningDelta</span> { text } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">ReasoningDelta</span> {
-            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             agent_run_id: <span class="rs-type">None</span>,
             text,
         }),
@@ -137,7 +137,7 @@
             name,
             input,
         } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">ToolUseDelta</span> {
-            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             agent_run_id: <span class="rs-type">None</span>,
             tool_use_id,
             name,
@@ -148,9 +148,9 @@
             usage,
             stop_reason,
         } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-struct-AssistantMessageComplete-8">AssistantMessageComplete</a> {
-            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             agent_run_id: <span class="rs-type">None</span>,
-            payload: <span class="rs-type">Box</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-struct-AssistantMessageComplete-8">AssistantMessageComplete</a> {
+            payload: <span class="rs-type">Box</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-struct-AssistantMessageComplete-8">AssistantMessageComplete</a> {
                 message,
                 usage,
                 stop_reason,
@@ -200,7 +200,7 @@
                 text: &quot;done&quot;.to_owned(),
             }],
         };
-        <span class="rs-kw">let</span> source = <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ScriptedClient-103">ScriptedClient</a> {
+        <span class="rs-kw">let</span> source = <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ScriptedClient-103">ScriptedClient</a> {
             stream: vec![
                 <span class="rs-type">Ok</span>(<span class="rs-type">LlmStreamEvent</span>::<span class="rs-type">AssistantTextDelta</span> {
                     text: &quot;hello&quot;.to_owned(),
@@ -266,7 +266,7 @@
   <summary>code</summary>
   <pre><code>    #[tokio::test]
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-provider-event-source-propagates-provider-stream-errors-178">provider_event_source_propagates_provider_stream_errors</a>() {
-        <span class="rs-kw">let</span> source = <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ScriptedClient-103">ScriptedClient</a> {
+        <span class="rs-kw">let</span> source = <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ScriptedClient-103">ScriptedClient</a> {
             stream: vec![<span class="rs-type">Err</span>(<span class="rs-type">ProviderError</span>::transport(&quot;connection reset&quot;))],
         }));
 
@@ -311,7 +311,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-31">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-fmt-33">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a>&quot;)
             .finish_non_exhaustive()
     }
@@ -320,7 +320,7 @@
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a> {
     <span class="rs-comment">/// Create an event source from a provider-neutral client.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(client: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">LlmClient</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(client: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">LlmClient</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> { client }
     }
 }
@@ -328,12 +328,12 @@
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-adapt-event-34">adapt_event</a>(event: <span class="rs-type">LlmStreamEvent</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt; {
     <span class="rs-kw">match</span> event {
         <span class="rs-type">LlmStreamEvent</span>::<span class="rs-type">AssistantTextDelta</span> { text } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">AssistantTextDelta</span> {
-            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             agent_run_id: <span class="rs-type">None</span>,
             text,
         }),
         <span class="rs-type">LlmStreamEvent</span>::<span class="rs-type">ReasoningDelta</span> { text } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">ReasoningDelta</span> {
-            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             agent_run_id: <span class="rs-type">None</span>,
             text,
         }),
@@ -342,7 +342,7 @@
             name,
             input,
         } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">ToolUseDelta</span> {
-            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             agent_run_id: <span class="rs-type">None</span>,
             tool_use_id,
             name,
@@ -353,9 +353,9 @@
             usage,
             stop_reason,
         } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-struct-AssistantMessageComplete-8">AssistantMessageComplete</a> {
-            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             agent_run_id: <span class="rs-type">None</span>,
-            payload: <span class="rs-type">Box</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-struct-AssistantMessageComplete-8">AssistantMessageComplete</a> {
+            payload: <span class="rs-type">Box</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-struct-AssistantMessageComplete-8">AssistantMessageComplete</a> {
                 message,
                 usage,
                 stop_reason,
@@ -418,7 +418,7 @@
                 text: &quot;done&quot;.to_owned(),
             }],
         };
-        <span class="rs-kw">let</span> source = <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ScriptedClient-103">ScriptedClient</a> {
+        <span class="rs-kw">let</span> source = <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ScriptedClient-103">ScriptedClient</a> {
             stream: vec![
                 <span class="rs-type">Ok</span>(<span class="rs-type">LlmStreamEvent</span>::<span class="rs-type">AssistantTextDelta</span> {
                     text: &quot;hello&quot;.to_owned(),
@@ -471,7 +471,7 @@
 
     #[tokio::test]
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-provider-event-source-propagates-provider-stream-errors-178">provider_event_source_propagates_provider_stream_errors</a>() {
-        <span class="rs-kw">let</span> source = <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ScriptedClient-103">ScriptedClient</a> {
+        <span class="rs-kw">let</span> source = <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ProviderEventSource-13">ProviderEventSource</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-ScriptedClient-103">ScriptedClient</a> {
             stream: vec![<span class="rs-type">Err</span>(<span class="rs-type">ProviderError</span>::transport(&quot;connection reset&quot;))],
         }));
 

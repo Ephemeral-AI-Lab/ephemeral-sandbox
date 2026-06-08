@@ -49,12 +49,35 @@ pub(crate) async fn finish_agent_run_if_requested(
         .map_err(|err| AgentRunError::Internal(err.to_string()))
 }
 
+pub(crate) async fn finish_agent_run_cancelled(
+    store: &dyn AgentRunStore,
+    agent_run_id: &AgentRunId,
+    reason: &str,
+) -> Result<(), AgentRunError> {
+    let payload = cancelled_payload(reason);
+    store
+        .finish_run(agent_run_id, None, Some(&payload), 0, Some(reason))
+        .await
+        .map(|_| ())
+        .map_err(|err| AgentRunError::Internal(err.to_string()))
+}
+
 pub(crate) fn completion_from_agent_run(
     agent_run_id: &AgentRunId,
     run: &AgentRun,
 ) -> Option<AgentRunOutcome> {
     run.finished_at?;
     if let Some(terminal) = &run.terminal_tool_result {
+        if is_cancelled_payload(terminal) {
+            return Some(AgentRunOutcome {
+                agent_run_id: agent_run_id.clone(),
+                status: AgentRunStatus::Cancelled,
+                submission_payload: None,
+                message_history: Vec::new(),
+                token_count: Some(run.token_count),
+                error: run.error.clone(),
+            });
+        }
         return Some(AgentRunOutcome {
             agent_run_id: agent_run_id.clone(),
             status: AgentRunStatus::Completed,
@@ -85,4 +108,18 @@ pub(crate) fn tool_result_payload(result: &ToolResult) -> JsonObject {
     payload.insert("metadata".to_owned(), json!(result.metadata));
     payload.insert("is_terminal".to_owned(), json!(result.is_terminal));
     payload
+}
+
+fn cancelled_payload(reason: &str) -> JsonObject {
+    let mut payload = JsonObject::new();
+    payload.insert("fail_reason".to_owned(), json!("cancelled"));
+    payload.insert("reason".to_owned(), json!(reason));
+    payload
+}
+
+fn is_cancelled_payload(payload: &JsonObject) -> bool {
+    payload
+        .get("fail_reason")
+        .and_then(serde_json::Value::as_str)
+        == Some("cancelled")
 }

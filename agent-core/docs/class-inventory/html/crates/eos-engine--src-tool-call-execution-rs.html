@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -114,7 +114,7 @@
     raw_input: &amp;<span class="rs-type">JsonObject</span>,
     ctx: &amp;<span class="rs-type">ExecutionMetadata</span>,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">ToolResult</span>&gt;, <span class="rs-type">ToolError</span>&gt; {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> hook_trace: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Value</span>&gt; = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> hook_trace: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Value</span>&gt; = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     <span class="rs-kw">for</span> &amp;hook <span class="rs-kw">in</span> &amp;tool.hooks {
         <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-fn-run-hook-59">run_hook</a>(hook, raw_input, ctx, tool.hook_services()).<span class="rs-kw">await</span>? {
             <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Pass</span>(meta) =&gt; hook_trace.push(json!({
@@ -255,7 +255,7 @@
     raw_input: &amp;<span class="rs-type">JsonObject</span>,
     ctx: &amp;<span class="rs-type">ExecutionMetadata</span>,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">ToolResult</span>&gt;, <span class="rs-type">ToolError</span>&gt; {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> hook_trace: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Value</span>&gt; = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> hook_trace: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Value</span>&gt; = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     <span class="rs-kw">for</span> &amp;hook <span class="rs-kw">in</span> &amp;tool.hooks {
         <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-fn-run-hook-59">run_hook</a>(hook, raw_input, ctx, tool.hook_services()).<span class="rs-kw">await</span>? {
             <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-mod-rs.html#item-enum-HookOutcome-14">HookOutcome</a>::<span class="rs-type">Pass</span>(meta) =&gt; hook_trace.push(json!({

@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -200,7 +200,7 @@
 
     <span class="rs-kw">if</span> lifecycle.is_empty() {
         <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-LifecycleBatchDecision-32">LifecycleBatchDecision</a> {
-            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             dispatched: calls.iter().map(|c| c.tool_use_id.to_owned()).collect(),
         };
     }
@@ -234,7 +234,7 @@
     <span class="rs-kw">let</span> lifecycle_call = lifecycle[0];
     <span class="rs-kw">if</span> non_lifecycle.is_empty() {
         <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-LifecycleBatchDecision-32">LifecycleBatchDecision</a> {
-            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             dispatched: vec![lifecycle_call.tool_use_id.to_owned()],
         };
     }
@@ -347,15 +347,15 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-registry-with-211">registry_with</a>(names: &amp;[<span class="rs-type">ToolName</span>]) -&gt; <span class="rs-type">ToolRegistry</span> {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         <span class="rs-kw">for</span> name <span class="rs-kw">in</span> names {
-            registry.register(<span class="rs-type">RegisteredTool</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+            registry.register(<span class="rs-type">RegisteredTool</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                 *name,
                 <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-intent-for-226">intent_for</a>(*name),
                 <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-is-terminal-41">is_terminal</a>(*name),
-                <span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(name.as_str(), &quot;desc&quot;, <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(), <span class="rs-type">None</span>),
+                <span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(name.as_str(), &quot;desc&quot;, <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(), <span class="rs-type">None</span>),
                 <span class="rs-type">OutputShape</span>::<span class="rs-type">Text</span>,
-                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-NoopExecutor-191">NoopExecutor</a>),
+                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-NoopExecutor-191">NoopExecutor</a>),
             ));
         }
         registry
@@ -636,7 +636,7 @@
 
     <span class="rs-kw">if</span> lifecycle.is_empty() {
         <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-LifecycleBatchDecision-32">LifecycleBatchDecision</a> {
-            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             dispatched: calls.iter().map(|c| c.tool_use_id.to_owned()).collect(),
         };
     }
@@ -670,7 +670,7 @@
     <span class="rs-kw">let</span> lifecycle_call = lifecycle[0];
     <span class="rs-kw">if</span> non_lifecycle.is_empty() {
         <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-LifecycleBatchDecision-32">LifecycleBatchDecision</a> {
-            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             dispatched: vec![lifecycle_call.tool_use_id.to_owned()],
         };
     }
@@ -733,15 +733,15 @@
     }
 
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-registry-with-211">registry_with</a>(names: &amp;[<span class="rs-type">ToolName</span>]) -&gt; <span class="rs-type">ToolRegistry</span> {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         <span class="rs-kw">for</span> name <span class="rs-kw">in</span> names {
-            registry.register(<span class="rs-type">RegisteredTool</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+            registry.register(<span class="rs-type">RegisteredTool</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
                 *name,
                 <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-intent-for-226">intent_for</a>(*name),
                 <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-is-terminal-41">is_terminal</a>(*name),
-                <span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(name.as_str(), &quot;desc&quot;, <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(), <span class="rs-type">None</span>),
+                <span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(name.as_str(), &quot;desc&quot;, <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(), <span class="rs-type">None</span>),
                 <span class="rs-type">OutputShape</span>::<span class="rs-type">Text</span>,
-                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-NoopExecutor-191">NoopExecutor</a>),
+                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-NoopExecutor-191">NoopExecutor</a>),
             ));
         }
         registry

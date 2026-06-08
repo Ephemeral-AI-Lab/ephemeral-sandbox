@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -116,8 +116,8 @@
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-request-rs.html#item-fn-context-54">context</a>() -&gt; <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-struct-QueryContext-53">QueryContext</a> {
         <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-struct-QueryContext-53">QueryContext</a> {
-            tool_registry: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>()),
-            cwd: <span class="rs-type">PathBuf</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            tool_registry: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>()),
+            cwd: <span class="rs-type">PathBuf</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             model: &quot;model&quot;.to_owned(),
             system_prompt: &quot;system&quot;.to_owned(),
             max_tokens: 32,
@@ -128,16 +128,16 @@
             tool_calls_used: 0,
             text_only_no_terminal_turns: 0,
             tool_metadata: metadata(),
-            terminal_tools: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            terminal_tools: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             exit_reason: <span class="rs-type">None</span>,
             submission_outcome: <span class="rs-type">None</span>,
             event_source: <span class="rs-type">None</span>,
             prompt_report: <span class="rs-type">None</span>,
-            notification_rules: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
-            notification_fired: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
-            notifier: <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
-            cancellation: <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-engine--src-runtime-control-rs.html#item-struct-AgentRunCancellation-20">AgentRunCancellation</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
-            foreground: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutorFactory-23">ForegroundExecutorFactory</a>.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-create-31">create</a>(<span class="rs-type">AgentRunId</span>::new_v4())),
+            notification_rules: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
+            notification_fired: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
+            notifier: <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
+            cancellation: <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-engine--src-runtime-control-rs.html#item-struct-AgentRunCancellation-20">AgentRunCancellation</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
+            foreground: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutorFactory-23">ForegroundExecutorFactory</a>.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-create-31">create</a>(<span class="rs-type">AgentRunId</span>::new_v4())),
             audit: <span class="rs-type">None</span>,
         }
     }
@@ -163,7 +163,7 @@
             content: vec![<span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolUse</span> {
                 tool_use_id: &quot;toolu_a&quot;.parse().expect(&quot;tool <span class="rs-kw">use</span> id&quot;),
                 name: &quot;read_file&quot;.to_owned(),
-                input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+                input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             }],
         }];
 
@@ -243,8 +243,8 @@
 
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-request-rs.html#item-fn-context-54">context</a>() -&gt; <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-struct-QueryContext-53">QueryContext</a> {
         <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-struct-QueryContext-53">QueryContext</a> {
-            tool_registry: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>()),
-            cwd: <span class="rs-type">PathBuf</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            tool_registry: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>()),
+            cwd: <span class="rs-type">PathBuf</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             model: &quot;model&quot;.to_owned(),
             system_prompt: &quot;system&quot;.to_owned(),
             max_tokens: 32,
@@ -255,16 +255,16 @@
             tool_calls_used: 0,
             text_only_no_terminal_turns: 0,
             tool_metadata: metadata(),
-            terminal_tools: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+            terminal_tools: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             exit_reason: <span class="rs-type">None</span>,
             submission_outcome: <span class="rs-type">None</span>,
             event_source: <span class="rs-type">None</span>,
             prompt_report: <span class="rs-type">None</span>,
-            notification_rules: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
-            notification_fired: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
-            notifier: <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
-            cancellation: <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-engine--src-runtime-control-rs.html#item-struct-AgentRunCancellation-20">AgentRunCancellation</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
-            foreground: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(<span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutorFactory-23">ForegroundExecutorFactory</a>.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-create-31">create</a>(<span class="rs-type">AgentRunId</span>::new_v4())),
+            notification_rules: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
+            notification_fired: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
+            notifier: <a class="symbol-link rs-type" href="eos-engine--src-notifications-mod-rs.html#item-struct-NotificationService-108">NotificationService</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
+            cancellation: <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-engine--src-runtime-control-rs.html#item-struct-AgentRunCancellation-20">AgentRunCancellation</a>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
+            foreground: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(<span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-engine--src-runtime-foreground-rs.html#item-struct-ForegroundExecutorFactory-23">ForegroundExecutorFactory</a>.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-foreground-rs.html#method-create-31">create</a>(<span class="rs-type">AgentRunId</span>::new_v4())),
             audit: <span class="rs-type">None</span>,
         }
     }
@@ -277,7 +277,7 @@
             content: vec![<span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolUse</span> {
                 tool_use_id: &quot;toolu_a&quot;.parse().expect(&quot;tool <span class="rs-kw">use</span> id&quot;),
                 name: &quot;read_file&quot;.to_owned(),
-                input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+                input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
             }],
         }];
 

@@ -159,7 +159,9 @@ impl RuntimeExecutionMetadataService {
             workflow_id: task.as_ref().and_then(|task| task.workflow_id.clone()),
             iteration_id: task.as_ref().and_then(|task| task.iteration_id.clone()),
             attempt_id: task.as_ref().and_then(|task| task.attempt_id.clone()),
-            sandbox_id: request.as_ref().and_then(|request| request.sandbox_id.clone()),
+            sandbox_id: request
+                .as_ref()
+                .and_then(|request| request.sandbox_id.clone()),
             workspace_root: request.map_or_else(String::new, |request| request.cwd),
             is_isolated_workspace_mode: false,
         })

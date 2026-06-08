@@ -180,11 +180,7 @@ pub(crate) fn overlay_daemon_error(context: &str, err: &eos_overlay::OverlayErro
 }
 
 pub(crate) fn ephemeral_daemon_error(error: EphemeralWorkspaceError) -> DaemonError {
-    match error {
-        EphemeralWorkspaceError::InvalidArgument(message) => DaemonError::InvalidEnvelope(message),
-        EphemeralWorkspaceError::Io { source, .. } => DaemonError::Io(source),
-        other => DaemonError::OverlayPipeline(other.to_string()),
-    }
+    DaemonError::OverlayPipeline(error.to_string())
 }
 
 pub(crate) fn path_changes_to_wire(path_changes: &[PathChange]) -> Vec<(String, String)> {

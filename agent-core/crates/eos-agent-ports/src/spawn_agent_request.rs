@@ -1,9 +1,7 @@
 //! Agent spawn request DTOs.
 
 use eos_llm_client::Message;
-use eos_types::{
-    AgentRunId, AttemptId, IterationId, RequestId, SandboxId, TaskId, WorkflowId,
-};
+use eos_types::{AgentRunId, AttemptId, IterationId, RequestId, SandboxId, TaskId, WorkflowId};
 
 use crate::AgentName;
 

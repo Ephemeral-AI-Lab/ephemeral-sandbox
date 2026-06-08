@@ -24,7 +24,7 @@
 <section class="summary">
   <div><b>42</b><span>modules</span></div>
   <div><b>321</b><span>items</span></div>
-  <div><b>250</b><span>fields</span></div>
+  <div><b>251</b><span>fields</span></div>
   <div><b>227</b><span>methods</span></div>
 </section>
 <section class="toolbar">
@@ -120,16 +120,16 @@
         .collect();
 
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(rejections) = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-reject-terminal-batch-53">reject_terminal_batch</a>(&amp;dispatch_calls, &amp;ctx.tool_registry) {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> by_id = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> by_id = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         <span class="rs-kw">for</span> rejection <span class="rs-kw">in</span> rejections {
-            by_id.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(rejection.tool_use_id, <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-338">rejection_result</a>(rejection.message));
+            by_id.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(rejection.tool_use_id, <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-347">rejection_result</a>(rejection.message));
         }
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> events = <span class="rs-type">Vec</span>::with_capacity(calls.len());
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_results = <span class="rs-type">Vec</span>::with_capacity(calls.len());
         <span class="rs-kw">for</span> call <span class="rs-kw">in</span> calls {
             <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(result) = by_id.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-registry-rs.html#method-get-77">get</a>(call.tool_use_id.as_str()) {
                 events.push(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-completed-event-55">completed_event</a>(call, result));
-                tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-328">result_block</a>(&amp;call.tool_use_id, result));
+                tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-337">result_block</a>(&amp;call.tool_use_id, result));
             }
         }
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-AssistantToolDispatchOutcome-34">AssistantToolDispatchOutcome</a> {
@@ -141,24 +141,24 @@
 
     <span class="rs-kw">let</span> lifecycle = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-lifecycle-batch-decision-99">lifecycle_batch_decision</a>(&amp;dispatch_calls, &amp;ctx.tool_registry);
     <span class="rs-kw">let</span> dispatched: <span class="rs-type">BTreeSet</span>&lt;&amp;str&gt; = lifecycle.dispatched.iter().map(<span class="rs-type">String</span>::as_str).collect();
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> rejected = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> rejected = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     <span class="rs-kw">for</span> rejection <span class="rs-kw">in</span> lifecycle.rejected {
-        rejected.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(rejection.tool_use_id, <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-338">rejection_result</a>(rejection.message));
+        rejected.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(rejection.tool_use_id, <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-347">rejection_result</a>(rejection.message));
     }
 
     <span class="rs-comment">// One transcript snapshot for this dispatch; cloned cheaply into each tool's</span>
     <span class="rs-comment">// metadata as `conversation` (the advisor gate and advisor tool input).</span>
     <span class="rs-kw">let</span> conversation: <span class="rs-type">Arc</span>&lt;[<span class="rs-type">Message</span>]&gt; = <span class="rs-type">Arc</span>::from(messages.to_vec());
 
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> events = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_results = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> events = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_results = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> results_by_id = rejected.clone();
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> runnable = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> runnable = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
 
     <span class="rs-kw">for</span> call <span class="rs-kw">in</span> calls {
         <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(result) = rejected.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-registry-rs.html#method-get-77">get</a>(call.tool_use_id.as_str()) {
             events.push(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-completed-event-55">completed_event</a>(call, result));
-            tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-328">result_block</a>(&amp;call.tool_use_id, result));
+            tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-337">result_block</a>(&amp;call.tool_use_id, result));
             <span class="rs-kw">continue</span>;
         }
         <span class="rs-kw">if</span> !dispatched.contains(call.tool_use_id.as_str()) {
@@ -166,9 +166,9 @@
         }
 
         <span class="rs-kw">let</span> <span class="rs-type">Some</span>(tool) = ctx.tool_registry.get_wire(&amp;call.name) <span class="rs-kw">else</span> {
-            <span class="rs-kw">let</span> result = <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-338">rejection_result</a>(format!(&quot;<span class="rs-type">Unknown</span> tool `{}`.&quot;, call.name));
+            <span class="rs-kw">let</span> result = <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-347">rejection_result</a>(format!(&quot;<span class="rs-type">Unknown</span> tool `{}`.&quot;, call.name));
             events.push(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-completed-event-55">completed_event</a>(call, &amp;result));
-            tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-328">result_block</a>(&amp;call.tool_use_id, &amp;result));
+            tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-337">result_block</a>(&amp;call.tool_use_id, &amp;result));
             results_by_id.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(call.tool_use_id.as_str().to_owned(), result);
             <span class="rs-kw">continue</span>;
         };
@@ -187,7 +187,7 @@
             &amp;completion.result,
             completion.duration_ms,
         );
-        tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-328">result_block</a>(
+        tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-337">result_block</a>(
             &amp;completion.call.tool_use_id,
             &amp;completion.result,
         ));
@@ -218,11 +218,11 @@
     <h3>result_block</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-engine.html#item-fn-result-block-328">result_block</a> (tool_use_id : &amp; ToolUseId , result : &amp; ToolResult) -&gt; ContentBlock</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-engine.html#item-fn-result-block-337">result_block</a> (tool_use_id : &amp; ToolUseId , result : &amp; ToolResult) -&gt; ContentBlock</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-328">result_block</a>(tool_use_id: &amp;<span class="rs-type">ToolUseId</span>, result: &amp;<span class="rs-type">ToolResult</span>) -&gt; <span class="rs-type">ContentBlock</span> {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-337">result_block</a>(tool_use_id: &amp;<span class="rs-type">ToolUseId</span>, result: &amp;<span class="rs-type">ToolResult</span>) -&gt; <span class="rs-type">ContentBlock</span> {
     <span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolResult</span> {
         tool_use_id: tool_use_id.clone(),
         content: result.output.clone(),
@@ -247,7 +247,7 @@
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-completed-event-55">completed_event</a>(call: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a>, result: &amp;<span class="rs-type">ToolResult</span>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a> {
     <a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">ToolExecutionCompleted</span> {
-        agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+        agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
         agent_run_id: <span class="rs-type">None</span>,
         tool_name: call.name.clone(),
         output: result.output.clone(),
@@ -273,7 +273,7 @@
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-started-event-68">started_event</a>(call: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a> {
     <a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">ToolExecutionStarted</span> {
-        agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+        agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
         agent_run_id: <span class="rs-type">None</span>,
         tool_name: call.name.clone(),
         tool_input: call.input.clone(),
@@ -290,15 +290,15 @@
     <h3>rejection_result</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-engine.html#item-fn-rejection-result-338">rejection_result</a> (message : impl Into &lt; String &gt;) -&gt; ToolResult</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-engine.html#item-fn-rejection-result-347">rejection_result</a> (message : impl Into &lt; String &gt;) -&gt; ToolResult</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-338">rejection_result</a>(message: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-type">ToolResult</span> {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-347">rejection_result</a>(message: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-type">ToolResult</span> {
     <span class="rs-type">ToolResult</span> {
         output: message.into(),
         is_error: <span class="rs-kw">true</span>,
-        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
         is_terminal: <span class="rs-kw">false</span>,
     }
 }
@@ -462,7 +462,7 @@
     <span class="rs-kw">let</span> expected = runnable.len();
     <span class="rs-kw">let</span> capacity = expected.saturating_mul(2).max(16);
     <span class="rs-kw">let</span> (tx, <span class="rs-kw">mut</span> rx) = mpsc::channel(capacity);
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tasks = <span class="rs-type">JoinSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tasks = <span class="rs-type">JoinSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
 
     <span class="rs-kw">for</span> (call, tool) <span class="rs-kw">in</span> runnable {
         <span class="rs-kw">let</span> metadata = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-metadata-for-call-102">metadata_for_call</a>(ctx, conversation, &amp;call.tool_use_id);
@@ -524,7 +524,7 @@
     runnable: <span class="rs-type">Vec</span>&lt;(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a>, <span class="rs-type">RegisteredTool</span>)&gt;,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ForegroundCompletion-115">ForegroundCompletion</a>&gt;, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt; {
     <span class="rs-kw">match</span> runnable.len() {
-        0 =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>()),
+        0 =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>()),
         1 =&gt; {
             <span class="rs-kw">let</span> <span class="rs-type">Some</span>((call, tool)) = runnable.into_iter().next() <span class="rs-kw">else</span> {
                 <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>::<span class="rs-type">Internal</span>(
@@ -580,7 +580,7 @@
         node = node.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-sandbox-id-34">sandbox_id</a>(sandbox_id.clone());
     }
 
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> section = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> section = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     section.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;tool_name&quot;.to_owned(), json!(call.name));
     section.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;duration_ms&quot;.to_owned(), json!(duration_ms));
     section.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(
@@ -590,9 +590,9 @@
     section.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;is_error&quot;.to_owned(), json!(result.is_error));
     section.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;is_terminal&quot;.to_owned(), json!(result.is_terminal));
 
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;tool_call&quot;.to_owned(), <span class="rs-type">Value</span>::<span class="rs-type">Object</span>(section));
-    <span class="rs-kw">let</span> event = <span class="rs-type">AuditEvent</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+    <span class="rs-kw">let</span> event = <span class="rs-type">AuditEvent</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         <span class="rs-type">AuditSource</span>::<span class="rs-type">Engine</span>,
         <span class="rs-type">TOOL_CALL_COMPLETED</span>,
         node.build(),
@@ -660,7 +660,7 @@
     <span class="rs-kw">pub</span> events: <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>&gt;,
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-328">result_block</a>(tool_use_id: &amp;<span class="rs-type">ToolUseId</span>, result: &amp;<span class="rs-type">ToolResult</span>) -&gt; <span class="rs-type">ContentBlock</span> {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-337">result_block</a>(tool_use_id: &amp;<span class="rs-type">ToolUseId</span>, result: &amp;<span class="rs-type">ToolResult</span>) -&gt; <span class="rs-type">ContentBlock</span> {
     <span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolResult</span> {
         tool_use_id: tool_use_id.clone(),
         content: result.output.clone(),
@@ -672,7 +672,7 @@
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-completed-event-55">completed_event</a>(call: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a>, result: &amp;<span class="rs-type">ToolResult</span>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a> {
     <a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">ToolExecutionCompleted</span> {
-        agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+        agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
         agent_run_id: <span class="rs-type">None</span>,
         tool_name: call.name.clone(),
         output: result.output.clone(),
@@ -685,7 +685,7 @@
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-started-event-68">started_event</a>(call: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a> {
     <a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">ToolExecutionStarted</span> {
-        agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+        agent_name: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
         agent_run_id: <span class="rs-type">None</span>,
         tool_name: call.name.clone(),
         tool_input: call.input.clone(),
@@ -693,11 +693,11 @@
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-338">rejection_result</a>(message: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-type">ToolResult</span> {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-347">rejection_result</a>(message: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-type">ToolResult</span> {
     <span class="rs-type">ToolResult</span> {
         output: message.into(),
         is_error: <span class="rs-kw">true</span>,
-        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(),
+        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(),
         is_terminal: <span class="rs-kw">false</span>,
     }
 }
@@ -777,7 +777,7 @@
     <span class="rs-kw">let</span> expected = runnable.len();
     <span class="rs-kw">let</span> capacity = expected.saturating_mul(2).max(16);
     <span class="rs-kw">let</span> (tx, <span class="rs-kw">mut</span> rx) = mpsc::channel(capacity);
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tasks = <span class="rs-type">JoinSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tasks = <span class="rs-type">JoinSet</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
 
     <span class="rs-kw">for</span> (call, tool) <span class="rs-kw">in</span> runnable {
         <span class="rs-kw">let</span> metadata = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-metadata-for-call-102">metadata_for_call</a>(ctx, conversation, &amp;call.tool_use_id);
@@ -826,7 +826,7 @@
     runnable: <span class="rs-type">Vec</span>&lt;(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ToolUseRequest-23">ToolUseRequest</a>, <span class="rs-type">RegisteredTool</span>)&gt;,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-ForegroundCompletion-115">ForegroundCompletion</a>&gt;, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt; {
     <span class="rs-kw">match</span> runnable.len() {
-        0 =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>()),
+        0 =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>()),
         1 =&gt; {
             <span class="rs-kw">let</span> <span class="rs-type">Some</span>((call, tool)) = runnable.into_iter().next() <span class="rs-kw">else</span> {
                 <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>::<span class="rs-type">Internal</span>(
@@ -869,7 +869,7 @@
         node = node.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-sandbox-id-34">sandbox_id</a>(sandbox_id.clone());
     }
 
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> section = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> section = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     section.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;tool_name&quot;.to_owned(), json!(call.name));
     section.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;duration_ms&quot;.to_owned(), json!(duration_ms));
     section.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(
@@ -879,9 +879,9 @@
     section.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;is_error&quot;.to_owned(), json!(result.is_error));
     section.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;is_terminal&quot;.to_owned(), json!(result.is_terminal));
 
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(&quot;tool_call&quot;.to_owned(), <span class="rs-type">Value</span>::<span class="rs-type">Object</span>(section));
-    <span class="rs-kw">let</span> event = <span class="rs-type">AuditEvent</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>(
+    <span class="rs-kw">let</span> event = <span class="rs-type">AuditEvent</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>(
         <span class="rs-type">AuditSource</span>::<span class="rs-type">Engine</span>,
         <span class="rs-type">TOOL_CALL_COMPLETED</span>,
         node.build(),
@@ -912,16 +912,16 @@
         .collect();
 
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(rejections) = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-reject-terminal-batch-53">reject_terminal_batch</a>(&amp;dispatch_calls, &amp;ctx.tool_registry) {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> by_id = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> by_id = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
         <span class="rs-kw">for</span> rejection <span class="rs-kw">in</span> rejections {
-            by_id.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(rejection.tool_use_id, <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-338">rejection_result</a>(rejection.message));
+            by_id.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(rejection.tool_use_id, <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-347">rejection_result</a>(rejection.message));
         }
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> events = <span class="rs-type">Vec</span>::with_capacity(calls.len());
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_results = <span class="rs-type">Vec</span>::with_capacity(calls.len());
         <span class="rs-kw">for</span> call <span class="rs-kw">in</span> calls {
             <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(result) = by_id.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-registry-rs.html#method-get-77">get</a>(call.tool_use_id.as_str()) {
                 events.push(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-completed-event-55">completed_event</a>(call, result));
-                tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-328">result_block</a>(&amp;call.tool_use_id, result));
+                tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-337">result_block</a>(&amp;call.tool_use_id, result));
             }
         }
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-dispatch-rs.html#item-struct-AssistantToolDispatchOutcome-34">AssistantToolDispatchOutcome</a> {
@@ -933,24 +933,24 @@
 
     <span class="rs-kw">let</span> lifecycle = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-lifecycle-batch-decision-99">lifecycle_batch_decision</a>(&amp;dispatch_calls, &amp;ctx.tool_registry);
     <span class="rs-kw">let</span> dispatched: <span class="rs-type">BTreeSet</span>&lt;&amp;str&gt; = lifecycle.dispatched.iter().map(<span class="rs-type">String</span>::as_str).collect();
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> rejected = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> rejected = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     <span class="rs-kw">for</span> rejection <span class="rs-kw">in</span> lifecycle.rejected {
-        rejected.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(rejection.tool_use_id, <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-338">rejection_result</a>(rejection.message));
+        rejected.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(rejection.tool_use_id, <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-347">rejection_result</a>(rejection.message));
     }
 
     <span class="rs-comment">// One transcript snapshot for this dispatch; cloned cheaply into each tool's</span>
     <span class="rs-comment">// metadata as `conversation` (the advisor gate and advisor tool input).</span>
     <span class="rs-kw">let</span> conversation: <span class="rs-type">Arc</span>&lt;[<span class="rs-type">Message</span>]&gt; = <span class="rs-type">Arc</span>::from(messages.to_vec());
 
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> events = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_results = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> events = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_results = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> results_by_id = rejected.clone();
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> runnable = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-37">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> runnable = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine.html#method-new-39">new</a>();
 
     <span class="rs-kw">for</span> call <span class="rs-kw">in</span> calls {
         <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(result) = rejected.<a class="symbol-link rs-fn" href="eos-engine--src-runtime-registry-rs.html#method-get-77">get</a>(call.tool_use_id.as_str()) {
             events.push(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-completed-event-55">completed_event</a>(call, result));
-            tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-328">result_block</a>(&amp;call.tool_use_id, result));
+            tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-337">result_block</a>(&amp;call.tool_use_id, result));
             <span class="rs-kw">continue</span>;
         }
         <span class="rs-kw">if</span> !dispatched.contains(call.tool_use_id.as_str()) {
@@ -958,9 +958,9 @@
         }
 
         <span class="rs-kw">let</span> <span class="rs-type">Some</span>(tool) = ctx.tool_registry.get_wire(&amp;call.name) <span class="rs-kw">else</span> {
-            <span class="rs-kw">let</span> result = <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-338">rejection_result</a>(format!(&quot;<span class="rs-type">Unknown</span> tool `{}`.&quot;, call.name));
+            <span class="rs-kw">let</span> result = <a class="symbol-link rs-fn" href="eos-engine.html#item-fn-rejection-result-347">rejection_result</a>(format!(&quot;<span class="rs-type">Unknown</span> tool `{}`.&quot;, call.name));
             events.push(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-dispatch-rs.html#item-fn-completed-event-55">completed_event</a>(call, &amp;result));
-            tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-328">result_block</a>(&amp;call.tool_use_id, &amp;result));
+            tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-337">result_block</a>(&amp;call.tool_use_id, &amp;result));
             results_by_id.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#method-insert-242">insert</a>(call.tool_use_id.as_str().to_owned(), result);
             <span class="rs-kw">continue</span>;
         };
@@ -979,7 +979,7 @@
             &amp;completion.result,
             completion.duration_ms,
         );
-        tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-328">result_block</a>(
+        tool_results.push(<a class="symbol-link rs-fn" href="eos-engine.html#item-fn-result-block-337">result_block</a>(
             &amp;completion.call.tool_use_id,
             &amp;completion.result,
         ));
