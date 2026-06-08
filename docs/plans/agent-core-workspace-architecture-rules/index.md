@@ -1,6 +1,6 @@
 # Agent-Core Workspace Architecture Rules - Index
 
-Status: Draft
+Status: Phase 00 accepted; implementation phases draft
 Date: 2026-06-09
 Owner: agent-core workspace
 
@@ -17,10 +17,14 @@ The cleanup is intentionally aggressive:
 - reserve `service` for owner-crate surfaces consumed by sibling crates,
 - remove `composition` and `deps` as folder/type vocabulary,
 - fold request runtime wiring into `eos-agent-core`,
+- fold generic config, agent definitions, and audit wiring into their real
+  owners,
 - collapse shallow one-file-per-command module trees,
+- avoid separate tool `catalog.rs`, tool `executor.rs`, and tool `handles.rs`
+  splits unless the final code proves they remove real complexity,
 - keep `eos-engine` execution-only,
 - keep concrete model-callable tools in `eos-tool`,
-- reduce the class inventory from 291 modules to 180-200 modules.
+- reduce the class inventory from 291 modules to 150-170 modules.
 
 ## Current Inventory
 
@@ -28,21 +32,21 @@ Source: `agent-core/docs/class-inventory/html/assets/inventory.json`
 
 | Metric | Current | Target |
 | --- | ---: | ---: |
-| Crates | 18 | 11 |
-| Modules | 291 | 180-200 |
-| Items | 1701 | lower after crate collapse |
-| Methods | 987 | lower after module and service collapse |
+| Crates | 18 | 10 |
+| Modules | 291 | 150-170 |
+| Items | 1701 | lower after crate, module, and compatibility collapse |
+| Methods | 987 | lower after service/resource split collapse |
 
 Current high-module crates:
 
 | Crate | Current modules | Target direction |
 | --- | ---: | --- |
-| `eos-tools` | 51 | collapse tiny tool files; rename to `eos-tool` |
-| `eos-engine` | 33 | execution only; remove tool ownership |
-| `eos-types` | 28 | passive contracts only |
+| `eos-tools` | 51 | collapse tiny tool files; rename to lean `eos-tool` |
+| `eos-engine` | 33 | execution only; no tool ownership or service subfolder |
+| `eos-types` | 28 | passive contracts only; no generic config dumping |
 | `eos-sandbox-port` | 23 | allowed port boundary; keep focused |
-| `eos-workflow` | 23 | workflow domain with sibling-facing services |
-| `eos-runtime` | 21 | fold into `eos-agent-core/runtime/` |
+| `eos-workflow` | 23 | workflow domain with one sibling-facing `services.rs` |
+| `eos-runtime` | 21 | fold into private `eos-agent-core/runtime/` |
 
 ## Vocabulary Rules
 
@@ -51,8 +55,8 @@ Current high-module crates:
 | `api` | external-project-facing contract language | docs and public contract descriptions only |
 | `service` | public owner-crate callable surface used by at least one sibling crate | behavior-owning crates with sibling consumers |
 | `runtime` | hidden request-running wiring inside `eos-agent-core` | `eos-agent-core/src/runtime.rs` and `runtime/` |
-| `handles` | grouped concrete resources with lifecycle | private runtime internals |
-| `catalog` | registry-like static or loaded definitions | agents, tools, skills, plugins |
+| `handles` | grouped concrete resources with lifecycle | private runtime internals; avoid standalone handle files unless needed |
+| `catalog` | loaded definitions with lifecycle | agents and plugins; tool defaults stay in `registry.rs` |
 | `context` | per-call facts, not resource wiring | immutable call/run facts |
 | `model` | DTOs, enums, typed IDs, request/response values | any crate |
 | `stores` | persistence contracts or DB-backed state access | `eos-types`, `eos-db`, owning domain crates |
@@ -75,7 +79,7 @@ A file, module, trait, or type may be named service only if:
 2. at least one different workspace crate imports or calls it.
 
 If both are not true, use runtime, handles, context, state, records, registry,
-catalog, executor, printer, sink, client, or a domain-specific name.
+printer, sink, client, or a domain-specific name.
 ```
 
 ## Target Crate Map
@@ -85,10 +89,9 @@ agent-core/crates/
 ├── eos-agent-core/       # external facade + hidden request runtime
 ├── eos-agent-run/        # agent-run lifecycle: spawn/wait/poll/cancel/finalize
 ├── eos-engine/           # execution loop, turns, events, records, background accounting
-├── eos-tool/             # tool model, registry, executor, hooks, concrete tools, skills
+├── eos-tool/             # tool model, registry, hooks, concrete tools, skills
 ├── eos-workflow/         # workflow lifecycle and attempt/iteration domain
 ├── eos-types/            # passive shared contracts
-├── eos-config/           # shared passive configuration contracts
 ├── eos-db/               # persistence implementations
 ├── eos-llm-client/       # outbound provider clients and provider DTOs
 ├── eos-sandbox-port/     # only allowed port crate
@@ -107,6 +110,9 @@ Retired or folded crates:
 | `eos-agent-runner` | rename/consolidate as `eos-agent-run` |
 | `eos-skills` | fold skill registry/package loading into `eos-tool` |
 | `eos-plugin-catalog` | fold into `eos-tool` or private `eos-agent-core/runtime/plugins.rs` |
+| `eos-agent-def` | fold agent definitions into `eos-agent-core/src/agents.rs`; passive DTOs go to `eos-types` only when shared |
+| `eos-config` | fold config structs into owning crates; no generic config crate |
+| `eos-audit` | fold runtime audit sink into `eos-agent-core/src/runtime/audit.rs` |
 
 ## Target Architecture
 
@@ -115,7 +121,7 @@ flowchart LR
     External["external project / backend-server"] --> AgentCore["eos-agent-core"]
     AgentCore --> AgentRun["eos-agent-run services"]
     AgentCore --> Workflow["eos-workflow services"]
-    AgentCore --> Tool["eos-tool services"]
+    AgentCore --> Tool["eos-tool registry + concrete tools"]
     AgentCore --> Db["eos-db stores"]
     AgentCore --> Llm["eos-llm-client client"]
     AgentCore --> Sandbox["eos-sandbox-port"]
@@ -124,7 +130,6 @@ flowchart LR
     Engine --> Llm
     Engine --> Sandbox
     Tool --> Sandbox
-    Tool --> Workflow
     Workflow --> AgentRun
     Db --> Types["eos-types"]
     AgentRun --> Types
@@ -143,6 +148,9 @@ Rules behind the graph:
 - `eos-workflow` owns workflow lifecycle and workflow state transitions.
 - `eos-llm-client` owns outbound provider clients; it does not need a
   `services.rs` module.
+- Config structs live with their owner: provider config in `eos-llm-client`,
+  agent profiles in `eos-agent-core`, workflow config in `eos-workflow`, DB
+  config in `eos-db`.
 - `eos-types` owns passive contracts only.
 - `eos-sandbox-port` is the only crate allowed to be called a port.
 
@@ -161,13 +169,13 @@ agent-core/
 │   │       ├── request.rs
 │   │       ├── state.rs
 │   │       ├── cancellation.rs
+│   │       ├── agents.rs
 │   │       ├── runtime.rs
 │   │       └── runtime/
 │   │           ├── builder.rs
 │   │           ├── database.rs
 │   │           ├── engine.rs
 │   │           ├── sandbox.rs
-│   │           ├── agents.rs
 │   │           ├── audit.rs
 │   │           └── plugins.rs
 │   ├── eos-agent-run/
@@ -188,9 +196,6 @@ agent-core/
 │   │       ├── model.rs
 │   │       ├── events.rs
 │   │       ├── services.rs
-│   │       ├── services/
-│   │       │   ├── loop_execution.rs
-│   │       │   └── event_sink.rs
 │   │       ├── loop.rs
 │   │       ├── loop/
 │   │       │   ├── executor.rs
@@ -208,14 +213,8 @@ agent-core/
 │   │       ├── lib.rs
 │   │       ├── error.rs
 │   │       ├── model.rs
-│   │       ├── catalog.rs
 │   │       ├── registry.rs
-│   │       ├── executor.rs
 │   │       ├── hooks.rs
-│   │       ├── hooks/
-│   │       │   ├── background_sessions.rs
-│   │       │   ├── workflow_depth.rs
-│   │       │   └── sandbox_policy.rs
 │   │       ├── tools.rs
 │   │       ├── tools/
 │   │       │   ├── sandbox.rs
@@ -224,33 +223,18 @@ agent-core/
 │   │       │   ├── subagent.rs
 │   │       │   ├── submission.rs
 │   │       │   ├── skills.rs
-│   │       │   ├── advisor.rs
 │   │       │   └── terminal.rs
-│   │       ├── services.rs
-│   │       └── services/
-│   │           ├── registry.rs
-│   │           ├── sandbox.rs
-│   │           ├── command_sessions.rs
-│   │           ├── workflow.rs
-│   │           ├── subagent.rs
-│   │           ├── submission.rs
-│   │           └── skills.rs
 │   ├── eos-workflow/
 │   │   └── src/
 │   │       ├── lib.rs
 │   │       ├── error.rs
 │   │       ├── model.rs
 │   │       ├── services.rs
-│   │       ├── services/
-│   │       │   ├── lifecycle.rs
-│   │       │   ├── attempts.rs
-│   │       │   └── queries.rs
 │   │       ├── attempts.rs
 │   │       ├── iterations.rs
 │   │       ├── planning.rs
 │   │       └── context.rs
 │   ├── eos-types/
-│   ├── eos-config/
 │   ├── eos-db/
 │   ├── eos-llm-client/
 │   │   └── src/
@@ -304,34 +288,36 @@ agent-core/
 
 | Phase | Status | Exit artifact |
 | --- | --- | --- |
-| 0. Architecture lock | Not started | final 11-crate map and vocabulary are approved |
+| 0. Architecture lock | Accepted | final 10-crate map and vocabulary are approved |
 | 1. Workspace guardrails | Not started | `cargo test -p workspace-guard` enforces naming and budget rules |
 | 2. Crate map and DAG | Not started | target crate list builds with expected internal edges |
 | 3. `eos-tool` | Not started | no `eos-tool-ports`; tool modules collapsed |
 | 4. `eos-engine` and `eos-agent-run` | Not started | engine is execution-only; run lifecycle is isolated |
 | 5. Agent core/workflow/types | Not started | `eos-agent-core` owns hidden runtime wiring |
-| 6. Verification and budget | Not started | module count is 180-200 and full checks pass |
+| 6. Verification and budget | Not started | module count is 150-170 and full checks pass |
 
 ## Global Acceptance Criteria
 
-- `agent-core` has exactly 11 target crates unless Phase 0 explicitly amends the
+- `agent-core` has exactly 10 target crates unless Phase 0 explicitly amends the
   target.
 - No crate named `eos-runtime`, `eos-agent-ports`, `eos-tool-ports`, or
   `eos-agent-message-records` remains.
+- No standalone `eos-config`, `eos-agent-def`, or `eos-audit` crate remains.
 - No crate except `eos-sandbox-port` uses `port` in crate, module, or type names
   unless explicitly allowlisted for protocol text.
 - `api` is not used as a crate or module name unless Phase 0 explicitly allows
   an external transport adapter.
 - Every `*Service`, `service.rs`, or `services.rs` has at least one sibling-crate
-  consumer, or it is renamed.
+  behavior consumer, or it is renamed. `eos-tool` uses `ToolRuntime` in
+  `registry.rs`, not `services.rs` or `handles.rs`.
 - `composition`, `deps`, and `runtime_services` are not used as module or type
   names.
 - `eos-engine` contains no concrete model-facing tool family modules.
-- `eos-tool` owns tool model, registry, executor, hooks, concrete tool behavior,
-  and skills.
+- `eos-tool` owns tool model, registry, hooks, concrete tool behavior, and
+  skills.
 - `eos-agent-core` owns external facade plus hidden request runtime wiring.
 - `eos-llm-client` uses `client` and `providers`, not `services`.
 - `eos-types` has no runtime, I/O, provider, DB, or service logic.
 - `cargo test -p workspace-guard` passes.
 - `cargo check --workspace --all-targets` passes.
-- The class inventory reports 180-200 modules.
+- The class inventory reports 150-170 modules.

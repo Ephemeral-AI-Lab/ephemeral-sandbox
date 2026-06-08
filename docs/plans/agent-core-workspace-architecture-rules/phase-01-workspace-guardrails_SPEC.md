@@ -58,7 +58,6 @@ eos-engine
 eos-tool
 eos-workflow
 eos-types
-eos-config
 eos-db
 eos-llm-client
 eos-sandbox-port
@@ -76,6 +75,9 @@ eos-tools
 eos-agent-runner
 eos-skills
 eos-plugin-catalog
+eos-agent-def
+eos-config
+eos-audit
 ```
 
 `eos-plugin-catalog` may be temporarily allowlisted during migration only if
@@ -131,8 +133,9 @@ Suggested replacements:
 | facade-local runtime object graph | `Runtime` |
 | record writer/reader internals | `Records` |
 | event callback/printing internals | `Printer` or `Sink` |
-| registry definitions | `Registry` or `Catalog` |
+| registry definitions | `Registry`; use `Catalog` only for loaded definitions with lifecycle |
 | outbound provider implementation | `Client` |
+| default tool specs | `ToolRegistry` or `tools.rs`, not `Catalog` |
 
 ### Module Budget
 
@@ -140,17 +143,18 @@ Initial budget gates:
 
 | Gate | Limit |
 | --- | ---: |
-| total modules after phase 2 | <= 245 |
-| total modules after phase 4 | <= 215 |
-| final total modules | <= 200 |
-| `eos-agent-core` final modules | <= 24 |
-| `eos-tool` final modules | <= 32 |
-| `eos-engine` final modules | <= 27 |
-| `eos-workflow` final modules | <= 16 |
-| `eos-types` final modules | <= 14 |
+| total modules after phase 2 | <= 220 |
+| total modules after phase 4 | <= 190 |
+| final total modules | <= 170 |
+| `eos-agent-core` final modules | <= 22 |
+| `eos-tool` final modules | <= 16 |
+| `eos-engine` final modules | <= 22 |
+| `eos-workflow` final modules | <= 10 |
+| `eos-types` final modules | <= 12 |
 
-The final goal is 180-200 modules. The guard may use staged allowlists while
-the refactor is in progress, but the final check must not allow 291 modules.
+The final goal is 150-170 modules. The guard may use staged allowlists while
+the refactor is in progress, but the final check must not allow 291 modules or
+a final count above 170.
 
 ## Resulting File Structure
 
@@ -187,9 +191,10 @@ agent-core/workspace-guard/tests/
 - Guard failures explain the exact path, symbol, and rule violated.
 - The guard can distinguish same-crate references from sibling-crate references.
 - The guard bans `eos-runtime`, `eos-agent-ports`, `eos-tool-ports`,
-  `eos-agent-message-records`, `eos-tools`, `eos-agent-runner`, and
-  `eos-skills` after the crate collapse phase.
+  `eos-agent-message-records`, `eos-tools`, `eos-agent-runner`, `eos-skills`,
+  `eos-agent-def`, `eos-config`, and `eos-audit` after the crate collapse
+  phase.
 - The guard bans `composition`, `deps`, and `runtime_services`.
 - The guard supports temporary staged budgets but has a documented final budget
-  of 180-200 modules.
+  of 150-170 modules.
 - No production crate behavior changes in this phase.

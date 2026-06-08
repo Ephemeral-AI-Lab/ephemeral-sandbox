@@ -1,6 +1,6 @@
 # Phase 00 - Architecture Lock Spec
 
-Status: Draft
+Status: Accepted
 Date: 2026-06-09
 Owner: agent-core architecture
 
@@ -13,6 +13,11 @@ Phase 0 exists because the cleanup is intentionally destructive. The target
 crate map, naming vocabulary, service rule, module budget, and parallel work
 lanes must be stable before agents start editing disjoint crates.
 
+Approval record: accepted by user instruction on 2026-06-09. Any later change to
+the target crate map, retired crate list, vocabulary rules, service rule,
+module budget, or parallel work lanes must reopen Phase 0 before implementation
+continues.
+
 ## Locked Decisions
 
 | Decision | Target |
@@ -20,12 +25,15 @@ lanes must be stable before agents start editing disjoint crates.
 | external facade crate | `eos-agent-core` |
 | HTTP/path router | outside `agent-core`; belongs in `backend-server` |
 | removed runtime crate | `eos-runtime` folds into `eos-agent-core/src/runtime/` |
+| removed generic config crate | config structs live with their owning crate |
+| removed agent definition crate | agent definitions live in `eos-agent-core/src/agents.rs` |
+| removed audit crate | audit sink lives in `eos-agent-core/src/runtime/audit.rs` |
 | only allowed port crate | `eos-sandbox-port` |
 | service meaning | sibling-crate consumed callable surface |
-| runtime wiring vocabulary | `runtime`, `handles`, `catalog`, `sink` |
+| runtime wiring vocabulary | `runtime`, `handles`, `catalog`, `sink`; no standalone handle file unless it earns its size |
 | forbidden vocabulary | `composition`, `deps`, `runtime_services` |
-| final crate count | 11 |
-| final module count | 180-200 |
+| final crate count | 10 |
+| final module count | 150-170 |
 
 ## Final Crate Map
 
@@ -37,7 +45,6 @@ agent-core/crates/
 ├── eos-tool/
 ├── eos-workflow/
 ├── eos-types/
-├── eos-config/
 ├── eos-db/
 ├── eos-llm-client/
 ├── eos-sandbox-port/
@@ -56,6 +63,9 @@ eos-tools
 eos-agent-runner
 eos-skills
 eos-plugin-catalog
+eos-agent-def
+eos-config
+eos-audit
 ```
 
 ## Boundary Rules
@@ -73,13 +83,13 @@ eos-agent-core/src/
 ├── request.rs
 ├── state.rs
 ├── cancellation.rs
+├── agents.rs
 ├── runtime.rs
 └── runtime/
     ├── builder.rs
     ├── database.rs
     ├── engine.rs
     ├── sandbox.rs
-    ├── agents.rs
     ├── audit.rs
     └── plugins.rs
 ```
@@ -100,7 +110,7 @@ printing, background accounting, and sibling-facing engine services.
 ### eos-tool
 
 Owns the tool framework, concrete model-callable tools, hooks, registry, skill
-loading, and sibling-facing tool services.
+loading, and runtime resources passed into tool execution.
 
 Target source shape:
 
@@ -109,14 +119,8 @@ eos-tool/src/
 ├── lib.rs
 ├── error.rs
 ├── model.rs
-├── catalog.rs
 ├── registry.rs
-├── executor.rs
 ├── hooks.rs
-├── hooks/
-│   ├── background_sessions.rs
-│   ├── workflow_depth.rs
-│   └── sandbox_policy.rs
 ├── tools.rs
 ├── tools/
 │   ├── sandbox.rs
@@ -125,25 +129,30 @@ eos-tool/src/
 │   ├── subagent.rs
 │   ├── submission.rs
 │   ├── skills.rs
-│   ├── advisor.rs
 │   └── terminal.rs
-├── services.rs
-└── services/
-    ├── registry.rs
-    ├── sandbox.rs
-    ├── command_sessions.rs
-    ├── workflow.rs
-    ├── subagent.rs
-    ├── submission.rs
-    └── skills.rs
 ```
 
-`tools/` is concrete model-callable behavior. `hooks/` is tool pre/post policy.
-`services/` is only sibling-consumed handles.
+`tools/` is concrete model-callable behavior. `hooks.rs` is tool pre/post
+policy. `registry.rs` owns default tool registration, the executor trait, and
+`ToolRuntime`; there is no first-target `catalog.rs`, `executor.rs`, or
+`handles.rs`.
 
 ### eos-workflow
 
 Owns workflow lifecycle and sibling-facing workflow services.
+
+### Config, Agent Definitions, and Audit
+
+There is no standalone generic crate for these concerns in the final target.
+
+| Concern | Owner |
+| --- | --- |
+| provider config | `eos-llm-client` |
+| agent profile and definition loading | `eos-agent-core/src/agents.rs` |
+| workflow config | `eos-workflow` |
+| DB config | `eos-db` |
+| passive shared config DTO, only if unavoidable | `eos-types` |
+| runtime audit sink | `eos-agent-core/src/runtime/audit.rs` |
 
 ### eos-llm-client
 
@@ -158,8 +167,8 @@ Owns outbound provider clients. It uses `client.rs`, `providers.rs`, and
 | `router` | banned in agent-core | HTTP/path routing belongs in backend-server |
 | `service` | restricted | only sibling-crate consumed callable surfaces |
 | `runtime` | allowed | private request-running wiring inside `eos-agent-core` |
-| `handles` | allowed | grouped concrete resource handles |
-| `catalog` | allowed | loaded/static definitions |
+| `handles` | allowed | grouped concrete resource handles; avoid extra handle modules by default |
+| `catalog` | restricted | loaded/static definitions with lifecycle, not default tool specs |
 | `sink` | allowed | write-only event/audit output |
 | `client` | allowed | outbound external clients |
 | `port` | restricted | only `eos-sandbox-port` |
@@ -185,14 +194,15 @@ move.
 
 | Item | Status |
 | --- | --- |
-| Approve `eos-agent-core` over `eos-agent-api` / router | Not started |
-| Approve final 11-crate map | Not started |
-| Approve retired crate list | Not started |
-| Approve vocabulary rules | Not started |
-| Approve service sibling-use rule | Not started |
-| Approve module budget | Not started |
-| Approve parallel work lanes | Not started |
-| Approve verification ladder | Not started |
+| Approve `eos-agent-core` over `eos-agent-api` / router | Approved |
+| Approve final 10-crate map | Approved |
+| Approve owner-local config / agent definition / audit folds | Approved |
+| Approve retired crate list | Approved |
+| Approve vocabulary rules | Approved |
+| Approve service sibling-use rule | Approved |
+| Approve module budget | Approved |
+| Approve parallel work lanes | Approved |
+| Approve verification ladder | Approved |
 
 ## Acceptance Criteria
 
@@ -200,7 +210,11 @@ move.
 - No target crate or module is named router.
 - `eos-runtime` is not a target crate.
 - `composition`, `deps`, and `runtime_services` are rejected vocabulary.
-- The final crate map contains exactly 11 crates.
-- Every target `services.rs` has a named sibling-crate consumer.
+- The final crate map contains exactly 10 crates.
+- Every target `services.rs` has a named sibling-crate behavior consumer.
+- `eos-tool` does not use `services.rs` or `handles.rs`; it uses `ToolRuntime`
+  in `registry.rs`.
+- No standalone `eos-config`, `eos-agent-def`, or `eos-audit` crate exists in
+  the final target.
 - The implementation phases may begin without reopening naming or ownership
   decisions.

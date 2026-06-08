@@ -11,6 +11,7 @@ run boundaries are stable.
 
 It creates `eos-agent-core` as the external Rust facade, folds the old
 `eos-runtime` request-running object graph into private `runtime/` modules,
+folds agent definitions, runtime config, and audit wiring into their owners,
 keeps workflow domain logic in `eos-workflow`, and reduces `eos-types` to
 passive contracts.
 
@@ -38,14 +39,15 @@ impl AgentCore {
 ```
 
 Private `runtime/` modules build stores, engine handles, sandbox handles,
-catalogs, audit sinks, plugin wiring, and request-scoped run input. They are not
-named `service`, `composition`, or `deps`.
+agent definitions, audit sinks, plugin wiring, and request-scoped run input.
+They are not named `service`, `composition`, or `deps`.
 
 ### eos-workflow
 
 `eos-workflow` owns workflow lifecycle state transitions and attempt/iteration
-domain rules. Because siblings call those behaviors, it has `services.rs` and a
-small `services/` folder.
+domain rules. Because siblings call those behaviors, it has `services.rs`.
+There is no first-target `services/` folder; lifecycle, attempt, and query
+helpers stay in owner-named files until a split clearly earns its size.
 
 ### eos-types
 
@@ -65,13 +67,13 @@ agent-core/crates/eos-agent-core/
 │   ├── request.rs
 │   ├── state.rs
 │   ├── cancellation.rs
+│   ├── agents.rs
 │   ├── runtime.rs
 │   └── runtime/
 │       ├── builder.rs
 │       ├── database.rs
 │       ├── engine.rs
 │       ├── sandbox.rs
-│       ├── agents.rs
 │       ├── audit.rs
 │       └── plugins.rs
 └── tests/
@@ -86,10 +88,6 @@ agent-core/crates/eos-workflow/
 │   ├── error.rs
 │   ├── model.rs
 │   ├── services.rs
-│   ├── services/
-│   │   ├── lifecycle.rs
-│   │   ├── attempts.rs
-│   │   └── queries.rs
 │   ├── attempts.rs
 │   ├── iterations.rs
 │   ├── planning.rs
@@ -124,7 +122,8 @@ Do not create an `eos-agent-api` crate. Do not create an agent-core router crate
 | public facade type | `AgentCore` |
 | hidden request-running object graph | `runtime.rs`, `runtime/` |
 | concrete resource groups | `DatabaseHandles`, `EngineHandles`, `SandboxHandles` |
-| loaded definitions | `AgentCatalog`, `ToolCatalog`, `PluginCatalog` |
+| agent definitions | `agents.rs` |
+| loaded plugin definitions | `PluginCatalog` only if runtime-loaded definitions need that name |
 | audit writer | `AuditSink` |
 | HTTP/path routing | backend-server router, outside `agent-core` |
 
@@ -132,6 +131,9 @@ Forbidden in target code:
 
 ```text
 eos-agent-api
+eos-agent-def
+eos-config
+eos-audit
 router.rs inside agent-core
 composition
 deps
@@ -141,6 +143,8 @@ runtime_services
 ## Workflow Rules
 
 - `WorkflowService` is allowed if consumed by sibling crates.
+- `eos-workflow` uses a flat `services.rs` first; no `services/` folder in the
+  first target.
 - Workflow state mutation stays in `eos-workflow`.
 - Tool-facing workflow registration helpers live in `eos-tool`.
 - Engine hooks may call workflow service surfaces but must not own workflow
@@ -164,6 +168,9 @@ runtime_services
 - `service.rs`,
 - `services/`,
 - `api.rs`,
+- generic config schemas that belong to behavior owners,
+- agent definition loading,
+- audit sink behavior,
 - provider clients,
 - request runtime wiring,
 - DB implementations,
@@ -176,6 +183,9 @@ runtime_services
 | --- | --- |
 | Create `eos-agent-core` facade | Not started |
 | Fold `eos-runtime` into private `runtime/` modules | Not started |
+| Fold `eos-agent-def` into `eos-agent-core/src/agents.rs` | Not started |
+| Fold `eos-config` into owner-local config structs | Not started |
+| Fold `eos-audit` into `eos-agent-core/src/runtime/audit.rs` | Not started |
 | Rename runtime-local `*Service` types to handles/catalog/sink names | Not started |
 | Move external DTOs into `eos-agent-core` or `eos-types` | Not started |
 | Keep workflow services sibling-facing only | Not started |
@@ -188,13 +198,15 @@ runtime_services
 
 - No crate named `eos-agent-api` remains.
 - No crate named `eos-runtime` remains.
+- No crate named `eos-agent-def`, `eos-config`, or `eos-audit` remains.
 - `eos-agent-core` exposes a narrow external Rust facade and hides internal
   runtime wiring.
 - `router` appears only in external server docs or backend-server code, not in
   `agent-core` source.
 - `composition`, `deps`, and `runtime_services` are absent from target module
   and type names.
-- `eos-workflow` exposes only workflow-domain services consumed by siblings.
+- `eos-workflow` exposes only workflow-domain services consumed by siblings and
+  has no first-target `services/` folder.
 - `eos-types` contains no service, runtime, provider, DB implementation, or tool
   behavior.
 - `cargo check -p eos-agent-core --all-targets` passes.

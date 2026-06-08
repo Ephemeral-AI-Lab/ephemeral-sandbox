@@ -27,7 +27,7 @@ flowchart TD
     Guards["cargo test -p workspace-guard"] --> Crates["crate-local cargo check/test"]
     Crates --> Workspace["cargo check --workspace --all-targets"]
     Workspace --> Inventory["regenerate class inventory"]
-    Inventory --> Budget["module budget <= 200"]
+    Inventory --> Budget["module budget <= 170"]
     Budget --> Cleanup["cargo machete / dead export cleanup"]
 ```
 
@@ -61,26 +61,27 @@ cargo machete
 
 | Crate | Current modules | Final budget |
 | --- | ---: | ---: |
-| `eos-agent-core` | new plus `eos-runtime` fold | <= 24 |
+| `eos-agent-core` | new plus `eos-runtime`, agent-def, config, audit folds | <= 22 |
 | `eos-agent-run` | 6 from runner baseline | <= 10 |
-| `eos-engine` | 33 | <= 25 |
-| `eos-tool` | 66 combined tools/tool-ports baseline | <= 32 |
-| `eos-workflow` | 23 | <= 14 |
-| `eos-types` | 28 | <= 14 |
-| `eos-config` | 12 | <= 10 |
+| `eos-engine` | 33 | <= 22 |
+| `eos-tool` | 66 combined tools/tool-ports baseline | <= 16 |
+| `eos-workflow` | 23 | <= 10 |
+| `eos-types` | 28 | <= 12 |
 | `eos-db` | 13 | <= 12 |
 | `eos-llm-client` | 14 | <= 12 |
 | `eos-sandbox-port` | 23 | <= 23 |
 | `eos-testkit` | 6 | <= 8 |
-| **Total** | **291** | **180-200** |
+| **Total** | **291** | **150-170** |
 
-The final total is allowed to land below 180 if the code remains clearer. The
-upper bound is strict.
+The final total is allowed to land below 150 if the code remains clearer. The
+170 upper bound is strict.
 
 ## Cleanup Rules
 
 - Remove compatibility modules that only re-export old names.
 - Remove retired crate dependencies from workspace dependencies.
+- Remove standalone `eos-config`, `eos-agent-def`, and `eos-audit` members after
+  their owner-local folds are complete.
 - Remove dead tests that only protect old paths.
 - Update docs that mention retired crates.
 - Keep any behavior-changing cleanup tied to a failing test or explicit
@@ -99,7 +100,6 @@ agent-core/
 │   ├── eos-tool/
 │   ├── eos-workflow/
 │   ├── eos-types/
-│   ├── eos-config/
 │   ├── eos-db/
 │   ├── eos-llm-client/
 │   ├── eos-sandbox-port/
@@ -137,5 +137,5 @@ agent-core/
   allowlisted target locations.
 - `composition`, `deps`, and `runtime_services` do not appear as target module
   or type names.
-- Class inventory reports 180-200 modules.
+- Class inventory reports 150-170 modules.
 - The final diff removes more architecture surface than it adds.

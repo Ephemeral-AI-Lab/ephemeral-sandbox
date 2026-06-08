@@ -8,6 +8,7 @@ Owner: agent-core workspace integration
 
 This phase changes the workspace crate map and internal dependency graph. It
 removes misleading `ports` crates, folds `eos-runtime` into `eos-agent-core`,
+folds generic config, agent definitions, and audit into their real owners,
 normalizes singular crate names, and makes the target ownership boundaries
 visible in `Cargo.toml`.
 
@@ -26,7 +27,6 @@ agent-core/crates/
 ├── eos-tool/
 ├── eos-workflow/
 ├── eos-types/
-├── eos-config/
 ├── eos-db/
 ├── eos-llm-client/
 ├── eos-sandbox-port/
@@ -39,28 +39,30 @@ agent-core/crates/
 | --- | --- | --- |
 | `eos-runtime` | `eos-agent-core/src/runtime/` | fold request runtime wiring into the external facade crate |
 | `eos-agent-ports` | owners | split DTOs/contracts into `eos-agent-core`, `eos-agent-run`, `eos-engine`, and `eos-types` |
-| `eos-tool-ports` | `eos-tool` | fold model, registry, executor, hooks, tool services into `eos-tool` |
+| `eos-tool-ports` | `eos-tool` | fold model, registry, executor trait, hooks, and tool runtime resources into `eos-tool` |
 | `eos-agent-message-records` | `eos-engine` | fold record writer/reader into engine-owned records internals |
 | `eos-tools` | `eos-tool` | rename and collapse plural concrete tool crate |
 | `eos-agent-runner` | `eos-agent-run` | rename lifecycle crate |
 | `eos-skills` | `eos-tool` | fold skill registry and skill package loading into tool ownership |
 | `eos-plugin-catalog` | `eos-tool` or `eos-agent-core/runtime/plugins.rs` | fold plugin package catalog into the owner that actually consumes it |
+| `eos-agent-def` | `eos-agent-core/src/agents.rs` plus `eos-types` if shared | fold agent definition loading into the facade/runtime owner |
+| `eos-config` | owning crates | provider config to `eos-llm-client`, workflow config to `eos-workflow`, DB config to `eos-db`, agent config to `eos-agent-core` |
+| `eos-audit` | `eos-agent-core/src/runtime/audit.rs` | fold runtime audit sink into the facade runtime |
 
 ## Target Dependency DAG
 
 ```text
 eos-types
-eos-config            -> eos-types
-eos-db                -> eos-types, eos-config
-eos-llm-client        -> eos-types, eos-config
+eos-db                -> eos-types
+eos-llm-client        -> eos-types
 eos-sandbox-port      -> eos-types
-eos-tool              -> eos-types, eos-config, eos-sandbox-port, eos-llm-client
+eos-tool              -> eos-types, eos-sandbox-port
 eos-engine            -> eos-types, eos-tool, eos-llm-client, eos-sandbox-port
-eos-workflow          -> eos-types, eos-agent-def
-eos-agent-run         -> eos-types, eos-agent-def, eos-engine
+eos-workflow          -> eos-types
+eos-agent-run         -> eos-types, eos-engine
 eos-agent-core        -> eos-db, eos-engine, eos-workflow, eos-agent-run,
-                         eos-tool, eos-config, eos-agent-def,
-                         eos-sandbox-port, eos-types, eos-llm-client
+                         eos-tool, eos-sandbox-port, eos-types,
+                         eos-llm-client
 eos-testkit           -> dev-only test dependencies
 ```
 
@@ -74,11 +76,15 @@ No target crate depends on a retired crate.
   internals.
 - `eos-engine` owns execution and depends on `eos-tool` for tool framework
   contracts.
-- `eos-tool` owns tool registry, executor, hooks, concrete tool behavior, skill
-  loading, and sibling-facing tool services.
+- `eos-tool` owns tool registry, executor trait, hooks, concrete tool behavior,
+  skill loading, and tool runtime resources.
 - `eos-workflow` owns workflow lifecycle and sibling-facing workflow services.
 - `eos-llm-client` owns outbound provider clients and uses `client` /
   `providers`, not `services`.
+- Config lives with the behavior owner. There is no generic final
+  `eos-config` crate.
+- Agent definitions live in `eos-agent-core/src/agents.rs`; only passive shared
+  DTOs may move to `eos-types`.
 - `eos-types` owns passive DTOs and store traits only.
 - `eos-sandbox-port` remains the only port-named crate.
 
@@ -88,10 +94,8 @@ No target crate depends on a retired crate.
 [workspace]
 members = [
   "crates/eos-types",
-  "crates/eos-config",
   "crates/eos-db",
   "crates/eos-llm-client",
-  "crates/eos-agent-def",
   "crates/eos-sandbox-port",
   "crates/eos-tool",
   "crates/eos-engine",
@@ -113,7 +117,6 @@ agent-core/crates/
 ├── eos-tool/
 ├── eos-workflow/
 ├── eos-types/
-├── eos-config/
 ├── eos-db/
 ├── eos-llm-client/
 ├── eos-sandbox-port/
@@ -132,6 +135,9 @@ agent-core/crates/
 | Split/fold `eos-agent-ports` into owners | Not started |
 | Fold `eos-agent-message-records` into engine | Not started |
 | Fold `eos-skills` into `eos-tool` | Not started |
+| Fold `eos-agent-def` into `eos-agent-core/src/agents.rs` | Not started |
+| Fold `eos-config` into owning crates | Not started |
+| Fold `eos-audit` into `eos-agent-core/src/runtime/audit.rs` | Not started |
 | Update workspace dependencies | Not started |
 | Update internal imports | Not started |
 | Update dependency DAG guard | Not started |
@@ -141,9 +147,10 @@ agent-core/crates/
 - `agent-core/Cargo.toml` contains no retired crate members.
 - No target crate imports `eos-runtime`, `eos-agent-ports`,
   `eos-tool-ports`, or `eos-agent-message-records`.
+- No target crate imports `eos-config`, `eos-agent-def`, or `eos-audit`.
 - The internal DAG guard passes with the target edge set.
 - `cargo check --workspace --all-targets` reaches type checking for the new
   crate map.
-- Module count is at or below the staged phase-2 budget of 245.
+- Module count is at or below the staged phase-2 budget of 220.
 - Plugin catalog ownership is resolved without a standalone `eos-plugin-catalog`
   crate.

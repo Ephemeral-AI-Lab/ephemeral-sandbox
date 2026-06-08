@@ -10,133 +10,139 @@ use super::{
 
 #[derive(Clone, Copy)]
 pub(crate) struct BuiltinOp {
-    pub(crate) wire: &'static str,
+    pub(crate) spec: protocol_ops::BuiltinOpSpec,
     pub(crate) handler: Handler,
+}
+
+impl BuiltinOp {
+    pub(crate) const fn wire(&self) -> &'static str {
+        self.spec.wire
+    }
 }
 
 pub(crate) const BUILTIN_OPS: &[BuiltinOp] = &[
     BuiltinOp {
-        wire: protocol_ops::API_RUNTIME_READY,
+        spec: protocol_ops::BuiltinDaemonOp::RuntimeReady.spec(),
         handler: control::op_runtime_ready,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_HEARTBEAT,
+        spec: protocol_ops::BuiltinDaemonOp::InvocationHeartbeat.spec(),
         handler: control::op_heartbeat,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_CANCEL,
+        spec: protocol_ops::BuiltinDaemonOp::InvocationCancel.spec(),
         handler: control::op_cancel,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_INFLIGHT_COUNT,
+        spec: protocol_ops::BuiltinDaemonOp::InflightCount.spec(),
         handler: control::op_inflight_count,
     },
     BuiltinOp {
-        wire: protocol_ops::API_LAYER_METRICS,
+        spec: protocol_ops::BuiltinDaemonOp::LayerMetrics.spec(),
         handler: checkpoint::op_layer_metrics,
     },
     BuiltinOp {
-        wire: protocol_ops::API_ENSURE_WORKSPACE_BASE,
+        spec: protocol_ops::BuiltinDaemonOp::EnsureWorkspaceBase.spec(),
         handler: checkpoint::op_ensure_workspace_base,
     },
     BuiltinOp {
-        wire: protocol_ops::API_BUILD_WORKSPACE_BASE,
+        spec: protocol_ops::BuiltinDaemonOp::BuildWorkspaceBase.spec(),
         handler: checkpoint::op_build_workspace_base,
     },
     BuiltinOp {
-        wire: protocol_ops::API_COMMIT_TO_WORKSPACE,
+        spec: protocol_ops::BuiltinDaemonOp::CommitToWorkspace.spec(),
         handler: checkpoint::op_commit_to_workspace,
     },
     BuiltinOp {
-        wire: protocol_ops::API_COMMIT_TO_GIT,
+        spec: protocol_ops::BuiltinDaemonOp::CommitToGit.spec(),
         handler: checkpoint::op_commit_to_git,
     },
     BuiltinOp {
-        wire: protocol_ops::API_WORKSPACE_BINDING,
+        spec: protocol_ops::BuiltinDaemonOp::WorkspaceBinding.spec(),
         handler: checkpoint::op_workspace_binding,
     },
     BuiltinOp {
-        wire: protocol_ops::API_AUDIT_PULL,
+        spec: protocol_ops::BuiltinDaemonOp::AuditPull.spec(),
         handler: audit::op_audit_pull,
     },
     BuiltinOp {
-        wire: protocol_ops::API_AUDIT_SNAPSHOT,
+        spec: protocol_ops::BuiltinDaemonOp::AuditSnapshot.spec(),
         handler: audit::op_audit_snapshot,
     },
     BuiltinOp {
-        wire: protocol_ops::API_AUDIT_RESET_FLOOR,
+        spec: protocol_ops::BuiltinDaemonOp::AuditResetFloor.spec(),
         handler: audit::op_audit_reset_floor,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_READ_FILE,
+        spec: protocol_ops::BuiltinDaemonOp::ReadFile.spec(),
         handler: files::op_read_file,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_WRITE_FILE,
+        spec: protocol_ops::BuiltinDaemonOp::WriteFile.spec(),
         handler: files::op_write_file,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_EDIT_FILE,
+        spec: protocol_ops::BuiltinDaemonOp::EditFile.spec(),
         handler: files::op_edit_file,
     },
     BuiltinOp {
-        wire: protocol_ops::API_PLUGIN_ENSURE,
+        spec: protocol_ops::BuiltinDaemonOp::PluginEnsure.spec(),
         handler: plugins::op_ensure,
     },
     BuiltinOp {
-        wire: protocol_ops::API_PLUGIN_STATUS,
+        spec: protocol_ops::BuiltinDaemonOp::PluginStatus.spec(),
         handler: plugins::op_status,
     },
     BuiltinOp {
-        wire: protocol_ops::API_ISOLATED_WORKSPACE_ENTER,
+        spec: protocol_ops::BuiltinDaemonOp::IsolatedWorkspaceEnter.spec(),
         handler: isolated_workspace::op_enter,
     },
     BuiltinOp {
-        wire: protocol_ops::API_ISOLATED_WORKSPACE_EXIT,
+        spec: protocol_ops::BuiltinDaemonOp::IsolatedWorkspaceExit.spec(),
         handler: isolated_workspace::op_exit,
     },
     BuiltinOp {
-        wire: protocol_ops::API_ISOLATED_WORKSPACE_STATUS,
+        spec: protocol_ops::BuiltinDaemonOp::IsolatedWorkspaceStatus.spec(),
         handler: isolated_workspace::op_status,
     },
     BuiltinOp {
-        wire: protocol_ops::API_ISOLATED_WORKSPACE_LIST_OPEN,
+        spec: protocol_ops::BuiltinDaemonOp::IsolatedWorkspaceListOpen.spec(),
         handler: isolated_workspace::op_list_open,
     },
     BuiltinOp {
-        wire: protocol_ops::API_ISOLATED_WORKSPACE_TEST_RESET,
+        spec: protocol_ops::BuiltinDaemonOp::IsolatedWorkspaceTestReset.spec(),
         handler: isolated_workspace::op_test_reset,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_EXEC_COMMAND,
+        spec: protocol_ops::BuiltinDaemonOp::ExecCommand.spec(),
         handler: command_sessions::op_exec_command,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_WRITE_STDIN,
+        spec: protocol_ops::BuiltinDaemonOp::WriteStdin.spec(),
         handler: command_sessions::op_command_write_stdin,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_COMMAND_READ_PROGRESS,
+        spec: protocol_ops::BuiltinDaemonOp::CommandReadProgress.spec(),
         handler: command_sessions::op_command_read_progress,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_COMMAND_CANCEL,
+        spec: protocol_ops::BuiltinDaemonOp::CommandCancel.spec(),
         handler: command_sessions::op_command_cancel,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_COMMAND_COLLECT_COMPLETED,
+        spec: protocol_ops::BuiltinDaemonOp::CommandCollectCompleted.spec(),
         handler: command_sessions::op_command_collect_completed,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_COMMAND_SESSION_COUNT,
+        spec: protocol_ops::BuiltinDaemonOp::CommandSessionCount.spec(),
         handler: command_sessions::op_command_session_count,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_CANCEL_WORKSPACE_RUNS_BY_CALLER,
+        spec: protocol_ops::BuiltinDaemonOp::CancelWorkspaceRunsByCaller.spec(),
         handler: workspace_run::op_cancel_workspace_runs_by_caller_id,
     },
     BuiltinOp {
-        wire: protocol_ops::API_V1_CANCEL_WORKSPACE_RUNS,
+        spec: protocol_ops::BuiltinDaemonOp::CancelWorkspaceRuns.spec(),
         handler: workspace_run::op_cancel_workspace_runs,
     },
 ];
@@ -145,19 +151,25 @@ pub(crate) const BUILTIN_OPS: &[BuiltinOp] = &[
 mod tests {
     use std::collections::BTreeSet;
 
-    use eos_protocol::ops::BUILTIN_DAEMON_OPS;
+    use eos_protocol::ops::{BUILTIN_DAEMON_OPS, BUILTIN_DAEMON_OP_SPECS};
 
     use super::*;
 
     #[test]
     fn builtin_registry_matches_protocol_ops() {
-        let registered = BUILTIN_OPS.iter().map(|op| op.wire).collect::<Vec<_>>();
+        let registered = BUILTIN_OPS.iter().map(BuiltinOp::wire).collect::<Vec<_>>();
         assert_eq!(registered, BUILTIN_DAEMON_OPS);
     }
 
     #[test]
+    fn builtin_registry_matches_protocol_catalog() {
+        let registered = BUILTIN_OPS.iter().map(|op| op.spec).collect::<Vec<_>>();
+        assert_eq!(registered, BUILTIN_DAEMON_OP_SPECS);
+    }
+
+    #[test]
     fn builtin_registry_has_no_duplicate_wires() {
-        let registered = BUILTIN_OPS.iter().map(|op| op.wire).collect::<Vec<_>>();
+        let registered = BUILTIN_OPS.iter().map(BuiltinOp::wire).collect::<Vec<_>>();
         let unique = registered.iter().copied().collect::<BTreeSet<_>>();
         assert_eq!(unique.len(), registered.len());
     }

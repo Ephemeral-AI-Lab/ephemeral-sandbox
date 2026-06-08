@@ -65,9 +65,6 @@ agent-core/crates/eos-engine/
 │   ├── model.rs
 │   ├── events.rs
 │   ├── services.rs
-│   ├── services/
-│   │   ├── loop_execution.rs
-│   │   └── event_sink.rs
 │   ├── loop.rs
 │   ├── loop/
 │   │   ├── executor.rs
@@ -109,6 +106,8 @@ agent-core/crates/eos-agent-run/
 
 `eos-engine/src/services.rs` exports only sibling-facing execution surfaces.
 It must not re-export every internal engine helper.
+There is no first-target `services/` folder; execution internals stay in
+`loop/`, `records.rs`, `printer.rs`, and `background/`.
 
 Allowed examples:
 
@@ -185,6 +184,7 @@ terminal transitions as they happen. The runner only sees the final outcome.
 - `eos-engine` has no `tools/` concrete tool family folder.
 - `eos-engine` does not own tool registry definitions or hook contracts.
 - `eos-engine/services.rs` exports only sibling-facing execution surfaces.
+- `eos-engine` has no first-target `services/` folder.
 - Engine message records and midflight printing work during loop execution.
 - `eos-agent-run` does not import concrete tool modules.
 - `eos-agent-run` owns spawn/wait/poll/cancel/finalization.
@@ -192,4 +192,5 @@ terminal transitions as they happen. The runner only sees the final outcome.
   equivalent lifecycle handoff.
 - `cargo test -p eos-engine` passes.
 - `cargo test -p eos-agent-run` passes.
-- Combined engine plus run modules are at or below their phase-4 budget.
+- `eos-engine` final module count is at or below 22.
+- `eos-agent-run` final module count is at or below 10.
