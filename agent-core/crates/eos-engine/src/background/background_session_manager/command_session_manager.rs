@@ -1,16 +1,82 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
-use eos_tool_core::{CommandSessionPort, Sealed};
 use eos_sandbox_port::SandboxCommandApi;
+use eos_tool_core::{CommandSessionPort, Sealed};
 use eos_types::{AgentRunId, CommandSessionId, SandboxId};
 use serde_json::Value;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
-use super::super::{BackgroundSession, BackgroundSessionManager, BackgroundSessionStatus};
-use super::session::CommandSession;
+use super::{BackgroundSession, BackgroundSessionManager, BackgroundSessionStatus};
 use crate::background::notification::{BackgroundCompletion, BackgroundNotificationEmitter};
+
+/// One tracked background command session.
+#[derive(Debug, Clone)]
+pub(in crate::background) struct CommandSession {
+    id: CommandSessionId,
+    sandbox_id: SandboxId,
+    status: BackgroundSessionStatus,
+    result: Option<Value>,
+}
+
+impl CommandSession {
+    fn running(id: CommandSessionId, sandbox_id: SandboxId) -> Self {
+        Self {
+            id,
+            sandbox_id,
+            status: BackgroundSessionStatus::Running,
+            result: None,
+        }
+    }
+
+    fn sandbox_id(&self) -> &SandboxId {
+        &self.sandbox_id
+    }
+
+    const fn status(&self) -> BackgroundSessionStatus {
+        self.status
+    }
+
+    fn deliver(&mut self, result: Value) -> BackgroundSessionStatus {
+        let status = command_completion_status(Some(&result));
+        self.result = Some(result);
+        self.status = BackgroundSessionStatus::Delivered;
+        status
+    }
+
+    fn cancel(&mut self) {
+        if matches!(self.status, BackgroundSessionStatus::Running) {
+            self.status = BackgroundSessionStatus::Cancelled;
+            self.result = Some(serde_json::json!({
+                "status": "cancelled",
+                "exit_code": Value::Null,
+                "output": {"stdout": "", "stderr": ""},
+            }));
+        }
+    }
+}
+
+impl BackgroundSession for CommandSession {
+    type Id = CommandSessionId;
+
+    fn id(&self) -> &Self::Id {
+        &self.id
+    }
+}
+
+fn command_completion_status(result: Option<&Value>) -> BackgroundSessionStatus {
+    match result
+        .and_then(|result| result.get("status"))
+        .and_then(Value::as_str)
+    {
+        Some("ok") => BackgroundSessionStatus::Completed,
+        Some("cancelled") => BackgroundSessionStatus::Cancelled,
+        _ => BackgroundSessionStatus::Failed,
+    }
+}
 
 type CommandSessions = HashMap<CommandSessionId, CommandSession>;
 
@@ -144,6 +210,31 @@ impl CommandSessionManager {
     }
 }
 
+pub(in crate::background) struct CommandSessionMonitor {
+    join: JoinHandle<()>,
+}
+
+impl Drop for CommandSessionMonitor {
+    fn drop(&mut self) {
+        self.join.abort();
+    }
+}
+
+impl CommandSessionMonitor {
+    pub(in crate::background) fn spawn(manager: CommandSessionManager, interval: Duration) -> Self {
+        Self {
+            join: tokio::spawn(async move {
+                loop {
+                    for completion in manager.poll_completions().await {
+                        manager.push_notification_on_completion(completion).await;
+                    }
+                    tokio::time::sleep(interval).await;
+                }
+            }),
+        }
+    }
+}
+
 #[async_trait]
 impl BackgroundSessionManager for CommandSessionManager {
     type Session = CommandSession;
@@ -247,9 +338,7 @@ mod tests {
     use serde_json::json;
     use tokio::time::{sleep, timeout};
 
-    use super::super::CommandSessionMonitor;
     use super::*;
-    use crate::background::session_managers::BackgroundSessionManager;
     use crate::notifications::NotificationService;
     use eos_sandbox_port::SandboxCommandService;
 

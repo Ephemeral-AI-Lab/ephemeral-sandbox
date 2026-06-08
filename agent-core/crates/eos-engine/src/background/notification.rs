@@ -15,7 +15,7 @@ use eos_tools::ToolResult;
 use eos_types::{CommandSessionId, SandboxId, SubagentSessionId, WorkflowId, WorkflowSessionId};
 use serde_json::Value;
 
-use super::session_managers::BackgroundSessionStatus;
+use super::background_session_manager::BackgroundSessionStatus;
 use crate::notifications::NotificationService;
 
 /// A terminal background transition to surface to the owning agent run.

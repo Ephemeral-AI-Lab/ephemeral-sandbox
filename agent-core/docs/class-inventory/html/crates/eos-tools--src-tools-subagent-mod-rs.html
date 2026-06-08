@@ -56,21 +56,21 @@
       <span>0 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">Standalone Functions</div><article id="item-fn-register-13" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(crate) pub(crate) fn register (registry : &amp; mut crate :: registry :: ToolRegistry , config : &amp; crate :: registry :: config :: ToolConfigSet , caller : &amp; CallerScope , agent_run_service : Option &lt; Arc &lt; dyn AgentRunServicePort &gt; &gt; , subagent_sessions : Option &lt; Arc &lt; dyn SubagentSessionPort &gt; &gt; ,) crates/eos-tools/src/tools/subagent/mod.rs  ">
+  <div class="items"><div class="group-label">Standalone Functions</div><article id="item-fn-register-15" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(crate) pub(crate) fn register (registry : &amp; mut crate :: registry :: ToolRegistry , config : &amp; crate :: registry :: config :: ToolConfigSet , caller : &amp; CallerScope , agent_run_service : Option &lt; Arc &lt; dyn AgentRunApi &gt; &gt; , subagent_sessions : Option &lt; Arc &lt; dyn SubagentSessionPort &gt; &gt; ,) crates/eos-tools/src/tools/subagent/mod.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a> (registry : &amp; mut crate :: registry :: <a class="symbol-link" href="eos-tools--src-registry-tool-registry-rs.html#item-struct-ToolRegistry-18">ToolRegistry</a> , config : &amp; crate :: registry :: config :: <a class="symbol-link" href="eos-tools--src-registry-config-rs.html#item-struct-ToolConfigSet-45">ToolConfigSet</a> , caller : &amp; <a class="symbol-link" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-34">CallerScope</a> , agent_run_service : Option &lt; Arc &lt; dyn AgentRunServicePort &gt; &gt; , subagent_sessions : Option &lt; Arc &lt; dyn SubagentSessionPort &gt; &gt; ,)</code>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a> (registry : &amp; mut crate :: registry :: <a class="symbol-link" href="eos-tools--src-registry-tool-registry-rs.html#item-struct-ToolRegistry-18">ToolRegistry</a> , config : &amp; crate :: registry :: config :: <a class="symbol-link" href="eos-tools--src-registry-config-rs.html#item-struct-ToolConfigSet-45">ToolConfigSet</a> , caller : &amp; <a class="symbol-link" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-35">CallerScope</a> , agent_run_service : Option &lt; Arc &lt; dyn AgentRunApi &gt; &gt; , subagent_sessions : Option &lt; Arc &lt; dyn SubagentSessionPort &gt; &gt; ,)</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a>(
     registry: &amp;<span class="rs-kw">mut</span> <span class="rs-kw">crate</span>::registry::<a class="symbol-link rs-type" href="eos-tools--src-registry-tool-registry-rs.html#item-struct-ToolRegistry-18">ToolRegistry</a>,
     config: &amp;<span class="rs-kw">crate</span>::registry::config::<a class="symbol-link rs-type" href="eos-tools--src-registry-config-rs.html#item-struct-ToolConfigSet-45">ToolConfigSet</a>,
-    caller: &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-34">CallerScope</a>,
-    agent_run_service: <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunServicePort</span>&gt;&gt;,
+    caller: &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-35">CallerScope</a>,
+    agent_run_service: <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;&gt;,
     subagent_sessions: <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SubagentSessionPort</span>&gt;&gt;,
 ) {
     run_subagent::<a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a>(
@@ -86,7 +86,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tools/src/tools/subagent/mod.rs:13</p>
+  <p class="source">crates/eos-tools/src/tools/subagent/mod.rs:15</p>
 </article></div>
 </section></div>
 </main>
@@ -104,14 +104,16 @@
 
 <span class="rs-kw">use</span> std::sync::<span class="rs-type">Arc</span>;
 
-<span class="rs-kw">use</span> <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-34">CallerScope</a>;
-<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::ports::{<span class="rs-type">AgentRunServicePort</span>, <span class="rs-type">SubagentSessionPort</span>};
+<span class="rs-kw">use</span> eos_agent_run::<span class="rs-type">AgentRunApi</span>;
+
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-35">CallerScope</a>;
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::ports::<span class="rs-type">SubagentSessionPort</span>;
 
 <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a>(
     registry: &amp;<span class="rs-kw">mut</span> <span class="rs-kw">crate</span>::registry::<a class="symbol-link rs-type" href="eos-tools--src-registry-tool-registry-rs.html#item-struct-ToolRegistry-18">ToolRegistry</a>,
     config: &amp;<span class="rs-kw">crate</span>::registry::config::<a class="symbol-link rs-type" href="eos-tools--src-registry-config-rs.html#item-struct-ToolConfigSet-45">ToolConfigSet</a>,
-    caller: &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-34">CallerScope</a>,
-    agent_run_service: <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunServicePort</span>&gt;&gt;,
+    caller: &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-35">CallerScope</a>,
+    agent_run_service: <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;&gt;,
     subagent_sessions: <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SubagentSessionPort</span>&gt;&gt;,
 ) {
     run_subagent::<a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a>(

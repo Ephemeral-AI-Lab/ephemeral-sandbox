@@ -2,72 +2,7 @@ use async_trait::async_trait;
 use eos_types::{AgentRunId, SubagentSessionId};
 use serde::Serialize;
 
-use crate::{ExecutionMetadata, Sealed, ToolError, ToolResult};
-
-/// Tool-owned request to start a subagent run.
-#[derive(Debug, Clone)]
-pub struct StartSubagentRunRequest {
-    /// Caller execution facts.
-    pub ctx: ExecutionMetadata,
-    /// Registered subagent name requested by the model.
-    pub agent_name: String,
-    /// User/model supplied subagent task prompt.
-    pub prompt: String,
-    /// Launch guidance appended to the child run.
-    pub guidance: String,
-}
-
-/// A started subagent agent run.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StartedSubagentRun {
-    /// The durable child agent-run id.
-    pub agent_run_id: AgentRunId,
-    /// Registered child agent name.
-    pub agent_name: String,
-}
-
-/// Subagent launch result.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum StartSubagentRunOutcome {
-    /// The subagent run was started.
-    Started(StartedSubagentRun),
-    /// Validation rejected the dispatch.
-    Rejected(SubagentLaunchRejection),
-}
-
-/// Terminal facts for a child agent run.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TerminalAgentRun {
-    /// The child agent-run id.
-    pub agent_run_id: AgentRunId,
-    /// Terminal background status.
-    pub status: SubagentSessionStatus,
-    /// Terminal result payload.
-    pub result: ToolResult,
-}
-
-/// Resource service for starting, polling, and cancelling subagent agent runs.
-#[async_trait]
-pub trait AgentRunServicePort: Sealed + Send + Sync {
-    /// Start a subagent run, returning typed launch facts.
-    async fn start_subagent_run(
-        &self,
-        request: StartSubagentRunRequest,
-    ) -> Result<StartSubagentRunOutcome, ToolError>;
-
-    /// Poll a child agent run for terminal state.
-    async fn poll_terminal_agent_run(
-        &self,
-        agent_run_id: &AgentRunId,
-    ) -> Result<Option<TerminalAgentRun>, ToolError>;
-
-    /// Cancel a child agent run.
-    async fn cancel_agent_run(
-        &self,
-        agent_run_id: &AgentRunId,
-        reason: &str,
-    ) -> Result<(), ToolError>;
-}
+use crate::{Sealed, ToolResult};
 
 /// Typed launch rejection facts.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -176,6 +111,13 @@ pub trait SubagentSessionPort: Sealed + Send + Sync {
         subagent_session_id: &SubagentSessionId,
         reason: &str,
     ) -> CancelledSubagent;
+
+    /// Cancel one tracked subagent by its natural child agent-run id.
+    async fn cancel_background_agent_run(
+        &self,
+        agent_run_id: &AgentRunId,
+        reason: &str,
+    ) -> bool;
 
     /// Count running background sessions for this run.
     async fn count_background_sessions(&self) -> usize;

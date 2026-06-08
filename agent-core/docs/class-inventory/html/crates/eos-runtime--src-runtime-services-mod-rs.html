@@ -72,7 +72,7 @@
     <span class="rs-comment">/// typed trait objects — never a `sqlx` pool or the agent-core table layout.</span>
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-mod-rs.html#method-state-reader-58">state_reader</a>(&amp;<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a> {
-        <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+        <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
             <span class="rs-self">self</span>.db.request_store.clone(),
             <span class="rs-self">self</span>.db.task_store.clone(),
             <span class="rs-self">self</span>.db.agent_run_store.clone(),
@@ -91,7 +91,7 @@
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Bundle the explicit run handles `eos_engine::run_agent` needs.</span>
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-mod-rs.html#method-engine-run-handles-76">engine_run_handles</a>(&amp;<span class="rs-self">self</span>, workspace_root: &amp;str) -&gt; eos_engine::<span class="rs-type">EngineRunHandles</span> {
-        <span class="rs-kw">let</span> sandbox_service = <span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-self">self</span>.sandbox.transport.clone());
+        <span class="rs-kw">let</span> sandbox_service = <span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-self">self</span>.sandbox.transport.clone());
         <span class="rs-kw">let</span> plugin_sandbox_service = sandbox_service.clone();
         eos_engine::<span class="rs-type">EngineRunHandles</span> {
             agent_run_store: <span class="rs-self">self</span>.db.agent_run_store.clone(),
@@ -100,12 +100,12 @@
             agent_registry: <span class="rs-self">self</span>.agent_core.agent_registry.clone(),
             tool_config: <span class="rs-self">self</span>.agent_core.tool_config.clone(),
             sandbox_service,
-            root_submission: <span class="rs-type">Some</span>(<span class="rs-type">RootSubmissionService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+            root_submission: <span class="rs-type">Some</span>(<span class="rs-type">RootSubmissionService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                 <span class="rs-self">self</span>.db.task_store.clone(),
                 <span class="rs-self">self</span>.db.request_store.clone(),
             )),
-            skill_service: <span class="rs-type">SkillToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-self">self</span>.agent_core.skill_registry.clone()),
-            tool_registry_extender: <span class="rs-type">Some</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-kw">move</span> |registry| {
+            skill_service: <span class="rs-type">SkillToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-self">self</span>.agent_core.skill_registry.clone()),
+            tool_registry_extender: <span class="rs-type">Some</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-kw">move</span> |registry| {
                 <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-register-plugin-tools-27">register_plugin_tools</a>(registry, &amp;plugin_sandbox_service);
             })),
             audit: <span class="rs-self">self</span>.audit.sink.clone(),
@@ -205,7 +205,7 @@
     <span class="rs-comment">/// typed trait objects — never a `sqlx` pool or the agent-core table layout.</span>
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-mod-rs.html#method-state-reader-58">state_reader</a>(&amp;<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a> {
-        <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+        <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
             <span class="rs-self">self</span>.db.request_store.clone(),
             <span class="rs-self">self</span>.db.task_store.clone(),
             <span class="rs-self">self</span>.db.agent_run_store.clone(),
@@ -220,7 +220,7 @@
 
     <span class="rs-comment">/// Bundle the explicit run handles `eos_engine::run_agent` needs.</span>
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-mod-rs.html#method-engine-run-handles-76">engine_run_handles</a>(&amp;<span class="rs-self">self</span>, workspace_root: &amp;str) -&gt; eos_engine::<span class="rs-type">EngineRunHandles</span> {
-        <span class="rs-kw">let</span> sandbox_service = <span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-self">self</span>.sandbox.transport.clone());
+        <span class="rs-kw">let</span> sandbox_service = <span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-self">self</span>.sandbox.transport.clone());
         <span class="rs-kw">let</span> plugin_sandbox_service = sandbox_service.clone();
         eos_engine::<span class="rs-type">EngineRunHandles</span> {
             agent_run_store: <span class="rs-self">self</span>.db.agent_run_store.clone(),
@@ -229,12 +229,12 @@
             agent_registry: <span class="rs-self">self</span>.agent_core.agent_registry.clone(),
             tool_config: <span class="rs-self">self</span>.agent_core.tool_config.clone(),
             sandbox_service,
-            root_submission: <span class="rs-type">Some</span>(<span class="rs-type">RootSubmissionService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+            root_submission: <span class="rs-type">Some</span>(<span class="rs-type">RootSubmissionService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                 <span class="rs-self">self</span>.db.task_store.clone(),
                 <span class="rs-self">self</span>.db.request_store.clone(),
             )),
-            skill_service: <span class="rs-type">SkillToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-self">self</span>.agent_core.skill_registry.clone()),
-            tool_registry_extender: <span class="rs-type">Some</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-kw">move</span> |registry| {
+            skill_service: <span class="rs-type">SkillToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-self">self</span>.agent_core.skill_registry.clone()),
+            tool_registry_extender: <span class="rs-type">Some</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-kw">move</span> |registry| {
                 <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-register-plugin-tools-27">register_plugin_tools</a>(registry, &amp;plugin_sandbox_service);
             })),
             audit: <span class="rs-self">self</span>.audit.sink.clone(),

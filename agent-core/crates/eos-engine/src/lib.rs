@@ -8,7 +8,6 @@ mod notifications;
 pub mod prompt;
 pub mod query;
 mod runtime;
-pub mod services;
 mod support;
 mod telemetry;
 pub mod tool_call;
@@ -25,10 +24,9 @@ pub use query::{
 };
 pub use runtime::{
     run_agent, AgentRunCancellation, AgentRunControl, AgentRunControlFactory, AgentRunFinalization,
-    AgentRunInput, AgentRunRegistry, AgentRunResult, EngineCancelPort, EngineRunHandles,
-    EventCallback, EventSourceFactory, ForegroundExecutor, ForegroundExecutorFactory,
-    ForegroundResourceId, ToolRegistryExtender,
+    AgentRunInput, AgentRunRegistry, AgentRunResult, AgentRunService, EngineCancelPort,
+    EngineRunHandles, EventCallback, EventSourceFactory, ForegroundExecutor,
+    ForegroundExecutorFactory, ForegroundResourceId, ToolRegistryExtender,
 };
-pub use services::AgentRunService;
 pub use support::EngineError;
 pub use telemetry::{stamp_identity, AssistantMessageComplete, PromptReportRecorder, StreamEvent};

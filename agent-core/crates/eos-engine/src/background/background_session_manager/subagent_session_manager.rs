@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
-use eos_tool_core::{AgentRunServicePort, Sealed, SubagentSessionPort};
-#[cfg(test)]
-use eos_tool_core::{StartSubagentRunOutcome, StartSubagentRunRequest};
+use eos_agent_run::{AgentRunApi, AgentRunOutcome, AgentRunStatus};
+use eos_tool_core::{Sealed, SubagentSessionPort};
 #[cfg(test)]
 use eos_state::AgentRun;
-#[cfg(test)]
-use eos_tools::ToolError;
 use eos_tools::ToolResult;
 #[cfg(test)]
 use eos_types::JsonObject;
@@ -16,10 +14,80 @@ use eos_types::{AgentRunId, SubagentSessionId};
 #[cfg(test)]
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
-use super::super::{BackgroundSession, BackgroundSessionManager, BackgroundSessionStatus};
-use super::session::SubagentSession;
+use super::{BackgroundSession, BackgroundSessionManager, BackgroundSessionStatus};
 use crate::background::notification::{BackgroundCompletion, BackgroundNotificationEmitter};
+
+/// One tracked subagent run owned by an agent run's background session runtime.
+#[derive(Debug, Clone)]
+pub(in crate::background) struct SubagentSession {
+    id: SubagentSessionId,
+    agent_run_id: AgentRunId,
+    agent_name: String,
+    status: BackgroundSessionStatus,
+    result: Option<ToolResult>,
+}
+
+impl SubagentSession {
+    fn tracked(id: SubagentSessionId, agent_run_id: AgentRunId, agent_name: String) -> Self {
+        Self {
+            id,
+            agent_run_id,
+            agent_name,
+            status: BackgroundSessionStatus::Running,
+            result: None,
+        }
+    }
+
+    fn agent_run_id(&self) -> &AgentRunId {
+        &self.agent_run_id
+    }
+
+    fn agent_name(&self) -> &str {
+        &self.agent_name
+    }
+
+    const fn status(&self) -> BackgroundSessionStatus {
+        self.status
+    }
+
+    fn result(&self) -> Option<&ToolResult> {
+        self.result.as_ref()
+    }
+
+    fn cancel(&mut self, reason: &str) -> bool {
+        if !matches!(self.status, BackgroundSessionStatus::Running) {
+            return false;
+        }
+        self.status = BackgroundSessionStatus::Cancelled;
+        self.result = Some(
+            ToolResult::error(format!("Background subagent cancelled: {reason}"))
+                .meta("subagent_cancelled", serde_json::json!(true)),
+        );
+        true
+    }
+
+    fn settle(
+        &mut self,
+        status: BackgroundSessionStatus,
+        result: ToolResult,
+    ) -> Option<ToolResult> {
+        if status.precedence() > self.status.precedence() {
+            self.status = status;
+            self.result = Some(result);
+        }
+        self.result.clone()
+    }
+}
+
+impl BackgroundSession for SubagentSession {
+    type Id = SubagentSessionId;
+
+    fn id(&self) -> &Self::Id {
+        &self.id
+    }
+}
 
 #[derive(Debug, Clone)]
 pub(in crate::background) struct SubagentCompletion {
@@ -39,7 +107,7 @@ struct SubagentSessionState {
 pub(in crate::background) struct SubagentSessionManager {
     agent_run_id: AgentRunId,
     sessions: Arc<Mutex<SubagentSessionState>>,
-    agent_run_service: Arc<dyn AgentRunServicePort>,
+    agent_run_service: Arc<dyn AgentRunApi>,
     notification: BackgroundNotificationEmitter,
 }
 
@@ -54,7 +122,7 @@ impl std::fmt::Debug for SubagentSessionManager {
 impl SubagentSessionManager {
     pub(in crate::background) fn new(
         agent_run_id: AgentRunId,
-        agent_run_service: Arc<dyn AgentRunServicePort>,
+        agent_run_service: Arc<dyn AgentRunApi>,
         notification: BackgroundNotificationEmitter,
     ) -> Self {
         Self {
@@ -108,6 +176,25 @@ impl SubagentSessionManager {
         true
     }
 
+    pub(in crate::background) async fn cancel_agent_run(
+        &self,
+        child_run_id: &AgentRunId,
+        reason: &str,
+    ) -> bool {
+        let subagent_session_id = {
+            let guard = self.sessions.lock().await;
+            guard
+                .sessions
+                .values()
+                .find(|session| session.agent_run_id() == child_run_id)
+                .map(|session| session.id().clone())
+        };
+        let Some(subagent_session_id) = subagent_session_id else {
+            return false;
+        };
+        self.cancel_one(&subagent_session_id, reason).await
+    }
+
     async fn next_session_id(&self) -> SubagentSessionId {
         let mut guard = self.sessions.lock().await;
         guard.next_session_seq = guard.next_session_seq.saturating_add(1);
@@ -139,7 +226,7 @@ impl SubagentSessionManager {
         for (subagent_session_id, agent_run_id) in running {
             let terminal = match self
                 .agent_run_service
-                .poll_terminal_agent_run(&agent_run_id)
+                .poll_agent_run_outcome(&agent_run_id)
                 .await
             {
                 Ok(terminal) => terminal,
@@ -148,8 +235,8 @@ impl SubagentSessionManager {
             let Some(terminal) = terminal else {
                 continue;
             };
-            let status = subagent_status_to_background(terminal.status);
-            let result = terminal.result;
+            let status = agent_run_status_to_background(terminal.status);
+            let result = terminal_result(terminal);
             let is_error = result.is_error;
             if let Some(completion) = self.settle(&subagent_session_id, status, result).await {
                 trace_background_tool(
@@ -174,6 +261,34 @@ impl SubagentSessionManager {
             .filter(|session| matches!(session.status(), BackgroundSessionStatus::Running))
             .map(|session| (session.id().clone(), session.agent_run_id().clone()))
             .collect()
+    }
+}
+
+pub(in crate::background) struct SubagentSessionMonitor {
+    join: JoinHandle<()>,
+}
+
+impl Drop for SubagentSessionMonitor {
+    fn drop(&mut self) {
+        self.join.abort();
+    }
+}
+
+impl SubagentSessionMonitor {
+    pub(in crate::background) fn spawn(
+        manager: SubagentSessionManager,
+        interval: Duration,
+    ) -> Self {
+        Self {
+            join: tokio::spawn(async move {
+                loop {
+                    for completion in manager.poll_completions().await {
+                        manager.push_notification_on_completion(completion).await;
+                    }
+                    tokio::time::sleep(interval).await;
+                }
+            }),
+        }
     }
 }
 
@@ -301,6 +416,14 @@ impl SubagentSessionPort for SubagentSessionManager {
         }
     }
 
+    async fn cancel_background_agent_run(
+        &self,
+        agent_run_id: &AgentRunId,
+        reason: &str,
+    ) -> bool {
+        self.cancel_agent_run(agent_run_id, reason).await
+    }
+
     async fn count_background_sessions(&self) -> usize {
         BackgroundSessionManager::count(self).await
     }
@@ -319,15 +442,22 @@ impl SubagentSessionPort for SubagentSessionManager {
     }
 }
 
-const fn subagent_status_to_background(
-    status: eos_tool_core::SubagentSessionStatus,
-) -> BackgroundSessionStatus {
+fn terminal_result(outcome: AgentRunOutcome) -> ToolResult {
+    outcome.terminal_result.unwrap_or_else(|| {
+        ToolResult::error(
+            outcome
+                .error
+                .unwrap_or_else(|| "subagent exited without terminal output".to_owned()),
+        )
+        .meta("subagent_terminal_called", serde_json::json!(false))
+    })
+}
+
+const fn agent_run_status_to_background(status: AgentRunStatus) -> BackgroundSessionStatus {
     match status {
-        eos_tool_core::SubagentSessionStatus::Running => BackgroundSessionStatus::Running,
-        eos_tool_core::SubagentSessionStatus::Completed => BackgroundSessionStatus::Completed,
-        eos_tool_core::SubagentSessionStatus::Failed => BackgroundSessionStatus::Failed,
-        eos_tool_core::SubagentSessionStatus::Cancelled => BackgroundSessionStatus::Cancelled,
-        eos_tool_core::SubagentSessionStatus::Delivered => BackgroundSessionStatus::Delivered,
+        AgentRunStatus::Completed => BackgroundSessionStatus::Completed,
+        AgentRunStatus::Failed => BackgroundSessionStatus::Failed,
+        AgentRunStatus::Cancelled => BackgroundSessionStatus::Cancelled,
     }
 }
 
@@ -485,10 +615,9 @@ mod tests {
     use std::sync::Arc;
 
     use async_trait::async_trait;
-    use eos_tool_core::{StartedSubagentRun, TerminalAgentRun};
+    use eos_agent_run::{AgentRunError, SpawnAgentRequest};
     use eos_state::{AgentRun, UtcDateTime};
 
-    use crate::background::session_managers::BackgroundSessionManager;
     use crate::NotificationService;
 
     use super::*;
@@ -497,21 +626,25 @@ mod tests {
     struct FakeAgentRunService;
 
     #[async_trait]
-    impl AgentRunServicePort for FakeAgentRunService {
-        async fn start_subagent_run(
+    impl AgentRunApi for FakeAgentRunService {
+        async fn spawn_agent(
             &self,
-            request: StartSubagentRunRequest,
-        ) -> Result<StartSubagentRunOutcome, ToolError> {
-            Ok(StartSubagentRunOutcome::Started(StartedSubagentRun {
-                agent_run_id: AgentRunId::new_v4(),
-                agent_name: request.agent_name,
-            }))
+            _request: SpawnAgentRequest,
+        ) -> Result<AgentRunId, AgentRunError> {
+            Ok(AgentRunId::new_v4())
         }
 
-        async fn poll_terminal_agent_run(
+        async fn wait_for_agent_outcomes(
+            &self,
+            agent_run_id: &AgentRunId,
+        ) -> Result<AgentRunOutcome, AgentRunError> {
+            Err(AgentRunError::NotActiveInProcess(agent_run_id.clone()))
+        }
+
+        async fn poll_agent_run_outcome(
             &self,
             _agent_run_id: &AgentRunId,
-        ) -> Result<Option<TerminalAgentRun>, ToolError> {
+        ) -> Result<Option<AgentRunOutcome>, AgentRunError> {
             Ok(None)
         }
 
@@ -519,12 +652,10 @@ mod tests {
             &self,
             _agent_run_id: &AgentRunId,
             _reason: &str,
-        ) -> Result<(), ToolError> {
+        ) -> Result<(), AgentRunError> {
             Ok(())
         }
     }
-
-    impl Sealed for FakeAgentRunService {}
 
     fn manager(notifier: &NotificationService) -> SubagentSessionManager {
         SubagentSessionManager::new(

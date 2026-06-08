@@ -38,12 +38,11 @@ pub use core::name::{ToolKey, ToolName};
 pub use core::result::{OutputShape, ToolResult};
 pub use hooks::{Hook, HookDenial, HookOutcome};
 pub use ports::{
-    AgentRunServicePort, AttemptSubmissionPort, BackgroundSessionCounts, CancelPort,
-    CancelableResource, CancelledSubagent, CommandServicePort, CommandSessionPort,
-    NotificationSink, OutstandingWorkflow, PlanReducer, PlanTask, PlannerPlan,
-    StartSubagentRunOutcome, StartSubagentRunRequest, StartWorkflowRequest, StartedSubagentRun,
+    AttemptSubmissionPort, BackgroundSessionCounts, CancelPort, CancelableResource,
+    CancelledSubagent, CommandServicePort, CommandSessionPort, NotificationSink,
+    OutstandingWorkflow, PlanReducer, PlanTask, PlannerPlan, StartWorkflowRequest,
     StartedWorkflow, SubagentLaunchRejection, SubagentProgress, SubagentSessionPort,
-    SubagentSessionStatus, SubmissionAck, SystemNotification, TerminalAgentRun, TerminalWorkflow,
+    SubagentSessionStatus, SubmissionAck, SystemNotification, TerminalWorkflow,
     WorkflowServicePort, WorkflowSessionPort,
 };
 pub use registry::config::{ToolConfig, ToolConfigError, ToolConfigSet};

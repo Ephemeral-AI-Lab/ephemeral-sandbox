@@ -1,4 +1,5 @@
 mod advisor;
+mod agent_run_service;
 mod agent_loop;
 mod cancel;
 mod control;
@@ -9,6 +10,7 @@ mod registry;
 mod setup;
 mod types;
 
+pub use agent_run_service::AgentRunService;
 pub(crate) use advisor::run_advisor;
 pub use agent_loop::run_agent;
 pub use cancel::EngineCancelPort;

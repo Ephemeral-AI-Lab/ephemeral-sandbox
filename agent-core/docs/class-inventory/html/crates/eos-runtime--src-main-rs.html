@@ -82,8 +82,8 @@
             <span class="rs-kw">let</span> workspace_root = std::env::current_dir()?.display().to_string();
             <span class="rs-kw">let</span> workflow_config = <a class="symbol-link rs-fn" href="eos-runtime--src-main-rs.html#item-fn-load-workflow-config-75">load_workflow_config</a>()?;
             <span class="rs-kw">let</span> input =
-                <a class="symbol-link rs-type" href="eos-runtime--src-request-input-rs.html#item-struct-RequestRunInput-6">RequestRunInput</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(request_id.clone(), prompt, workspace_root, workflow_config);
-            <span class="rs-kw">let</span> outcome = <a class="symbol-link rs-fn" href="eos-runtime--src-entry-rs.html#item-fn-run-request-66">run_request</a>(&amp;services, input, <span class="rs-type">None</span>).<span class="rs-kw">await</span>?;
+                <a class="symbol-link rs-type" href="eos-runtime--src-request-input-rs.html#item-struct-RequestRunInput-6">RequestRunInput</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(request_id.clone(), prompt, workspace_root, workflow_config);
+            <span class="rs-kw">let</span> outcome = <a class="symbol-link rs-fn" href="eos-runtime--src-entry-rs.html#item-fn-run-request-67">run_request</a>(&amp;services, input, <span class="rs-type">None</span>).<span class="rs-kw">await</span>?;
             tracing::info!(
                 request_id = %request_id,
                 status = ?outcome.status,
@@ -122,7 +122,7 @@
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> builder = <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-mod-rs.html#item-struct-RuntimeServices-36">RuntimeServices</a>::<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-mod-rs.html#method-builder-53">builder</a>();
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(dir) = std::env::var(&quot;<span class="rs-type">EOS_AGENTS_DIR</span>&quot;) {
         builder = builder.<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-agents-dir-190">agents_dir</a>(dir);
-    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> std::path::<span class="rs-type">Path</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">DEFAULT_AGENTS_DIR</span>).is_dir() {
+    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> std::path::<span class="rs-type">Path</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">DEFAULT_AGENTS_DIR</span>).is_dir() {
         builder = builder.<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-agents-dir-190">agents_dir</a>(<span class="rs-type">DEFAULT_AGENTS_DIR</span>);
     }
     <span class="rs-comment">// The tool config is mandatory (the registry needs every tool). `EOS_TOOLS_DIR`</span>
@@ -192,8 +192,8 @@
             <span class="rs-kw">let</span> workspace_root = std::env::current_dir()?.display().to_string();
             <span class="rs-kw">let</span> workflow_config = <a class="symbol-link rs-fn" href="eos-runtime--src-main-rs.html#item-fn-load-workflow-config-75">load_workflow_config</a>()?;
             <span class="rs-kw">let</span> input =
-                <a class="symbol-link rs-type" href="eos-runtime--src-request-input-rs.html#item-struct-RequestRunInput-6">RequestRunInput</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(request_id.clone(), prompt, workspace_root, workflow_config);
-            <span class="rs-kw">let</span> outcome = <a class="symbol-link rs-fn" href="eos-runtime--src-entry-rs.html#item-fn-run-request-66">run_request</a>(&amp;services, input, <span class="rs-type">None</span>).<span class="rs-kw">await</span>?;
+                <a class="symbol-link rs-type" href="eos-runtime--src-request-input-rs.html#item-struct-RequestRunInput-6">RequestRunInput</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(request_id.clone(), prompt, workspace_root, workflow_config);
+            <span class="rs-kw">let</span> outcome = <a class="symbol-link rs-fn" href="eos-runtime--src-entry-rs.html#item-fn-run-request-67">run_request</a>(&amp;services, input, <span class="rs-type">None</span>).<span class="rs-kw">await</span>?;
             tracing::info!(
                 request_id = %request_id,
                 status = ?outcome.status,
@@ -227,7 +227,7 @@
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> builder = <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-mod-rs.html#item-struct-RuntimeServices-36">RuntimeServices</a>::<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-mod-rs.html#method-builder-53">builder</a>();
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(dir) = std::env::var(&quot;<span class="rs-type">EOS_AGENTS_DIR</span>&quot;) {
         builder = builder.<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-agents-dir-190">agents_dir</a>(dir);
-    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> std::path::<span class="rs-type">Path</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">DEFAULT_AGENTS_DIR</span>).is_dir() {
+    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> std::path::<span class="rs-type">Path</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">DEFAULT_AGENTS_DIR</span>).is_dir() {
         builder = builder.<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-agents-dir-190">agents_dir</a>(<span class="rs-type">DEFAULT_AGENTS_DIR</span>);
     }
     <span class="rs-comment">// The tool config is mandatory (the registry needs every tool). `EOS_TOOLS_DIR`</span>

@@ -65,9 +65,9 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a></code>
   <p class="docstring">Read-side store handles exposed to the backend composition root.<br>Cheap to clone (every field is `Arc`-backed). Construct it through<br>[`RuntimeServices::state_reader`](super::RuntimeServices::state_reader).</p>
   <div class="tags"><span>derive: Clone</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>requests</td><td><code>Arc &lt; dyn RequestStore &gt;</code></td></tr><tr><td>private</td><td>tasks</td><td><code>Arc &lt; dyn TaskStore &gt;</code></td></tr><tr><td>private</td><td>agent_runs</td><td><code>Arc &lt; dyn AgentRunStore &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-26"><td>constructor</td><td>new</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-runtime.html#method-new-63">new</a> (requests : Arc &lt; dyn RequestStore &gt; , tasks : Arc &lt; dyn TaskStore &gt; , agent_runs : Arc &lt; dyn AgentRunStore &gt; ,) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>requests</td><td><code>Arc &lt; dyn RequestStore &gt;</code></td></tr><tr><td>private</td><td>tasks</td><td><code>Arc &lt; dyn TaskStore &gt;</code></td></tr><tr><td>private</td><td>agent_runs</td><td><code>Arc &lt; dyn AgentRunStore &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-26"><td>constructor</td><td>new</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-runtime.html#method-new-64">new</a> (requests : Arc &lt; dyn RequestStore &gt; , tasks : Arc &lt; dyn TaskStore &gt; , agent_runs : Arc &lt; dyn AgentRunStore &gt; ,) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
         requests: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">RequestStore</span>&gt;,
         tasks: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt;,
         agent_runs: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunStore</span>&gt;,
@@ -103,9 +103,9 @@
         <span class="rs-self">self</span>.agent_runs.clone()
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a></code></summary><table><tbody><tr id="method-fmt-58"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-runtime.html#method-fmt-57">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a></code></summary><table><tbody><tr id="method-fmt-58"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-runtime.html#method-fmt-58">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-57">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-58">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a>&quot;).finish_non_exhaustive()
     }
 </code></pre>
@@ -145,7 +145,7 @@
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
         requests: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">RequestStore</span>&gt;,
         tasks: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt;,
         agent_runs: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunStore</span>&gt;,
@@ -177,7 +177,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-57">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-58">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-state-reader-rs.html#item-struct-StateReader-14">StateReader</a>&quot;).finish_non_exhaustive()
     }
 }

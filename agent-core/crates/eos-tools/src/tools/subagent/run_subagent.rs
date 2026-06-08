@@ -3,6 +3,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use eos_agent_def::AgentName;
+use eos_agent_message_records::AgentRunRecordKind;
+use eos_agent_run::{AgentRunApi, AgentRunError, SpawnAgentRequest};
+use eos_llm_client::Message;
 use eos_types::JsonObject;
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
@@ -13,10 +17,7 @@ use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
 use crate::core::name::ToolName;
 use crate::core::result::{OutputShape, ToolResult};
-use crate::ports::{
-    AgentRunServicePort, StartSubagentRunOutcome, StartSubagentRunRequest, StartedSubagentRun,
-    SubagentLaunchRejection, SubagentSessionPort,
-};
+use crate::ports::{SubagentLaunchRejection, SubagentSessionPort};
 use crate::registry::config::ToolConfigSet;
 use crate::registry::spec::text_spec_with_agent_enum;
 use crate::registry::ToolRegistry;
@@ -31,13 +32,13 @@ struct RunSubagentInput {
 }
 
 pub(in crate::tools::subagent) struct RunSubagent {
-    agent_run_service: Option<Arc<dyn AgentRunServicePort>>,
+    agent_run_service: Option<Arc<dyn AgentRunApi>>,
     subagent_sessions: Option<Arc<dyn SubagentSessionPort>>,
 }
 
 impl RunSubagent {
     pub(in crate::tools::subagent) fn new(
-        agent_run_service: Option<Arc<dyn AgentRunServicePort>>,
+        agent_run_service: Option<Arc<dyn AgentRunApi>>,
         subagent_sessions: Option<Arc<dyn SubagentSessionPort>>,
     ) -> Self {
         Self {
@@ -47,21 +48,16 @@ impl RunSubagent {
     }
 }
 
-fn launch_result(
-    started: &StartedSubagentRun,
-    subagent_session_id: &eos_types::SubagentSessionId,
-) -> ToolResult {
-    let session_id = subagent_session_id.as_str();
-    let agent_name = started.agent_name.as_str();
+fn launch_result(agent_run_id: &eos_types::AgentRunId, agent_name: &str) -> ToolResult {
+    let agent_run_id_str = agent_run_id.as_str();
     let mut metadata = JsonObject::new();
-    metadata.insert("subagent_session_id".to_owned(), json!(session_id));
+    metadata.insert("agent_run_id".to_owned(), json!(agent_run_id_str));
     metadata.insert("status".to_owned(), json!("running"));
     metadata.insert("agent_name".to_owned(), json!(agent_name));
     ToolResult::ok(format!(
-        "[SUBAGENT LAUNCHED] subagent_session_id=\"{session_id}\" status=running \
-         agent_name=\"{agent_name}\"\nUse check_subagent_progress(\
-         subagent_session_id=\"{session_id}\", last_n_messages=5) to inspect progress, \
-         or cancel_subagent(subagent_session_id=\"{session_id}\") to stop it. \
+        "[SUBAGENT LAUNCHED] agent_run_id=\"{agent_run_id_str}\" status=running \
+         agent_name=\"{agent_name}\"\nUse cancel_subagent(agent_run_id=\"{agent_run_id_str}\") \
+         to stop it. \
          Keep using the current response on other ready work first."
     ))
     .with_metadata(metadata)
@@ -126,29 +122,67 @@ impl ToolExecutor for RunSubagent {
                 "run_subagent: `prompt` must be a non-empty string.",
             ));
         }
-        match self
+        let parent_agent_run_id = ctx.require_agent_run_id()?.clone();
+        let agent_name = match AgentName::new(&parsed.agent_name) {
+            Ok(agent_name) => agent_name,
+            Err(_) => {
+                return Ok(launch_rejection(SubagentLaunchRejection::NotRegistered {
+                    agent_name: parsed.agent_name.clone(),
+                }));
+            }
+        };
+        let child_run_id = match self
             .agent_run_service
             .as_deref()
             .ok_or(ToolError::MissingPort("agent_run_service"))?
-            .start_subagent_run(StartSubagentRunRequest {
-                ctx: ctx.clone(),
-                agent_name: parsed.agent_name.clone(),
-                prompt: parsed.prompt.clone(),
-                guidance: explorer_launch_guidance(),
+            .spawn_agent(SpawnAgentRequest {
+                agent_name: agent_name.clone(),
+                agent_run_id: None,
+                initial_messages: vec![
+                    Message::from_user_text(parsed.prompt.clone()),
+                    Message::from_user_text(explorer_launch_guidance()),
+                ],
+                parent_agent_run_id: Some(parent_agent_run_id.clone()),
+                request_id: ctx.request_id.clone(),
+                task_id: None,
+                attempt_id: None,
+                workflow_id: None,
+                sandbox_id: ctx.sandbox_id.clone(),
+                workspace_root: ctx.workspace_root.clone(),
+                is_isolated_workspace_mode: ctx.is_isolated_workspace_mode,
+                persist: true,
+                record_kind: AgentRunRecordKind::Subagent {
+                    parent_agent_run_id,
+                },
             })
-            .await?
+            .await
         {
-            StartSubagentRunOutcome::Started(started) => {
-                let subagent_session_id = self
-                    .subagent_sessions
-                    .as_deref()
-                    .ok_or(ToolError::MissingPort("subagent_sessions"))?
-                    .register_background_session(&started.agent_run_id, &started.agent_name)
-                    .await;
-                Ok(launch_result(&started, &subagent_session_id))
+            Ok(child_run_id) => child_run_id,
+            Err(AgentRunError::AgentNotRegistered(agent_name)) => {
+                return Ok(launch_rejection(SubagentLaunchRejection::NotRegistered {
+                    agent_name,
+                }));
             }
-            StartSubagentRunOutcome::Rejected(rejection) => Ok(launch_rejection(rejection)),
-        }
+            Err(AgentRunError::WrongAgentType {
+                agent_name, actual, ..
+            }) => {
+                return Ok(launch_rejection(SubagentLaunchRejection::NotSubagent {
+                    agent_name,
+                    agent_type: actual.to_owned(),
+                }));
+            }
+            Err(AgentRunError::RecursiveSubagent) => {
+                return Ok(launch_rejection(SubagentLaunchRejection::Recursive));
+            }
+            Err(err) => return Err(ToolError::Internal(err.to_string())),
+        };
+        let _subagent_session_id = self
+            .subagent_sessions
+            .as_deref()
+            .ok_or(ToolError::MissingPort("subagent_sessions"))?
+            .register_background_session(&child_run_id, &parsed.agent_name)
+            .await;
+        Ok(launch_result(&child_run_id, &parsed.agent_name))
     }
 }
 
@@ -156,7 +190,7 @@ pub(super) fn register(
     registry: &mut ToolRegistry,
     config: &ToolConfigSet,
     caller: &CallerScope,
-    agent_run_service: Option<Arc<dyn AgentRunServicePort>>,
+    agent_run_service: Option<Arc<dyn AgentRunApi>>,
     subagent_sessions: Option<Arc<dyn SubagentSessionPort>>,
 ) {
     let run = config.get(ToolName::RunSubagent);

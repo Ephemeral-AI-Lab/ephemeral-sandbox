@@ -78,7 +78,7 @@
         };
         <span class="rs-kw">let</span> sandbox_id = ctx.require_sandbox_id()?;
         <span class="rs-kw">let</span> agent_run_id = ctx.require_agent_run_id()?;
-        <span class="rs-kw">let</span> base = <span class="rs-type">SandboxRequestBase</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+        <span class="rs-kw">let</span> base = <span class="rs-type">SandboxRequestBase</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
             agent_run_id.as_str(),
             format!(&quot;plugin {plugin_id}.{op_name}&quot;),
             ctx.sandbox_invocation_id.clone(),
@@ -207,16 +207,16 @@
         .and_then(|(plugin_id, _)| plugin_package_descriptor(plugin_id))?;
     <span class="rs-kw">let</span> input_schema = <span class="rs-kw">match</span> serde_json::to_value(spec.input_schema) {
         <span class="rs-type">Ok</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(map)) =&gt; map,
-        _ =&gt; <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(),
+        _ =&gt; <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(),
     };
-    <span class="rs-kw">let</span> tool_spec = <span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(name.clone(), spec.description, input_schema, <span class="rs-type">None</span>);
-    <span class="rs-type">Some</span>(<span class="rs-type">RegisteredTool</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+    <span class="rs-kw">let</span> tool_spec = <span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(name.clone(), spec.description, input_schema, <span class="rs-type">None</span>);
+    <span class="rs-type">Some</span>(<span class="rs-type">RegisteredTool</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
         <span class="rs-type">ToolKey</span>::dynamic(name),
         <span class="rs-type">ToolIntent</span>::from(spec.intent),
         <span class="rs-kw">false</span>,
         tool_spec,
         <span class="rs-type">OutputShape</span>::<span class="rs-type">Text</span>,
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolExecutor-78">PluginToolExecutor</a> {
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolExecutor-78">PluginToolExecutor</a> {
             parsed_name,
             intent: spec.intent,
             package,
@@ -356,10 +356,10 @@
   <summary>code</summary>
   <pre><code>    #[test]
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-registers-lsp-plugin-tools-174">registers_lsp_plugin_tools</a>() {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>();
         <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-register-plugin-tools-27">register_plugin_tools</a>(
             &amp;<span class="rs-kw">mut</span> registry,
-            &amp;<span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolTestTransport-277">PluginToolTestTransport</a>::default())),
+            &amp;<span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolTestTransport-277">PluginToolTestTransport</a>::default())),
         );
         <span class="rs-kw">let</span> hover = registry.get_wire(&quot;lsp.hover&quot;).expect(&quot;hover registered&quot;);
         assert_eq!(hover.name.as_str(), &quot;lsp.hover&quot;);
@@ -383,14 +383,14 @@
   <summary>code</summary>
   <pre><code>    #[tokio::test]
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-lsp-executor-ensures-package-before-dispatch-188">lsp_executor_ensures_package_before_dispatch</a>() {
-        <span class="rs-kw">let</span> transport = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolTestTransport-277">PluginToolTestTransport</a>::default());
+        <span class="rs-kw">let</span> transport = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolTestTransport-277">PluginToolTestTransport</a>::default());
         <span class="rs-kw">let</span> ctx = <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-metadata-with-315">metadata_with</a>(transport.clone());
         <span class="rs-kw">let</span> package = plugin_package_descriptor(&quot;lsp&quot;).expect(&quot;lsp package&quot;);
         <span class="rs-kw">let</span> executor = <a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolExecutor-78">PluginToolExecutor</a> {
             parsed_name: <span class="rs-type">Some</span>((&quot;lsp&quot;.to_owned(), &quot;hover&quot;.to_owned())),
             intent: <span class="rs-type">Intent</span>::<span class="rs-type">ReadOnly</span>,
             package: package.clone(),
-            service: <span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(transport.clone()),
+            service: <span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(transport.clone()),
         };
         <span class="rs-kw">let</span> input = <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-json-object-146">json_object</a>(json!({
             &quot;file_path&quot;: &quot;src/main.py&quot;,
@@ -489,7 +489,7 @@
             sandbox_invocation_id: <span class="rs-type">Some</span>(&quot;inv-1&quot;.parse().expect(&quot;invocation id&quot;)),
             is_isolated_workspace_mode: <span class="rs-kw">false</span>,
             workspace_root: &quot;/repo&quot;.to_owned(),
-            conversation: <span class="rs-type">Arc</span>::from(<span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>()),
+            conversation: <span class="rs-type">Arc</span>::from(<span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>()),
         }
     }
 </code></pre>
@@ -553,16 +553,16 @@
         .and_then(|(plugin_id, _)| plugin_package_descriptor(plugin_id))?;
     <span class="rs-kw">let</span> input_schema = <span class="rs-kw">match</span> serde_json::to_value(spec.input_schema) {
         <span class="rs-type">Ok</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(map)) =&gt; map,
-        _ =&gt; <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(),
+        _ =&gt; <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(),
     };
-    <span class="rs-kw">let</span> tool_spec = <span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(name.clone(), spec.description, input_schema, <span class="rs-type">None</span>);
-    <span class="rs-type">Some</span>(<span class="rs-type">RegisteredTool</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+    <span class="rs-kw">let</span> tool_spec = <span class="rs-type">ToolSpec</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(name.clone(), spec.description, input_schema, <span class="rs-type">None</span>);
+    <span class="rs-type">Some</span>(<span class="rs-type">RegisteredTool</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
         <span class="rs-type">ToolKey</span>::dynamic(name),
         <span class="rs-type">ToolIntent</span>::from(spec.intent),
         <span class="rs-kw">false</span>,
         tool_spec,
         <span class="rs-type">OutputShape</span>::<span class="rs-type">Text</span>,
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolExecutor-78">PluginToolExecutor</a> {
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolExecutor-78">PluginToolExecutor</a> {
             parsed_name,
             intent: spec.intent,
             package,
@@ -603,7 +603,7 @@
         };
         <span class="rs-kw">let</span> sandbox_id = ctx.require_sandbox_id()?;
         <span class="rs-kw">let</span> agent_run_id = ctx.require_agent_run_id()?;
-        <span class="rs-kw">let</span> base = <span class="rs-type">SandboxRequestBase</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+        <span class="rs-kw">let</span> base = <span class="rs-type">SandboxRequestBase</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
             agent_run_id.as_str(),
             format!(&quot;plugin {plugin_id}.{op_name}&quot;),
             ctx.sandbox_invocation_id.clone(),
@@ -679,10 +679,10 @@
 
     #[test]
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-registers-lsp-plugin-tools-174">registers_lsp_plugin_tools</a>() {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <span class="rs-type">ToolRegistry</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>();
         <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-register-plugin-tools-27">register_plugin_tools</a>(
             &amp;<span class="rs-kw">mut</span> registry,
-            &amp;<span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolTestTransport-277">PluginToolTestTransport</a>::default())),
+            &amp;<span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolTestTransport-277">PluginToolTestTransport</a>::default())),
         );
         <span class="rs-kw">let</span> hover = registry.get_wire(&quot;lsp.hover&quot;).expect(&quot;hover registered&quot;);
         assert_eq!(hover.name.as_str(), &quot;lsp.hover&quot;);
@@ -693,14 +693,14 @@
 
     #[tokio::test]
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-lsp-executor-ensures-package-before-dispatch-188">lsp_executor_ensures_package_before_dispatch</a>() {
-        <span class="rs-kw">let</span> transport = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolTestTransport-277">PluginToolTestTransport</a>::default());
+        <span class="rs-kw">let</span> transport = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolTestTransport-277">PluginToolTestTransport</a>::default());
         <span class="rs-kw">let</span> ctx = <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-metadata-with-315">metadata_with</a>(transport.clone());
         <span class="rs-kw">let</span> package = plugin_package_descriptor(&quot;lsp&quot;).expect(&quot;lsp package&quot;);
         <span class="rs-kw">let</span> executor = <a class="symbol-link rs-type" href="eos-runtime--src-plugin-tools-rs.html#item-struct-PluginToolExecutor-78">PluginToolExecutor</a> {
             parsed_name: <span class="rs-type">Some</span>((&quot;lsp&quot;.to_owned(), &quot;hover&quot;.to_owned())),
             intent: <span class="rs-type">Intent</span>::<span class="rs-type">ReadOnly</span>,
             package: package.clone(),
-            service: <span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(transport.clone()),
+            service: <span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(transport.clone()),
         };
         <span class="rs-kw">let</span> input = <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-json-object-146">json_object</a>(json!({
             &quot;file_path&quot;: &quot;src/main.py&quot;,
@@ -831,7 +831,7 @@
             sandbox_invocation_id: <span class="rs-type">Some</span>(&quot;inv-1&quot;.parse().expect(&quot;invocation id&quot;)),
             is_isolated_workspace_mode: <span class="rs-kw">false</span>,
             workspace_root: &quot;/repo&quot;.to_owned(),
-            conversation: <span class="rs-type">Arc</span>::from(<span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>()),
+            conversation: <span class="rs-type">Arc</span>::from(<span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>()),
         }
     }
 }

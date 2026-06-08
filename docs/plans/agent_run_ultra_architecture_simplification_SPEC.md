@@ -137,24 +137,12 @@ agent-core/crates/
         setup.rs
       background/
         mod.rs
-        managers.rs                      # BackgroundManagers aggregate
         notification.rs
-        session_managers/
-          command/
-            mod.rs
-            manager.rs
-            monitor.rs
-            session.rs
-          workflow/
-            mod.rs
-            manager.rs
-            monitor.rs
-            session.rs
-          subagent/
-            mod.rs
-            manager.rs
-            monitor.rs
-            session.rs
+        background_session_manager/
+          mod.rs                         # BackgroundManagers, BackgroundSessions, shared status/errors
+          command_session_manager.rs     # CommandSession, CommandSessions, CommandSessionManager
+          workflow_session_manager.rs    # WorkflowSession, WorkflowSessions, WorkflowSessionManager
+          subagent_session_manager.rs    # SubagentSession, SubagentSessions, SubagentSessionManager
       query/
       tool_call/
       notifications/
@@ -672,17 +660,22 @@ impl CommandSessions {
 }
 ```
 
-The current per-kind modules may remain as folders if that minimizes churn:
+The target module layout is flat under `background_session_manager`:
 
 ```text
-eos-engine/src/background/session_managers/
-  command/
-  workflow/
-  subagent/
+eos-engine/src/background/
+  mod.rs
+  notification.rs
+  background_session_manager/
+    mod.rs
+    command_session_manager.rs
+    workflow_session_manager.rs
+    subagent_session_manager.rs
 ```
 
-The simplification target is the public/service/wiring layer, not the concrete
-manager implementation files.
+Do not keep nested `session_managers/<kind>/{mod,manager,monitor,session}.rs`
+folders in the target. Each kind gets one flat `[kind]_session_manager.rs` file
+declared from `background_session_manager/mod.rs`.
 
 Per-run session handles are injected into the tool executors that create
 background work. Subagent and workflow manager handles are injected into the
@@ -1225,7 +1218,10 @@ cargo test --workspace
   removed.
 - `BackgroundManagers` is a concrete field on `AgentRunControl`.
 - `eos-engine/src/background` still contains concrete command, workflow, and
-  subagent managers.
+  subagent managers under flat `background_session_manager/*_session_manager.rs`
+  files.
+- `eos-engine/src/background/session_managers/<kind>/...` nested folders are
+  removed.
 - `spawn_agent` always returns `AgentRunId`.
 - Root, workflow, subagent, and advisor launch paths call
   `AgentRunApi::spawn_agent`; production code outside `eos-agent-run` does not

@@ -25,7 +25,7 @@
   <div><b>8</b><span>modules</span></div>
   <div><b>39</b><span>items</span></div>
   <div><b>76</b><span>fields</span></div>
-  <div><b>49</b><span>methods</span></div>
+  <div><b>50</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -53,7 +53,7 @@
       <span>11 types</span>
       <span>0 impls</span>
       <span>0 fns</span>
-      <span>9 methods</span>
+      <span>10 methods</span>
     </div>
   </div>
   <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-StartSubagentRunRequest-7" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct StartSubagentRunRequest pub pub struct StartSubagentRunRequest crates/eos-tool-core/src/ports/agent_run.rs ctx ExecutionMetadata agent_name String prompt String guidance String ">
@@ -201,7 +201,7 @@
 </details></td></tr></tbody></table>
 
   <p class="source">crates/eos-tool-core/src/ports/agent_run.rs:49</p>
-</article><article id="item-trait-SubagentSessionPort-157" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait SubagentSessionPort pub pub trait SubagentSessionPort crates/eos-tool-core/src/ports/agent_run.rs  register_background_session async fn register_background_session (&amp; self , agent_run_id : &amp; AgentRunId , agent_name : &amp; str ,) -&gt; SubagentSessionId subagent_session_snapshot async fn subagent_session_snapshot (&amp; self , subagent_session_id : &amp; SubagentSessionId ,) -&gt; Option &lt; SubagentProgress &gt; cancel_background_session async fn cancel_background_session (&amp; self , subagent_session_id : &amp; SubagentSessionId , reason : &amp; str ,) -&gt; CancelledSubagent count_background_sessions async fn count_background_sessions (&amp; self) -&gt; usize cancel_all_background_sessions async fn cancel_all_background_sessions (&amp; self , reason : &amp; str) poll_complete_background_sessions async fn poll_complete_background_sessions (&amp; self) -&gt; usize">
+</article><article id="item-trait-SubagentSessionPort-157" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait SubagentSessionPort pub pub trait SubagentSessionPort crates/eos-tool-core/src/ports/agent_run.rs  register_background_session async fn register_background_session (&amp; self , agent_run_id : &amp; AgentRunId , agent_name : &amp; str ,) -&gt; SubagentSessionId subagent_session_snapshot async fn subagent_session_snapshot (&amp; self , subagent_session_id : &amp; SubagentSessionId ,) -&gt; Option &lt; SubagentProgress &gt; cancel_background_session async fn cancel_background_session (&amp; self , subagent_session_id : &amp; SubagentSessionId , reason : &amp; str ,) -&gt; CancelledSubagent cancel_background_agent_run async fn cancel_background_agent_run (&amp; self , agent_run_id : &amp; AgentRunId , reason : &amp; str ,) -&gt; bool count_background_sessions async fn count_background_sessions (&amp; self) -&gt; usize cancel_all_background_sessions async fn cancel_all_background_sessions (&amp; self , reason : &amp; str) poll_complete_background_sessions async fn poll_complete_background_sessions (&amp; self) -&gt; usize">
   <div class="item-head">
     <span class="kind">trait</span>
     <h3>SubagentSessionPort</h3>
@@ -236,20 +236,29 @@
         reason: &amp;str,
     ) -&gt; <a class="symbol-link rs-type" href="eos-tool-core--src-ports-agent-run-rs.html#item-enum-CancelledSubagent-127">CancelledSubagent</a>;
 </code></pre>
-</details></td></tr><tr id="method-count-background-sessions-180"><td>required</td><td>count_background_sessions</td><td><code>async fn <a class="symbol-link" href="eos-tool-core--src-ports-agent-run-rs.html#method-count-background-sessions-180">count_background_sessions</a> (&amp; self) -&gt; usize</code><p class="docstring">Count running background sessions for this run.</p><details class="function-source">
+</details></td></tr><tr id="method-cancel-background-agent-run-180"><td>required</td><td>cancel_background_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-tool-core--src-ports-agent-run-rs.html#method-cancel-background-agent-run-180">cancel_background_agent_run</a> (&amp; self , agent_run_id : &amp; AgentRunId , reason : &amp; str ,) -&gt; bool</code><p class="docstring">Cancel one tracked subagent by its natural child agent-run id.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Cancel one tracked subagent by its natural child agent-run id.</span>
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-cancel-background-agent-run-180">cancel_background_agent_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        reason: &amp;str,
+    ) -&gt; bool;
+</code></pre>
+</details></td></tr><tr id="method-count-background-sessions-187"><td>required</td><td>count_background_sessions</td><td><code>async fn <a class="symbol-link" href="eos-tool-core--src-ports-agent-run-rs.html#method-count-background-sessions-187">count_background_sessions</a> (&amp; self) -&gt; usize</code><p class="docstring">Count running background sessions for this run.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Count running background sessions for this run.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-count-background-sessions-180">count_background_sessions</a>(&amp;<span class="rs-self">self</span>) -&gt; usize;
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-count-background-sessions-187">count_background_sessions</a>(&amp;<span class="rs-self">self</span>) -&gt; usize;
 </code></pre>
-</details></td></tr><tr id="method-cancel-all-background-sessions-183"><td>required</td><td>cancel_all_background_sessions</td><td><code>async fn <a class="symbol-link" href="eos-tool-core--src-ports-agent-run-rs.html#method-cancel-all-background-sessions-183">cancel_all_background_sessions</a> (&amp; self , reason : &amp; str)</code><p class="docstring">Cancel all running background sessions for this run.</p><details class="function-source">
+</details></td></tr><tr id="method-cancel-all-background-sessions-190"><td>required</td><td>cancel_all_background_sessions</td><td><code>async fn <a class="symbol-link" href="eos-tool-core--src-ports-agent-run-rs.html#method-cancel-all-background-sessions-190">cancel_all_background_sessions</a> (&amp; self , reason : &amp; str)</code><p class="docstring">Cancel all running background sessions for this run.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Cancel all running background sessions for this run.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-cancel-all-background-sessions-183">cancel_all_background_sessions</a>(&amp;<span class="rs-self">self</span>, reason: &amp;str);
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-cancel-all-background-sessions-190">cancel_all_background_sessions</a>(&amp;<span class="rs-self">self</span>, reason: &amp;str);
 </code></pre>
-</details></td></tr><tr id="method-poll-complete-background-sessions-186"><td>required</td><td>poll_complete_background_sessions</td><td><code>async fn <a class="symbol-link" href="eos-tool-core--src-ports-agent-run-rs.html#method-poll-complete-background-sessions-186">poll_complete_background_sessions</a> (&amp; self) -&gt; usize</code><p class="docstring">Poll terminal child runs and push notifications.</p><details class="function-source">
+</details></td></tr><tr id="method-poll-complete-background-sessions-193"><td>required</td><td>poll_complete_background_sessions</td><td><code>async fn <a class="symbol-link" href="eos-tool-core--src-ports-agent-run-rs.html#method-poll-complete-background-sessions-193">poll_complete_background_sessions</a> (&amp; self) -&gt; usize</code><p class="docstring">Poll terminal child runs and push notifications.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Poll terminal child runs and push notifications.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-poll-complete-background-sessions-186">poll_complete_background_sessions</a>(&amp;<span class="rs-self">self</span>) -&gt; usize;
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-poll-complete-background-sessions-193">poll_complete_background_sessions</a>(&amp;<span class="rs-self">self</span>) -&gt; usize;
 </code></pre>
 </details></td></tr></tbody></table>
 
@@ -441,14 +450,21 @@
         reason: &amp;str,
     ) -&gt; <a class="symbol-link rs-type" href="eos-tool-core--src-ports-agent-run-rs.html#item-enum-CancelledSubagent-127">CancelledSubagent</a>;
 
+    <span class="rs-comment">/// Cancel one tracked subagent by its natural child agent-run id.</span>
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-cancel-background-agent-run-180">cancel_background_agent_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        reason: &amp;str,
+    ) -&gt; bool;
+
     <span class="rs-comment">/// Count running background sessions for this run.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-count-background-sessions-180">count_background_sessions</a>(&amp;<span class="rs-self">self</span>) -&gt; usize;
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-count-background-sessions-187">count_background_sessions</a>(&amp;<span class="rs-self">self</span>) -&gt; usize;
 
     <span class="rs-comment">/// Cancel all running background sessions for this run.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-cancel-all-background-sessions-183">cancel_all_background_sessions</a>(&amp;<span class="rs-self">self</span>, reason: &amp;str);
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-cancel-all-background-sessions-190">cancel_all_background_sessions</a>(&amp;<span class="rs-self">self</span>, reason: &amp;str);
 
     <span class="rs-comment">/// Poll terminal child runs and push notifications.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-poll-complete-background-sessions-186">poll_complete_background_sessions</a>(&amp;<span class="rs-self">self</span>) -&gt; usize;
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool-core--src-ports-agent-run-rs.html#method-poll-complete-background-sessions-193">poll_complete_background_sessions</a>(&amp;<span class="rs-self">self</span>) -&gt; usize;
 }
 </code></pre>
 </section>

@@ -197,14 +197,14 @@
     <h3>register</h3>
     <span class="visibility">pub(super)</span>
   </div>
-  <code class="signature">pub(super) fn <a class="symbol-link" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a> (registry : &amp; mut <a class="symbol-link" href="eos-tools--src-registry-tool-registry-rs.html#item-struct-ToolRegistry-18">ToolRegistry</a> , config : &amp; <a class="symbol-link" href="eos-tools--src-registry-config-rs.html#item-struct-ToolConfigSet-45">ToolConfigSet</a> , caller : &amp; <a class="symbol-link" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-34">CallerScope</a> , skill_service : <a class="symbol-link" href="eos-tools--src-tools-services-rs.html#item-struct-SkillToolService-136">SkillToolService</a> ,)</code>
+  <code class="signature">pub(super) fn <a class="symbol-link" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a> (registry : &amp; mut <a class="symbol-link" href="eos-tools--src-registry-tool-registry-rs.html#item-struct-ToolRegistry-18">ToolRegistry</a> , config : &amp; <a class="symbol-link" href="eos-tools--src-registry-config-rs.html#item-struct-ToolConfigSet-45">ToolConfigSet</a> , caller : &amp; <a class="symbol-link" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-35">CallerScope</a> , skill_service : <a class="symbol-link" href="eos-tools--src-tools-services-rs.html#item-struct-SkillToolService-136">SkillToolService</a> ,)</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">super</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a>(
     registry: &amp;<span class="rs-kw">mut</span> <a class="symbol-link rs-type" href="eos-tools--src-registry-tool-registry-rs.html#item-struct-ToolRegistry-18">ToolRegistry</a>,
     config: &amp;<a class="symbol-link rs-type" href="eos-tools--src-registry-config-rs.html#item-struct-ToolConfigSet-45">ToolConfigSet</a>,
-    caller: &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-34">CallerScope</a>,
+    caller: &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-35">CallerScope</a>,
     skill_service: <a class="symbol-link rs-type" href="eos-tools--src-tools-services-rs.html#item-struct-SkillToolService-136">SkillToolService</a>,
 ) {
     <span class="rs-comment">// Scope to the caller's own skill folder slug (0-or-1 entries).</span>
@@ -215,7 +215,7 @@
         .into_iter()
         .collect();
     <span class="rs-kw">let</span> cfg = config.<a class="symbol-link rs-fn" href="eos-tools--src-registry-config-rs.html#method-get-89">get</a>(<a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>::<a class="symbol-link rs-type" href="eos-tools--src-tools-skills-load-skill-reference-rs.html#item-struct-LoadSkillReference-38">LoadSkillReference</a>);
-    <span class="rs-kw">super</span>::<span class="rs-kw">super</span>::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-register-tool-48">register_tool</a>(
+    <span class="rs-kw">super</span>::<span class="rs-kw">super</span>::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-register-tool-49">register_tool</a>(
         registry,
         <a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>::<a class="symbol-link rs-type" href="eos-tools--src-tools-skills-load-skill-reference-rs.html#item-struct-LoadSkillReference-38">LoadSkillReference</a>,
         cfg,
@@ -431,8 +431,8 @@
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <a class="symbol-link rs-type" href="eos-tools--src-registry-tool-registry-rs.html#item-struct-ToolRegistry-18">ToolRegistry</a>::<a class="symbol-link rs-fn" href="eos-tools--src-hooks-mod-rs.html#method-new-110">new</a>();
         <a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a>(
             &amp;<span class="rs-kw">mut</span> registry,
-            &amp;<span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-repo-tools-config-132">repo_tools_config</a>(),
-            &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-34">CallerScope</a> {
+            &amp;<span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-repo-tools-config-133">repo_tools_config</a>(),
+            &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-35">CallerScope</a> {
                 dispatchable_subagents: vec![],
                 skill_slug: <span class="rs-type">Some</span>(&quot;a&quot;.to_owned()),
             },
@@ -472,7 +472,7 @@
 <span class="rs-kw">use</span> serde::{<span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>};
 <span class="rs-kw">use</span> serde_json::json;
 
-<span class="rs-kw">use</span> <span class="rs-kw">super</span>::<span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-34">CallerScope</a>;
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::<span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-35">CallerScope</a>;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::core::error::<span class="rs-type">ToolError</span>;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::core::metadata::<span class="rs-type">ExecutionMetadata</span>;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::core::name::<a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>;
@@ -570,7 +570,7 @@
 <span class="rs-kw">pub</span>(<span class="rs-kw">super</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a>(
     registry: &amp;<span class="rs-kw">mut</span> <a class="symbol-link rs-type" href="eos-tools--src-registry-tool-registry-rs.html#item-struct-ToolRegistry-18">ToolRegistry</a>,
     config: &amp;<a class="symbol-link rs-type" href="eos-tools--src-registry-config-rs.html#item-struct-ToolConfigSet-45">ToolConfigSet</a>,
-    caller: &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-34">CallerScope</a>,
+    caller: &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-35">CallerScope</a>,
     skill_service: <a class="symbol-link rs-type" href="eos-tools--src-tools-services-rs.html#item-struct-SkillToolService-136">SkillToolService</a>,
 ) {
     <span class="rs-comment">// Scope to the caller's own skill folder slug (0-or-1 entries).</span>
@@ -581,7 +581,7 @@
         .into_iter()
         .collect();
     <span class="rs-kw">let</span> cfg = config.<a class="symbol-link rs-fn" href="eos-tools--src-registry-config-rs.html#method-get-89">get</a>(<a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>::<a class="symbol-link rs-type" href="eos-tools--src-tools-skills-load-skill-reference-rs.html#item-struct-LoadSkillReference-38">LoadSkillReference</a>);
-    <span class="rs-kw">super</span>::<span class="rs-kw">super</span>::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-register-tool-48">register_tool</a>(
+    <span class="rs-kw">super</span>::<span class="rs-kw">super</span>::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-register-tool-49">register_tool</a>(
         registry,
         <a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>::<a class="symbol-link rs-type" href="eos-tools--src-tools-skills-load-skill-reference-rs.html#item-struct-LoadSkillReference-38">LoadSkillReference</a>,
         cfg,
@@ -744,8 +744,8 @@
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <a class="symbol-link rs-type" href="eos-tools--src-registry-tool-registry-rs.html#item-struct-ToolRegistry-18">ToolRegistry</a>::<a class="symbol-link rs-fn" href="eos-tools--src-hooks-mod-rs.html#method-new-110">new</a>();
         <a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-register-32">register</a>(
             &amp;<span class="rs-kw">mut</span> registry,
-            &amp;<span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-repo-tools-config-132">repo_tools_config</a>(),
-            &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-34">CallerScope</a> {
+            &amp;<span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-repo-tools-config-133">repo_tools_config</a>(),
+            &amp;<a class="symbol-link rs-type" href="eos-tools--src-tools-mod-rs.html#item-struct-CallerScope-35">CallerScope</a> {
                 dispatchable_subagents: vec![],
                 skill_slug: <span class="rs-type">Some</span>(&quot;a&quot;.to_owned()),
             },

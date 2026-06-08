@@ -1,16 +1,67 @@
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use eos_tool_core::{Sealed, StartedWorkflow, WorkflowServicePort, WorkflowSessionPort};
 use eos_types::{AgentRunId, WorkflowId, WorkflowSessionId};
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
-use super::super::{BackgroundSession, BackgroundSessionManager, BackgroundSessionStatus};
-use super::session::WorkflowSession;
+use super::{BackgroundSession, BackgroundSessionManager, BackgroundSessionStatus};
 use crate::background::notification::{BackgroundCompletion, BackgroundNotificationEmitter};
 
 pub(in crate::background) type WorkflowServiceCell = Arc<OnceLock<Arc<dyn WorkflowServicePort>>>;
+
+/// One delegated workflow tracked as background work for the owning agent run.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::background) struct WorkflowSession {
+    id: WorkflowSessionId,
+    workflow_id: WorkflowId,
+    status: BackgroundSessionStatus,
+}
+
+impl WorkflowSession {
+    fn running(id: WorkflowSessionId, workflow_id: WorkflowId) -> Self {
+        Self {
+            id,
+            workflow_id,
+            status: BackgroundSessionStatus::Running,
+        }
+    }
+
+    fn workflow_id(&self) -> &WorkflowId {
+        &self.workflow_id
+    }
+
+    const fn status(&self) -> BackgroundSessionStatus {
+        self.status
+    }
+
+    fn cancel(&mut self) -> bool {
+        if !matches!(self.status, BackgroundSessionStatus::Running) {
+            return false;
+        }
+        self.status = BackgroundSessionStatus::Cancelled;
+        true
+    }
+
+    fn settle_running(&mut self, status: BackgroundSessionStatus) -> bool {
+        if !matches!(self.status, BackgroundSessionStatus::Running) {
+            return false;
+        }
+        self.status = status;
+        true
+    }
+}
+
+impl BackgroundSession for WorkflowSession {
+    type Id = WorkflowSessionId;
+
+    fn id(&self) -> &Self::Id {
+        &self.id
+    }
+}
 
 #[derive(Debug, Clone)]
 pub(in crate::background) struct WorkflowCompletion {
@@ -160,6 +211,34 @@ impl WorkflowSessionManager {
     }
 }
 
+pub(in crate::background) struct WorkflowSessionMonitor {
+    join: JoinHandle<()>,
+}
+
+impl Drop for WorkflowSessionMonitor {
+    fn drop(&mut self) {
+        self.join.abort();
+    }
+}
+
+impl WorkflowSessionMonitor {
+    pub(in crate::background) fn spawn(
+        manager: WorkflowSessionManager,
+        interval: Duration,
+    ) -> Self {
+        Self {
+            join: tokio::spawn(async move {
+                loop {
+                    for completion in manager.poll_completions().await {
+                        manager.push_notification_on_completion(completion).await;
+                    }
+                    tokio::time::sleep(interval).await;
+                }
+            }),
+        }
+    }
+}
+
 #[async_trait]
 impl BackgroundSessionManager for WorkflowSessionManager {
     type Session = WorkflowSession;
@@ -238,7 +317,6 @@ mod tests {
     use eos_types::AgentRunId;
 
     use crate::background::notification::BackgroundNotificationEmitter;
-    use crate::background::session_managers::BackgroundSessionManager;
     use crate::NotificationService;
 
     use super::*;

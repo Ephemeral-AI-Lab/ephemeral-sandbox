@@ -12,6 +12,7 @@ use std::sync::{Arc, OnceLock};
 use anyhow::{Context, Result};
 use eos_agent_def::{AgentDefinition, AgentName};
 use eos_agent_message_records::AgentRunRecordKind;
+use eos_agent_run::AgentRunApi;
 use eos_engine::{
     run_agent, AgentRunControlFactory, AgentRunInput, AgentRunRegistry, BackgroundTeardownPort,
     EngineCancelPort, ForegroundExecutorFactory,
@@ -20,8 +21,8 @@ use eos_sandbox_port::SandboxCommandService;
 use eos_llm_client::Message;
 use eos_state::{RequestStatus, Task, TaskRole, TaskStatus};
 use eos_tools::{
-    AgentRunServicePort, AttemptSubmissionPort, CancelPort, CommandSessionPort,
-    SubagentSessionPort, WorkflowServicePort, WorkflowSessionPort,
+    AttemptSubmissionPort, CancelPort, CommandSessionPort, SubagentSessionPort,
+    WorkflowServicePort, WorkflowSessionPort,
 };
 use eos_types::{AgentRunId, JsonObject, RequestId, TaskId};
 use eos_workflow::{
@@ -244,7 +245,7 @@ pub async fn run_request(
                 },
             );
             let background = control.background();
-            let agent_run_service: Arc<dyn AgentRunServicePort> = Arc::new(background.clone());
+            let agent_run_service: Arc<dyn AgentRunApi> = Arc::new(background.clone());
             let subagent_sessions: Arc<dyn SubagentSessionPort> = Arc::new(background.clone());
             let workflow_sessions: Arc<dyn WorkflowSessionPort> = Arc::new(background.clone());
             let background_session: Arc<dyn BackgroundTeardownPort> = Arc::new(background.clone());

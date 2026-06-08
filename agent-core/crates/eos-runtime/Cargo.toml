@@ -7,6 +7,7 @@ rust-version.workspace = true
 [dependencies]
 eos-db.workspace = true
 eos-engine.workspace = true
+eos-agent-run.workspace = true
 eos-workflow.workspace = true
 eos-agent-message-records.workspace = true
 eos-plugin-catalog.workspace = true

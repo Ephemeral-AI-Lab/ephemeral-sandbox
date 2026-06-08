@@ -89,7 +89,7 @@
 <span class="rs-comment">/// # Errors</span>
 <span class="rs-comment">/// Returns an error if a global subscriber was already installed.</span>
 <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-observability-rs.html#item-fn-init-tracing-20">init_tracing</a>(format: <a class="symbol-link rs-type" href="eos-runtime--src-observability-rs.html#item-enum-LogFormat-10">LogFormat</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">Box</span>&lt;<span class="rs-kw">dyn</span> std::error::<span class="rs-type">Error</span> + <span class="rs-type">Send</span> + <span class="rs-type">Sync</span>&gt;&gt; {
-    <span class="rs-kw">let</span> filter = <span class="rs-type">EnvFilter</span>::try_from_default_env().unwrap_or_else(|_| <span class="rs-type">EnvFilter</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(&quot;info&quot;));
+    <span class="rs-kw">let</span> filter = <span class="rs-type">EnvFilter</span>::try_from_default_env().unwrap_or_else(|_| <span class="rs-type">EnvFilter</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(&quot;info&quot;));
     <span class="rs-kw">let</span> registry = tracing_subscriber::registry().with(filter);
 
     #[cfg(feature = &quot;tokio-console&quot;)]
@@ -160,7 +160,7 @@
 <span class="rs-comment">/// # Errors</span>
 <span class="rs-comment">/// Returns an error if a global subscriber was already installed.</span>
 <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-observability-rs.html#item-fn-init-tracing-20">init_tracing</a>(format: <a class="symbol-link rs-type" href="eos-runtime--src-observability-rs.html#item-enum-LogFormat-10">LogFormat</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">Box</span>&lt;<span class="rs-kw">dyn</span> std::error::<span class="rs-type">Error</span> + <span class="rs-type">Send</span> + <span class="rs-type">Sync</span>&gt;&gt; {
-    <span class="rs-kw">let</span> filter = <span class="rs-type">EnvFilter</span>::try_from_default_env().unwrap_or_else(|_| <span class="rs-type">EnvFilter</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(&quot;info&quot;));
+    <span class="rs-kw">let</span> filter = <span class="rs-type">EnvFilter</span>::try_from_default_env().unwrap_or_else(|_| <span class="rs-type">EnvFilter</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(&quot;info&quot;));
     <span class="rs-kw">let</span> registry = tracing_subscriber::registry().with(filter);
 
     #[cfg(feature = &quot;tokio-console&quot;)]

@@ -9691,14 +9691,14 @@
       "path": "crates/eos-engine",
       "stats": {
         "modules": 53,
-        "items": 334,
+        "items": 338,
         "structs": 67,
         "enums": 6,
         "traits": 5,
-        "functions": 153,
+        "functions": 157,
         "impls": 96,
-        "fields": 296,
-        "methods": 242
+        "fields": 297,
+        "methods": 251
       },
       "modules": [
         {
@@ -11189,7 +11189,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 24
+              "line": 21
             },
             {
               "kind": "struct",
@@ -11218,7 +11218,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 31
+              "line": 28
             },
             {
               "kind": "struct",
@@ -11239,7 +11239,7 @@
                 {
                   "name": "agent_run_service",
                   "visibility": "private",
-                  "ty": "Arc < dyn AgentRunServicePort >"
+                  "ty": "Arc < dyn AgentRunApi >"
                 },
                 {
                   "name": "notification",
@@ -11257,7 +11257,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 37
+              "line": 34
             },
             {
               "kind": "impl",
@@ -11272,7 +11272,7 @@
                   "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
                   "kind": "method",
                   "docs": null,
-                  "line": 47
+                  "line": 44
                 }
               ],
               "impl_target": "SubagentSessionManager",
@@ -11284,7 +11284,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 46
+              "line": 43
             },
             {
               "kind": "impl",
@@ -11296,52 +11296,59 @@
               "methods": [
                 {
                   "name": "new",
-                  "signature": "pub(crate :: background) fn new (agent_run_id : AgentRunId , agent_run_service : Arc < dyn AgentRunServicePort > , notification : BackgroundNotificationEmitter ,) -> Self",
+                  "signature": "pub(crate :: background) fn new (agent_run_id : AgentRunId , agent_run_service : Arc < dyn AgentRunApi > , notification : BackgroundNotificationEmitter ,) -> Self",
                   "kind": "constructor",
                   "docs": null,
-                  "line": 55
+                  "line": 52
                 },
                 {
                   "name": "progress",
                   "signature": "pub(crate :: background) async fn progress (& self , subagent_session_id : & SubagentSessionId ,) -> Option < (BackgroundSessionStatus , Option < ToolResult > , String) >",
                   "kind": "method",
                   "docs": null,
-                  "line": 68
+                  "line": 65
                 },
                 {
                   "name": "cancel_one",
                   "signature": "pub(crate :: background) async fn cancel_one (& self , subagent_session_id : & SubagentSessionId , reason : & str ,) -> bool",
                   "kind": "method",
                   "docs": null,
-                  "line": 78
+                  "line": 75
+                },
+                {
+                  "name": "cancel_agent_run",
+                  "signature": "pub(crate :: background) async fn cancel_agent_run (& self , child_run_id : & AgentRunId , reason : & str ,) -> bool",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 108
                 },
                 {
                   "name": "next_session_id",
                   "signature": "async fn next_session_id (& self) -> SubagentSessionId",
                   "kind": "method",
                   "docs": null,
-                  "line": 111
+                  "line": 127
                 },
                 {
                   "name": "settle",
                   "signature": "pub(super) async fn settle (& self , subagent_session_id : & SubagentSessionId , status : BackgroundSessionStatus , result : ToolResult ,) -> Option < SubagentCompletion >",
                   "kind": "method",
                   "docs": null,
-                  "line": 120
+                  "line": 136
                 },
                 {
                   "name": "poll_completions",
                   "signature": "pub(crate :: background) async fn poll_completions (& self) -> Vec < SubagentCompletion >",
                   "kind": "method",
                   "docs": null,
-                  "line": 136
+                  "line": 152
                 },
                 {
                   "name": "running_agent_runs",
                   "signature": "async fn running_agent_runs (& self) -> Vec < (SubagentSessionId , AgentRunId) >",
                   "kind": "method",
                   "docs": null,
-                  "line": 168
+                  "line": 184
                 }
               ],
               "impl_target": "SubagentSessionManager",
@@ -11352,7 +11359,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 54
+              "line": 51
             },
             {
               "kind": "impl",
@@ -11367,28 +11374,28 @@
                   "signature": "async fn insert (& self , session : Self :: Session)",
                   "kind": "method",
                   "docs": null,
-                  "line": 185
+                  "line": 201
                 },
                 {
                   "name": "count",
                   "signature": "async fn count (& self) -> usize",
                   "kind": "method",
                   "docs": null,
-                  "line": 193
+                  "line": 209
                 },
                 {
                   "name": "push_notification_on_completion",
                   "signature": "async fn push_notification_on_completion (& self , completion : Self :: Completion)",
                   "kind": "method",
                   "docs": null,
-                  "line": 203
+                  "line": 219
                 },
                 {
                   "name": "cancel",
                   "signature": "async fn cancel (& self , reason : & str)",
                   "kind": "method",
                   "docs": null,
-                  "line": 214
+                  "line": 230
                 }
               ],
               "impl_target": "SubagentSessionManager",
@@ -11401,7 +11408,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 180
+              "line": 196
             },
             {
               "kind": "impl",
@@ -11420,7 +11427,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 245
+              "line": 261
             },
             {
               "kind": "impl",
@@ -11435,42 +11442,49 @@
                   "signature": "async fn register_background_session (& self , agent_run_id : & AgentRunId , agent_name : & str ,) -> SubagentSessionId",
                   "kind": "method",
                   "docs": null,
-                  "line": 249
+                  "line": 265
                 },
                 {
                   "name": "subagent_session_snapshot",
                   "signature": "async fn subagent_session_snapshot (& self , subagent_session_id : & SubagentSessionId ,) -> Option < eos_tool_core :: SubagentProgress >",
                   "kind": "method",
                   "docs": null,
-                  "line": 271
+                  "line": 287
                 },
                 {
                   "name": "cancel_background_session",
                   "signature": "async fn cancel_background_session (& self , subagent_session_id : & SubagentSessionId , reason : & str ,) -> eos_tool_core :: CancelledSubagent",
                   "kind": "method",
                   "docs": null,
-                  "line": 287
+                  "line": 303
+                },
+                {
+                  "name": "cancel_background_agent_run",
+                  "signature": "async fn cancel_background_agent_run (& self , agent_run_id : & AgentRunId , reason : & str ,) -> bool",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 320
                 },
                 {
                   "name": "count_background_sessions",
                   "signature": "async fn count_background_sessions (& self) -> usize",
                   "kind": "method",
                   "docs": null,
-                  "line": 304
+                  "line": 328
                 },
                 {
                   "name": "cancel_all_background_sessions",
                   "signature": "async fn cancel_all_background_sessions (& self , reason : & str)",
                   "kind": "method",
                   "docs": null,
-                  "line": 308
+                  "line": 332
                 },
                 {
                   "name": "poll_complete_background_sessions",
                   "signature": "async fn poll_complete_background_sessions (& self) -> usize",
                   "kind": "method",
                   "docs": null,
-                  "line": 312
+                  "line": 336
                 }
               ],
               "impl_target": "SubagentSessionManager",
@@ -11483,13 +11497,13 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 247
+              "line": 263
             },
             {
               "kind": "fn",
-              "name": "subagent_status_to_background",
+              "name": "terminal_result",
               "visibility": "private",
-              "signature": "const fn subagent_status_to_background (status : eos_tool_core :: SubagentSessionStatus ,) -> BackgroundSessionStatus",
+              "signature": "fn terminal_result (outcome : AgentRunOutcome) -> ToolResult",
               "fields": [],
               "variants": [],
               "methods": [],
@@ -11499,7 +11513,23 @@
               "tags": [],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 322
+              "line": 346
+            },
+            {
+              "kind": "fn",
+              "name": "agent_run_status_to_background",
+              "visibility": "private",
+              "signature": "const fn agent_run_status_to_background (status : AgentRunStatus) -> BackgroundSessionStatus",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
+              "module": "background::session_managers::subagent::manager",
+              "line": 357
             },
             {
               "kind": "fn",
@@ -11515,7 +11545,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 334
+              "line": 365
             },
             {
               "kind": "fn",
@@ -11531,7 +11561,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 346
+              "line": 377
             },
             {
               "kind": "fn",
@@ -11547,7 +11577,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 356
+              "line": 387
             },
             {
               "kind": "fn",
@@ -11563,7 +11593,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 366
+              "line": 397
             },
             {
               "kind": "fn",
@@ -11581,7 +11611,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 386
+              "line": 417
             },
             {
               "kind": "fn",
@@ -11599,7 +11629,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 408
+              "line": 439
             },
             {
               "kind": "fn",
@@ -11617,7 +11647,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 437
+              "line": 468
             },
             {
               "kind": "fn",
@@ -11635,7 +11665,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager",
-              "line": 445
+              "line": 476
             },
             {
               "kind": "struct",
@@ -11655,40 +11685,47 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager::tests",
-              "line": 496
+              "line": 527
             },
             {
               "kind": "impl",
-              "name": "impl AgentRunServicePort for FakeAgentRunService",
+              "name": "impl AgentRunApi for FakeAgentRunService",
               "visibility": "private",
-              "signature": "impl AgentRunServicePort for FakeAgentRunService",
+              "signature": "impl AgentRunApi for FakeAgentRunService",
               "fields": [],
               "variants": [],
               "methods": [
                 {
-                  "name": "start_subagent_run",
-                  "signature": "async fn start_subagent_run (& self , request : StartSubagentRunRequest ,) -> Result < StartSubagentRunOutcome , ToolError >",
+                  "name": "spawn_agent",
+                  "signature": "async fn spawn_agent (& self , _request : SpawnAgentRequest ,) -> Result < AgentRunId , AgentRunError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 501
+                  "line": 532
                 },
                 {
-                  "name": "poll_terminal_agent_run",
-                  "signature": "async fn poll_terminal_agent_run (& self , _agent_run_id : & AgentRunId ,) -> Result < Option < TerminalAgentRun > , ToolError >",
+                  "name": "wait_for_agent_outcomes",
+                  "signature": "async fn wait_for_agent_outcomes (& self , agent_run_id : & AgentRunId ,) -> Result < AgentRunOutcome , AgentRunError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 511
+                  "line": 539
+                },
+                {
+                  "name": "poll_agent_run_outcome",
+                  "signature": "async fn poll_agent_run_outcome (& self , _agent_run_id : & AgentRunId ,) -> Result < Option < AgentRunOutcome > , AgentRunError >",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 546
                 },
                 {
                   "name": "cancel_agent_run",
-                  "signature": "async fn cancel_agent_run (& self , _agent_run_id : & AgentRunId , _reason : & str ,) -> Result < () , ToolError >",
+                  "signature": "async fn cancel_agent_run (& self , _agent_run_id : & AgentRunId , _reason : & str ,) -> Result < () , AgentRunError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 518
+                  "line": 553
                 }
               ],
               "impl_target": "FakeAgentRunService",
-              "trait_name": "AgentRunServicePort",
+              "trait_name": "AgentRunApi",
               "docs": null,
               "tags": [
                 "async_trait",
@@ -11697,26 +11734,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager::tests",
-              "line": 499
-            },
-            {
-              "kind": "impl",
-              "name": "impl Sealed for FakeAgentRunService",
-              "visibility": "private",
-              "signature": "impl Sealed for FakeAgentRunService",
-              "fields": [],
-              "variants": [],
-              "methods": [],
-              "impl_target": "FakeAgentRunService",
-              "trait_name": "Sealed",
-              "docs": null,
-              "tags": [
-                "impl",
-                "trait-impl"
-              ],
-              "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
-              "module": "background::session_managers::subagent::manager::tests",
-              "line": 527
+              "line": 530
             },
             {
               "kind": "fn",
@@ -11732,7 +11750,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager::tests",
-              "line": 529
+              "line": 562
             },
             {
               "kind": "fn",
@@ -11748,7 +11766,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager::tests",
-              "line": 537
+              "line": 570
             },
             {
               "kind": "fn",
@@ -11766,7 +11784,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager::tests",
-              "line": 552
+              "line": 585
             },
             {
               "kind": "fn",
@@ -11784,7 +11802,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager::tests",
-              "line": 570
+              "line": 603
             },
             {
               "kind": "fn",
@@ -11803,7 +11821,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_managers/subagent/manager.rs",
               "module": "background::session_managers::subagent::manager::tests",
-              "line": 578
+              "line": 611
             }
           ]
         },
@@ -12718,7 +12736,7 @@
                 {
                   "name": "agent_run_service",
                   "visibility": "private",
-                  "ty": "Arc < dyn AgentRunServicePort >"
+                  "ty": "Arc < dyn AgentRunApi >"
                 },
                 {
                   "name": "subagent_session_manager",
@@ -12771,7 +12789,7 @@
               "methods": [
                 {
                   "name": "new",
-                  "signature": "pub(super) fn new (agent_run_id : AgentRunId , agent_run_service : Arc < dyn AgentRunServicePort > , command_service : Arc < dyn SandboxCommandApi > , completion_poll_interval : Duration , notifications : NotificationService , workflow_service : WorkflowServiceCell ,) -> Self",
+                  "signature": "pub(super) fn new (agent_run_id : AgentRunId , agent_run_service : Arc < dyn AgentRunApi > , command_service : Arc < dyn SandboxCommandApi > , completion_poll_interval : Duration , notifications : NotificationService , workflow_service : WorkflowServiceCell ,) -> Self",
                   "kind": "constructor",
                   "docs": null,
                   "line": 40
@@ -12792,7 +12810,7 @@
                 },
                 {
                   "name": "agent_run_service",
-                  "signature": "pub(super) fn agent_run_service (& self) -> & Arc < dyn AgentRunServicePort >",
+                  "signature": "pub(super) fn agent_run_service (& self) -> & Arc < dyn AgentRunApi >",
                   "kind": "method",
                   "docs": null,
                   "line": 91
@@ -12970,36 +12988,43 @@
             },
             {
               "kind": "impl",
-              "name": "impl AgentRunServicePort for BackgroundSessionService",
+              "name": "impl AgentRunApi for BackgroundSessionService",
               "visibility": "private",
-              "signature": "impl AgentRunServicePort for BackgroundSessionService",
+              "signature": "impl AgentRunApi for BackgroundSessionService",
               "fields": [],
               "variants": [],
               "methods": [
                 {
-                  "name": "start_subagent_run",
-                  "signature": "async fn start_subagent_run (& self , request : StartSubagentRunRequest ,) -> Result < StartSubagentRunOutcome , ToolError >",
+                  "name": "spawn_agent",
+                  "signature": "async fn spawn_agent (& self , request : SpawnAgentRequest ,) -> Result < eos_types :: AgentRunId , AgentRunError >",
                   "kind": "method",
                   "docs": null,
                   "line": 189
                 },
                 {
-                  "name": "poll_terminal_agent_run",
-                  "signature": "async fn poll_terminal_agent_run (& self , agent_run_id : & AgentRunId ,) -> Result < Option < TerminalAgentRun > , ToolError >",
+                  "name": "wait_for_agent_outcomes",
+                  "signature": "async fn wait_for_agent_outcomes (& self , agent_run_id : & eos_types :: AgentRunId ,) -> Result < AgentRunOutcome , AgentRunError >",
                   "kind": "method",
                   "docs": null,
                   "line": 199
                 },
                 {
-                  "name": "cancel_agent_run",
-                  "signature": "async fn cancel_agent_run (& self , agent_run_id : & AgentRunId , reason : & str ,) -> Result < () , ToolError >",
+                  "name": "poll_agent_run_outcome",
+                  "signature": "async fn poll_agent_run_outcome (& self , agent_run_id : & eos_types :: AgentRunId ,) -> Result < Option < AgentRunOutcome > , AgentRunError >",
                   "kind": "method",
                   "docs": null,
                   "line": 209
+                },
+                {
+                  "name": "cancel_agent_run",
+                  "signature": "async fn cancel_agent_run (& self , agent_run_id : & eos_types :: AgentRunId , reason : & str ,) -> Result < () , AgentRunError >",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 219
                 }
               ],
               "impl_target": "BackgroundSessionService",
-              "trait_name": "AgentRunServicePort",
+              "trait_name": "AgentRunApi",
               "docs": null,
               "tags": [
                 "async_trait",
@@ -13023,42 +13048,49 @@
                   "signature": "async fn register_background_session (& self , agent_run_id : & AgentRunId , agent_name : & str ,) -> SubagentSessionId",
                   "kind": "method",
                   "docs": null,
-                  "line": 223
+                  "line": 233
                 },
                 {
                   "name": "subagent_session_snapshot",
                   "signature": "async fn subagent_session_snapshot (& self , subagent_session_id : & SubagentSessionId ,) -> Option < SubagentProgress >",
                   "kind": "method",
                   "docs": null,
-                  "line": 234
+                  "line": 244
                 },
                 {
                   "name": "cancel_background_session",
                   "signature": "async fn cancel_background_session (& self , subagent_session_id : & SubagentSessionId , reason : & str ,) -> CancelledSubagent",
                   "kind": "method",
                   "docs": null,
-                  "line": 244
+                  "line": 254
+                },
+                {
+                  "name": "cancel_background_agent_run",
+                  "signature": "async fn cancel_background_agent_run (& self , agent_run_id : & AgentRunId , reason : & str ,) -> bool",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 265
                 },
                 {
                   "name": "count_background_sessions",
                   "signature": "async fn count_background_sessions (& self) -> usize",
                   "kind": "method",
                   "docs": null,
-                  "line": 255
+                  "line": 276
                 },
                 {
                   "name": "cancel_all_background_sessions",
                   "signature": "async fn cancel_all_background_sessions (& self , reason : & str)",
                   "kind": "method",
                   "docs": null,
-                  "line": 262
+                  "line": 283
                 },
                 {
                   "name": "poll_complete_background_sessions",
                   "signature": "async fn poll_complete_background_sessions (& self) -> usize",
                   "kind": "method",
                   "docs": null,
-                  "line": 269
+                  "line": 290
                 }
               ],
               "impl_target": "BackgroundSessionService",
@@ -13071,7 +13103,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime",
-              "line": 221
+              "line": 231
             },
             {
               "kind": "impl",
@@ -13086,28 +13118,28 @@
                   "signature": "async fn register_background_session (& self , workflow : & StartedWorkflow)",
                   "kind": "method",
                   "docs": null,
-                  "line": 279
+                  "line": 300
                 },
                 {
                   "name": "count_background_sessions",
                   "signature": "async fn count_background_sessions (& self) -> usize",
                   "kind": "method",
                   "docs": null,
-                  "line": 286
+                  "line": 307
                 },
                 {
                   "name": "cancel_all_background_sessions",
                   "signature": "async fn cancel_all_background_sessions (& self , reason : & str)",
                   "kind": "method",
                   "docs": null,
-                  "line": 293
+                  "line": 314
                 },
                 {
                   "name": "poll_complete_background_sessions",
                   "signature": "async fn poll_complete_background_sessions (& self) -> usize",
                   "kind": "method",
                   "docs": null,
-                  "line": 300
+                  "line": 321
                 }
               ],
               "impl_target": "BackgroundSessionService",
@@ -13120,7 +13152,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime",
-              "line": 277
+              "line": 298
             },
             {
               "kind": "impl",
@@ -13135,28 +13167,28 @@
                   "signature": "async fn register_background_session (& self , command_session_id : & CommandSessionId , sandbox_id : & SandboxId ,)",
                   "kind": "method",
                   "docs": null,
-                  "line": 310
+                  "line": 331
                 },
                 {
                   "name": "count_background_sessions",
                   "signature": "async fn count_background_sessions (& self) -> usize",
                   "kind": "method",
                   "docs": null,
-                  "line": 320
+                  "line": 341
                 },
                 {
                   "name": "cancel_all_background_sessions",
                   "signature": "async fn cancel_all_background_sessions (& self , reason : & str)",
                   "kind": "method",
                   "docs": null,
-                  "line": 326
+                  "line": 347
                 },
                 {
                   "name": "poll_complete_background_sessions",
                   "signature": "async fn poll_complete_background_sessions (& self) -> usize",
                   "kind": "method",
                   "docs": null,
-                  "line": 332
+                  "line": 353
                 }
               ],
               "impl_target": "BackgroundSessionService",
@@ -13169,7 +13201,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime",
-              "line": 308
+              "line": 329
             },
             {
               "kind": "trait",
@@ -13184,7 +13216,7 @@
                   "signature": "async fn teardown (& self , reason : & str) -> BackgroundSessionCounts",
                   "kind": "required",
                   "docs": null,
-                  "line": 341
+                  "line": 362
                 }
               ],
               "impl_target": null,
@@ -13196,7 +13228,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime",
-              "line": 339
+              "line": 360
             },
             {
               "kind": "impl",
@@ -13211,7 +13243,7 @@
                   "signature": "async fn teardown (& self , reason : & str) -> BackgroundSessionCounts",
                   "kind": "method",
                   "docs": null,
-                  "line": 346
+                  "line": 367
                 }
               ],
               "impl_target": "BackgroundSessionService",
@@ -13224,7 +13256,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime",
-              "line": 344
+              "line": 365
             },
             {
               "kind": "struct",
@@ -13251,7 +13283,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime",
-              "line": 351
+              "line": 372
             },
             {
               "kind": "impl",
@@ -13266,21 +13298,21 @@
                   "signature": "pub(crate) fn new (background : Option < Arc < dyn BackgroundTeardownPort > >) -> Self",
                   "kind": "constructor",
                   "docs": null,
-                  "line": 358
+                  "line": 379
                 },
                 {
                   "name": "finalize",
                   "signature": "pub(crate) async fn finalize (& mut self , ctx : & QueryContext , error : Option < & str >)",
                   "kind": "method",
                   "docs": null,
-                  "line": 365
+                  "line": 386
                 },
                 {
                   "name": "disarm",
                   "signature": "pub(crate) fn disarm (& mut self)",
                   "kind": "method",
                   "docs": "Disarm without running cleanup: the caller has handed background teardown\nto another owner, so neither `finalize` nor the `Drop` backstop should fire\na second teardown.",
-                  "line": 375
+                  "line": 396
                 }
               ],
               "impl_target": "BackgroundSessionFinalizer",
@@ -13291,7 +13323,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime",
-              "line": 357
+              "line": 378
             },
             {
               "kind": "impl",
@@ -13306,7 +13338,7 @@
                   "signature": "fn drop (& mut self)",
                   "kind": "method",
                   "docs": null,
-                  "line": 384
+                  "line": 405
                 }
               ],
               "impl_target": "BackgroundSessionFinalizer",
@@ -13318,7 +13350,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime",
-              "line": 383
+              "line": 404
             },
             {
               "kind": "fn",
@@ -13334,7 +13366,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime",
-              "line": 404
+              "line": 425
             },
             {
               "kind": "struct",
@@ -13358,7 +13390,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime::finalizer_tests",
-              "line": 425
+              "line": 446
             },
             {
               "kind": "impl",
@@ -13373,7 +13405,7 @@
                   "signature": "async fn teardown (& self , reason : & str) -> BackgroundSessionCounts",
                   "kind": "method",
                   "docs": null,
-                  "line": 432
+                  "line": 453
                 }
               ],
               "impl_target": "RecordingBackground",
@@ -13386,7 +13418,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime::finalizer_tests",
-              "line": 430
+              "line": 451
             },
             {
               "kind": "fn",
@@ -13405,7 +13437,7 @@
               ],
               "file": "crates/eos-engine/src/background/session_runtime.rs",
               "module": "background::session_runtime::finalizer_tests",
-              "line": 443
+              "line": 464
             }
           ]
         },
@@ -16837,7 +16869,7 @@
                 {
                   "name": "agent_run_service",
                   "visibility": "pub(super)",
-                  "ty": "Option < Arc < dyn AgentRunServicePort > >"
+                  "ty": "Option < Arc < dyn AgentRunApi > >"
                 },
                 {
                   "name": "subagent_sessions",
@@ -16888,7 +16920,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/runtime/setup.rs",
               "module": "runtime::setup",
-              "line": 25
+              "line": 26
             },
             {
               "kind": "struct",
@@ -16915,7 +16947,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/runtime/setup.rs",
               "module": "runtime::setup",
-              "line": 42
+              "line": 43
             },
             {
               "kind": "fn",
@@ -16931,7 +16963,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/runtime/setup.rs",
               "module": "runtime::setup",
-              "line": 47
+              "line": 48
             },
             {
               "kind": "fn",
@@ -16947,7 +16979,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/runtime/setup.rs",
               "module": "runtime::setup",
-              "line": 117
+              "line": 118
             }
           ]
         },
@@ -16969,7 +17001,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/runtime/types.rs",
               "module": "runtime::types",
-              "line": 26
+              "line": 27
             },
             {
               "kind": "type",
@@ -16985,7 +17017,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/runtime/types.rs",
               "module": "runtime::types",
-              "line": 34
+              "line": 35
             },
             {
               "kind": "type",
@@ -17001,7 +17033,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/runtime/types.rs",
               "module": "runtime::types",
-              "line": 37
+              "line": 38
             },
             {
               "kind": "struct",
@@ -17080,7 +17112,7 @@
               ],
               "file": "crates/eos-engine/src/runtime/types.rs",
               "module": "runtime::types",
-              "line": 42
+              "line": 43
             },
             {
               "kind": "impl",
@@ -17095,7 +17127,7 @@
                   "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
                   "kind": "method",
                   "docs": null,
-                  "line": 78
+                  "line": 79
                 }
               ],
               "impl_target": "EngineRunHandles",
@@ -17107,7 +17139,7 @@
               ],
               "file": "crates/eos-engine/src/runtime/types.rs",
               "module": "runtime::types",
-              "line": 77
+              "line": 78
             },
             {
               "kind": "struct",
@@ -17148,7 +17180,7 @@
                 {
                   "name": "agent_run_service",
                   "visibility": "pub",
-                  "ty": "Option < Arc < dyn AgentRunServicePort > >"
+                  "ty": "Option < Arc < dyn AgentRunApi > >"
                 },
                 {
                   "name": "subagent_sessions",
@@ -17214,7 +17246,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/runtime/types.rs",
               "module": "runtime::types",
-              "line": 89
+              "line": 90
             },
             {
               "kind": "impl",
@@ -17229,7 +17261,7 @@
                   "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
                   "kind": "method",
                   "docs": null,
-                  "line": 140
+                  "line": 141
                 }
               ],
               "impl_target": "AgentRunInput",
@@ -17241,7 +17273,7 @@
               ],
               "file": "crates/eos-engine/src/runtime/types.rs",
               "module": "runtime::types",
-              "line": 139
+              "line": 140
             },
             {
               "kind": "struct",
@@ -17270,7 +17302,7 @@
               ],
               "file": "crates/eos-engine/src/runtime/types.rs",
               "module": "runtime::types",
-              "line": 162
+              "line": 163
             }
           ]
         },
@@ -17311,7 +17343,7 @@
               ],
               "file": "crates/eos-engine/src/services/agent_run.rs",
               "module": "services::agent_run",
-              "line": 23
+              "line": 27
             },
             {
               "kind": "struct",
@@ -17328,6 +17360,11 @@
                   "name": "abort",
                   "visibility": "private",
                   "ty": "AbortHandle"
+                },
+                {
+                  "name": "outcome_tx",
+                  "visibility": "private",
+                  "ty": "watch :: Sender < Option < AgentRunOutcome > >"
                 }
               ],
               "variants": [],
@@ -17340,7 +17377,7 @@
               ],
               "file": "crates/eos-engine/src/services/agent_run.rs",
               "module": "services::agent_run",
-              "line": 30
+              "line": 34
             },
             {
               "kind": "impl",
@@ -17355,7 +17392,7 @@
                   "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
                   "kind": "method",
                   "docs": null,
-                  "line": 37
+                  "line": 42
                 }
               ],
               "impl_target": "AgentRunService",
@@ -17367,7 +17404,7 @@
               ],
               "file": "crates/eos-engine/src/services/agent_run.rs",
               "module": "services::agent_run",
-              "line": 36
+              "line": 41
             },
             {
               "kind": "impl",
@@ -17382,7 +17419,7 @@
                   "signature": "pub fn new (handles : EngineRunHandles , control_factory : AgentRunControlFactory) -> Self",
                   "kind": "constructor",
                   "docs": null,
-                  "line": 43
+                  "line": 48
                 }
               ],
               "impl_target": "AgentRunService",
@@ -17393,7 +17430,7 @@
               ],
               "file": "crates/eos-engine/src/services/agent_run.rs",
               "module": "services::agent_run",
-              "line": 42
+              "line": 47
             },
             {
               "kind": "impl",
@@ -17412,7 +17449,56 @@
               ],
               "file": "crates/eos-engine/src/services/agent_run.rs",
               "module": "services::agent_run",
-              "line": 53
+              "line": 58
+            },
+            {
+              "kind": "impl",
+              "name": "impl AgentRunApi for AgentRunService",
+              "visibility": "private",
+              "signature": "impl AgentRunApi for AgentRunService",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "spawn_agent",
+                  "signature": "async fn spawn_agent (& self , request : SpawnAgentRequest ,) -> Result < AgentRunId , AgentRunError >",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 62
+                },
+                {
+                  "name": "wait_for_agent_outcomes",
+                  "signature": "async fn wait_for_agent_outcomes (& self , agent_run_id : & AgentRunId ,) -> Result < AgentRunOutcome , AgentRunError >",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 150
+                },
+                {
+                  "name": "poll_agent_run_outcome",
+                  "signature": "async fn poll_agent_run_outcome (& self , agent_run_id : & AgentRunId ,) -> Result < Option < AgentRunOutcome > , AgentRunError >",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 174
+                },
+                {
+                  "name": "cancel_agent_run",
+                  "signature": "async fn cancel_agent_run (& self , agent_run_id : & AgentRunId , reason : & str ,) -> Result < () , AgentRunError >",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 207
+                }
+              ],
+              "impl_target": "AgentRunService",
+              "trait_name": "AgentRunApi",
+              "docs": null,
+              "tags": [
+                "async_trait",
+                "impl",
+                "trait-impl"
+              ],
+              "file": "crates/eos-engine/src/services/agent_run.rs",
+              "module": "services::agent_run",
+              "line": 60
             },
             {
               "kind": "impl",
@@ -17427,21 +17513,21 @@
                   "signature": "async fn start_subagent_run (& self , request : StartSubagentRunRequest ,) -> Result < StartSubagentRunOutcome , ToolError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 57
+                  "line": 240
                 },
                 {
                   "name": "poll_terminal_agent_run",
                   "signature": "async fn poll_terminal_agent_run (& self , agent_run_id : & AgentRunId ,) -> Result < Option < TerminalAgentRun > , ToolError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 159
+                  "line": 309
                 },
                 {
                   "name": "cancel_agent_run",
                   "signature": "async fn cancel_agent_run (& self , agent_run_id : & AgentRunId , reason : & str ,) -> Result < () , ToolError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 177
+                  "line": 330
                 }
               ],
               "impl_target": "AgentRunService",
@@ -17454,7 +17540,55 @@
               ],
               "file": "crates/eos-engine/src/services/agent_run.rs",
               "module": "services::agent_run",
-              "line": 55
+              "line": 238
+            },
+            {
+              "kind": "fn",
+              "name": "outcome_from_run",
+              "visibility": "private",
+              "signature": "fn outcome_from_run (agent_run_id : AgentRunId , run : crate :: AgentRunResult) -> AgentRunOutcome",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-engine/src/services/agent_run.rs",
+              "module": "services::agent_run",
+              "line": 341
+            },
+            {
+              "kind": "fn",
+              "name": "subagent_status_to_agent_run_status",
+              "visibility": "private",
+              "signature": "const fn subagent_status_to_agent_run_status (status : SubagentSessionStatus) -> AgentRunStatus",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-engine/src/services/agent_run.rs",
+              "module": "services::agent_run",
+              "line": 361
+            },
+            {
+              "kind": "fn",
+              "name": "agent_run_status_to_subagent_status",
+              "visibility": "private",
+              "signature": "const fn agent_run_status_to_subagent_status (status : AgentRunStatus) -> SubagentSessionStatus",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-engine/src/services/agent_run.rs",
+              "module": "services::agent_run",
+              "line": 371
             },
             {
               "kind": "fn",
@@ -17470,7 +17604,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/services/agent_run.rs",
               "module": "services::agent_run",
-              "line": 196
+              "line": 379
             },
             {
               "kind": "fn",
@@ -17486,7 +17620,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/services/agent_run.rs",
               "module": "services::agent_run",
-              "line": 203
+              "line": 386
             },
             {
               "kind": "fn",
@@ -17502,7 +17636,7 @@
               "tags": [],
               "file": "crates/eos-engine/src/services/agent_run.rs",
               "module": "services::agent_run",
-              "line": 222
+              "line": 405
             }
           ]
         },
@@ -25282,7 +25416,7 @@
               "tags": [],
               "file": "crates/eos-runtime/src/agent_runner.rs",
               "module": "agent_runner",
-              "line": 36
+              "line": 37
             },
             {
               "kind": "impl",
@@ -25297,7 +25431,7 @@
                   "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
                   "kind": "method",
                   "docs": null,
-                  "line": 57
+                  "line": 58
                 }
               ],
               "impl_target": "RuntimeAgentRunner",
@@ -25309,7 +25443,7 @@
               ],
               "file": "crates/eos-runtime/src/agent_runner.rs",
               "module": "agent_runner",
-              "line": 56
+              "line": 57
             },
             {
               "kind": "impl",
@@ -25324,7 +25458,7 @@
                   "signature": "pub(crate) fn new (services : RuntimeServices , workspace_root : impl Into < String > , attempt_submission : Arc < dyn AttemptSubmissionPort > , workflow_service : Arc < OnceLock < Arc < dyn WorkflowServicePort > > > , control_factory : Arc < AgentRunControlFactory > , agent_run_registry : AgentRunRegistry ,) -> Self",
                   "kind": "constructor",
                   "docs": null,
-                  "line": 63
+                  "line": 64
                 }
               ],
               "impl_target": "RuntimeAgentRunner",
@@ -25335,7 +25469,7 @@
               ],
               "file": "crates/eos-runtime/src/agent_runner.rs",
               "module": "agent_runner",
-              "line": 62
+              "line": 63
             },
             {
               "kind": "impl",
@@ -25350,7 +25484,7 @@
                   "signature": "async fn run (& self , launch : AgentLaunch) -> WorkflowResult < AgentRunReport >",
                   "kind": "method",
                   "docs": null,
-                  "line": 84
+                  "line": 85
                 }
               ],
               "impl_target": "RuntimeAgentRunner",
@@ -25363,7 +25497,7 @@
               ],
               "file": "crates/eos-runtime/src/agent_runner.rs",
               "module": "agent_runner",
-              "line": 82
+              "line": 83
             },
             {
               "kind": "fn",
@@ -25379,7 +25513,7 @@
               "tags": [],
               "file": "crates/eos-runtime/src/agent_runner.rs",
               "module": "agent_runner",
-              "line": 170
+              "line": 171
             }
           ]
         },
@@ -25473,7 +25607,7 @@
               ],
               "file": "crates/eos-runtime/src/entry.rs",
               "module": "entry",
-              "line": 39
+              "line": 40
             },
             {
               "kind": "fn",
@@ -25489,7 +25623,7 @@
               "tags": [],
               "file": "crates/eos-runtime/src/entry.rs",
               "module": "entry",
-              "line": 55
+              "line": 56
             },
             {
               "kind": "fn",
@@ -25507,7 +25641,7 @@
               ],
               "file": "crates/eos-runtime/src/entry.rs",
               "module": "entry",
-              "line": 66
+              "line": 67
             },
             {
               "kind": "fn",
@@ -25523,7 +25657,7 @@
               "tags": [],
               "file": "crates/eos-runtime/src/entry.rs",
               "module": "entry",
-              "line": 319
+              "line": 320
             },
             {
               "kind": "fn",
@@ -25541,7 +25675,7 @@
               ],
               "file": "crates/eos-runtime/src/entry.rs",
               "module": "entry",
-              "line": 330
+              "line": 331
             }
           ]
         },
@@ -36902,7 +37036,7 @@
         "functions": 1,
         "impls": 5,
         "fields": 76,
-        "methods": 49
+        "methods": 50
       },
       "modules": [
         {
@@ -37637,25 +37771,32 @@
                   "line": 173
                 },
                 {
+                  "name": "cancel_background_agent_run",
+                  "signature": "async fn cancel_background_agent_run (& self , agent_run_id : & AgentRunId , reason : & str ,) -> bool",
+                  "kind": "required",
+                  "docs": "Cancel one tracked subagent by its natural child agent-run id.",
+                  "line": 180
+                },
+                {
                   "name": "count_background_sessions",
                   "signature": "async fn count_background_sessions (& self) -> usize",
                   "kind": "required",
                   "docs": "Count running background sessions for this run.",
-                  "line": 180
+                  "line": 187
                 },
                 {
                   "name": "cancel_all_background_sessions",
                   "signature": "async fn cancel_all_background_sessions (& self , reason : & str)",
                   "kind": "required",
                   "docs": "Cancel all running background sessions for this run.",
-                  "line": 183
+                  "line": 190
                 },
                 {
                   "name": "poll_complete_background_sessions",
                   "signature": "async fn poll_complete_background_sessions (& self) -> usize",
                   "kind": "required",
                   "docs": "Poll terminal child runs and push notifications.",
-                  "line": 186
+                  "line": 193
                 }
               ],
               "impl_target": null,
@@ -43033,7 +43174,7 @@
               ],
               "file": "crates/eos-tools/src/tools/mod.rs",
               "module": "tools",
-              "line": 34
+              "line": 35
             },
             {
               "kind": "fn",
@@ -43049,7 +43190,7 @@
               "tags": [],
               "file": "crates/eos-tools/src/tools/mod.rs",
               "module": "tools",
-              "line": 48
+              "line": 49
             },
             {
               "kind": "fn",
@@ -43067,13 +43208,13 @@
               ],
               "file": "crates/eos-tools/src/tools/mod.rs",
               "module": "tools",
-              "line": 64
+              "line": 65
             },
             {
               "kind": "fn",
               "name": "build_default_registry_with_services",
               "visibility": "pub",
-              "signature": "pub fn build_default_registry_with_services (config : & ToolConfigSet , caller : & CallerScope , sandbox_service : SandboxToolService , root_submission : Option < RootSubmissionService > , attempt_submission : Option < AttemptSubmissionService > , agent_run_service : Option < Arc < dyn crate :: ports :: AgentRunServicePort > > , subagent_sessions : Option < Arc < dyn crate :: ports :: SubagentSessionPort > > , workflow_service : Option < Arc < dyn crate :: ports :: WorkflowServicePort > > , workflow_sessions : Option < Arc < dyn crate :: ports :: WorkflowSessionPort > > , command_session_port : Option < Arc < dyn crate :: ports :: CommandSessionPort > > , skill_service : SkillToolService ,) -> ToolRegistry",
+              "signature": "pub fn build_default_registry_with_services (config : & ToolConfigSet , caller : & CallerScope , sandbox_service : SandboxToolService , root_submission : Option < RootSubmissionService > , attempt_submission : Option < AttemptSubmissionService > , agent_run_service : Option < Arc < dyn AgentRunApi > > , subagent_sessions : Option < Arc < dyn crate :: ports :: SubagentSessionPort > > , workflow_service : Option < Arc < dyn crate :: ports :: WorkflowServicePort > > , workflow_sessions : Option < Arc < dyn crate :: ports :: WorkflowSessionPort > > , command_session_port : Option < Arc < dyn crate :: ports :: CommandSessionPort > > , skill_service : SkillToolService ,) -> ToolRegistry",
               "fields": [],
               "variants": [],
               "methods": [],
@@ -43086,7 +43227,7 @@
               ],
               "file": "crates/eos-tools/src/tools/mod.rs",
               "module": "tools",
-              "line": 84
+              "line": 85
             },
             {
               "kind": "fn",
@@ -43104,7 +43245,7 @@
               ],
               "file": "crates/eos-tools/src/tools/mod.rs",
               "module": "tools",
-              "line": 132
+              "line": 133
             }
           ]
         },
@@ -45503,9 +45644,9 @@
               "signature": "struct CancelSubagentInput",
               "fields": [
                 {
-                  "name": "subagent_session_id",
+                  "name": "agent_run_id",
                   "visibility": "private",
-                  "ty": "SubagentSessionId"
+                  "ty": "AgentRunId"
                 },
                 {
                   "name": "reason",
@@ -45609,7 +45750,7 @@
               "kind": "fn",
               "name": "render_cancelled",
               "visibility": "private",
-              "signature": "fn render_cancelled (subagent_session_id : & SubagentSessionId , reason : & str) -> ToolResult",
+              "signature": "fn render_cancelled (agent_run_id : & AgentRunId , reason : & str) -> ToolResult",
               "fields": [],
               "variants": [],
               "methods": [],
@@ -45619,7 +45760,7 @@
               "tags": [],
               "file": "crates/eos-tools/src/tools/subagent/cancel_subagent.rs",
               "module": "tools::subagent::cancel_subagent",
-              "line": 78
+              "line": 74
             },
             {
               "kind": "fn",
@@ -45635,7 +45776,7 @@
               "tags": [],
               "file": "crates/eos-tools/src/tools/subagent/cancel_subagent.rs",
               "module": "tools::subagent::cancel_subagent",
-              "line": 90
+              "line": 86
             }
           ]
         },
@@ -45864,7 +46005,7 @@
               "kind": "fn",
               "name": "register",
               "visibility": "pub(crate)",
-              "signature": "pub(crate) fn register (registry : & mut crate :: registry :: ToolRegistry , config : & crate :: registry :: config :: ToolConfigSet , caller : & CallerScope , agent_run_service : Option < Arc < dyn AgentRunServicePort > > , subagent_sessions : Option < Arc < dyn SubagentSessionPort > > ,)",
+              "signature": "pub(crate) fn register (registry : & mut crate :: registry :: ToolRegistry , config : & crate :: registry :: config :: ToolConfigSet , caller : & CallerScope , agent_run_service : Option < Arc < dyn AgentRunApi > > , subagent_sessions : Option < Arc < dyn SubagentSessionPort > > ,)",
               "fields": [],
               "variants": [],
               "methods": [],
@@ -45874,7 +46015,7 @@
               "tags": [],
               "file": "crates/eos-tools/src/tools/subagent/mod.rs",
               "module": "tools::subagent",
-              "line": 13
+              "line": 15
             }
           ]
         },
@@ -45913,7 +46054,7 @@
               ],
               "file": "crates/eos-tools/src/tools/subagent/run_subagent.rs",
               "module": "tools::subagent::run_subagent",
-              "line": 26
+              "line": 27
             },
             {
               "kind": "struct",
@@ -45924,7 +46065,7 @@
                 {
                   "name": "agent_run_service",
                   "visibility": "private",
-                  "ty": "Option < Arc < dyn AgentRunServicePort > >"
+                  "ty": "Option < Arc < dyn AgentRunApi > >"
                 },
                 {
                   "name": "subagent_sessions",
@@ -45940,7 +46081,7 @@
               "tags": [],
               "file": "crates/eos-tools/src/tools/subagent/run_subagent.rs",
               "module": "tools::subagent::run_subagent",
-              "line": 33
+              "line": 34
             },
             {
               "kind": "impl",
@@ -45952,10 +46093,10 @@
               "methods": [
                 {
                   "name": "new",
-                  "signature": "pub(crate :: tools :: subagent) fn new (agent_run_service : Option < Arc < dyn AgentRunServicePort > > , subagent_sessions : Option < Arc < dyn SubagentSessionPort > > ,) -> Self",
+                  "signature": "pub(crate :: tools :: subagent) fn new (agent_run_service : Option < Arc < dyn AgentRunApi > > , subagent_sessions : Option < Arc < dyn SubagentSessionPort > > ,) -> Self",
                   "kind": "constructor",
                   "docs": null,
-                  "line": 39
+                  "line": 40
                 }
               ],
               "impl_target": "RunSubagent",
@@ -45966,13 +46107,13 @@
               ],
               "file": "crates/eos-tools/src/tools/subagent/run_subagent.rs",
               "module": "tools::subagent::run_subagent",
-              "line": 38
+              "line": 39
             },
             {
               "kind": "fn",
               "name": "launch_result",
               "visibility": "private",
-              "signature": "fn launch_result (started : & StartedSubagentRun , subagent_session_id : & eos_types :: SubagentSessionId ,) -> ToolResult",
+              "signature": "fn launch_result (agent_run_id : & eos_types :: AgentRunId , agent_name : & str) -> ToolResult",
               "fields": [],
               "variants": [],
               "methods": [],
@@ -45982,7 +46123,7 @@
               "tags": [],
               "file": "crates/eos-tools/src/tools/subagent/run_subagent.rs",
               "module": "tools::subagent::run_subagent",
-              "line": 50
+              "line": 51
             },
             {
               "kind": "fn",
@@ -45998,7 +46139,7 @@
               "tags": [],
               "file": "crates/eos-tools/src/tools/subagent/run_subagent.rs",
               "module": "tools::subagent::run_subagent",
-              "line": 70
+              "line": 66
             },
             {
               "kind": "fn",
@@ -46014,7 +46155,7 @@
               "tags": [],
               "file": "crates/eos-tools/src/tools/subagent/run_subagent.rs",
               "module": "tools::subagent::run_subagent",
-              "line": 91
+              "line": 87
             },
             {
               "kind": "impl",
@@ -46029,7 +46170,7 @@
                   "signature": "async fn execute (& self , input : & JsonObject , ctx : & ExecutionMetadata ,) -> Result < ToolResult , ToolError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 110
+                  "line": 106
                 }
               ],
               "impl_target": "RunSubagent",
@@ -46042,13 +46183,13 @@
               ],
               "file": "crates/eos-tools/src/tools/subagent/run_subagent.rs",
               "module": "tools::subagent::run_subagent",
-              "line": 108
+              "line": 104
             },
             {
               "kind": "fn",
               "name": "register",
               "visibility": "pub(super)",
-              "signature": "pub(super) fn register (registry : & mut ToolRegistry , config : & ToolConfigSet , caller : & CallerScope , agent_run_service : Option < Arc < dyn AgentRunServicePort > > , subagent_sessions : Option < Arc < dyn SubagentSessionPort > > ,)",
+              "signature": "pub(super) fn register (registry : & mut ToolRegistry , config : & ToolConfigSet , caller : & CallerScope , agent_run_service : Option < Arc < dyn AgentRunApi > > , subagent_sessions : Option < Arc < dyn SubagentSessionPort > > ,)",
               "fields": [],
               "variants": [],
               "methods": [],
@@ -46058,7 +46199,7 @@
               "tags": [],
               "file": "crates/eos-tools/src/tools/subagent/run_subagent.rs",
               "module": "tools::subagent::run_subagent",
-              "line": 155
+              "line": 189
             }
           ]
         },

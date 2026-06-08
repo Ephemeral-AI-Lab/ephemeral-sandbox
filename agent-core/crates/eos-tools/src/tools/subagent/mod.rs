@@ -7,14 +7,16 @@ mod run_subagent;
 
 use std::sync::Arc;
 
+use eos_agent_run::AgentRunApi;
+
 use super::CallerScope;
-use crate::ports::{AgentRunServicePort, SubagentSessionPort};
+use crate::ports::SubagentSessionPort;
 
 pub(crate) fn register(
     registry: &mut crate::registry::ToolRegistry,
     config: &crate::registry::config::ToolConfigSet,
     caller: &CallerScope,
-    agent_run_service: Option<Arc<dyn AgentRunServicePort>>,
+    agent_run_service: Option<Arc<dyn AgentRunApi>>,
     subagent_sessions: Option<Arc<dyn SubagentSessionPort>>,
 ) {
     run_subagent::register(

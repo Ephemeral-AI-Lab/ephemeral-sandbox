@@ -65,9 +65,9 @@
   <code class="signature">pub(crate) struct <a class="symbol-link" href="eos-runtime--src-runtime-services-audit-rs.html#item-struct-AuditService-7">AuditService</a></code>
   <p class="docstring">Audit sink and buffered-writer shutdown lifecycle.</p>
   <div class="tags"><span>derive: Clone</span><span>port/service</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>sink</td><td><code>Arc &lt; dyn AuditSink &gt;</code></td></tr><tr><td>pub(crate)</td><td>shutdown</td><td><code>Arc &lt; StdMutex &lt; Option &lt; BufferedAuditShutdown &gt; &gt; &gt;</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-runtime--src-runtime-services-audit-rs.html#item-struct-AuditService-7">AuditService</a></code></summary><table><tbody><tr id="method-fmt-15"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-runtime.html#method-fmt-57">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>sink</td><td><code>Arc &lt; dyn AuditSink &gt;</code></td></tr><tr><td>pub(crate)</td><td>shutdown</td><td><code>Arc &lt; StdMutex &lt; Option &lt; BufferedAuditShutdown &gt; &gt; &gt;</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-runtime--src-runtime-services-audit-rs.html#item-struct-AuditService-7">AuditService</a></code></summary><table><tbody><tr id="method-fmt-15"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-runtime.html#method-fmt-58">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-57">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-58">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-audit-rs.html#item-struct-AuditService-7">AuditService</a>&quot;).finish_non_exhaustive()
     }
 </code></pre>
@@ -96,7 +96,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-audit-rs.html#item-struct-AuditService-7">AuditService</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-57">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-58">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-audit-rs.html#item-struct-AuditService-7">AuditService</a>&quot;).finish_non_exhaustive()
     }
 }

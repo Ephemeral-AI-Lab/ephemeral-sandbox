@@ -269,30 +269,30 @@
             <span class="rs-kw">match</span> (<span class="rs-self">self</span>.audit, &amp;<span class="rs-self">self</span>.audit_path) {
                 (<span class="rs-type">Some</span>(sink), _) =&gt; (sink, <span class="rs-type">None</span>),
                 (<span class="rs-type">None</span>, <span class="rs-type">Some</span>(path)) =&gt; {
-                    <span class="rs-kw">let</span> (sink, shutdown) = <span class="rs-type">BufferedJsonlSink</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(path.clone(), 1024)
+                    <span class="rs-kw">let</span> (sink, shutdown) = <span class="rs-type">BufferedJsonlSink</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(path.clone(), 1024)
                         .context(&quot;opening the audit jsonl sink&quot;)?;
-                    (<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(sink), <span class="rs-type">Some</span>(shutdown))
+                    (<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(sink), <span class="rs-type">Some</span>(shutdown))
                 }
-                (<span class="rs-type">None</span>, <span class="rs-type">None</span>) =&gt; (<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">NoopAuditSink</span>), <span class="rs-type">None</span>),
+                (<span class="rs-type">None</span>, <span class="rs-type">None</span>) =&gt; (<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">NoopAuditSink</span>), <span class="rs-type">None</span>),
             };
 
         <span class="rs-kw">let</span> agent_registry = <span class="rs-kw">match</span> <span class="rs-self">self</span>.agent_registry {
             <span class="rs-type">Some</span>(registry) =&gt; registry,
-            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-agent-registry-493">build_agent_registry</a>(<span class="rs-self">self</span>.agents_dir.as_deref())?),
+            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-agent-registry-493">build_agent_registry</a>(<span class="rs-self">self</span>.agents_dir.as_deref())?),
         };
 
         <span class="rs-kw">let</span> skill_registry = <span class="rs-kw">match</span> <span class="rs-self">self</span>.skill_registry {
             <span class="rs-type">Some</span>(registry) =&gt; registry,
-            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-skill-registry-508">build_skill_registry</a>(<span class="rs-self">self</span>.skill_root.as_deref())?),
+            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-skill-registry-508">build_skill_registry</a>(<span class="rs-self">self</span>.skill_root.as_deref())?),
         };
 
         <span class="rs-kw">let</span> tool_config = <span class="rs-kw">match</span> <span class="rs-self">self</span>.tool_config {
-            <span class="rs-type">Some</span>(config) =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+            <span class="rs-type">Some</span>(config) =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                 (*config)
                     .clone()
                     .with_workflow_max_depth(workflow_config.max_depth),
             ),
-            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                 <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-tool-config-515">build_tool_config</a>(<span class="rs-self">self</span>.tools_root.as_deref())?
                     .with_workflow_max_depth(workflow_config.max_depth),
             ),
@@ -307,14 +307,14 @@
             <span class="rs-kw">match</span> <span class="rs-self">self</span>.gateway {
                 <span class="rs-type">Some</span>(gateway) =&gt; (gateway.transport(), gateway.provisioner()),
                 <span class="rs-type">None</span> =&gt; (
-                    <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredSandboxTransport-53">UnconfiguredSandboxTransport</a>),
-                    <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredProvisioner-76">UnconfiguredProvisioner</a>),
+                    <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredSandboxTransport-53">UnconfiguredSandboxTransport</a>),
+                    <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredProvisioner-76">UnconfiguredProvisioner</a>),
                 ),
             };
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_registry = build_default_registry(&amp;tool_config, &amp;<span class="rs-type">CallerScope</span>::default());
         <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-register-plugin-tools-27">register_plugin_tools</a>(
             &amp;<span class="rs-kw">mut</span> tool_registry,
-            &amp;<span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(transport.clone()),
+            &amp;<span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(transport.clone()),
         );
 
         <span class="rs-comment">// Cross-registry validation: unknown agent tool names fail fast.</span>
@@ -345,18 +345,18 @@
             },
             audit: <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-audit-rs.html#item-struct-AuditService-7">AuditService</a> {
                 sink: audit,
-                shutdown: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">StdMutex</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(audit_shutdown)),
+                shutdown: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">StdMutex</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(audit_shutdown)),
             },
             message_records: <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-message-records-rs.html#item-struct-MessageRecordService-5">MessageRecordService</a> {
                 message_records: <span class="rs-self">self</span>.message_records_root.map(<span class="rs-type">AgentMessageRecords</span>::new),
             },
-            cancel_registry: <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-cancel-registry-rs.html#item-struct-RequestCancelRegistry-17">RequestCancelRegistry</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(),
+            cancel_registry: <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-cancel-registry-rs.html#item-struct-RequestCancelRegistry-17">RequestCancelRegistry</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(),
         })
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-RuntimeServicesBuilder-95">RuntimeServicesBuilder</a></code></summary><table><tbody><tr id="method-fmt-120"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-runtime.html#method-fmt-57">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-RuntimeServicesBuilder-95">RuntimeServicesBuilder</a></code></summary><table><tbody><tr id="method-fmt-120"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-runtime.html#method-fmt-58">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-57">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-58">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-RuntimeServicesBuilder-95">RuntimeServicesBuilder</a>&quot;)
             .finish_non_exhaustive()
     }
@@ -427,7 +427,7 @@
         _request_id: &amp;<span class="rs-type">RequestId</span>,
         _sandbox_id: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RequestSandboxBinding</span>, <span class="rs-type">SandboxProvisionError</span>&gt; {
-        <span class="rs-type">Err</span>(<span class="rs-type">SandboxProvisionError</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+        <span class="rs-type">Err</span>(<span class="rs-type">SandboxProvisionError</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
             &quot;no sandbox provisioner configured (backend must inject a sandbox gateway)&quot;,
         ))
     }
@@ -478,9 +478,9 @@
         <span class="rs-type">AnthropicApiClient</span>, <span class="rs-type">ClaudeCodingPlanClient</span>, <span class="rs-type">CodexCodingPlanClient</span>, <span class="rs-type">OpenAiApiClient</span>,
     };
 
-    <span class="rs-kw">let</span> retry = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(providers.retry.clone());
+    <span class="rs-kw">let</span> retry = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(providers.retry.clone());
     <span class="rs-kw">match</span> providers.active {
-        <span class="rs-type">ProviderKind</span>::<span class="rs-type">Unconfigured</span> =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredLlmClient-38">UnconfiguredLlmClient</a>)),
+        <span class="rs-type">ProviderKind</span>::<span class="rs-type">Unconfigured</span> =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredLlmClient-38">UnconfiguredLlmClient</a>)),
         <span class="rs-type">ProviderKind</span>::<span class="rs-type">OpenAiApi</span> =&gt; {
             <span class="rs-kw">let</span> key = <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-provider-secret-483">provider_secret</a>(
                 &quot;providers.openai_api.api_key&quot;,
@@ -488,7 +488,7 @@
             )?;
             <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-configured-provider-client-466">configured_provider_client</a>(
                 providers,
-                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">OpenAiApiClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">OpenAiApiClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                     &amp;providers.openai_api.base_url,
                     <span class="rs-type">Auth</span>::bearer(key),
                     retry,
@@ -502,7 +502,7 @@
             )?;
             <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-configured-provider-client-466">configured_provider_client</a>(
                 providers,
-                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">AnthropicApiClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">AnthropicApiClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                     &amp;providers.anthropic_api.base_url,
                     <span class="rs-type">Auth</span>::api_key(key),
                     retry,
@@ -517,7 +517,7 @@
             <span class="rs-kw">let</span> auth = <span class="rs-type">Auth</span>::codex_access_token_from_jwt(token)?;
             <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-configured-provider-client-466">configured_provider_client</a>(
                 providers,
-                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">CodexCodingPlanClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">CodexCodingPlanClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                     &amp;providers.codex_coding_plan.base_url,
                     auth,
                     retry,
@@ -531,7 +531,7 @@
             )?;
             <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-configured-provider-client-466">configured_provider_client</a>(
                 providers,
-                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">ClaudeCodingPlanClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">ClaudeCodingPlanClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                     &amp;providers.claude_coding_plan.base_url,
                     token,
                     retry,
@@ -562,7 +562,7 @@
     <span class="rs-kw">let</span> model = providers.active_model_registration().ok_or_else(|| {
         <span class="rs-type">ProviderError</span>::request(&quot;active provider is missing providers.&lt;active&gt;.models.active&quot;)
     })?;
-    <span class="rs-type">Ok</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">ConfiguredLlmClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+    <span class="rs-type">Ok</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">ConfiguredLlmClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
         client,
         <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-defaults-from-model-479">defaults_from_model</a>(&amp;model),
     )))
@@ -623,13 +623,13 @@
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-agent-registry-493">build_agent_registry</a>(dir: <span class="rs-type">Option</span>&lt;&amp;std::path::<span class="rs-type">Path</span>&gt;) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRegistry</span>&gt; {
     <span class="rs-kw">let</span> <span class="rs-type">Some</span>(dir) = dir <span class="rs-kw">else</span> {
-        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>().<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-build-231">build</a>());
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>().<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-build-231">build</a>());
     };
     <span class="rs-kw">if</span> !dir.is_dir() {
-        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>().<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-build-231">build</a>());
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>().<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-build-231">build</a>());
     }
     <span class="rs-kw">let</span> defs = load_agents_tree(dir).context(&quot;loading agent profiles&quot;)?;
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> builder = <span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> builder = <span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>();
     <span class="rs-kw">for</span> def <span class="rs-kw">in</span> defs {
         builder.add(def);
     }
@@ -652,7 +652,7 @@
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-skill-registry-508">build_skill_registry</a>(root: <span class="rs-type">Option</span>&lt;&amp;std::path::<span class="rs-type">Path</span>&gt;) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">SkillRegistry</span>&gt; {
     <span class="rs-kw">match</span> root {
         <span class="rs-type">Some</span>(root) =&gt; <span class="rs-type">SkillRegistry</span>::load_from_dir(root).context(&quot;loading skills&quot;),
-        <span class="rs-type">None</span> =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">SkillRegistry</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>()),
+        <span class="rs-type">None</span> =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">SkillRegistry</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>()),
     }
 }
 </code></pre>
@@ -727,7 +727,7 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-providers-with-551">providers_with</a>(active: <span class="rs-type">ProviderKind</span>, extra: serde_json::<span class="rs-type">Value</span>) -&gt; <span class="rs-type">ProvidersConfig</span> {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> obj = serde_json::<span class="rs-type">Map</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> obj = serde_json::<span class="rs-type">Map</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>();
         obj.insert(
             &quot;active&quot;.to_owned(),
             serde_json::to_value(active).expect(&quot;active wire value&quot;),
@@ -920,7 +920,7 @@
         _request_id: &amp;<span class="rs-type">RequestId</span>,
         _sandbox_id: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RequestSandboxBinding</span>, <span class="rs-type">SandboxProvisionError</span>&gt; {
-        <span class="rs-type">Err</span>(<span class="rs-type">SandboxProvisionError</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+        <span class="rs-type">Err</span>(<span class="rs-type">SandboxProvisionError</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
             &quot;no sandbox provisioner configured (backend must inject a sandbox gateway)&quot;,
         ))
     }
@@ -951,7 +951,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-RuntimeServicesBuilder-95">RuntimeServicesBuilder</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-57">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime.html#method-fmt-58">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-RuntimeServicesBuilder-95">RuntimeServicesBuilder</a>&quot;)
             .finish_non_exhaustive()
     }
@@ -1128,30 +1128,30 @@
             <span class="rs-kw">match</span> (<span class="rs-self">self</span>.audit, &amp;<span class="rs-self">self</span>.audit_path) {
                 (<span class="rs-type">Some</span>(sink), _) =&gt; (sink, <span class="rs-type">None</span>),
                 (<span class="rs-type">None</span>, <span class="rs-type">Some</span>(path)) =&gt; {
-                    <span class="rs-kw">let</span> (sink, shutdown) = <span class="rs-type">BufferedJsonlSink</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(path.clone(), 1024)
+                    <span class="rs-kw">let</span> (sink, shutdown) = <span class="rs-type">BufferedJsonlSink</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(path.clone(), 1024)
                         .context(&quot;opening the audit jsonl sink&quot;)?;
-                    (<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(sink), <span class="rs-type">Some</span>(shutdown))
+                    (<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(sink), <span class="rs-type">Some</span>(shutdown))
                 }
-                (<span class="rs-type">None</span>, <span class="rs-type">None</span>) =&gt; (<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">NoopAuditSink</span>), <span class="rs-type">None</span>),
+                (<span class="rs-type">None</span>, <span class="rs-type">None</span>) =&gt; (<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">NoopAuditSink</span>), <span class="rs-type">None</span>),
             };
 
         <span class="rs-kw">let</span> agent_registry = <span class="rs-kw">match</span> <span class="rs-self">self</span>.agent_registry {
             <span class="rs-type">Some</span>(registry) =&gt; registry,
-            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-agent-registry-493">build_agent_registry</a>(<span class="rs-self">self</span>.agents_dir.as_deref())?),
+            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-agent-registry-493">build_agent_registry</a>(<span class="rs-self">self</span>.agents_dir.as_deref())?),
         };
 
         <span class="rs-kw">let</span> skill_registry = <span class="rs-kw">match</span> <span class="rs-self">self</span>.skill_registry {
             <span class="rs-type">Some</span>(registry) =&gt; registry,
-            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-skill-registry-508">build_skill_registry</a>(<span class="rs-self">self</span>.skill_root.as_deref())?),
+            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-skill-registry-508">build_skill_registry</a>(<span class="rs-self">self</span>.skill_root.as_deref())?),
         };
 
         <span class="rs-kw">let</span> tool_config = <span class="rs-kw">match</span> <span class="rs-self">self</span>.tool_config {
-            <span class="rs-type">Some</span>(config) =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+            <span class="rs-type">Some</span>(config) =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                 (*config)
                     .clone()
                     .with_workflow_max_depth(workflow_config.max_depth),
             ),
-            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+            <span class="rs-type">None</span> =&gt; <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                 <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-tool-config-515">build_tool_config</a>(<span class="rs-self">self</span>.tools_root.as_deref())?
                     .with_workflow_max_depth(workflow_config.max_depth),
             ),
@@ -1166,14 +1166,14 @@
             <span class="rs-kw">match</span> <span class="rs-self">self</span>.gateway {
                 <span class="rs-type">Some</span>(gateway) =&gt; (gateway.transport(), gateway.provisioner()),
                 <span class="rs-type">None</span> =&gt; (
-                    <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredSandboxTransport-53">UnconfiguredSandboxTransport</a>),
-                    <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredProvisioner-76">UnconfiguredProvisioner</a>),
+                    <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredSandboxTransport-53">UnconfiguredSandboxTransport</a>),
+                    <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredProvisioner-76">UnconfiguredProvisioner</a>),
                 ),
             };
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_registry = build_default_registry(&amp;tool_config, &amp;<span class="rs-type">CallerScope</span>::default());
         <a class="symbol-link rs-fn" href="eos-runtime--src-plugin-tools-rs.html#item-fn-register-plugin-tools-27">register_plugin_tools</a>(
             &amp;<span class="rs-kw">mut</span> tool_registry,
-            &amp;<span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(transport.clone()),
+            &amp;<span class="rs-type">SandboxToolService</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(transport.clone()),
         );
 
         <span class="rs-comment">// Cross-registry validation: unknown agent tool names fail fast.</span>
@@ -1204,12 +1204,12 @@
             },
             audit: <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-audit-rs.html#item-struct-AuditService-7">AuditService</a> {
                 sink: audit,
-                shutdown: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">StdMutex</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(audit_shutdown)),
+                shutdown: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">StdMutex</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(audit_shutdown)),
             },
             message_records: <a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-message-records-rs.html#item-struct-MessageRecordService-5">MessageRecordService</a> {
                 message_records: <span class="rs-self">self</span>.message_records_root.map(<span class="rs-type">AgentMessageRecords</span>::new),
             },
-            cancel_registry: <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-cancel-registry-rs.html#item-struct-RequestCancelRegistry-17">RequestCancelRegistry</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(),
+            cancel_registry: <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-cancel-registry-rs.html#item-struct-RequestCancelRegistry-17">RequestCancelRegistry</a>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(),
         })
     }
 }
@@ -1233,9 +1233,9 @@
         <span class="rs-type">AnthropicApiClient</span>, <span class="rs-type">ClaudeCodingPlanClient</span>, <span class="rs-type">CodexCodingPlanClient</span>, <span class="rs-type">OpenAiApiClient</span>,
     };
 
-    <span class="rs-kw">let</span> retry = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(providers.retry.clone());
+    <span class="rs-kw">let</span> retry = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(providers.retry.clone());
     <span class="rs-kw">match</span> providers.active {
-        <span class="rs-type">ProviderKind</span>::<span class="rs-type">Unconfigured</span> =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredLlmClient-38">UnconfiguredLlmClient</a>)),
+        <span class="rs-type">ProviderKind</span>::<span class="rs-type">Unconfigured</span> =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<a class="symbol-link rs-type" href="eos-runtime--src-runtime-services-builder-rs.html#item-struct-UnconfiguredLlmClient-38">UnconfiguredLlmClient</a>)),
         <span class="rs-type">ProviderKind</span>::<span class="rs-type">OpenAiApi</span> =&gt; {
             <span class="rs-kw">let</span> key = <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-provider-secret-483">provider_secret</a>(
                 &quot;providers.openai_api.api_key&quot;,
@@ -1243,7 +1243,7 @@
             )?;
             <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-configured-provider-client-466">configured_provider_client</a>(
                 providers,
-                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">OpenAiApiClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">OpenAiApiClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                     &amp;providers.openai_api.base_url,
                     <span class="rs-type">Auth</span>::bearer(key),
                     retry,
@@ -1257,7 +1257,7 @@
             )?;
             <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-configured-provider-client-466">configured_provider_client</a>(
                 providers,
-                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">AnthropicApiClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">AnthropicApiClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                     &amp;providers.anthropic_api.base_url,
                     <span class="rs-type">Auth</span>::api_key(key),
                     retry,
@@ -1272,7 +1272,7 @@
             <span class="rs-kw">let</span> auth = <span class="rs-type">Auth</span>::codex_access_token_from_jwt(token)?;
             <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-configured-provider-client-466">configured_provider_client</a>(
                 providers,
-                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">CodexCodingPlanClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">CodexCodingPlanClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                     &amp;providers.codex_coding_plan.base_url,
                     auth,
                     retry,
@@ -1286,7 +1286,7 @@
             )?;
             <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-configured-provider-client-466">configured_provider_client</a>(
                 providers,
-                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">ClaudeCodingPlanClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+                <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">ClaudeCodingPlanClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
                     &amp;providers.claude_coding_plan.base_url,
                     token,
                     retry,
@@ -1304,7 +1304,7 @@
     <span class="rs-kw">let</span> model = providers.active_model_registration().ok_or_else(|| {
         <span class="rs-type">ProviderError</span>::request(&quot;active provider is missing providers.&lt;active&gt;.models.active&quot;)
     })?;
-    <span class="rs-type">Ok</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(<span class="rs-type">ConfiguredLlmClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>(
+    <span class="rs-type">Ok</span>(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(<span class="rs-type">ConfiguredLlmClient</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>(
         client,
         <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-defaults-from-model-479">defaults_from_model</a>(&amp;model),
     )))
@@ -1326,13 +1326,13 @@
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-agent-registry-493">build_agent_registry</a>(dir: <span class="rs-type">Option</span>&lt;&amp;std::path::<span class="rs-type">Path</span>&gt;) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRegistry</span>&gt; {
     <span class="rs-kw">let</span> <span class="rs-type">Some</span>(dir) = dir <span class="rs-kw">else</span> {
-        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>().<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-build-231">build</a>());
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>().<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-build-231">build</a>());
     };
     <span class="rs-kw">if</span> !dir.is_dir() {
-        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>().<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-build-231">build</a>());
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>().<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#method-build-231">build</a>());
     }
     <span class="rs-kw">let</span> defs = load_agents_tree(dir).context(&quot;loading agent profiles&quot;)?;
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> builder = <span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> builder = <span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>();
     <span class="rs-kw">for</span> def <span class="rs-kw">in</span> defs {
         builder.add(def);
     }
@@ -1342,7 +1342,7 @@
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-build-skill-registry-508">build_skill_registry</a>(root: <span class="rs-type">Option</span>&lt;&amp;std::path::<span class="rs-type">Path</span>&gt;) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">SkillRegistry</span>&gt; {
     <span class="rs-kw">match</span> root {
         <span class="rs-type">Some</span>(root) =&gt; <span class="rs-type">SkillRegistry</span>::load_from_dir(root).context(&quot;loading skills&quot;),
-        <span class="rs-type">None</span> =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">SkillRegistry</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>()),
+        <span class="rs-type">None</span> =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">SkillRegistry</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>()),
     }
 }
 
@@ -1383,7 +1383,7 @@
     <span class="rs-comment">// by deserializing. `active` is serialized from the enum so the test never</span>
     <span class="rs-comment">// hardcodes the snake_case wire string.</span>
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-builder-rs.html#item-fn-providers-with-551">providers_with</a>(active: <span class="rs-type">ProviderKind</span>, extra: serde_json::<span class="rs-type">Value</span>) -&gt; <span class="rs-type">ProvidersConfig</span> {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> obj = serde_json::<span class="rs-type">Map</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-63">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> obj = serde_json::<span class="rs-type">Map</span>::<a class="symbol-link rs-fn" href="eos-runtime.html#method-new-64">new</a>();
         obj.insert(
             &quot;active&quot;.to_owned(),
             serde_json::to_value(active).expect(&quot;active wire value&quot;),

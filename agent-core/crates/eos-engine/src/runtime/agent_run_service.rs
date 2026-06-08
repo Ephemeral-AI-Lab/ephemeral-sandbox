@@ -2,17 +2,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use eos_agent_def::{AgentName, AgentType};
+use eos_agent_def::AgentType;
 use eos_agent_message_records::AgentRunRecordKind;
 use eos_agent_run::{
     AgentRunApi, AgentRunError, AgentRunOutcome, AgentRunStatus, SpawnAgentRequest,
 };
 use eos_llm_client::Message;
-use eos_tool_core::{
-    AgentRunServicePort, CommandSessionPort, Sealed, StartSubagentRunOutcome,
-    StartSubagentRunRequest, StartedSubagentRun, SubagentLaunchRejection, SubagentSessionStatus,
-    TerminalAgentRun, ToolError, ToolResult,
-};
+use eos_tool_core::{CommandSessionPort, SubagentSessionStatus, ToolResult};
 use eos_state::AgentRun;
 use eos_types::{AgentRunId, JsonObject};
 use serde_json::{json, Value};
@@ -55,8 +51,6 @@ impl AgentRunService {
     }
 }
 
-impl Sealed for AgentRunService {}
-
 #[async_trait]
 impl AgentRunApi for AgentRunService {
     async fn spawn_agent(
@@ -86,7 +80,7 @@ impl AgentRunApi for AgentRunService {
         let background = control.background();
         let background_port: Arc<dyn BackgroundTeardownPort> = Arc::new(background.clone());
         let command_port: Arc<dyn CommandSessionPort> = Arc::new(background.clone());
-        let agent_run_port: Arc<dyn AgentRunServicePort> = Arc::new(background.clone());
+        let agent_run_port: Arc<dyn AgentRunApi> = Arc::new(background.clone());
         let subagent_port: Arc<dyn eos_tool_core::SubagentSessionPort> =
             Arc::new(background.clone());
         let workflow_port: Arc<dyn eos_tool_core::WorkflowSessionPort> = Arc::new(background);
@@ -235,109 +229,6 @@ impl AgentRunApi for AgentRunService {
     }
 }
 
-#[async_trait]
-impl AgentRunServicePort for AgentRunService {
-    async fn start_subagent_run(
-        &self,
-        request: StartSubagentRunRequest,
-    ) -> Result<StartSubagentRunOutcome, ToolError> {
-        let registry = &self.handles.agent_registry;
-        let ctx = request.ctx;
-
-        if let Ok(caller) = AgentName::new(ctx.agent_name.as_str()) {
-            if registry.get(&caller).map(|def| def.agent_type) == Some(AgentType::Subagent) {
-                return Ok(StartSubagentRunOutcome::Rejected(
-                    SubagentLaunchRejection::Recursive,
-                ));
-            }
-        }
-
-        let requested_agent_name = request.agent_name.clone();
-        let Ok(target) = AgentName::new(&requested_agent_name) else {
-            return Ok(StartSubagentRunOutcome::Rejected(
-                SubagentLaunchRejection::NotRegistered {
-                    agent_name: requested_agent_name,
-                },
-            ));
-        };
-        let parent_agent_run_id = ctx.require_agent_run_id()?.clone();
-        match self
-            .spawn_agent(SpawnAgentRequest {
-                agent_name: target,
-                agent_run_id: None,
-                initial_messages: vec![
-                    Message::from_user_text(request.prompt),
-                    Message::from_user_text(request.guidance),
-                ],
-                parent_agent_run_id: Some(parent_agent_run_id.clone()),
-                request_id: ctx.request_id.clone(),
-                task_id: None,
-                attempt_id: None,
-                workflow_id: None,
-                sandbox_id: ctx.sandbox_id.clone(),
-                workspace_root: ctx.workspace_root.clone(),
-                is_isolated_workspace_mode: ctx.is_isolated_workspace_mode,
-                persist: true,
-                record_kind: AgentRunRecordKind::Subagent {
-                    parent_agent_run_id,
-                },
-            })
-            .await
-        {
-            Ok(agent_run_id) => Ok(StartSubagentRunOutcome::Started(StartedSubagentRun {
-                agent_run_id,
-                agent_name: requested_agent_name,
-            })),
-            Err(AgentRunError::AgentNotRegistered(_)) => Ok(StartSubagentRunOutcome::Rejected(
-                SubagentLaunchRejection::NotRegistered {
-                    agent_name: requested_agent_name,
-                },
-            )),
-            Err(AgentRunError::WrongAgentType { actual, .. }) => Ok(
-                StartSubagentRunOutcome::Rejected(SubagentLaunchRejection::NotSubagent {
-                    agent_name: requested_agent_name,
-                    agent_type: actual.to_owned(),
-                }),
-            ),
-            Err(AgentRunError::RecursiveSubagent) => Ok(StartSubagentRunOutcome::Rejected(
-                SubagentLaunchRejection::Recursive,
-            )),
-            Err(err) => Err(ToolError::Internal(err.to_string())),
-        }
-    }
-
-    async fn poll_terminal_agent_run(
-        &self,
-        agent_run_id: &AgentRunId,
-    ) -> Result<Option<TerminalAgentRun>, ToolError> {
-        let Some(outcome) = self
-            .poll_agent_run_outcome(agent_run_id)
-            .await
-            .map_err(|err| ToolError::Internal(err.to_string()))?
-        else {
-            return Ok(None);
-        };
-        let Some(result) = outcome.terminal_result else {
-            return Ok(None);
-        };
-        Ok(Some(TerminalAgentRun {
-            agent_run_id: agent_run_id.clone(),
-            status: agent_run_status_to_subagent_status(outcome.status),
-            result,
-        }))
-    }
-
-    async fn cancel_agent_run(
-        &self,
-        agent_run_id: &AgentRunId,
-        reason: &str,
-    ) -> Result<(), ToolError> {
-        AgentRunApi::cancel_agent_run(self, agent_run_id, reason)
-            .await
-            .map_err(|err| ToolError::Internal(err.to_string()))
-    }
-}
-
 fn outcome_from_run(agent_run_id: AgentRunId, run: crate::AgentRunResult) -> AgentRunOutcome {
     let missing_terminal = run.error.is_none() && run.terminal_result.is_none();
     let error = run.error.or_else(|| {
@@ -365,14 +256,6 @@ const fn subagent_status_to_agent_run_status(status: SubagentSessionStatus) -> A
         }
         SubagentSessionStatus::Cancelled => AgentRunStatus::Cancelled,
         SubagentSessionStatus::Running | SubagentSessionStatus::Failed => AgentRunStatus::Failed,
-    }
-}
-
-const fn agent_run_status_to_subagent_status(status: AgentRunStatus) -> SubagentSessionStatus {
-    match status {
-        AgentRunStatus::Completed => SubagentSessionStatus::Completed,
-        AgentRunStatus::Failed => SubagentSessionStatus::Failed,
-        AgentRunStatus::Cancelled => SubagentSessionStatus::Cancelled,
     }
 }
 

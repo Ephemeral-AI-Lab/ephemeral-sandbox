@@ -3,11 +3,12 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use eos_agent_run::AgentRunApi;
 use eos_agent_def::AgentDefinition;
 use eos_llm_client::DEFAULT_MAX_TOKENS;
 use eos_tools::{
-    build_default_registry_with_services, AgentRunServicePort, AttemptSubmissionService,
-    CallerScope, CommandSessionPort, ExecutionMetadata, SubagentSessionPort, WorkflowServicePort,
+    build_default_registry_with_services, AttemptSubmissionService, CallerScope,
+    CommandSessionPort, ExecutionMetadata, SubagentSessionPort, WorkflowServicePort,
     WorkflowSessionPort,
 };
 use eos_types::{AgentRunId, TaskId};
@@ -28,7 +29,7 @@ pub(super) struct AgentRunSetupInput {
     pub(super) agent_run_id: AgentRunId,
     pub(super) tool_metadata: ExecutionMetadata,
     pub(super) attempt_submission: Option<AttemptSubmissionService>,
-    pub(super) agent_run_service: Option<Arc<dyn AgentRunServicePort>>,
+    pub(super) agent_run_service: Option<Arc<dyn AgentRunApi>>,
     pub(super) subagent_sessions: Option<Arc<dyn SubagentSessionPort>>,
     pub(super) workflow_service: Option<Arc<dyn WorkflowServicePort>>,
     pub(super) workflow_sessions: Option<Arc<dyn WorkflowSessionPort>>,

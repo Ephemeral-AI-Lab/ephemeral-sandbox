@@ -4,13 +4,14 @@ use std::sync::Arc;
 
 use eos_agent_def::{AgentDefinition, AgentRegistry};
 use eos_agent_message_records::{AgentMessageRecords, AgentRunRecordKind};
+use eos_agent_run::AgentRunApi;
 use eos_audit::AuditSink;
 use eos_llm_client::{LlmClient, Message};
 use eos_state::AgentRunStore;
 use eos_tools::{
-    AgentRunServicePort, AttemptSubmissionService, CommandSessionPort, ExecutionMetadata,
-    RootSubmissionService, SandboxToolService, SkillToolService, SubagentSessionPort,
-    ToolConfigSet, ToolRegistry, ToolResult, WorkflowServicePort, WorkflowSessionPort,
+    AttemptSubmissionService, CommandSessionPort, ExecutionMetadata, RootSubmissionService,
+    SandboxToolService, SkillToolService, SubagentSessionPort, ToolConfigSet, ToolRegistry,
+    ToolResult, WorkflowServicePort, WorkflowSessionPort,
 };
 use eos_types::{AgentRunId, TaskId};
 
@@ -102,7 +103,7 @@ pub struct AgentRunInput {
     /// agents. `None` for root/helper runs.
     pub attempt_submission: Option<AttemptSubmissionService>,
     /// Agent-run service for subagent launch tools.
-    pub agent_run_service: Option<Arc<dyn AgentRunServicePort>>,
+    pub agent_run_service: Option<Arc<dyn AgentRunApi>>,
     /// Subagent background-session registry for this run.
     pub subagent_sessions: Option<Arc<dyn SubagentSessionPort>>,
     /// Workflow service for workflow tools and workflow-state hooks.

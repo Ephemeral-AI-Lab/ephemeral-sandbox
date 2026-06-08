@@ -83,34 +83,30 @@
             <span class="rs-type">Ok</span>(v) =&gt; v,
             <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
         };
-        <span class="rs-kw">if</span> parsed.subagent_session_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>().<a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-is-empty-96">is_empty</a>() {
+        <span class="rs-kw">if</span> parsed.agent_run_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>().<a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-is-empty-96">is_empty</a>() {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tools--src-tools-subagent-lib-rs.html#item-fn-empty-subagent-session-error-13">empty_subagent_session_error</a>(<a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>::<a class="symbol-link rs-type" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-struct-CancelSubagent-30">CancelSubagent</a>));
         }
-        <span class="rs-kw">match</span> <span class="rs-self">self</span>
+        <span class="rs-kw">if</span> <span class="rs-self">self</span>
             .subagent_sessions
             .as_deref()
             .ok_or(<span class="rs-type">ToolError</span>::<span class="rs-type">MissingPort</span>(&quot;subagent_sessions&quot;))?
-            .<a class="symbol-link rs-fn" href="eos-tools--src-hooks-require-no-background-sessions-rs.html#method-cancel-background-session-233">cancel_background_session</a>(&amp;parsed.subagent_session_id, &amp;parsed.reason)
+            .cancel_background_agent_run(&amp;parsed.agent_run_id, &amp;parsed.reason)
             .<span class="rs-kw">await</span>
         {
-            <span class="rs-type">CancelledSubagent</span>::<span class="rs-type">Cancelled</span> {
-                subagent_session_id,
-                reason,
-            } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-fn-render-cancelled-78">render_cancelled</a>(&amp;subagent_session_id, &amp;reason)),
-            <span class="rs-type">CancelledSubagent</span>::<span class="rs-type">MissingOrSettled</span> {
-                subagent_session_id,
-            } =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">ToolResult</span>::error(format!(
-                &quot;<span class="rs-type">Could</span> not cancel subagent session {}. <span class="rs-type">It</span> may have already completed \
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-fn-render-cancelled-74">render_cancelled</a>(&amp;parsed.agent_run_id, &amp;parsed.reason))
+        } <span class="rs-kw">else</span> {
+            <span class="rs-type">Ok</span>(<span class="rs-type">ToolResult</span>::error(format!(
+                &quot;<span class="rs-type">Could</span> not cancel subagent agent run {}. <span class="rs-type">It</span> may have already completed \
                  or does not exist.&quot;,
-                subagent_session_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>()
-            ))),
+                parsed.agent_run_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>()
+            )))
         }
     }
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
   <p class="source">crates/eos-tools/src/tools/subagent/cancel_subagent.rs:30</p>
-</article><article id="item-struct-CancelSubagentInput-23" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct CancelSubagentInput private struct CancelSubagentInput crates/eos-tools/src/tools/subagent/cancel_subagent.rs subagent_session_id SubagentSessionId reason String ">
+</article><article id="item-struct-CancelSubagentInput-23" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct CancelSubagentInput private struct CancelSubagentInput crates/eos-tools/src/tools/subagent/cancel_subagent.rs agent_run_id AgentRunId reason String ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>CancelSubagentInput</h3>
@@ -118,10 +114,10 @@
   </div>
   <code class="signature">struct <a class="symbol-link" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-struct-CancelSubagentInput-23">CancelSubagentInput</a></code>
   <div class="tags"><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: JsonSchema</span><span>derive: Serialize</span><span>serde</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>subagent_session_id</td><td><code>SubagentSessionId</code></td></tr><tr><td>private</td><td>reason</td><td><code>String</code></td></tr></tbody></table>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>reason</td><td><code>String</code></td></tr></tbody></table>
 
   <p class="source">crates/eos-tools/src/tools/subagent/cancel_subagent.rs:23</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-register-90" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , subagent_sessions : Option &lt; Arc &lt; dyn SubagentSessionPort &gt; &gt; ,) crates/eos-tools/src/tools/subagent/cancel_subagent.rs  ">
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-register-86" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , subagent_sessions : Option &lt; Arc &lt; dyn SubagentSessionPort &gt; &gt; ,) crates/eos-tools/src/tools/subagent/cancel_subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register</h3>
@@ -137,7 +133,7 @@
     subagent_sessions: <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SubagentSessionPort</span>&gt;&gt;,
 ) {
     <span class="rs-kw">let</span> cancel = config.<a class="symbol-link rs-fn" href="eos-tools--src-registry-config-rs.html#method-get-89">get</a>(<a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>::<a class="symbol-link rs-type" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-struct-CancelSubagent-30">CancelSubagent</a>);
-    <span class="rs-kw">super</span>::<span class="rs-kw">super</span>::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-register-tool-48">register_tool</a>(
+    <span class="rs-kw">super</span>::<span class="rs-kw">super</span>::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-register-tool-49">register_tool</a>(
         registry,
         <a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>::<a class="symbol-link rs-type" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-struct-CancelSubagent-30">CancelSubagent</a>,
         cancel,
@@ -153,32 +149,32 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tools/src/tools/subagent/cancel_subagent.rs:90</p>
-</article><article id="item-fn-render-cancelled-78" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn render_cancelled private fn render_cancelled (subagent_session_id : &amp; SubagentSessionId , reason : &amp; str) -&gt; ToolResult crates/eos-tools/src/tools/subagent/cancel_subagent.rs  ">
+  <p class="source">crates/eos-tools/src/tools/subagent/cancel_subagent.rs:86</p>
+</article><article id="item-fn-render-cancelled-74" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn render_cancelled private fn render_cancelled (agent_run_id : &amp; AgentRunId , reason : &amp; str) -&gt; ToolResult crates/eos-tools/src/tools/subagent/cancel_subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>render_cancelled</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-fn-render-cancelled-78">render_cancelled</a> (subagent_session_id : &amp; SubagentSessionId , reason : &amp; str) -&gt; ToolResult</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-fn-render-cancelled-74">render_cancelled</a> (agent_run_id : &amp; AgentRunId , reason : &amp; str) -&gt; ToolResult</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-fn-render-cancelled-78">render_cancelled</a>(subagent_session_id: &amp;<span class="rs-type">SubagentSessionId</span>, reason: &amp;str) -&gt; <span class="rs-type">ToolResult</span> {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-fn-render-cancelled-74">render_cancelled</a>(agent_run_id: &amp;<span class="rs-type">AgentRunId</span>, reason: &amp;str) -&gt; <span class="rs-type">ToolResult</span> {
     <span class="rs-kw">let</span> reason_suffix = <span class="rs-kw">if</span> reason.<a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-is-empty-96">is_empty</a>() {
         <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-tools--src-hooks-mod-rs.html#method-new-110">new</a>()
     } <span class="rs-kw">else</span> {
         format!(&quot; <span class="rs-type">Reason</span>: {reason}&quot;)
     };
     <span class="rs-type">ToolResult</span>::ok(format!(
-        &quot;<span class="rs-type">Subagent</span> session {} cancellation requested.{reason_suffix}&quot;,
-        subagent_session_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>()
+        &quot;<span class="rs-type">Subagent</span> agent run {} cancellation requested.{reason_suffix}&quot;,
+        agent_run_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>()
     ))
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tools/src/tools/subagent/cancel_subagent.rs:78</p>
+  <p class="source">crates/eos-tools/src/tools/subagent/cancel_subagent.rs:74</p>
 </article></div>
 </section></div>
 </main>
@@ -192,7 +188,7 @@
 <span class="rs-kw">use</span> std::sync::<span class="rs-type">Arc</span>;
 
 <span class="rs-kw">use</span> async_trait::async_trait;
-<span class="rs-kw">use</span> eos_types::{<span class="rs-type">JsonObject</span>, <span class="rs-type">SubagentSessionId</span>};
+<span class="rs-kw">use</span> eos_types::{<span class="rs-type">AgentRunId</span>, <span class="rs-type">JsonObject</span>};
 <span class="rs-kw">use</span> schemars::{schema_for, <span class="rs-type">JsonSchema</span>};
 <span class="rs-kw">use</span> serde::{<span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>};
 
@@ -200,7 +196,7 @@
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::core::metadata::<span class="rs-type">ExecutionMetadata</span>;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::core::name::<a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::core::result::{<span class="rs-type">OutputShape</span>, <span class="rs-type">ToolResult</span>};
-<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::ports::{<span class="rs-type">CancelledSubagent</span>, <span class="rs-type">SubagentSessionPort</span>};
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::ports::<span class="rs-type">SubagentSessionPort</span>;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::registry::config::<a class="symbol-link rs-type" href="eos-tools--src-registry-config-rs.html#item-struct-ToolConfigSet-45">ToolConfigSet</a>;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::registry::spec::text_spec;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::registry::<a class="symbol-link rs-type" href="eos-tools--src-registry-tool-registry-rs.html#item-struct-ToolRegistry-18">ToolRegistry</a>;
@@ -211,7 +207,7 @@
 
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">JsonSchema</span>)]
 <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-struct-CancelSubagentInput-23">CancelSubagentInput</a> {
-    subagent_session_id: <span class="rs-type">SubagentSessionId</span>,
+    agent_run_id: <span class="rs-type">AgentRunId</span>,
     #[serde(default)]
     reason: <span class="rs-type">String</span>,
 }
@@ -239,40 +235,36 @@
             <span class="rs-type">Ok</span>(v) =&gt; v,
             <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
         };
-        <span class="rs-kw">if</span> parsed.subagent_session_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>().<a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-is-empty-96">is_empty</a>() {
+        <span class="rs-kw">if</span> parsed.agent_run_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>().<a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-is-empty-96">is_empty</a>() {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tools--src-tools-subagent-lib-rs.html#item-fn-empty-subagent-session-error-13">empty_subagent_session_error</a>(<a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>::<a class="symbol-link rs-type" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-struct-CancelSubagent-30">CancelSubagent</a>));
         }
-        <span class="rs-kw">match</span> <span class="rs-self">self</span>
+        <span class="rs-kw">if</span> <span class="rs-self">self</span>
             .subagent_sessions
             .as_deref()
             .ok_or(<span class="rs-type">ToolError</span>::<span class="rs-type">MissingPort</span>(&quot;subagent_sessions&quot;))?
-            .<a class="symbol-link rs-fn" href="eos-tools--src-hooks-require-no-background-sessions-rs.html#method-cancel-background-session-233">cancel_background_session</a>(&amp;parsed.subagent_session_id, &amp;parsed.reason)
+            .cancel_background_agent_run(&amp;parsed.agent_run_id, &amp;parsed.reason)
             .<span class="rs-kw">await</span>
         {
-            <span class="rs-type">CancelledSubagent</span>::<span class="rs-type">Cancelled</span> {
-                subagent_session_id,
-                reason,
-            } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-fn-render-cancelled-78">render_cancelled</a>(&amp;subagent_session_id, &amp;reason)),
-            <span class="rs-type">CancelledSubagent</span>::<span class="rs-type">MissingOrSettled</span> {
-                subagent_session_id,
-            } =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">ToolResult</span>::error(format!(
-                &quot;<span class="rs-type">Could</span> not cancel subagent session {}. <span class="rs-type">It</span> may have already completed \
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-fn-render-cancelled-74">render_cancelled</a>(&amp;parsed.agent_run_id, &amp;parsed.reason))
+        } <span class="rs-kw">else</span> {
+            <span class="rs-type">Ok</span>(<span class="rs-type">ToolResult</span>::error(format!(
+                &quot;<span class="rs-type">Could</span> not cancel subagent agent run {}. <span class="rs-type">It</span> may have already completed \
                  or does not exist.&quot;,
-                subagent_session_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>()
-            ))),
+                parsed.agent_run_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>()
+            )))
         }
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-fn-render-cancelled-78">render_cancelled</a>(subagent_session_id: &amp;<span class="rs-type">SubagentSessionId</span>, reason: &amp;str) -&gt; <span class="rs-type">ToolResult</span> {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-fn-render-cancelled-74">render_cancelled</a>(agent_run_id: &amp;<span class="rs-type">AgentRunId</span>, reason: &amp;str) -&gt; <span class="rs-type">ToolResult</span> {
     <span class="rs-kw">let</span> reason_suffix = <span class="rs-kw">if</span> reason.<a class="symbol-link rs-fn" href="eos-tools--src-registry-tool-registry-rs.html#method-is-empty-96">is_empty</a>() {
         <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-tools--src-hooks-mod-rs.html#method-new-110">new</a>()
     } <span class="rs-kw">else</span> {
         format!(&quot; <span class="rs-type">Reason</span>: {reason}&quot;)
     };
     <span class="rs-type">ToolResult</span>::ok(format!(
-        &quot;<span class="rs-type">Subagent</span> session {} cancellation requested.{reason_suffix}&quot;,
-        subagent_session_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>()
+        &quot;<span class="rs-type">Subagent</span> agent run {} cancellation requested.{reason_suffix}&quot;,
+        agent_run_id.<a class="symbol-link rs-fn" href="eos-tools--src-core-intent-rs.html#method-as-str-42">as_str</a>()
     ))
 }
 
@@ -282,7 +274,7 @@
     subagent_sessions: <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SubagentSessionPort</span>&gt;&gt;,
 ) {
     <span class="rs-kw">let</span> cancel = config.<a class="symbol-link rs-fn" href="eos-tools--src-registry-config-rs.html#method-get-89">get</a>(<a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>::<a class="symbol-link rs-type" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-struct-CancelSubagent-30">CancelSubagent</a>);
-    <span class="rs-kw">super</span>::<span class="rs-kw">super</span>::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-register-tool-48">register_tool</a>(
+    <span class="rs-kw">super</span>::<span class="rs-kw">super</span>::<a class="symbol-link rs-fn" href="eos-tools--src-tools-mod-rs.html#item-fn-register-tool-49">register_tool</a>(
         registry,
         <a class="symbol-link rs-type" href="eos-tools--src-core-name-rs.html#item-enum-ToolName-17">ToolName</a>::<a class="symbol-link rs-type" href="eos-tools--src-tools-subagent-cancel-subagent-rs.html#item-struct-CancelSubagent-30">CancelSubagent</a>,
         cancel,

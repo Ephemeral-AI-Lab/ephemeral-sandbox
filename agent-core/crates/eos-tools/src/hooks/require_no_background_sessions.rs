@@ -238,6 +238,10 @@ mod tests {
             unreachable!("not used by hook tests")
         }
 
+        async fn cancel_background_agent_run(&self, _: &AgentRunId, _: &str) -> bool {
+            unreachable!("not used by hook tests")
+        }
+
         async fn count_background_sessions(&self) -> usize {
             self.subagents.load(Ordering::Relaxed)
         }

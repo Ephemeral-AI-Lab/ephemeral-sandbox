@@ -18,6 +18,14 @@ pub(super) fn empty_subagent_session_error(tool: ToolName) -> ToolResult {
     ))
 }
 
+pub(super) fn empty_subagent_agent_run_error(tool: ToolName) -> ToolResult {
+    ToolResult::error(format!(
+        "Invalid input for {}: agent_run_id must be non-empty. \
+         Please retry the tool call with valid arguments.",
+        tool.as_str()
+    ))
+}
+
 pub(super) fn subagent_status_and_result(
     status: SubagentSessionStatus,
     result: Option<&ToolResult>,

@@ -19,13 +19,14 @@ use std::sync::{Arc, OnceLock};
 use async_trait::async_trait;
 use eos_agent_def::AgentRole;
 use eos_agent_message_records::{AgentRunRecordKind, WorkflowTaskRole};
+use eos_agent_run::AgentRunApi;
 use eos_engine::{
     run_agent, AgentRunControlFactory, AgentRunInput, AgentRunRegistry, BackgroundTeardownPort,
 };
 use eos_llm_client::Message;
 use eos_tools::{
-    AgentRunServicePort, AttemptSubmissionPort, AttemptSubmissionService, CommandSessionPort,
-    SubagentSessionPort, WorkflowServicePort, WorkflowSessionPort,
+    AttemptSubmissionPort, AttemptSubmissionService, CommandSessionPort, SubagentSessionPort,
+    WorkflowServicePort, WorkflowSessionPort,
 };
 use eos_types::AgentRunId;
 use eos_workflow::{AgentLaunch, AgentRunReport, AgentRunner, Result as WorkflowResult};
@@ -91,7 +92,7 @@ impl AgentRunner for RuntimeAgentRunner {
             .persisted(agent_run_id.clone(), Some(launch.task_id().clone()));
         self.agent_run_registry.insert(control.clone());
         let background = control.background();
-        let agent_run_service: Arc<dyn AgentRunServicePort> = Arc::new(background.clone());
+        let agent_run_service: Arc<dyn AgentRunApi> = Arc::new(background.clone());
         let subagent_sessions: Arc<dyn SubagentSessionPort> = Arc::new(background.clone());
         let workflow_sessions: Arc<dyn WorkflowSessionPort> = Arc::new(background.clone());
         let background_session: Arc<dyn BackgroundTeardownPort> = Arc::new(background.clone());

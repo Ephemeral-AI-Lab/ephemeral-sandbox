@@ -3,6 +3,8 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
+use eos_agent_run::{AgentRunApi, AgentRunError, AgentRunOutcome, SpawnAgentRequest};
+use eos_llm_client::ContentBlock;
 use eos_types::{AgentRunId, JsonObject, SubagentSessionId};
 use serde_json::json;
 
@@ -10,11 +12,8 @@ use super::super::{
     cancel_subagent::CancelSubagent, check_subagent_progress::CheckSubagentProgress,
     run_subagent::RunSubagent,
 };
-use crate::core::error::ToolError;
 use crate::ports::{
-    AgentRunServicePort, CancelledSubagent, Sealed, StartSubagentRunOutcome,
-    StartSubagentRunRequest, StartedSubagentRun, SubagentProgress, SubagentSessionPort,
-    SubagentSessionStatus, TerminalAgentRun,
+    CancelledSubagent, Sealed, SubagentProgress, SubagentSessionPort, SubagentSessionStatus,
 };
 use crate::runtime::executor::ToolExecutor;
 use crate::support::metadata;
@@ -27,25 +26,38 @@ struct FakeBackgroundSession {
 impl Sealed for FakeBackgroundSession {}
 
 #[async_trait]
-impl AgentRunServicePort for FakeBackgroundSession {
-    async fn start_subagent_run(
+impl AgentRunApi for FakeBackgroundSession {
+    async fn spawn_agent(
         &self,
-        request: StartSubagentRunRequest,
-    ) -> Result<StartSubagentRunOutcome, ToolError> {
+        request: SpawnAgentRequest,
+    ) -> Result<AgentRunId, AgentRunError> {
+        let prompt = request
+            .initial_messages
+            .first()
+            .and_then(|message| message.content.first())
+            .and_then(|block| match block {
+                ContentBlock::Text { text } => Some(text.clone()),
+                _ => None,
+            })
+            .unwrap_or_default();
         self.spawned
             .lock()
             .unwrap()
-            .push((request.agent_name.clone(), request.prompt));
-        Ok(StartSubagentRunOutcome::Started(StartedSubagentRun {
-            agent_run_id: AgentRunId::new_v4(),
-            agent_name: request.agent_name,
-        }))
+            .push((request.agent_name.as_str().to_owned(), prompt));
+        Ok("agent-run-child".parse().unwrap())
     }
 
-    async fn poll_terminal_agent_run(
+    async fn wait_for_agent_outcomes(
+        &self,
+        agent_run_id: &AgentRunId,
+    ) -> Result<AgentRunOutcome, AgentRunError> {
+        Err(AgentRunError::NotActiveInProcess(agent_run_id.clone()))
+    }
+
+    async fn poll_agent_run_outcome(
         &self,
         _agent_run_id: &AgentRunId,
-    ) -> Result<Option<TerminalAgentRun>, ToolError> {
+    ) -> Result<Option<AgentRunOutcome>, AgentRunError> {
         Ok(None)
     }
 
@@ -53,7 +65,7 @@ impl AgentRunServicePort for FakeBackgroundSession {
         &self,
         _agent_run_id: &AgentRunId,
         _reason: &str,
-    ) -> Result<(), ToolError> {
+    ) -> Result<(), AgentRunError> {
         Ok(())
     }
 }
@@ -91,6 +103,10 @@ impl SubagentSessionPort for FakeBackgroundSession {
         }
     }
 
+    async fn cancel_background_agent_run(&self, agent_run_id: &AgentRunId, _reason: &str) -> bool {
+        agent_run_id.as_str() == "agent-run-child"
+    }
+
     async fn count_background_sessions(&self) -> usize {
         0
     }
@@ -110,7 +126,7 @@ fn obj(pairs: &[(&str, serde_json::Value)]) -> JsonObject {
 }
 
 #[tokio::test]
-async fn run_subagent_returns_session_id() {
+async fn run_subagent_returns_agent_run_id() {
     let background = Arc::new(FakeBackgroundSession::default());
     let ctx = metadata();
 
@@ -127,7 +143,7 @@ async fn run_subagent_returns_session_id() {
 
     assert!(!res.is_error, "{}", res.output);
     assert!(res.output.contains("[SUBAGENT LAUNCHED]"), "{}", res.output);
-    assert_eq!(res.metadata["subagent_session_id"], json!("subagent_1"));
+    assert_eq!(res.metadata["agent_run_id"], json!("agent-run-child"));
     assert_eq!(res.metadata["status"], json!("running"));
     assert_eq!(
         background.spawned.lock().unwrap().as_slice(),
@@ -174,11 +190,11 @@ async fn subagent_controls_reject_empty_session_id() {
 
     let cancel = CancelSubagent::new(None)
         .execute(
-            &obj(&[("subagent_session_id", json!("")), ("reason", json!("x"))]),
+            &obj(&[("agent_run_id", json!("")), ("reason", json!("x"))]),
             &ctx,
         )
         .await
         .expect("ok");
     assert!(cancel.is_error);
-    assert!(cancel.output.contains("subagent_session_id"));
+    assert!(cancel.output.contains("agent_run_id"));
 }

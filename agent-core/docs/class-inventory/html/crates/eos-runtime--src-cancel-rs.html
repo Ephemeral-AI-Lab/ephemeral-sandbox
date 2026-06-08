@@ -95,7 +95,7 @@
     request_id: &amp;<span class="rs-type">RequestId</span>,
     reason: &amp;str,
 ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-runtime--src-cancel-rs.html#item-struct-CancelReport-16">CancelReport</a>&gt; {
-    <span class="rs-kw">let</span> root_task_id = <a class="symbol-link rs-fn" href="eos-runtime--src-entry-rs.html#item-fn-root-task-id-for-55">root_task_id_for</a>(request_id);
+    <span class="rs-kw">let</span> root_task_id = <a class="symbol-link rs-fn" href="eos-runtime--src-entry-rs.html#item-fn-root-task-id-for-56">root_task_id_for</a>(request_id);
     <span class="rs-kw">let</span> port = services.cancel_registry.<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-cancel-registry-rs.html#method-get-55">get</a>(request_id);
     <span class="rs-kw">let</span> had_live_run = port.is_some();
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(port) = port {
@@ -167,7 +167,7 @@
     request_id: &amp;<span class="rs-type">RequestId</span>,
     reason: &amp;str,
 ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-runtime--src-cancel-rs.html#item-struct-CancelReport-16">CancelReport</a>&gt; {
-    <span class="rs-kw">let</span> root_task_id = <a class="symbol-link rs-fn" href="eos-runtime--src-entry-rs.html#item-fn-root-task-id-for-55">root_task_id_for</a>(request_id);
+    <span class="rs-kw">let</span> root_task_id = <a class="symbol-link rs-fn" href="eos-runtime--src-entry-rs.html#item-fn-root-task-id-for-56">root_task_id_for</a>(request_id);
     <span class="rs-kw">let</span> port = services.cancel_registry.<a class="symbol-link rs-fn" href="eos-runtime--src-runtime-services-cancel-registry-rs.html#method-get-55">get</a>(request_id);
     <span class="rs-kw">let</span> had_live_run = port.is_some();
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(port) = port {

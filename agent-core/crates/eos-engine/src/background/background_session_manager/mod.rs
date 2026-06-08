@@ -1,33 +1,82 @@
+mod command_session_manager;
+mod subagent_session_manager;
+mod workflow_session_manager;
+
+use std::hash::Hash;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use eos_tool_core::{AgentRunServicePort, StartSubagentRunOutcome, StartSubagentRunRequest, TerminalAgentRun};
+use eos_agent_run::{AgentRunApi, AgentRunError, AgentRunOutcome, SpawnAgentRequest};
 use eos_sandbox_port::SandboxCommandApi;
 use eos_tools::ports::{
     BackgroundSessionCounts, CancelledSubagent, CommandSessionPort, StartedWorkflow,
     SubagentProgress, SubagentSessionPort, WorkflowSessionPort,
 };
-use eos_tools::{ToolError, WorkflowServicePort};
+use eos_tools::WorkflowServicePort;
 use eos_types::{AgentRunId, CommandSessionId, SandboxId, SubagentSessionId};
 
-use super::notification::BackgroundNotificationEmitter;
-use super::session_managers::command::{CommandSessionManager, CommandSessionMonitor};
-use super::session_managers::subagent::{SubagentSessionManager, SubagentSessionMonitor};
-use super::session_managers::workflow::{
+use self::command_session_manager::{CommandSessionManager, CommandSessionMonitor};
+use self::subagent_session_manager::{SubagentSessionManager, SubagentSessionMonitor};
+use self::workflow_session_manager::{
     WorkflowServiceCell, WorkflowSessionManager, WorkflowSessionMonitor,
 };
-use super::session_managers::BackgroundSessionManager;
+use super::notification::BackgroundNotificationEmitter;
 use crate::notifications::NotificationService;
 use crate::query::{QueryContext, QueryExitReason};
-use crate::runtime::AgentRunControlFactory;
-use crate::services::AgentRunService;
+use crate::runtime::{AgentRunControlFactory, AgentRunService};
 use crate::EngineRunHandles;
+
+/// Lifecycle status for one tracked background session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackgroundSessionStatus {
+    /// The session is still running.
+    Running,
+    /// The session completed normally.
+    Completed,
+    /// The session failed.
+    Failed,
+    /// The session was cancelled.
+    Cancelled,
+    /// The terminal result was already delivered to the model.
+    Delivered,
+}
+
+impl BackgroundSessionStatus {
+    /// Terminal precedence; higher status wins when cancel/completion events race.
+    #[must_use]
+    pub const fn precedence(self) -> u8 {
+        match self {
+            Self::Running => 0,
+            Self::Cancelled => 1,
+            Self::Failed => 2,
+            Self::Completed => 3,
+            Self::Delivered => 4,
+        }
+    }
+}
+
+trait BackgroundSession {
+    type Id: Eq + Hash + Clone + Send + Sync + 'static;
+
+    fn id(&self) -> &Self::Id;
+}
+
+#[async_trait]
+trait BackgroundSessionManager {
+    type Session: BackgroundSession + Send + 'static;
+    type Completion: Send + 'static;
+
+    async fn insert(&self, session: Self::Session);
+    async fn count(&self) -> usize;
+    async fn push_notification_on_completion(&self, completion: Self::Completion);
+    async fn cancel(&self, reason: &str);
+}
 
 /// Per-agent-run aggregate for background session accounting and lifecycle.
 pub(super) struct BackgroundSessionRuntime {
     agent_run_id: AgentRunId,
-    agent_run_service: Arc<dyn AgentRunServicePort>,
+    agent_run_service: Arc<dyn AgentRunApi>,
     subagent_session_manager: SubagentSessionManager,
     workflow_session_manager: WorkflowSessionManager,
     command_session_manager: CommandSessionManager,
@@ -39,7 +88,7 @@ pub(super) struct BackgroundSessionRuntime {
 impl BackgroundSessionRuntime {
     pub(super) fn new(
         agent_run_id: AgentRunId,
-        agent_run_service: Arc<dyn AgentRunServicePort>,
+        agent_run_service: Arc<dyn AgentRunApi>,
         command_service: Arc<dyn SandboxCommandApi>,
         completion_poll_interval: Duration,
         notifications: NotificationService,
@@ -88,7 +137,7 @@ impl BackgroundSessionRuntime {
         &self.subagent_session_manager
     }
 
-    pub(super) fn agent_run_service(&self) -> &Arc<dyn AgentRunServicePort> {
+    pub(super) fn agent_run_service(&self) -> &Arc<dyn AgentRunApi> {
         &self.agent_run_service
     }
 
@@ -185,32 +234,42 @@ impl BackgroundSessionService {
 impl eos_tools::ports::Sealed for BackgroundSessionService {}
 
 #[async_trait]
-impl AgentRunServicePort for BackgroundSessionService {
-    async fn start_subagent_run(
+impl AgentRunApi for BackgroundSessionService {
+    async fn spawn_agent(
         &self,
-        request: StartSubagentRunRequest,
-    ) -> Result<StartSubagentRunOutcome, ToolError> {
+        request: SpawnAgentRequest,
+    ) -> Result<eos_types::AgentRunId, AgentRunError> {
         self.runtime
             .agent_run_service()
-            .start_subagent_run(request)
+            .spawn_agent(request)
             .await
     }
 
-    async fn poll_terminal_agent_run(
+    async fn wait_for_agent_outcomes(
         &self,
-        agent_run_id: &AgentRunId,
-    ) -> Result<Option<TerminalAgentRun>, ToolError> {
+        agent_run_id: &eos_types::AgentRunId,
+    ) -> Result<AgentRunOutcome, AgentRunError> {
         self.runtime
             .agent_run_service()
-            .poll_terminal_agent_run(agent_run_id)
+            .wait_for_agent_outcomes(agent_run_id)
+            .await
+    }
+
+    async fn poll_agent_run_outcome(
+        &self,
+        agent_run_id: &eos_types::AgentRunId,
+    ) -> Result<Option<AgentRunOutcome>, AgentRunError> {
+        self.runtime
+            .agent_run_service()
+            .poll_agent_run_outcome(agent_run_id)
             .await
     }
 
     async fn cancel_agent_run(
         &self,
-        agent_run_id: &AgentRunId,
+        agent_run_id: &eos_types::AgentRunId,
         reason: &str,
-    ) -> Result<(), ToolError> {
+    ) -> Result<(), AgentRunError> {
         self.runtime
             .agent_run_service()
             .cancel_agent_run(agent_run_id, reason)
@@ -249,6 +308,17 @@ impl SubagentSessionPort for BackgroundSessionService {
         self.runtime
             .subagent_session_manager()
             .cancel_background_session(subagent_session_id, reason)
+            .await
+    }
+
+    async fn cancel_background_agent_run(
+        &self,
+        agent_run_id: &AgentRunId,
+        reason: &str,
+    ) -> bool {
+        self.runtime
+            .subagent_session_manager()
+            .cancel_agent_run(agent_run_id, reason)
             .await
     }
 
