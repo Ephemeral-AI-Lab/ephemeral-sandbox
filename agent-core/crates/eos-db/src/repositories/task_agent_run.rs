@@ -5,11 +5,12 @@ use sqlx::{Sqlite, SqlitePool};
 use time::OffsetDateTime;
 
 use eos_types::{
-    format_record_dir, parented_task_id, root_task_id, workflow_task_id, AgentName, AgentRunId,
-    AgentRunRecordDir, AgentRunRecordIndex, AgentRunRecordTarget, CoreError, CreatedTaskAgentRun,
-    ParentAgentRunAnchor, ParentedAgentRunKind, ParentedRun, RequestId, RunningRequestAgentRun,
-    Sealed, TaskAgentRunKind, TaskAgentRunStore, TaskExecutionIndex, TaskId, TaskRole, TaskRun,
-    TaskStatus, ToolUseId, WorkflowCoordinates, WorkflowNodeId, WorkflowTaskRole,
+    format_record_dir, parented_task_id, AgentName, AgentRunId, AgentRunRecordDir,
+    AgentRunRecordIndex, AgentRunRecordTarget, CoreError, CreatedTaskAgentRun,
+    ParentAgentRunAnchor, ParentedAgentRunKind, ParentedOutcome, ParentedRun, PlanId, RequestId,
+    RunningRequestAgentRun, Sealed, TaskAgentRunKind, TaskAgentRunStore, TaskExecutionIndex,
+    TaskId, TaskOutcome, TaskRole, TaskRun, TaskStatus, ToolUseId, WorkItemId, WorkflowCoordinates,
+    WorkflowTaskRole,
 };
 
 use crate::error::DbError;
@@ -38,15 +39,15 @@ impl TaskAgentRunStore for SqlTaskAgentRunStore {
         agent_run_id: &AgentRunId,
         agent_name: &AgentName,
     ) -> Result<CreatedTaskAgentRun, CoreError> {
-        let task_id = root_task_id(request_id);
+        let task_id = TaskId::new_v4();
         let now = OffsetDateTime::now_utc();
         let mut tx = self.pool.begin().await.map_err(DbError::from)?;
         sqlx::query(
             "INSERT INTO task_runs \
-             (task_id, agent_run_id, request_id, role, status, workflow_id, iteration_id, \
-              attempt_id, agent_name, terminal_payload, token_count, error, created_at, \
+             (task_id, agent_run_id, request_id, role, status, agent_name, terminal_payload, \
+              task_outcome, token_count, error, created_at, \
               updated_at, finished_at) \
-             VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, ?, NULL, 0, NULL, ?, ?, NULL)",
+             VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 0, NULL, ?, ?, NULL)",
         )
         .bind(task_id.as_str())
         .bind(agent_run_id.as_str())
@@ -89,29 +90,27 @@ impl TaskAgentRunStore for SqlTaskAgentRunStore {
         &self,
         request_id: &RequestId,
         agent_run_id: &AgentRunId,
-        workflow: &WorkflowCoordinates,
-        workflow_node_id: &WorkflowNodeId,
+        coords: &WorkflowCoordinates,
+        role: WorkflowTaskRole,
+        _plan_id: &PlanId,
+        _work_item_id: Option<&WorkItemId>,
         agent_name: &AgentName,
     ) -> Result<CreatedTaskAgentRun, CoreError> {
-        let task_id = workflow_task_id(&workflow.attempt_id, workflow_node_id)?;
+        let task_id = TaskId::new_v4();
         let now = OffsetDateTime::now_utc();
-        let role = workflow_node_id.role();
         let task_role = task_role_from_workflow_role(role);
         sqlx::query(
             "INSERT INTO task_runs \
-             (task_id, agent_run_id, request_id, role, status, workflow_id, iteration_id, \
-             attempt_id, agent_name, terminal_payload, token_count, error, created_at, \
+             (task_id, agent_run_id, request_id, role, status, agent_name, terminal_payload, \
+             task_outcome, token_count, error, created_at, \
              updated_at, finished_at) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, NULL, ?, ?, NULL)",
+             VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 0, NULL, ?, ?, NULL)",
         )
         .bind(task_id.as_str())
         .bind(agent_run_id.as_str())
         .bind(request_id.as_str())
         .bind(enum_to_db(&task_role))
         .bind(enum_to_db(&TaskStatus::Running))
-        .bind(workflow.workflow_id.as_str())
-        .bind(workflow.iteration_id.as_str())
-        .bind(workflow.attempt_id.as_str())
         .bind(agent_name.as_str())
         .bind(now)
         .bind(now)
@@ -123,7 +122,7 @@ impl TaskAgentRunStore for SqlTaskAgentRunStore {
             agent_run_id: agent_run_id.clone(),
             task_id,
             kind: TaskAgentRunKind::Workflow {
-                workflow: workflow.clone(),
+                workflow: coords.clone(),
                 role,
             },
             parent_record_dir: None,
@@ -152,9 +151,10 @@ impl TaskAgentRunStore for SqlTaskAgentRunStore {
         sqlx::query(
             "INSERT INTO parented_runs \
              (task_id, agent_run_id, request_id, status, parent_agent_run_id, parent_task_id, \
-              kind, tool_use_id, agent_name, terminal_payload, token_count, error, created_at, \
+              kind, tool_use_id, agent_name, terminal_payload, parented_outcome, token_count, \
+              error, created_at, \
               updated_at, finished_at) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, NULL, ?, ?, NULL)",
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 0, NULL, ?, ?, NULL)",
         )
         .bind(task_id.as_str())
         .bind(agent_run_id.as_str())
@@ -188,18 +188,22 @@ impl TaskAgentRunStore for SqlTaskAgentRunStore {
         agent_run_id: &AgentRunId,
         status: TaskStatus,
         terminal_payload: Option<&eos_types::JsonObject>,
+        task_outcome: Option<&TaskOutcome>,
         token_count: i64,
         error: Option<&str>,
     ) -> Result<Option<TaskRun>, CoreError> {
         let now = OffsetDateTime::now_utc();
         let terminal = terminal_payload.map(json_col::encode).transpose()?;
+        let outcome = task_outcome.map(json_col::encode).transpose()?;
         let row = sqlx::query_as::<Sqlite, TaskRunRow>(
             "UPDATE task_runs SET status = ?, terminal_payload = COALESCE(?, terminal_payload), \
+             task_outcome = COALESCE(?, task_outcome), \
              token_count = ?, error = ?, updated_at = ?, finished_at = ? \
              WHERE agent_run_id = ? RETURNING *",
         )
         .bind(enum_to_db(&status))
         .bind(terminal)
+        .bind(outcome)
         .bind(token_count)
         .bind(error)
         .bind(now)
@@ -216,18 +220,22 @@ impl TaskAgentRunStore for SqlTaskAgentRunStore {
         agent_run_id: &AgentRunId,
         status: TaskStatus,
         terminal_payload: Option<&eos_types::JsonObject>,
+        parented_outcome: Option<&ParentedOutcome>,
         token_count: i64,
         error: Option<&str>,
     ) -> Result<Option<ParentedRun>, CoreError> {
         let now = OffsetDateTime::now_utc();
         let terminal = terminal_payload.map(json_col::encode).transpose()?;
+        let outcome = parented_outcome.map(json_col::encode).transpose()?;
         let row = sqlx::query_as::<Sqlite, ParentedRunRow>(
             "UPDATE parented_runs SET status = ?, terminal_payload = COALESCE(?, terminal_payload), \
+             parented_outcome = COALESCE(?, parented_outcome), \
              token_count = ?, error = ?, updated_at = ?, finished_at = ? \
              WHERE agent_run_id = ? RETURNING *",
         )
         .bind(enum_to_db(&status))
         .bind(terminal)
+        .bind(outcome)
         .bind(token_count)
         .bind(error)
         .bind(now)
@@ -357,11 +365,9 @@ struct TaskRunRow {
     request_id: String,
     role: String,
     status: String,
-    workflow_id: Option<String>,
-    iteration_id: Option<String>,
-    attempt_id: Option<String>,
     agent_name: String,
     terminal_payload: Option<String>,
+    task_outcome: Option<String>,
     token_count: i64,
     error: Option<String>,
     created_at: OffsetDateTime,
@@ -390,6 +396,7 @@ struct ParentedRunRow {
     tool_use_id: Option<String>,
     agent_name: String,
     terminal_payload: Option<String>,
+    parented_outcome: Option<String>,
     token_count: i64,
     error: Option<String>,
     created_at: OffsetDateTime,
@@ -456,26 +463,12 @@ fn row_to_task_run(row: TaskRunRow) -> Result<TaskRun, DbError> {
         request_id: parse_id("task_runs.request_id", &row.request_id)?,
         role: parse_enum("task_runs.role", &row.role)?,
         status: parse_enum("task_runs.status", &row.status)?,
-        workflow_id: row
-            .workflow_id
-            .as_deref()
-            .map(|id| parse_id("task_runs.workflow_id", id))
-            .transpose()?,
-        iteration_id: row
-            .iteration_id
-            .as_deref()
-            .map(|id| parse_id("task_runs.iteration_id", id))
-            .transpose()?,
-        attempt_id: row
-            .attempt_id
-            .as_deref()
-            .map(|id| parse_id("task_runs.attempt_id", id))
-            .transpose()?,
         agent_name: AgentName::new(&row.agent_name).map_err(|_| DbError::InvalidEnum {
             field: "task_runs.agent_name",
             value: row.agent_name.clone(),
         })?,
         terminal_payload: json_col::decode_opt(row.terminal_payload.as_deref())?,
+        task_outcome: json_col::decode_opt(row.task_outcome.as_deref())?,
         token_count: row.token_count,
         error: row.error,
         created_at: eos_types::UtcDateTime::from_offset(row.created_at),
@@ -506,6 +499,7 @@ fn row_to_parented_run(row: ParentedRunRow) -> Result<ParentedRun, DbError> {
             value: row.agent_name.clone(),
         })?,
         terminal_payload: json_col::decode_opt(row.terminal_payload.as_deref())?,
+        parented_outcome: json_col::decode_opt(row.parented_outcome.as_deref())?,
         token_count: row.token_count,
         error: row.error,
         created_at: eos_types::UtcDateTime::from_offset(row.created_at),
@@ -521,20 +515,7 @@ fn task_run_record_index(row: &TaskRunRow) -> Result<AgentRunRecordIndex, DbErro
     let role = parse_enum::<TaskRole>("task_runs.role", &row.role)?;
     let kind = match role {
         TaskRole::Root => TaskAgentRunKind::Root,
-        TaskRole::Planner | TaskRole::Generator | TaskRole::Reducer => TaskAgentRunKind::Workflow {
-            workflow: WorkflowCoordinates {
-                workflow_id: parse_required_id(
-                    "task_runs.workflow_id",
-                    row.workflow_id.as_deref(),
-                )?,
-                iteration_id: parse_required_id(
-                    "task_runs.iteration_id",
-                    row.iteration_id.as_deref(),
-                )?,
-                attempt_id: parse_required_id("task_runs.attempt_id", row.attempt_id.as_deref())?,
-            },
-            role: workflow_role_from_task_role(role),
-        },
+        TaskRole::Planner | TaskRole::Worker => TaskAgentRunKind::Root,
     };
     Ok(AgentRunRecordIndex {
         request_id,
@@ -610,33 +591,10 @@ async fn resolved_record_index(
     })
 }
 
-fn parse_required_id<T>(field: &'static str, value: Option<&str>) -> Result<T, DbError>
-where
-    T: std::str::FromStr<Err = CoreError>,
-{
-    parse_id(
-        field,
-        value.ok_or_else(|| DbError::InvalidEnum {
-            field,
-            value: String::new(),
-        })?,
-    )
-}
-
 fn task_role_from_workflow_role(role: WorkflowTaskRole) -> TaskRole {
     match role {
         WorkflowTaskRole::Planner => TaskRole::Planner,
-        WorkflowTaskRole::Generator => TaskRole::Generator,
-        WorkflowTaskRole::Reducer => TaskRole::Reducer,
-    }
-}
-
-fn workflow_role_from_task_role(role: TaskRole) -> WorkflowTaskRole {
-    match role {
-        TaskRole::Planner => WorkflowTaskRole::Planner,
-        TaskRole::Generator => WorkflowTaskRole::Generator,
-        TaskRole::Reducer => WorkflowTaskRole::Reducer,
-        TaskRole::Root => unreachable!("root task has no workflow role"),
+        WorkflowTaskRole::Worker => TaskRole::Worker,
     }
 }
 

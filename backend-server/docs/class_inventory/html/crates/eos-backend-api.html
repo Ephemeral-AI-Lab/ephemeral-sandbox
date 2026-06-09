@@ -134,7 +134,7 @@
             <span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">OffsetOutOfRange</span> { .. }
             | <span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">UnsafeSegment</span> { .. } =&gt; <span class="rs-self">Self</span>::<span class="rs-type">BadRequest</span>(err.to_string()),
             other =&gt; {
-                tracing::error!(error = %other, &quot;agent message-record error&quot;);
+                tracing::error!(error = %other, &quot;agent-run record error&quot;);
                 <span class="rs-self">Self</span>::<span class="rs-type">Internal</span>
             }
         }
@@ -210,7 +210,7 @@
 <span class="rs-kw">use</span> eos_agent_core_server::<span class="rs-type">AgentCoreServerError</span>;
 <span class="rs-kw">use</span> eos_backend_runtime::{<span class="rs-type">DeleteRejection</span>, <span class="rs-type">SandboxManagerError</span>};
 <span class="rs-kw">use</span> eos_backend_store::<span class="rs-type">StoreError</span>;
-<span class="rs-kw">use</span> eos_engine::records::<span class="rs-type">AgentRunRecordError</span>;
+<span class="rs-kw">use</span> eos_engine::run_output::<span class="rs-type">AgentRunRecordError</span>;
 <span class="rs-kw">use</span> eos_types::<span class="rs-type">CoreError</span>;
 
 <span class="rs-comment">/// A handler failure with an HTTP status and a client-safe message.</span>
@@ -314,7 +314,7 @@
             <span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">OffsetOutOfRange</span> { .. }
             | <span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">UnsafeSegment</span> { .. } =&gt; <span class="rs-self">Self</span>::<span class="rs-type">BadRequest</span>(err.to_string()),
             other =&gt; {
-                tracing::error!(error = %other, &quot;agent message-record error&quot;);
+                tracing::error!(error = %other, &quot;agent-run record error&quot;);
                 <span class="rs-self">Self</span>::<span class="rs-type">Internal</span>
             }
         }

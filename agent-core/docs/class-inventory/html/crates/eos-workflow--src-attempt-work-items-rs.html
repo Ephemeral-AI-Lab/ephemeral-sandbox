@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eos-workflow · src/attempt/work_items.rs</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+</head>
+<body>
+  <header>
+    <a class="central-link" href="/" title="Return to all class inventories">&larr; All inventories</a>
+    <div class="header-row">
+      <div>
+        <p class="eyebrow">Generated Rust source inventory · file-owned OOP map</p>
+        <h1>eos-workflow File Inventory</h1>
+      </div>
+      <div class="refresh-control">
+        <button id="refresh-inventory" type="button" title="Regenerate this inventory from the local Rust sources" data-refresh-command="cd /Users/yifanxu/machine_learning/LoVC/EphemeralOS/agent-core &amp;&amp; cargo run --manifest-path scripts/class-inventory/Cargo.toml">Refresh</button>
+        <span id="refresh-status" role="status"></span>
+      </div>
+    </div>
+  </header>
+  <a class="back-link" href="../index.html">agent-core</a>
+<section class="summary">
+  <div><b>18</b><span>modules</span></div>
+  <div><b>86</b><span>items</span></div>
+  <div><b>73</b><span>fields</span></div>
+  <div><b>111</b><span>methods</span></div>
+</section>
+<section class="toolbar">
+  <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
+  <select id="kind-filter">
+    <option value="">All items</option>
+    <option value="type-model">Type model</option>
+    <option value="struct">Structs</option>
+    <option value="enum">Enums</option>
+    <option value="trait">Traits</option>
+    <option value="impl">Impls</option>
+    <option value="fn">Functions</option>
+    <option value="type">Aliases</option>
+  </select>
+</section>
+<main class="crate-layout">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><span class="folder">attempt</span><ul class="file-tree"><li><a class="file-link" href="eos-workflow.html"><span>active_attempt_runs.rs</span><small>2/0</small></a></li><li><a class="file-link" href="eos-workflow--src-attempt-attempt-run-rs.html"><span>attempt_run.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-workflow--src-attempt-launch-rs.html"><span>launch.rs</span><small>6/5</small></a></li><li><a class="file-link" href="eos-workflow--src-attempt-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-workflow--src-attempt-planner-run-rs.html"><span>planner_run.rs</span><small>1/0</small></a></li><li><a class="file-link active" href="eos-workflow--src-attempt-work-items-rs.html"><span>work_items.rs</span><small>0/11</small></a></li><li><a class="file-link" href="eos-workflow--src-attempt-work-items-run-rs.html"><span>work_items_run.rs</span><small>2/0</small></a></li></ul></li><li><a class="file-link" href="eos-workflow--src-attempt-submission-rs.html"><span>attempt_submission.rs</span><small>1/1</small></a></li><li><a class="file-link" href="eos-workflow--src-config-rs.html"><span>config.rs</span><small>3/1</small></a></li><li><span class="folder">context</span><ul class="file-tree"><li><a class="file-link" href="eos-workflow--src-context-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-workflow--src-context-planner-context-rs.html"><span>planner_context.rs</span><small>0/1</small></a></li><li><a class="file-link" href="eos-workflow--src-context-render-rs.html"><span>render.rs</span><small>3/4</small></a></li><li><a class="file-link" href="eos-workflow--src-context-scope-rs.html"><span>scope.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-workflow--src-context-worker-context-rs.html"><span>worker_context.rs</span><small>0/2</small></a></li></ul></li><li><a class="file-link" href="eos-workflow--src-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-workflow--src-iteration-run-rs.html"><span>iteration_run.rs</span><small>3/1</small></a></li><li><a class="file-link" href="eos-workflow--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-workflow--src-workflow-run-rs.html"><span>workflow_run.rs</span><small>2/1</small></a></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="attempt::work_items crates/eos-workflow/src/attempt/work_items.rs validate_work_items execution_nodes work_item_by_id planner_outcome_for_attempt assert_acyclic visit validates_acyclic_worker_plan_and_materializes_nodes rejects_duplicate_unknown_cycle_and_non_worker_agent registry agent item">
+  <div class="module-head">
+    <div>
+      <h2>src/attempt/work_items.rs</h2>
+      <p class="path">module <code>attempt::work_items</code></p>
+    </div>
+    <div class="module-stats">
+      <span>file owns</span>
+      <span>0 types</span>
+      <span>0 impls</span>
+      <span>11 fns</span>
+      <span>0 methods</span>
+    </div>
+  </div>
+  <div class="items"><div class="group-label">Standalone Functions</div><article id="item-fn-validate-work-items-11" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn validate_work_items pub(crate) pub(crate) fn validate_work_items (work_items : &amp; [WorkItemSpec] , agents : &amp; AgentRegistry ,) -&gt; Result &lt; () &gt; crates/eos-workflow/src/attempt/work_items.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>validate_work_items</h3>
+    <span class="visibility">pub(crate)</span>
+  </div>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a> (work_items : &amp; [WorkItemSpec] , agents : &amp; AgentRegistry ,) -&gt; <a class="symbol-link" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a> &lt; () &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(
+    work_items: &amp;[<span class="rs-type">WorkItemSpec</span>],
+    agents: &amp;<span class="rs-type">AgentRegistry</span>,
+) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;()&gt; {
+    <span class="rs-kw">if</span> work_items.is_empty() {
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(
+            &quot;planner outcome must contain at least one work item&quot;,
+        ));
+    }
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>();
+    <span class="rs-kw">for</span> item <span class="rs-kw">in</span> work_items {
+        <span class="rs-kw">if</span> !ids.insert(item.id.clone()) {
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+                &quot;plan contains duplicate work item id {:?}&quot;,
+                item.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+            )));
+        }
+        <span class="rs-kw">if</span> item.work_spec.trim().is_empty() {
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+                &quot;work item {:?} has blank work_spec&quot;,
+                item.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+            )));
+        }
+        <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent) = agents.<a class="symbol-link rs-fn" href="eos-workflow.html#method-get-48">get</a>(&amp;item.agent_name) <span class="rs-kw">else</span> {
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<span class="rs-type">AgentDefinition</span>(format!(
+                &quot;work item {:?} references unknown agent {:?}&quot;,
+                item.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(),
+                item.agent_name.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+            )));
+        };
+        <span class="rs-kw">if</span> agent.agent_type != <span class="rs-type">AgentType</span>::<span class="rs-type">Agent</span> {
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<span class="rs-type">AgentDefinition</span>(format!(
+                &quot;work item {:?} references agent {:?} with <span class="rs-kw">type</span> {:?}, expected agent&quot;,
+                item.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(),
+                item.agent_name.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(),
+                agent.agent_type
+            )));
+        }
+    }
+    <span class="rs-kw">for</span> item <span class="rs-kw">in</span> work_items {
+        <span class="rs-kw">for</span> need <span class="rs-kw">in</span> &amp;item.needs {
+            <span class="rs-kw">if</span> !ids.contains(need) {
+                <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+                    &quot;work item {:?} needs unknown work item {:?}&quot;,
+                    item.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(),
+                    need.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+                )));
+            }
+        }
+    }
+    <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-assert-acyclic-114">assert_acyclic</a>(work_items)
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/attempt/work_items.rs:11</p>
+</article><article id="item-fn-execution-nodes-64" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn execution_nodes pub(crate) pub(crate) fn execution_nodes (work_items : &amp; [WorkItemSpec]) -&gt; Vec &lt; ExecutionNode &gt; crates/eos-workflow/src/attempt/work_items.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>execution_nodes</h3>
+    <span class="visibility">pub(crate)</span>
+  </div>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-execution-nodes-64">execution_nodes</a> (work_items : &amp; [WorkItemSpec]) -&gt; Vec &lt; ExecutionNode &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-execution-nodes-64">execution_nodes</a>(work_items: &amp;[<span class="rs-type">WorkItemSpec</span>]) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">ExecutionNode</span>&gt; {
+    work_items
+        .iter()
+        .map(|item| <span class="rs-type">ExecutionNode</span> {
+            work_item_id: item.id.clone(),
+            needs: item.needs.clone(),
+            task_id: <span class="rs-type">None</span>,
+        })
+        .collect()
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/attempt/work_items.rs:64</p>
+</article><article id="item-fn-work-item-by-id-75" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn work_item_by_id pub(crate) pub(crate) fn work_item_by_id &lt; 'a &gt; (work_items : &amp; 'a [WorkItemSpec] , work_item_id : &amp; WorkItemId ,) -&gt; Result &lt; &amp; 'a WorkItemSpec &gt; crates/eos-workflow/src/attempt/work_items.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>work_item_by_id</h3>
+    <span class="visibility">pub(crate)</span>
+  </div>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-work-item-by-id-75">work_item_by_id</a> &lt; &#x27;a &gt; (work_items : &amp; &#x27;a [WorkItemSpec] , work_item_id : &amp; WorkItemId ,) -&gt; <a class="symbol-link" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a> &lt; &amp; &#x27;a WorkItemSpec &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> work_item_by_id&lt;&#x27;a&gt;(
+    work_items: &amp;&#x27;a [<span class="rs-type">WorkItemSpec</span>],
+    work_item_id: &amp;<span class="rs-type">WorkItemId</span>,
+) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;&amp;&#x27;a <span class="rs-type">WorkItemSpec</span>&gt; {
+    work_items
+        .iter()
+        .find(|item| &amp;item.id == work_item_id)
+        .ok_or_else(|| <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-not-found-46">not_found</a>(&quot;work item&quot;, work_item_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()))
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/attempt/work_items.rs:75</p>
+</article><article id="item-fn-planner-outcome-for-attempt-85" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn planner_outcome_for_attempt pub(crate) pub(crate) async fn planner_outcome_for_attempt (deps : &amp; AttemptResources , attempt : &amp; Attempt ,) -&gt; Result &lt; PlannerOutcome &gt; crates/eos-workflow/src/attempt/work_items.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>planner_outcome_for_attempt</h3>
+    <span class="visibility">pub(crate)</span>
+  </div>
+  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-planner-outcome-for-attempt-85">planner_outcome_for_attempt</a> (deps : &amp; <a class="symbol-link" href="eos-workflow--src-attempt-launch-rs.html#item-struct-AttemptResources-136">AttemptResources</a> , attempt : &amp; Attempt ,) -&gt; <a class="symbol-link" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a> &lt; PlannerOutcome &gt;</code>
+  <div class="tags"><span>async</span></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-planner-outcome-for-attempt-85">planner_outcome_for_attempt</a>(
+    deps: &amp;<a class="symbol-link rs-type" href="eos-workflow--src-attempt-launch-rs.html#item-struct-AttemptResources-136">AttemptResources</a>,
+    attempt: &amp;<span class="rs-type">Attempt</span>,
+) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;<span class="rs-type">PlannerOutcome</span>&gt; {
+    <span class="rs-kw">let</span> planner_task_id = attempt.planner_task_id().ok_or_else(|| {
+        <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+            &quot;attempt {:?} has no planner task&quot;,
+            attempt.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+        ))
+    })?;
+    <span class="rs-kw">let</span> task = deps
+        .task_store
+        .<a class="symbol-link rs-fn" href="eos-workflow.html#method-get-48">get</a>(planner_task_id)
+        .<span class="rs-kw">await</span>?
+        .ok_or_else(|| <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-not-found-46">not_found</a>(&quot;planner task&quot;, planner_task_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()))?;
+    <span class="rs-kw">let</span> outcome = task.task_outcome.ok_or_else(|| {
+        <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+            &quot;planner task {:?} has no planner outcome&quot;,
+            planner_task_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+        ))
+    })?;
+    outcome.planner_outcome().ok_or_else(|| {
+        <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+            &quot;planner task {:?} did not record a planner outcome&quot;,
+            planner_task_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+        ))
+    })
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/attempt/work_items.rs:85</p>
+</article><article id="item-fn-assert-acyclic-114" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn assert_acyclic private fn assert_acyclic (work_items : &amp; [WorkItemSpec]) -&gt; Result &lt; () &gt; crates/eos-workflow/src/attempt/work_items.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>assert_acyclic</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-assert-acyclic-114">assert_acyclic</a> (work_items : &amp; [WorkItemSpec]) -&gt; <a class="symbol-link" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a> &lt; () &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-assert-acyclic-114">assert_acyclic</a>(work_items: &amp;[<span class="rs-type">WorkItemSpec</span>]) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;()&gt; {
+    <span class="rs-kw">let</span> graph = work_items
+        .iter()
+        .map(|item| (item.id.clone(), item.needs.clone()))
+        .collect::&lt;<span class="rs-type">BTreeMap</span>&lt;_, _&gt;&gt;();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> visiting = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> visited = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>();
+    <span class="rs-kw">for</span> id <span class="rs-kw">in</span> graph.keys() {
+        <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-visit-127">visit</a>(id, &amp;graph, &amp;<span class="rs-kw">mut</span> visiting, &amp;<span class="rs-kw">mut</span> visited)?;
+    }
+    <span class="rs-type">Ok</span>(())
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/attempt/work_items.rs:114</p>
+</article><article id="item-fn-visit-127" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn visit private fn visit (id : &amp; WorkItemId , graph : &amp; BTreeMap &lt; WorkItemId , Vec &lt; WorkItemId &gt; &gt; , visiting : &amp; mut BTreeSet &lt; WorkItemId &gt; , visited : &amp; mut BTreeSet &lt; WorkItemId &gt; ,) -&gt; Result &lt; () &gt; crates/eos-workflow/src/attempt/work_items.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>visit</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-visit-127">visit</a> (id : &amp; WorkItemId , graph : &amp; BTreeMap &lt; WorkItemId , Vec &lt; WorkItemId &gt; &gt; , visiting : &amp; mut BTreeSet &lt; WorkItemId &gt; , visited : &amp; mut BTreeSet &lt; WorkItemId &gt; ,) -&gt; <a class="symbol-link" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a> &lt; () &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-visit-127">visit</a>(
+    id: &amp;<span class="rs-type">WorkItemId</span>,
+    graph: &amp;<span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">WorkItemId</span>, <span class="rs-type">Vec</span>&lt;<span class="rs-type">WorkItemId</span>&gt;&gt;,
+    visiting: &amp;<span class="rs-kw">mut</span> <span class="rs-type">BTreeSet</span>&lt;<span class="rs-type">WorkItemId</span>&gt;,
+    visited: &amp;<span class="rs-kw">mut</span> <span class="rs-type">BTreeSet</span>&lt;<span class="rs-type">WorkItemId</span>&gt;,
+) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;()&gt; {
+    <span class="rs-kw">if</span> visited.contains(id) {
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(());
+    }
+    <span class="rs-kw">if</span> !visiting.insert(id.clone()) {
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+            &quot;plan contains a dependency cycle involving {:?}&quot;,
+            id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+        )));
+    }
+    <span class="rs-kw">for</span> need <span class="rs-kw">in</span> graph.<a class="symbol-link rs-fn" href="eos-workflow.html#method-get-48">get</a>(id).into_iter().flatten() {
+        <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-visit-127">visit</a>(need, graph, visiting, visited)?;
+    }
+    visiting.remove(id);
+    visited.insert(id.clone());
+    <span class="rs-type">Ok</span>(())
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/attempt/work_items.rs:127</p>
+</article><article id="item-fn-validates-acyclic-worker-plan-and-materializes-nodes-160" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn validates_acyclic_worker_plan_and_materializes_nodes private fn validates_acyclic_worker_plan_and_materializes_nodes () crates/eos-workflow/src/attempt/work_items.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>validates_acyclic_worker_plan_and_materializes_nodes</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validates-acyclic-worker-plan-and-materializes-nodes-160">validates_acyclic_worker_plan_and_materializes_nodes</a> ()</code>
+  <div class="tags"><span>test</span></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code>    #[test]
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validates-acyclic-worker-plan-and-materializes-nodes-160">validates_acyclic_worker_plan_and_materializes_nodes</a>() {
+        <span class="rs-kw">let</span> work_items = vec![
+            <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;executor&quot;, &quot;first&quot;, []),
+            <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w2&quot;, &quot;executor&quot;, &quot;second&quot;, [&quot;w1&quot;]),
+        ];
+
+        <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(&amp;work_items, &amp;<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-registry-205">registry</a>([<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-agent-209">agent</a>(&quot;executor&quot;, <span class="rs-type">AgentType</span>::<span class="rs-type">Agent</span>)]))
+            .expect(&quot;valid work item plan&quot;);
+
+        <span class="rs-kw">let</span> nodes = <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-execution-nodes-64">execution_nodes</a>(&amp;work_items);
+        assert_eq!(nodes.len(), 2);
+        assert_eq!(nodes[1].work_item_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(), &quot;w2&quot;);
+        assert_eq!(nodes[1].needs[0].<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(), &quot;w1&quot;);
+        assert!(nodes.iter().all(|node| node.task_id.is_none()));
+    }
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/attempt/work_items.rs:160</p>
+</article><article id="item-fn-rejects-duplicate-unknown-cycle-and-non-worker-agent-177" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn rejects_duplicate_unknown_cycle_and_non_worker_agent private fn rejects_duplicate_unknown_cycle_and_non_worker_agent () crates/eos-workflow/src/attempt/work_items.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>rejects_duplicate_unknown_cycle_and_non_worker_agent</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-rejects-duplicate-unknown-cycle-and-non-worker-agent-177">rejects_duplicate_unknown_cycle_and_non_worker_agent</a> ()</code>
+  <div class="tags"><span>test</span></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code>    #[test]
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-rejects-duplicate-unknown-cycle-and-non-worker-agent-177">rejects_duplicate_unknown_cycle_and_non_worker_agent</a>() {
+        <span class="rs-kw">let</span> agents = <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-registry-205">registry</a>([
+            <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-agent-209">agent</a>(&quot;executor&quot;, <span class="rs-type">AgentType</span>::<span class="rs-type">Agent</span>),
+            <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-agent-209">agent</a>(&quot;reviewer&quot;, <span class="rs-type">AgentType</span>::<span class="rs-type">Advisor</span>),
+        ]);
+
+        assert!(<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(
+            &amp;[
+                <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;executor&quot;, &quot;first&quot;, []),
+                <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;executor&quot;, &quot;dupe&quot;, []),
+            ],
+            &amp;agents,
+        )
+        .is_err());
+        assert!(<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(&amp;[<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;executor&quot;, &quot;first&quot;, [&quot;missing&quot;])], &amp;agents)
+            .is_err());
+        assert!(<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(
+            &amp;[
+                <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;executor&quot;, &quot;first&quot;, [&quot;w2&quot;]),
+                <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w2&quot;, &quot;executor&quot;, &quot;second&quot;, [&quot;w1&quot;]),
+            ],
+            &amp;agents,
+        )
+        .is_err());
+        assert!(<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(&amp;[<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;reviewer&quot;, &quot;first&quot;, [])], &amp;agents).is_err());
+    }
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/attempt/work_items.rs:177</p>
+</article><article id="item-fn-registry-205" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn registry private fn registry &lt; const N : usize &gt; (defs : [AgentDefinition ; N]) -&gt; AgentRegistry crates/eos-workflow/src/attempt/work_items.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>registry</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-registry-205">registry</a> &lt; const N : usize &gt; (defs : [AgentDefinition ; N]) -&gt; AgentRegistry</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">fn</span> registry&lt;<span class="rs-kw">const</span> <span class="rs-type">N</span>: usize&gt;(defs: [<span class="rs-type">AgentDefinition</span>; <span class="rs-type">N</span>]) -&gt; <span class="rs-type">AgentRegistry</span> {
+        defs.into_iter().collect()
+    }
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/attempt/work_items.rs:205</p>
+</article><article id="item-fn-agent-209" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn agent private fn agent (name : &amp; str , agent_type : AgentType) -&gt; AgentDefinition crates/eos-workflow/src/attempt/work_items.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>agent</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-agent-209">agent</a> (name : &amp; str , agent_type : AgentType) -&gt; AgentDefinition</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-agent-209">agent</a>(name: &amp;str, agent_type: <span class="rs-type">AgentType</span>) -&gt; <span class="rs-type">AgentDefinition</span> {
+        <span class="rs-type">AgentDefinition</span> {
+            name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(name).expect(&quot;agent name&quot;),
+            description: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(),
+            system_prompt: <span class="rs-type">None</span>,
+            model: <span class="rs-type">None</span>,
+            tool_call_limit: <span class="rs-type">NonZeroU32</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(8).expect(&quot;nonzero&quot;),
+            agent_type,
+            allowed_tools: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(),
+            terminals: vec![&quot;submit_worker_outcome&quot;.to_owned()],
+            notification_triggers: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(),
+            skill: <span class="rs-type">None</span>,
+            context_recipe: <span class="rs-type">None</span>,
+        }
+    }
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/attempt/work_items.rs:209</p>
+</article><article id="item-fn-item-225" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn item private fn item &lt; const N : usize &gt; (id : &amp; str , agent_name : &amp; str , work_spec : &amp; str , needs : [&amp; str ; N] ,) -&gt; WorkItemSpec crates/eos-workflow/src/attempt/work_items.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>item</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a> &lt; const N : usize &gt; (id : &amp; str , agent_name : &amp; str , work_spec : &amp; str , needs : [&amp; str ; N] ,) -&gt; WorkItemSpec</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">fn</span> item&lt;<span class="rs-kw">const</span> <span class="rs-type">N</span>: usize&gt;(
+        id: &amp;str,
+        agent_name: &amp;str,
+        work_spec: &amp;str,
+        needs: [&amp;str; <span class="rs-type">N</span>],
+    ) -&gt; <span class="rs-type">WorkItemSpec</span> {
+        <span class="rs-type">WorkItemSpec</span> {
+            id: <span class="rs-type">WorkItemId</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(id).expect(&quot;work item id&quot;),
+            agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(agent_name).expect(&quot;agent name&quot;),
+            work_spec: work_spec.to_owned(),
+            needs: needs
+                .into_iter()
+                .map(|need| <span class="rs-type">WorkItemId</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(need).expect(&quot;need id&quot;))
+                .collect(),
+        }
+    }
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/attempt/work_items.rs:225</p>
+</article></div>
+</section></div>
+</main>
+<section class="file-source-section">
+  <div class="source-head">
+    <h2>Source File</h2>
+    <p class="path">crates/eos-workflow/src/attempt/work_items.rs</p>
+  </div>
+  <pre class="file-source"><code><span class="rs-kw">use</span> std::collections::{<span class="rs-type">BTreeMap</span>, <span class="rs-type">BTreeSet</span>};
+
+<span class="rs-kw">use</span> eos_types::{
+    <span class="rs-type">AgentRegistry</span>, <span class="rs-type">AgentType</span>, <span class="rs-type">Attempt</span>, <span class="rs-type">ExecutionNode</span>, <span class="rs-type">PlannerOutcome</span>, <span class="rs-type">WorkItemId</span>, <span class="rs-type">WorkItemSpec</span>,
+};
+
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>, <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>};
+
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-workflow--src-attempt-launch-rs.html#item-struct-AttemptResources-136">AttemptResources</a>;
+
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(
+    work_items: &amp;[<span class="rs-type">WorkItemSpec</span>],
+    agents: &amp;<span class="rs-type">AgentRegistry</span>,
+) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;()&gt; {
+    <span class="rs-kw">if</span> work_items.is_empty() {
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(
+            &quot;planner outcome must contain at least one work item&quot;,
+        ));
+    }
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>();
+    <span class="rs-kw">for</span> item <span class="rs-kw">in</span> work_items {
+        <span class="rs-kw">if</span> !ids.insert(item.id.clone()) {
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+                &quot;plan contains duplicate work item id {:?}&quot;,
+                item.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+            )));
+        }
+        <span class="rs-kw">if</span> item.work_spec.trim().is_empty() {
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+                &quot;work item {:?} has blank work_spec&quot;,
+                item.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+            )));
+        }
+        <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent) = agents.<a class="symbol-link rs-fn" href="eos-workflow.html#method-get-48">get</a>(&amp;item.agent_name) <span class="rs-kw">else</span> {
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<span class="rs-type">AgentDefinition</span>(format!(
+                &quot;work item {:?} references unknown agent {:?}&quot;,
+                item.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(),
+                item.agent_name.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+            )));
+        };
+        <span class="rs-kw">if</span> agent.agent_type != <span class="rs-type">AgentType</span>::<span class="rs-type">Agent</span> {
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<span class="rs-type">AgentDefinition</span>(format!(
+                &quot;work item {:?} references agent {:?} with <span class="rs-kw">type</span> {:?}, expected agent&quot;,
+                item.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(),
+                item.agent_name.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(),
+                agent.agent_type
+            )));
+        }
+    }
+    <span class="rs-kw">for</span> item <span class="rs-kw">in</span> work_items {
+        <span class="rs-kw">for</span> need <span class="rs-kw">in</span> &amp;item.needs {
+            <span class="rs-kw">if</span> !ids.contains(need) {
+                <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+                    &quot;work item {:?} needs unknown work item {:?}&quot;,
+                    item.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(),
+                    need.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+                )));
+            }
+        }
+    }
+    <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-assert-acyclic-114">assert_acyclic</a>(work_items)
+}
+
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-execution-nodes-64">execution_nodes</a>(work_items: &amp;[<span class="rs-type">WorkItemSpec</span>]) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">ExecutionNode</span>&gt; {
+    work_items
+        .iter()
+        .map(|item| <span class="rs-type">ExecutionNode</span> {
+            work_item_id: item.id.clone(),
+            needs: item.needs.clone(),
+            task_id: <span class="rs-type">None</span>,
+        })
+        .collect()
+}
+
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> work_item_by_id&lt;&#x27;a&gt;(
+    work_items: &amp;&#x27;a [<span class="rs-type">WorkItemSpec</span>],
+    work_item_id: &amp;<span class="rs-type">WorkItemId</span>,
+) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;&amp;&#x27;a <span class="rs-type">WorkItemSpec</span>&gt; {
+    work_items
+        .iter()
+        .find(|item| &amp;item.id == work_item_id)
+        .ok_or_else(|| <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-not-found-46">not_found</a>(&quot;work item&quot;, work_item_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()))
+}
+
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-planner-outcome-for-attempt-85">planner_outcome_for_attempt</a>(
+    deps: &amp;<a class="symbol-link rs-type" href="eos-workflow--src-attempt-launch-rs.html#item-struct-AttemptResources-136">AttemptResources</a>,
+    attempt: &amp;<span class="rs-type">Attempt</span>,
+) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;<span class="rs-type">PlannerOutcome</span>&gt; {
+    <span class="rs-kw">let</span> planner_task_id = attempt.planner_task_id().ok_or_else(|| {
+        <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+            &quot;attempt {:?} has no planner task&quot;,
+            attempt.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+        ))
+    })?;
+    <span class="rs-kw">let</span> task = deps
+        .task_store
+        .<a class="symbol-link rs-fn" href="eos-workflow.html#method-get-48">get</a>(planner_task_id)
+        .<span class="rs-kw">await</span>?
+        .ok_or_else(|| <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-not-found-46">not_found</a>(&quot;planner task&quot;, planner_task_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()))?;
+    <span class="rs-kw">let</span> outcome = task.task_outcome.ok_or_else(|| {
+        <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+            &quot;planner task {:?} has no planner outcome&quot;,
+            planner_task_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+        ))
+    })?;
+    outcome.planner_outcome().ok_or_else(|| {
+        <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+            &quot;planner task {:?} did not record a planner outcome&quot;,
+            planner_task_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+        ))
+    })
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-assert-acyclic-114">assert_acyclic</a>(work_items: &amp;[<span class="rs-type">WorkItemSpec</span>]) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;()&gt; {
+    <span class="rs-kw">let</span> graph = work_items
+        .iter()
+        .map(|item| (item.id.clone(), item.needs.clone()))
+        .collect::&lt;<span class="rs-type">BTreeMap</span>&lt;_, _&gt;&gt;();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> visiting = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> visited = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>();
+    <span class="rs-kw">for</span> id <span class="rs-kw">in</span> graph.keys() {
+        <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-visit-127">visit</a>(id, &amp;graph, &amp;<span class="rs-kw">mut</span> visiting, &amp;<span class="rs-kw">mut</span> visited)?;
+    }
+    <span class="rs-type">Ok</span>(())
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-visit-127">visit</a>(
+    id: &amp;<span class="rs-type">WorkItemId</span>,
+    graph: &amp;<span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">WorkItemId</span>, <span class="rs-type">Vec</span>&lt;<span class="rs-type">WorkItemId</span>&gt;&gt;,
+    visiting: &amp;<span class="rs-kw">mut</span> <span class="rs-type">BTreeSet</span>&lt;<span class="rs-type">WorkItemId</span>&gt;,
+    visited: &amp;<span class="rs-kw">mut</span> <span class="rs-type">BTreeSet</span>&lt;<span class="rs-type">WorkItemId</span>&gt;,
+) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;()&gt; {
+    <span class="rs-kw">if</span> visited.contains(id) {
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(());
+    }
+    <span class="rs-kw">if</span> !visiting.insert(id.clone()) {
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-invariant-42">invariant</a>(format!(
+            &quot;plan contains a dependency cycle involving {:?}&quot;,
+            id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()
+        )));
+    }
+    <span class="rs-kw">for</span> need <span class="rs-kw">in</span> graph.<a class="symbol-link rs-fn" href="eos-workflow.html#method-get-48">get</a>(id).into_iter().flatten() {
+        <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-visit-127">visit</a>(need, graph, visiting, visited)?;
+    }
+    visiting.remove(id);
+    visited.insert(id.clone());
+    <span class="rs-type">Ok</span>(())
+}
+
+#[cfg(test)]
+<span class="rs-kw">mod</span> tests {
+    <span class="rs-kw">use</span> std::num::<span class="rs-type">NonZeroU32</span>;
+
+    <span class="rs-kw">use</span> eos_types::{
+        <span class="rs-type">AgentDefinition</span>, <span class="rs-type">AgentName</span>, <span class="rs-type">AgentRegistry</span>, <span class="rs-type">AgentType</span>, <span class="rs-type">WorkItemId</span>, <span class="rs-type">WorkItemSpec</span>,
+    };
+
+    <span class="rs-kw">use</span> <span class="rs-kw">super</span>::{execution_nodes, validate_work_items};
+
+    #[test]
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validates-acyclic-worker-plan-and-materializes-nodes-160">validates_acyclic_worker_plan_and_materializes_nodes</a>() {
+        <span class="rs-kw">let</span> work_items = vec![
+            <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;executor&quot;, &quot;first&quot;, []),
+            <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w2&quot;, &quot;executor&quot;, &quot;second&quot;, [&quot;w1&quot;]),
+        ];
+
+        <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(&amp;work_items, &amp;<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-registry-205">registry</a>([<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-agent-209">agent</a>(&quot;executor&quot;, <span class="rs-type">AgentType</span>::<span class="rs-type">Agent</span>)]))
+            .expect(&quot;valid work item plan&quot;);
+
+        <span class="rs-kw">let</span> nodes = <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-execution-nodes-64">execution_nodes</a>(&amp;work_items);
+        assert_eq!(nodes.len(), 2);
+        assert_eq!(nodes[1].work_item_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(), &quot;w2&quot;);
+        assert_eq!(nodes[1].needs[0].<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>(), &quot;w1&quot;);
+        assert!(nodes.iter().all(|node| node.task_id.is_none()));
+    }
+
+    #[test]
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-rejects-duplicate-unknown-cycle-and-non-worker-agent-177">rejects_duplicate_unknown_cycle_and_non_worker_agent</a>() {
+        <span class="rs-kw">let</span> agents = <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-registry-205">registry</a>([
+            <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-agent-209">agent</a>(&quot;executor&quot;, <span class="rs-type">AgentType</span>::<span class="rs-type">Agent</span>),
+            <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-agent-209">agent</a>(&quot;reviewer&quot;, <span class="rs-type">AgentType</span>::<span class="rs-type">Advisor</span>),
+        ]);
+
+        assert!(<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(
+            &amp;[
+                <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;executor&quot;, &quot;first&quot;, []),
+                <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;executor&quot;, &quot;dupe&quot;, []),
+            ],
+            &amp;agents,
+        )
+        .is_err());
+        assert!(<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(&amp;[<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;executor&quot;, &quot;first&quot;, [&quot;missing&quot;])], &amp;agents)
+            .is_err());
+        assert!(<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(
+            &amp;[
+                <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;executor&quot;, &quot;first&quot;, [&quot;w2&quot;]),
+                <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w2&quot;, &quot;executor&quot;, &quot;second&quot;, [&quot;w1&quot;]),
+            ],
+            &amp;agents,
+        )
+        .is_err());
+        assert!(<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-validate-work-items-11">validate_work_items</a>(&amp;[<a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-item-225">item</a>(&quot;w1&quot;, &quot;reviewer&quot;, &quot;first&quot;, [])], &amp;agents).is_err());
+    }
+
+    <span class="rs-kw">fn</span> registry&lt;<span class="rs-kw">const</span> <span class="rs-type">N</span>: usize&gt;(defs: [<span class="rs-type">AgentDefinition</span>; <span class="rs-type">N</span>]) -&gt; <span class="rs-type">AgentRegistry</span> {
+        defs.into_iter().collect()
+    }
+
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-attempt-work-items-rs.html#item-fn-agent-209">agent</a>(name: &amp;str, agent_type: <span class="rs-type">AgentType</span>) -&gt; <span class="rs-type">AgentDefinition</span> {
+        <span class="rs-type">AgentDefinition</span> {
+            name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(name).expect(&quot;agent name&quot;),
+            description: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(),
+            system_prompt: <span class="rs-type">None</span>,
+            model: <span class="rs-type">None</span>,
+            tool_call_limit: <span class="rs-type">NonZeroU32</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(8).expect(&quot;nonzero&quot;),
+            agent_type,
+            allowed_tools: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(),
+            terminals: vec![&quot;submit_worker_outcome&quot;.to_owned()],
+            notification_triggers: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(),
+            skill: <span class="rs-type">None</span>,
+            context_recipe: <span class="rs-type">None</span>,
+        }
+    }
+
+    <span class="rs-kw">fn</span> item&lt;<span class="rs-kw">const</span> <span class="rs-type">N</span>: usize&gt;(
+        id: &amp;str,
+        agent_name: &amp;str,
+        work_spec: &amp;str,
+        needs: [&amp;str; <span class="rs-type">N</span>],
+    ) -&gt; <span class="rs-type">WorkItemSpec</span> {
+        <span class="rs-type">WorkItemSpec</span> {
+            id: <span class="rs-type">WorkItemId</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(id).expect(&quot;work item id&quot;),
+            agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(agent_name).expect(&quot;agent name&quot;),
+            work_spec: work_spec.to_owned(),
+            needs: needs
+                .into_iter()
+                .map(|need| <span class="rs-type">WorkItemId</span>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(need).expect(&quot;need id&quot;))
+                .collect(),
+        }
+    }
+}
+</code></pre>
+</section>
+  <script src="../assets/inventory-data.js"></script>
+  <script src="../assets/inventory.js"></script>
+</body>
+</html>

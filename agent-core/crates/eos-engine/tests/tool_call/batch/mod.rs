@@ -57,12 +57,11 @@ fn intent_for(name: ToolName) -> ToolIntent {
 fn is_terminal(name: ToolName) -> bool {
     matches!(
         name,
-        ToolName::SubmitRootOutcome
-            | ToolName::SubmitGeneratorOutcome
-            | ToolName::SubmitReducerOutcome
-            | ToolName::SubmitPlannerOutcome
-            | ToolName::SubmitAdvisorFeedback
-            | ToolName::SubmitSubagentResult
+        ToolName::SubmitRootTaskOutcome
+            | ToolName::SubmitPlanOutcome
+            | ToolName::SubmitWorkerOutcome
+            | ToolName::SubmitAdvisorOutcome
+            | ToolName::SubmitSubagentOutcome
     )
 }
 
@@ -72,21 +71,24 @@ fn is_terminal(name: ToolName) -> bool {
 fn terminal_batch_rejected() {
     let registry = registry_with(&[
         ToolName::ReadFile,
-        ToolName::SubmitRootOutcome,
+        ToolName::SubmitRootTaskOutcome,
         ToolName::EditFile,
     ]);
 
     // Solo terminal: allowed.
-    assert!(reject_terminal_batch(&[call("t1", "submit_root_outcome")], &registry).is_none());
+    assert!(reject_terminal_batch(&[call("t1", "submit_root_task_outcome")], &registry).is_none());
 
     // Terminal + sibling: every call rejected with the same message.
-    let calls = [call("t1", "submit_root_outcome"), call("t2", "read_file")];
+    let calls = [
+        call("t1", "submit_root_task_outcome"),
+        call("t2", "read_file"),
+    ];
     let rejections = reject_terminal_batch(&calls, &registry).expect("rejected");
     assert_eq!(rejections.len(), 2);
     // Byte-exact verbatim contract (parity "EXACT Rejection Message"): flagged
     // is the sorted/deduped terminal set; called is every call in batch order.
-    let expected = "Terminal tool `submit_root_outcome` must be called alone. This response \
-         batched it with other tools: `submit_root_outcome`, `read_file`. No tool in this \
+    let expected = "Terminal tool `submit_root_task_outcome` must be called alone. This response \
+         batched it with other tools: `submit_root_task_outcome`, `read_file`. No tool in this \
          batch executed. Resubmit with only the exclusive tool in its own final batch.";
     for rej in &rejections {
         assert_eq!(rej.message, expected, "verbatim terminal-batch message");

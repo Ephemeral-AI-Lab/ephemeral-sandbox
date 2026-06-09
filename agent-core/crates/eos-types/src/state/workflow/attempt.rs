@@ -1,36 +1,100 @@
-//! `Attempt` DTO (horizontal-retry axis) and its enums.
-//!
-//! Ports the Attempt half of `workflow/_core/state.py`. An attempt is one
-//! planner-authored plan (a DAG of generator + reducer tasks); the reducer set
-//! is the exit gate.
+//! `Attempt` lifecycle DTOs and execution-tree bindings.
+
+use std::num::NonZeroU32;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{AttemptId, IterationId, TaskId, UtcDateTime, WorkflowId};
+use crate::CoreError;
+use crate::{AttemptId, IterationId, PlanId, TaskId, UtcDateTime, WorkItemId, WorkflowId};
 
-use crate::ExecutionTaskOutcome;
-use crate::{DeferredGoal, MaterializedPlan};
+/// Validated attempt budget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(transparent)]
+pub struct AttemptBudget(NonZeroU32);
 
-/// Stage of an [`Attempt`] (Rust `AttemptStage`).
+impl AttemptBudget {
+    /// Construct a budget from a nonzero count.
+    #[must_use]
+    pub const fn new(value: NonZeroU32) -> Self {
+        Self(value)
+    }
+
+    /// Try to construct a budget from a `u32`.
+    ///
+    /// # Errors
+    /// Returns [`CoreError`] when the count is zero.
+    pub fn try_from_u32(value: u32) -> Result<Self, CoreError> {
+        NonZeroU32::new(value)
+            .map(Self)
+            .ok_or_else(|| CoreError::Store("attempt budget must be greater than zero".to_owned()))
+    }
+
+    /// Try to construct a budget from the database integer representation.
+    ///
+    /// # Errors
+    /// Returns [`CoreError`] when the count is zero, negative, or too large.
+    pub fn try_from_i64(value: i64) -> Result<Self, CoreError> {
+        let value = u32::try_from(value).map_err(|_| {
+            CoreError::Store("attempt budget must fit u32 and be greater than zero".to_owned())
+        })?;
+        Self::try_from_u32(value)
+    }
+
+    /// Return the budget as a plain count.
+    #[must_use]
+    pub const fn get(self) -> u32 {
+        self.0.get()
+    }
+
+    /// Return the database integer representation.
+    #[must_use]
+    pub const fn as_i64(self) -> i64 {
+        self.0.get() as i64
+    }
+}
+
+impl Default for AttemptBudget {
+    fn default() -> Self {
+        Self(NonZeroU32::new(2).unwrap_or(NonZeroU32::MIN))
+    }
+}
+
+impl TryFrom<u32> for AttemptBudget {
+    type Error = CoreError;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Self::try_from_u32(value)
+    }
+}
+
+impl TryFrom<i64> for AttemptBudget {
+    type Error = CoreError;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        Self::try_from_i64(value)
+    }
+}
+
+/// Stage of an [`Attempt`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AttemptStage {
-    /// Planning the generator/reducer DAG.
+    /// Planning the work-item plan.
     Plan,
-    /// Running the planned task set to quiescence.
+    /// Running planned work items.
     Run,
     /// Closed (terminal).
     Closed,
 }
 
-/// Outcome status of an [`Attempt`] (Rust `AttemptStatus`).
+/// Outcome status of an [`Attempt`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AttemptStatus {
     /// In progress.
     Running,
-    /// Passed (reducer gate satisfied).
+    /// Passed.
     Passed,
     /// Failed.
     Failed,
@@ -39,7 +103,7 @@ pub enum AttemptStatus {
 }
 
 impl AttemptStatus {
-    /// The canonical `snake_case` token (matches the `serde` wire form).
+    /// The canonical `snake_case` token.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -51,25 +115,22 @@ impl AttemptStatus {
     }
 }
 
-/// Why an attempt failed (Rust `AttemptFailReason`). Distinct from
-/// `PlannerFailReason` (spec §6.10).
+/// Why an attempt failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AttemptFailReason {
-    /// A task in the plan failed.
+    /// A worker task in the plan failed.
     TaskFailed,
     /// The attempt failed to start up.
     StartupFailed,
 }
 
 /// Terminal closure of an [`Attempt`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AttemptClosure {
-    /// Reducer gate passed.
+    /// All workers passed.
     Passed {
-        /// Recorded execution outcomes.
-        outcomes: Vec<ExecutionTaskOutcome>,
         /// Close timestamp.
         closed_at: UtcDateTime,
     },
@@ -77,8 +138,6 @@ pub enum AttemptClosure {
     Failed {
         /// Required failure reason.
         reason: AttemptFailReason,
-        /// Recorded execution outcomes.
-        outcomes: Vec<ExecutionTaskOutcome>,
         /// Close timestamp.
         closed_at: UtcDateTime,
     },
@@ -86,8 +145,6 @@ pub enum AttemptClosure {
     Cancelled {
         /// Cancellation reason.
         reason: String,
-        /// Recorded execution outcomes.
-        outcomes: Vec<ExecutionTaskOutcome>,
         /// Close timestamp.
         closed_at: UtcDateTime,
     },
@@ -113,49 +170,32 @@ impl AttemptClosure {
         }
     }
 
-    /// Recorded execution outcomes.
-    #[must_use]
-    pub fn outcomes(&self) -> &[ExecutionTaskOutcome] {
-        match self {
-            Self::Passed { outcomes, .. }
-            | Self::Failed { outcomes, .. }
-            | Self::Cancelled { outcomes, .. } => outcomes,
-        }
-    }
-
     /// Close timestamp.
     #[must_use]
     pub const fn closed_at(&self) -> UtcDateTime {
         match self {
-            Self::Passed { closed_at, .. }
+            Self::Passed { closed_at }
             | Self::Failed { closed_at, .. }
             | Self::Cancelled { closed_at, .. } => *closed_at,
         }
     }
 }
 
-/// Lifecycle state of an [`Attempt`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+/// Attempt lifecycle state.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AttemptState {
-    /// Planner task has not materialized a DAG yet.
+    /// Planner has not materialized a plan yet.
     Planning {
-        /// Planner task assigned to this attempt, if PLAN has started.
-        planner_task_id: Option<TaskId>,
+        /// Whether the planner run has been spawned.
+        started: bool,
     },
-    /// Planner task has materialized the generator/reducer DAG.
-    Running {
-        /// Materialized persisted plan.
-        plan: MaterializedPlan,
-    },
+    /// Planner has materialized an execution tree and workers may run.
+    Running,
     /// Attempt is terminal.
     Closed {
         /// Terminal closure.
         closure: AttemptClosure,
-        /// Planner task assigned before close when no materialized plan exists.
-        planner_task_id: Option<TaskId>,
-        /// Materialized plan, when this attempt reached RUN before closing.
-        plan: Option<MaterializedPlan>,
     },
 }
 
@@ -165,7 +205,7 @@ impl AttemptState {
     pub const fn stage(&self) -> AttemptStage {
         match self {
             Self::Planning { .. } => AttemptStage::Plan,
-            Self::Running { .. } => AttemptStage::Run,
+            Self::Running => AttemptStage::Run,
             Self::Closed { .. } => AttemptStage::Closed,
         }
     }
@@ -174,38 +214,8 @@ impl AttemptState {
     #[must_use]
     pub const fn status(&self) -> AttemptStatus {
         match self {
-            Self::Planning { .. } | Self::Running { .. } => AttemptStatus::Running,
-            Self::Closed { closure, .. } => closure.status(),
-        }
-    }
-
-    /// Planner task id, if one is known in this state.
-    #[must_use]
-    pub const fn planner_task_id(&self) -> Option<&TaskId> {
-        match self {
-            Self::Planning { planner_task_id } => planner_task_id.as_ref(),
-            Self::Running { plan } => Some(&plan.planner_task_id),
-            Self::Closed {
-                planner_task_id,
-                plan,
-                ..
-            } => match plan {
-                Some(plan) => Some(&plan.planner_task_id),
-                None => planner_task_id.as_ref(),
-            },
-        }
-    }
-
-    /// Materialized plan, if this state owns one.
-    #[must_use]
-    pub const fn materialized_plan(&self) -> Option<&MaterializedPlan> {
-        match self {
-            Self::Planning { .. } => None,
-            Self::Running { plan } => Some(plan),
-            Self::Closed { plan, .. } => match plan {
-                Some(plan) => Some(plan),
-                None => None,
-            },
+            Self::Planning { .. } | Self::Running => AttemptStatus::Running,
+            Self::Closed { closure } => closure.status(),
         }
     }
 
@@ -213,14 +223,69 @@ impl AttemptState {
     #[must_use]
     pub const fn closure(&self) -> Option<&AttemptClosure> {
         match self {
-            Self::Closed { closure, .. } => Some(closure),
-            Self::Planning { .. } | Self::Running { .. } => None,
+            Self::Closed { closure } => Some(closure),
+            Self::Planning { .. } | Self::Running => None,
         }
     }
 }
 
-/// Immutable view of a persisted Attempt (Rust `state.py:Attempt`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+/// Attempt-owned mapping from planner/work item ids to opaque task ids.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AttemptExecutionTree {
+    /// Attempt-local plan id.
+    pub plan_id: PlanId,
+    /// Opaque planner task id, bound when the planner is spawned.
+    #[serde(default)]
+    pub planner_task_id: Option<TaskId>,
+    /// Work item nodes materialized when the planner submits a plan.
+    #[serde(default)]
+    pub nodes: Vec<ExecutionNode>,
+}
+
+impl AttemptExecutionTree {
+    /// Create an empty execution tree for a freshly minted plan id.
+    #[must_use]
+    pub fn new(plan_id: PlanId) -> Self {
+        Self {
+            plan_id,
+            planner_task_id: None,
+            nodes: Vec::new(),
+        }
+    }
+
+    /// All bound worker task ids.
+    #[must_use]
+    pub fn worker_task_ids(&self) -> Vec<TaskId> {
+        self.nodes
+            .iter()
+            .filter_map(|node| node.task_id.clone())
+            .collect()
+    }
+
+    /// Find one execution node by work item id.
+    #[must_use]
+    pub fn node(&self, work_item_id: &WorkItemId) -> Option<&ExecutionNode> {
+        self.nodes
+            .iter()
+            .find(|node| &node.work_item_id == work_item_id)
+    }
+}
+
+/// One work item execution binding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ExecutionNode {
+    /// Planner-authored work item id.
+    pub work_item_id: WorkItemId,
+    /// Direct work item dependencies.
+    #[serde(default)]
+    pub needs: Vec<WorkItemId>,
+    /// Opaque worker task id, bound when this work item is spawned.
+    #[serde(default)]
+    pub task_id: Option<TaskId>,
+}
+
+/// Immutable view of a persisted Attempt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Attempt {
     /// Attempt identifier.
     pub id: AttemptId,
@@ -228,8 +293,12 @@ pub struct Attempt {
     pub iteration_id: IterationId,
     /// Owning workflow.
     pub workflow_id: WorkflowId,
-    /// Monotonic per-iteration sequence number (unique).
+    /// Monotonic per-iteration sequence number.
     pub attempt_sequence_no: i64,
+    /// Attempt-local plan id.
+    pub plan_id: PlanId,
+    /// Attempt↔task and `work_item`↔task index.
+    pub execution_tree: AttemptExecutionTree,
     /// Lifecycle state.
     pub state: AttemptState,
     /// Creation timestamp.
@@ -257,39 +326,16 @@ impl Attempt {
         matches!(self.state, AttemptState::Closed { .. })
     }
 
-    /// Planner task id, if one is known.
+    /// Planner task id, if bound.
     #[must_use]
     pub const fn planner_task_id(&self) -> Option<&TaskId> {
-        self.state.planner_task_id()
+        self.execution_tree.planner_task_id.as_ref()
     }
 
-    /// Project the resolved plan, if one has been recorded.
+    /// Bound worker task ids.
     #[must_use]
-    pub const fn materialized_plan(&self) -> Option<&MaterializedPlan> {
-        self.state.materialized_plan()
-    }
-
-    /// Generator task ids in the materialized plan.
-    #[must_use]
-    pub fn generator_task_ids(&self) -> &[TaskId] {
-        self.materialized_plan()
-            .map_or(&[], |plan| plan.generator_task_ids.as_slice())
-    }
-
-    /// Reducer task ids in the materialized plan.
-    #[must_use]
-    pub fn reducer_task_ids(&self) -> &[TaskId] {
-        self.materialized_plan()
-            .map_or(&[], |plan| plan.reducer_task_ids.as_slice())
-    }
-
-    /// Deferred goal carried by the materialized plan.
-    #[must_use]
-    pub const fn deferred_goal_for_next_iteration(&self) -> Option<&DeferredGoal> {
-        match self.materialized_plan() {
-            Some(plan) => plan.deferred_goal(),
-            None => None,
-        }
+    pub fn worker_task_ids(&self) -> Vec<TaskId> {
+        self.execution_tree.worker_task_ids()
     }
 
     /// Terminal closure, if closed.
@@ -313,15 +359,6 @@ impl Attempt {
         match self.closure() {
             Some(closure) => Some(closure.closed_at()),
             None => None,
-        }
-    }
-
-    /// Recorded execution outcomes (pre-normalized at the `eos-db` boundary).
-    #[must_use]
-    pub fn outcomes(&self) -> &[ExecutionTaskOutcome] {
-        match self.closure() {
-            Some(closure) => closure.outcomes(),
-            None => &[],
         }
     }
 }

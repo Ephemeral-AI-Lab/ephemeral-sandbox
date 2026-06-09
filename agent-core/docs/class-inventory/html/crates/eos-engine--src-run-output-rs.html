@@ -65,11 +65,11 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a></code>
   <p class="docstring">Output aggregate for live stream observations and durable run records.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Default</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>stream</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-run-output-stream-rs.html#item-type-AgentRunStreamSink-162">AgentRunStreamSink</a> &gt;</code></td></tr><tr><td>private</td><td>record</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-run-output-record-store-rs.html#item-struct-AgentRunRecordStore-16">AgentRunRecordStore</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-40"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a> () -&gt; Self</code><p class="docstring">Create an empty output aggregate.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>stream</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-run-output-stream-rs.html#item-type-AgentRunStreamSink-162">AgentRunStreamSink</a> &gt;</code></td></tr><tr><td>private</td><td>record</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-run-output-record-store-rs.html#item-struct-AgentRunRecordStore-16">AgentRunRecordStore</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-40"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a> () -&gt; Self</code><p class="docstring">Create an empty output aggregate.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Create an empty output aggregate.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>() -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>() -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-config-rs.html#method-default-27">default</a>()
     }
 </code></pre>
@@ -105,9 +105,9 @@
         <span class="rs-self">self</span>.record.as_ref()
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a></code></summary><table><tbody><tr id="method-fmt-31"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a></code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a></code></summary><table><tbody><tr id="method-fmt-31"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a></code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a>&quot;)
             .field(&quot;has_stream&quot;, &amp;<span class="rs-self">self</span>.stream.is_some())
             .field(&quot;has_record&quot;, &amp;<span class="rs-self">self</span>.record.is_some())
@@ -137,7 +137,7 @@
 <span class="rs-kw">mod</span> record_store;
 <span class="rs-kw">mod</span> stream;
 
-<span class="rs-kw">pub</span> <span class="rs-kw">use</span> error::{<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>};
+<span class="rs-kw">pub</span> <span class="rs-kw">use</span> error::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>;
 <span class="rs-kw">pub</span> <span class="rs-kw">use</span> record_store::{
     <a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-AgentRunRecordEvent-279">AgentRunRecordEvent</a>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-enum-AgentRunRecordFinishStatus-232">AgentRunRecordFinishStatus</a>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-AgentRunRecordHandle-120">AgentRunRecordHandle</a>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-AgentRunRecordStore-16">AgentRunRecordStore</a>,
     <a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-MessageAppendRange-259">MessageAppendRange</a>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-MessageBytes-270">MessageBytes</a>,
@@ -155,7 +155,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a>&quot;)
             .field(&quot;has_stream&quot;, &amp;<span class="rs-self">self</span>.stream.is_some())
             .field(&quot;has_record&quot;, &amp;<span class="rs-self">self</span>.record.is_some())
@@ -166,7 +166,7 @@
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a> {
     <span class="rs-comment">/// Create an empty output aggregate.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>() -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>() -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-config-rs.html#method-default-27">default</a>()
     }
 

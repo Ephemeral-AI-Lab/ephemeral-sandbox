@@ -62,7 +62,7 @@
     <h3>run_advisor_approval</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-run-advisor-approval-34">run_advisor_approval</a> (tool : ToolName , ctx : &amp; ExecutionMetadata ,) -&gt; <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a> , ToolError &gt;</code>
+  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-run-advisor-approval-34">run_advisor_approval</a> (tool : ToolName , ctx : &amp; ExecutionMetadata ,) -&gt; <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a> , ToolError &gt;</code>
   <p class="docstring">`AdvisorApprovalPreHook.run`: scan the transcript, classify, deny or pass. The<br>missing-conversation case (no advisor result) classifies `missing` and denies,<br>matching Rust's "no conversation → reason `missing`".</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
@@ -73,12 +73,12 @@
 <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-run-advisor-approval-34">run_advisor_approval</a>(
     tool: <span class="rs-type">ToolName</span>,
     ctx: &amp;<span class="rs-type">ExecutionMetadata</span>,
-) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
+) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
     <span class="rs-kw">let</span> (result, originating) = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-find-latest-advisor-pair-50">find_latest_advisor_pair</a>(&amp;ctx.conversation);
     <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-classify-advisor-approval-104">classify_advisor_approval</a>(result, originating, tool) {
-        <span class="rs-type">None</span> =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-28">pass</a>()),
-        <span class="rs-type">Some</span>(reason) =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<span class="rs-type">Deny</span>(
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-33">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-blocked-message-27">blocked_message</a>(tool), &quot;advisor_approval&quot;).<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-52">with_reason</a>(reason),
+        <span class="rs-type">None</span> =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-27">pass</a>()),
+        <span class="rs-type">Some</span>(reason) =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<span class="rs-type">Deny</span>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-32">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-blocked-message-27">blocked_message</a>(tool), &quot;advisor_approval&quot;).<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-51">with_reason</a>(reason),
         )),
     }
 }
@@ -251,7 +251,7 @@
 <span class="rs-comment">//! from the conversation transcript.</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! There is no port and no engine/agent state: the verdict exists only as a</span>
-<span class="rs-comment">//! `submit_advisor_feedback` result block in the transcript, surfaced as the</span>
+<span class="rs-comment">//! `submit_advisor_outcome` result block in the transcript, surfaced as the</span>
 <span class="rs-comment">//! `ask_advisor` result. The gate reverse-walks [`ExecutionMetadata::conversation`]</span>
 <span class="rs-comment">//! for the latest advisor result, pairs it to the originating `ask_advisor`</span>
 <span class="rs-comment">//! tool-use, and classifies — re-deriving the decision on demand, never reading a</span>
@@ -262,7 +262,7 @@
 
 <span class="rs-kw">use</span> eos_tool::{<span class="rs-type">ExecutionMetadata</span>, <span class="rs-type">ToolError</span>, <span class="rs-type">ToolName</span>};
 
-<span class="rs-kw">use</span> <span class="rs-kw">super</span>::{<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-33">HookDenial</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>};
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::{<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-32">HookDenial</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>};
 
 <span class="rs-kw">const</span> <span class="rs-type">ADVISOR_HELPER_ROLE</span>: &amp;str = &quot;advisor&quot;;
 <span class="rs-kw">const</span> <span class="rs-type">VALID_VERDICTS</span>: [&amp;str; 2] = [&quot;approve&quot;, &quot;reject&quot;];
@@ -286,12 +286,12 @@
 <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-run-advisor-approval-34">run_advisor_approval</a>(
     tool: <span class="rs-type">ToolName</span>,
     ctx: &amp;<span class="rs-type">ExecutionMetadata</span>,
-) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
+) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
     <span class="rs-kw">let</span> (result, originating) = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-find-latest-advisor-pair-50">find_latest_advisor_pair</a>(&amp;ctx.conversation);
     <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-classify-advisor-approval-104">classify_advisor_approval</a>(result, originating, tool) {
-        <span class="rs-type">None</span> =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-28">pass</a>()),
-        <span class="rs-type">Some</span>(reason) =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<span class="rs-type">Deny</span>(
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-33">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-blocked-message-27">blocked_message</a>(tool), &quot;advisor_approval&quot;).<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-52">with_reason</a>(reason),
+        <span class="rs-type">None</span> =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-27">pass</a>()),
+        <span class="rs-type">Some</span>(reason) =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<span class="rs-type">Deny</span>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-32">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-advisor-approval-rs.html#item-fn-blocked-message-27">blocked_message</a>(tool), &quot;advisor_approval&quot;).<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-51">with_reason</a>(reason),
         )),
     }
 }

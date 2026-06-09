@@ -1,26 +1,24 @@
+use std::fs;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use eos_tool::{render_tool_instruction, ToolInstructions, ToolName};
 use eos_types::{
-    AgentDefinition, AgentName, AgentRegistry, AgentType, Attempt, AttemptStore, GeneratorId,
-    IterationStore, PlannerId, ReducerId, RequestId, Task, TaskId, TaskRole, TaskStore, WorkflowId,
-    WorkflowNodeId, WorkflowStore,
+    AgentDefinition, AgentName, AgentRegistry, AgentType, Attempt, AttemptStore, IterationStore,
+    PlanId, RequestId, TaskId, TaskStore, WorkItemId, WorkItemSpec, WorkflowCoordinates,
+    WorkflowStore, WorkflowTaskRole,
 };
 
-use crate::context::{AgentEntryComposer, ContextScope};
-use crate::ids::{generator_id_from_task_id, reducer_id_from_task_id, WorkflowLifecycleConfig};
+use crate::config::WorkflowLifecycleConfig;
+use crate::context::{
+    render_context_xml, render_planner_agent_context, render_task_guidance,
+    render_worker_agent_context, ContextScope,
+};
 use crate::{Result, WorkflowError};
 
-use super::AttemptOrchestratorRegistry;
-use crate::iteration::OpenIterationCoordinatorRegistry;
+use super::{ActiveAttemptRuns, OpenIterationCoordinatorRegistry};
 
 /// Result of one agent run at the workflow seam.
-///
-/// Under Path A-recording the runner no longer ferries a terminal submission
-/// back: the submit tool records the agent's submission straight to the
-/// orchestrator *during* the run. This report carries only whether the engine
-/// run itself broke (a framework fault), which the single `advance_run_stage`
-/// loop uses as the still-RUNNING exhaustion summary for a dead agent.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct AgentRunReport {
     /// A framework-fault summary if the engine run broke; `None` on a clean run.
@@ -28,8 +26,7 @@ pub struct AgentRunReport {
 }
 
 impl AgentRunReport {
-    /// A clean run (the agent recorded its own submission, or none — the loop
-    /// catches a dead agent at join time).
+    /// A clean run.
     #[must_use]
     pub fn ok() -> Self {
         Self {
@@ -37,7 +34,7 @@ impl AgentRunReport {
         }
     }
 
-    /// A run that broke with `summary` (a framework fault).
+    /// A run that broke with `summary`.
     #[must_use]
     pub fn failed(summary: impl Into<String>) -> Self {
         Self {
@@ -53,96 +50,39 @@ pub trait AgentRunner: Send + Sync {
     async fn run(&self, launch: AgentLaunch) -> Result<AgentRunReport>;
 }
 
+/// Planner or worker launch discriminator.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AgentLaunchKind {
+    /// Planner run for the attempt.
+    Planner,
+    /// Worker run for one work item.
+    Worker {
+        /// Planner-authored work item id.
+        work_item_id: WorkItemId,
+    },
+}
+
 /// Launch descriptor for one workflow agent.
 #[derive(Debug, Clone, PartialEq)]
-pub enum AgentLaunch {
-    /// Planner launch.
-    Planner(PlannerLaunch),
-    /// Generator launch.
-    Generator(GeneratorLaunch),
-    /// Reducer launch.
-    Reducer(ReducerLaunch),
-}
-
-/// Launch descriptor for a planner.
-#[derive(Debug, Clone, PartialEq)]
-pub struct PlannerLaunch {
-    /// Task id.
+pub struct AgentLaunch {
+    /// Launch kind.
+    pub kind: AgentLaunchKind,
+    /// Opaque task id.
     pub task_id: TaskId,
-    /// Workflow-local planner id.
-    pub planner_id: PlannerId,
-    /// Request id.
+    /// Owning request.
     pub request_id: RequestId,
-    /// Attempt id.
-    pub attempt_id: eos_types::AttemptId,
-    /// Workflow id.
-    pub workflow_id: WorkflowId,
-    /// Iteration id.
-    pub iteration_id: eos_types::IterationId,
-    /// Profile name.
-    pub agent_name: String,
-    /// Rendered context row.
-    pub context: String,
-    /// Resolved definition.
-    pub agent_def: AgentDefinition,
-    /// Rendered task guidance row.
-    pub task_guidance: Option<String>,
-    /// Skill row.
-    pub skill: Option<String>,
-}
-
-/// Launch descriptor for a generator.
-#[derive(Debug, Clone, PartialEq)]
-pub struct GeneratorLaunch {
-    /// Task id.
-    pub task_id: TaskId,
-    /// Workflow-local generator id.
-    pub generator_id: GeneratorId,
-    /// Request id.
-    pub request_id: RequestId,
-    /// Attempt id.
-    pub attempt_id: eos_types::AttemptId,
-    /// Workflow id.
-    pub workflow_id: WorkflowId,
-    /// Iteration id.
-    pub iteration_id: eos_types::IterationId,
-    /// Profile name.
-    pub agent_name: String,
+    /// Workflow coordinates.
+    pub coords: WorkflowCoordinates,
+    /// Attempt-local plan id.
+    pub plan_id: PlanId,
+    /// Bound profile name.
+    pub agent_name: AgentName,
+    /// Persisted task instruction.
+    pub instruction: String,
     /// Rendered context row.
     pub context: String,
     /// Rendered task guidance row.
     pub task_guidance: Option<String>,
-    /// Needs edges.
-    pub needs: Vec<TaskId>,
-    /// Resolved definition.
-    pub agent_def: AgentDefinition,
-    /// Skill row.
-    pub skill: Option<String>,
-}
-
-/// Launch descriptor for a reducer.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ReducerLaunch {
-    /// Task id.
-    pub task_id: TaskId,
-    /// Workflow-local reducer id.
-    pub reducer_id: ReducerId,
-    /// Request id.
-    pub request_id: RequestId,
-    /// Attempt id.
-    pub attempt_id: eos_types::AttemptId,
-    /// Workflow id.
-    pub workflow_id: WorkflowId,
-    /// Iteration id.
-    pub iteration_id: eos_types::IterationId,
-    /// Profile name.
-    pub agent_name: String,
-    /// Rendered context row.
-    pub context: String,
-    /// Rendered task guidance row.
-    pub task_guidance: Option<String>,
-    /// Needs edges.
-    pub needs: Vec<TaskId>,
     /// Resolved definition.
     pub agent_def: AgentDefinition,
     /// Skill row.
@@ -152,128 +92,44 @@ pub struct ReducerLaunch {
 impl AgentLaunch {
     /// Workflow task role.
     #[must_use]
-    pub const fn role(&self) -> TaskRole {
-        match self {
-            Self::Planner(_) => TaskRole::Planner,
-            Self::Generator(_) => TaskRole::Generator,
-            Self::Reducer(_) => TaskRole::Reducer,
+    pub const fn role(&self) -> WorkflowTaskRole {
+        match self.kind {
+            AgentLaunchKind::Planner => WorkflowTaskRole::Planner,
+            AgentLaunchKind::Worker { .. } => WorkflowTaskRole::Worker,
         }
     }
 
     /// Task id.
     #[must_use]
-    pub fn task_id(&self) -> &TaskId {
-        match self {
-            Self::Planner(launch) => &launch.task_id,
-            Self::Generator(launch) => &launch.task_id,
-            Self::Reducer(launch) => &launch.task_id,
-        }
+    pub const fn task_id(&self) -> &TaskId {
+        &self.task_id
     }
 
-    /// Workflow node id for this launch.
+    /// Worker work item id, if this launch is a worker.
     #[must_use]
-    pub fn workflow_node_id(&self) -> WorkflowNodeId {
-        match self {
-            Self::Planner(launch) => WorkflowNodeId::Planner {
-                planner_id: launch.planner_id.clone(),
-            },
-            Self::Generator(launch) => WorkflowNodeId::Generator {
-                generator_id: launch.generator_id.clone(),
-            },
-            Self::Reducer(launch) => WorkflowNodeId::Reducer {
-                reducer_id: launch.reducer_id.clone(),
-            },
-        }
-    }
-
-    /// Request id.
-    #[must_use]
-    pub fn request_id(&self) -> &RequestId {
-        match self {
-            Self::Planner(launch) => &launch.request_id,
-            Self::Generator(launch) => &launch.request_id,
-            Self::Reducer(launch) => &launch.request_id,
+    pub const fn work_item_id(&self) -> Option<&WorkItemId> {
+        match &self.kind {
+            AgentLaunchKind::Planner => None,
+            AgentLaunchKind::Worker { work_item_id } => Some(work_item_id),
         }
     }
 
     /// Attempt id.
     #[must_use]
-    pub fn attempt_id(&self) -> &eos_types::AttemptId {
-        match self {
-            Self::Planner(launch) => &launch.attempt_id,
-            Self::Generator(launch) => &launch.attempt_id,
-            Self::Reducer(launch) => &launch.attempt_id,
-        }
+    pub const fn attempt_id(&self) -> &eos_types::AttemptId {
+        &self.coords.attempt_id
     }
 
     /// Iteration id.
     #[must_use]
-    pub fn iteration_id(&self) -> &eos_types::IterationId {
-        match self {
-            Self::Planner(launch) => &launch.iteration_id,
-            Self::Generator(launch) => &launch.iteration_id,
-            Self::Reducer(launch) => &launch.iteration_id,
-        }
+    pub const fn iteration_id(&self) -> &eos_types::IterationId {
+        &self.coords.iteration_id
     }
 
     /// Workflow id.
     #[must_use]
-    pub fn workflow_id(&self) -> &WorkflowId {
-        match self {
-            Self::Planner(launch) => &launch.workflow_id,
-            Self::Generator(launch) => &launch.workflow_id,
-            Self::Reducer(launch) => &launch.workflow_id,
-        }
-    }
-
-    /// Agent profile name.
-    #[must_use]
-    pub fn agent_name(&self) -> &str {
-        match self {
-            Self::Planner(launch) => &launch.agent_name,
-            Self::Generator(launch) => &launch.agent_name,
-            Self::Reducer(launch) => &launch.agent_name,
-        }
-    }
-
-    /// Rendered context.
-    #[must_use]
-    pub fn context(&self) -> &str {
-        match self {
-            Self::Planner(launch) => &launch.context,
-            Self::Generator(launch) => &launch.context,
-            Self::Reducer(launch) => &launch.context,
-        }
-    }
-
-    /// Rendered task guidance.
-    #[must_use]
-    pub fn task_guidance(&self) -> Option<&str> {
-        match self {
-            Self::Planner(launch) => launch.task_guidance.as_deref(),
-            Self::Generator(launch) => launch.task_guidance.as_deref(),
-            Self::Reducer(launch) => launch.task_guidance.as_deref(),
-        }
-    }
-
-    /// Resolved agent definition.
-    #[must_use]
-    pub fn agent_def(&self) -> &AgentDefinition {
-        match self {
-            Self::Planner(launch) => &launch.agent_def,
-            Self::Generator(launch) => &launch.agent_def,
-            Self::Reducer(launch) => &launch.agent_def,
-        }
-    }
-
-    /// Skill row.
-    #[must_use]
-    pub fn skill(&self) -> Option<&str> {
-        match self {
-            Self::Planner(launch) => launch.skill.as_deref(),
-            Self::Generator(launch) => launch.skill.as_deref(),
-            Self::Reducer(launch) => launch.skill.as_deref(),
-        }
+    pub const fn workflow_id(&self) -> &eos_types::WorkflowId {
+        &self.coords.workflow_id
     }
 }
 
@@ -290,17 +146,15 @@ pub struct AttemptResources {
     pub(crate) task_store: Arc<dyn TaskStore>,
     /// Agent registry.
     pub(crate) agent_registry: Arc<AgentRegistry>,
-    /// Active orchestrator registry.
-    pub(crate) orchestrator_registry: Arc<AttemptOrchestratorRegistry>,
+    /// Active attempt registry.
+    pub(crate) active_attempt_runs: Arc<ActiveAttemptRuns>,
     /// Open iteration coordinator registry.
     pub(crate) iteration_coordinators: Option<Arc<OpenIterationCoordinatorRegistry>>,
     /// Lifecycle knobs.
     pub(crate) lifecycle_config: WorkflowLifecycleConfig,
-    /// Optional composer.
-    pub(crate) composer: Option<Arc<AgentEntryComposer>>,
     /// Agent runner seam.
     pub(crate) runner: Arc<dyn AgentRunner>,
-    /// Per-attempt run cap.
+    /// Per-attempt worker run cap.
     pub(crate) max_concurrent_task_runs: usize,
 }
 
@@ -312,7 +166,6 @@ impl std::fmt::Debug for AttemptResources {
                 "has_iteration_coordinators",
                 &self.iteration_coordinators.is_some(),
             )
-            .field("has_composer", &self.composer.is_some())
             .finish_non_exhaustive()
     }
 }
@@ -335,21 +188,17 @@ impl AttemptResources {
             task_store,
             agent_registry,
             runner,
-            orchestrator_registry: Arc::new(AttemptOrchestratorRegistry::new()),
+            active_attempt_runs: Arc::new(ActiveAttemptRuns::new()),
             iteration_coordinators: None,
             lifecycle_config: WorkflowLifecycleConfig::default(),
-            composer: None,
             max_concurrent_task_runs: 8,
         }
     }
 
-    /// Use a caller-owned orchestrator registry.
+    /// Use a caller-owned active attempt registry.
     #[must_use]
-    pub fn with_orchestrator_registry(
-        mut self,
-        registry: Arc<AttemptOrchestratorRegistry>,
-    ) -> Self {
-        self.orchestrator_registry = registry;
+    pub fn with_active_attempt_runs(mut self, registry: Arc<ActiveAttemptRuns>) -> Self {
+        self.active_attempt_runs = registry;
         self
     }
 
@@ -370,14 +219,7 @@ impl AttemptResources {
         self
     }
 
-    /// Use a caller-supplied entry composer.
-    #[must_use]
-    pub fn with_composer(mut self, composer: Arc<AgentEntryComposer>) -> Self {
-        self.composer = Some(composer);
-        self
-    }
-
-    /// Use a caller-supplied per-attempt task-run concurrency cap.
+    /// Use a caller-supplied per-attempt worker-run concurrency cap.
     #[must_use]
     pub fn with_max_concurrent_task_runs(mut self, max: usize) -> Self {
         self.max_concurrent_task_runs = max;
@@ -385,16 +227,11 @@ impl AttemptResources {
     }
 
     pub(crate) async fn request_id_for_attempt(&self, attempt: &Attempt) -> Result<RequestId> {
-        let iteration = self
-            .iteration_store
-            .get(&attempt.iteration_id)
-            .await?
-            .ok_or_else(|| WorkflowError::not_found("iteration", attempt.iteration_id.as_str()))?;
         let workflow = self
             .workflow_store
-            .get(&iteration.workflow_id)
+            .get(&attempt.workflow_id)
             .await?
-            .ok_or_else(|| WorkflowError::not_found("workflow", iteration.workflow_id.as_str()))?;
+            .ok_or_else(|| WorkflowError::not_found("workflow", attempt.workflow_id.as_str()))?;
         Ok(workflow.request_id)
     }
 }
@@ -403,19 +240,6 @@ impl AttemptResources {
 #[derive(Debug, Clone)]
 pub struct AgentLaunchFactory {
     deps: AttemptResources,
-}
-
-struct LaunchBuildArgs<'a> {
-    base_agent_name: &'a str,
-    role: TaskRole,
-    scope: ContextScope,
-    task_id: TaskId,
-    workflow_node_id: WorkflowNodeId,
-    request_id: RequestId,
-    attempt_id: eos_types::AttemptId,
-    iteration_id: eos_types::IterationId,
-    needs: Vec<TaskId>,
-    workflow_id: WorkflowId,
 }
 
 impl AgentLaunchFactory {
@@ -428,7 +252,6 @@ impl AgentLaunchFactory {
     pub(crate) async fn for_planner(
         &self,
         attempt: &Attempt,
-        planner_id: PlannerId,
         task_id: TaskId,
     ) -> Result<AgentLaunch> {
         let iteration = self
@@ -437,30 +260,37 @@ impl AgentLaunchFactory {
             .get(&attempt.iteration_id)
             .await?
             .ok_or_else(|| WorkflowError::not_found("iteration", attempt.iteration_id.as_str()))?;
-        self.build(LaunchBuildArgs {
-            base_agent_name: "planner",
-            role: TaskRole::Planner,
-            scope: ContextScope::for_planner(
-                iteration.workflow_id.clone(),
-                iteration.id.clone(),
-                attempt.id.clone(),
-            ),
+        let agent_name = AgentName::new("planner")?;
+        let agent_def = self.agent_definition(&agent_name, WorkflowTaskRole::Planner)?;
+        let context = render_planner_agent_context(&self.deps, attempt, &task_id).await?;
+        let context_xml = render_context_xml(&context);
+        Ok(AgentLaunch {
+            kind: AgentLaunchKind::Planner,
             task_id,
-            workflow_node_id: WorkflowNodeId::Planner { planner_id },
             request_id: self.deps.request_id_for_attempt(attempt).await?,
-            attempt_id: attempt.id.clone(),
-            iteration_id: iteration.id,
-            needs: Vec::new(),
-            workflow_id: iteration.workflow_id,
+            coords: WorkflowCoordinates {
+                workflow_id: attempt.workflow_id.clone(),
+                iteration_id: iteration.id,
+                attempt_id: attempt.id.clone(),
+            },
+            plan_id: attempt.plan_id.clone(),
+            agent_name,
+            instruction: context_xml.clone(),
+            context: context_xml,
+            task_guidance: Some(wrap_task_guidance(
+                &render_task_guidance(&context),
+                &agent_def,
+            )),
+            skill: build_skill_message(&agent_def)?,
+            agent_def,
         })
-        .await
     }
 
-    pub(crate) async fn for_generator(
+    pub(crate) async fn for_worker(
         &self,
         attempt: &Attempt,
-        task: &Task,
-        base_agent_name: &str,
+        work_item: &WorkItemSpec,
+        task_id: TaskId,
     ) -> Result<AgentLaunch> {
         let iteration = self
             .deps
@@ -468,143 +298,140 @@ impl AgentLaunchFactory {
             .get(&attempt.iteration_id)
             .await?
             .ok_or_else(|| WorkflowError::not_found("iteration", attempt.iteration_id.as_str()))?;
-        self.build(LaunchBuildArgs {
-            base_agent_name,
-            role: TaskRole::Generator,
-            scope: ContextScope::for_generator(
-                iteration.workflow_id.clone(),
-                iteration.id.clone(),
-                attempt.id.clone(),
-                task.id.clone(),
-            ),
-            task_id: task.id.clone(),
-            workflow_node_id: WorkflowNodeId::Generator {
-                generator_id: generator_id_from_task_id(&attempt.id, &task.id)?,
+        let agent_def = self.agent_definition(&work_item.agent_name, WorkflowTaskRole::Worker)?;
+        let context = render_worker_agent_context(&self.deps, attempt, work_item, &task_id).await?;
+        let context_xml = render_context_xml(&context);
+        Ok(AgentLaunch {
+            kind: AgentLaunchKind::Worker {
+                work_item_id: work_item.id.clone(),
             },
-            request_id: task.request_id.clone(),
-            attempt_id: attempt.id.clone(),
-            iteration_id: iteration.id,
-            needs: task.needs.clone(),
-            workflow_id: iteration.workflow_id,
+            task_id,
+            request_id: self.deps.request_id_for_attempt(attempt).await?,
+            coords: WorkflowCoordinates {
+                workflow_id: attempt.workflow_id.clone(),
+                iteration_id: iteration.id,
+                attempt_id: attempt.id.clone(),
+            },
+            plan_id: attempt.plan_id.clone(),
+            agent_name: work_item.agent_name.clone(),
+            instruction: work_item.work_spec.clone(),
+            context: context_xml,
+            task_guidance: Some(wrap_task_guidance(
+                &render_task_guidance(&context),
+                &agent_def,
+            )),
+            skill: build_skill_message(&agent_def)?,
+            agent_def,
         })
-        .await
     }
 
-    pub(crate) async fn for_reducer(&self, attempt: &Attempt, task: &Task) -> Result<AgentLaunch> {
-        let iteration = self
-            .deps
-            .iteration_store
-            .get(&attempt.iteration_id)
-            .await?
-            .ok_or_else(|| WorkflowError::not_found("iteration", attempt.iteration_id.as_str()))?;
-        self.build(LaunchBuildArgs {
-            base_agent_name: "reducer",
-            role: TaskRole::Reducer,
-            scope: ContextScope::for_reducer(
-                iteration.workflow_id.clone(),
-                iteration.id.clone(),
-                attempt.id.clone(),
-                task.id.clone(),
-            ),
-            task_id: task.id.clone(),
-            workflow_node_id: WorkflowNodeId::Reducer {
-                reducer_id: reducer_id_from_task_id(&attempt.id, &task.id)?,
-            },
-            request_id: task.request_id.clone(),
-            attempt_id: attempt.id.clone(),
-            iteration_id: iteration.id,
-            needs: task.needs.clone(),
-            workflow_id: iteration.workflow_id,
-        })
-        .await
-    }
-
-    async fn build(&self, args: LaunchBuildArgs<'_>) -> Result<AgentLaunch> {
-        let name = AgentName::new(args.base_agent_name)?;
+    fn agent_definition(
+        &self,
+        agent_name: &AgentName,
+        role: WorkflowTaskRole,
+    ) -> Result<AgentDefinition> {
         let agent_def = self
             .deps
             .agent_registry
-            .get(&name)
+            .get(agent_name)
             .ok_or_else(|| {
                 WorkflowError::AgentDefinition(format!(
                     "workflow agent definition {:?} is not registered",
-                    args.base_agent_name
+                    agent_name.as_str()
                 ))
             })?
             .as_ref()
             .clone();
         if agent_def.agent_type != AgentType::Agent {
             return Err(WorkflowError::invariant(format!(
-                "workflow launch {:?} is bound to agent {:?} with type {:?}, expected agent",
-                args.role.as_str(),
-                args.base_agent_name,
+                "workflow {} launch is bound to agent {:?} with type {:?}, expected agent",
+                role.as_str(),
+                agent_name.as_str(),
                 agent_def.agent_type
             )));
         }
-        let (context, task_guidance, agent_def, skill) = if let Some(composer) = &self.deps.composer
-        {
-            let messages = composer.compose(args.base_agent_name, &args.scope).await?;
-            (
-                messages.context,
-                messages.task_guidance,
-                messages.agent_def,
-                messages.skill,
-            )
-        } else {
-            (
-                format!(
-                    "{} context for {}",
-                    args.scope.role().as_str(),
-                    args.base_agent_name
-                ),
-                None,
-                agent_def,
-                None,
-            )
+        Ok(agent_def)
+    }
+}
+
+fn wrap_task_guidance(prose: &str, agent_def: &AgentDefinition) -> String {
+    let body = prose.trim_end();
+    if let Some(block) = terminal_selection_block(agent_def) {
+        format!("<Task Guidance>\n{body}\n\n{block}\n</Task Guidance>")
+    } else {
+        format!("<Task Guidance>\n{body}\n</Task Guidance>")
+    }
+}
+
+fn build_skill_message(agent_def: &AgentDefinition) -> Result<Option<String>> {
+    let Some(path) = &agent_def.skill else {
+        return Ok(None);
+    };
+    let raw =
+        fs::read_to_string(path).map_err(|err| WorkflowError::AgentDefinition(err.to_string()))?;
+    let body = strip_frontmatter(&raw).trim().to_owned();
+    let skill_name = path
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|s| s.to_str())
+        .unwrap_or("skill");
+    let mut parts = vec![
+        format!("Load skill: {skill_name}"),
+        String::new(),
+        "<skill>".to_owned(),
+        body,
+        "</skill>".to_owned(),
+    ];
+    if let Some(block) = terminal_selection_block(agent_def) {
+        parts.push(String::new());
+        parts.push(block);
+    }
+    Ok(Some(parts.join("\n")))
+}
+
+fn strip_frontmatter(raw: &str) -> &str {
+    let Some(rest) = raw.strip_prefix("---") else {
+        return raw;
+    };
+    let Some((_, body)) = rest.split_once("\n---") else {
+        return raw;
+    };
+    body
+}
+
+fn terminal_selection_block(agent_def: &AgentDefinition) -> Option<String> {
+    let mut terminals = Vec::new();
+    for terminal in &agent_def.terminals {
+        let Ok(name) = terminal.parse::<ToolName>() else {
+            continue;
         };
-        let agent_name = args.base_agent_name.to_owned();
-        Ok(match args.workflow_node_id {
-            WorkflowNodeId::Planner { planner_id } => AgentLaunch::Planner(PlannerLaunch {
-                task_id: args.task_id,
-                planner_id,
-                request_id: args.request_id,
-                attempt_id: args.attempt_id,
-                workflow_id: args.workflow_id,
-                iteration_id: args.iteration_id,
-                agent_name,
-                context,
-                agent_def,
-                task_guidance,
-                skill,
-            }),
-            WorkflowNodeId::Generator { generator_id } => AgentLaunch::Generator(GeneratorLaunch {
-                task_id: args.task_id,
-                generator_id,
-                request_id: args.request_id,
-                attempt_id: args.attempt_id,
-                workflow_id: args.workflow_id,
-                iteration_id: args.iteration_id,
-                agent_name,
-                context,
-                task_guidance,
-                needs: args.needs,
-                agent_def,
-                skill,
-            }),
-            WorkflowNodeId::Reducer { reducer_id } => AgentLaunch::Reducer(ReducerLaunch {
-                task_id: args.task_id,
-                reducer_id,
-                request_id: args.request_id,
-                attempt_id: args.attempt_id,
-                workflow_id: args.workflow_id,
-                iteration_id: args.iteration_id,
-                agent_name,
-                context,
-                task_guidance,
-                needs: args.needs,
-                agent_def,
-                skill,
-            }),
-        })
+        terminals.push(name);
+    }
+    if terminals.is_empty() {
+        None
+    } else {
+        let catalog = render_tool_instruction(&terminals, ToolInstructions::SelectionGuidance);
+        Some(format!(
+            "<terminal_tool_selection>\n{catalog}\n</terminal_tool_selection>"
+        ))
+    }
+}
+
+#[allow(dead_code)]
+fn _scope_for_launch(launch: &AgentLaunch) -> ContextScope {
+    match &launch.kind {
+        AgentLaunchKind::Planner => ContextScope::for_planner(
+            launch.coords.workflow_id.clone(),
+            launch.coords.iteration_id.clone(),
+            launch.coords.attempt_id.clone(),
+            launch.task_id.clone(),
+        ),
+        AgentLaunchKind::Worker { work_item_id } => ContextScope::for_worker(
+            launch.coords.workflow_id.clone(),
+            launch.coords.iteration_id.clone(),
+            launch.coords.attempt_id.clone(),
+            launch.task_id.clone(),
+            work_item_id.clone(),
+        ),
     }
 }

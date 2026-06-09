@@ -84,22 +84,22 @@
         }
     }
 </code></pre>
-</details></td></tr><tr id="method-live-event-sink-factory-100"><td>method</td><td>live_event_sink_factory</td><td><code>pub fn <a class="symbol-link" href="eos-backend-runtime.html#method-live-event-sink-factory-100">live_event_sink_factory</a> (self : &amp; Arc &lt; Self &gt;) -&gt; EngineEventSinkFactory</code><p class="docstring">Build the per-loop live sink factory consumed by `TokioAgentLoopLauncher`.</p><details class="function-source">
+</details></td></tr><tr id="method-stream-sink-factory-100"><td>method</td><td>stream_sink_factory</td><td><code>pub fn <a class="symbol-link" href="eos-backend-runtime.html#method-stream-sink-factory-100">stream_sink_factory</a> (self : &amp; Arc &lt; Self &gt;) -&gt; AgentRunStreamSinkFactory</code><p class="docstring">Build the per-loop live sink factory consumed by `TokioAgentLoopLauncher`.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Build the per-loop live sink factory consumed by `TokioAgentLoopLauncher`.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-live-event-sink-factory-100">live_event_sink_factory</a>(<span class="rs-self">self</span>: &amp;<span class="rs-type">Arc</span>&lt;<span class="rs-self">Self</span>&gt;) -&gt; <span class="rs-type">EngineEventSinkFactory</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-stream-sink-factory-100">stream_sink_factory</a>(<span class="rs-self">self</span>: &amp;<span class="rs-type">Arc</span>&lt;<span class="rs-self">Self</span>&gt;) -&gt; <span class="rs-type">AgentRunStreamSinkFactory</span> {
         <span class="rs-kw">let</span> bus = <span class="rs-type">Arc</span>::clone(<span class="rs-self">self</span>);
         <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">move</span> |request| <span class="rs-type">Some</span>(bus.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-107">register</a>(&amp;request.record_target.request_id)))
     }
 </code></pre>
-</details></td></tr><tr id="method-register-107"><td>method</td><td>register</td><td><code>pub fn <a class="symbol-link" href="eos-backend-runtime.html#method-register-107">register</a> (&amp; self , request_id : &amp; RequestId) -&gt; EngineEventSink</code><p class="docstring">Register one agent loop under its owning request and return its sync event<br>sink. The returned sink must be dropped when the loop finishes; dropping the<br>last sink for a request closes its live tail after the drainer flushes.</p><details class="function-source">
+</details></td></tr><tr id="method-register-107"><td>method</td><td>register</td><td><code>pub fn <a class="symbol-link" href="eos-backend-runtime.html#method-register-107">register</a> (&amp; self , request_id : &amp; RequestId) -&gt; AgentRunStreamSink</code><p class="docstring">Register one agent loop under its owning request and return its sync event<br>sink. The returned sink must be dropped when the loop finishes; dropping the<br>last sink for a request closes its live tail after the drainer flushes.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Register one agent loop under its owning request and return its sync event</span>
     <span class="rs-comment">/// sink. The returned sink must be dropped when the loop finishes; dropping the</span>
     <span class="rs-comment">/// last sink for a request closes its live tail after the drainer flushes.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-107">register</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">EngineEventSink</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-107">register</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">AgentRunStreamSink</span> {
         <span class="rs-kw">let</span> handle = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-stream-for-request-130">stream_for_request</a>(request_id);
         handle.active_sinks.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">AcqRel</span>);
         <span class="rs-kw">let</span> guard = <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-SinkGuard-53">SinkGuard</a> {
@@ -109,7 +109,7 @@
         };
         <span class="rs-kw">let</span> tx = handle.tx.clone();
         <span class="rs-kw">let</span> stream = handle.stream.clone();
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">move</span> |event: &amp;<span class="rs-type">StreamEvent</span>| {
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">move</span> |event: &amp;<span class="rs-type">AgentRunStreamEvent</span>| {
             <span class="rs-kw">let</span> _keep_alive = &amp;guard;
             <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(payload) = serde_json::to_value(event) <span class="rs-kw">else</span> {
                 <span class="rs-kw">return</span>;
@@ -354,17 +354,17 @@
 </details>
 
   <p class="source">crates/eos-backend-runtime/src/event_bus.rs:202</p>
-</article><article id="item-fn-is-delta-207" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn is_delta private const fn is_delta (kind : &amp; str) -&gt; bool crates/eos-backend-runtime/src/event_bus.rs  ">
+</article><article id="item-fn-is-delta-207" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn is_delta private fn is_delta (kind : &amp; str) -&gt; bool crates/eos-backend-runtime/src/event_bus.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>is_delta</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">const fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a> (kind : &amp; str) -&gt; bool</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a> (kind : &amp; str) -&gt; bool</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a>(kind: &amp;str) -&gt; bool {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a>(kind: &amp;str) -&gt; bool {
     matches!(
         kind,
         &quot;reasoning_delta&quot; | &quot;assistant_text_delta&quot; | &quot;tool_execution_progress&quot;
@@ -521,7 +521,7 @@
 
 <span class="rs-kw">use</span> eos_backend_store::{<span class="rs-type">EventLogRepo</span>, <span class="rs-type">StoreError</span>};
 <span class="rs-kw">use</span> eos_backend_types::{<span class="rs-type">EventRecord</span>, <span class="rs-type">EVENT_STREAM_GAP</span>};
-<span class="rs-kw">use</span> eos_engine::{<span class="rs-type">EngineEventSink</span>, <span class="rs-type">EngineEventSinkFactory</span>, <span class="rs-type">StreamEvent</span>};
+<span class="rs-kw">use</span> eos_engine::{<span class="rs-type">AgentRunStreamEvent</span>, <span class="rs-type">AgentRunStreamSink</span>, <span class="rs-type">AgentRunStreamSinkFactory</span>};
 <span class="rs-kw">use</span> eos_types::{<span class="rs-type">RequestId</span>, <span class="rs-type">UtcDateTime</span>};
 
 <span class="rs-kw">const</span> <span class="rs-type">DEFAULT_QUEUE_CAPACITY</span>: usize = 1024;
@@ -604,7 +604,7 @@
 
     <span class="rs-comment">/// Build the per-loop live sink factory consumed by `TokioAgentLoopLauncher`.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-live-event-sink-factory-100">live_event_sink_factory</a>(<span class="rs-self">self</span>: &amp;<span class="rs-type">Arc</span>&lt;<span class="rs-self">Self</span>&gt;) -&gt; <span class="rs-type">EngineEventSinkFactory</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-stream-sink-factory-100">stream_sink_factory</a>(<span class="rs-self">self</span>: &amp;<span class="rs-type">Arc</span>&lt;<span class="rs-self">Self</span>&gt;) -&gt; <span class="rs-type">AgentRunStreamSinkFactory</span> {
         <span class="rs-kw">let</span> bus = <span class="rs-type">Arc</span>::clone(<span class="rs-self">self</span>);
         <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">move</span> |request| <span class="rs-type">Some</span>(bus.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-107">register</a>(&amp;request.record_target.request_id)))
     }
@@ -613,7 +613,7 @@
     <span class="rs-comment">/// sink. The returned sink must be dropped when the loop finishes; dropping the</span>
     <span class="rs-comment">/// last sink for a request closes its live tail after the drainer flushes.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-107">register</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">EngineEventSink</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-107">register</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">AgentRunStreamSink</span> {
         <span class="rs-kw">let</span> handle = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-stream-for-request-130">stream_for_request</a>(request_id);
         handle.active_sinks.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">AcqRel</span>);
         <span class="rs-kw">let</span> guard = <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-SinkGuard-53">SinkGuard</a> {
@@ -623,7 +623,7 @@
         };
         <span class="rs-kw">let</span> tx = handle.tx.clone();
         <span class="rs-kw">let</span> stream = handle.stream.clone();
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">move</span> |event: &amp;<span class="rs-type">StreamEvent</span>| {
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">move</span> |event: &amp;<span class="rs-type">AgentRunStreamEvent</span>| {
             <span class="rs-kw">let</span> _keep_alive = &amp;guard;
             <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(payload) = serde_json::to_value(event) <span class="rs-kw">else</span> {
                 <span class="rs-kw">return</span>;
@@ -709,7 +709,7 @@
     (!<a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a>(kind)).then_some(kind)
 }
 
-<span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a>(kind: &amp;str) -&gt; bool {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a>(kind: &amp;str) -&gt; bool {
     matches!(
         kind,
         &quot;reasoning_delta&quot; | &quot;assistant_text_delta&quot; | &quot;tool_execution_progress&quot;

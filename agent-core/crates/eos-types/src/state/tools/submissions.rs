@@ -1,72 +1,62 @@
-//! Validated terminal-outcome submission DTOs (tools ↔ workflow contract).
-//!
-//! Ports `workflow/submissions.py`. `Literal[...]` fields become enums; the
-//! generator/reducer `status` reuses [`TaskOutcomeStatus`] (DRY, spec §6.10).
+//! Validated terminal-outcome submission DTOs.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{AttemptId, JsonObject, TaskId};
+use crate::{AttemptId, DeferredGoal, TaskId, WorkItemId, WorkItemSpec};
 
-use crate::MaterializedPlan;
-use crate::TaskOutcomeStatus;
-
-/// Why a planner submission failed (Rust `Literal["run_exhausted"]`).
-/// Distinct from `AttemptFailReason` (spec §6.10).
+/// Model-facing pass/fail status used by terminal outcome tools.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum PlannerFailReason {
-    /// The attempt's run budget was exhausted.
-    RunExhausted,
+pub enum SubmissionStatus {
+    /// Terminal reports a pass.
+    Success,
+    /// Terminal reports a failure.
+    Failed,
 }
 
-/// Validated planner submission from a full or partial plan tool
-/// (Rust `PlannerSubmission`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct PlannerSubmission {
-    /// Owning attempt.
-    pub attempt_id: AttemptId,
-    /// Resolved plan authored by the planner.
-    pub plan: MaterializedPlan,
+impl SubmissionStatus {
+    /// Whether this status maps to a passing outcome.
+    #[must_use]
+    pub const fn is_pass(self) -> bool {
+        matches!(self, Self::Success)
+    }
+
+    /// The canonical `snake_case` token.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Success => "success",
+            Self::Failed => "failed",
+        }
+    }
 }
 
-/// Runtime-synthesized planner failure (Rust `PlannerFailureSubmission`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct PlannerFailureSubmission {
+/// Validated planner plan submission.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct PlanOutcomeSubmission {
     /// Owning attempt.
     pub attempt_id: AttemptId,
-    /// The planner task that failed.
-    pub planner_task_id: TaskId,
-    /// The planner failure reason.
-    pub fail_reason: PlannerFailReason,
+    /// Planner-level explanation of the work item plan.
+    pub plan_spec: String,
+    /// Planner-authored work items.
+    pub work_items: Vec<WorkItemSpec>,
+    /// Concrete current-iteration goal items carried to the next iteration.
+    #[serde(default)]
+    pub deferred_goal_for_next_iteration: Option<DeferredGoal>,
 }
 
-/// Validated terminal outcome for one generator task (Rust `GeneratorSubmission`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct GeneratorSubmission {
+/// Validated terminal outcome for one worker.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct WorkerOutcomeSubmission {
     /// Owning attempt.
     pub attempt_id: AttemptId,
-    /// The generator task.
+    /// Opaque worker task id.
     pub task_id: TaskId,
+    /// Planner-authored work item id.
+    pub work_item_id: WorkItemId,
     /// Success or failure.
-    pub status: TaskOutcomeStatus,
-    /// Free-text outcome summary.
+    pub status: SubmissionStatus,
+    /// Natural-language deliverable or blocker.
     pub outcome: String,
-    /// Flattened terminal payload (always present on a terminal submit).
-    pub terminal_payload: JsonObject,
-}
-
-/// Validated terminal outcome for one reducer task (Rust `ReducerSubmission`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct ReducerSubmission {
-    /// Owning attempt.
-    pub attempt_id: AttemptId,
-    /// The reducer task.
-    pub task_id: TaskId,
-    /// Success or failure.
-    pub status: TaskOutcomeStatus,
-    /// Free-text outcome summary.
-    pub outcome: String,
-    /// Flattened terminal payload (always present on a terminal submit).
-    pub terminal_payload: JsonObject,
 }

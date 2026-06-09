@@ -1,6 +1,6 @@
 //! Layer-A stepping: pull an engine event stream to a chosen checkpoint.
 
-use eos_engine::{EngineError, AgentRunStreamEvent};
+use eos_engine::{AgentRunStreamEvent, EngineError};
 use futures::Stream;
 use futures::StreamExt;
 

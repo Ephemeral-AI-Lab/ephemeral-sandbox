@@ -62,7 +62,7 @@
     <h3>execute_tool_once</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub async fn <a class="symbol-link" href="eos-engine--src-tool-call-execute-rs.html#item-fn-execute-tool-once-9">execute_tool_once</a> (tool : &amp; RegisteredTool , raw_input : &amp; JsonObject , ctx : &amp; ExecutionMetadata , hooks : Option &lt; &amp; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a> &gt; ,) -&gt; <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; ToolResult , ToolError &gt;</code>
+  <code class="signature">pub async fn <a class="symbol-link" href="eos-engine--src-tool-call-execute-rs.html#item-fn-execute-tool-once-9">execute_tool_once</a> (tool : &amp; RegisteredTool , raw_input : &amp; JsonObject , ctx : &amp; ExecutionMetadata , hooks : Option &lt; &amp; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a> &gt; ,) -&gt; <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; ToolResult , ToolError &gt;</code>
   <p class="docstring">Run one tool call end-to-end.<br>Returns `Ok(ToolResult)` for normal execution, including in-band tool-domain<br>errors. Returns `Err(ToolError)` only on framework faults surfaced by hooks or<br>the executor body.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
@@ -76,7 +76,7 @@
     tool: &amp;<span class="rs-type">RegisteredTool</span>,
     raw_input: &amp;<span class="rs-type">JsonObject</span>,
     ctx: &amp;<span class="rs-type">ExecutionMetadata</span>,
-    hooks: <span class="rs-type">Option</span>&lt;&amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>&gt;,
+    hooks: <span class="rs-type">Option</span>&lt;&amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>&gt;,
 ) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">ToolResult</span>, <span class="rs-type">ToolError</span>&gt; {
     <span class="rs-kw">if</span> raw_input.contains_key(&quot;background&quot;) {
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">ToolResult</span>::error(format!(
@@ -104,7 +104,7 @@
     <h3>run_pre_hooks</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub async fn <a class="symbol-link" href="eos-engine--src-tool-call-execute-rs.html#item-fn-run-pre-hooks-37">run_pre_hooks</a> (tool : &amp; RegisteredTool , raw_input : &amp; JsonObject , ctx : &amp; ExecutionMetadata , hooks : Option &lt; &amp; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a> &gt; ,) -&gt; <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; Option &lt; ToolResult &gt; , ToolError &gt;</code>
+  <code class="signature">pub async fn <a class="symbol-link" href="eos-engine--src-tool-call-execute-rs.html#item-fn-run-pre-hooks-37">run_pre_hooks</a> (tool : &amp; RegisteredTool , raw_input : &amp; JsonObject , ctx : &amp; ExecutionMetadata , hooks : Option &lt; &amp; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a> &gt; ,) -&gt; <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; Option &lt; ToolResult &gt; , ToolError &gt;</code>
   <p class="docstring">Run a tool's ordered pre-hooks.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
@@ -114,12 +114,12 @@
     tool: &amp;<span class="rs-type">RegisteredTool</span>,
     raw_input: &amp;<span class="rs-type">JsonObject</span>,
     ctx: &amp;<span class="rs-type">ExecutionMetadata</span>,
-    hooks: <span class="rs-type">Option</span>&lt;&amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>&gt;,
+    hooks: <span class="rs-type">Option</span>&lt;&amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>&gt;,
 ) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">ToolResult</span>&gt;, <span class="rs-type">ToolError</span>&gt; {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> hook_trace: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Value</span>&gt; = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> hook_trace: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Value</span>&gt; = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     <span class="rs-kw">for</span> &amp;hook <span class="rs-kw">in</span> &amp;tool.hooks {
-        <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-run-hook-148">run_hook</a>(hook, raw_input, ctx, hooks).<span class="rs-kw">await</span>? {
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<span class="rs-type">Pass</span>(meta) =&gt; hook_trace.push(json!({
+        <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-run-hook-112">run_hook</a>(hook, raw_input, ctx, hooks).<span class="rs-kw">await</span>? {
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<span class="rs-type">Pass</span>(meta) =&gt; hook_trace.push(json!({
                 &quot;phase&quot;: &quot;pre&quot;,
                 &quot;hook_name&quot;: hook.hook_name(),
                 &quot;status&quot;: &quot;pass&quot;,
@@ -127,8 +127,8 @@
                 &quot;message&quot;: &quot;&quot;,
                 &quot;metadata&quot;: meta,
             })),
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<span class="rs-type">Deny</span>(denial) =&gt; {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-hook-failure-result-178">hook_failure_result</a>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<span class="rs-type">Deny</span>(denial) =&gt; {
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-hook-failure-result-142">hook_failure_result</a>(
                     hook,
                     &amp;denial,
                     &amp;hook_trace,
@@ -222,7 +222,7 @@
 <span class="rs-kw">use</span> eos_types::<span class="rs-type">JsonObject</span>;
 <span class="rs-kw">use</span> serde_json::{json, <span class="rs-type">Value</span>};
 
-<span class="rs-kw">use</span> <span class="rs-kw">super</span>::hooks::{hook_failure_result, run_hook, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>};
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::hooks::{hook_failure_result, run_hook, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>};
 
 <span class="rs-comment">/// Run one tool call end-to-end.</span>
 <span class="rs-comment">///</span>
@@ -233,7 +233,7 @@
     tool: &amp;<span class="rs-type">RegisteredTool</span>,
     raw_input: &amp;<span class="rs-type">JsonObject</span>,
     ctx: &amp;<span class="rs-type">ExecutionMetadata</span>,
-    hooks: <span class="rs-type">Option</span>&lt;&amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>&gt;,
+    hooks: <span class="rs-type">Option</span>&lt;&amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>&gt;,
 ) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">ToolResult</span>, <span class="rs-type">ToolError</span>&gt; {
     <span class="rs-kw">if</span> raw_input.contains_key(&quot;background&quot;) {
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">ToolResult</span>::error(format!(
@@ -257,12 +257,12 @@
     tool: &amp;<span class="rs-type">RegisteredTool</span>,
     raw_input: &amp;<span class="rs-type">JsonObject</span>,
     ctx: &amp;<span class="rs-type">ExecutionMetadata</span>,
-    hooks: <span class="rs-type">Option</span>&lt;&amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>&gt;,
+    hooks: <span class="rs-type">Option</span>&lt;&amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>&gt;,
 ) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">ToolResult</span>&gt;, <span class="rs-type">ToolError</span>&gt; {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> hook_trace: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Value</span>&gt; = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> hook_trace: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Value</span>&gt; = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     <span class="rs-kw">for</span> &amp;hook <span class="rs-kw">in</span> &amp;tool.hooks {
-        <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-run-hook-148">run_hook</a>(hook, raw_input, ctx, hooks).<span class="rs-kw">await</span>? {
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<span class="rs-type">Pass</span>(meta) =&gt; hook_trace.push(json!({
+        <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-run-hook-112">run_hook</a>(hook, raw_input, ctx, hooks).<span class="rs-kw">await</span>? {
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<span class="rs-type">Pass</span>(meta) =&gt; hook_trace.push(json!({
                 &quot;phase&quot;: &quot;pre&quot;,
                 &quot;hook_name&quot;: hook.hook_name(),
                 &quot;status&quot;: &quot;pass&quot;,
@@ -270,8 +270,8 @@
                 &quot;message&quot;: &quot;&quot;,
                 &quot;metadata&quot;: meta,
             })),
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<span class="rs-type">Deny</span>(denial) =&gt; {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-hook-failure-result-178">hook_failure_result</a>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<span class="rs-type">Deny</span>(denial) =&gt; {
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-hook-failure-result-142">hook_failure_result</a>(
                     hook,
                     &amp;denial,
                     &amp;hook_trace,

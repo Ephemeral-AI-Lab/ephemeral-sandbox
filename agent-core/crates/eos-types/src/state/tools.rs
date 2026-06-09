@@ -4,7 +4,4 @@ mod background;
 mod submissions;
 
 pub use background::BackgroundSessionCounts;
-pub use submissions::{
-    GeneratorSubmission, PlannerFailReason, PlannerFailureSubmission, PlannerSubmission,
-    ReducerSubmission,
-};
+pub use submissions::{PlanOutcomeSubmission, SubmissionStatus, WorkerOutcomeSubmission};

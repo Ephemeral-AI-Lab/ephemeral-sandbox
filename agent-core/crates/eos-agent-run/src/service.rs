@@ -89,15 +89,15 @@ mod tests {
     use tokio::time::{timeout, Duration};
 
     use eos_types::{
-        format_record_dir, root_task_id, AgentDefinition, AgentLoopCancellation,
-        AgentLoopCompletion, AgentLoopLauncher, AgentLoopMessage, AgentLoopOutcome,
-        AgentLoopOutcomeKind, AgentName, AgentRegistryBuilder, AgentRun, AgentRunApi,
-        AgentRunRecordIndex, AgentRunRecordTarget, AgentRunStatus, AgentRunStore, AgentType,
-        ContentBlock, CoreError, CreatedTaskAgentRun, JsonObject, Message, ParentAgentRunAnchor,
-        ParentedAgentRunKind, ParentedRun, RequestId, RunningRequestAgentRun, SpawnAgentRequest,
+        format_record_dir, AgentDefinition, AgentLoopCancellation, AgentLoopCompletion,
+        AgentLoopLauncher, AgentLoopMessage, AgentLoopOutcome, AgentLoopOutcomeKind, AgentName,
+        AgentRegistryBuilder, AgentRun, AgentRunApi, AgentRunRecordIndex, AgentRunRecordTarget,
+        AgentRunStatus, AgentRunStore, AgentType, ContentBlock, CoreError, CreatedTaskAgentRun,
+        JsonObject, Message, ParentAgentRunAnchor, ParentedAgentRunKind, ParentedOutcome,
+        ParentedRun, PlanId, RequestId, RunningRequestAgentRun, SpawnAgentRequest,
         SpawnAgentTarget, StartAgentLoopRequest, StartedAgentLoop, TaskAgentRunKind,
-        TaskAgentRunStore, TaskExecutionIndex, TaskId, TaskRole, TaskRun, TaskStatus, ToolUseId,
-        UtcDateTime, WorkflowCoordinates, WorkflowNodeId,
+        TaskAgentRunStore, TaskExecutionIndex, TaskId, TaskOutcome, TaskRole, TaskRun, TaskStatus,
+        ToolUseId, UtcDateTime, WorkItemId, WorkflowCoordinates, WorkflowTaskRole,
     };
 
     #[test]
@@ -426,7 +426,7 @@ mod tests {
             let index = AgentRunRecordIndex {
                 request_id: request_id.clone(),
                 agent_run_id: agent_run_id.clone(),
-                task_id: root_task_id(request_id),
+                task_id: TaskId::new_v4(),
                 kind: TaskAgentRunKind::Root,
                 parent_record_dir: None,
             };
@@ -438,8 +438,10 @@ mod tests {
             &self,
             _request_id: &RequestId,
             _agent_run_id: &AgentRunId,
-            _workflow: &WorkflowCoordinates,
-            _workflow_node_id: &WorkflowNodeId,
+            _coords: &WorkflowCoordinates,
+            _role: WorkflowTaskRole,
+            _plan_id: &PlanId,
+            _work_item_id: Option<&WorkItemId>,
             _agent_name: &AgentName,
         ) -> Result<CreatedTaskAgentRun, CoreError> {
             Err(CoreError::Store("workflow fake not implemented".to_owned()))
@@ -461,6 +463,7 @@ mod tests {
             agent_run_id: &AgentRunId,
             status: TaskStatus,
             terminal_payload: Option<&JsonObject>,
+            task_outcome: Option<&TaskOutcome>,
             token_count: i64,
             error: Option<&str>,
         ) -> Result<Option<TaskRun>, CoreError> {
@@ -474,11 +477,9 @@ mod tests {
                 request_id: index.request_id,
                 role: TaskRole::Root,
                 status,
-                workflow_id: None,
-                iteration_id: None,
-                attempt_id: None,
                 agent_name: AgentName::new("root").expect("valid agent name"),
                 terminal_payload: terminal_payload.cloned(),
+                task_outcome: task_outcome.cloned(),
                 token_count,
                 error: error.map(str::to_owned),
                 created_at: UtcDateTime::now(),
@@ -492,6 +493,7 @@ mod tests {
             _agent_run_id: &AgentRunId,
             _status: TaskStatus,
             _terminal_payload: Option<&JsonObject>,
+            _parented_outcome: Option<&ParentedOutcome>,
             _token_count: i64,
             _error: Option<&str>,
         ) -> Result<Option<ParentedRun>, CoreError> {
@@ -583,16 +585,14 @@ mod tests {
             request_id: index.request_id.clone(),
             role: TaskRole::Root,
             status,
-            workflow_id: None,
-            iteration_id: None,
-            attempt_id: None,
             agent_name: AgentName::new("root").expect("valid agent name"),
             terminal_payload: terminal_payload.cloned(),
+            task_outcome: None,
             token_count,
             error: error.map(str::to_owned),
             created_at: UtcDateTime::now(),
             updated_at: UtcDateTime::now(),
-            finished_at: status.is_terminal_generator().then_some(UtcDateTime::now()),
+            finished_at: status.is_terminal().then_some(UtcDateTime::now()),
         }
     }
 

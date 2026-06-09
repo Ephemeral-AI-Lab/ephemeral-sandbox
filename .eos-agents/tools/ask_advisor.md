@@ -7,8 +7,8 @@ Ask the advisor for a blocking, read-only audit of the terminal submission
 you're about to make.
 
 Use this when:
-- You're about to call a terminal tool (e.g., `submit_generator_outcome`,
-  `submit_reducer_outcome`, `submit_planner_outcome`) and you want a
+- You're about to call a terminal tool (e.g., `submit_worker_outcome`,
+  `submit_plan_outcome`, `submit_root_task_outcome`) and you want a
   second pair of eyes on (1) tool selection and (2) whether the work you've
   done actually supports the payload.
 - The submission is high-stakes (closes a goal, marks an attempt
@@ -18,7 +18,7 @@ Do NOT use for:
 - Trivial submissions where the right terminal is unambiguous and the
   work is obvious (e.g., a short summary acknowledging an already-passed
   eval).
-- Fixing problems — the advisor only audits and cannot edit. Reducer
+- Fixing problems — the advisor only audits and cannot edit. Worker
   agents may apply trivial inline fixes themselves via
   `edit_file`/`write_file` (typo, wrong variable name, single-line
   obvious bug); the advisor's job is to confirm those fixes do not exceed

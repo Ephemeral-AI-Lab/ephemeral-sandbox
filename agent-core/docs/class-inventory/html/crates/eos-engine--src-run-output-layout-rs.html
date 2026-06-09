@@ -91,7 +91,7 @@
         || value.contains(&#x27;\\&#x27;)
         || value.contains(std::path::<span class="rs-type">MAIN_SEPARATOR</span>)
     {
-        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-unsafe-segment-40">unsafe_segment</a>(field, value));
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-unsafe-segment-39">unsafe_segment</a>(field, value));
     }
     <span class="rs-type">Ok</span>(value)
 }
@@ -132,7 +132,7 @@
 
 <span class="rs-kw">use</span> eos_types::<span class="rs-type">AgentRunRecordDir</span>;
 
-<span class="rs-kw">use</span> <span class="rs-kw">super</span>::error::{<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>};
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::error::{<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>};
 
 <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-layout-rs.html#item-fn-record-dir-7">record_dir</a>(root: &amp;<span class="rs-type">Path</span>, record_dir: &amp;<span class="rs-type">AgentRunRecordDir</span>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">PathBuf</span>&gt; {
     <a class="symbol-link rs-fn" href="eos-engine--src-run-output-layout-rs.html#item-fn-record-dir-path-11">record_dir_path</a>(root, record_dir.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>())
@@ -154,7 +154,7 @@
         || value.contains(&#x27;\\&#x27;)
         || value.contains(std::path::<span class="rs-type">MAIN_SEPARATOR</span>)
     {
-        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-unsafe-segment-40">unsafe_segment</a>(field, value));
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-unsafe-segment-39">unsafe_segment</a>(field, value));
     }
     <span class="rs-type">Ok</span>(value)
 }

@@ -139,16 +139,16 @@
   <code class="signature">pub(crate :: background) struct <a class="symbol-link" href="eos-engine--src-background-command-session-rs.html#item-struct-CommandSessionManager-92">CommandSessionManager</a></code>
   <p class="docstring">Tracks sandbox command sessions for one agent run.</p>
   <div class="tags"><span>derive: Clone</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>sessions</td><td><code>Arc &lt; Mutex &lt; <a class="symbol-link" href="eos-engine--src-background-command-session-rs.html#item-type-CommandSessions-82">CommandSessions</a> &gt; &gt;</code></td></tr><tr><td>private</td><td>monitor_wakeup</td><td><code>Arc &lt; Notify &gt;</code></td></tr><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>command_service</td><td><code>Arc &lt; dyn SandboxCommandApi &gt;</code></td></tr><tr><td>private</td><td>notification</td><td><code><a class="symbol-link" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-111"><td>constructor</td><td>new</td><td><code>pub(crate :: background) fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a> (agent_run_id : AgentRunId , command_service : Arc &lt; dyn SandboxCommandApi &gt; , notification : <a class="symbol-link" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a> ,) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>sessions</td><td><code>Arc &lt; Mutex &lt; <a class="symbol-link" href="eos-engine--src-background-command-session-rs.html#item-type-CommandSessions-82">CommandSessions</a> &gt; &gt;</code></td></tr><tr><td>private</td><td>monitor_wakeup</td><td><code>Arc &lt; Notify &gt;</code></td></tr><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>command_service</td><td><code>Arc &lt; dyn SandboxCommandApi &gt;</code></td></tr><tr><td>private</td><td>notification</td><td><code><a class="symbol-link" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-111"><td>constructor</td><td>new</td><td><code>pub(crate :: background) fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a> (agent_run_id : AgentRunId , command_service : Arc &lt; dyn SandboxCommandApi &gt; , notification : <a class="symbol-link" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a> ,) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::background) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::background) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         command_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SandboxCommandApi</span>&gt;,
         notification: <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
-            sessions: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>())),
-            monitor_wakeup: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<span class="rs-type">Notify</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>()),
+            sessions: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>())),
+            monitor_wakeup: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<span class="rs-type">Notify</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>()),
             agent_run_id,
             command_service,
             notification,
@@ -201,7 +201,7 @@
             <span class="rs-kw">let</span> guard = <span class="rs-self">self</span>.sessions.lock().<span class="rs-kw">await</span>;
             <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-running-by-sandbox-158">running_by_sandbox</a>(&amp;guard)
         };
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> out = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> out = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">for</span> (sandbox_id, ids) <span class="rs-kw">in</span> groups {
             <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(completions) = <span class="rs-self">self</span>
                 .command_service
@@ -222,7 +222,7 @@
 </details></td></tr><tr id="method-running-by-sandbox-158"><td>associated-fn</td><td>running_by_sandbox</td><td><code>fn <a class="symbol-link" href="eos-engine--src-background-command-session-rs.html#method-running-by-sandbox-158">running_by_sandbox</a> (sessions : &amp; <a class="symbol-link" href="eos-engine--src-background-command-session-rs.html#item-type-CommandSessions-82">CommandSessions</a>) -&gt; Vec &lt; (SandboxId , Vec &lt; CommandSessionId &gt;) &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-running-by-sandbox-158">running_by_sandbox</a>(sessions: &amp;<a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-type-CommandSessions-82">CommandSessions</a>) -&gt; <span class="rs-type">Vec</span>&lt;(<span class="rs-type">SandboxId</span>, <span class="rs-type">Vec</span>&lt;<span class="rs-type">CommandSessionId</span>&gt;)&gt; {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> groups: <span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">SandboxId</span>, <span class="rs-type">Vec</span>&lt;<span class="rs-type">CommandSessionId</span>&gt;&gt; = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> groups: <span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">SandboxId</span>, <span class="rs-type">Vec</span>&lt;<span class="rs-type">CommandSessionId</span>&gt;&gt; = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">for</span> session <span class="rs-kw">in</span> sessions.values() {
             <span class="rs-kw">if</span> matches!(session.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-status-40">status</a>(), <a class="symbol-link rs-type" href="eos-engine--src-background-session-runtime-rs.html#item-enum-BackgroundSessionStatus-24">BackgroundSessionStatus</a>::<span class="rs-type">Running</span>) {
                 groups
@@ -237,7 +237,7 @@
 </details></td></tr><tr id="method-running-sandboxes-171"><td>associated-fn</td><td>running_sandboxes</td><td><code>fn <a class="symbol-link" href="eos-engine--src-background-command-session-rs.html#method-running-sandboxes-171">running_sandboxes</a> (sessions : &amp; <a class="symbol-link" href="eos-engine--src-background-command-session-rs.html#item-type-CommandSessions-82">CommandSessions</a>) -&gt; Vec &lt; SandboxId &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-running-sandboxes-171">running_sandboxes</a>(sessions: &amp;<a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-type-CommandSessions-82">CommandSessions</a>) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">SandboxId</span>&gt; {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen: <span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">SandboxId</span>, ()&gt; = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen: <span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">SandboxId</span>, ()&gt; = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">for</span> session <span class="rs-kw">in</span> sessions.values() {
             <span class="rs-kw">if</span> matches!(session.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-status-40">status</a>(), <a class="symbol-link rs-type" href="eos-engine--src-background-session-runtime-rs.html#item-enum-BackgroundSessionStatus-24">BackgroundSessionStatus</a>::<span class="rs-type">Running</span>) {
                 seen.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(session.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-sandbox-id-36">sandbox_id</a>().clone(), ());
@@ -252,7 +252,7 @@
         sessions: &amp;<span class="rs-kw">mut</span> <a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-type-CommandSessions-82">CommandSessions</a>,
         completions: &amp;[eos_types::<span class="rs-type">JsonObject</span>],
     ) -&gt; <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-struct-CommandCompletion-84">CommandCompletion</a>&gt; {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> out = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> out = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">for</span> completion <span class="rs-kw">in</span> completions {
             <span class="rs-kw">let</span> <span class="rs-type">Some</span>(id) = completion
                 .get(&quot;command_session_id&quot;)
@@ -279,9 +279,9 @@
         out
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-background-command-session-rs.html#item-struct-CommandSessionManager-92">CommandSessionManager</a></code></summary><table><tbody><tr id="method-fmt-103"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a></code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-background-command-session-rs.html#item-struct-CommandSessionManager-92">CommandSessionManager</a></code></summary><table><tbody><tr id="method-fmt-103"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a></code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-struct-CommandSessionManager-92">CommandSessionManager</a>&quot;)
             .field(&quot;agent_run_id&quot;, &amp;<span class="rs-self">self</span>.agent_run_id)
             .finish_non_exhaustive()
@@ -529,7 +529,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-struct-CommandSessionManager-92">CommandSessionManager</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-struct-CommandSessionManager-92">CommandSessionManager</a>&quot;)
             .field(&quot;agent_run_id&quot;, &amp;<span class="rs-self">self</span>.agent_run_id)
             .finish_non_exhaustive()
@@ -537,14 +537,14 @@
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-struct-CommandSessionManager-92">CommandSessionManager</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::background) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(
+    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::background) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         command_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SandboxCommandApi</span>&gt;,
         notification: <a class="symbol-link rs-type" href="eos-engine--src-background-notification-rs.html#item-struct-BackgroundNotificationEmitter-122">BackgroundNotificationEmitter</a>,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
-            sessions: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>())),
-            monitor_wakeup: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<span class="rs-type">Notify</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>()),
+            sessions: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>())),
+            monitor_wakeup: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<span class="rs-type">Notify</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>()),
             agent_run_id,
             command_service,
             notification,
@@ -585,7 +585,7 @@
     }
 
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-running-by-sandbox-158">running_by_sandbox</a>(sessions: &amp;<a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-type-CommandSessions-82">CommandSessions</a>) -&gt; <span class="rs-type">Vec</span>&lt;(<span class="rs-type">SandboxId</span>, <span class="rs-type">Vec</span>&lt;<span class="rs-type">CommandSessionId</span>&gt;)&gt; {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> groups: <span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">SandboxId</span>, <span class="rs-type">Vec</span>&lt;<span class="rs-type">CommandSessionId</span>&gt;&gt; = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> groups: <span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">SandboxId</span>, <span class="rs-type">Vec</span>&lt;<span class="rs-type">CommandSessionId</span>&gt;&gt; = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">for</span> session <span class="rs-kw">in</span> sessions.values() {
             <span class="rs-kw">if</span> matches!(session.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-status-40">status</a>(), <a class="symbol-link rs-type" href="eos-engine--src-background-session-runtime-rs.html#item-enum-BackgroundSessionStatus-24">BackgroundSessionStatus</a>::<span class="rs-type">Running</span>) {
                 groups
@@ -598,7 +598,7 @@
     }
 
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-running-sandboxes-171">running_sandboxes</a>(sessions: &amp;<a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-type-CommandSessions-82">CommandSessions</a>) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">SandboxId</span>&gt; {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen: <span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">SandboxId</span>, ()&gt; = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen: <span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">SandboxId</span>, ()&gt; = <span class="rs-type">BTreeMap</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">for</span> session <span class="rs-kw">in</span> sessions.values() {
             <span class="rs-kw">if</span> matches!(session.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-status-40">status</a>(), <a class="symbol-link rs-type" href="eos-engine--src-background-session-runtime-rs.html#item-enum-BackgroundSessionStatus-24">BackgroundSessionStatus</a>::<span class="rs-type">Running</span>) {
                 seen.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(session.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-sandbox-id-36">sandbox_id</a>().clone(), ());
@@ -611,7 +611,7 @@
         sessions: &amp;<span class="rs-kw">mut</span> <a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-type-CommandSessions-82">CommandSessions</a>,
         completions: &amp;[eos_types::<span class="rs-type">JsonObject</span>],
     ) -&gt; <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-background-command-session-rs.html#item-struct-CommandCompletion-84">CommandCompletion</a>&gt; {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> out = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> out = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">for</span> completion <span class="rs-kw">in</span> completions {
             <span class="rs-kw">let</span> <span class="rs-type">Some</span>(id) = completion
                 .get(&quot;command_session_id&quot;)
@@ -643,7 +643,7 @@
             <span class="rs-kw">let</span> guard = <span class="rs-self">self</span>.sessions.lock().<span class="rs-kw">await</span>;
             <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-running-by-sandbox-158">running_by_sandbox</a>(&amp;guard)
         };
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> out = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> out = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">for</span> (sandbox_id, ids) <span class="rs-kw">in</span> groups {
             <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(completions) = <span class="rs-self">self</span>
                 .command_service

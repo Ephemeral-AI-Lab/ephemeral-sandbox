@@ -10,11 +10,9 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use eos_sandbox_port::{DaemonOp, SandboxPortError, SandboxTransport};
+use eos_types::{AgentRunId, CoreError, JsonObject, RequestId, SandboxId, TaskId, UtcDateTime};
 use eos_types::{
-    AgentRunId, AttemptId, CoreError, JsonObject, RequestId, SandboxId, TaskId, UtcDateTime,
-};
-use eos_types::{
-    ExecutionTaskOutcome, Request, RequestStatus, RequestStore, Sealed, Task, TaskStatus, TaskStore,
+    Request, RequestStatus, RequestStore, Sealed, Task, TaskOutcome, TaskStatus, TaskStore,
 };
 
 use crate::ExecutionMetadata;
@@ -102,8 +100,7 @@ impl TaskStore for FakeTaskStore {
         id: &TaskId,
         expected: TaskStatus,
         status: TaskStatus,
-        outcomes: Option<&[ExecutionTaskOutcome]>,
-        terminal_payload: Option<&JsonObject>,
+        task_outcome: Option<&TaskOutcome>,
     ) -> Result<Option<Task>, CoreError> {
         let mut tasks = self.tasks.lock().unwrap();
         let task = tasks
@@ -113,30 +110,22 @@ impl TaskStore for FakeTaskStore {
             return Ok(None);
         }
         task.status = status;
-        if let Some(o) = outcomes {
-            task.outcomes = o.to_vec();
-        }
-        if let Some(t) = terminal_payload {
-            task.terminal_payload = Some(t.clone());
+        if let Some(outcome) = task_outcome {
+            task.task_outcome = Some(outcome.clone());
         }
         Ok(Some(task.clone()))
     }
 
-    async fn latch_attempt_tasks_cancelled(
-        &self,
-        attempt_id: &AttemptId,
-        ids: &[TaskId],
-    ) -> Result<(), CoreError> {
+    async fn latch_attempt_tasks_cancelled(&self, ids: &[TaskId]) -> Result<(), CoreError> {
         let mut tasks = self.tasks.lock().unwrap();
-        let mut terminal = JsonObject::new();
-        terminal.insert("fail_reason".to_owned(), "cancelled".into());
         for id in ids {
             if let Some(task) = tasks.get_mut(id.as_str()) {
-                if task.attempt_id.as_ref() == Some(attempt_id)
-                    && matches!(task.status, TaskStatus::Pending | TaskStatus::Running)
-                {
+                if matches!(task.status, TaskStatus::Pending | TaskStatus::Running) {
                     task.status = TaskStatus::Cancelled;
-                    task.terminal_payload = Some(terminal.clone());
+                    task.task_outcome = Some(TaskOutcome::Worker {
+                        is_pass: false,
+                        outcome: "cancelled".to_owned(),
+                    });
                 }
             }
         }
@@ -247,6 +236,7 @@ pub(crate) fn metadata() -> ExecutionMetadata {
         task_id: None,
         attempt_id: None,
         workflow_id: None,
+        work_item_id: None,
         tool_use_id: None,
         sandbox_invocation_id: None,
         sandbox_id: None,

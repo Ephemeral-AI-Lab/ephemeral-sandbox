@@ -5,9 +5,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{AttemptId, IterationId, UtcDateTime, WorkflowId};
-
-use crate::{AttemptBudget, DeferredGoal};
+use crate::{AttemptBudget, AttemptId, IterationId, UtcDateTime, WorkflowId};
 
 /// Lifecycle status of an [`Iteration`] (Rust `IterationStatus`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -33,27 +31,7 @@ pub enum IterationCreationReason {
     DeferredGoalContinuation,
 }
 
-/// Terminal outcome of an iteration.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum IterationOutcome {
-    /// The iteration completed the workflow goal.
-    Complete,
-    /// The iteration completed its bounded work and continues with a deferred goal.
-    Continue {
-        /// Goal for the next iteration.
-        deferred_goal: DeferredGoal,
-    },
-    /// The iteration failed.
-    Failed,
-    /// The iteration was cancelled.
-    Cancelled {
-        /// Cancellation reason.
-        reason: String,
-    },
-}
-
-/// Immutable view of a persisted Iteration (Rust `state.py:Iteration`).
+/// Immutable view of a persisted Iteration.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Iteration {
     /// Iteration identifier.
@@ -64,7 +42,9 @@ pub struct Iteration {
     pub sequence_no: i64,
     /// Why this iteration was created.
     pub creation_reason: IterationCreationReason,
-    /// The iteration goal (DB column `goal`; mapped in `eos-db`, anchor §4).
+    /// Denormalized workflow goal.
+    pub workflow_goal: String,
+    /// This iteration's own goal.
     pub iteration_goal: String,
     /// Maximum number of attempts allowed in this iteration.
     pub attempt_budget: AttemptBudget,
@@ -72,16 +52,12 @@ pub struct Iteration {
     pub status: IterationStatus,
     /// Ordered child attempt ids.
     pub attempt_ids: Vec<AttemptId>,
-    /// Goal carried to the next iteration (DB column `deferred_goal`, anchor §4).
-    pub deferred_goal_for_next_iteration: Option<DeferredGoal>,
     /// Creation timestamp.
     pub created_at: UtcDateTime,
     /// Last-update timestamp.
     pub updated_at: UtcDateTime,
     /// Close timestamp, if closed.
     pub closed_at: Option<UtcDateTime>,
-    /// Serialized canonical projection (a `json.dumps` list); `None` while open.
-    pub outcomes: Option<String>,
 }
 
 impl Iteration {

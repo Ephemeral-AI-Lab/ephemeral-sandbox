@@ -92,7 +92,7 @@
   <h4>Fields</h4><table><tbody><tr><td>private</td><td>last_seq</td><td><code>Option &lt; u64 &gt;</code></td></tr></tbody></table>
 
   <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:35</p>
-</article><article id="item-struct-TailState-130" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct TailState private struct TailState crates/eos-backend-api/src/handlers/agent_runs.rs message_records AgentMessageRecords record_dir AgentRunRecordDir next_seq u64 pending VecDeque &lt; NodeEvent &gt; finished bool ">
+</article><article id="item-struct-TailState-130" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct TailState private struct TailState crates/eos-backend-api/src/handlers/agent_runs.rs agent_run_records AgentRunRecords record_dir AgentRunRecordDir next_seq u64 pending VecDeque &lt; AgentRunRecordEvent &gt; finished bool ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>TailState</h3>
@@ -100,16 +100,16 @@
   </div>
   <code class="signature">struct <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-130">TailState</a></code>
   <div class="tags"><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>message_records</td><td><code>AgentMessageRecords</code></td></tr><tr><td>private</td><td>record_dir</td><td><code>AgentRunRecordDir</code></td></tr><tr><td>private</td><td>next_seq</td><td><code>u64</code></td></tr><tr><td>private</td><td>pending</td><td><code>VecDeque &lt; NodeEvent &gt;</code></td></tr><tr><td>private</td><td>finished</td><td><code>bool</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-140"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a> (message_records : AgentMessageRecords , record_dir : AgentRunRecordDir , last_seq : u64 , pending : VecDeque &lt; NodeEvent &gt; ,) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_run_records</td><td><code>AgentRunRecords</code></td></tr><tr><td>private</td><td>record_dir</td><td><code>AgentRunRecordDir</code></td></tr><tr><td>private</td><td>next_seq</td><td><code>u64</code></td></tr><tr><td>private</td><td>pending</td><td><code>VecDeque &lt; AgentRunRecordEvent &gt;</code></td></tr><tr><td>private</td><td>finished</td><td><code>bool</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-140"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a> (agent_run_records : AgentRunRecords , record_dir : AgentRunRecordDir , last_seq : u64 , pending : VecDeque &lt; AgentRunRecordEvent &gt; ,) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(
-        message_records: <span class="rs-type">AgentMessageRecords</span>,
+        agent_run_records: <span class="rs-type">AgentRunRecords</span>,
         record_dir: <span class="rs-type">AgentRunRecordDir</span>,
         last_seq: u64,
-        pending: <span class="rs-type">VecDeque</span>&lt;<span class="rs-type">NodeEvent</span>&gt;,
+        pending: <span class="rs-type">VecDeque</span>&lt;<span class="rs-type">AgentRunRecordEvent</span>&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
-            message_records,
+            agent_run_records,
             record_dir,
             next_seq: last_seq,
             pending,
@@ -140,7 +140,7 @@
     <span class="rs-kw">let</span> agent_run_id: <span class="rs-type">AgentRunId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;agent_run_id, &quot;agent run&quot;)?;
     <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
     <span class="rs-kw">let</span> bytes = state
-        .message_records
+        .agent_run_records
         .read_messages_at(&amp;record_dir, query.after_byte.unwrap_or(0))
         .<span class="rs-kw">await</span>?;
     <span class="rs-type">Response</span>::builder()
@@ -156,13 +156,13 @@
 </details>
 
   <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:41</p>
-</article><article id="item-fn-events-63" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn events pub pub async fn events (State (state) : State &lt; AppState &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; EventsQuery &gt; ,) -&gt; Result &lt; Json &lt; Vec &lt; NodeEvent &gt; &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/agent_runs.rs  ">
+</article><article id="item-fn-events-63" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn events pub pub async fn events (State (state) : State &lt; AppState &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; EventsQuery &gt; ,) -&gt; Result &lt; Json &lt; Vec &lt; AgentRunRecordEvent &gt; &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/agent_runs.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>events</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-events-63">events</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-EventsQuery-29">EventsQuery</a> &gt; ,) -&gt; Result &lt; Json &lt; Vec &lt; NodeEvent &gt; &gt; , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
+  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-events-63">events</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-EventsQuery-29">EventsQuery</a> &gt; ,) -&gt; Result &lt; Json &lt; Vec &lt; AgentRunRecordEvent &gt; &gt; , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
   <p class="docstring">`GET /api/agent-core/agent-runs/{agent_run_id}/events`.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
@@ -172,13 +172,13 @@
     <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(agent_run_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
     <span class="rs-type">Query</span>(query): <span class="rs-type">Query</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-EventsQuery-29">EventsQuery</a>&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">NodeEvent</span>&gt;&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">AgentRunRecordEvent</span>&gt;&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> agent_run_id: <span class="rs-type">AgentRunId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;agent_run_id, &quot;agent run&quot;)?;
     <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
     <span class="rs-type">Ok</span>(<span class="rs-type">Json</span>(
         state
-            .message_records
-            .read_events_at(&amp;record_dir, query.after_seq.unwrap_or(0))
+            .agent_run_records
+            .read_record_events_at(&amp;record_dir, query.after_seq.unwrap_or(0))
             .<span class="rs-kw">await</span>?,
     ))
 }
@@ -208,11 +208,11 @@
     <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
     <span class="rs-kw">let</span> last_seq = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-167">last_event_id</a>(&amp;headers).or(query.last_seq).unwrap_or(0);
     <span class="rs-kw">let</span> initial = state
-        .message_records
-        .read_events_at(&amp;record_dir, last_seq)
+        .agent_run_records
+        .read_record_events_at(&amp;record_dir, last_seq)
         .<span class="rs-kw">await</span>?;
     <span class="rs-kw">let</span> tail = <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-130">TailState</a>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(
-        state.message_records,
+        state.agent_run_records,
         record_dir,
         last_seq,
         <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(initial),
@@ -231,15 +231,15 @@
             }
             tokio::time::sleep(<span class="rs-type">Duration</span>::from_millis(250)).<span class="rs-kw">await</span>;
             <span class="rs-kw">match</span> tail
-                .message_records
-                .read_events_at(&amp;tail.record_dir, tail.next_seq)
+                .agent_run_records
+                .read_record_events_at(&amp;tail.record_dir, tail.next_seq)
                 .<span class="rs-kw">await</span>
             {
                 <span class="rs-type">Ok</span>(events) =&gt; {
                     tail.pending = <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(events);
                 }
                 <span class="rs-type">Err</span>(err) =&gt; {
-                    tracing::error!(error = %err, &quot;agent-run <span class="rs-type">SSE</span> message-record tail failed&quot;);
+                    tracing::error!(error = %err, &quot;agent-run <span class="rs-type">SSE</span> record tail failed&quot;);
                     <span class="rs-kw">return</span> <span class="rs-type">None</span>;
                 }
             }
@@ -251,17 +251,17 @@
 </details>
 
   <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:79</p>
-</article><article id="item-fn-to-sse-event-156" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn to_sse_event private fn to_sse_event (event : &amp; NodeEvent) -&gt; Event crates/eos-backend-api/src/handlers/agent_runs.rs  ">
+</article><article id="item-fn-to-sse-event-156" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn to_sse_event private fn to_sse_event (event : &amp; AgentRunRecordEvent) -&gt; Event crates/eos-backend-api/src/handlers/agent_runs.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>to_sse_event</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-156">to_sse_event</a> (event : &amp; NodeEvent) -&gt; Event</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-156">to_sse_event</a> (event : &amp; AgentRunRecordEvent) -&gt; Event</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-156">to_sse_event</a>(event: &amp;<span class="rs-type">NodeEvent</span>) -&gt; <span class="rs-type">Event</span> {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-156">to_sse_event</a>(event: &amp;<span class="rs-type">AgentRunRecordEvent</span>) -&gt; <span class="rs-type">Event</span> {
     <span class="rs-kw">let</span> payload = serde_json::to_string(&amp;event.payload).unwrap_or_else(|err| {
         tracing::error!(error = %err, &quot;failed to encode <span class="rs-type">SSE</span> event payload&quot;);
         &quot;{}&quot;.to_owned()
@@ -325,7 +325,7 @@
     <h2>Source File</h2>
     <p class="path">crates/eos-backend-api/src/handlers/agent_runs.rs</p>
   </div>
-  <pre class="file-source"><code><span class="rs-comment">//! Agent-run node message-record routes.</span>
+  <pre class="file-source"><code><span class="rs-comment">//! Agent-run record routes.</span>
 
 <span class="rs-kw">use</span> std::collections::<span class="rs-type">VecDeque</span>;
 <span class="rs-kw">use</span> std::convert::<span class="rs-type">Infallible</span>;
@@ -340,7 +340,7 @@
 <span class="rs-kw">use</span> futures::stream;
 <span class="rs-kw">use</span> serde::<span class="rs-type">Deserialize</span>;
 
-<span class="rs-kw">use</span> eos_engine::records::{<span class="rs-type">AgentRunRecordWriter</span> <span class="rs-kw">as</span> <span class="rs-type">AgentMessageRecords</span>, <span class="rs-type">NodeEvent</span>};
+<span class="rs-kw">use</span> eos_engine::run_output::{<span class="rs-type">AgentRunRecordEvent</span>, <span class="rs-type">AgentRunRecordStore</span> <span class="rs-kw">as</span> <span class="rs-type">AgentRunRecords</span>};
 <span class="rs-kw">use</span> eos_types::{format_record_dir, <span class="rs-type">AgentRunId</span>, <span class="rs-type">AgentRunRecordDir</span>};
 
 <span class="rs-kw">use</span> <span class="rs-kw">super</span>::parse_id;
@@ -374,7 +374,7 @@
     <span class="rs-kw">let</span> agent_run_id: <span class="rs-type">AgentRunId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;agent_run_id, &quot;agent run&quot;)?;
     <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
     <span class="rs-kw">let</span> bytes = state
-        .message_records
+        .agent_run_records
         .read_messages_at(&amp;record_dir, query.after_byte.unwrap_or(0))
         .<span class="rs-kw">await</span>?;
     <span class="rs-type">Response</span>::builder()
@@ -392,13 +392,13 @@
     <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(agent_run_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
     <span class="rs-type">Query</span>(query): <span class="rs-type">Query</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-EventsQuery-29">EventsQuery</a>&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">NodeEvent</span>&gt;&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">AgentRunRecordEvent</span>&gt;&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> agent_run_id: <span class="rs-type">AgentRunId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;agent_run_id, &quot;agent run&quot;)?;
     <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
     <span class="rs-type">Ok</span>(<span class="rs-type">Json</span>(
         state
-            .message_records
-            .read_events_at(&amp;record_dir, query.after_seq.unwrap_or(0))
+            .agent_run_records
+            .read_record_events_at(&amp;record_dir, query.after_seq.unwrap_or(0))
             .<span class="rs-kw">await</span>?,
     ))
 }
@@ -414,11 +414,11 @@
     <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
     <span class="rs-kw">let</span> last_seq = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-167">last_event_id</a>(&amp;headers).or(query.last_seq).unwrap_or(0);
     <span class="rs-kw">let</span> initial = state
-        .message_records
-        .read_events_at(&amp;record_dir, last_seq)
+        .agent_run_records
+        .read_record_events_at(&amp;record_dir, last_seq)
         .<span class="rs-kw">await</span>?;
     <span class="rs-kw">let</span> tail = <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-130">TailState</a>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(
-        state.message_records,
+        state.agent_run_records,
         record_dir,
         last_seq,
         <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(initial),
@@ -437,15 +437,15 @@
             }
             tokio::time::sleep(<span class="rs-type">Duration</span>::from_millis(250)).<span class="rs-kw">await</span>;
             <span class="rs-kw">match</span> tail
-                .message_records
-                .read_events_at(&amp;tail.record_dir, tail.next_seq)
+                .agent_run_records
+                .read_record_events_at(&amp;tail.record_dir, tail.next_seq)
                 .<span class="rs-kw">await</span>
             {
                 <span class="rs-type">Ok</span>(events) =&gt; {
                     tail.pending = <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(events);
                 }
                 <span class="rs-type">Err</span>(err) =&gt; {
-                    tracing::error!(error = %err, &quot;agent-run <span class="rs-type">SSE</span> message-record tail failed&quot;);
+                    tracing::error!(error = %err, &quot;agent-run <span class="rs-type">SSE</span> record tail failed&quot;);
                     <span class="rs-kw">return</span> <span class="rs-type">None</span>;
                 }
             }
@@ -456,22 +456,22 @@
 
 #[derive(<span class="rs-type">Debug</span>)]
 <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-130">TailState</a> {
-    message_records: <span class="rs-type">AgentMessageRecords</span>,
+    agent_run_records: <span class="rs-type">AgentRunRecords</span>,
     record_dir: <span class="rs-type">AgentRunRecordDir</span>,
     next_seq: u64,
-    pending: <span class="rs-type">VecDeque</span>&lt;<span class="rs-type">NodeEvent</span>&gt;,
+    pending: <span class="rs-type">VecDeque</span>&lt;<span class="rs-type">AgentRunRecordEvent</span>&gt;,
     finished: bool,
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-130">TailState</a> {
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(
-        message_records: <span class="rs-type">AgentMessageRecords</span>,
+        agent_run_records: <span class="rs-type">AgentRunRecords</span>,
         record_dir: <span class="rs-type">AgentRunRecordDir</span>,
         last_seq: u64,
-        pending: <span class="rs-type">VecDeque</span>&lt;<span class="rs-type">NodeEvent</span>&gt;,
+        pending: <span class="rs-type">VecDeque</span>&lt;<span class="rs-type">AgentRunRecordEvent</span>&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
-            message_records,
+            agent_run_records,
             record_dir,
             next_seq: last_seq,
             pending,
@@ -480,7 +480,7 @@
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-156">to_sse_event</a>(event: &amp;<span class="rs-type">NodeEvent</span>) -&gt; <span class="rs-type">Event</span> {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-156">to_sse_event</a>(event: &amp;<span class="rs-type">AgentRunRecordEvent</span>) -&gt; <span class="rs-type">Event</span> {
     <span class="rs-kw">let</span> payload = serde_json::to_string(&amp;event.payload).unwrap_or_else(|err| {
         tracing::error!(error = %err, &quot;failed to encode <span class="rs-type">SSE</span> event payload&quot;);
         &quot;{}&quot;.to_owned()

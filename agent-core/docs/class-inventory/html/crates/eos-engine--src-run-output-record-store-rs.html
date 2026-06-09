@@ -65,11 +65,11 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-run-output-record-store-rs.html#item-struct-AgentRunRecordStore-16">AgentRunRecordStore</a></code>
   <p class="docstring">File-backed store for resolved agent-run record trees.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>root</td><td><code>PathBuf</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-23"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a> (root : impl Into &lt; PathBuf &gt;) -&gt; Self</code><p class="docstring">Create a store rooted at `root`.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>root</td><td><code>PathBuf</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-23"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a> (root : impl Into &lt; PathBuf &gt;) -&gt; Self</code><p class="docstring">Create a store rooted at `root`.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Create a store rooted at `root`.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(root: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">PathBuf</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(root: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">PathBuf</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> { root: root.into() }
     }
 </code></pre>
@@ -101,7 +101,7 @@
             },
         );
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(
             &quot;<span class="rs-kw">type</span>&quot;.to_owned(),
             json!(<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-node-type-527">node_type</a>(&amp;record_target.task_agent_run_kind)),
@@ -124,7 +124,7 @@
             .<span class="rs-kw">await</span>?;
         handle.initial_message_count = range.count;
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;count&quot;.to_owned(), json!(range.count));
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;messages_start_byte&quot;.to_owned(), json!(range.start_byte));
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;messages_end_byte&quot;.to_owned(), json!(range.end_byte));
@@ -200,7 +200,7 @@
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// Returns [`super::AgentRunRecordError`] if event append fails.</span>
     <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-finish-189">finish</a>(&amp;<span class="rs-self">self</span>, status: <a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-enum-AgentRunRecordFinishStatus-232">AgentRunRecordFinishStatus</a>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;()&gt; {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;status&quot;.to_owned(), json!(status.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>()));
         <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-append-record-event-199">append_record_event</a>(&quot;node_finished&quot;, payload).<span class="rs-kw">await</span>
     }
@@ -232,14 +232,14 @@
         <span class="rs-kw">let</span> range =
             <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-append-message-rows-323">append_message_rows</a>(&amp;<span class="rs-self">self</span>.messages_path, &amp;<span class="rs-self">self</span>.identity, &quot;message&quot;, messages).<span class="rs-kw">await</span>?;
         <span class="rs-kw">if</span> range.count &gt; 0 {
-            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
             payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;count&quot;.to_owned(), json!(range.count));
             payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;messages_start_byte&quot;.to_owned(), json!(range.start_byte));
             payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;messages_end_byte&quot;.to_owned(), json!(range.end_byte));
             payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(
                 &quot;message_types&quot;.to_owned(),
                 <span class="rs-type">Value</span>::<span class="rs-type">Array</span>(
-                    <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-message-types-577">message_types</a>(messages)
+                    <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-message-types-576">message_types</a>(messages)
                         .into_iter()
                         .map(<span class="rs-type">Value</span>::<span class="rs-type">String</span>)
                         .collect(),
@@ -416,7 +416,7 @@
             request_id: identity.request_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
             task_id: identity.task_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
             agent_run_id: identity.agent_run_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
-            role: <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-595">role_wire</a>(message.role),
+            role: <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-594">role_wire</a>(message.role),
             content: &amp;message.content,
         })
         .collect();
@@ -458,7 +458,7 @@
         request_id: identity.request_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
         task_id: identity.task_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
         agent_run_id: identity.agent_run_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
-        role: <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-595">role_wire</a>(message.role),
+        role: <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-594">role_wire</a>(message.role),
         content: message.content.clone(),
     }));
     <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-append-rows-371">append_rows</a>(path, &amp;rows).<span class="rs-kw">await</span>
@@ -489,7 +489,7 @@
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).<span class="rs-kw">await</span>?;
     }
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>()
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>()
         .create(<span class="rs-kw">true</span>)
         .append(<span class="rs-kw">true</span>)
         .open(path)
@@ -540,7 +540,7 @@
         payload,
         created_at: <span class="rs-type">UtcDateTime</span>::now(),
     };
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>()
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>()
         .create(<span class="rs-kw">true</span>)
         .append(<span class="rs-kw">true</span>)
         .open(path)
@@ -598,20 +598,20 @@
   <pre><code><span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-read-bytes-after-450">read_bytes_after</a>(path: &amp;<span class="rs-type">Path</span>, after_byte: u64) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-MessageBytes-270">MessageBytes</a>&gt; {
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">File</span>::open(path).<span class="rs-kw">await</span>.map_err(|err| {
         <span class="rs-kw">if</span> err.kind() == std::io::<span class="rs-type">ErrorKind</span>::<span class="rs-type">NotFound</span> {
-            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-36">missing_path</a>(path)
+            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-35">missing_path</a>(path)
         } <span class="rs-kw">else</span> {
-            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<span class="rs-type">Io</span>(err)
+            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<span class="rs-type">Io</span>(err)
         }
     })?;
     <span class="rs-kw">let</span> len = file.metadata().<span class="rs-kw">await</span>?.len();
     <span class="rs-kw">if</span> after_byte &gt; len {
-        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<span class="rs-type">OffsetOutOfRange</span> {
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<span class="rs-type">OffsetOutOfRange</span> {
             offset: after_byte,
             len,
         });
     }
     file.seek(std::io::<span class="rs-type">SeekFrom</span>::<span class="rs-type">Start</span>(after_byte)).<span class="rs-kw">await</span>?;
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> bytes = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> bytes = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     file.read_to_end(&amp;<span class="rs-kw">mut</span> bytes).<span class="rs-kw">await</span>?;
     <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-MessageBytes-270">MessageBytes</a> {
         bytes,
@@ -635,9 +635,9 @@
   <pre><code><span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-read-record-events-after-474">read_record_events_after</a>(path: &amp;<span class="rs-type">Path</span>, after_seq: u64) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-AgentRunRecordEvent-279">AgentRunRecordEvent</a>&gt;&gt; {
     <span class="rs-kw">let</span> raw = tokio::fs::read_to_string(path).<span class="rs-kw">await</span>.map_err(|err| {
         <span class="rs-kw">if</span> err.kind() == std::io::<span class="rs-type">ErrorKind</span>::<span class="rs-type">NotFound</span> {
-            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-36">missing_path</a>(path)
+            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-35">missing_path</a>(path)
         } <span class="rs-kw">else</span> {
-            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<span class="rs-type">Io</span>(err)
+            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<span class="rs-type">Io</span>(err)
         }
     })?;
     raw.lines()
@@ -646,7 +646,7 @@
         .filter_map(|result| <span class="rs-kw">match</span> result {
             <span class="rs-type">Ok</span>(event) <span class="rs-kw">if</span> event.seq &gt; after_seq =&gt; <span class="rs-type">Some</span>(<span class="rs-type">Ok</span>(event)),
             <span class="rs-type">Ok</span>(_) =&gt; <span class="rs-type">None</span>,
-            <span class="rs-type">Err</span>(err) =&gt; <span class="rs-type">Some</span>(<span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<span class="rs-type">Json</span>(err))),
+            <span class="rs-type">Err</span>(err) =&gt; <span class="rs-type">Some</span>(<span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<span class="rs-type">Json</span>(err))),
         })
         .collect()
 }
@@ -808,26 +808,25 @@
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-workflow-node-type-569">workflow_node_type</a>(role: <span class="rs-type">WorkflowTaskRole</span>) -&gt; &amp;&#x27;<span class="rs-kw">static</span> str {
     <span class="rs-kw">match</span> role {
         <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Planner</span> =&gt; &quot;workflow_planner&quot;,
-        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span> =&gt; &quot;workflow_generator&quot;,
-        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Reducer</span> =&gt; &quot;workflow_reducer&quot;,
+        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Worker</span> =&gt; &quot;workflow_worker&quot;,
     }
 }
 </code></pre>
 </details>
 
   <p class="source">crates/eos-engine/src/run_output/record_store.rs:569</p>
-</article><article id="item-fn-message-types-577" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn message_types private fn message_types (messages : &amp; [Message]) -&gt; Vec &lt; String &gt; crates/eos-engine/src/run_output/record_store.rs  ">
+</article><article id="item-fn-message-types-576" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn message_types private fn message_types (messages : &amp; [Message]) -&gt; Vec &lt; String &gt; crates/eos-engine/src/run_output/record_store.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>message_types</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-run-output-record-store-rs.html#item-fn-message-types-577">message_types</a> (messages : &amp; [Message]) -&gt; Vec &lt; String &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-run-output-record-store-rs.html#item-fn-message-types-576">message_types</a> (messages : &amp; [Message]) -&gt; Vec &lt; String &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-message-types-577">message_types</a>(messages: &amp;[<span class="rs-type">Message</span>]) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">String</span>&gt; {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> types = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-message-types-576">message_types</a>(messages: &amp;[<span class="rs-type">Message</span>]) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">String</span>&gt; {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> types = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     <span class="rs-kw">for</span> block <span class="rs-kw">in</span> messages.iter().flat_map(|message| &amp;message.content) {
         types.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(
             <span class="rs-kw">match</span> block {
@@ -846,18 +845,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-engine/src/run_output/record_store.rs:577</p>
-</article><article id="item-fn-role-wire-595" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn role_wire private fn role_wire (role : MessageRole) -&gt; &amp; 'static str crates/eos-engine/src/run_output/record_store.rs  ">
+  <p class="source">crates/eos-engine/src/run_output/record_store.rs:576</p>
+</article><article id="item-fn-role-wire-594" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn role_wire private fn role_wire (role : MessageRole) -&gt; &amp; 'static str crates/eos-engine/src/run_output/record_store.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>role_wire</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-595">role_wire</a> (role : MessageRole) -&gt; &amp; &#x27;static str</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-594">role_wire</a> (role : MessageRole) -&gt; &amp; &#x27;static str</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-595">role_wire</a>(role: <span class="rs-type">MessageRole</span>) -&gt; &amp;&#x27;<span class="rs-kw">static</span> str {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-594">role_wire</a>(role: <span class="rs-type">MessageRole</span>) -&gt; &amp;&#x27;<span class="rs-kw">static</span> str {
     <span class="rs-kw">match</span> role {
         <span class="rs-type">MessageRole</span>::<span class="rs-type">User</span> =&gt; &quot;user&quot;,
         <span class="rs-type">MessageRole</span>::<span class="rs-type">Assistant</span> =&gt; &quot;assistant&quot;,
@@ -866,7 +865,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-engine/src/run_output/record_store.rs:595</p>
+  <p class="source">crates/eos-engine/src/run_output/record_store.rs:594</p>
 </article></div>
 </section></div>
 </main>
@@ -887,7 +886,7 @@
 <span class="rs-kw">use</span> serde_json::{json, <span class="rs-type">Value</span>};
 <span class="rs-kw">use</span> tokio::io::{<span class="rs-type">AsyncReadExt</span>, <span class="rs-type">AsyncSeekExt</span>, <span class="rs-type">AsyncWriteExt</span>};
 
-<span class="rs-kw">use</span> <span class="rs-kw">super</span>::error::{<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>};
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::error::{<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>};
 <span class="rs-kw">use</span> <span class="rs-kw">super</span>::layout;
 
 <span class="rs-comment">/// File-backed store for resolved agent-run record trees.</span>
@@ -899,7 +898,7 @@
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-AgentRunRecordStore-16">AgentRunRecordStore</a> {
     <span class="rs-comment">/// Create a store rooted at `root`.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(root: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">PathBuf</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(root: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">PathBuf</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> { root: root.into() }
     }
 
@@ -929,7 +928,7 @@
             },
         );
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(
             &quot;<span class="rs-kw">type</span>&quot;.to_owned(),
             json!(<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-node-type-527">node_type</a>(&amp;record_target.task_agent_run_kind)),
@@ -952,7 +951,7 @@
             .<span class="rs-kw">await</span>?;
         handle.initial_message_count = range.count;
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;count&quot;.to_owned(), json!(range.count));
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;messages_start_byte&quot;.to_owned(), json!(range.start_byte));
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;messages_end_byte&quot;.to_owned(), json!(range.end_byte));
@@ -1026,14 +1025,14 @@
         <span class="rs-kw">let</span> range =
             <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-append-message-rows-323">append_message_rows</a>(&amp;<span class="rs-self">self</span>.messages_path, &amp;<span class="rs-self">self</span>.identity, &quot;message&quot;, messages).<span class="rs-kw">await</span>?;
         <span class="rs-kw">if</span> range.count &gt; 0 {
-            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
             payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;count&quot;.to_owned(), json!(range.count));
             payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;messages_start_byte&quot;.to_owned(), json!(range.start_byte));
             payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;messages_end_byte&quot;.to_owned(), json!(range.end_byte));
             payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(
                 &quot;message_types&quot;.to_owned(),
                 <span class="rs-type">Value</span>::<span class="rs-type">Array</span>(
-                    <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-message-types-577">message_types</a>(messages)
+                    <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-message-types-576">message_types</a>(messages)
                         .into_iter()
                         .map(<span class="rs-type">Value</span>::<span class="rs-type">String</span>)
                         .collect(),
@@ -1068,7 +1067,7 @@
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// Returns [`super::AgentRunRecordError`] if event append fails.</span>
     <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-finish-189">finish</a>(&amp;<span class="rs-self">self</span>, status: <a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-enum-AgentRunRecordFinishStatus-232">AgentRunRecordFinishStatus</a>) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;()&gt; {
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         payload.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(&quot;status&quot;.to_owned(), json!(status.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>()));
         <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-append-record-event-199">append_record_event</a>(&quot;node_finished&quot;, payload).<span class="rs-kw">await</span>
     }
@@ -1210,7 +1209,7 @@
             request_id: identity.request_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
             task_id: identity.task_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
             agent_run_id: identity.agent_run_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
-            role: <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-595">role_wire</a>(message.role),
+            role: <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-594">role_wire</a>(message.role),
             content: &amp;message.content,
         })
         .collect();
@@ -1239,7 +1238,7 @@
         request_id: identity.request_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
         task_id: identity.task_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
         agent_run_id: identity.agent_run_id.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#method-as-str-243">as_str</a>(),
-        role: <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-595">role_wire</a>(message.role),
+        role: <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-594">role_wire</a>(message.role),
         content: message.content.clone(),
     }));
     <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-append-rows-371">append_rows</a>(path, &amp;rows).<span class="rs-kw">await</span>
@@ -1257,7 +1256,7 @@
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).<span class="rs-kw">await</span>?;
     }
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>()
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>()
         .create(<span class="rs-kw">true</span>)
         .append(<span class="rs-kw">true</span>)
         .open(path)
@@ -1295,7 +1294,7 @@
         payload,
         created_at: <span class="rs-type">UtcDateTime</span>::now(),
     };
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>()
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">OpenOptions</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>()
         .create(<span class="rs-kw">true</span>)
         .append(<span class="rs-kw">true</span>)
         .open(path)
@@ -1327,20 +1326,20 @@
 <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-read-bytes-after-450">read_bytes_after</a>(path: &amp;<span class="rs-type">Path</span>, after_byte: u64) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-MessageBytes-270">MessageBytes</a>&gt; {
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> file = tokio::fs::<span class="rs-type">File</span>::open(path).<span class="rs-kw">await</span>.map_err(|err| {
         <span class="rs-kw">if</span> err.kind() == std::io::<span class="rs-type">ErrorKind</span>::<span class="rs-type">NotFound</span> {
-            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-36">missing_path</a>(path)
+            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-35">missing_path</a>(path)
         } <span class="rs-kw">else</span> {
-            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<span class="rs-type">Io</span>(err)
+            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<span class="rs-type">Io</span>(err)
         }
     })?;
     <span class="rs-kw">let</span> len = file.metadata().<span class="rs-kw">await</span>?.len();
     <span class="rs-kw">if</span> after_byte &gt; len {
-        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<span class="rs-type">OffsetOutOfRange</span> {
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<span class="rs-type">OffsetOutOfRange</span> {
             offset: after_byte,
             len,
         });
     }
     file.seek(std::io::<span class="rs-type">SeekFrom</span>::<span class="rs-type">Start</span>(after_byte)).<span class="rs-kw">await</span>?;
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> bytes = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> bytes = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     file.read_to_end(&amp;<span class="rs-kw">mut</span> bytes).<span class="rs-kw">await</span>?;
     <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-MessageBytes-270">MessageBytes</a> {
         bytes,
@@ -1351,9 +1350,9 @@
 <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-read-record-events-after-474">read_record_events_after</a>(path: &amp;<span class="rs-type">Path</span>, after_seq: u64) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-run-output-record-store-rs.html#item-struct-AgentRunRecordEvent-279">AgentRunRecordEvent</a>&gt;&gt; {
     <span class="rs-kw">let</span> raw = tokio::fs::read_to_string(path).<span class="rs-kw">await</span>.map_err(|err| {
         <span class="rs-kw">if</span> err.kind() == std::io::<span class="rs-type">ErrorKind</span>::<span class="rs-type">NotFound</span> {
-            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-36">missing_path</a>(path)
+            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-35">missing_path</a>(path)
         } <span class="rs-kw">else</span> {
-            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<span class="rs-type">Io</span>(err)
+            <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<span class="rs-type">Io</span>(err)
         }
     })?;
     raw.lines()
@@ -1362,7 +1361,7 @@
         .filter_map(|result| <span class="rs-kw">match</span> result {
             <span class="rs-type">Ok</span>(event) <span class="rs-kw">if</span> event.seq &gt; after_seq =&gt; <span class="rs-type">Some</span>(<span class="rs-type">Ok</span>(event)),
             <span class="rs-type">Ok</span>(_) =&gt; <span class="rs-type">None</span>,
-            <span class="rs-type">Err</span>(err) =&gt; <span class="rs-type">Some</span>(<span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>::<span class="rs-type">Json</span>(err))),
+            <span class="rs-type">Err</span>(err) =&gt; <span class="rs-type">Some</span>(<span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>::<span class="rs-type">Json</span>(err))),
         })
         .collect()
 }
@@ -1446,13 +1445,12 @@
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-workflow-node-type-569">workflow_node_type</a>(role: <span class="rs-type">WorkflowTaskRole</span>) -&gt; &amp;&#x27;<span class="rs-kw">static</span> str {
     <span class="rs-kw">match</span> role {
         <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Planner</span> =&gt; &quot;workflow_planner&quot;,
-        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span> =&gt; &quot;workflow_generator&quot;,
-        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Reducer</span> =&gt; &quot;workflow_reducer&quot;,
+        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Worker</span> =&gt; &quot;workflow_worker&quot;,
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-message-types-577">message_types</a>(messages: &amp;[<span class="rs-type">Message</span>]) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">String</span>&gt; {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> types = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-message-types-576">message_types</a>(messages: &amp;[<span class="rs-type">Message</span>]) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">String</span>&gt; {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> types = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     <span class="rs-kw">for</span> block <span class="rs-kw">in</span> messages.iter().flat_map(|message| &amp;message.content) {
         types.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(
             <span class="rs-kw">match</span> block {
@@ -1469,7 +1467,7 @@
     types.into_iter().collect()
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-595">role_wire</a>(role: <span class="rs-type">MessageRole</span>) -&gt; &amp;&#x27;<span class="rs-kw">static</span> str {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-record-store-rs.html#item-fn-role-wire-594">role_wire</a>(role: <span class="rs-type">MessageRole</span>) -&gt; &amp;&#x27;<span class="rs-kw">static</span> str {
     <span class="rs-kw">match</span> role {
         <span class="rs-type">MessageRole</span>::<span class="rs-type">User</span> =&gt; &quot;user&quot;,
         <span class="rs-type">MessageRole</span>::<span class="rs-type">Assistant</span> =&gt; &quot;assistant&quot;,

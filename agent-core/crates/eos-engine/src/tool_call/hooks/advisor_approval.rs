@@ -2,7 +2,7 @@
 //! from the conversation transcript.
 //!
 //! There is no port and no engine/agent state: the verdict exists only as a
-//! `submit_advisor_feedback` result block in the transcript, surfaced as the
+//! `submit_advisor_outcome` result block in the transcript, surfaced as the
 //! `ask_advisor` result. The gate reverse-walks [`ExecutionMetadata::conversation`]
 //! for the latest advisor result, pairs it to the originating `ask_advisor`
 //! tool-use, and classifies — re-deriving the decision on demand, never reading a

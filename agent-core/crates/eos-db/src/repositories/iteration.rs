@@ -5,8 +5,8 @@ use sqlx::{Sqlite, SqlitePool};
 use time::OffsetDateTime;
 
 use eos_types::{
-    AttemptBudget, AttemptId, CoreError, DeferredGoal, Iteration, IterationCreationReason,
-    IterationId, IterationStatus, IterationStore, RequestId, Sealed, UtcDateTime, WorkflowId,
+    AttemptBudget, AttemptId, CoreError, Iteration, IterationCreationReason, IterationId,
+    IterationStatus, IterationStore, RequestId, Sealed, UtcDateTime, WorkflowId,
 };
 
 use crate::error::DbError;
@@ -33,20 +33,22 @@ impl IterationStore for SqlIterationStore {
         workflow_id: &WorkflowId,
         sequence_no: i64,
         creation_reason: IterationCreationReason,
+        workflow_goal: &str,
         iteration_goal: &str,
         attempt_budget: AttemptBudget,
     ) -> Result<Iteration, CoreError> {
         let now = OffsetDateTime::now_utc();
         let row = sqlx::query_as::<Sqlite, IterationRow>(
             "INSERT INTO iterations \
-             (id, workflow_id, sequence_no, creation_reason, goal, attempt_budget, status, \
-              attempt_ids, deferred_goal, created_at, updated_at, closed_at, outcomes) \
-             VALUES (?, ?, ?, ?, ?, ?, 'open', '[]', NULL, ?, ?, NULL, NULL) RETURNING *",
+             (id, workflow_id, sequence_no, creation_reason, workflow_goal, iteration_goal, \
+              attempt_budget, status, attempt_ids, created_at, updated_at, closed_at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'open', '[]', ?, ?, NULL) RETURNING *",
         )
         .bind(IterationId::new_v4().as_str())
         .bind(workflow_id.as_str())
         .bind(sequence_no)
         .bind(enum_to_db(&creation_reason))
+        .bind(workflow_goal)
         .bind(iteration_goal)
         .bind(attempt_budget.as_i64())
         .bind(now)
@@ -95,66 +97,14 @@ impl IterationStore for SqlIterationStore {
         id: &IterationId,
         status: IterationStatus,
         closed_at: Option<UtcDateTime>,
-        outcomes: Option<&str>,
     ) -> Result<Iteration, CoreError> {
         let now = OffsetDateTime::now_utc();
         let row = sqlx::query_as::<Sqlite, IterationRow>(
             "UPDATE iterations SET status = ?, \
                closed_at = COALESCE(?, closed_at), \
-               outcomes = COALESCE(?, outcomes), \
                updated_at = ? WHERE id = ? RETURNING *",
         )
         .bind(enum_to_db(&status))
-        .bind(closed_at.map(UtcDateTime::into_inner))
-        .bind(outcomes)
-        .bind(now)
-        .bind(id.as_str())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(DbError::from)?;
-        let row = row.ok_or_else(|| DbError::NotFound {
-            table: "iterations",
-            id: id.to_string(),
-        })?;
-        Ok(row_to_iteration(row)?)
-    }
-
-    async fn set_deferred_goal_for_next_iteration(
-        &self,
-        id: &IterationId,
-        deferred_goal_for_next_iteration: Option<&DeferredGoal>,
-    ) -> Result<Iteration, CoreError> {
-        let now = OffsetDateTime::now_utc();
-        let row = sqlx::query_as::<Sqlite, IterationRow>(
-            "UPDATE iterations SET deferred_goal = ?, updated_at = ? WHERE id = ? RETURNING *",
-        )
-        .bind(deferred_goal_for_next_iteration.map(DeferredGoal::as_str))
-        .bind(now)
-        .bind(id.as_str())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(DbError::from)?;
-        let row = row.ok_or_else(|| DbError::NotFound {
-            table: "iterations",
-            id: id.to_string(),
-        })?;
-        Ok(row_to_iteration(row)?)
-    }
-
-    async fn close_succeeded(
-        &self,
-        id: &IterationId,
-        outcomes: &str,
-        closed_at: Option<UtcDateTime>,
-    ) -> Result<Iteration, CoreError> {
-        // Single UPDATE => status + outcomes are written atomically (a crash
-        // leaves the row untouched), preserving the close_succeeded invariant.
-        let now = OffsetDateTime::now_utc();
-        let row = sqlx::query_as::<Sqlite, IterationRow>(
-            "UPDATE iterations SET status = 'succeeded', outcomes = ?, \
-               closed_at = COALESCE(?, closed_at), updated_at = ? WHERE id = ? RETURNING *",
-        )
-        .bind(outcomes)
         .bind(closed_at.map(UtcDateTime::into_inner))
         .bind(now)
         .bind(id.as_str())
@@ -188,21 +138,15 @@ impl IterationStore for SqlIterationStore {
     async fn cancel_open_iterations_for_request(
         &self,
         request_id: &RequestId,
-        reason: &str,
+        _reason: &str,
     ) -> Result<usize, CoreError> {
         let now = OffsetDateTime::now_utc();
-        let outcomes = serde_json::json!([{
-            "status": "cancelled",
-            "reason": reason,
-        }])
-        .to_string();
         let updated = sqlx::query(
-            "UPDATE iterations SET status = 'cancelled', outcomes = COALESCE(outcomes, ?), \
+            "UPDATE iterations SET status = 'cancelled', \
              closed_at = COALESCE(closed_at, ?), updated_at = ? \
              WHERE status = 'open' AND workflow_id IN \
              (SELECT id FROM workflows WHERE request_id = ?)",
         )
-        .bind(outcomes)
         .bind(now)
         .bind(now)
         .bind(request_id.as_str())

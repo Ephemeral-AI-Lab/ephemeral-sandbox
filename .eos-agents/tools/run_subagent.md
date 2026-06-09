@@ -62,7 +62,7 @@ Example:
     agent_name="subagent",
     prompt=(
       "Find every call site of "
-      "`AttemptOrchestrator.apply_reducer_submission` in agent-core/crates/eos-workflow "
+      "`AttemptRun.record_worker_outcome` in agent-core/crates/eos-workflow "
       "and report (file, line, calling function). The signature is "
       "changing in PR #842; I need the punch list of files to update. "
       "Report under 200 words."

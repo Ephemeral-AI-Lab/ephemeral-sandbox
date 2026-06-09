@@ -13,13 +13,12 @@ pub use request_task::{
 };
 pub use request_task::{Request, RequestStatus};
 pub use tools::{
-    BackgroundSessionCounts, GeneratorSubmission, PlannerFailReason, PlannerFailureSubmission,
-    PlannerSubmission, ReducerSubmission,
+    BackgroundSessionCounts, PlanOutcomeSubmission, SubmissionStatus, WorkerOutcomeSubmission,
 };
 pub use workflow::{
-    execution_outcome_for_submission, present_status, Attempt, AttemptBudget, AttemptClosure,
-    AttemptFailReason, AttemptStage, AttemptState, AttemptStatus, DeferredGoal, ExecutionRole,
-    ExecutionTaskOutcome, GeneratorId, Iteration, IterationCreationReason, IterationOutcome,
-    IterationStatus, MaterializedPlan, PlanDisposition, PlannerId, ReducerId, TaskOutcomeStatus,
+    AdvisorVerdict, Attempt, AttemptBudget, AttemptClosure, AttemptExecutionTree,
+    AttemptFailReason, AttemptOutcome, AttemptStage, AttemptState, AttemptStatus, DeferredGoal,
+    ExecutionNode, Iteration, IterationCreationReason, IterationOutcome, IterationStatus,
+    ParentedOutcome, PlanId, PlannerOutcome, TaskOutcome, WorkItemId, WorkItemSpec, WorkerOutcome,
     Workflow, WorkflowOutcome, WorkflowStatus, NO_OUTCOME,
 };

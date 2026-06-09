@@ -46,9 +46,9 @@ parent addressed the prior issues. A parent that ignored prior feedback warrants
 a sharper second reject.";
 
     const ADVISOR_HOW_TO_SUBMIT_SECTION: &str = "# How to submit\n\n\
-Call `submit_advisor_feedback` exactly once with:\n\n\
+Call `submit_advisor_outcome` exactly once with:\n\n\
 - `verdict`: \"approve\" or \"reject\".\n\n\
-- `summary`: focused prose that covers, in order: tool selection, quality of \
+- `outcome`: focused prose that covers, in order: tool selection, quality of \
 supporting analysis backing the payload, and residual risks.";
 
     pub(super) fn build_advisor_messages(

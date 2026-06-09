@@ -5,9 +5,8 @@ use sqlx::{Sqlite, SqlitePool};
 use time::OffsetDateTime;
 
 use eos_types::{
-    AttemptId, CoreError, ExecutionTaskOutcome, IterationId, JsonObject, Request, RequestId,
-    RequestStatus, RequestStore, SandboxId, Sealed, Task, TaskId, TaskStatus, TaskStore,
-    WorkflowId,
+    CoreError, Request, RequestId, RequestStatus, RequestStore, SandboxId, Sealed, Task, TaskId,
+    TaskOutcome, TaskStatus, TaskStore,
 };
 
 use crate::error::DbError;
@@ -16,8 +15,7 @@ use crate::rows::{enum_to_db, parse_enum, row_to_request, row_to_task, RequestRo
 
 /// SQL-level compare-and-swap for optimistic task lifecycle transitions.
 const UPDATE_TASK_STATUS_IF_CURRENT_SQL: &str = "UPDATE tasks SET status = ?, \
-       outcomes = COALESCE(?, outcomes), \
-       terminal_tool_result = COALESCE(?, terminal_tool_result), \
+       task_outcome = COALESCE(?, task_outcome), \
        updated_at = ? WHERE id = ? AND status = ? RETURNING *";
 
 /// `SQLite` repository for requests and tasks. Holds a cheap `SqlitePool` clone.
@@ -146,23 +144,18 @@ impl TaskStore for SqlRequestTaskStore {
         let now = OffsetDateTime::now_utc();
         sqlx::query(
             "INSERT INTO tasks \
-             (id, request_id, role, instruction, status, workflow_id, iteration_id, attempt_id, \
-              agent_name, needs, outcomes, terminal_tool_result, created_at, updated_at) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             (id, request_id, role, instruction, status, agent_name, task_outcome, \
+              created_at, updated_at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(task.id.as_str())
         .bind(task.request_id.as_str())
         .bind(enum_to_db(&task.role))
         .bind(&task.instruction)
         .bind(enum_to_db(&task.status))
-        .bind(task.workflow_id.as_ref().map(WorkflowId::as_str))
-        .bind(task.iteration_id.as_ref().map(IterationId::as_str))
-        .bind(task.attempt_id.as_ref().map(AttemptId::as_str))
         .bind(task.agent_name.as_deref())
-        .bind(json_col::encode(&task.needs)?)
-        .bind(json_col::encode(&task.outcomes)?)
         .bind(
-            task.terminal_payload
+            task.task_outcome
                 .as_ref()
                 .map(json_col::encode)
                 .transpose()?,
@@ -189,16 +182,13 @@ impl TaskStore for SqlRequestTaskStore {
         id: &TaskId,
         expected: TaskStatus,
         status: TaskStatus,
-        outcomes: Option<&[ExecutionTaskOutcome]>,
-        terminal_payload: Option<&JsonObject>,
+        task_outcome: Option<&TaskOutcome>,
     ) -> Result<Option<Task>, CoreError> {
         let now = OffsetDateTime::now_utc();
-        let outcomes_json = outcomes.map(json_col::encode).transpose()?;
-        let terminal_json = terminal_payload.map(json_col::encode).transpose()?;
+        let outcome_json = task_outcome.map(json_col::encode).transpose()?;
         let updated = sqlx::query_as::<Sqlite, TaskRow>(UPDATE_TASK_STATUS_IF_CURRENT_SQL)
             .bind(enum_to_db(&status))
-            .bind(outcomes_json)
-            .bind(terminal_json)
+            .bind(outcome_json)
             .bind(now)
             .bind(id.as_str())
             .bind(enum_to_db(&expected))
@@ -223,32 +213,29 @@ impl TaskStore for SqlRequestTaskStore {
         Ok(Some(row_to_task(updated)?))
     }
 
-    async fn latch_attempt_tasks_cancelled(
-        &self,
-        attempt_id: &AttemptId,
-        ids: &[TaskId],
-    ) -> Result<(), CoreError> {
+    async fn latch_attempt_tasks_cancelled(&self, ids: &[TaskId]) -> Result<(), CoreError> {
         if ids.is_empty() {
             return Ok(());
         }
         let now = OffsetDateTime::now_utc();
         let cancelled = enum_to_db(&TaskStatus::Cancelled);
-        let terminal = json_col::encode(&serde_json::json!({ "fail_reason": "cancelled" }))?;
+        let task_outcome = json_col::encode(&TaskOutcome::Worker {
+            is_pass: false,
+            outcome: "cancelled".to_owned(),
+        })?;
         let placeholders = std::iter::repeat_n("?", ids.len())
             .collect::<Vec<_>>()
             .join(", ");
         let sql = format!(
             "UPDATE tasks SET status = ?, \
-               terminal_tool_result = COALESCE(terminal_tool_result, ?), \
+               task_outcome = COALESCE(task_outcome, ?), \
                updated_at = ? \
-             WHERE attempt_id = ? AND status IN ('pending', 'running') \
-               AND id IN ({placeholders})"
+             WHERE status IN ('pending', 'running') AND id IN ({placeholders})"
         );
         let mut query = sqlx::query(&sql)
             .bind(cancelled)
-            .bind(terminal)
-            .bind(now)
-            .bind(attempt_id.as_str());
+            .bind(task_outcome)
+            .bind(now);
         for id in ids {
             query = query.bind(id.as_str());
         }

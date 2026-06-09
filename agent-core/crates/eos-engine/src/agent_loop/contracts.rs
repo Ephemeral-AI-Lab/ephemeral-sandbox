@@ -20,6 +20,9 @@ use crate::EngineError;
 /// Convert a terminal tool result into the persisted JSON payload shape.
 #[must_use]
 pub(crate) fn tool_result_payload(result: &ToolResult) -> JsonObject {
+    if result.is_terminal {
+        return result.metadata.clone();
+    }
     let mut payload = JsonObject::new();
     payload.insert("output".to_owned(), json!(result.output));
     payload.insert("is_error".to_owned(), json!(result.is_error));
@@ -90,9 +93,9 @@ pub trait AgentLoopToolRegistryFactory: Send + Sync {
 #[derive(Clone)]
 pub struct ToolCallHookStores {
     /// Task rows used for workflow ancestry checks.
-    pub(crate) task_store: Arc<dyn TaskStore>,
+    pub(crate) _task_store: Arc<dyn TaskStore>,
     /// Agent-run rows used to resolve a task when call metadata is incomplete.
-    pub(crate) agent_run_store: Arc<dyn AgentRunStore>,
+    pub(crate) _agent_run_store: Arc<dyn AgentRunStore>,
     /// Workflow rows used to walk parent-task ancestry.
     pub(crate) workflow_store: Arc<dyn WorkflowStore>,
 }
@@ -112,8 +115,8 @@ impl ToolCallHookStores {
         workflow_store: Arc<dyn WorkflowStore>,
     ) -> Self {
         Self {
-            task_store,
-            agent_run_store,
+            _task_store: task_store,
+            _agent_run_store: agent_run_store,
             workflow_store,
         }
     }

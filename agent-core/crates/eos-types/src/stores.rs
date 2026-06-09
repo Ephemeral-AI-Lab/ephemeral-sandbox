@@ -74,8 +74,8 @@ mod request_task {
     use async_trait::async_trait;
 
     use crate::{
-        AttemptId, CoreError, ExecutionTaskOutcome, JsonObject, Request, RequestId, RequestStatus,
-        SandboxId, Task, TaskId, TaskStatus,
+        CoreError, Request, RequestId, RequestStatus, SandboxId, Task, TaskId, TaskOutcome,
+        TaskStatus,
     };
 
     use super::Sealed;
@@ -95,17 +95,11 @@ mod request_task {
             id: &TaskId,
             expected: TaskStatus,
             status: TaskStatus,
-            outcomes: Option<&[ExecutionTaskOutcome]>,
-            terminal_payload: Option<&JsonObject>,
+            task_outcome: Option<&TaskOutcome>,
         ) -> Result<Option<Task>, CoreError>;
 
-        /// Bulk-latch attempt task rows to [`TaskStatus::Cancelled`] before runtime
-        /// teardown.
-        async fn latch_attempt_tasks_cancelled(
-            &self,
-            attempt_id: &AttemptId,
-            ids: &[TaskId],
-        ) -> Result<(), CoreError>;
+        /// Bulk-latch task rows to [`TaskStatus::Cancelled`] before runtime teardown.
+        async fn latch_attempt_tasks_cancelled(&self, ids: &[TaskId]) -> Result<(), CoreError>;
 
         /// All tasks owned by one request, ordered by creation.
         async fn list_for_request(&self, request_id: &RequestId) -> Result<Vec<Task>, CoreError>;
@@ -151,9 +145,9 @@ mod task_agent_run {
 
     use crate::{
         AgentName, AgentRunId, AgentRunRecordIndex, CoreError, CreatedTaskAgentRun, JsonObject,
-        ParentAgentRunAnchor, ParentedAgentRunKind, ParentedRun, RequestId, RunningRequestAgentRun,
-        TaskExecutionIndex, TaskId, TaskRun, TaskStatus, ToolUseId, WorkflowCoordinates,
-        WorkflowNodeId,
+        ParentAgentRunAnchor, ParentedAgentRunKind, ParentedOutcome, ParentedRun, PlanId,
+        RequestId, RunningRequestAgentRun, TaskExecutionIndex, TaskId, TaskOutcome, TaskRun,
+        TaskStatus, ToolUseId, WorkItemId, WorkflowCoordinates, WorkflowTaskRole,
     };
 
     use super::Sealed;
@@ -170,12 +164,15 @@ mod task_agent_run {
         ) -> Result<CreatedTaskAgentRun, CoreError>;
 
         /// Create a workflow task-agent-run row.
+        #[allow(clippy::too_many_arguments)]
         async fn create_workflow_task_agent_run(
             &self,
             request_id: &RequestId,
             agent_run_id: &AgentRunId,
-            workflow: &WorkflowCoordinates,
-            workflow_node_id: &WorkflowNodeId,
+            coords: &WorkflowCoordinates,
+            role: WorkflowTaskRole,
+            plan_id: &PlanId,
+            work_item_id: Option<&WorkItemId>,
             agent_name: &AgentName,
         ) -> Result<CreatedTaskAgentRun, CoreError>;
 
@@ -195,6 +192,7 @@ mod task_agent_run {
             agent_run_id: &AgentRunId,
             status: TaskStatus,
             terminal_payload: Option<&JsonObject>,
+            task_outcome: Option<&TaskOutcome>,
             token_count: i64,
             error: Option<&str>,
         ) -> Result<Option<TaskRun>, CoreError>;
@@ -205,6 +203,7 @@ mod task_agent_run {
             agent_run_id: &AgentRunId,
             status: TaskStatus,
             terminal_payload: Option<&JsonObject>,
+            parented_outcome: Option<&ParentedOutcome>,
             token_count: i64,
             error: Option<&str>,
         ) -> Result<Option<ParentedRun>, CoreError>;
@@ -245,43 +244,6 @@ mod task_agent_run {
         ) -> Result<Option<TaskExecutionIndex>, CoreError>;
     }
 
-    /// Build the deterministic root task id for a request.
-    ///
-    /// Root tasks are anchored by the request id, so the row-creation owner can bind
-    /// `requests.root_task_id` without the spawn caller passing the new run's own
-    /// task id back into the target contract.
-    #[must_use]
-    pub fn root_task_id(request_id: &RequestId) -> TaskId {
-        format!("root-{request_id}")
-            .parse()
-            .expect("root-{request_id} is non-empty, so TaskId parsing cannot fail")
-    }
-
-    /// Build a deterministic workflow task-agent-run task id.
-    ///
-    /// Planner, generator, and reducer ids are derived from the attempt id plus the
-    /// workflow-local id assigned for that role.
-    ///
-    /// # Errors
-    /// Returns [`CoreError`] when the derived id violates the [`TaskId`] invariant.
-    pub fn workflow_task_id(
-        attempt_id: &crate::AttemptId,
-        workflow_node_id: &WorkflowNodeId,
-    ) -> Result<TaskId, CoreError> {
-        let value = match workflow_node_id {
-            WorkflowNodeId::Planner { planner_id } => {
-                format!("{}:planner:{}", attempt_id.as_str(), planner_id.as_str())
-            }
-            WorkflowNodeId::Generator { generator_id } => {
-                format!("{}:gen:{}", attempt_id.as_str(), generator_id.as_str())
-            }
-            WorkflowNodeId::Reducer { reducer_id } => {
-                format!("{}:red:{}", attempt_id.as_str(), reducer_id.as_str())
-            }
-        };
-        value.parse()
-    }
-
     /// Build the deterministic parented-run task id from launch facts.
     ///
     /// # Errors
@@ -313,9 +275,9 @@ mod workflow {
     use async_trait::async_trait;
 
     use crate::{
-        AgentRunId, Attempt, AttemptBudget, AttemptClosure, AttemptId, CoreError, DeferredGoal,
-        Iteration, IterationCreationReason, IterationId, IterationStatus, MaterializedPlan,
-        RequestId, TaskId, ToolUseId, UtcDateTime, Workflow, WorkflowId, WorkflowStatus,
+        AgentRunId, Attempt, AttemptBudget, AttemptClosure, AttemptId, CoreError, ExecutionNode,
+        Iteration, IterationCreationReason, IterationId, IterationStatus, RequestId, TaskId,
+        ToolUseId, UtcDateTime, WorkItemId, Workflow, WorkflowId, WorkflowStatus,
     };
 
     use super::Sealed;
@@ -328,7 +290,7 @@ mod workflow {
             &self,
             request_id: &RequestId,
             parent_task_id: &TaskId,
-            launched_by_agent_run_id: &AgentRunId,
+            parent_agent_run_id: &AgentRunId,
             tool_use_id: Option<&ToolUseId>,
             workflow_goal: &str,
         ) -> Result<Workflow, CoreError>;
@@ -343,13 +305,12 @@ mod workflow {
             iteration_id: &IterationId,
         ) -> Result<Workflow, CoreError>;
 
-        /// Set status and optionally close time/outcomes.
+        /// Set status and optionally close time.
         async fn set_status(
             &self,
             id: &WorkflowId,
             status: WorkflowStatus,
             closed_at: Option<UtcDateTime>,
-            outcomes: Option<&str>,
         ) -> Result<Workflow, CoreError>;
 
         /// All workflows launched by one parent task, ordered by creation.
@@ -361,7 +322,7 @@ mod workflow {
         /// All workflows launched by one agent run, ordered by creation.
         async fn list_for_launching_agent_run(
             &self,
-            launched_by_agent_run_id: &AgentRunId,
+            parent_agent_run_id: &AgentRunId,
         ) -> Result<Vec<Workflow>, CoreError>;
 
         /// Mark all open workflows for a request as cancelled.
@@ -381,6 +342,7 @@ mod workflow {
             workflow_id: &WorkflowId,
             sequence_no: i64,
             creation_reason: IterationCreationReason,
+            workflow_goal: &str,
             iteration_goal: &str,
             attempt_budget: AttemptBudget,
         ) -> Result<Iteration, CoreError>;
@@ -395,27 +357,11 @@ mod workflow {
             attempt_id: &AttemptId,
         ) -> Result<Iteration, CoreError>;
 
-        /// Set status and optionally close time/outcomes.
+        /// Set status and optionally close time.
         async fn set_status(
             &self,
             id: &IterationId,
             status: IterationStatus,
-            closed_at: Option<UtcDateTime>,
-            outcomes: Option<&str>,
-        ) -> Result<Iteration, CoreError>;
-
-        /// Set the deferred-goal-for-next-iteration column.
-        async fn set_deferred_goal_for_next_iteration(
-            &self,
-            id: &IterationId,
-            deferred_goal_for_next_iteration: Option<&DeferredGoal>,
-        ) -> Result<Iteration, CoreError>;
-
-        /// Atomically transition to `succeeded` and write canonical outcomes.
-        async fn close_succeeded(
-            &self,
-            id: &IterationId,
-            outcomes: &str,
             closed_at: Option<UtcDateTime>,
         ) -> Result<Iteration, CoreError>;
 
@@ -447,18 +393,26 @@ mod workflow {
         /// Load an attempt by id.
         async fn get(&self, id: &AttemptId) -> Result<Option<Attempt>, CoreError>;
 
-        /// Record the planner task assigned to this attempt.
-        async fn record_planner_task(
+        /// Bind the planner task assigned to this attempt.
+        async fn bind_planner_task(
             &self,
             id: &AttemptId,
             planner_task_id: &TaskId,
         ) -> Result<Attempt, CoreError>;
 
-        /// Record a materialized planner DAG and transition the attempt to run.
-        async fn record_plan(
+        /// Record the planner-authored execution tree nodes and transition to run.
+        async fn record_plan_nodes(
             &self,
             id: &AttemptId,
-            plan: &MaterializedPlan,
+            nodes: &[ExecutionNode],
+        ) -> Result<Attempt, CoreError>;
+
+        /// Bind a worker task to one execution-tree node.
+        async fn bind_worker_task(
+            &self,
+            id: &AttemptId,
+            work_item_id: &WorkItemId,
+            task_id: &TaskId,
         ) -> Result<Attempt, CoreError>;
 
         /// Close the attempt with a typed terminal closure.
@@ -485,7 +439,7 @@ mod workflow {
 pub use engine::AgentRunStore;
 pub use model_registry::ModelStore;
 pub use request_task::{RequestStore, TaskStore};
-pub use task_agent_run::{parented_task_id, root_task_id, workflow_task_id, TaskAgentRunStore};
+pub use task_agent_run::{parented_task_id, TaskAgentRunStore};
 pub use workflow::{AttemptStore, IterationStore, WorkflowStore};
 
 /// Alias for the error every store method returns.

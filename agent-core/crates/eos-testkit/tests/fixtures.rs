@@ -1,7 +1,7 @@
 //! Public fixture-contract tests for `eos-testkit`.
 #![allow(clippy::expect_used)]
 
-use eos_engine::{EngineError, ProviderStreamSource, AgentRunStreamEvent};
+use eos_engine::{AgentRunStreamEvent, EngineError, ProviderStreamSource};
 use eos_llm_client::{ContentBlock, LlmRequest, Message, ToolSpec};
 use eos_sandbox_port::{DaemonOp, SandboxTransport};
 use eos_testkit::{
@@ -122,11 +122,14 @@ async fn factory_by_agent_routes_by_agent_name() {
     let start_request = start_request();
     let root_source = factory(&start_request, &runtime_snapshot("root"));
     let advisor_source = factory(&start_request, &runtime_snapshot("advisor"));
-    let root_events =
-        collect_source_with_request(&*root_source, &request_with_tool("submit_root_outcome")).await;
+    let root_events = collect_source_with_request(
+        &*root_source,
+        &request_with_tool("submit_root_task_outcome"),
+    )
+    .await;
     let advisor_events = collect_source_with_request(
         &*advisor_source,
-        &request_with_tool("submit_advisor_feedback"),
+        &request_with_tool("submit_advisor_outcome"),
     )
     .await;
 

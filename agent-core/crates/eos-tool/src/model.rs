@@ -132,7 +132,8 @@ mod metadata {
 
     use eos_types::Message;
     use eos_types::{
-        AgentRunId, AttemptId, InvocationId, RequestId, SandboxId, TaskId, ToolUseId, WorkflowId,
+        AgentRunId, AttemptId, InvocationId, RequestId, SandboxId, TaskId, ToolUseId, WorkItemId,
+        WorkflowId,
     };
 
     use crate::ToolError;
@@ -153,6 +154,8 @@ mod metadata {
         pub attempt_id: Option<AttemptId>,
         /// Owning workflow, when set.
         pub workflow_id: Option<WorkflowId>,
+        /// Planner-authored work item id, when this is a worker run.
+        pub work_item_id: Option<WorkItemId>,
         /// Per-call tool-use id.
         pub tool_use_id: Option<ToolUseId>,
         /// In-flight sandbox correlation id, when set.
@@ -176,6 +179,7 @@ mod metadata {
                 .field("task_id", &self.task_id)
                 .field("attempt_id", &self.attempt_id)
                 .field("workflow_id", &self.workflow_id)
+                .field("work_item_id", &self.work_item_id)
                 .field("tool_use_id", &self.tool_use_id)
                 .field("sandbox_id", &self.sandbox_id)
                 .field(
@@ -242,6 +246,16 @@ mod metadata {
                 .as_ref()
                 .ok_or(ToolError::MissingContext("attempt_id"))
         }
+
+        /// Require the current work item id, else a framework fault.
+        ///
+        /// # Errors
+        /// Returns [`ToolError::MissingContext`] when no work item id is set.
+        pub fn require_work_item_id(&self) -> Result<&WorkItemId, ToolError> {
+            self.work_item_id
+                .as_ref()
+                .ok_or(ToolError::MissingContext("work_item_id"))
+        }
     }
 }
 mod name {
@@ -301,24 +315,22 @@ mod name {
         CancelWorkflow,
         /// `load_skill_reference` (skills; omitted from `_names.py`).
         LoadSkillReference,
-        /// `submit_root_outcome` (submission, terminal).
-        SubmitRootOutcome,
-        /// `submit_generator_outcome` (submission, terminal).
-        SubmitGeneratorOutcome,
-        /// `submit_reducer_outcome` (submission, terminal).
-        SubmitReducerOutcome,
-        /// `submit_planner_outcome` (submission, terminal).
-        SubmitPlannerOutcome,
-        /// `submit_advisor_feedback` (submission, terminal).
-        SubmitAdvisorFeedback,
-        /// `submit_subagent_result` (submission, terminal).
-        SubmitSubagentResult,
+        /// `submit_root_task_outcome` (submission, terminal).
+        SubmitRootTaskOutcome,
+        /// `submit_plan_outcome` (submission, terminal).
+        SubmitPlanOutcome,
+        /// `submit_worker_outcome` (submission, terminal).
+        SubmitWorkerOutcome,
+        /// `submit_advisor_outcome` (submission, terminal).
+        SubmitAdvisorOutcome,
+        /// `submit_subagent_outcome` (submission, terminal).
+        SubmitSubagentOutcome,
     }
 
     impl ToolName {
         /// Every tool name, in a stable order. Used by registry-totality tests and
         /// as the canonical iteration order for default-set construction.
-        pub const ALL: [ToolName; 22] = [
+        pub const ALL: [ToolName; 21] = [
             ToolName::ReadFile,
             ToolName::WriteFile,
             ToolName::EditFile,
@@ -335,12 +347,11 @@ mod name {
             ToolName::CheckWorkflowStatus,
             ToolName::CancelWorkflow,
             ToolName::LoadSkillReference,
-            ToolName::SubmitRootOutcome,
-            ToolName::SubmitGeneratorOutcome,
-            ToolName::SubmitReducerOutcome,
-            ToolName::SubmitPlannerOutcome,
-            ToolName::SubmitAdvisorFeedback,
-            ToolName::SubmitSubagentResult,
+            ToolName::SubmitRootTaskOutcome,
+            ToolName::SubmitPlanOutcome,
+            ToolName::SubmitWorkerOutcome,
+            ToolName::SubmitAdvisorOutcome,
+            ToolName::SubmitSubagentOutcome,
         ];
 
         /// The wire string the model calls this tool by.
@@ -363,12 +374,11 @@ mod name {
                 ToolName::CheckWorkflowStatus => "check_workflow_status",
                 ToolName::CancelWorkflow => "cancel_workflow",
                 ToolName::LoadSkillReference => "load_skill_reference",
-                ToolName::SubmitRootOutcome => "submit_root_outcome",
-                ToolName::SubmitGeneratorOutcome => "submit_generator_outcome",
-                ToolName::SubmitReducerOutcome => "submit_reducer_outcome",
-                ToolName::SubmitPlannerOutcome => "submit_planner_outcome",
-                ToolName::SubmitAdvisorFeedback => "submit_advisor_feedback",
-                ToolName::SubmitSubagentResult => "submit_subagent_result",
+                ToolName::SubmitRootTaskOutcome => "submit_root_task_outcome",
+                ToolName::SubmitPlanOutcome => "submit_plan_outcome",
+                ToolName::SubmitWorkerOutcome => "submit_worker_outcome",
+                ToolName::SubmitAdvisorOutcome => "submit_advisor_outcome",
+                ToolName::SubmitSubagentOutcome => "submit_subagent_outcome",
             }
         }
 

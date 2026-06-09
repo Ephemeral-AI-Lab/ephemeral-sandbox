@@ -13,12 +13,12 @@ mod agent_run {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        AgentName, AgentRunId, AttemptId, IterationId, JsonObject, Message, RequestId, SandboxId,
-        TaskId, ToolUseId, WorkflowId,
+        AgentName, AgentRunId, AttemptId, IterationId, JsonObject, Message, PlanId, RequestId,
+        SandboxId, TaskId, ToolUseId, WorkItemId, WorkflowId,
     };
 
     use super::record::{
-        ParentedAgentRunKind, TaskAgentRunKind, WorkflowCoordinates, WorkflowNodeId,
+        ParentedAgentRunKind, TaskAgentRunKind, WorkflowCoordinates, WorkflowTaskRole,
     };
 
     /// Request to spawn any agent kind.
@@ -85,14 +85,18 @@ mod agent_run {
             /// Owning request id.
             request_id: RequestId,
         },
-        /// Workflow planner/generator/reducer task agent.
+        /// Workflow planner/worker task agent.
         Workflow {
             /// Owning request id.
             request_id: RequestId,
             /// Owning workflow coordinates.
-            workflow: WorkflowCoordinates,
-            /// Workflow node id, including the planner/generator/reducer role.
-            workflow_node_id: WorkflowNodeId,
+            coords: WorkflowCoordinates,
+            /// Workflow task role.
+            role: WorkflowTaskRole,
+            /// Attempt-local plan id.
+            plan_id: PlanId,
+            /// Work item id for workers; `None` for planner.
+            work_item_id: Option<WorkItemId>,
         },
         /// Parent-launched subagent run.
         Subagent {
@@ -120,7 +124,7 @@ mod agent_run {
         #[must_use]
         pub const fn workflow(&self) -> Option<&WorkflowCoordinates> {
             match self {
-                Self::Workflow { workflow, .. } => Some(workflow),
+                Self::Workflow { coords, .. } => Some(coords),
                 Self::Root { .. } | Self::Subagent { .. } | Self::Advisor { .. } => None,
             }
         }
@@ -130,13 +134,9 @@ mod agent_run {
         pub fn task_agent_run_kind(&self) -> TaskAgentRunKind {
             match self {
                 Self::Root { .. } => TaskAgentRunKind::Root,
-                Self::Workflow {
-                    workflow,
-                    workflow_node_id,
-                    ..
-                } => TaskAgentRunKind::Workflow {
-                    workflow: workflow.clone(),
-                    role: workflow_node_id.role(),
+                Self::Workflow { coords, role, .. } => TaskAgentRunKind::Workflow {
+                    workflow: coords.clone(),
+                    role: *role,
                 },
                 Self::Subagent { parent } => TaskAgentRunKind::Parented {
                     parent_agent_run_id: parent.agent_run_id.clone(),
@@ -283,10 +283,7 @@ mod record {
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
-    use crate::{
-        AgentRunId, AttemptId, GeneratorId, IterationId, PlannerId, ReducerId, RequestId, TaskId,
-        WorkflowId,
-    };
+    use crate::{AgentRunId, AttemptId, IterationId, RequestId, TaskId, WorkflowId};
 
     /// Workflow coordinates used by workflow task-agent-runs.
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -314,7 +311,7 @@ mod record {
     pub enum TaskAgentRunKind {
         /// Root request agent.
         Root,
-        /// Delegated workflow planner/generator/reducer task agent.
+        /// Delegated workflow planner/worker task agent.
         Workflow {
             /// Owning workflow coordinates.
             workflow: WorkflowCoordinates,
@@ -336,10 +333,8 @@ mod record {
     pub enum WorkflowTaskRole {
         /// Planner task.
         Planner,
-        /// Generator task.
-        Generator,
-        /// Reducer task.
-        Reducer,
+        /// Worker task.
+        Worker,
     }
 
     impl WorkflowTaskRole {
@@ -348,8 +343,7 @@ mod record {
         pub const fn as_str(self) -> &'static str {
             match self {
                 Self::Planner => "planner",
-                Self::Generator => "generator",
-                Self::Reducer => "reducer",
+                Self::Worker => "worker",
             }
         }
 
@@ -358,51 +352,7 @@ mod record {
         pub const fn task_segment_prefix(self) -> &'static str {
             match self {
                 Self::Planner => "planner-task",
-                Self::Generator => "generator-task",
-                Self::Reducer => "reducer-task",
-            }
-        }
-    }
-
-    /// Workflow node identity for planner/generator/reducer task-agent-runs.
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-    #[serde(rename_all = "snake_case")]
-    pub enum WorkflowNodeId {
-        /// Attempt-level planner node.
-        Planner {
-            /// Workflow-local planner id.
-            planner_id: PlannerId,
-        },
-        /// Planner-authored generator node.
-        Generator {
-            /// Workflow-local generator id from the planner-authored DAG.
-            generator_id: GeneratorId,
-        },
-        /// Planner-authored reducer node.
-        Reducer {
-            /// Workflow-local reducer id from the planner-authored DAG.
-            reducer_id: ReducerId,
-        },
-    }
-
-    impl WorkflowNodeId {
-        /// Workflow task role represented by this node id.
-        #[must_use]
-        pub const fn role(&self) -> WorkflowTaskRole {
-            match self {
-                Self::Planner { .. } => WorkflowTaskRole::Planner,
-                Self::Generator { .. } => WorkflowTaskRole::Generator,
-                Self::Reducer { .. } => WorkflowTaskRole::Reducer,
-            }
-        }
-
-        /// Workflow-local role id as a borrowed string.
-        #[must_use]
-        pub fn role_id(&self) -> &str {
-            match self {
-                Self::Planner { planner_id } => planner_id.as_str(),
-                Self::Generator { generator_id } => generator_id.as_str(),
-                Self::Reducer { reducer_id } => reducer_id.as_str(),
+                Self::Worker => "worker-task",
             }
         }
     }
@@ -572,53 +522,12 @@ mod record {
 mod workflow {
     //! Workflow and terminal-submission contracts.
 
-    use std::collections::BTreeMap;
-
     use async_trait::async_trait;
 
     use crate::{
-        AgentRunId, AttemptId, CoreError, GeneratorId, GeneratorSubmission, PlanDisposition,
-        ReducerId, ReducerSubmission, TaskId, ToolUseId, WorkflowId,
+        AgentRunId, CoreError, PlanOutcomeSubmission, TaskId, ToolUseId, WorkerOutcomeSubmission,
+        WorkflowId,
     };
-
-    /// One planner-authored generator task.
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct PlanTask {
-        /// Caller-assigned generator id.
-        pub generator_id: GeneratorId,
-        /// Bound subagent profile name.
-        pub agent_name: String,
-        /// Generator ids this task depends on.
-        pub needs: Vec<GeneratorId>,
-    }
-
-    /// One planner-authored reducer task.
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct PlanReducer {
-        /// Caller-assigned reducer id.
-        pub reducer_id: ReducerId,
-        /// Generator ids this reducer depends on.
-        pub needs: Vec<GeneratorId>,
-        /// The reducer's instruction prompt.
-        pub prompt: String,
-    }
-
-    /// A validated planner DAG submission.
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct PlannerPlan {
-        /// Owning attempt.
-        pub attempt_id: AttemptId,
-        /// The planner's own task.
-        pub planner_task_id: TaskId,
-        /// Whether the plan completes the attempt or defers a goal.
-        pub disposition: PlanDisposition,
-        /// The generator tasks, in submission order.
-        pub tasks: Vec<PlanTask>,
-        /// Per-generator instruction specs, keyed by generator id.
-        pub task_specs: BTreeMap<GeneratorId, String>,
-        /// The reducer tasks, in submission order.
-        pub reducers: Vec<PlanReducer>,
-    }
 
     /// The result of applying a terminal submission.
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -632,19 +541,16 @@ mod workflow {
     /// Per-attempt submission application for terminal tools.
     #[async_trait]
     pub trait WorkflowAttemptSubmissionApi: Send + Sync {
-        /// Apply a validated planner DAG.
-        async fn apply_plan(&self, plan: PlannerPlan) -> Result<SubmissionAck, CoreError>;
-
-        /// Record one generator task's terminal outcome.
-        async fn submit_generator(
+        /// Apply a validated planner plan.
+        async fn submit_plan_outcome(
             &self,
-            submission: GeneratorSubmission,
+            submission: PlanOutcomeSubmission,
         ) -> Result<SubmissionAck, CoreError>;
 
-        /// Record one reducer task's terminal outcome.
-        async fn apply_reducer(
+        /// Record one worker task's terminal outcome.
+        async fn submit_worker_outcome(
             &self,
-            submission: ReducerSubmission,
+            submission: WorkerOutcomeSubmission,
         ) -> Result<SubmissionAck, CoreError>;
     }
 
@@ -760,10 +666,9 @@ pub use cancellation::{AgentCoreCancellationApi, CancelError};
 pub use record::{
     format_record_dir, AgentRunRecordDir, AgentRunRecordIndex, AgentRunRecordTarget,
     CreatedTaskAgentRun, ParentedAgentRunKind, TaskAgentRunKind, TaskExecutionIndex,
-    WorkflowCoordinates, WorkflowNodeId, WorkflowTaskRole,
+    WorkflowCoordinates, WorkflowTaskRole,
 };
 pub use workflow::{
-    OpenDelegatedWorkflow, PlanReducer, PlanTask, PlannerPlan, StartWorkflowRequest,
-    StartedWorkflow, SubmissionAck, TerminalWorkflow, WorkflowApi, WorkflowApiError,
-    WorkflowAttemptSubmissionApi, WorkflowTerminalStatus,
+    OpenDelegatedWorkflow, StartWorkflowRequest, StartedWorkflow, SubmissionAck, TerminalWorkflow,
+    WorkflowApi, WorkflowApiError, WorkflowAttemptSubmissionApi, WorkflowTerminalStatus,
 };

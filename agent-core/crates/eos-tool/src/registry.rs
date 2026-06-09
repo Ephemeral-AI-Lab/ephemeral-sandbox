@@ -733,7 +733,7 @@ mod config {
         /// hooks entry parses the configured depth; the bare token defaults.
         #[test]
         fn disallow_nested_max_depth_parses_from_entry() {
-            let name = ToolName::SubmitPlannerOutcome;
+            let name = ToolName::SubmitPlanOutcome;
             let configured: Value =
                 serde_yaml::from_str("{disallow_nested_planner_deferral: {max_depth: 3}}").unwrap();
             assert_eq!(
@@ -757,19 +757,19 @@ mod config {
         #[test]
         fn workflow_max_depth_overrides_deferral_hooks() {
             let cfg = parse_tool_config(
-            ToolName::SubmitPlannerOutcome,
+            ToolName::SubmitPlanOutcome,
             "---\nintent: read_only\nterminal: true\nhooks: [{disallow_nested_planner_deferral: {max_depth: 1}}]\n---\nSubmit plan.\n",
         )
         .unwrap();
             let set = ToolConfigSet {
-                configs: HashMap::from([(ToolName::SubmitPlannerOutcome, cfg)]),
+                configs: HashMap::from([(ToolName::SubmitPlanOutcome, cfg)]),
             }
             .with_workflow_max_depth(2);
 
             assert_eq!(
-                set.get(ToolName::SubmitPlannerOutcome).hooks,
+                set.get(ToolName::SubmitPlanOutcome).hooks,
                 vec![Hook::DisallowNestedPlannerDeferral {
-                    tool: ToolName::SubmitPlannerOutcome,
+                    tool: ToolName::SubmitPlanOutcome,
                     max_depth: 2,
                 }]
             );

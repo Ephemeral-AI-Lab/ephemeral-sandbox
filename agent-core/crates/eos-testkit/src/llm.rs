@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use eos_engine::{
-    AssistantMessageComplete, EngineError, EngineStream, ProviderStreamSource,
-    ProviderStreamSourceFactory, AgentRunStreamEvent,
+    AgentRunStreamEvent, AssistantMessageComplete, EngineError, EngineStream, ProviderStreamSource,
+    ProviderStreamSourceFactory,
 };
 use eos_llm_client::{ContentBlock, LlmRequest, Message, MessageRole, UsageSnapshot};
 
@@ -73,7 +73,9 @@ pub fn factory_from(turns: Vec<Vec<AgentRunStreamEvent>>) -> ProviderStreamSourc
 /// A factory where the `root` agent plays `root_turns` then blocks (stays
 /// running), and every other agent gets an empty (first-turn-erroring) source.
 #[must_use]
-pub fn factory_root_blocks_after(root_turns: Vec<Vec<AgentRunStreamEvent>>) -> ProviderStreamSourceFactory {
+pub fn factory_root_blocks_after(
+    root_turns: Vec<Vec<AgentRunStreamEvent>>,
+) -> ProviderStreamSourceFactory {
     Arc::new(move |_request, agent_state| {
         if agent_state.agent_name == "root" {
             Arc::new(ScriptedSource::new_blocking(root_turns.clone()))

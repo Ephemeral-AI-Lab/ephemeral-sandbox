@@ -1,70 +1,28 @@
 ---
 name: planner
-description: Workflow scaffolding for the TaskCenter planner: scope bounding, criterion-per-deliverable, dependency reasoning, and full-vs-deferred coverage decisions.
+description: Workflow scaffolding for planner work-item plans: scope bounding, direct dependency reasoning, and deferred-goal discipline.
 ---
 
-# Planner workflow
+# Planner Workflow
 
-You design one attempt's plan: a DAG of generator + reducer tasks. Generators
-do the work; reducers work on assigned reducer tasks using their `needs`
-outcomes as context and report outcome summaries. Work the plan first; reach
-the decision point only after the plan is internally coherent.
+You design one attempt's worker plan. The plan is a DAG of `work_items`; each work item has an id, a worker-capable `agent_name`, an executable `work_spec`, and optional direct `needs`.
 
-## Bound the scope before you decompose
+## Bound The Scope
 
-1. Re-read the current iteration goal. That is the scope contract for this
-   attempt. The original goal and prior iteration blocks are orientation only;
-   do not mine them for backlog items the current iteration did not name.
-2. List the deliverables the current iteration goal actually requires. If the
-   iteration text names a list, treat each item as a candidate deliverable. If
-   it names a single coherent change, treat that as one deliverable.
-3. For each candidate deliverable, write the falsifiable statement that would
-   make it observable to an outside reader of this attempt's results. Those
-   statements seed your reducer outcome prompts.
+1. Re-read the current iteration goal.
+2. Identify the deliverables this attempt can complete.
+3. Convert each deliverable into one or more self-contained work items.
 
-If the seed list exceeds what the attempt can credibly land in one DAG, you
-have a bounding problem. When the launch exposes a defer terminal, prefer a
-smaller coherent bounded iteration with a self-contained next-iteration
-instruction. When the launch does not expose a defer terminal, narrow the plan
-contract inside the current iteration's bounds and make the criteria match what
-the DAG can actually deliver.
+Use `deferred_goal_for_next_iteration` only when concrete current-iteration goal items are intentionally left for a later iteration.
 
-## Reducers produce deliverable outcomes
+## Work Items
 
-- A reducer's prompt should assign concrete reducer work over observable
-  outcomes from its `needs`. If the prompt is scoped wider than the DAG can
-  deliver, the reducer cannot finish the assigned task even when every
-  generator succeeded.
-- Prefer measurable wording over aspirational wording.
-- Every generator must be transitively needed by at least one reducer; a
-  generator no reducer needs would finish without a downstream outcome and the
-  plan is rejected. A single reducer that needs the plan's leaf tasks recovers
-  the whole-attempt view; split into multiple reducers when independent outcome
-  summaries should be produced separately.
+- Each `work_spec` must be actionable without rereading the whole plan.
+- Add a `needs` edge only when one work item requires another work item's outcome.
+- A worker receives only direct dependency outcomes, not transitive ancestors.
+- Independent items should be parallel siblings.
+- The graph must be acyclic.
 
-## Edges are `needs`, not narrative
+## Submission
 
-- Add a `needs` edge only when one task's output is required by another. Two
-  tasks that touch the same area but produce independent outputs become
-  parallel siblings, not a chain.
-- A wide flat DAG is normal. Deep chains compound risk because failure of one
-  task blocks every descendant.
-- Write each task spec so the executor can act without re-reading the plan.
-  State inputs, outputs, success conditions, and constraints. Reference `needs`
-  outputs by their id.
-
-## Retry posture
-
-When prior failed attempts appear in the current iteration context, you are
-inside a fixed iteration goal. Use the failed `<task>`s and `<failure>` line to
-rework the failing portion instead of re-running the same plan unchanged. If a
-prior failure identified a specific gap, narrow the next plan to address it
-directly.
-
-## Submission discipline
-
-Plain text you emit during planning is reasoning, not a plan. The plan is only
-committed when you call one available terminal step with the required fields.
-Before committing, call the advisor with the chosen step and intended payload,
-then wait for approval. Write the submitted plan body durably enough that a
-fresh agent can act without reconstructing what you were thinking.
+Plain text is reasoning, not a plan. Commit the plan only by calling `submit_plan_outcome` once after advisor approval.

@@ -310,6 +310,7 @@ impl ToolExecutionMetadataReader for TestMetadataReader {
             task_id: None,
             attempt_id: None,
             workflow_id: None,
+            work_item_id: None,
             tool_use_id: Some(input.tool_use_id),
             sandbox_invocation_id: None,
             sandbox_id: None,

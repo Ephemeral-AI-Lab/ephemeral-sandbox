@@ -22,41 +22,14 @@ pub enum WorkflowStatus {
     Cancelled,
 }
 
-/// Terminal outcome of a workflow.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkflowOutcome {
-    /// Workflow succeeded.
-    Succeeded,
-    /// Workflow failed.
-    Failed,
-    /// Workflow was cancelled.
-    Cancelled {
-        /// Cancellation reason.
-        reason: String,
-    },
-}
-
-impl WorkflowOutcome {
-    /// Persisted status corresponding to this outcome.
-    #[must_use]
-    pub const fn status(&self) -> WorkflowStatus {
-        match self {
-            Self::Succeeded => WorkflowStatus::Succeeded,
-            Self::Failed => WorkflowStatus::Failed,
-            Self::Cancelled { .. } => WorkflowStatus::Cancelled,
-        }
-    }
-}
-
-/// Immutable view of a persisted Workflow (Rust `state.py:Workflow`).
+/// Immutable view of a persisted Workflow.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Workflow {
     /// Workflow identifier.
     pub id: WorkflowId,
     /// Owning request.
     pub request_id: RequestId,
-    /// The workflow goal (DB column `goal`; mapped in `eos-db`, anchor §4).
+    /// The workflow goal.
     pub workflow_goal: String,
     /// Lifecycle status.
     pub status: WorkflowStatus,
@@ -65,12 +38,10 @@ pub struct Workflow {
     /// The launching task; durable back-link, never mutated at close.
     pub parent_task_id: TaskId,
     /// Agent run that launched this workflow.
-    pub launched_by_agent_run_id: AgentRunId,
+    pub parent_agent_run_id: AgentRunId,
     /// Tool use that launched this workflow, if available.
     #[serde(default)]
     pub tool_use_id: Option<ToolUseId>,
-    /// Serialized final projection (a `json.dumps` list); `None` while open.
-    pub outcomes: Option<String>,
     /// Creation timestamp.
     pub created_at: UtcDateTime,
     /// Last-update timestamp.

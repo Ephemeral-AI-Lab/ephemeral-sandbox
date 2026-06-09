@@ -17,8 +17,8 @@ pub(crate) fn encode<T: Serialize + ?Sized>(value: &T) -> Result<String, DbError
     serde_json::to_string(value).map_err(DbError::JsonEncode)
 }
 
-/// Default-to-empty decode for the `x or []` columns (needs, task/attempt
-/// outcomes, iteration/attempt id lists, generator/reducer task ids). A
+/// Default-to-empty decode for the `x or []` columns (iteration/attempt id
+/// lists and execution-tree arrays). A
 /// NULL/empty cell decodes to `T::default()`.
 ///
 /// # Errors

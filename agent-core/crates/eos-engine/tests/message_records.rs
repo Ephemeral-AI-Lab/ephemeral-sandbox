@@ -200,20 +200,12 @@ async fn workflow_task_records_use_role_layout_and_payload() {
             "run-plan",
         ),
         (
-            WorkflowTaskRole::Generator,
-            "workflow_generator",
-            "generator",
-            "generator-task-task-gen",
-            "task-gen",
-            "run-gen",
-        ),
-        (
-            WorkflowTaskRole::Reducer,
-            "workflow_reducer",
-            "reducer",
-            "reducer-task-task-reduce",
-            "task-reduce",
-            "run-reduce",
+            WorkflowTaskRole::Worker,
+            "workflow_worker",
+            "worker",
+            "worker-task-task-work",
+            "task-work",
+            "run-work",
         ),
     ];
 

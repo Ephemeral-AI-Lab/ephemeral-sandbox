@@ -32,21 +32,21 @@ impl WorkflowStore for SqlWorkflowStore {
         &self,
         request_id: &RequestId,
         parent_task_id: &TaskId,
-        launched_by_agent_run_id: &AgentRunId,
+        parent_agent_run_id: &AgentRunId,
         tool_use_id: Option<&ToolUseId>,
         workflow_goal: &str,
     ) -> Result<Workflow, CoreError> {
         let now = OffsetDateTime::now_utc();
         let row = sqlx::query_as::<Sqlite, WorkflowRow>(
             "INSERT INTO workflows \
-             (id, request_id, parent_task_id, launched_by_agent_run_id, tool_use_id, goal, status, \
-              iteration_ids, outcomes, created_at, updated_at, closed_at) \
-             VALUES (?, ?, ?, ?, ?, ?, 'open', '[]', NULL, ?, ?, NULL) RETURNING *",
+             (id, request_id, parent_task_id, parent_agent_run_id, tool_use_id, workflow_goal, \
+              status, iteration_ids, created_at, updated_at, closed_at) \
+             VALUES (?, ?, ?, ?, ?, ?, 'open', '[]', ?, ?, NULL) RETURNING *",
         )
         .bind(WorkflowId::new_v4().as_str())
         .bind(request_id.as_str())
         .bind(parent_task_id.as_str())
-        .bind(launched_by_agent_run_id.as_str())
+        .bind(parent_agent_run_id.as_str())
         .bind(tool_use_id.map(ToolUseId::as_str))
         .bind(workflow_goal)
         .bind(now)
@@ -95,18 +95,15 @@ impl WorkflowStore for SqlWorkflowStore {
         id: &WorkflowId,
         status: WorkflowStatus,
         closed_at: Option<UtcDateTime>,
-        outcomes: Option<&str>,
     ) -> Result<Workflow, CoreError> {
         let now = OffsetDateTime::now_utc();
         let row = sqlx::query_as::<Sqlite, WorkflowRow>(
             "UPDATE workflows SET status = ?, \
                closed_at = COALESCE(?, closed_at), \
-               outcomes = COALESCE(?, outcomes), \
                updated_at = ? WHERE id = ? RETURNING *",
         )
         .bind(enum_to_db(&status))
         .bind(closed_at.map(UtcDateTime::into_inner))
-        .bind(outcomes)
         .bind(now)
         .bind(id.as_str())
         .fetch_optional(&self.pool)
@@ -138,12 +135,12 @@ impl WorkflowStore for SqlWorkflowStore {
 
     async fn list_for_launching_agent_run(
         &self,
-        launched_by_agent_run_id: &AgentRunId,
+        parent_agent_run_id: &AgentRunId,
     ) -> Result<Vec<Workflow>, CoreError> {
         let rows = sqlx::query_as::<Sqlite, WorkflowRow>(
-            "SELECT * FROM workflows WHERE launched_by_agent_run_id = ? ORDER BY created_at ASC",
+            "SELECT * FROM workflows WHERE parent_agent_run_id = ? ORDER BY created_at ASC",
         )
-        .bind(launched_by_agent_run_id.as_str())
+        .bind(parent_agent_run_id.as_str())
         .fetch_all(&self.pool)
         .await
         .map_err(DbError::from)?;
@@ -156,20 +153,14 @@ impl WorkflowStore for SqlWorkflowStore {
     async fn cancel_open_workflows_for_request(
         &self,
         request_id: &RequestId,
-        reason: &str,
+        _reason: &str,
     ) -> Result<usize, CoreError> {
         let now = OffsetDateTime::now_utc();
-        let outcomes = serde_json::json!([{
-            "status": "cancelled",
-            "reason": reason,
-        }])
-        .to_string();
         let updated = sqlx::query(
-            "UPDATE workflows SET status = 'cancelled', outcomes = COALESCE(outcomes, ?), \
+            "UPDATE workflows SET status = 'cancelled', \
              closed_at = COALESCE(closed_at, ?), updated_at = ? \
              WHERE request_id = ? AND status = 'open'",
         )
-        .bind(outcomes)
         .bind(now)
         .bind(now)
         .bind(request_id.as_str())

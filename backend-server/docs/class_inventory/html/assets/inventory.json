@@ -425,7 +425,7 @@
               "kind": "fn",
               "name": "events",
               "visibility": "pub",
-              "signature": "pub async fn events (State (state) : State < AppState > , Path (agent_run_id) : Path < String > , Query (query) : Query < EventsQuery > ,) -> Result < Json < Vec < NodeEvent > > , ApiError >",
+              "signature": "pub async fn events (State (state) : State < AppState > , Path (agent_run_id) : Path < String > , Query (query) : Query < EventsQuery > ,) -> Result < Json < Vec < AgentRunRecordEvent > > , ApiError >",
               "fields": [],
               "variants": [],
               "methods": [],
@@ -464,9 +464,9 @@
               "signature": "struct TailState",
               "fields": [
                 {
-                  "name": "message_records",
+                  "name": "agent_run_records",
                   "visibility": "private",
-                  "ty": "AgentMessageRecords"
+                  "ty": "AgentRunRecords"
                 },
                 {
                   "name": "record_dir",
@@ -481,7 +481,7 @@
                 {
                   "name": "pending",
                   "visibility": "private",
-                  "ty": "VecDeque < NodeEvent >"
+                  "ty": "VecDeque < AgentRunRecordEvent >"
                 },
                 {
                   "name": "finished",
@@ -511,7 +511,7 @@
               "methods": [
                 {
                   "name": "new",
-                  "signature": "fn new (message_records : AgentMessageRecords , record_dir : AgentRunRecordDir , last_seq : u64 , pending : VecDeque < NodeEvent > ,) -> Self",
+                  "signature": "fn new (agent_run_records : AgentRunRecords , record_dir : AgentRunRecordDir , last_seq : u64 , pending : VecDeque < AgentRunRecordEvent > ,) -> Self",
                   "kind": "constructor",
                   "docs": null,
                   "line": 140
@@ -531,7 +531,7 @@
               "kind": "fn",
               "name": "to_sse_event",
               "visibility": "private",
-              "signature": "fn to_sse_event (event : & NodeEvent) -> Event",
+              "signature": "fn to_sse_event (event : & AgentRunRecordEvent) -> Event",
               "fields": [],
               "variants": [],
               "methods": [],
@@ -1053,7 +1053,7 @@
               "tags": [],
               "file": "crates/eos-backend-api/src/handlers/tasks.rs",
               "module": "handlers::tasks",
-              "line": 102
+              "line": 106
             }
           ]
         },
@@ -1077,7 +1077,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 25
+              "line": 24
             },
             {
               "kind": "fn",
@@ -1095,7 +1095,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 74
+              "line": 73
             },
             {
               "kind": "fn",
@@ -1113,7 +1113,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 107
+              "line": 104
             },
             {
               "kind": "fn",
@@ -1131,7 +1131,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 147
+              "line": 144
             },
             {
               "kind": "fn",
@@ -1149,7 +1149,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 184
+              "line": 181
             },
             {
               "kind": "struct",
@@ -1175,7 +1175,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 218
+              "line": 215
             },
             {
               "kind": "fn",
@@ -1193,7 +1193,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 224
+              "line": 221
             },
             {
               "kind": "fn",
@@ -1209,7 +1209,7 @@
               "tags": [],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 243
+              "line": 240
             }
           ]
         },
@@ -1460,9 +1460,9 @@
                   "ty": "Arc < dyn TaskAgentRunStore >"
                 },
                 {
-                  "name": "message_records",
+                  "name": "agent_run_records",
                   "visibility": "pub(crate)",
-                  "ty": "AgentMessageRecords"
+                  "ty": "AgentRunRecords"
                 }
               ],
               "variants": [],
@@ -1529,9 +1529,9 @@
                   "ty": "Arc < dyn TaskAgentRunStore >"
                 },
                 {
-                  "name": "message_records",
+                  "name": "agent_run_records",
                   "visibility": "pub",
-                  "ty": "AgentMessageRecords"
+                  "ty": "AgentRunRecords"
                 }
               ],
               "variants": [],
@@ -5111,15 +5111,15 @@
                   "line": 91
                 },
                 {
-                  "name": "live_event_sink_factory",
-                  "signature": "pub fn live_event_sink_factory (self : & Arc < Self >) -> EngineEventSinkFactory",
+                  "name": "stream_sink_factory",
+                  "signature": "pub fn stream_sink_factory (self : & Arc < Self >) -> AgentRunStreamSinkFactory",
                   "kind": "method",
                   "docs": "Build the per-loop live sink factory consumed by `TokioAgentLoopLauncher`.",
                   "line": 100
                 },
                 {
                   "name": "register",
-                  "signature": "pub fn register (& self , request_id : & RequestId) -> EngineEventSink",
+                  "signature": "pub fn register (& self , request_id : & RequestId) -> AgentRunStreamSink",
                   "kind": "method",
                   "docs": "Register one agent loop under its owning request and return its sync event\nsink. The returned sink must be dropped when the loop finishes; dropping the\nlast sink for a request closes its live tail after the drainer flushes.",
                   "line": 107
@@ -5185,7 +5185,7 @@
               "kind": "fn",
               "name": "is_delta",
               "visibility": "private",
-              "signature": "const fn is_delta (kind : & str) -> bool",
+              "signature": "fn is_delta (kind : & str) -> bool",
               "fields": [],
               "variants": [],
               "methods": [],

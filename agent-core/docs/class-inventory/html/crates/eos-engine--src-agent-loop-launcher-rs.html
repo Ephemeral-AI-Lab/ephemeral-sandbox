@@ -65,14 +65,14 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-TokioAgentLoopLauncher-87">TokioAgentLoopLauncher</a></code>
   <p class="docstring">Tokio-backed non-blocking agent-loop launcher.</p>
   <div class="tags"></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>provider_stream_source</td><td><code><a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a></code></td></tr><tr><td>private</td><td>tool_registry_factory</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a> &gt;</code></td></tr><tr><td>private</td><td>execution_metadata_reader</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a> &gt;</code></td></tr><tr><td>private</td><td>background_sessions</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-122">BackgroundSessionRuntimeFactory</a> &gt;</code></td></tr><tr><td>private</td><td>hook_stores</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-89">ToolCallHookStores</a> &gt;</code></td></tr><tr><td>private</td><td>run_outputs</td><td><code><a class="symbol-link" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a></code></td></tr><tr><td>private</td><td>stream_sink_factory</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-run-output-stream-rs.html#item-type-AgentRunStreamSinkFactory-165">AgentRunStreamSinkFactory</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-106"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a> (provider_stream_source : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-provider-stream-source-rs.html#item-trait-ProviderStreamSource-24">ProviderStreamSource</a> &gt; , tool_registry_factory : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a> &gt; , execution_metadata_reader : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a> &gt; ,) -&gt; Self</code><p class="docstring">Build a Tokio-backed launcher from engine-owned loop services.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>provider_stream_source</td><td><code><a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a></code></td></tr><tr><td>private</td><td>tool_registry_factory</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a> &gt;</code></td></tr><tr><td>private</td><td>execution_metadata_reader</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a> &gt;</code></td></tr><tr><td>private</td><td>background_sessions</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-125">BackgroundSessionRuntimeFactory</a> &gt;</code></td></tr><tr><td>private</td><td>hook_stores</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-92">ToolCallHookStores</a> &gt;</code></td></tr><tr><td>private</td><td>run_outputs</td><td><code><a class="symbol-link" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a></code></td></tr><tr><td>private</td><td>stream_sink_factory</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-run-output-stream-rs.html#item-type-AgentRunStreamSinkFactory-165">AgentRunStreamSinkFactory</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-106"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a> (provider_stream_source : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-provider-stream-source-rs.html#item-trait-ProviderStreamSource-24">ProviderStreamSource</a> &gt; , tool_registry_factory : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a> &gt; , execution_metadata_reader : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a> &gt; ,) -&gt; Self</code><p class="docstring">Build a Tokio-backed launcher from engine-owned loop services.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Build a Tokio-backed launcher from engine-owned loop services.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(
         provider_stream_source: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-provider-stream-source-rs.html#item-trait-ProviderStreamSource-24">ProviderStreamSource</a>&gt;,
-        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a>&gt;,
-        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a>&gt;,
+        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a>&gt;,
+        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a>&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-new-with-provider-stream-134">new_with_provider_stream</a>(
             <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a>::<span class="rs-type">Static</span>(provider_stream_source),
@@ -81,14 +81,14 @@
         )
     }
 </code></pre>
-</details></td></tr><tr id="method-with-provider-stream-source-factory-120"><td>constructor</td><td>with_provider_stream_source_factory</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-provider-stream-source-factory-120">with_provider_stream_source_factory</a> (provider_stream_source_factory : <a class="symbol-link" href="eos-engine--src-provider-stream-source-rs.html#item-type-ProviderStreamSourceFactory-17">ProviderStreamSourceFactory</a> , tool_registry_factory : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a> &gt; , execution_metadata_reader : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a> &gt; ,) -&gt; Self</code><p class="docstring">Build a launcher with a source resolved from each loop request.</p><details class="function-source">
+</details></td></tr><tr id="method-with-provider-stream-source-factory-120"><td>constructor</td><td>with_provider_stream_source_factory</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-provider-stream-source-factory-120">with_provider_stream_source_factory</a> (provider_stream_source_factory : <a class="symbol-link" href="eos-engine--src-provider-stream-source-rs.html#item-type-ProviderStreamSourceFactory-17">ProviderStreamSourceFactory</a> , tool_registry_factory : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a> &gt; , execution_metadata_reader : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a> &gt; ,) -&gt; Self</code><p class="docstring">Build a launcher with a source resolved from each loop request.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Build a launcher with a source resolved from each loop request.</span>
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-provider-stream-source-factory-120">with_provider_stream_source_factory</a>(
         provider_stream_source_factory: <a class="symbol-link rs-type" href="eos-engine--src-provider-stream-source-rs.html#item-type-ProviderStreamSourceFactory-17">ProviderStreamSourceFactory</a>,
-        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a>&gt;,
-        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a>&gt;,
+        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a>&gt;,
+        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a>&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-new-with-provider-stream-134">new_with_provider_stream</a>(
             <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a>::<span class="rs-type">Factory</span>(provider_stream_source_factory),
@@ -97,20 +97,20 @@
         )
     }
 </code></pre>
-</details></td></tr><tr id="method-with-background-sessions-151"><td>method</td><td>with_background_sessions</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-background-sessions-151">with_background_sessions</a> (mut self , inputs : <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-122">BackgroundSessionRuntimeFactory</a>) -&gt; Self</code><p class="docstring">Attach runtime contracts for engine-owned background managers.</p><details class="function-source">
+</details></td></tr><tr id="method-with-background-sessions-151"><td>method</td><td>with_background_sessions</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-background-sessions-151">with_background_sessions</a> (mut self , inputs : <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-125">BackgroundSessionRuntimeFactory</a>) -&gt; Self</code><p class="docstring">Attach runtime contracts for engine-owned background managers.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Attach runtime contracts for engine-owned background managers.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-background-sessions-151">with_background_sessions</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, inputs: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-122">BackgroundSessionRuntimeFactory</a>) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-background-sessions-151">with_background_sessions</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, inputs: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-125">BackgroundSessionRuntimeFactory</a>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">self</span>.background_sessions = <span class="rs-type">Some</span>(inputs);
         <span class="rs-self">self</span>
     }
 </code></pre>
-</details></td></tr><tr id="method-with-tool-call-hook-stores-158"><td>method</td><td>with_tool_call_hook_stores</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-tool-call-hook-stores-158">with_tool_call_hook_stores</a> (mut self , stores : <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-89">ToolCallHookStores</a>) -&gt; Self</code><p class="docstring">Attach runtime stores for engine-owned tool-call hooks.</p><details class="function-source">
+</details></td></tr><tr id="method-with-tool-call-hook-stores-158"><td>method</td><td>with_tool_call_hook_stores</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-tool-call-hook-stores-158">with_tool_call_hook_stores</a> (mut self , stores : <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-92">ToolCallHookStores</a>) -&gt; Self</code><p class="docstring">Attach runtime stores for engine-owned tool-call hooks.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Attach runtime stores for engine-owned tool-call hooks.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-tool-call-hook-stores-158">with_tool_call_hook_stores</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, stores: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-89">ToolCallHookStores</a>) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-tool-call-hook-stores-158">with_tool_call_hook_stores</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, stores: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-92">ToolCallHookStores</a>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">self</span>.hook_stores = <span class="rs-type">Some</span>(stores);
         <span class="rs-self">self</span>
     }
@@ -133,13 +133,13 @@
         <span class="rs-self">self</span>
     }
 </code></pre>
-</details></td></tr><tr id="method-new-with-provider-stream-134"><td>associated-fn</td><td>new_with_provider_stream</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#method-new-with-provider-stream-134">new_with_provider_stream</a> (provider_stream_source : <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a> , tool_registry_factory : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a> &gt; , execution_metadata_reader : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a> &gt; ,) -&gt; Self</code><details class="function-source">
+</details></td></tr><tr id="method-new-with-provider-stream-134"><td>associated-fn</td><td>new_with_provider_stream</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#method-new-with-provider-stream-134">new_with_provider_stream</a> (provider_stream_source : <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a> , tool_registry_factory : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a> &gt; , execution_metadata_reader : Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a> &gt; ,) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    #[must_use]
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-new-with-provider-stream-134">new_with_provider_stream</a>(
         provider_stream_source: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a>,
-        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a>&gt;,
-        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a>&gt;,
+        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a>&gt;,
+        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a>&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             provider_stream_source,
@@ -147,14 +147,14 @@
             execution_metadata_reader,
             background_sessions: <span class="rs-type">None</span>,
             hook_stores: <span class="rs-type">None</span>,
-            run_outputs: <a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+            run_outputs: <a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
             stream_sink_factory: <span class="rs-type">None</span>,
         }
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-TokioAgentLoopLauncher-87">TokioAgentLoopLauncher</a></code></summary><table><tbody><tr id="method-fmt-99"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a></code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-TokioAgentLoopLauncher-87">TokioAgentLoopLauncher</a></code></summary><table><tbody><tr id="method-fmt-99"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a></code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-TokioAgentLoopLauncher-87">TokioAgentLoopLauncher</a>&quot;)
             .finish_non_exhaustive()
     }
@@ -176,7 +176,7 @@
                 || <span class="rs-self">self</span>.run_outputs.clone(),
                 |sink| <span class="rs-self">self</span>.run_outputs.clone().<a class="symbol-link rs-fn" href="eos-engine--src-run-output-rs.html#method-with-stream-46">with_stream</a>(<span class="rs-type">Some</span>(sink)),
             );
-        <span class="rs-kw">let</span> loop_executor = <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a> {
+        <span class="rs-kw">let</span> loop_executor = <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a> {
             provider_stream_source: <span class="rs-self">self</span>.provider_stream_source.clone(),
             tool_registry_factory: <span class="rs-type">Arc</span>::clone(&amp;<span class="rs-self">self</span>.tool_registry_factory),
             execution_metadata_reader: <span class="rs-type">Arc</span>::clone(&amp;<span class="rs-self">self</span>.execution_metadata_reader),
@@ -193,12 +193,12 @@
         });
 
         <span class="rs-type">StartedAgentLoop</span> {
-            completion: <span class="rs-type">AgentLoopCompletion</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<span class="rs-kw">async</span> <span class="rs-kw">move</span> {
+            completion: <span class="rs-type">AgentLoopCompletion</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<span class="rs-kw">async</span> <span class="rs-kw">move</span> {
                 completion_wait.<span class="rs-kw">await</span>.unwrap_or_else(|_| <span class="rs-type">AgentLoopOutcome</span> {
                     kind: <span class="rs-type">AgentLoopOutcomeKind</span>::<span class="rs-type">LoopFailed</span> {
                         error_summary: &quot;agent loop outcome sender dropped&quot;.to_owned(),
                     },
-                    final_conversation_messages: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                    final_conversation_messages: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
                     total_token_count: <span class="rs-type">None</span>,
                 })
             }),
@@ -307,7 +307,7 @@
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#item-fn-agent-loop-cancel-pair-71">agent_loop_cancel_pair</a>() -&gt; (<span class="rs-type">AgentLoopCancellationHandle</span>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-35">AgentLoopCancelSignal</a>) {
     <span class="rs-kw">let</span> (sender, receiver) = watch::channel(<span class="rs-type">None</span>);
     (
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-WatchAgentLoopCancellation-18">WatchAgentLoopCancellation</a> { sender }),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-WatchAgentLoopCancellation-18">WatchAgentLoopCancellation</a> { sender }),
         <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-35">AgentLoopCancelSignal</a> { receiver },
     )
 }
@@ -334,8 +334,8 @@
 <span class="rs-kw">use</span> tokio::sync::{oneshot, watch};
 
 <span class="rs-kw">use</span> <span class="rs-kw">super</span>::{
-    <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a>,
-    <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-122">BackgroundSessionRuntimeFactory</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-89">ToolCallHookStores</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a>,
+    <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a>,
+    <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-125">BackgroundSessionRuntimeFactory</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-92">ToolCallHookStores</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a>,
 };
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::provider_stream::{<a class="symbol-link rs-type" href="eos-engine--src-provider-stream-source-rs.html#item-trait-ProviderStreamSource-24">ProviderStreamSource</a>, <a class="symbol-link rs-type" href="eos-engine--src-provider-stream-source-rs.html#item-type-ProviderStreamSourceFactory-17">ProviderStreamSourceFactory</a>};
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-stream-rs.html#item-type-AgentRunStreamSinkFactory-165">AgentRunStreamSinkFactory</a>};
@@ -398,7 +398,7 @@
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#item-fn-agent-loop-cancel-pair-71">agent_loop_cancel_pair</a>() -&gt; (<span class="rs-type">AgentLoopCancellationHandle</span>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-35">AgentLoopCancelSignal</a>) {
     <span class="rs-kw">let</span> (sender, receiver) = watch::channel(<span class="rs-type">None</span>);
     (
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-WatchAgentLoopCancellation-18">WatchAgentLoopCancellation</a> { sender }),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-WatchAgentLoopCancellation-18">WatchAgentLoopCancellation</a> { sender }),
         <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-35">AgentLoopCancelSignal</a> { receiver },
     )
 }
@@ -412,16 +412,16 @@
 <span class="rs-comment">/// Tokio-backed non-blocking agent-loop launcher.</span>
 <span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-TokioAgentLoopLauncher-87">TokioAgentLoopLauncher</a> {
     provider_stream_source: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a>,
-    tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a>&gt;,
-    execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a>&gt;,
-    background_sessions: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-122">BackgroundSessionRuntimeFactory</a>&gt;,
-    hook_stores: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-89">ToolCallHookStores</a>&gt;,
+    tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a>&gt;,
+    execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a>&gt;,
+    background_sessions: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-125">BackgroundSessionRuntimeFactory</a>&gt;,
+    hook_stores: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-92">ToolCallHookStores</a>&gt;,
     run_outputs: <a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a>,
     stream_sink_factory: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-run-output-stream-rs.html#item-type-AgentRunStreamSinkFactory-165">AgentRunStreamSinkFactory</a>&gt;,
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-TokioAgentLoopLauncher-87">TokioAgentLoopLauncher</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-TokioAgentLoopLauncher-87">TokioAgentLoopLauncher</a>&quot;)
             .finish_non_exhaustive()
     }
@@ -430,10 +430,10 @@
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-TokioAgentLoopLauncher-87">TokioAgentLoopLauncher</a> {
     <span class="rs-comment">/// Build a Tokio-backed launcher from engine-owned loop services.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(
         provider_stream_source: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-provider-stream-source-rs.html#item-trait-ProviderStreamSource-24">ProviderStreamSource</a>&gt;,
-        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a>&gt;,
-        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a>&gt;,
+        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a>&gt;,
+        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a>&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-new-with-provider-stream-134">new_with_provider_stream</a>(
             <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a>::<span class="rs-type">Static</span>(provider_stream_source),
@@ -446,8 +446,8 @@
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-provider-stream-source-factory-120">with_provider_stream_source_factory</a>(
         provider_stream_source_factory: <a class="symbol-link rs-type" href="eos-engine--src-provider-stream-source-rs.html#item-type-ProviderStreamSourceFactory-17">ProviderStreamSourceFactory</a>,
-        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a>&gt;,
-        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a>&gt;,
+        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a>&gt;,
+        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a>&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-new-with-provider-stream-134">new_with_provider_stream</a>(
             <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a>::<span class="rs-type">Factory</span>(provider_stream_source_factory),
@@ -459,8 +459,8 @@
     #[must_use]
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-new-with-provider-stream-134">new_with_provider_stream</a>(
         provider_stream_source: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a>,
-        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a>&gt;,
-        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a>&gt;,
+        tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a>&gt;,
+        execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a>&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             provider_stream_source,
@@ -468,21 +468,21 @@
             execution_metadata_reader,
             background_sessions: <span class="rs-type">None</span>,
             hook_stores: <span class="rs-type">None</span>,
-            run_outputs: <a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+            run_outputs: <a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
             stream_sink_factory: <span class="rs-type">None</span>,
         }
     }
 
     <span class="rs-comment">/// Attach runtime contracts for engine-owned background managers.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-background-sessions-151">with_background_sessions</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, inputs: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-122">BackgroundSessionRuntimeFactory</a>) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-background-sessions-151">with_background_sessions</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, inputs: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-125">BackgroundSessionRuntimeFactory</a>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">self</span>.background_sessions = <span class="rs-type">Some</span>(inputs);
         <span class="rs-self">self</span>
     }
 
     <span class="rs-comment">/// Attach runtime stores for engine-owned tool-call hooks.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-tool-call-hook-stores-158">with_tool_call_hook_stores</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, stores: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-89">ToolCallHookStores</a>) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-launcher-rs.html#method-with-tool-call-hook-stores-158">with_tool_call_hook_stores</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, stores: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-92">ToolCallHookStores</a>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">self</span>.hook_stores = <span class="rs-type">Some</span>(stores);
         <span class="rs-self">self</span>
     }
@@ -518,7 +518,7 @@
                 || <span class="rs-self">self</span>.run_outputs.clone(),
                 |sink| <span class="rs-self">self</span>.run_outputs.clone().<a class="symbol-link rs-fn" href="eos-engine--src-run-output-rs.html#method-with-stream-46">with_stream</a>(<span class="rs-type">Some</span>(sink)),
             );
-        <span class="rs-kw">let</span> loop_executor = <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a> {
+        <span class="rs-kw">let</span> loop_executor = <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a> {
             provider_stream_source: <span class="rs-self">self</span>.provider_stream_source.clone(),
             tool_registry_factory: <span class="rs-type">Arc</span>::clone(&amp;<span class="rs-self">self</span>.tool_registry_factory),
             execution_metadata_reader: <span class="rs-type">Arc</span>::clone(&amp;<span class="rs-self">self</span>.execution_metadata_reader),
@@ -535,12 +535,12 @@
         });
 
         <span class="rs-type">StartedAgentLoop</span> {
-            completion: <span class="rs-type">AgentLoopCompletion</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<span class="rs-kw">async</span> <span class="rs-kw">move</span> {
+            completion: <span class="rs-type">AgentLoopCompletion</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<span class="rs-kw">async</span> <span class="rs-kw">move</span> {
                 completion_wait.<span class="rs-kw">await</span>.unwrap_or_else(|_| <span class="rs-type">AgentLoopOutcome</span> {
                     kind: <span class="rs-type">AgentLoopOutcomeKind</span>::<span class="rs-type">LoopFailed</span> {
                         error_summary: &quot;agent loop outcome sender dropped&quot;.to_owned(),
                     },
-                    final_conversation_messages: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                    final_conversation_messages: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
                     total_token_count: <span class="rs-type">None</span>,
                 })
             }),

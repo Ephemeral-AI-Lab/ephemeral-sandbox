@@ -168,8 +168,12 @@
                 .<span class="rs-kw">await</span>?
                 .map(|index| format_record_dir(&amp;index))
                 .ok_or(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">NotFound</span>(&quot;agent run&quot;))?;
-            <span class="rs-kw">let</span> messages = <span class="rs-kw">match</span> state.message_records.read_messages_at(&amp;record_dir, 0).<span class="rs-kw">await</span> {
-                <span class="rs-type">Ok</span>(bytes) =&gt; <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-tasks-rs.html#item-fn-parse-jsonl-messages-102">parse_jsonl_messages</a>(&amp;bytes.bytes)?,
+            <span class="rs-kw">let</span> messages = <span class="rs-kw">match</span> state
+                .agent_run_records
+                .read_messages_at(&amp;record_dir, 0)
+                .<span class="rs-kw">await</span>
+            {
+                <span class="rs-type">Ok</span>(bytes) =&gt; <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-tasks-rs.html#item-fn-parse-jsonl-messages-106">parse_jsonl_messages</a>(&amp;bytes.bytes)?,
                 <span class="rs-type">Err</span>(<span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">NotFound</span>(_)) =&gt; <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(),
                 <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err)),
             };
@@ -187,17 +191,17 @@
 </details>
 
   <p class="source">crates/eos-backend-api/src/handlers/tasks.rs:67</p>
-</article><article id="item-fn-parse-jsonl-messages-102" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn parse_jsonl_messages private fn parse_jsonl_messages (bytes : &amp; [u8]) -&gt; Result &lt; Vec &lt; serde_json :: Value &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/tasks.rs  ">
+</article><article id="item-fn-parse-jsonl-messages-106" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn parse_jsonl_messages private fn parse_jsonl_messages (bytes : &amp; [u8]) -&gt; Result &lt; Vec &lt; serde_json :: Value &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/tasks.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>parse_jsonl_messages</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-api--src-handlers-tasks-rs.html#item-fn-parse-jsonl-messages-102">parse_jsonl_messages</a> (bytes : &amp; [u8]) -&gt; Result &lt; Vec &lt; serde_json :: Value &gt; , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-api--src-handlers-tasks-rs.html#item-fn-parse-jsonl-messages-106">parse_jsonl_messages</a> (bytes : &amp; [u8]) -&gt; Result &lt; Vec &lt; serde_json :: Value &gt; , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-tasks-rs.html#item-fn-parse-jsonl-messages-102">parse_jsonl_messages</a>(bytes: &amp;[u8]) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;serde_json::<span class="rs-type">Value</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-tasks-rs.html#item-fn-parse-jsonl-messages-106">parse_jsonl_messages</a>(bytes: &amp;[u8]) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;serde_json::<span class="rs-type">Value</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> text = std::str::from_utf8(bytes).map_err(|err| {
         tracing::error!(error = %err, &quot;agent transcript message record was not utf8&quot;);
         <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">Internal</span>
@@ -215,7 +219,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/tasks.rs:102</p>
+  <p class="source">crates/eos-backend-api/src/handlers/tasks.rs:106</p>
 </article></div>
 </section></div>
 </main>
@@ -232,7 +236,7 @@
 <span class="rs-kw">use</span> axum::<span class="rs-type">Json</span>;
 <span class="rs-kw">use</span> serde::<span class="rs-type">Serialize</span>;
 
-<span class="rs-kw">use</span> eos_engine::records::<span class="rs-type">AgentRunRecordError</span>;
+<span class="rs-kw">use</span> eos_engine::run_output::<span class="rs-type">AgentRunRecordError</span>;
 <span class="rs-kw">use</span> eos_types::{format_record_dir, <span class="rs-type">AgentRun</span>, <span class="rs-type">Task</span>, <span class="rs-type">TaskRun</span>};
 <span class="rs-kw">use</span> eos_types::{<span class="rs-type">AgentRunId</span>, <span class="rs-type">TaskId</span>};
 
@@ -309,8 +313,12 @@
                 .<span class="rs-kw">await</span>?
                 .map(|index| format_record_dir(&amp;index))
                 .ok_or(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">NotFound</span>(&quot;agent run&quot;))?;
-            <span class="rs-kw">let</span> messages = <span class="rs-kw">match</span> state.message_records.read_messages_at(&amp;record_dir, 0).<span class="rs-kw">await</span> {
-                <span class="rs-type">Ok</span>(bytes) =&gt; <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-tasks-rs.html#item-fn-parse-jsonl-messages-102">parse_jsonl_messages</a>(&amp;bytes.bytes)?,
+            <span class="rs-kw">let</span> messages = <span class="rs-kw">match</span> state
+                .agent_run_records
+                .read_messages_at(&amp;record_dir, 0)
+                .<span class="rs-kw">await</span>
+            {
+                <span class="rs-type">Ok</span>(bytes) =&gt; <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-tasks-rs.html#item-fn-parse-jsonl-messages-106">parse_jsonl_messages</a>(&amp;bytes.bytes)?,
                 <span class="rs-type">Err</span>(<span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">NotFound</span>(_)) =&gt; <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(),
                 <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err)),
             };
@@ -325,7 +333,7 @@
     }))
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-tasks-rs.html#item-fn-parse-jsonl-messages-102">parse_jsonl_messages</a>(bytes: &amp;[u8]) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;serde_json::<span class="rs-type">Value</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-tasks-rs.html#item-fn-parse-jsonl-messages-106">parse_jsonl_messages</a>(bytes: &amp;[u8]) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;serde_json::<span class="rs-type">Value</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> text = std::str::from_utf8(bytes).map_err(|err| {
         tracing::error!(error = %err, &quot;agent transcript message record was not utf8&quot;);
         <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">Internal</span>

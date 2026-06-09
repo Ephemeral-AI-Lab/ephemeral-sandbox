@@ -3,19 +3,17 @@
 mod attempt;
 mod entity;
 mod iteration;
-mod outcomes;
-mod plan;
+mod outcome;
+mod work_item;
 
 pub use attempt::{
-    Attempt, AttemptClosure, AttemptFailReason, AttemptStage, AttemptState, AttemptStatus,
+    Attempt, AttemptBudget, AttemptClosure, AttemptExecutionTree, AttemptFailReason, AttemptStage,
+    AttemptState, AttemptStatus, ExecutionNode,
 };
-pub use entity::{Workflow, WorkflowOutcome, WorkflowStatus};
-pub use iteration::{Iteration, IterationCreationReason, IterationOutcome, IterationStatus};
-pub use outcomes::{
-    execution_outcome_for_submission, present_status, ExecutionRole, ExecutionTaskOutcome,
-    TaskOutcomeStatus, NO_OUTCOME,
+pub use entity::{Workflow, WorkflowStatus};
+pub use iteration::{Iteration, IterationCreationReason, IterationStatus};
+pub use outcome::{
+    AdvisorVerdict, AttemptOutcome, IterationOutcome, ParentedOutcome, PlannerOutcome, TaskOutcome,
+    WorkerOutcome, WorkflowOutcome, NO_OUTCOME,
 };
-pub use plan::{
-    AttemptBudget, DeferredGoal, GeneratorId, MaterializedPlan, PlanDisposition, PlannerId,
-    ReducerId,
-};
+pub use work_item::{DeferredGoal, PlanId, WorkItemId, WorkItemSpec};

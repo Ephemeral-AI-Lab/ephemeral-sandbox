@@ -56,13 +56,13 @@
       <span>0 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">Standalone Functions</div><article id="item-fn-run-require-no-background-sessions-42" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn run_require_no_background_sessions pub(crate) pub(crate) async fn run_require_no_background_sessions (tool : ToolName , hooks : &amp; ToolCallHooks ,) -&gt; Result &lt; HookOutcome , ToolError &gt; crates/eos-engine/src/tool_call/hooks/require_no_background_sessions.rs  ">
+  <div class="items"><div class="group-label">Standalone Functions</div><article id="item-fn-run-require-no-background-sessions-41" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn run_require_no_background_sessions pub(crate) pub(crate) async fn run_require_no_background_sessions (tool : ToolName , hooks : &amp; ToolCallHooks ,) -&gt; Result &lt; HookOutcome , ToolError &gt; crates/eos-engine/src/tool_call/hooks/require_no_background_sessions.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>run_require_no_background_sessions</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-run-require-no-background-sessions-42">run_require_no_background_sessions</a> (tool : ToolName , hooks : &amp; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a> ,) -&gt; <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a> , ToolError &gt;</code>
+  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-run-require-no-background-sessions-41">run_require_no_background_sessions</a> (tool : ToolName , hooks : &amp; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a> ,) -&gt; <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a> , ToolError &gt;</code>
   <p class="docstring">`RequireNoBackgroundSessions`: cancel subagents (or, for `enter_isolated_workspace`,<br>inspect) the agent run's in-flight subagents, then deny if any tracked<br>background family remains. Invariant: no workflows, no subagents, and no<br>command sessions.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
@@ -71,33 +71,33 @@
 <span class="rs-comment">/// inspect) the agent run's in-flight subagents, then deny if any tracked</span>
 <span class="rs-comment">/// background family remains. Invariant: no workflows, no subagents, and no</span>
 <span class="rs-comment">/// command sessions.</span>
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-run-require-no-background-sessions-42">run_require_no_background_sessions</a>(
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-run-require-no-background-sessions-41">run_require_no_background_sessions</a>(
     tool: <span class="rs-type">ToolName</span>,
-    hooks: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>,
-) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
+    hooks: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>,
+) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
     <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-cancels-inflight-subagents-15">cancels_inflight_subagents</a>(tool) {
         hooks
             .<a class="symbol-link rs-fn" href="eos-engine--src-background-session-runtime-rs.html#method-cancel-all-subagents-241">cancel_all_subagents</a>(&quot;parent submitted its terminal&quot;)
             .<span class="rs-kw">await</span>?;
     }
 
-    <span class="rs-kw">let</span> counts = hooks.<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-background-counts-81">background_counts</a>().<span class="rs-kw">await</span>?;
+    <span class="rs-kw">let</span> counts = hooks.<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-background-counts-80">background_counts</a>().<span class="rs-kw">await</span>?;
     <span class="rs-kw">if</span> counts.total &gt; 0 {
-        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<span class="rs-type">Deny</span>(
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-33">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(
-                <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-background-in-flight-message-29">background_in_flight_message</a>(counts, tool),
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<span class="rs-type">Deny</span>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-32">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(
+                <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-background-in-flight-message-28">background_in_flight_message</a>(counts, tool),
                 &quot;no_background_sessions&quot;,
             )
-            .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-52">with_reason</a>(&quot;ephemeral_jobs_in_flight&quot;)
-            .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-count-57">with_count</a>(counts.total),
+            .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-51">with_reason</a>(&quot;ephemeral_jobs_in_flight&quot;)
+            .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-count-56">with_count</a>(counts.total),
         ));
     }
-    <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-28">pass</a>())
+    <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-27">pass</a>())
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-engine/src/tool_call/hooks/require_no_background_sessions.rs:42</p>
+  <p class="source">crates/eos-engine/src/tool_call/hooks/require_no_background_sessions.rs:41</p>
 </article><article id="item-fn-cancels-inflight-subagents-15" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn cancels_inflight_subagents private fn cancels_inflight_subagents (tool : ToolName) -&gt; bool crates/eos-engine/src/tool_call/hooks/require_no_background_sessions.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
@@ -115,10 +115,9 @@
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-cancels-inflight-subagents-15">cancels_inflight_subagents</a>(tool: <span class="rs-type">ToolName</span>) -&gt; bool {
     matches!(
         tool,
-        <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitRootOutcome</span>
-            | <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitGeneratorOutcome</span>
-            | <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitReducerOutcome</span>
-            | <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitPlannerOutcome</span>
+        <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitRootTaskOutcome</span>
+            | <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitPlanOutcome</span>
+            | <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitWorkerOutcome</span>
             | <span class="rs-type">ToolName</span>::<span class="rs-type">ExitIsolatedWorkspace</span>
     )
 }
@@ -126,17 +125,17 @@
 </details>
 
   <p class="source">crates/eos-engine/src/tool_call/hooks/require_no_background_sessions.rs:15</p>
-</article><article id="item-fn-background-in-flight-message-29" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn background_in_flight_message private fn background_in_flight_message (counts : BackgroundSessionCounts , tool : ToolName) -&gt; String crates/eos-engine/src/tool_call/hooks/require_no_background_sessions.rs  ">
+</article><article id="item-fn-background-in-flight-message-28" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn background_in_flight_message private fn background_in_flight_message (counts : BackgroundSessionCounts , tool : ToolName) -&gt; String crates/eos-engine/src/tool_call/hooks/require_no_background_sessions.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>background_in_flight_message</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-background-in-flight-message-29">background_in_flight_message</a> (counts : BackgroundSessionCounts , tool : ToolName) -&gt; String</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-background-in-flight-message-28">background_in_flight_message</a> (counts : BackgroundSessionCounts , tool : ToolName) -&gt; String</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-background-in-flight-message-29">background_in_flight_message</a>(counts: <span class="rs-type">BackgroundSessionCounts</span>, tool: <span class="rs-type">ToolName</span>) -&gt; <span class="rs-type">String</span> {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-background-in-flight-message-28">background_in_flight_message</a>(counts: <span class="rs-type">BackgroundSessionCounts</span>, tool: <span class="rs-type">ToolName</span>) -&gt; <span class="rs-type">String</span> {
     format!(
         &quot;<span class="rs-type">BLOCKED</span>: {} background task(s) are still <span class="rs-kw">in</span> flight <span class="rs-kw">for</span> this agent run \
          (subagents={}, workflows={}, command_sessions={}). <span class="rs-type">Finish</span>, collect, or cancel them \
@@ -151,7 +150,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-engine/src/tool_call/hooks/require_no_background_sessions.rs:29</p>
+  <p class="source">crates/eos-engine/src/tool_call/hooks/require_no_background_sessions.rs:28</p>
 </article></div>
 </section></div>
 </main>
@@ -172,7 +171,7 @@
 <span class="rs-kw">use</span> eos_tool::{<span class="rs-type">ToolError</span>, <span class="rs-type">ToolName</span>};
 <span class="rs-kw">use</span> eos_types::<span class="rs-type">BackgroundSessionCounts</span>;
 
-<span class="rs-kw">use</span> <span class="rs-kw">super</span>::{<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-33">HookDenial</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>};
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::{<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-32">HookDenial</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>};
 
 <span class="rs-comment">/// Whether this protected tool **cancels** the agent's in-flight subagents (the</span>
 <span class="rs-comment">/// four terminals + `exit_isolated_workspace`) vs only inspects them</span>
@@ -180,15 +179,14 @@
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-cancels-inflight-subagents-15">cancels_inflight_subagents</a>(tool: <span class="rs-type">ToolName</span>) -&gt; bool {
     matches!(
         tool,
-        <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitRootOutcome</span>
-            | <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitGeneratorOutcome</span>
-            | <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitReducerOutcome</span>
-            | <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitPlannerOutcome</span>
+        <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitRootTaskOutcome</span>
+            | <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitPlanOutcome</span>
+            | <span class="rs-type">ToolName</span>::<span class="rs-type">SubmitWorkerOutcome</span>
             | <span class="rs-type">ToolName</span>::<span class="rs-type">ExitIsolatedWorkspace</span>
     )
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-background-in-flight-message-29">background_in_flight_message</a>(counts: <span class="rs-type">BackgroundSessionCounts</span>, tool: <span class="rs-type">ToolName</span>) -&gt; <span class="rs-type">String</span> {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-background-in-flight-message-28">background_in_flight_message</a>(counts: <span class="rs-type">BackgroundSessionCounts</span>, tool: <span class="rs-type">ToolName</span>) -&gt; <span class="rs-type">String</span> {
     format!(
         &quot;<span class="rs-type">BLOCKED</span>: {} background task(s) are still <span class="rs-kw">in</span> flight <span class="rs-kw">for</span> this agent run \
          (subagents={}, workflows={}, command_sessions={}). <span class="rs-type">Finish</span>, collect, or cancel them \
@@ -205,28 +203,28 @@
 <span class="rs-comment">/// inspect) the agent run's in-flight subagents, then deny if any tracked</span>
 <span class="rs-comment">/// background family remains. Invariant: no workflows, no subagents, and no</span>
 <span class="rs-comment">/// command sessions.</span>
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-run-require-no-background-sessions-42">run_require_no_background_sessions</a>(
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-run-require-no-background-sessions-41">run_require_no_background_sessions</a>(
     tool: <span class="rs-type">ToolName</span>,
-    hooks: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>,
-) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
+    hooks: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>,
+) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
     <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-cancels-inflight-subagents-15">cancels_inflight_subagents</a>(tool) {
         hooks
             .<a class="symbol-link rs-fn" href="eos-engine--src-background-session-runtime-rs.html#method-cancel-all-subagents-241">cancel_all_subagents</a>(&quot;parent submitted its terminal&quot;)
             .<span class="rs-kw">await</span>?;
     }
 
-    <span class="rs-kw">let</span> counts = hooks.<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-background-counts-81">background_counts</a>().<span class="rs-kw">await</span>?;
+    <span class="rs-kw">let</span> counts = hooks.<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-background-counts-80">background_counts</a>().<span class="rs-kw">await</span>?;
     <span class="rs-kw">if</span> counts.total &gt; 0 {
-        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<span class="rs-type">Deny</span>(
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-33">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(
-                <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-background-in-flight-message-29">background_in_flight_message</a>(counts, tool),
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<span class="rs-type">Deny</span>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-32">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(
+                <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-require-no-background-sessions-rs.html#item-fn-background-in-flight-message-28">background_in_flight_message</a>(counts, tool),
                 &quot;no_background_sessions&quot;,
             )
-            .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-52">with_reason</a>(&quot;ephemeral_jobs_in_flight&quot;)
-            .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-count-57">with_count</a>(counts.total),
+            .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-51">with_reason</a>(&quot;ephemeral_jobs_in_flight&quot;)
+            .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-count-56">with_count</a>(counts.total),
         ));
     }
-    <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-28">pass</a>())
+    <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-27">pass</a>())
 }
 </code></pre>
 </section>

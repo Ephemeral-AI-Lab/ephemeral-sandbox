@@ -56,7 +56,7 @@
       <span>0 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-EventsQuery-218" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct EventsQuery pub pub struct EventsQuery crates/eos-backend-api/src/handlers/user_requests.rs after_seq Option &lt; i64 &gt; ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-EventsQuery-215" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct EventsQuery pub pub struct EventsQuery crates/eos-backend-api/src/handlers/user_requests.rs after_seq Option &lt; i64 &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>EventsQuery</h3>
@@ -67,14 +67,14 @@
   <div class="tags"><span>derive: Debug</span><span>derive: Deserialize</span><span>serde</span></div>
   <h4>Fields</h4><table><tbody><tr><td>private</td><td>after_seq</td><td><code>Option &lt; i64 &gt;</code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:218</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-create-25" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn create pub pub async fn create (State (state) : State &lt; AppState &gt; , ValidatedJson (request) : ValidatedJson &lt; CreateUserRequest &gt; ,) -&gt; Result &lt; impl IntoResponse , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
+  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:215</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-create-24" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn create pub pub async fn create (State (state) : State &lt; AppState &gt; , ValidatedJson (request) : ValidatedJson &lt; CreateUserRequest &gt; ,) -&gt; Result &lt; impl IntoResponse , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>create</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-create-25">create</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt; , <a class="symbol-link" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-ValidatedJson-44">ValidatedJson</a> (request) : <a class="symbol-link" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-ValidatedJson-44">ValidatedJson</a> &lt; CreateUserRequest &gt; ,) -&gt; Result &lt; impl IntoResponse , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
+  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-create-24">create</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt; , <a class="symbol-link" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-ValidatedJson-44">ValidatedJson</a> (request) : <a class="symbol-link" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-ValidatedJson-44">ValidatedJson</a> &lt; CreateUserRequest &gt; ,) -&gt; Result &lt; impl IntoResponse , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
   <p class="docstring">`POST /api/agent-core/requests` — accept a prompt and launch an agent-core run.<br>Returns `202 { request_id }`. v1 accepts only `sandbox_args.sandbox_id`;<br>unsupported override fields are rejected by `deny_unknown_fields` at<br>deserialize time.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
@@ -83,7 +83,7 @@
 <span class="rs-comment">/// Returns `202 { request_id }`. v1 accepts only `sandbox_args.sandbox_id`;</span>
 <span class="rs-comment">/// unsupported override fields are rejected by `deny_unknown_fields` at</span>
 <span class="rs-comment">/// deserialize time.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-create-25">create</a>(
+<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-create-24">create</a>(
     <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-ValidatedJson-44">ValidatedJson</a>(request): <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-ValidatedJson-44">ValidatedJson</a>&lt;<span class="rs-type">CreateUserRequest</span>&gt;,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
@@ -130,8 +130,8 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:25</p>
-</article><article id="item-fn-list-74" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn list pub pub async fn list (State (state) : State &lt; AppState &gt; , Query (pagination) : Query &lt; Pagination &gt; ,) -&gt; Result &lt; Json &lt; PageResult &lt; RunRecord &gt; &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
+  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:24</p>
+</article><article id="item-fn-list-73" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn list pub pub async fn list (State (state) : State &lt; AppState &gt; , Query (pagination) : Query &lt; Pagination &gt; ,) -&gt; Result &lt; Json &lt; PageResult &lt; RunRecord &gt; &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>list</h3>
@@ -149,27 +149,25 @@
     <span class="rs-type">Query</span>(pagination): <span class="rs-type">Query</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-Pagination-21">Pagination</a>&gt;,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">RunRecord</span>&gt;&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> backend_page = pagination.<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#method-page-29">page</a>();
-    <span class="rs-kw">let</span> page = state
-        .agent_core
-        .list_user_requests(<span class="rs-type">AgentCorePage</span> {
-            limit: backend_page.limit,
-            offset: backend_page.offset,
-        })
-        .<span class="rs-kw">await</span>?;
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> items = <span class="rs-type">Vec</span>::with_capacity(page.items.len());
-    <span class="rs-kw">for</span> summary <span class="rs-kw">in</span> page.items {
+    <span class="rs-kw">let</span> summaries = state.agent_core.list_user_requests().<span class="rs-kw">await</span>?;
+    <span class="rs-kw">let</span> total = u64::try_from(summaries.len()).unwrap_or(u64::<span class="rs-type">MAX</span>);
+    <span class="rs-kw">let</span> offset = usize::try_from(backend_page.offset).unwrap_or(usize::<span class="rs-type">MAX</span>);
+    <span class="rs-kw">let</span> limit = usize::try_from(backend_page.limit).unwrap_or(usize::<span class="rs-type">MAX</span>);
+    <span class="rs-kw">let</span> visible = summaries.into_iter().skip(offset).take(limit);
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> items = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>();
+    <span class="rs-kw">for</span> summary <span class="rs-kw">in</span> visible {
         <span class="rs-kw">let</span> meta = state.run_meta.get(&amp;summary.request_id).<span class="rs-kw">await</span>?;
         <span class="rs-kw">let</span> meta = <span class="rs-kw">match</span> meta {
             <span class="rs-type">Some</span>(meta) =&gt; {
-                <span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-147">reconcile</a>(&amp;state, &amp;summary.request_id, meta, <span class="rs-type">Some</span>(summary.status)).<span class="rs-kw">await</span>?)
+                <span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-144">reconcile</a>(&amp;state, &amp;summary.request_id, meta, <span class="rs-type">Some</span>(summary.status)).<span class="rs-kw">await</span>?)
             }
             <span class="rs-type">None</span> =&gt; <span class="rs-type">None</span>,
         };
-        items.push(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-run-record-from-summary-243">run_record_from_summary</a>(summary, meta));
+        items.push(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-run-record-from-summary-240">run_record_from_summary</a>(summary, meta));
     }
     <span class="rs-type">Ok</span>(<span class="rs-type">Json</span>(<span class="rs-type">PageResult</span> {
         items,
-        total: page.total,
+        total,
         limit: backend_page.limit,
         offset: backend_page.offset,
     }))
@@ -177,8 +175,8 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:74</p>
-</article><article id="item-fn-detail-107" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn detail pub pub async fn detail (State (state) : State &lt; AppState &gt; , Path (request_id) : Path &lt; String &gt; ,) -&gt; Result &lt; Json &lt; UserRequestDetail &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
+  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:73</p>
+</article><article id="item-fn-detail-104" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn detail pub pub async fn detail (State (state) : State &lt; AppState &gt; , Path (request_id) : Path &lt; String &gt; ,) -&gt; Result &lt; Json &lt; UserRequestDetail &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>detail</h3>
@@ -206,7 +204,7 @@
         .ok_or(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">NotFound</span>(&quot;user request&quot;))?;
     <span class="rs-kw">let</span> agent_status = <span class="rs-type">Some</span>(detail.status);
     <span class="rs-kw">let</span> meta = <span class="rs-kw">match</span> state.run_meta.get(&amp;request_id).<span class="rs-kw">await</span>? {
-        <span class="rs-type">Some</span>(meta) =&gt; <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-147">reconcile</a>(&amp;state, &amp;request_id, meta, agent_status).<span class="rs-kw">await</span>?,
+        <span class="rs-type">Some</span>(meta) =&gt; <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-144">reconcile</a>(&amp;state, &amp;request_id, meta, agent_status).<span class="rs-kw">await</span>?,
         <span class="rs-type">None</span> =&gt; <span class="rs-type">RunMeta</span> {
             request_id: request_id.clone(),
             status: <span class="rs-type">BackendRunStatus</span>::<span class="rs-type">Running</span>,
@@ -231,14 +229,14 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:107</p>
-</article><article id="item-fn-cancel-184" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn cancel pub pub async fn cancel (State (state) : State &lt; AppState &gt; , Path (request_id) : Path &lt; String &gt; ,) -&gt; Result &lt; impl IntoResponse , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
+  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:104</p>
+</article><article id="item-fn-cancel-181" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn cancel pub pub async fn cancel (State (state) : State &lt; AppState &gt; , Path (request_id) : Path &lt; String &gt; ,) -&gt; Result &lt; impl IntoResponse , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>cancel</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-184">cancel</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt; , Path (request_id) : Path &lt; String &gt; ,) -&gt; Result &lt; impl IntoResponse , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
+  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-181">cancel</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt; , Path (request_id) : Path &lt; String &gt; ,) -&gt; Result &lt; impl IntoResponse , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
   <p class="docstring">`DELETE /api/agent-core/requests/{request_id}` — request cancellation.<br>`202` when the request was cancelled; `409` when the run already finalized;<br>`404` when no such run exists.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
@@ -246,7 +244,7 @@
   <pre><code><span class="rs-comment">/// `DELETE /api/agent-core/requests/{request_id}` — request cancellation.</span>
 <span class="rs-comment">/// `202` when the request was cancelled; `409` when the run already finalized;</span>
 <span class="rs-comment">/// `404` when no such run exists.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-184">cancel</a>(
+<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-181">cancel</a>(
     <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(request_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
@@ -279,8 +277,8 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:184</p>
-</article><article id="item-fn-events-224" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn events pub pub async fn events (State (state) : State &lt; AppState &gt; , Path (request_id) : Path &lt; String &gt; , Query (query) : Query &lt; EventsQuery &gt; ,) -&gt; Result &lt; Json &lt; Vec &lt; EventRecord &gt; &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
+  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:181</p>
+</article><article id="item-fn-events-221" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn events pub pub async fn events (State (state) : State &lt; AppState &gt; , Path (request_id) : Path &lt; String &gt; , Query (query) : Query &lt; EventsQuery &gt; ,) -&gt; Result &lt; Json &lt; Vec &lt; EventRecord &gt; &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>events</h3>
@@ -312,14 +310,14 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:224</p>
-</article><article id="item-fn-reconcile-147" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn reconcile private async fn reconcile (state : &amp; AppState , request_id : &amp; RequestId , meta : RunMeta , agent_status : Option &lt; RequestStatus &gt; ,) -&gt; Result &lt; RunMeta , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
+  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:221</p>
+</article><article id="item-fn-reconcile-144" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn reconcile private async fn reconcile (state : &amp; AppState , request_id : &amp; RequestId , meta : RunMeta , agent_status : Option &lt; RequestStatus &gt; ,) -&gt; Result &lt; RunMeta , ApiError &gt; crates/eos-backend-api/src/handlers/user_requests.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>reconcile</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">async fn <a class="symbol-link" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-147">reconcile</a> (state : &amp; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> , request_id : &amp; RequestId , meta : RunMeta , agent_status : Option &lt; RequestStatus &gt; ,) -&gt; Result &lt; RunMeta , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
+  <code class="signature">async fn <a class="symbol-link" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-144">reconcile</a> (state : &amp; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> , request_id : &amp; RequestId , meta : RunMeta , agent_status : Option &lt; RequestStatus &gt; ,) -&gt; Result &lt; RunMeta , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
   <p class="docstring">Persist agent-core's terminal outcome onto a still-non-terminal backend row,<br>CAS-guarded. If the CAS matches nothing (a concurrent `DELETE` wrote<br>`cancelled` between the read and the update), re-read the authoritative row so<br>the response never reports `done`/`failed` over a just-written `cancelled`.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
@@ -328,7 +326,7 @@
 <span class="rs-comment">/// CAS-guarded. If the CAS matches nothing (a concurrent `DELETE` wrote</span>
 <span class="rs-comment">/// `cancelled` between the read and the update), re-read the authoritative row so</span>
 <span class="rs-comment">/// the response never reports `done`/`failed` over a just-written `cancelled`.</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-147">reconcile</a>(
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-144">reconcile</a>(
     state: &amp;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>,
     request_id: &amp;<span class="rs-type">RequestId</span>,
     meta: <span class="rs-type">RunMeta</span>,
@@ -363,18 +361,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:147</p>
-</article><article id="item-fn-run-record-from-summary-243" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn run_record_from_summary private fn run_record_from_summary (summary : eos_agent_core_server :: UserRequestSummary , meta : Option &lt; RunMeta &gt; ,) -&gt; RunRecord crates/eos-backend-api/src/handlers/user_requests.rs  ">
+  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:144</p>
+</article><article id="item-fn-run-record-from-summary-240" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn run_record_from_summary private fn run_record_from_summary (summary : eos_agent_core_server :: UserRequestSummary , meta : Option &lt; RunMeta &gt; ,) -&gt; RunRecord crates/eos-backend-api/src/handlers/user_requests.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>run_record_from_summary</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-run-record-from-summary-243">run_record_from_summary</a> (summary : eos_agent_core_server :: UserRequestSummary , meta : Option &lt; RunMeta &gt; ,) -&gt; RunRecord</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-run-record-from-summary-240">run_record_from_summary</a> (summary : eos_agent_core_server :: UserRequestSummary , meta : Option &lt; RunMeta &gt; ,) -&gt; RunRecord</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-run-record-from-summary-243">run_record_from_summary</a>(
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-run-record-from-summary-240">run_record_from_summary</a>(
     summary: eos_agent_core_server::<span class="rs-type">UserRequestSummary</span>,
     meta: <span class="rs-type">Option</span>&lt;<span class="rs-type">RunMeta</span>&gt;,
 ) -&gt; <span class="rs-type">RunRecord</span> {
@@ -398,7 +396,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:243</p>
+  <p class="source">crates/eos-backend-api/src/handlers/user_requests.rs:240</p>
 </article></div>
 </section></div>
 </main>
@@ -421,8 +419,7 @@
     <span class="rs-type">BackendRunStatus</span>, <span class="rs-type">CreateUserRequest</span>, <span class="rs-type">CreateUserRequestResponse</span>, <span class="rs-type">EventRecord</span>, <span class="rs-type">PageResult</span>,
     <span class="rs-type">RunMeta</span>, <span class="rs-type">RunRecord</span>, <span class="rs-type">UserRequestDetail</span>,
 };
-<span class="rs-kw">use</span> eos_types::{<span class="rs-type">Page</span> <span class="rs-kw">as</span> <span class="rs-type">AgentCorePage</span>, <span class="rs-type">RequestStatus</span>};
-<span class="rs-kw">use</span> eos_types::{<span class="rs-type">RequestId</span>, <span class="rs-type">UtcDateTime</span>};
+<span class="rs-kw">use</span> eos_types::{<span class="rs-type">RequestId</span>, <span class="rs-type">RequestStatus</span>, <span class="rs-type">UtcDateTime</span>};
 
 <span class="rs-kw">use</span> <span class="rs-kw">super</span>::{parse_id, <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-Pagination-21">Pagination</a>, <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-ValidatedJson-44">ValidatedJson</a>};
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::error::<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>;
@@ -435,7 +432,7 @@
 <span class="rs-comment">/// Returns `202 { request_id }`. v1 accepts only `sandbox_args.sandbox_id`;</span>
 <span class="rs-comment">/// unsupported override fields are rejected by `deny_unknown_fields` at</span>
 <span class="rs-comment">/// deserialize time.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-create-25">create</a>(
+<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-create-24">create</a>(
     <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-ValidatedJson-44">ValidatedJson</a>(request): <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-ValidatedJson-44">ValidatedJson</a>&lt;<span class="rs-type">CreateUserRequest</span>&gt;,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
@@ -487,27 +484,25 @@
     <span class="rs-type">Query</span>(pagination): <span class="rs-type">Query</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-handlers-mod-rs.html#item-struct-Pagination-21">Pagination</a>&gt;,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">RunRecord</span>&gt;&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> backend_page = pagination.<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#method-page-29">page</a>();
-    <span class="rs-kw">let</span> page = state
-        .agent_core
-        .list_user_requests(<span class="rs-type">AgentCorePage</span> {
-            limit: backend_page.limit,
-            offset: backend_page.offset,
-        })
-        .<span class="rs-kw">await</span>?;
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> items = <span class="rs-type">Vec</span>::with_capacity(page.items.len());
-    <span class="rs-kw">for</span> summary <span class="rs-kw">in</span> page.items {
+    <span class="rs-kw">let</span> summaries = state.agent_core.list_user_requests().<span class="rs-kw">await</span>?;
+    <span class="rs-kw">let</span> total = u64::try_from(summaries.len()).unwrap_or(u64::<span class="rs-type">MAX</span>);
+    <span class="rs-kw">let</span> offset = usize::try_from(backend_page.offset).unwrap_or(usize::<span class="rs-type">MAX</span>);
+    <span class="rs-kw">let</span> limit = usize::try_from(backend_page.limit).unwrap_or(usize::<span class="rs-type">MAX</span>);
+    <span class="rs-kw">let</span> visible = summaries.into_iter().skip(offset).take(limit);
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> items = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>();
+    <span class="rs-kw">for</span> summary <span class="rs-kw">in</span> visible {
         <span class="rs-kw">let</span> meta = state.run_meta.get(&amp;summary.request_id).<span class="rs-kw">await</span>?;
         <span class="rs-kw">let</span> meta = <span class="rs-kw">match</span> meta {
             <span class="rs-type">Some</span>(meta) =&gt; {
-                <span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-147">reconcile</a>(&amp;state, &amp;summary.request_id, meta, <span class="rs-type">Some</span>(summary.status)).<span class="rs-kw">await</span>?)
+                <span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-144">reconcile</a>(&amp;state, &amp;summary.request_id, meta, <span class="rs-type">Some</span>(summary.status)).<span class="rs-kw">await</span>?)
             }
             <span class="rs-type">None</span> =&gt; <span class="rs-type">None</span>,
         };
-        items.push(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-run-record-from-summary-243">run_record_from_summary</a>(summary, meta));
+        items.push(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-run-record-from-summary-240">run_record_from_summary</a>(summary, meta));
     }
     <span class="rs-type">Ok</span>(<span class="rs-type">Json</span>(<span class="rs-type">PageResult</span> {
         items,
-        total: page.total,
+        total,
         limit: backend_page.limit,
         offset: backend_page.offset,
     }))
@@ -530,7 +525,7 @@
         .ok_or(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">NotFound</span>(&quot;user request&quot;))?;
     <span class="rs-kw">let</span> agent_status = <span class="rs-type">Some</span>(detail.status);
     <span class="rs-kw">let</span> meta = <span class="rs-kw">match</span> state.run_meta.get(&amp;request_id).<span class="rs-kw">await</span>? {
-        <span class="rs-type">Some</span>(meta) =&gt; <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-147">reconcile</a>(&amp;state, &amp;request_id, meta, agent_status).<span class="rs-kw">await</span>?,
+        <span class="rs-type">Some</span>(meta) =&gt; <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-144">reconcile</a>(&amp;state, &amp;request_id, meta, agent_status).<span class="rs-kw">await</span>?,
         <span class="rs-type">None</span> =&gt; <span class="rs-type">RunMeta</span> {
             request_id: request_id.clone(),
             status: <span class="rs-type">BackendRunStatus</span>::<span class="rs-type">Running</span>,
@@ -557,7 +552,7 @@
 <span class="rs-comment">/// CAS-guarded. If the CAS matches nothing (a concurrent `DELETE` wrote</span>
 <span class="rs-comment">/// `cancelled` between the read and the update), re-read the authoritative row so</span>
 <span class="rs-comment">/// the response never reports `done`/`failed` over a just-written `cancelled`.</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-147">reconcile</a>(
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-reconcile-144">reconcile</a>(
     state: &amp;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>,
     request_id: &amp;<span class="rs-type">RequestId</span>,
     meta: <span class="rs-type">RunMeta</span>,
@@ -593,7 +588,7 @@
 <span class="rs-comment">/// `DELETE /api/agent-core/requests/{request_id}` — request cancellation.</span>
 <span class="rs-comment">/// `202` when the request was cancelled; `409` when the run already finalized;</span>
 <span class="rs-comment">/// `404` when no such run exists.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-184">cancel</a>(
+<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-181">cancel</a>(
     <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(request_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
@@ -649,7 +644,7 @@
     <span class="rs-type">Ok</span>(<span class="rs-type">Json</span>(events))
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-run-record-from-summary-243">run_record_from_summary</a>(
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-run-record-from-summary-240">run_record_from_summary</a>(
     summary: eos_agent_core_server::<span class="rs-type">UserRequestSummary</span>,
     meta: <span class="rs-type">Option</span>&lt;<span class="rs-type">RunMeta</span>&gt;,
 ) -&gt; <span class="rs-type">RunRecord</span> {

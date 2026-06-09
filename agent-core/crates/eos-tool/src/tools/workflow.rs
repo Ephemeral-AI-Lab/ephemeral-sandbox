@@ -109,7 +109,6 @@ mod delegate_workflow {
                 ),
             });
             let metadata: JsonObject = [
-                ("submission_kind".to_owned(), json!("workflow_delegated")),
                 (
                     "workflow_id".to_owned(),
                     json!(started.workflow_id.as_str()),

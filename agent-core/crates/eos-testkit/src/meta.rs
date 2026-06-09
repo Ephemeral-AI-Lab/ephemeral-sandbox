@@ -18,6 +18,7 @@ pub fn metadata() -> ExecutionMetadata {
         task_id: None,
         attempt_id: None,
         workflow_id: None,
+        work_item_id: None,
         tool_use_id: None,
         sandbox_invocation_id: None,
         sandbox_id: None,

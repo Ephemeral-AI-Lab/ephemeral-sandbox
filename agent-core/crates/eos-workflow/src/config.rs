@@ -1,19 +1,15 @@
 //! Workflow lifecycle and per-attempt runtime tunables.
-//!
-//! Backend composition reads this section at the composition root. The workflow depth
-//! bound feeds the planner deferral hook; the nested attempt section feeds
-//! `eos-workflow`'s per-attempt launch dependencies as plain values.
 
 use serde::{Deserialize, Serialize};
 
-use eos_types::ConfigError;
+use eos_types::{AttemptBudget, ConfigError};
 
 /// Per-Attempt run-stage tunables.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct AttemptConfig {
-    /// Per-Attempt cap on concurrently-launched generator/reducer agent runs.
+    /// Per-attempt cap on concurrently launched worker agent runs.
     /// Range-checked `>= 1` by [`AttemptConfig::validate`].
     pub max_concurrent_task_runs: usize,
 }
@@ -27,7 +23,7 @@ impl Default for AttemptConfig {
 }
 
 impl AttemptConfig {
-    /// Enforce numeric-range constraints (call after deserializing a section).
+    /// Enforce numeric-range constraints.
     ///
     /// # Errors
     /// Returns [`ConfigError::OutOfRange`] when `max_concurrent_task_runs < 1`.
@@ -35,7 +31,7 @@ impl AttemptConfig {
         self.validate_with_field("attempt.max_concurrent_task_runs")
     }
 
-    fn validate_with_field(&self, field: &str) -> Result<(), ConfigError> {
+    pub(crate) fn validate_with_field(&self, field: &str) -> Result<(), ConfigError> {
         if self.max_concurrent_task_runs < 1 {
             return Err(ConfigError::OutOfRange {
                 field: field.to_owned(),
@@ -57,7 +53,7 @@ pub struct WorkflowConfig {
     /// Deepest workflow depth still allowed to set a deferred goal.
     #[serde(default = "default_workflow_max_depth", rename = "max-depth")]
     pub max_depth: u32,
-    /// Per-Attempt run-stage tunables.
+    /// Per-attempt run tunables.
     #[serde(default)]
     pub attempt: AttemptConfig,
 }
@@ -89,10 +85,13 @@ impl WorkflowConfig {
     }
 }
 
+/// Per-workflow lifecycle knobs injected by backend composition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct WorkflowLifecycleConfig {
+    /// Attempts allowed per iteration before the iteration closes failed.
+    pub default_attempt_budget: AttemptBudget,
+}
+
 const fn default_workflow_max_depth() -> u32 {
     DEFAULT_WORKFLOW_MAX_DEPTH
 }
-
-#[cfg(test)]
-#[path = "../tests/config/mod.rs"]
-mod tests;

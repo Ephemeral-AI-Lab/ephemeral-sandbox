@@ -84,16 +84,20 @@ async fn create_task_agent_run(
         }
         SpawnAgentTarget::Workflow {
             request_id,
-            workflow,
-            workflow_node_id,
+            coords,
+            role,
+            plan_id,
+            work_item_id,
         } => {
             service
                 .task_agent_run_store
                 .create_workflow_task_agent_run(
                     request_id,
                     agent_run_id,
-                    workflow,
-                    workflow_node_id,
+                    coords,
+                    *role,
+                    plan_id,
+                    work_item_id.as_ref(),
                     agent_name,
                 )
                 .await

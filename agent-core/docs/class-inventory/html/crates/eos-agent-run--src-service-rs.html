@@ -23,7 +23,7 @@
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
   <div><b>7</b><span>modules</span></div>
-  <div><b>57</b><span>items</span></div>
+  <div><b>59</b><span>items</span></div>
   <div><b>23</b><span>fields</span></div>
   <div><b>37</b><span>methods</span></div>
 </section>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-cancellation-rs.html"><span>cancellation.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-completion-rs.html"><span>completion.rs</span><small>0/8</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-persistence-rs.html"><span>persistence.rs</span><small>0/7</small></a></li><li><a class="file-link active" href="eos-agent-run--src-service-rs.html"><span>service.rs</span><small>6/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-spawn-rs.html"><span>spawn.rs</span><small>0/6</small></a></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-cancellation-rs.html"><span>cancellation.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-completion-rs.html"><span>completion.rs</span><small>0/8</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-persistence-rs.html"><span>persistence.rs</span><small>0/9</small></a></li><li><a class="file-link active" href="eos-agent-run--src-service-rs.html"><span>service.rs</span><small>6/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-spawn-rs.html"><span>spawn.rs</span><small>0/6</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="service crates/eos-agent-run/src/service.rs AgentRunService impl std :: fmt :: Debug for AgentRunService impl AgentRunService impl AgentRunApi for AgentRunService task_agent_run_kind_declares_required_agent_type engine_completion_finalizes_once_and_publishes_waiters cancellation_before_engine_completion_finalizes_once ServiceHarness impl ServiceHarness root_agent_definition root_spawn_request successful_loop_outcome ControlledLauncher impl ControlledLauncher impl AgentLoopLauncher for ControlledLauncher TestCancellation impl AgentLoopCancellation for TestCancellation FakeAgentRunStore impl FakeAgentRunStore impl eos_types :: Sealed for FakeAgentRunStore impl AgentRunStore for FakeAgentRunStore FakeTaskAgentRunStore impl FakeTaskAgentRunStore impl eos_types :: Sealed for FakeTaskAgentRunStore impl TaskAgentRunStore for FakeTaskAgentRunStore created_from_index task_run_from_index lock">
   <div class="module-head">
     <div>
@@ -127,22 +127,22 @@
 </details></td></tr></tbody></table></details></div>
 
   <p class="source">crates/eos-agent-run/src/service.rs:14</p>
-</article><article id="item-struct-ServiceHarness-202" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct ServiceHarness private struct ServiceHarness crates/eos-agent-run/src/service.rs service AgentRunService launcher Arc &lt; ControlledLauncher &gt; agent_run_store Arc &lt; FakeAgentRunStore &gt; task_agent_run_store Arc &lt; FakeTaskAgentRunStore &gt; ">
+</article><article id="item-struct-ServiceHarness-203" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct ServiceHarness private struct ServiceHarness crates/eos-agent-run/src/service.rs service AgentRunService launcher Arc &lt; ControlledLauncher &gt; agent_run_store Arc &lt; FakeAgentRunStore &gt; task_agent_run_store Arc &lt; FakeTaskAgentRunStore &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>ServiceHarness</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">struct <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-202">ServiceHarness</a></code>
+  <code class="signature">struct <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-203">ServiceHarness</a></code>
   <div class="tags"></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>service</td><td><code><a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-AgentRunService-14">AgentRunService</a></code></td></tr><tr><td>private</td><td>launcher</td><td><code>Arc &lt; <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-281">ControlledLauncher</a> &gt;</code></td></tr><tr><td>private</td><td>agent_run_store</td><td><code>Arc &lt; <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-337">FakeAgentRunStore</a> &gt;</code></td></tr><tr><td>private</td><td>task_agent_run_store</td><td><code>Arc &lt; <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-404">FakeTaskAgentRunStore</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-210"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-agent-run.html#method-new-30">new</a> () -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>service</td><td><code><a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-AgentRunService-14">AgentRunService</a></code></td></tr><tr><td>private</td><td>launcher</td><td><code>Arc &lt; <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-282">ControlledLauncher</a> &gt;</code></td></tr><tr><td>private</td><td>agent_run_store</td><td><code>Arc &lt; <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-338">FakeAgentRunStore</a> &gt;</code></td></tr><tr><td>private</td><td>task_agent_run_store</td><td><code>Arc &lt; <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-405">FakeTaskAgentRunStore</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-211"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-agent-run.html#method-new-30">new</a> () -&gt; Self</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>() -&gt; <span class="rs-self">Self</span> {
             <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
-            registry.add(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-agent-definition-231">root_agent_definition</a>());
-            <span class="rs-kw">let</span> launcher = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-281">ControlledLauncher</a>::default());
-            <span class="rs-kw">let</span> agent_run_store = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-337">FakeAgentRunStore</a>::default());
-            <span class="rs-kw">let</span> task_agent_run_store = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-404">FakeTaskAgentRunStore</a>::default());
+            registry.add(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-agent-definition-232">root_agent_definition</a>());
+            <span class="rs-kw">let</span> launcher = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-282">ControlledLauncher</a>::default());
+            <span class="rs-kw">let</span> agent_run_store = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-338">FakeAgentRunStore</a>::default());
+            <span class="rs-kw">let</span> task_agent_run_store = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-405">FakeTaskAgentRunStore</a>::default());
             <span class="rs-kw">let</span> service = <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-AgentRunService-14">AgentRunService</a>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(
                 <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(registry.build()),
                 launcher.clone(),
@@ -159,39 +159,39 @@
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:202</p>
-</article><article id="item-struct-ControlledLauncher-281" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct ControlledLauncher private struct ControlledLauncher crates/eos-agent-run/src/service.rs completion_sender StdMutex &lt; Option &lt; oneshot :: Sender &lt; AgentLoopOutcome &gt; &gt; &gt; cancellation Arc &lt; TestCancellation &gt; ">
+  <p class="source">crates/eos-agent-run/src/service.rs:203</p>
+</article><article id="item-struct-ControlledLauncher-282" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct ControlledLauncher private struct ControlledLauncher crates/eos-agent-run/src/service.rs completion_sender StdMutex &lt; Option &lt; oneshot :: Sender &lt; AgentLoopOutcome &gt; &gt; &gt; cancellation Arc &lt; TestCancellation &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>ControlledLauncher</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">struct <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-281">ControlledLauncher</a></code>
+  <code class="signature">struct <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-282">ControlledLauncher</a></code>
   <div class="tags"><span>derive: Default</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>completion_sender</td><td><code>StdMutex &lt; Option &lt; oneshot :: Sender &lt; AgentLoopOutcome &gt; &gt; &gt;</code></td></tr><tr><td>private</td><td>cancellation</td><td><code>Arc &lt; <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-323">TestCancellation</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-complete-288"><td>method</td><td>complete</td><td><code>fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-complete-288">complete</a> (&amp; self , outcome : AgentLoopOutcome)</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>completion_sender</td><td><code>StdMutex &lt; Option &lt; oneshot :: Sender &lt; AgentLoopOutcome &gt; &gt; &gt;</code></td></tr><tr><td>private</td><td>cancellation</td><td><code>Arc &lt; <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-324">TestCancellation</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-complete-289"><td>method</td><td>complete</td><td><code>fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-complete-289">complete</a> (&amp; self , outcome : AgentLoopOutcome)</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-288">complete</a>(&amp;<span class="rs-self">self</span>, outcome: <span class="rs-type">AgentLoopOutcome</span>) {
-            <span class="rs-kw">let</span> <span class="rs-type">Some</span>(sender) = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.completion_sender).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-take-52">take</a>() <span class="rs-kw">else</span> {
+  <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-289">complete</a>(&amp;<span class="rs-self">self</span>, outcome: <span class="rs-type">AgentLoopOutcome</span>) {
+            <span class="rs-kw">let</span> <span class="rs-type">Some</span>(sender) = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.completion_sender).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-take-52">take</a>() <span class="rs-kw">else</span> {
                 panic!(&quot;agent loop was not started&quot;);
             };
             <span class="rs-kw">let</span> _ignored = sender.send(outcome);
         }
 </code></pre>
-</details></td></tr><tr id="method-cancellation-reason-295"><td>method</td><td>cancellation_reason</td><td><code>fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-cancellation-reason-295">cancellation_reason</a> (&amp; self) -&gt; Option &lt; String &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-cancellation-reason-296"><td>method</td><td>cancellation_reason</td><td><code>fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-cancellation-reason-296">cancellation_reason</a> (&amp; self) -&gt; Option &lt; String &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-cancellation-reason-295">cancellation_reason</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.cancellation.reason).clone()
+  <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-cancellation-reason-296">cancellation_reason</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.cancellation.reason).clone()
         }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl AgentLoopLauncher for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-281">ControlledLauncher</a></code></summary><table><tbody><tr id="method-start-agent-loop-301"><td>method</td><td>start_agent_loop</td><td><code>fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-start-agent-loop-301">start_agent_loop</a> (&amp; self , _request : StartAgentLoopRequest , _agent_run_api : Arc &lt; dyn AgentRunApi &gt; ,) -&gt; StartedAgentLoop</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl AgentLoopLauncher for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-282">ControlledLauncher</a></code></summary><table><tbody><tr id="method-start-agent-loop-302"><td>method</td><td>start_agent_loop</td><td><code>fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-start-agent-loop-302">start_agent_loop</a> (&amp; self , _request : StartAgentLoopRequest , _agent_run_api : Arc &lt; dyn AgentRunApi &gt; ,) -&gt; StartedAgentLoop</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-start-agent-loop-301">start_agent_loop</a>(
+  <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-start-agent-loop-302">start_agent_loop</a>(
             &amp;<span class="rs-self">self</span>,
             _request: <span class="rs-type">StartAgentLoopRequest</span>,
             _agent_run_api: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
         ) -&gt; <span class="rs-type">StartedAgentLoop</span> {
             <span class="rs-kw">let</span> (sender, receiver) = oneshot::channel();
-            *<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.completion_sender) = <span class="rs-type">Some</span>(sender);
+            *<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.completion_sender) = <span class="rs-type">Some</span>(sender);
             <span class="rs-type">StartedAgentLoop</span> {
                 completion: <span class="rs-type">AgentLoopCompletion</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<span class="rs-kw">async</span> <span class="rs-kw">move</span> {
                     receiver.<span class="rs-kw">await</span>.unwrap_or_else(|_| <span class="rs-type">AgentLoopOutcome</span> {
@@ -208,19 +208,19 @@
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:281</p>
-</article><article id="item-struct-TestCancellation-323" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct TestCancellation private struct TestCancellation crates/eos-agent-run/src/service.rs reason StdMutex &lt; Option &lt; String &gt; &gt; ">
+  <p class="source">crates/eos-agent-run/src/service.rs:282</p>
+</article><article id="item-struct-TestCancellation-324" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct TestCancellation private struct TestCancellation crates/eos-agent-run/src/service.rs reason StdMutex &lt; Option &lt; String &gt; &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>TestCancellation</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">struct <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-323">TestCancellation</a></code>
+  <code class="signature">struct <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-324">TestCancellation</a></code>
   <div class="tags"><span>derive: Debug</span><span>derive: Default</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>reason</td><td><code>StdMutex &lt; Option &lt; String &gt; &gt;</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl AgentLoopCancellation for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-323">TestCancellation</a></code></summary><table><tbody><tr id="method-cancel-329"><td>method</td><td>cancel</td><td><code>fn <a class="symbol-link" href="eos-agent-run.html#method-cancel-99">cancel</a> (&amp; self , reason : &amp; str)</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>reason</td><td><code>StdMutex &lt; Option &lt; String &gt; &gt;</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl AgentLoopCancellation for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-324">TestCancellation</a></code></summary><table><tbody><tr id="method-cancel-330"><td>method</td><td>cancel</td><td><code>fn <a class="symbol-link" href="eos-agent-run.html#method-cancel-99">cancel</a> (&amp; self , reason : &amp; str)</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-cancel-99">cancel</a>(&amp;<span class="rs-self">self</span>, reason: &amp;str) {
-            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stored = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.reason);
+            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stored = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.reason);
             <span class="rs-kw">if</span> stored.is_none() {
                 *stored = <span class="rs-type">Some</span>(reason.to_owned());
             }
@@ -228,24 +228,24 @@
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:323</p>
-</article><article id="item-struct-FakeAgentRunStore-337" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct FakeAgentRunStore private struct FakeAgentRunStore crates/eos-agent-run/src/service.rs runs StdMutex &lt; HashMap &lt; AgentRunId , AgentRun &gt; &gt; finish_count AtomicUsize ">
+  <p class="source">crates/eos-agent-run/src/service.rs:324</p>
+</article><article id="item-struct-FakeAgentRunStore-338" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct FakeAgentRunStore private struct FakeAgentRunStore crates/eos-agent-run/src/service.rs runs StdMutex &lt; HashMap &lt; AgentRunId , AgentRun &gt; &gt; finish_count AtomicUsize ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>FakeAgentRunStore</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">struct <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-337">FakeAgentRunStore</a></code>
+  <code class="signature">struct <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-338">FakeAgentRunStore</a></code>
   <div class="tags"><span>derive: Default</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>runs</td><td><code>StdMutex &lt; HashMap &lt; AgentRunId , AgentRun &gt; &gt;</code></td></tr><tr><td>private</td><td>finish_count</td><td><code>AtomicUsize</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-finish-count-344"><td>method</td><td>finish_count</td><td><code>fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a> (&amp; self) -&gt; usize</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>runs</td><td><code>StdMutex &lt; HashMap &lt; AgentRunId , AgentRun &gt; &gt;</code></td></tr><tr><td>private</td><td>finish_count</td><td><code>AtomicUsize</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-finish-count-345"><td>method</td><td>finish_count</td><td><code>fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a> (&amp; self) -&gt; usize</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(&amp;<span class="rs-self">self</span>) -&gt; usize {
+  <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(&amp;<span class="rs-self">self</span>) -&gt; usize {
             <span class="rs-self">self</span>.finish_count.load(<span class="rs-type">Ordering</span>::<span class="rs-type">SeqCst</span>)
         }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl eos_types :: Sealed for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-337">FakeAgentRunStore</a></code></summary><table><tbody></tbody></table></details><details><summary><code>impl AgentRunStore for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-337">FakeAgentRunStore</a></code></summary><table><tbody><tr id="method-create-run-353"><td>method</td><td>create_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-create-run-353">create_run</a> (&amp; self , agent_run_id : &amp; AgentRunId , task_id : Option &lt; &amp; TaskId &gt; , agent_name : &amp; str ,) -&gt; Result &lt; AgentRun , CoreError &gt;</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl eos_types :: Sealed for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-338">FakeAgentRunStore</a></code></summary><table><tbody></tbody></table></details><details><summary><code>impl AgentRunStore for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-338">FakeAgentRunStore</a></code></summary><table><tbody><tr id="method-create-run-354"><td>method</td><td>create_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-create-run-354">create_run</a> (&amp; self , agent_run_id : &amp; AgentRunId , task_id : Option &lt; &amp; TaskId &gt; , agent_name : &amp; str ,) -&gt; Result &lt; AgentRun , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-run-353">create_run</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-run-354">create_run</a>(
             &amp;<span class="rs-self">self</span>,
             agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
             task_id: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">TaskId</span>&gt;,
@@ -261,13 +261,13 @@
                 created_at: <span class="rs-type">UtcDateTime</span>::now(),
                 finished_at: <span class="rs-type">None</span>,
             };
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.runs).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(agent_run_id.clone(), run.clone());
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.runs).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(agent_run_id.clone(), run.clone());
             <span class="rs-type">Ok</span>(run)
         }
 </code></pre>
-</details></td></tr><tr id="method-finish-run-373"><td>method</td><td>finish_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-finish-run-373">finish_run</a> (&amp; self , agent_run_id : &amp; AgentRunId , terminal_payload : Option &lt; &amp; JsonObject &gt; , token_count : i64 , error : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Option &lt; AgentRun &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-finish-run-374"><td>method</td><td>finish_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-finish-run-374">finish_run</a> (&amp; self , agent_run_id : &amp; AgentRunId , terminal_payload : Option &lt; &amp; JsonObject &gt; , token_count : i64 , error : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Option &lt; AgentRun &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-373">finish_run</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-374">finish_run</a>(
             &amp;<span class="rs-self">self</span>,
             agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
             terminal_payload: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">JsonObject</span>&gt;,
@@ -275,7 +275,7 @@
             error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
             <span class="rs-self">self</span>.finish_count.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">SeqCst</span>);
-            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> runs = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.runs);
+            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> runs = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.runs);
             <span class="rs-kw">let</span> <span class="rs-type">Some</span>(run) = runs.get_mut(agent_run_id) <span class="rs-kw">else</span> {
                 <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>);
             };
@@ -286,16 +286,16 @@
             <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(run.clone()))
         }
 </code></pre>
-</details></td></tr><tr id="method-get-392"><td>method</td><td>get</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-get-392">get</a> (&amp; self , agent_run_id : &amp; AgentRunId) -&gt; Result &lt; Option &lt; AgentRun &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-get-393"><td>method</td><td>get</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-get-393">get</a> (&amp; self , agent_run_id : &amp; AgentRunId) -&gt; Result &lt; Option &lt; AgentRun &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(&amp;<span class="rs-self">self</span>, agent_run_id: &amp;<span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.runs).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(agent_run_id).cloned())
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(&amp;<span class="rs-self">self</span>, agent_run_id: &amp;<span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.runs).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(agent_run_id).cloned())
         }
 </code></pre>
-</details></td></tr><tr id="method-get-for-task-396"><td>method</td><td>get_for_task</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-get-for-task-396">get_for_task</a> (&amp; self , task_id : &amp; TaskId) -&gt; Result &lt; Option &lt; AgentRun &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-get-for-task-397"><td>method</td><td>get_for_task</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-get-for-task-397">get_for_task</a> (&amp; self , task_id : &amp; TaskId) -&gt; Result &lt; Option &lt; AgentRun &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-for-task-396">get_for_task</a>(&amp;<span class="rs-self">self</span>, task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.runs)
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-for-task-397">get_for_task</a>(&amp;<span class="rs-self">self</span>, task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.runs)
                 .values()
                 .find(|run| run.task_id.as_ref() == <span class="rs-type">Some</span>(task_id))
                 .cloned())
@@ -303,24 +303,24 @@
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:337</p>
-</article><article id="item-struct-FakeTaskAgentRunStore-404" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct FakeTaskAgentRunStore private struct FakeTaskAgentRunStore crates/eos-agent-run/src/service.rs indexes StdMutex &lt; HashMap &lt; AgentRunId , AgentRunRecordIndex &gt; &gt; finish_count AtomicUsize ">
+  <p class="source">crates/eos-agent-run/src/service.rs:338</p>
+</article><article id="item-struct-FakeTaskAgentRunStore-405" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct FakeTaskAgentRunStore private struct FakeTaskAgentRunStore crates/eos-agent-run/src/service.rs indexes StdMutex &lt; HashMap &lt; AgentRunId , AgentRunRecordIndex &gt; &gt; finish_count AtomicUsize ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>FakeTaskAgentRunStore</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">struct <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-404">FakeTaskAgentRunStore</a></code>
+  <code class="signature">struct <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-405">FakeTaskAgentRunStore</a></code>
   <div class="tags"><span>derive: Default</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>indexes</td><td><code>StdMutex &lt; HashMap &lt; AgentRunId , AgentRunRecordIndex &gt; &gt;</code></td></tr><tr><td>private</td><td>finish_count</td><td><code>AtomicUsize</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-finish-count-411"><td>method</td><td>finish_count</td><td><code>fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a> (&amp; self) -&gt; usize</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>indexes</td><td><code>StdMutex &lt; HashMap &lt; AgentRunId , AgentRunRecordIndex &gt; &gt;</code></td></tr><tr><td>private</td><td>finish_count</td><td><code>AtomicUsize</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-finish-count-412"><td>method</td><td>finish_count</td><td><code>fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a> (&amp; self) -&gt; usize</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(&amp;<span class="rs-self">self</span>) -&gt; usize {
+  <pre><code>        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(&amp;<span class="rs-self">self</span>) -&gt; usize {
             <span class="rs-self">self</span>.finish_count.load(<span class="rs-type">Ordering</span>::<span class="rs-type">SeqCst</span>)
         }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl eos_types :: Sealed for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-404">FakeTaskAgentRunStore</a></code></summary><table><tbody></tbody></table></details><details><summary><code>impl TaskAgentRunStore for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-404">FakeTaskAgentRunStore</a></code></summary><table><tbody><tr id="method-create-root-task-agent-run-420"><td>method</td><td>create_root_task_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-create-root-task-agent-run-420">create_root_task_agent_run</a> (&amp; self , request_id : &amp; RequestId , agent_run_id : &amp; AgentRunId , _agent_name : &amp; AgentName ,) -&gt; Result &lt; CreatedTaskAgentRun , CoreError &gt;</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl eos_types :: Sealed for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-405">FakeTaskAgentRunStore</a></code></summary><table><tbody></tbody></table></details><details><summary><code>impl TaskAgentRunStore for <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-405">FakeTaskAgentRunStore</a></code></summary><table><tbody><tr id="method-create-root-task-agent-run-421"><td>method</td><td>create_root_task_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-create-root-task-agent-run-421">create_root_task_agent_run</a> (&amp; self , request_id : &amp; RequestId , agent_run_id : &amp; AgentRunId , _agent_name : &amp; AgentName ,) -&gt; Result &lt; CreatedTaskAgentRun , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-root-task-agent-run-420">create_root_task_agent_run</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-root-task-agent-run-421">create_root_task_agent_run</a>(
             &amp;<span class="rs-self">self</span>,
             request_id: &amp;<span class="rs-type">RequestId</span>,
             agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
@@ -329,30 +329,32 @@
             <span class="rs-kw">let</span> index = <span class="rs-type">AgentRunRecordIndex</span> {
                 request_id: request_id.clone(),
                 agent_run_id: agent_run_id.clone(),
-                task_id: root_task_id(request_id),
+                task_id: <span class="rs-type">TaskId</span>::new_v4(),
                 kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span>,
                 parent_record_dir: <span class="rs-type">None</span>,
             };
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(agent_run_id.clone(), index.clone());
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-created-from-index-559">created_from_index</a>(&amp;index))
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(agent_run_id.clone(), index.clone());
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-created-from-index-562">created_from_index</a>(&amp;index))
         }
 </code></pre>
-</details></td></tr><tr id="method-create-workflow-task-agent-run-437"><td>method</td><td>create_workflow_task_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-create-workflow-task-agent-run-437">create_workflow_task_agent_run</a> (&amp; self , _request_id : &amp; RequestId , _agent_run_id : &amp; AgentRunId , _workflow : &amp; WorkflowCoordinates , _workflow_node_id : &amp; WorkflowNodeId , _agent_name : &amp; AgentName ,) -&gt; Result &lt; CreatedTaskAgentRun , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-create-workflow-task-agent-run-438"><td>method</td><td>create_workflow_task_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-create-workflow-task-agent-run-438">create_workflow_task_agent_run</a> (&amp; self , _request_id : &amp; RequestId , _agent_run_id : &amp; AgentRunId , _coords : &amp; WorkflowCoordinates , _role : WorkflowTaskRole , _plan_id : &amp; PlanId , _work_item_id : Option &lt; &amp; WorkItemId &gt; , _agent_name : &amp; AgentName ,) -&gt; Result &lt; CreatedTaskAgentRun , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-workflow-task-agent-run-437">create_workflow_task_agent_run</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-workflow-task-agent-run-438">create_workflow_task_agent_run</a>(
             &amp;<span class="rs-self">self</span>,
             _request_id: &amp;<span class="rs-type">RequestId</span>,
             _agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
-            _workflow: &amp;<span class="rs-type">WorkflowCoordinates</span>,
-            _workflow_node_id: &amp;<span class="rs-type">WorkflowNodeId</span>,
+            _coords: &amp;<span class="rs-type">WorkflowCoordinates</span>,
+            _role: <span class="rs-type">WorkflowTaskRole</span>,
+            _plan_id: &amp;<span class="rs-type">PlanId</span>,
+            _work_item_id: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">WorkItemId</span>&gt;,
             _agent_name: &amp;<span class="rs-type">AgentName</span>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CreatedTaskAgentRun</span>, <span class="rs-type">CoreError</span>&gt; {
             <span class="rs-type">Err</span>(<span class="rs-type">CoreError</span>::<span class="rs-type">Store</span>(&quot;workflow fake not implemented&quot;.to_owned()))
         }
 </code></pre>
-</details></td></tr><tr id="method-create-parented-task-agent-run-448"><td>method</td><td>create_parented_task_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-448">create_parented_task_agent_run</a> (&amp; self , _agent_run_id : &amp; AgentRunId , _parent : &amp; ParentAgentRunAnchor , _kind : ParentedAgentRunKind , _tool_use_id : Option &lt; &amp; ToolUseId &gt; , _agent_name : &amp; AgentName ,) -&gt; Result &lt; CreatedTaskAgentRun , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-create-parented-task-agent-run-451"><td>method</td><td>create_parented_task_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-451">create_parented_task_agent_run</a> (&amp; self , _agent_run_id : &amp; AgentRunId , _parent : &amp; ParentAgentRunAnchor , _kind : ParentedAgentRunKind , _tool_use_id : Option &lt; &amp; ToolUseId &gt; , _agent_name : &amp; AgentName ,) -&gt; Result &lt; CreatedTaskAgentRun , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-448">create_parented_task_agent_run</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-451">create_parented_task_agent_run</a>(
             &amp;<span class="rs-self">self</span>,
             _agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
             _parent: &amp;<span class="rs-type">ParentAgentRunAnchor</span>,
@@ -363,18 +365,19 @@
             <span class="rs-type">Err</span>(<span class="rs-type">CoreError</span>::<span class="rs-type">Store</span>(&quot;parented fake not implemented&quot;.to_owned()))
         }
 </code></pre>
-</details></td></tr><tr id="method-finish-task-run-459"><td>method</td><td>finish_task_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-finish-task-run-459">finish_task_run</a> (&amp; self , agent_run_id : &amp; AgentRunId , status : TaskStatus , terminal_payload : Option &lt; &amp; JsonObject &gt; , token_count : i64 , error : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Option &lt; TaskRun &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-finish-task-run-462"><td>method</td><td>finish_task_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-finish-task-run-462">finish_task_run</a> (&amp; self , agent_run_id : &amp; AgentRunId , status : TaskStatus , terminal_payload : Option &lt; &amp; JsonObject &gt; , task_outcome : Option &lt; &amp; TaskOutcome &gt; , token_count : i64 , error : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Option &lt; TaskRun &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-task-run-459">finish_task_run</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-task-run-462">finish_task_run</a>(
             &amp;<span class="rs-self">self</span>,
             agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
             status: <span class="rs-type">TaskStatus</span>,
             terminal_payload: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">JsonObject</span>&gt;,
+            task_outcome: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">TaskOutcome</span>&gt;,
             token_count: i64,
             error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
             <span class="rs-self">self</span>.finish_count.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">SeqCst</span>);
-            <span class="rs-kw">let</span> <span class="rs-type">Some</span>(index) = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(agent_run_id).cloned() <span class="rs-kw">else</span> {
+            <span class="rs-kw">let</span> <span class="rs-type">Some</span>(index) = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(agent_run_id).cloned() <span class="rs-kw">else</span> {
                 <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>);
             };
             <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<span class="rs-type">TaskRun</span> {
@@ -383,11 +386,9 @@
                 request_id: index.request_id,
                 role: <span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span>,
                 status,
-                workflow_id: <span class="rs-type">None</span>,
-                iteration_id: <span class="rs-type">None</span>,
-                attempt_id: <span class="rs-type">None</span>,
                 agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(&quot;root&quot;).expect(&quot;valid agent name&quot;),
                 terminal_payload: terminal_payload.cloned(),
+                task_outcome: task_outcome.cloned(),
                 token_count,
                 error: error.map(str::to_owned),
                 created_at: <span class="rs-type">UtcDateTime</span>::now(),
@@ -396,54 +397,55 @@
             }))
         }
 </code></pre>
-</details></td></tr><tr id="method-finish-parented-run-490"><td>method</td><td>finish_parented_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-finish-parented-run-490">finish_parented_run</a> (&amp; self , _agent_run_id : &amp; AgentRunId , _status : TaskStatus , _terminal_payload : Option &lt; &amp; JsonObject &gt; , _token_count : i64 , _error : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Option &lt; ParentedRun &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-finish-parented-run-492"><td>method</td><td>finish_parented_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-finish-parented-run-492">finish_parented_run</a> (&amp; self , _agent_run_id : &amp; AgentRunId , _status : TaskStatus , _terminal_payload : Option &lt; &amp; JsonObject &gt; , _parented_outcome : Option &lt; &amp; ParentedOutcome &gt; , _token_count : i64 , _error : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Option &lt; ParentedRun &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-parented-run-490">finish_parented_run</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-parented-run-492">finish_parented_run</a>(
             &amp;<span class="rs-self">self</span>,
             _agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
             _status: <span class="rs-type">TaskStatus</span>,
             _terminal_payload: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">JsonObject</span>&gt;,
+            _parented_outcome: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">ParentedOutcome</span>&gt;,
             _token_count: i64,
             _error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">ParentedRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
             <span class="rs-type">Err</span>(<span class="rs-type">CoreError</span>::<span class="rs-type">Store</span>(&quot;parented fake not implemented&quot;.to_owned()))
         }
 </code></pre>
-</details></td></tr><tr id="method-record-index-for-agent-run-501"><td>method</td><td>record_index_for_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-record-index-for-agent-run-501">record_index_for_agent_run</a> (&amp; self , agent_run_id : &amp; AgentRunId ,) -&gt; Result &lt; Option &lt; AgentRunRecordIndex &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-record-index-for-agent-run-504"><td>method</td><td>record_index_for_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-record-index-for-agent-run-504">record_index_for_agent_run</a> (&amp; self , agent_run_id : &amp; AgentRunId ,) -&gt; Result &lt; Option &lt; AgentRunRecordIndex &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-record-index-for-agent-run-501">record_index_for_agent_run</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-record-index-for-agent-run-504">record_index_for_agent_run</a>(
             &amp;<span class="rs-self">self</span>,
             agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunRecordIndex</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(agent_run_id).cloned())
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(agent_run_id).cloned())
         }
 </code></pre>
-</details></td></tr><tr id="method-get-task-run-508"><td>method</td><td>get_task_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-get-task-run-508">get_task_run</a> (&amp; self , _task_id : &amp; TaskId) -&gt; Result &lt; Option &lt; TaskRun &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-get-task-run-511"><td>method</td><td>get_task_run</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-get-task-run-511">get_task_run</a> (&amp; self , _task_id : &amp; TaskId) -&gt; Result &lt; Option &lt; TaskRun &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-task-run-508">get_task_run</a>(&amp;<span class="rs-self">self</span>, _task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-task-run-511">get_task_run</a>(&amp;<span class="rs-self">self</span>, _task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
             <span class="rs-type">Err</span>(<span class="rs-type">CoreError</span>::<span class="rs-type">Store</span>(&quot;get task fake not implemented&quot;.to_owned()))
         }
 </code></pre>
-</details></td></tr><tr id="method-list-task-runs-for-request-512"><td>method</td><td>list_task_runs_for_request</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-list-task-runs-for-request-512">list_task_runs_for_request</a> (&amp; self , request_id : &amp; RequestId ,) -&gt; Result &lt; Vec &lt; TaskRun &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-list-task-runs-for-request-515"><td>method</td><td>list_task_runs_for_request</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-list-task-runs-for-request-515">list_task_runs_for_request</a> (&amp; self , request_id : &amp; RequestId ,) -&gt; Result &lt; Vec &lt; TaskRun &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-task-runs-for-request-512">list_task_runs_for_request</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-task-runs-for-request-515">list_task_runs_for_request</a>(
             &amp;<span class="rs-self">self</span>,
             request_id: &amp;<span class="rs-type">RequestId</span>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.indexes)
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.indexes)
                 .values()
                 .filter(|index| &amp;index.request_id == request_id)
-                .map(|index| <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-run-from-index-573">task_run_from_index</a>(index, <span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span>, <span class="rs-type">None</span>, 0, <span class="rs-type">None</span>))
+                .map(|index| <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-run-from-index-576">task_run_from_index</a>(index, <span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span>, <span class="rs-type">None</span>, 0, <span class="rs-type">None</span>))
                 .collect())
         }
 </code></pre>
-</details></td></tr><tr id="method-list-running-agent-runs-for-request-523"><td>method</td><td>list_running_agent_runs_for_request</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-list-running-agent-runs-for-request-523">list_running_agent_runs_for_request</a> (&amp; self , request_id : &amp; RequestId ,) -&gt; Result &lt; Vec &lt; RunningRequestAgentRun &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-list-running-agent-runs-for-request-526"><td>method</td><td>list_running_agent_runs_for_request</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-list-running-agent-runs-for-request-526">list_running_agent_runs_for_request</a> (&amp; self , request_id : &amp; RequestId ,) -&gt; Result &lt; Vec &lt; RunningRequestAgentRun &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-running-agent-runs-for-request-523">list_running_agent_runs_for_request</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-running-agent-runs-for-request-526">list_running_agent_runs_for_request</a>(
             &amp;<span class="rs-self">self</span>,
             request_id: &amp;<span class="rs-type">RequestId</span>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">RunningRequestAgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.indexes)
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.indexes)
                 .values()
                 .filter(|index| &amp;index.request_id == request_id)
                 .map(|index| <span class="rs-type">RunningRequestAgentRun</span> {
@@ -455,9 +457,9 @@
                 .collect())
         }
 </code></pre>
-</details></td></tr><tr id="method-list-parented-runs-for-parent-task-539"><td>method</td><td>list_parented_runs_for_parent_task</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-list-parented-runs-for-parent-task-539">list_parented_runs_for_parent_task</a> (&amp; self , _parent_task_id : &amp; TaskId , _kind : ParentedAgentRunKind ,) -&gt; Result &lt; Vec &lt; ParentedRun &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-list-parented-runs-for-parent-task-542"><td>method</td><td>list_parented_runs_for_parent_task</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-list-parented-runs-for-parent-task-542">list_parented_runs_for_parent_task</a> (&amp; self , _parent_task_id : &amp; TaskId , _kind : ParentedAgentRunKind ,) -&gt; Result &lt; Vec &lt; ParentedRun &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-parented-runs-for-parent-task-539">list_parented_runs_for_parent_task</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-parented-runs-for-parent-task-542">list_parented_runs_for_parent_task</a>(
             &amp;<span class="rs-self">self</span>,
             _parent_task_id: &amp;<span class="rs-type">TaskId</span>,
             _kind: <span class="rs-type">ParentedAgentRunKind</span>,
@@ -467,9 +469,9 @@
             ))
         }
 </code></pre>
-</details></td></tr><tr id="method-task-execution-index-549"><td>method</td><td>task_execution_index</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-task-execution-index-549">task_execution_index</a> (&amp; self , _task_id : &amp; TaskId ,) -&gt; Result &lt; Option &lt; TaskExecutionIndex &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-task-execution-index-552"><td>method</td><td>task_execution_index</td><td><code>async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#method-task-execution-index-552">task_execution_index</a> (&amp; self , _task_id : &amp; TaskId ,) -&gt; Result &lt; Option &lt; TaskExecutionIndex &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-task-execution-index-549">task_execution_index</a>(
+  <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-task-execution-index-552">task_execution_index</a>(
             &amp;<span class="rs-self">self</span>,
             _task_id: &amp;<span class="rs-type">TaskId</span>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskExecutionIndex</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
@@ -480,33 +482,33 @@
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:404</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-task-agent-run-kind-declares-required-agent-type-103" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn task_agent_run_kind_declares_required_agent_type private fn task_agent_run_kind_declares_required_agent_type () crates/eos-agent-run/src/service.rs  ">
+  <p class="source">crates/eos-agent-run/src/service.rs:405</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-task-agent-run-kind-declares-required-agent-type-104" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn task_agent_run_kind_declares_required_agent_type private fn task_agent_run_kind_declares_required_agent_type () crates/eos-agent-run/src/service.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>task_agent_run_kind_declares_required_agent_type</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-task-agent-run-kind-declares-required-agent-type-103">task_agent_run_kind_declares_required_agent_type</a> ()</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-task-agent-run-kind-declares-required-agent-type-104">task_agent_run_kind_declares_required_agent_type</a> ()</code>
   <div class="tags"><span>test</span></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code>    #[test]
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-agent-run-kind-declares-required-agent-type-103">task_agent_run_kind_declares_required_agent_type</a>() {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-agent-run-kind-declares-required-agent-type-104">task_agent_run_kind_declares_required_agent_type</a>() {
         <span class="rs-kw">let</span> parent_agent_run_id = <span class="rs-type">AgentRunId</span>::new_v4();
         assert_eq!(
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-176">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span>),
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-180">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span>),
             <span class="rs-type">AgentType</span>::<span class="rs-type">Agent</span>
         );
         assert_eq!(
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-176">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-180">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
                 parent_agent_run_id: parent_agent_run_id.clone(),
                 kind: <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span>,
             }),
             <span class="rs-type">AgentType</span>::<span class="rs-type">Subagent</span>
         );
         assert_eq!(
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-176">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-180">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
                 parent_agent_run_id,
                 kind: <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Advisor</span>,
             }),
@@ -516,23 +518,23 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:103</p>
-</article><article id="item-fn-engine-completion-finalizes-once-and-publishes-waiters-126" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn engine_completion_finalizes_once_and_publishes_waiters private async fn engine_completion_finalizes_once_and_publishes_waiters () crates/eos-agent-run/src/service.rs  ">
+  <p class="source">crates/eos-agent-run/src/service.rs:104</p>
+</article><article id="item-fn-engine-completion-finalizes-once-and-publishes-waiters-127" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn engine_completion_finalizes_once_and_publishes_waiters private async fn engine_completion_finalizes_once_and_publishes_waiters () crates/eos-agent-run/src/service.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>engine_completion_finalizes_once_and_publishes_waiters</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-engine-completion-finalizes-once-and-publishes-waiters-126">engine_completion_finalizes_once_and_publishes_waiters</a> ()</code>
+  <code class="signature">async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-engine-completion-finalizes-once-and-publishes-waiters-127">engine_completion_finalizes_once_and_publishes_waiters</a> ()</code>
   <div class="tags"><span>async</span><span>tokio::test</span></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code>    #[tokio::test]
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-engine-completion-finalizes-once-and-publishes-waiters-126">engine_completion_finalizes_once_and_publishes_waiters</a>() {
-        <span class="rs-kw">let</span> harness = <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-202">ServiceHarness</a>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-engine-completion-finalizes-once-and-publishes-waiters-127">engine_completion_finalizes_once_and_publishes_waiters</a>() {
+        <span class="rs-kw">let</span> harness = <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-203">ServiceHarness</a>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
         <span class="rs-kw">let</span> run_id = harness
             .service
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-spawn-agent-51">spawn_agent</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-247">root_spawn_request</a>())
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-spawn-agent-51">spawn_agent</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-248">root_spawn_request</a>())
             .<span class="rs-kw">await</span>
             .expect(&quot;spawn succeeds&quot;);
         <span class="rs-kw">let</span> waiter = {
@@ -541,7 +543,7 @@
             tokio::spawn(<span class="rs-kw">async</span> <span class="rs-kw">move</span> { service.<a class="symbol-link rs-fn" href="eos-agent-run--src-completion-rs.html#item-fn-wait-for-agent-outcome-21">wait_for_agent_outcome</a>(&amp;run_id).<span class="rs-kw">await</span> })
         };
 
-        harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-288">complete</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-261">successful_loop_outcome</a>());
+        harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-289">complete</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-262">successful_loop_outcome</a>());
 
         <span class="rs-kw">let</span> outcome = timeout(<span class="rs-type">Duration</span>::from_secs(1), waiter)
             .<span class="rs-kw">await</span>
@@ -549,8 +551,8 @@
             .expect(&quot;waiter task joins&quot;)
             .expect(&quot;waiter returns outcome&quot;);
         assert_eq!(outcome.status, <span class="rs-type">AgentRunStatus</span>::<span class="rs-type">Completed</span>);
-        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
-        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
+        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
+        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
         assert_eq!(
             harness
                 .service
@@ -565,23 +567,23 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:126</p>
-</article><article id="item-fn-cancellation-before-engine-completion-finalizes-once-162" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn cancellation_before_engine_completion_finalizes_once private async fn cancellation_before_engine_completion_finalizes_once () crates/eos-agent-run/src/service.rs  ">
+  <p class="source">crates/eos-agent-run/src/service.rs:127</p>
+</article><article id="item-fn-cancellation-before-engine-completion-finalizes-once-163" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn cancellation_before_engine_completion_finalizes_once private async fn cancellation_before_engine_completion_finalizes_once () crates/eos-agent-run/src/service.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>cancellation_before_engine_completion_finalizes_once</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-cancellation-before-engine-completion-finalizes-once-162">cancellation_before_engine_completion_finalizes_once</a> ()</code>
+  <code class="signature">async fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-cancellation-before-engine-completion-finalizes-once-163">cancellation_before_engine_completion_finalizes_once</a> ()</code>
   <div class="tags"><span>async</span><span>tokio::test</span></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code>    #[tokio::test]
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-cancellation-before-engine-completion-finalizes-once-162">cancellation_before_engine_completion_finalizes_once</a>() {
-        <span class="rs-kw">let</span> harness = <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-202">ServiceHarness</a>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-cancellation-before-engine-completion-finalizes-once-163">cancellation_before_engine_completion_finalizes_once</a>() {
+        <span class="rs-kw">let</span> harness = <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-203">ServiceHarness</a>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
         <span class="rs-kw">let</span> run_id = harness
             .service
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-spawn-agent-51">spawn_agent</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-247">root_spawn_request</a>())
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-spawn-agent-51">spawn_agent</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-248">root_spawn_request</a>())
             .<span class="rs-kw">await</span>
             .expect(&quot;spawn succeeds&quot;);
         <span class="rs-kw">let</span> waiter = {
@@ -603,33 +605,33 @@
             .expect(&quot;waiter returns outcome&quot;);
         assert_eq!(outcome.status, <span class="rs-type">AgentRunStatus</span>::<span class="rs-type">Cancelled</span>);
         assert_eq!(
-            harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-cancellation-reason-295">cancellation_reason</a>(),
+            harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-cancellation-reason-296">cancellation_reason</a>(),
             <span class="rs-type">Some</span>(&quot;caller cancelled&quot;.to_owned())
         );
-        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
-        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
+        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
+        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
 
-        harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-288">complete</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-261">successful_loop_outcome</a>());
+        harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-289">complete</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-262">successful_loop_outcome</a>());
         tokio::time::sleep(<span class="rs-type">Duration</span>::from_millis(20)).<span class="rs-kw">await</span>;
 
-        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
-        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
+        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
+        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
     }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:162</p>
-</article><article id="item-fn-root-agent-definition-231" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn root_agent_definition private fn root_agent_definition () -&gt; AgentDefinition crates/eos-agent-run/src/service.rs  ">
+  <p class="source">crates/eos-agent-run/src/service.rs:163</p>
+</article><article id="item-fn-root-agent-definition-232" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn root_agent_definition private fn root_agent_definition () -&gt; AgentDefinition crates/eos-agent-run/src/service.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>root_agent_definition</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-root-agent-definition-231">root_agent_definition</a> () -&gt; AgentDefinition</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-root-agent-definition-232">root_agent_definition</a> () -&gt; AgentDefinition</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-agent-definition-231">root_agent_definition</a>() -&gt; <span class="rs-type">AgentDefinition</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-agent-definition-232">root_agent_definition</a>() -&gt; <span class="rs-type">AgentDefinition</span> {
         <span class="rs-type">AgentDefinition</span> {
             name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(&quot;root&quot;).expect(&quot;valid agent name&quot;),
             description: &quot;root test agent&quot;.to_owned(),
@@ -647,18 +649,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:231</p>
-</article><article id="item-fn-root-spawn-request-247" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn root_spawn_request private fn root_spawn_request () -&gt; SpawnAgentRequest crates/eos-agent-run/src/service.rs  ">
+  <p class="source">crates/eos-agent-run/src/service.rs:232</p>
+</article><article id="item-fn-root-spawn-request-248" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn root_spawn_request private fn root_spawn_request () -&gt; SpawnAgentRequest crates/eos-agent-run/src/service.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>root_spawn_request</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-247">root_spawn_request</a> () -&gt; SpawnAgentRequest</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-248">root_spawn_request</a> () -&gt; SpawnAgentRequest</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-247">root_spawn_request</a>() -&gt; <span class="rs-type">SpawnAgentRequest</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-248">root_spawn_request</a>() -&gt; <span class="rs-type">SpawnAgentRequest</span> {
         <span class="rs-type">SpawnAgentRequest</span> {
             agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(&quot;root&quot;).expect(&quot;valid agent name&quot;),
             initial_messages: vec![<span class="rs-type">Message</span>::from_user_text(&quot;start&quot;)],
@@ -674,18 +676,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:247</p>
-</article><article id="item-fn-successful-loop-outcome-261" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn successful_loop_outcome private fn successful_loop_outcome () -&gt; AgentLoopOutcome crates/eos-agent-run/src/service.rs  ">
+  <p class="source">crates/eos-agent-run/src/service.rs:248</p>
+</article><article id="item-fn-successful-loop-outcome-262" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn successful_loop_outcome private fn successful_loop_outcome () -&gt; AgentLoopOutcome crates/eos-agent-run/src/service.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>successful_loop_outcome</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-261">successful_loop_outcome</a> () -&gt; AgentLoopOutcome</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-262">successful_loop_outcome</a> () -&gt; AgentLoopOutcome</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-261">successful_loop_outcome</a>() -&gt; <span class="rs-type">AgentLoopOutcome</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-262">successful_loop_outcome</a>() -&gt; <span class="rs-type">AgentLoopOutcome</span> {
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
         payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(&quot;summary&quot;.to_owned(), serde_json::json!(&quot;done&quot;));
         <span class="rs-type">AgentLoopOutcome</span> {
@@ -707,18 +709,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:261</p>
-</article><article id="item-fn-created-from-index-559" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn created_from_index private fn created_from_index (index : &amp; AgentRunRecordIndex) -&gt; CreatedTaskAgentRun crates/eos-agent-run/src/service.rs  ">
+  <p class="source">crates/eos-agent-run/src/service.rs:262</p>
+</article><article id="item-fn-created-from-index-562" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn created_from_index private fn created_from_index (index : &amp; AgentRunRecordIndex) -&gt; CreatedTaskAgentRun crates/eos-agent-run/src/service.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>created_from_index</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-created-from-index-559">created_from_index</a> (index : &amp; AgentRunRecordIndex) -&gt; CreatedTaskAgentRun</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-created-from-index-562">created_from_index</a> (index : &amp; AgentRunRecordIndex) -&gt; CreatedTaskAgentRun</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-created-from-index-559">created_from_index</a>(index: &amp;<span class="rs-type">AgentRunRecordIndex</span>) -&gt; <span class="rs-type">CreatedTaskAgentRun</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-created-from-index-562">created_from_index</a>(index: &amp;<span class="rs-type">AgentRunRecordIndex</span>) -&gt; <span class="rs-type">CreatedTaskAgentRun</span> {
         <span class="rs-type">CreatedTaskAgentRun</span> {
             agent_run_id: index.agent_run_id.clone(),
             task_id: index.task_id.clone(),
@@ -734,18 +736,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:559</p>
-</article><article id="item-fn-task-run-from-index-573" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn task_run_from_index private fn task_run_from_index (index : &amp; AgentRunRecordIndex , status : TaskStatus , terminal_payload : Option &lt; &amp; JsonObject &gt; , token_count : i64 , error : Option &lt; &amp; str &gt; ,) -&gt; TaskRun crates/eos-agent-run/src/service.rs  ">
+  <p class="source">crates/eos-agent-run/src/service.rs:562</p>
+</article><article id="item-fn-task-run-from-index-576" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn task_run_from_index private fn task_run_from_index (index : &amp; AgentRunRecordIndex , status : TaskStatus , terminal_payload : Option &lt; &amp; JsonObject &gt; , token_count : i64 , error : Option &lt; &amp; str &gt; ,) -&gt; TaskRun crates/eos-agent-run/src/service.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>task_run_from_index</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-task-run-from-index-573">task_run_from_index</a> (index : &amp; AgentRunRecordIndex , status : TaskStatus , terminal_payload : Option &lt; &amp; JsonObject &gt; , token_count : i64 , error : Option &lt; &amp; str &gt; ,) -&gt; TaskRun</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-task-run-from-index-576">task_run_from_index</a> (index : &amp; AgentRunRecordIndex , status : TaskStatus , terminal_payload : Option &lt; &amp; JsonObject &gt; , token_count : i64 , error : Option &lt; &amp; str &gt; ,) -&gt; TaskRun</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-run-from-index-573">task_run_from_index</a>(
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-run-from-index-576">task_run_from_index</a>(
         index: &amp;<span class="rs-type">AgentRunRecordIndex</span>,
         status: <span class="rs-type">TaskStatus</span>,
         terminal_payload: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">JsonObject</span>&gt;,
@@ -758,41 +760,39 @@
             request_id: index.request_id.clone(),
             role: <span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span>,
             status,
-            workflow_id: <span class="rs-type">None</span>,
-            iteration_id: <span class="rs-type">None</span>,
-            attempt_id: <span class="rs-type">None</span>,
             agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(&quot;root&quot;).expect(&quot;valid agent name&quot;),
             terminal_payload: terminal_payload.cloned(),
+            task_outcome: <span class="rs-type">None</span>,
             token_count,
             error: error.map(str::to_owned),
             created_at: <span class="rs-type">UtcDateTime</span>::now(),
             updated_at: <span class="rs-type">UtcDateTime</span>::now(),
-            finished_at: status.is_terminal_generator().then_some(<span class="rs-type">UtcDateTime</span>::now()),
+            finished_at: status.is_terminal().then_some(<span class="rs-type">UtcDateTime</span>::now()),
         }
     }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:573</p>
-</article><article id="item-fn-lock-599" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn lock private fn lock &lt; T &gt; (mutex : &amp; StdMutex &lt; T &gt;) -&gt; MutexGuard &lt; '_ , T &gt; crates/eos-agent-run/src/service.rs  ">
+  <p class="source">crates/eos-agent-run/src/service.rs:576</p>
+</article><article id="item-fn-lock-600" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn lock private fn lock &lt; T &gt; (mutex : &amp; StdMutex &lt; T &gt;) -&gt; MutexGuard &lt; '_ , T &gt; crates/eos-agent-run/src/service.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>lock</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a> &lt; T &gt; (mutex : &amp; StdMutex &lt; T &gt;) -&gt; MutexGuard &lt; &#x27;_ , T &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a> &lt; T &gt; (mutex : &amp; StdMutex &lt; T &gt;) -&gt; MutexGuard &lt; &#x27;_ , T &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> lock&lt;<span class="rs-type">T</span>&gt;(mutex: &amp;<span class="rs-type">StdMutex</span>&lt;<span class="rs-type">T</span>&gt;) -&gt; <span class="rs-type">MutexGuard</span>&lt;&#x27;_, <span class="rs-type">T</span>&gt; {
         mutex
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>()
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>()
             .unwrap_or_else(std::sync::<span class="rs-type">PoisonError</span>::into_inner)
     }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-agent-run/src/service.rs:599</p>
+  <p class="source">crates/eos-agent-run/src/service.rs:600</p>
 </article></div>
 </section></div>
 </main>
@@ -892,33 +892,34 @@
     <span class="rs-kw">use</span> tokio::time::{timeout, <span class="rs-type">Duration</span>};
 
     <span class="rs-kw">use</span> eos_types::{
-        format_record_dir, root_task_id, <span class="rs-type">AgentDefinition</span>, <span class="rs-type">AgentLoopCancellation</span>,
+        format_record_dir, <span class="rs-type">AgentDefinition</span>, <span class="rs-type">AgentLoopCancellation</span>,
         <span class="rs-type">AgentLoopCompletion</span>, <span class="rs-type">AgentLoopLauncher</span>, <span class="rs-type">AgentLoopMessage</span>, <span class="rs-type">AgentLoopOutcome</span>,
         <span class="rs-type">AgentLoopOutcomeKind</span>, <span class="rs-type">AgentName</span>, <span class="rs-type">AgentRegistryBuilder</span>, <span class="rs-type">AgentRun</span>, <span class="rs-type">AgentRunApi</span>,
         <span class="rs-type">AgentRunRecordIndex</span>, <span class="rs-type">AgentRunRecordTarget</span>, <span class="rs-type">AgentRunStatus</span>, <span class="rs-type">AgentRunStore</span>, <span class="rs-type">AgentType</span>,
         <span class="rs-type">ContentBlock</span>, <span class="rs-type">CoreError</span>, <span class="rs-type">CreatedTaskAgentRun</span>, <span class="rs-type">JsonObject</span>, <span class="rs-type">Message</span>, <span class="rs-type">ParentAgentRunAnchor</span>,
-        <span class="rs-type">ParentedAgentRunKind</span>, <span class="rs-type">ParentedRun</span>, <span class="rs-type">RequestId</span>, <span class="rs-type">RunningRequestAgentRun</span>, <span class="rs-type">SpawnAgentRequest</span>,
-        <span class="rs-type">SpawnAgentTarget</span>, <span class="rs-type">StartAgentLoopRequest</span>, <span class="rs-type">StartedAgentLoop</span>, <span class="rs-type">TaskAgentRunKind</span>,
-        <span class="rs-type">TaskAgentRunStore</span>, <span class="rs-type">TaskExecutionIndex</span>, <span class="rs-type">TaskId</span>, <span class="rs-type">TaskRole</span>, <span class="rs-type">TaskRun</span>, <span class="rs-type">TaskStatus</span>, <span class="rs-type">ToolUseId</span>,
-        <span class="rs-type">UtcDateTime</span>, <span class="rs-type">WorkflowCoordinates</span>, <span class="rs-type">WorkflowNodeId</span>,
+        <span class="rs-type">ParentedAgentRunKind</span>, <span class="rs-type">ParentedOutcome</span>, <span class="rs-type">ParentedRun</span>, <span class="rs-type">PlanId</span>, <span class="rs-type">RequestId</span>,
+        <span class="rs-type">RunningRequestAgentRun</span>, <span class="rs-type">SpawnAgentRequest</span>, <span class="rs-type">SpawnAgentTarget</span>, <span class="rs-type">StartAgentLoopRequest</span>,
+        <span class="rs-type">StartedAgentLoop</span>, <span class="rs-type">TaskAgentRunKind</span>, <span class="rs-type">TaskAgentRunStore</span>, <span class="rs-type">TaskExecutionIndex</span>, <span class="rs-type">TaskId</span>,
+        <span class="rs-type">TaskOutcome</span>, <span class="rs-type">TaskRole</span>, <span class="rs-type">TaskRun</span>, <span class="rs-type">TaskStatus</span>, <span class="rs-type">ToolUseId</span>, <span class="rs-type">UtcDateTime</span>, <span class="rs-type">WorkflowCoordinates</span>,
+        <span class="rs-type">WorkflowTaskRole</span>, <span class="rs-type">WorkItemId</span>,
     };
 
     #[test]
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-agent-run-kind-declares-required-agent-type-103">task_agent_run_kind_declares_required_agent_type</a>() {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-agent-run-kind-declares-required-agent-type-104">task_agent_run_kind_declares_required_agent_type</a>() {
         <span class="rs-kw">let</span> parent_agent_run_id = <span class="rs-type">AgentRunId</span>::new_v4();
         assert_eq!(
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-176">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span>),
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-180">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span>),
             <span class="rs-type">AgentType</span>::<span class="rs-type">Agent</span>
         );
         assert_eq!(
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-176">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-180">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
                 parent_agent_run_id: parent_agent_run_id.clone(),
                 kind: <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span>,
             }),
             <span class="rs-type">AgentType</span>::<span class="rs-type">Subagent</span>
         );
         assert_eq!(
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-176">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-180">expected_agent_type</a>(&amp;<span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
                 parent_agent_run_id,
                 kind: <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Advisor</span>,
             }),
@@ -927,11 +928,11 @@
     }
 
     #[tokio::test]
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-engine-completion-finalizes-once-and-publishes-waiters-126">engine_completion_finalizes_once_and_publishes_waiters</a>() {
-        <span class="rs-kw">let</span> harness = <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-202">ServiceHarness</a>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-engine-completion-finalizes-once-and-publishes-waiters-127">engine_completion_finalizes_once_and_publishes_waiters</a>() {
+        <span class="rs-kw">let</span> harness = <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-203">ServiceHarness</a>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
         <span class="rs-kw">let</span> run_id = harness
             .service
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-spawn-agent-51">spawn_agent</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-247">root_spawn_request</a>())
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-spawn-agent-51">spawn_agent</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-248">root_spawn_request</a>())
             .<span class="rs-kw">await</span>
             .expect(&quot;spawn succeeds&quot;);
         <span class="rs-kw">let</span> waiter = {
@@ -940,7 +941,7 @@
             tokio::spawn(<span class="rs-kw">async</span> <span class="rs-kw">move</span> { service.<a class="symbol-link rs-fn" href="eos-agent-run--src-completion-rs.html#item-fn-wait-for-agent-outcome-21">wait_for_agent_outcome</a>(&amp;run_id).<span class="rs-kw">await</span> })
         };
 
-        harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-288">complete</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-261">successful_loop_outcome</a>());
+        harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-289">complete</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-262">successful_loop_outcome</a>());
 
         <span class="rs-kw">let</span> outcome = timeout(<span class="rs-type">Duration</span>::from_secs(1), waiter)
             .<span class="rs-kw">await</span>
@@ -948,8 +949,8 @@
             .expect(&quot;waiter task joins&quot;)
             .expect(&quot;waiter returns outcome&quot;);
         assert_eq!(outcome.status, <span class="rs-type">AgentRunStatus</span>::<span class="rs-type">Completed</span>);
-        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
-        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
+        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
+        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
         assert_eq!(
             harness
                 .service
@@ -963,11 +964,11 @@
     }
 
     #[tokio::test]
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-cancellation-before-engine-completion-finalizes-once-162">cancellation_before_engine_completion_finalizes_once</a>() {
-        <span class="rs-kw">let</span> harness = <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-202">ServiceHarness</a>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-cancellation-before-engine-completion-finalizes-once-163">cancellation_before_engine_completion_finalizes_once</a>() {
+        <span class="rs-kw">let</span> harness = <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-203">ServiceHarness</a>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
         <span class="rs-kw">let</span> run_id = harness
             .service
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-spawn-agent-51">spawn_agent</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-247">root_spawn_request</a>())
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-spawn-agent-51">spawn_agent</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-248">root_spawn_request</a>())
             .<span class="rs-kw">await</span>
             .expect(&quot;spawn succeeds&quot;);
         <span class="rs-kw">let</span> waiter = {
@@ -989,33 +990,33 @@
             .expect(&quot;waiter returns outcome&quot;);
         assert_eq!(outcome.status, <span class="rs-type">AgentRunStatus</span>::<span class="rs-type">Cancelled</span>);
         assert_eq!(
-            harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-cancellation-reason-295">cancellation_reason</a>(),
+            harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-cancellation-reason-296">cancellation_reason</a>(),
             <span class="rs-type">Some</span>(&quot;caller cancelled&quot;.to_owned())
         );
-        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
-        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
+        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
+        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
 
-        harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-288">complete</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-261">successful_loop_outcome</a>());
+        harness.launcher.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-289">complete</a>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-262">successful_loop_outcome</a>());
         tokio::time::sleep(<span class="rs-type">Duration</span>::from_millis(20)).<span class="rs-kw">await</span>;
 
-        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
-        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(), 1);
+        assert_eq!(harness.agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
+        assert_eq!(harness.task_agent_run_store.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(), 1);
     }
 
-    <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-202">ServiceHarness</a> {
+    <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-203">ServiceHarness</a> {
         service: <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-AgentRunService-14">AgentRunService</a>,
-        launcher: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-281">ControlledLauncher</a>&gt;,
-        agent_run_store: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-337">FakeAgentRunStore</a>&gt;,
-        task_agent_run_store: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-404">FakeTaskAgentRunStore</a>&gt;,
+        launcher: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-282">ControlledLauncher</a>&gt;,
+        agent_run_store: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-338">FakeAgentRunStore</a>&gt;,
+        task_agent_run_store: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-405">FakeTaskAgentRunStore</a>&gt;,
     }
 
-    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-202">ServiceHarness</a> {
+    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ServiceHarness-203">ServiceHarness</a> {
         <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>() -&gt; <span class="rs-self">Self</span> {
             <span class="rs-kw">let</span> <span class="rs-kw">mut</span> registry = <span class="rs-type">AgentRegistryBuilder</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
-            registry.add(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-agent-definition-231">root_agent_definition</a>());
-            <span class="rs-kw">let</span> launcher = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-281">ControlledLauncher</a>::default());
-            <span class="rs-kw">let</span> agent_run_store = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-337">FakeAgentRunStore</a>::default());
-            <span class="rs-kw">let</span> task_agent_run_store = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-404">FakeTaskAgentRunStore</a>::default());
+            registry.add(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-agent-definition-232">root_agent_definition</a>());
+            <span class="rs-kw">let</span> launcher = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-282">ControlledLauncher</a>::default());
+            <span class="rs-kw">let</span> agent_run_store = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-338">FakeAgentRunStore</a>::default());
+            <span class="rs-kw">let</span> task_agent_run_store = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-405">FakeTaskAgentRunStore</a>::default());
             <span class="rs-kw">let</span> service = <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-AgentRunService-14">AgentRunService</a>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(
                 <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(registry.build()),
                 launcher.clone(),
@@ -1031,7 +1032,7 @@
         }
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-agent-definition-231">root_agent_definition</a>() -&gt; <span class="rs-type">AgentDefinition</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-agent-definition-232">root_agent_definition</a>() -&gt; <span class="rs-type">AgentDefinition</span> {
         <span class="rs-type">AgentDefinition</span> {
             name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(&quot;root&quot;).expect(&quot;valid agent name&quot;),
             description: &quot;root test agent&quot;.to_owned(),
@@ -1047,7 +1048,7 @@
         }
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-247">root_spawn_request</a>() -&gt; <span class="rs-type">SpawnAgentRequest</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-root-spawn-request-248">root_spawn_request</a>() -&gt; <span class="rs-type">SpawnAgentRequest</span> {
         <span class="rs-type">SpawnAgentRequest</span> {
             agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(&quot;root&quot;).expect(&quot;valid agent name&quot;),
             initial_messages: vec![<span class="rs-type">Message</span>::from_user_text(&quot;start&quot;)],
@@ -1061,7 +1062,7 @@
         }
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-261">successful_loop_outcome</a>() -&gt; <span class="rs-type">AgentLoopOutcome</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-successful-loop-outcome-262">successful_loop_outcome</a>() -&gt; <span class="rs-type">AgentLoopOutcome</span> {
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
         payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(&quot;summary&quot;.to_owned(), serde_json::json!(&quot;done&quot;));
         <span class="rs-type">AgentLoopOutcome</span> {
@@ -1082,32 +1083,32 @@
     }
 
     #[derive(<span class="rs-type">Default</span>)]
-    <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-281">ControlledLauncher</a> {
+    <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-282">ControlledLauncher</a> {
         completion_sender: <span class="rs-type">StdMutex</span>&lt;<span class="rs-type">Option</span>&lt;oneshot::<span class="rs-type">Sender</span>&lt;<span class="rs-type">AgentLoopOutcome</span>&gt;&gt;&gt;,
-        cancellation: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-323">TestCancellation</a>&gt;,
+        cancellation: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-324">TestCancellation</a>&gt;,
     }
 
-    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-281">ControlledLauncher</a> {
-        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-288">complete</a>(&amp;<span class="rs-self">self</span>, outcome: <span class="rs-type">AgentLoopOutcome</span>) {
-            <span class="rs-kw">let</span> <span class="rs-type">Some</span>(sender) = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.completion_sender).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-take-52">take</a>() <span class="rs-kw">else</span> {
+    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-282">ControlledLauncher</a> {
+        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-complete-289">complete</a>(&amp;<span class="rs-self">self</span>, outcome: <span class="rs-type">AgentLoopOutcome</span>) {
+            <span class="rs-kw">let</span> <span class="rs-type">Some</span>(sender) = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.completion_sender).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-take-52">take</a>() <span class="rs-kw">else</span> {
                 panic!(&quot;agent loop was not started&quot;);
             };
             <span class="rs-kw">let</span> _ignored = sender.send(outcome);
         }
 
-        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-cancellation-reason-295">cancellation_reason</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.cancellation.reason).clone()
+        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-cancellation-reason-296">cancellation_reason</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.cancellation.reason).clone()
         }
     }
 
-    <span class="rs-kw">impl</span> <span class="rs-type">AgentLoopLauncher</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-281">ControlledLauncher</a> {
-        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-start-agent-loop-301">start_agent_loop</a>(
+    <span class="rs-kw">impl</span> <span class="rs-type">AgentLoopLauncher</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-ControlledLauncher-282">ControlledLauncher</a> {
+        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-start-agent-loop-302">start_agent_loop</a>(
             &amp;<span class="rs-self">self</span>,
             _request: <span class="rs-type">StartAgentLoopRequest</span>,
             _agent_run_api: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
         ) -&gt; <span class="rs-type">StartedAgentLoop</span> {
             <span class="rs-kw">let</span> (sender, receiver) = oneshot::channel();
-            *<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.completion_sender) = <span class="rs-type">Some</span>(sender);
+            *<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.completion_sender) = <span class="rs-type">Some</span>(sender);
             <span class="rs-type">StartedAgentLoop</span> {
                 completion: <span class="rs-type">AgentLoopCompletion</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(<span class="rs-kw">async</span> <span class="rs-kw">move</span> {
                     receiver.<span class="rs-kw">await</span>.unwrap_or_else(|_| <span class="rs-type">AgentLoopOutcome</span> {
@@ -1124,13 +1125,13 @@
     }
 
     #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Default</span>)]
-    <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-323">TestCancellation</a> {
+    <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-324">TestCancellation</a> {
         reason: <span class="rs-type">StdMutex</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;&gt;,
     }
 
-    <span class="rs-kw">impl</span> <span class="rs-type">AgentLoopCancellation</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-323">TestCancellation</a> {
+    <span class="rs-kw">impl</span> <span class="rs-type">AgentLoopCancellation</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-TestCancellation-324">TestCancellation</a> {
         <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-cancel-99">cancel</a>(&amp;<span class="rs-self">self</span>, reason: &amp;str) {
-            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stored = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.reason);
+            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stored = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.reason);
             <span class="rs-kw">if</span> stored.is_none() {
                 *stored = <span class="rs-type">Some</span>(reason.to_owned());
             }
@@ -1138,22 +1139,22 @@
     }
 
     #[derive(<span class="rs-type">Default</span>)]
-    <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-337">FakeAgentRunStore</a> {
+    <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-338">FakeAgentRunStore</a> {
         runs: <span class="rs-type">StdMutex</span>&lt;<span class="rs-type">HashMap</span>&lt;<span class="rs-type">AgentRunId</span>, <span class="rs-type">AgentRun</span>&gt;&gt;,
         finish_count: <span class="rs-type">AtomicUsize</span>,
     }
 
-    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-337">FakeAgentRunStore</a> {
-        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(&amp;<span class="rs-self">self</span>) -&gt; usize {
+    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-338">FakeAgentRunStore</a> {
+        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(&amp;<span class="rs-self">self</span>) -&gt; usize {
             <span class="rs-self">self</span>.finish_count.load(<span class="rs-type">Ordering</span>::<span class="rs-type">SeqCst</span>)
         }
     }
 
-    <span class="rs-kw">impl</span> eos_types::<span class="rs-type">Sealed</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-337">FakeAgentRunStore</a> {}
+    <span class="rs-kw">impl</span> eos_types::<span class="rs-type">Sealed</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-338">FakeAgentRunStore</a> {}
 
     #[async_trait]
-    <span class="rs-kw">impl</span> <span class="rs-type">AgentRunStore</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-337">FakeAgentRunStore</a> {
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-run-353">create_run</a>(
+    <span class="rs-kw">impl</span> <span class="rs-type">AgentRunStore</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeAgentRunStore-338">FakeAgentRunStore</a> {
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-run-354">create_run</a>(
             &amp;<span class="rs-self">self</span>,
             agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
             task_id: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">TaskId</span>&gt;,
@@ -1169,11 +1170,11 @@
                 created_at: <span class="rs-type">UtcDateTime</span>::now(),
                 finished_at: <span class="rs-type">None</span>,
             };
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.runs).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(agent_run_id.clone(), run.clone());
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.runs).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(agent_run_id.clone(), run.clone());
             <span class="rs-type">Ok</span>(run)
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-373">finish_run</a>(
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-374">finish_run</a>(
             &amp;<span class="rs-self">self</span>,
             agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
             terminal_payload: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">JsonObject</span>&gt;,
@@ -1181,7 +1182,7 @@
             error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
             <span class="rs-self">self</span>.finish_count.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">SeqCst</span>);
-            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> runs = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.runs);
+            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> runs = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.runs);
             <span class="rs-kw">let</span> <span class="rs-type">Some</span>(run) = runs.get_mut(agent_run_id) <span class="rs-kw">else</span> {
                 <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>);
             };
@@ -1192,12 +1193,12 @@
             <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(run.clone()))
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(&amp;<span class="rs-self">self</span>, agent_run_id: &amp;<span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.runs).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(agent_run_id).cloned())
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(&amp;<span class="rs-self">self</span>, agent_run_id: &amp;<span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.runs).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(agent_run_id).cloned())
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-for-task-396">get_for_task</a>(&amp;<span class="rs-self">self</span>, task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.runs)
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-for-task-397">get_for_task</a>(&amp;<span class="rs-self">self</span>, task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.runs)
                 .values()
                 .find(|run| run.task_id.as_ref() == <span class="rs-type">Some</span>(task_id))
                 .cloned())
@@ -1205,22 +1206,22 @@
     }
 
     #[derive(<span class="rs-type">Default</span>)]
-    <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-404">FakeTaskAgentRunStore</a> {
+    <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-405">FakeTaskAgentRunStore</a> {
         indexes: <span class="rs-type">StdMutex</span>&lt;<span class="rs-type">HashMap</span>&lt;<span class="rs-type">AgentRunId</span>, <span class="rs-type">AgentRunRecordIndex</span>&gt;&gt;,
         finish_count: <span class="rs-type">AtomicUsize</span>,
     }
 
-    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-404">FakeTaskAgentRunStore</a> {
-        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-344">finish_count</a>(&amp;<span class="rs-self">self</span>) -&gt; usize {
+    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-405">FakeTaskAgentRunStore</a> {
+        <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-count-345">finish_count</a>(&amp;<span class="rs-self">self</span>) -&gt; usize {
             <span class="rs-self">self</span>.finish_count.load(<span class="rs-type">Ordering</span>::<span class="rs-type">SeqCst</span>)
         }
     }
 
-    <span class="rs-kw">impl</span> eos_types::<span class="rs-type">Sealed</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-404">FakeTaskAgentRunStore</a> {}
+    <span class="rs-kw">impl</span> eos_types::<span class="rs-type">Sealed</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-405">FakeTaskAgentRunStore</a> {}
 
     #[async_trait]
-    <span class="rs-kw">impl</span> <span class="rs-type">TaskAgentRunStore</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-404">FakeTaskAgentRunStore</a> {
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-root-task-agent-run-420">create_root_task_agent_run</a>(
+    <span class="rs-kw">impl</span> <span class="rs-type">TaskAgentRunStore</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-FakeTaskAgentRunStore-405">FakeTaskAgentRunStore</a> {
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-root-task-agent-run-421">create_root_task_agent_run</a>(
             &amp;<span class="rs-self">self</span>,
             request_id: &amp;<span class="rs-type">RequestId</span>,
             agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
@@ -1229,26 +1230,28 @@
             <span class="rs-kw">let</span> index = <span class="rs-type">AgentRunRecordIndex</span> {
                 request_id: request_id.clone(),
                 agent_run_id: agent_run_id.clone(),
-                task_id: root_task_id(request_id),
+                task_id: <span class="rs-type">TaskId</span>::new_v4(),
                 kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span>,
                 parent_record_dir: <span class="rs-type">None</span>,
             };
-            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(agent_run_id.clone(), index.clone());
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-created-from-index-559">created_from_index</a>(&amp;index))
+            <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(agent_run_id.clone(), index.clone());
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-created-from-index-562">created_from_index</a>(&amp;index))
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-workflow-task-agent-run-437">create_workflow_task_agent_run</a>(
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-workflow-task-agent-run-438">create_workflow_task_agent_run</a>(
             &amp;<span class="rs-self">self</span>,
             _request_id: &amp;<span class="rs-type">RequestId</span>,
             _agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
-            _workflow: &amp;<span class="rs-type">WorkflowCoordinates</span>,
-            _workflow_node_id: &amp;<span class="rs-type">WorkflowNodeId</span>,
+            _coords: &amp;<span class="rs-type">WorkflowCoordinates</span>,
+            _role: <span class="rs-type">WorkflowTaskRole</span>,
+            _plan_id: &amp;<span class="rs-type">PlanId</span>,
+            _work_item_id: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">WorkItemId</span>&gt;,
             _agent_name: &amp;<span class="rs-type">AgentName</span>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CreatedTaskAgentRun</span>, <span class="rs-type">CoreError</span>&gt; {
             <span class="rs-type">Err</span>(<span class="rs-type">CoreError</span>::<span class="rs-type">Store</span>(&quot;workflow fake not implemented&quot;.to_owned()))
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-448">create_parented_task_agent_run</a>(
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-451">create_parented_task_agent_run</a>(
             &amp;<span class="rs-self">self</span>,
             _agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
             _parent: &amp;<span class="rs-type">ParentAgentRunAnchor</span>,
@@ -1259,16 +1262,17 @@
             <span class="rs-type">Err</span>(<span class="rs-type">CoreError</span>::<span class="rs-type">Store</span>(&quot;parented fake not implemented&quot;.to_owned()))
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-task-run-459">finish_task_run</a>(
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-task-run-462">finish_task_run</a>(
             &amp;<span class="rs-self">self</span>,
             agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
             status: <span class="rs-type">TaskStatus</span>,
             terminal_payload: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">JsonObject</span>&gt;,
+            task_outcome: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">TaskOutcome</span>&gt;,
             token_count: i64,
             error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
             <span class="rs-self">self</span>.finish_count.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">SeqCst</span>);
-            <span class="rs-kw">let</span> <span class="rs-type">Some</span>(index) = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(agent_run_id).cloned() <span class="rs-kw">else</span> {
+            <span class="rs-kw">let</span> <span class="rs-type">Some</span>(index) = <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(agent_run_id).cloned() <span class="rs-kw">else</span> {
                 <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>);
             };
             <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<span class="rs-type">TaskRun</span> {
@@ -1277,11 +1281,9 @@
                 request_id: index.request_id,
                 role: <span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span>,
                 status,
-                workflow_id: <span class="rs-type">None</span>,
-                iteration_id: <span class="rs-type">None</span>,
-                attempt_id: <span class="rs-type">None</span>,
                 agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(&quot;root&quot;).expect(&quot;valid agent name&quot;),
                 terminal_payload: terminal_payload.cloned(),
+                task_outcome: task_outcome.cloned(),
                 token_count,
                 error: error.map(str::to_owned),
                 created_at: <span class="rs-type">UtcDateTime</span>::now(),
@@ -1290,44 +1292,45 @@
             }))
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-parented-run-490">finish_parented_run</a>(
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-parented-run-492">finish_parented_run</a>(
             &amp;<span class="rs-self">self</span>,
             _agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
             _status: <span class="rs-type">TaskStatus</span>,
             _terminal_payload: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">JsonObject</span>&gt;,
+            _parented_outcome: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">ParentedOutcome</span>&gt;,
             _token_count: i64,
             _error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">ParentedRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
             <span class="rs-type">Err</span>(<span class="rs-type">CoreError</span>::<span class="rs-type">Store</span>(&quot;parented fake not implemented&quot;.to_owned()))
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-record-index-for-agent-run-501">record_index_for_agent_run</a>(
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-record-index-for-agent-run-504">record_index_for_agent_run</a>(
             &amp;<span class="rs-self">self</span>,
             agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunRecordIndex</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(agent_run_id).cloned())
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.indexes).<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(agent_run_id).cloned())
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-task-run-508">get_task_run</a>(&amp;<span class="rs-self">self</span>, _task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-task-run-511">get_task_run</a>(&amp;<span class="rs-self">self</span>, _task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
             <span class="rs-type">Err</span>(<span class="rs-type">CoreError</span>::<span class="rs-type">Store</span>(&quot;get task fake not implemented&quot;.to_owned()))
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-task-runs-for-request-512">list_task_runs_for_request</a>(
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-task-runs-for-request-515">list_task_runs_for_request</a>(
             &amp;<span class="rs-self">self</span>,
             request_id: &amp;<span class="rs-type">RequestId</span>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.indexes)
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.indexes)
                 .values()
                 .filter(|index| &amp;index.request_id == request_id)
-                .map(|index| <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-run-from-index-573">task_run_from_index</a>(index, <span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span>, <span class="rs-type">None</span>, 0, <span class="rs-type">None</span>))
+                .map(|index| <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-run-from-index-576">task_run_from_index</a>(index, <span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span>, <span class="rs-type">None</span>, 0, <span class="rs-type">None</span>))
                 .collect())
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-running-agent-runs-for-request-523">list_running_agent_runs_for_request</a>(
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-running-agent-runs-for-request-526">list_running_agent_runs_for_request</a>(
             &amp;<span class="rs-self">self</span>,
             request_id: &amp;<span class="rs-type">RequestId</span>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">RunningRequestAgentRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>(&amp;<span class="rs-self">self</span>.indexes)
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>(&amp;<span class="rs-self">self</span>.indexes)
                 .values()
                 .filter(|index| &amp;index.request_id == request_id)
                 .map(|index| <span class="rs-type">RunningRequestAgentRun</span> {
@@ -1339,7 +1342,7 @@
                 .collect())
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-parented-runs-for-parent-task-539">list_parented_runs_for_parent_task</a>(
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-list-parented-runs-for-parent-task-542">list_parented_runs_for_parent_task</a>(
             &amp;<span class="rs-self">self</span>,
             _parent_task_id: &amp;<span class="rs-type">TaskId</span>,
             _kind: <span class="rs-type">ParentedAgentRunKind</span>,
@@ -1349,7 +1352,7 @@
             ))
         }
 
-        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-task-execution-index-549">task_execution_index</a>(
+        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-task-execution-index-552">task_execution_index</a>(
             &amp;<span class="rs-self">self</span>,
             _task_id: &amp;<span class="rs-type">TaskId</span>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskExecutionIndex</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
@@ -1359,7 +1362,7 @@
         }
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-created-from-index-559">created_from_index</a>(index: &amp;<span class="rs-type">AgentRunRecordIndex</span>) -&gt; <span class="rs-type">CreatedTaskAgentRun</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-created-from-index-562">created_from_index</a>(index: &amp;<span class="rs-type">AgentRunRecordIndex</span>) -&gt; <span class="rs-type">CreatedTaskAgentRun</span> {
         <span class="rs-type">CreatedTaskAgentRun</span> {
             agent_run_id: index.agent_run_id.clone(),
             task_id: index.task_id.clone(),
@@ -1373,7 +1376,7 @@
         }
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-run-from-index-573">task_run_from_index</a>(
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-task-run-from-index-576">task_run_from_index</a>(
         index: &amp;<span class="rs-type">AgentRunRecordIndex</span>,
         status: <span class="rs-type">TaskStatus</span>,
         terminal_payload: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">JsonObject</span>&gt;,
@@ -1386,22 +1389,20 @@
             request_id: index.request_id.clone(),
             role: <span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span>,
             status,
-            workflow_id: <span class="rs-type">None</span>,
-            iteration_id: <span class="rs-type">None</span>,
-            attempt_id: <span class="rs-type">None</span>,
             agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(&quot;root&quot;).expect(&quot;valid agent name&quot;),
             terminal_payload: terminal_payload.cloned(),
+            task_outcome: <span class="rs-type">None</span>,
             token_count,
             error: error.map(str::to_owned),
             created_at: <span class="rs-type">UtcDateTime</span>::now(),
             updated_at: <span class="rs-type">UtcDateTime</span>::now(),
-            finished_at: status.is_terminal_generator().then_some(<span class="rs-type">UtcDateTime</span>::now()),
+            finished_at: status.is_terminal().then_some(<span class="rs-type">UtcDateTime</span>::now()),
         }
     }
 
     <span class="rs-kw">fn</span> lock&lt;<span class="rs-type">T</span>&gt;(mutex: &amp;<span class="rs-type">StdMutex</span>&lt;<span class="rs-type">T</span>&gt;) -&gt; <span class="rs-type">MutexGuard</span>&lt;&#x27;_, <span class="rs-type">T</span>&gt; {
         mutex
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>()
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>()
             .unwrap_or_else(std::sync::<span class="rs-type">PoisonError</span>::into_inner)
     }
 }

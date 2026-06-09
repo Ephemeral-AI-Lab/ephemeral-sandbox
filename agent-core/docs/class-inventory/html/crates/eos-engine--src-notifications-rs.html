@@ -113,11 +113,11 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a></code>
   <p class="docstring">A single tool-call budget tier (e.g. `75%`), firing once when<br>`tool_calls_used * denominator &gt;= tool_call_limit * numerator`.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>label</td><td><code>&amp; &#x27;static str</code></td></tr><tr><td>private</td><td>numerator</td><td><code>u32</code></td></tr><tr><td>private</td><td>denominator</td><td><code>u32</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-114"><td>constructor</td><td>new</td><td><code>pub const fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a> (label : &amp; &#x27;static str , numerator : u32 , denominator : u32) -&gt; Self</code><p class="docstring">Construct one budget tier.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>label</td><td><code>&amp; &#x27;static str</code></td></tr><tr><td>private</td><td>numerator</td><td><code>u32</code></td></tr><tr><td>private</td><td>denominator</td><td><code>u32</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-114"><td>constructor</td><td>new</td><td><code>pub const fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a> (label : &amp; &#x27;static str , numerator : u32 , denominator : u32) -&gt; Self</code><p class="docstring">Construct one budget tier.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>            <span class="rs-comment">/// Construct one budget tier.</span>
             #[must_use]
-            <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(label: &amp;&#x27;<span class="rs-kw">static</span> str, numerator: u32, denominator: u32) -&gt; <span class="rs-self">Self</span> {
+            <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(label: &amp;&#x27;<span class="rs-kw">static</span> str, numerator: u32, denominator: u32) -&gt; <span class="rs-self">Self</span> {
                 <span class="rs-self">Self</span> {
                     label,
                     numerator,
@@ -199,11 +199,11 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-notifications-rs.html#item-struct-EngineNotificationQueue-272">EngineNotificationQueue</a></code>
   <p class="docstring">Queue-backed notification sink for tools and hooks.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Default</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>queue</td><td><code>Arc &lt; Mutex &lt; VecDeque &lt; <a class="symbol-link" href="eos-engine--src-notifications-rs.html#item-struct-SystemNotification-164">SystemNotification</a> &gt; &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-279"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a> () -&gt; Self</code><p class="docstring">Create an empty queue.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>queue</td><td><code>Arc &lt; Mutex &lt; VecDeque &lt; <a class="symbol-link" href="eos-engine--src-notifications-rs.html#item-struct-SystemNotification-164">SystemNotification</a> &gt; &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-279"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a> () -&gt; Self</code><p class="docstring">Create an empty queue.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Create an empty queue.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>() -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>() -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-config-rs.html#method-default-27">default</a>()
     }
 </code></pre>
@@ -290,12 +290,12 @@
 #[must_use]
 <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-notifications-rs.html#item-fn-make-default-notification-rules-223">make_default_notification_rules</a>() -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-trait-NotificationRule-181">NotificationRule</a>&gt;&gt; {
     <span class="rs-kw">let</span> rules: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-trait-NotificationRule-181">NotificationRule</a>&gt;&gt; = vec![
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(&quot;75%&quot;, 3, 4)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(&quot;100%&quot;, 1, 1)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(&quot;125%&quot;, 5, 4)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-TerminalCallReminder-35">TerminalCallReminder</a>),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(&quot;75%&quot;, 3, 4)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(&quot;100%&quot;, 1, 1)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(&quot;125%&quot;, 5, 4)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-TerminalCallReminder-35">TerminalCallReminder</a>),
     ];
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen = std::collections::<span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen = std::collections::<span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     rules
         .into_iter()
         .filter(|rule| seen.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(rule.<a class="symbol-link rs-fn" href="eos-engine--src-notifications-rs.html#method-name-40">name</a>()))
@@ -536,7 +536,7 @@
         <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a> {
             <span class="rs-comment">/// Construct one budget tier.</span>
             #[must_use]
-            <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(label: &amp;&#x27;<span class="rs-kw">static</span> str, numerator: u32, denominator: u32) -&gt; <span class="rs-self">Self</span> {
+            <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(label: &amp;&#x27;<span class="rs-kw">static</span> str, numerator: u32, denominator: u32) -&gt; <span class="rs-self">Self</span> {
                 <span class="rs-self">Self</span> {
                     label,
                     numerator,
@@ -648,12 +648,12 @@
 #[must_use]
 <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-notifications-rs.html#item-fn-make-default-notification-rules-223">make_default_notification_rules</a>() -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-trait-NotificationRule-181">NotificationRule</a>&gt;&gt; {
     <span class="rs-kw">let</span> rules: <span class="rs-type">Vec</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-trait-NotificationRule-181">NotificationRule</a>&gt;&gt; = vec![
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(&quot;75%&quot;, 3, 4)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(&quot;100%&quot;, 1, 1)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(&quot;125%&quot;, 5, 4)),
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-TerminalCallReminder-35">TerminalCallReminder</a>),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(&quot;75%&quot;, 3, 4)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(&quot;100%&quot;, 1, 1)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-ToolCallBudget-101">ToolCallBudget</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(&quot;125%&quot;, 5, 4)),
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-TerminalCallReminder-35">TerminalCallReminder</a>),
     ];
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen = std::collections::<span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen = std::collections::<span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     rules
         .into_iter()
         .filter(|rule| seen.<a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-insert-267">insert</a>(rule.<a class="symbol-link rs-fn" href="eos-engine--src-notifications-rs.html#method-name-40">name</a>()))
@@ -701,7 +701,7 @@
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-EngineNotificationQueue-272">EngineNotificationQueue</a> {
     <span class="rs-comment">/// Create an empty queue.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>() -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>() -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-config-rs.html#method-default-27">default</a>()
     }
 

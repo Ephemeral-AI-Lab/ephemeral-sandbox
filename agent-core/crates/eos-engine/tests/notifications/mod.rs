@@ -24,7 +24,7 @@ impl RuleFixture {
         Self {
             rules: make_default_notification_rules(),
             fired: BTreeSet::new(),
-            terminal_tools: BTreeSet::from([ToolKey::from(ToolName::SubmitRootOutcome)]),
+            terminal_tools: BTreeSet::from([ToolKey::from(ToolName::SubmitRootTaskOutcome)]),
             tool_calls_used: 0,
             tool_call_limit: 4,
             terminal_submitted: false,

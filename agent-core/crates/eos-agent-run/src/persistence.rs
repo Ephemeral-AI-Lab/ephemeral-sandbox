@@ -2,7 +2,7 @@
 
 use eos_types::{
     AgentRun, AgentRunId, AgentRunOutcome, AgentRunStatus, AgentRunStore, JsonObject,
-    TaskAgentRunKind, TaskAgentRunStore, TaskId, TaskStatus,
+    ParentedOutcome, TaskAgentRunStore, TaskId, TaskOutcome, TaskStatus,
 };
 use serde_json::json;
 
@@ -61,35 +61,44 @@ pub(crate) async fn finish_task_agent_run(
     token_count: i64,
     error: Option<&str>,
 ) -> Result<(), AgentRunError> {
-    let Some(index) = store
-        .record_index_for_agent_run(agent_run_id)
+    let task_outcome = terminal_payload.and_then(decode_task_outcome);
+    if store
+        .finish_task_run(
+            agent_run_id,
+            status,
+            terminal_payload,
+            task_outcome.as_ref(),
+            token_count,
+            error,
+        )
         .await
         .map_err(|err| AgentRunError::Internal(err.to_string()))?
-    else {
-        return Err(AgentRunError::Internal(format!(
-            "task-agent-run row not found for {}",
-            agent_run_id.as_str()
-        )));
-    };
-    let updated = match index.kind {
-        TaskAgentRunKind::Root | TaskAgentRunKind::Workflow { .. } => store
-            .finish_task_run(agent_run_id, status, terminal_payload, token_count, error)
-            .await
-            .map(|row| row.is_some()),
-        TaskAgentRunKind::Parented { .. } => store
-            .finish_parented_run(agent_run_id, status, terminal_payload, token_count, error)
-            .await
-            .map(|row| row.is_some()),
+        .is_some()
+    {
+        return Ok(());
     }
-    .map_err(|err| AgentRunError::Internal(err.to_string()))?;
-    if updated {
-        Ok(())
-    } else {
-        Err(AgentRunError::Internal(format!(
-            "task-agent-run row not updated for {}",
-            agent_run_id.as_str()
-        )))
+
+    let parented_outcome = terminal_payload.and_then(decode_parented_outcome);
+    if store
+        .finish_parented_run(
+            agent_run_id,
+            status,
+            terminal_payload,
+            parented_outcome.as_ref(),
+            token_count,
+            error,
+        )
+        .await
+        .map_err(|err| AgentRunError::Internal(err.to_string()))?
+        .is_some()
+    {
+        return Ok(());
     }
+
+    Err(AgentRunError::Internal(format!(
+        "task-agent-run row not updated for {}",
+        agent_run_id.as_str()
+    )))
 }
 
 pub(crate) fn completion_from_agent_run(
@@ -143,4 +152,12 @@ fn is_cancelled_payload(payload: &JsonObject) -> bool {
         .get("fail_reason")
         .and_then(serde_json::Value::as_str)
         == Some("cancelled")
+}
+
+fn decode_task_outcome(payload: &JsonObject) -> Option<TaskOutcome> {
+    serde_json::from_value(serde_json::Value::Object(payload.clone())).ok()
+}
+
+fn decode_parented_outcome(payload: &JsonObject) -> Option<ParentedOutcome> {
+    serde_json::from_value(serde_json::Value::Object(payload.clone())).ok()
 }

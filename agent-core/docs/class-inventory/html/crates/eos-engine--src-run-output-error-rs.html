@@ -56,24 +56,24 @@
       <span>2 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-enum-AgentRunRecordError-4" class="type-card" data-kind="enum" data-kind-list="enum field impl method type-model" data-filter-text="enum AgentRunRecordError pub pub enum AgentRunRecordError crates/eos-engine/src/run_output/error.rs  ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-enum-AgentRunRecordError-3" class="type-card" data-kind="enum" data-kind-list="enum field impl method type-model" data-filter-text="enum AgentRunRecordError pub pub enum AgentRunRecordError crates/eos-engine/src/run_output/error.rs  ">
   <div class="item-head">
     <span class="kind">enum</span>
     <h3>AgentRunRecordError</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub enum <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a></code>
+  <code class="signature">pub enum <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a></code>
   <p class="docstring">File-backed agent-run record store failures.</p>
   <div class="tags"><span>derive: Debug</span><span>derive: thiserror::Error</span><span>error</span><span>non_exhaustive</span></div>
-  <h4>Variants</h4><table><tbody><tr><td>UnsafeSegment</td><td><code>field: &amp; &#x27;static str, value: String</code></td></tr><tr><td>NotFound</td><td><code>0: String</code></td></tr><tr><td>OffsetOutOfRange</td><td><code>offset: u64, len: u64</code></td></tr><tr><td>Io</td><td><code>0: std :: io :: Error</code></td></tr><tr><td>Json</td><td><code>0: serde_json :: Error</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-missing-path-36"><td>associated-fn</td><td>missing_path</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#method-missing-path-36">missing_path</a> (path : &amp; std :: path :: Path) -&gt; Self</code><details class="function-source">
+  <h4>Variants</h4><table><tbody><tr><td>UnsafeSegment</td><td><code>field: &amp; &#x27;static str, value: String</code></td></tr><tr><td>NotFound</td><td><code>0: String</code></td></tr><tr><td>OffsetOutOfRange</td><td><code>offset: u64, len: u64</code></td></tr><tr><td>Io</td><td><code>0: std :: io :: Error</code></td></tr><tr><td>Json</td><td><code>0: serde_json :: Error</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-missing-path-35"><td>associated-fn</td><td>missing_path</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#method-missing-path-35">missing_path</a> (path : &amp; std :: path :: Path) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-36">missing_path</a>(path: &amp;std::path::<span class="rs-type">Path</span>) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-35">missing_path</a>(path: &amp;std::path::<span class="rs-type">Path</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(path.display().to_string())
     }
 </code></pre>
-</details></td></tr><tr id="method-unsafe-segment-40"><td>associated-fn</td><td>unsafe_segment</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#method-unsafe-segment-40">unsafe_segment</a> (field : &amp; &#x27;static str , value : impl Into &lt; String &gt;) -&gt; Self</code><details class="function-source">
+</details></td></tr><tr id="method-unsafe-segment-39"><td>associated-fn</td><td>unsafe_segment</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#method-unsafe-segment-39">unsafe_segment</a> (field : &amp; &#x27;static str , value : impl Into &lt; String &gt;) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-unsafe-segment-40">unsafe_segment</a>(field: &amp;&#x27;<span class="rs-kw">static</span> str, value: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-unsafe-segment-39">unsafe_segment</a>(field: &amp;&#x27;<span class="rs-kw">static</span> str, value: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<span class="rs-type">UnsafeSegment</span> {
             field,
             value: value.into(),
@@ -82,15 +82,14 @@
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-engine/src/run_output/error.rs:4</p>
-</article><div class="group-label">Aliases</div><article id="item-type-Result-1" class="item-card" data-kind="type" data-kind-list="type" data-filter-text="type Result pub pub type Result&lt; T &gt; = std :: result :: Result &lt; T , AgentRunRecordError &gt; crates/eos-engine/src/run_output/error.rs  ">
+  <p class="source">crates/eos-engine/src/run_output/error.rs:3</p>
+</article><div class="group-label">Aliases</div><article id="item-type-Result-1" class="item-card" data-kind="type" data-kind-list="type" data-filter-text="type Result pub(crate) pub(crate) type Result&lt; T &gt; = std :: result :: Result &lt; T , AgentRunRecordError &gt; crates/eos-engine/src/run_output/error.rs  ">
   <div class="item-head">
     <span class="kind">type</span>
     <h3>Result</h3>
-    <span class="visibility">pub</span>
+    <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub type <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt; T &gt; = std :: result :: <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; T , <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a> &gt;</code>
-  <p class="docstring">Result alias for agent-run record operations.</p>
+  <code class="signature">pub(crate) type <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt; T &gt; = std :: result :: <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; T , <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a> &gt;</code>
   <div class="tags"></div>
 
   <p class="source">crates/eos-engine/src/run_output/error.rs:1</p>
@@ -102,13 +101,12 @@
     <h2>Source File</h2>
     <p class="path">crates/eos-engine/src/run_output/error.rs</p>
   </div>
-  <pre class="file-source"><code><span class="rs-comment">/// Result alias for agent-run record operations.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">type</span> <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">T</span>&gt; = std::result::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">T</span>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a>&gt;;
+  <pre class="file-source"><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">type</span> <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">T</span>&gt; = std::result::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">T</span>, <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a>&gt;;
 
 <span class="rs-comment">/// File-backed agent-run record store failures.</span>
 #[derive(<span class="rs-type">Debug</span>, thiserror::<span class="rs-type">Error</span>)]
 #[non_exhaustive]
-<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a> {
     <span class="rs-comment">/// A path segment would escape the record root or create ambiguous layout.</span>
     #[error(&quot;<span class="rs-kw">unsafe</span> agent-run record path segment <span class="rs-kw">for</span> {field}: {value:?}&quot;)]
     <span class="rs-type">UnsafeSegment</span> {
@@ -136,12 +134,12 @@
     <span class="rs-type">Json</span>(#[from] serde_json::<span class="rs-type">Error</span>),
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-4">AgentRunRecordError</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-36">missing_path</a>(path: &amp;std::path::<span class="rs-type">Path</span>) -&gt; <span class="rs-self">Self</span> {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-enum-AgentRunRecordError-3">AgentRunRecordError</a> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-missing-path-35">missing_path</a>(path: &amp;std::path::<span class="rs-type">Path</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(path.display().to_string())
     }
 
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-unsafe-segment-40">unsafe_segment</a>(field: &amp;&#x27;<span class="rs-kw">static</span> str, value: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-run-output-error-rs.html#method-unsafe-segment-39">unsafe_segment</a>(field: &amp;&#x27;<span class="rs-kw">static</span> str, value: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<span class="rs-type">UnsafeSegment</span> {
             field,
             value: value.into(),

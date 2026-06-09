@@ -65,9 +65,9 @@
   <code class="signature">pub(crate) struct <a class="symbol-link" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a></code>
   <p class="docstring">Executes a full agent loop from request to terminal outcome.</p>
   <div class="tags"></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>provider_stream_source</td><td><code><a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a></code></td></tr><tr><td>private</td><td>tool_registry_factory</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a> &gt;</code></td></tr><tr><td>private</td><td>execution_metadata_reader</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a> &gt;</code></td></tr><tr><td>private</td><td>cancel_signal</td><td><code><a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-35">AgentLoopCancelSignal</a></code></td></tr><tr><td>private</td><td>background_sessions</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-122">BackgroundSessionRuntimeFactory</a> &gt;</code></td></tr><tr><td>private</td><td>hook_stores</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-89">ToolCallHookStores</a> &gt;</code></td></tr><tr><td>private</td><td>run_outputs</td><td><code><a class="symbol-link" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a></code></td></tr><tr><td>private</td><td>agent_run_api</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-57"><td>constructor</td><td>new</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a> (input : <a class="symbol-link" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a>) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>provider_stream_source</td><td><code><a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a></code></td></tr><tr><td>private</td><td>tool_registry_factory</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a> &gt;</code></td></tr><tr><td>private</td><td>execution_metadata_reader</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a> &gt;</code></td></tr><tr><td>private</td><td>cancel_signal</td><td><code><a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-35">AgentLoopCancelSignal</a></code></td></tr><tr><td>private</td><td>background_sessions</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-125">BackgroundSessionRuntimeFactory</a> &gt;</code></td></tr><tr><td>private</td><td>hook_stores</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-92">ToolCallHookStores</a> &gt;</code></td></tr><tr><td>private</td><td>run_outputs</td><td><code><a class="symbol-link" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a></code></td></tr><tr><td>private</td><td>agent_run_api</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-57"><td>constructor</td><td>new</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a> (input : <a class="symbol-link" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a>) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(input: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a>) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(input: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             provider_stream_source: input.provider_stream_source,
             tool_registry_factory: input.tool_registry_factory,
@@ -88,7 +88,7 @@
     ) -&gt; <span class="rs-type">AgentLoopOutcome</span> {
         <span class="rs-kw">let</span> event_identity = <span class="rs-kw">match</span> <span class="rs-self">self</span>
             .execution_metadata_reader
-            .<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-agent-run-snapshot-47">agent_run_snapshot</a>(&amp;request.record_target.agent_run_id)
+            .<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-agent-run-snapshot-50">agent_run_snapshot</a>(&amp;request.record_target.agent_run_id)
             .<span class="rs-kw">await</span>
         {
             <span class="rs-type">Ok</span>(identity) =&gt; identity,
@@ -97,7 +97,7 @@
                     kind: <span class="rs-type">AgentLoopOutcomeKind</span>::<span class="rs-type">LoopFailed</span> {
                         error_summary: error.to_string(),
                     },
-                    final_conversation_messages: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                    final_conversation_messages: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
                     total_token_count: <span class="rs-type">None</span>,
                 };
             }
@@ -371,8 +371,8 @@
 
         <span class="rs-kw">let</span> lifecycle = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-lifecycle-batch-decision-96">lifecycle_batch_decision</a>(&amp;dispatch_calls, &amp;state.tool_registry);
         <span class="rs-kw">let</span> dispatched: <span class="rs-type">Arc</span>&lt;std::collections::<span class="rs-type">BTreeSet</span>&lt;<span class="rs-type">String</span>&gt;&gt; =
-            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(lifecycle.dispatched.into_iter().collect());
-        <span class="rs-kw">let</span> rejected: <span class="rs-type">Arc</span>&lt;std::collections::<span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">String</span>, <span class="rs-type">ToolResult</span>&gt;&gt; = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(
+            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(lifecycle.dispatched.into_iter().collect());
+        <span class="rs-kw">let</span> rejected: <span class="rs-type">Arc</span>&lt;std::collections::<span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">String</span>, <span class="rs-type">ToolResult</span>&gt;&gt; = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(
             lifecycle
                 .rejected
                 .into_iter()
@@ -419,7 +419,7 @@
         .collect::&lt;<span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-DispatchedToolCallOutcome-522">DispatchedToolCallOutcome</a>&gt;, <a class="symbol-link rs-type" href="eos-engine--src-support-rs.html#item-enum-EngineError-8">EngineError</a>&gt;&gt;&gt;()
         .<span class="rs-kw">await</span>;
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_results = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_results = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> submission_outcome = <span class="rs-type">None</span>;
         <span class="rs-kw">for</span> outcome <span class="rs-kw">in</span> dispatch_outcomes {
             <span class="rs-kw">let</span> <span class="rs-type">Some</span>(outcome) = outcome? <span class="rs-kw">else</span> {
@@ -450,7 +450,7 @@
             .ok_or_else(|| <a class="symbol-link rs-type" href="eos-engine--src-support-rs.html#item-enum-EngineError-8">EngineError</a>::<span class="rs-type">UnknownTool</span>(call.name.clone()))?;
         <span class="rs-kw">let</span> metadata = <span class="rs-self">self</span>
             .execution_metadata_reader
-            .<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-execution-metadata-53">build_execution_metadata</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ExecutionMetadataBuildInput-31">ExecutionMetadataBuildInput</a> {
+            .<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-execution-metadata-56">build_execution_metadata</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ExecutionMetadataBuildInput-34">ExecutionMetadataBuildInput</a> {
                 agent_run_id: state.agent_run_id.clone(),
                 tool_name,
                 tool_use_id: call.tool_use_id.clone(),
@@ -468,7 +468,7 @@
         <span class="rs-kw">let</span> hooks = state.<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-state-rs.html#method-background-195">background</a>().and_then(|background| {
             <span class="rs-self">self</span>.hook_stores
                 .clone()
-                .map(|stores| <span class="rs-kw">crate</span>::tool_call::<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(background, stores))
+                .map(|stores| <span class="rs-kw">crate</span>::tool_call::<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(background, stores))
         });
         <span class="rs-kw">let</span> result = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-execute-rs.html#item-fn-execute-tool-once-9">execute_tool_once</a>(tool, &amp;call.input, &amp;metadata, hooks.as_ref()).<span class="rs-kw">await</span>?;
         <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-executor-rs.html#method-emit-event-495">emit_event</a>(&amp;<a class="symbol-link rs-type" href="eos-engine--src-run-output-stream-rs.html#item-enum-AgentRunStreamEvent-19">AgentRunStreamEvent</a>::<span class="rs-type">ToolExecutionCompleted</span> {
@@ -490,9 +490,9 @@
         <span class="rs-kw">let</span> <span class="rs-type">Some</span>(inputs) = &amp;<span class="rs-self">self</span>.background_sessions <span class="rs-kw">else</span> {
             <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-state-rs.html#item-struct-AgentLoopRunServices-215">AgentLoopRunServices</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-state-rs.html#method-inert-223">inert</a>();
         };
-        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-EngineNotificationQueue-272">EngineNotificationQueue</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-EngineNotificationQueue-272">EngineNotificationQueue</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">let</span> background =
-            inputs.<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-runtime-171">build_runtime</a>(agent_run_id.clone(), &amp;<span class="rs-self">self</span>.agent_run_api, notifier.clone());
+            inputs.<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-runtime-174">build_runtime</a>(agent_run_id.clone(), &amp;<span class="rs-self">self</span>.agent_run_api, notifier.clone());
         <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-state-rs.html#item-struct-AgentLoopRunServices-215">AgentLoopRunServices</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-state-rs.html#method-from-background-231">from_background</a>(&amp;background, notifier)
     }
 </code></pre>
@@ -531,9 +531,9 @@
         <span class="rs-self">self</span>.run_outputs.<a class="symbol-link rs-fn" href="eos-engine--src-run-output-rs.html#method-observe-60">observe</a>(event);
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a></code></summary><table><tbody><tr id="method-fmt-51"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a></code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a></code></summary><table><tbody><tr id="method-fmt-51"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a></code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a>&quot;).finish_non_exhaustive()
     }
 </code></pre>
@@ -549,7 +549,7 @@
   <code class="signature">pub(crate) struct <a class="symbol-link" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a></code>
   <p class="docstring">Dependencies for one agent-loop executor.</p>
   <div class="tags"></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>provider_stream_source</td><td><code><a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a></code></td></tr><tr><td>pub(crate)</td><td>tool_registry_factory</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a> &gt;</code></td></tr><tr><td>pub(crate)</td><td>execution_metadata_reader</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a> &gt;</code></td></tr><tr><td>pub(crate)</td><td>cancel_signal</td><td><code><a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-35">AgentLoopCancelSignal</a></code></td></tr><tr><td>pub(crate)</td><td>background_sessions</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-122">BackgroundSessionRuntimeFactory</a> &gt;</code></td></tr><tr><td>pub(crate)</td><td>hook_stores</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-89">ToolCallHookStores</a> &gt;</code></td></tr><tr><td>pub(crate)</td><td>run_outputs</td><td><code><a class="symbol-link" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a></code></td></tr><tr><td>pub(crate)</td><td>agent_run_api</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr></tbody></table>
+  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>provider_stream_source</td><td><code><a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a></code></td></tr><tr><td>pub(crate)</td><td>tool_registry_factory</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a> &gt;</code></td></tr><tr><td>pub(crate)</td><td>execution_metadata_reader</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a> &gt;</code></td></tr><tr><td>pub(crate)</td><td>cancel_signal</td><td><code><a class="symbol-link" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-35">AgentLoopCancelSignal</a></code></td></tr><tr><td>pub(crate)</td><td>background_sessions</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-125">BackgroundSessionRuntimeFactory</a> &gt;</code></td></tr><tr><td>pub(crate)</td><td>hook_stores</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-92">ToolCallHookStores</a> &gt;</code></td></tr><tr><td>pub(crate)</td><td>run_outputs</td><td><code><a class="symbol-link" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a></code></td></tr><tr><td>pub(crate)</td><td>agent_run_api</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr></tbody></table>
 
   <p class="source">crates/eos-engine/src/agent_loop/executor.rs:38</p>
 </article><article id="item-enum-AssistantTurnResult-500" class="type-card" data-kind="enum" data-kind-list="enum field type-model" data-filter-text="enum AssistantTurnResult pub(crate) pub(crate) enum AssistantTurnResult crates/eos-engine/src/agent_loop/executor.rs  ">
@@ -701,7 +701,7 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-executor-rs.html#item-fn-split-record-initial-messages-589">split_record_initial_messages</a>(messages: &amp;[<span class="rs-type">AgentLoopMessage</span>]) -&gt; (<span class="rs-type">String</span>, <span class="rs-type">Vec</span>&lt;<span class="rs-type">Message</span>&gt;) {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> system_prompt = <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> system_prompt = <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     <span class="rs-kw">let</span> llm_messages = messages
         .iter()
         .filter_map(|message| <span class="rs-kw">match</span> message {
@@ -801,7 +801,7 @@
     <span class="rs-type">ToolResult</span> {
         output: message.to_owned(),
         is_error: <span class="rs-kw">true</span>,
-        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
         is_terminal: <span class="rs-kw">false</span>,
     }
 }
@@ -828,9 +828,9 @@
 
 <span class="rs-kw">use</span> <span class="rs-kw">super</span>::{
     <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-35">AgentLoopCancelSignal</a>, <span class="rs-type">AgentLoopMessage</span>, <span class="rs-type">AgentLoopOutcome</span>, <span class="rs-type">AgentLoopOutcomeKind</span>,
-    <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-state-rs.html#item-struct-AgentLoopRunServices-215">AgentLoopRunServices</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-state-rs.html#item-struct-AgentLoopState-22">AgentLoopState</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a>,
-    <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-122">BackgroundSessionRuntimeFactory</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ExecutionMetadataBuildInput-31">ExecutionMetadataBuildInput</a>, <span class="rs-type">StartAgentLoopRequest</span>,
-    <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-89">ToolCallHookStores</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a>,
+    <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-state-rs.html#item-struct-AgentLoopRunServices-215">AgentLoopRunServices</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-state-rs.html#item-struct-AgentLoopState-22">AgentLoopState</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a>,
+    <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-125">BackgroundSessionRuntimeFactory</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ExecutionMetadataBuildInput-34">ExecutionMetadataBuildInput</a>, <span class="rs-type">StartAgentLoopRequest</span>,
+    <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-92">ToolCallHookStores</a>, <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a>,
 };
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::notifications::<a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-EngineNotificationQueue-272">EngineNotificationQueue</a>;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::provider_stream::{messages::build_provider_messages, <a class="symbol-link rs-type" href="eos-engine--src-provider-stream-source-rs.html#item-trait-ProviderStreamSource-24">ProviderStreamSource</a>};
@@ -845,11 +845,11 @@
 <span class="rs-comment">/// Executes a full agent loop from request to terminal outcome.</span>
 <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a> {
     provider_stream_source: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a>,
-    tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a>&gt;,
-    execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a>&gt;,
+    tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a>&gt;,
+    execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a>&gt;,
     cancel_signal: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-35">AgentLoopCancelSignal</a>,
-    background_sessions: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-122">BackgroundSessionRuntimeFactory</a>&gt;,
-    hook_stores: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-89">ToolCallHookStores</a>&gt;,
+    background_sessions: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-125">BackgroundSessionRuntimeFactory</a>&gt;,
+    hook_stores: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-92">ToolCallHookStores</a>&gt;,
     run_outputs: <a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a>,
     agent_run_api: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
 }
@@ -857,23 +857,23 @@
 <span class="rs-comment">/// Dependencies for one agent-loop executor.</span>
 <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a> {
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) provider_stream_source: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-enum-AgentLoopProviderStream-81">AgentLoopProviderStream</a>,
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-80">AgentLoopToolRegistryFactory</a>&gt;,
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-44">ToolExecutionMetadataReader</a>&gt;,
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) tool_registry_factory: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-83">AgentLoopToolRegistryFactory</a>&gt;,
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) execution_metadata_reader: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-47">ToolExecutionMetadataReader</a>&gt;,
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) cancel_signal: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-launcher-rs.html#item-struct-AgentLoopCancelSignal-35">AgentLoopCancelSignal</a>,
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) background_sessions: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-122">BackgroundSessionRuntimeFactory</a>&gt;,
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) hook_stores: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-89">ToolCallHookStores</a>&gt;,
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) background_sessions: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionRuntimeFactory-125">BackgroundSessionRuntimeFactory</a>&gt;,
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) hook_stores: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-92">ToolCallHookStores</a>&gt;,
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) run_outputs: <a class="symbol-link rs-type" href="eos-engine--src-run-output-rs.html#item-struct-AgentRunOutputs-23">AgentRunOutputs</a>,
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) agent_run_api: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-fmt-75">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a>&quot;).finish_non_exhaustive()
     }
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutor-26">AgentLoopExecutor</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(input: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a>) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(input: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-AgentLoopExecutorInput-38">AgentLoopExecutorInput</a>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             provider_stream_source: input.provider_stream_source,
             tool_registry_factory: input.tool_registry_factory,
@@ -892,7 +892,7 @@
     ) -&gt; <span class="rs-type">AgentLoopOutcome</span> {
         <span class="rs-kw">let</span> event_identity = <span class="rs-kw">match</span> <span class="rs-self">self</span>
             .execution_metadata_reader
-            .<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-agent-run-snapshot-47">agent_run_snapshot</a>(&amp;request.record_target.agent_run_id)
+            .<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-agent-run-snapshot-50">agent_run_snapshot</a>(&amp;request.record_target.agent_run_id)
             .<span class="rs-kw">await</span>
         {
             <span class="rs-type">Ok</span>(identity) =&gt; identity,
@@ -901,7 +901,7 @@
                     kind: <span class="rs-type">AgentLoopOutcomeKind</span>::<span class="rs-type">LoopFailed</span> {
                         error_summary: error.to_string(),
                     },
-                    final_conversation_messages: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                    final_conversation_messages: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
                     total_token_count: <span class="rs-type">None</span>,
                 };
             }
@@ -1165,8 +1165,8 @@
 
         <span class="rs-kw">let</span> lifecycle = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-batch-rs.html#item-fn-lifecycle-batch-decision-96">lifecycle_batch_decision</a>(&amp;dispatch_calls, &amp;state.tool_registry);
         <span class="rs-kw">let</span> dispatched: <span class="rs-type">Arc</span>&lt;std::collections::<span class="rs-type">BTreeSet</span>&lt;<span class="rs-type">String</span>&gt;&gt; =
-            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(lifecycle.dispatched.into_iter().collect());
-        <span class="rs-kw">let</span> rejected: <span class="rs-type">Arc</span>&lt;std::collections::<span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">String</span>, <span class="rs-type">ToolResult</span>&gt;&gt; = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(
+            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(lifecycle.dispatched.into_iter().collect());
+        <span class="rs-kw">let</span> rejected: <span class="rs-type">Arc</span>&lt;std::collections::<span class="rs-type">BTreeMap</span>&lt;<span class="rs-type">String</span>, <span class="rs-type">ToolResult</span>&gt;&gt; = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(
             lifecycle
                 .rejected
                 .into_iter()
@@ -1213,7 +1213,7 @@
         .collect::&lt;<span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-executor-rs.html#item-struct-DispatchedToolCallOutcome-522">DispatchedToolCallOutcome</a>&gt;, <a class="symbol-link rs-type" href="eos-engine--src-support-rs.html#item-enum-EngineError-8">EngineError</a>&gt;&gt;&gt;()
         .<span class="rs-kw">await</span>;
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_results = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tool_results = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> submission_outcome = <span class="rs-type">None</span>;
         <span class="rs-kw">for</span> outcome <span class="rs-kw">in</span> dispatch_outcomes {
             <span class="rs-kw">let</span> <span class="rs-type">Some</span>(outcome) = outcome? <span class="rs-kw">else</span> {
@@ -1242,7 +1242,7 @@
             .ok_or_else(|| <a class="symbol-link rs-type" href="eos-engine--src-support-rs.html#item-enum-EngineError-8">EngineError</a>::<span class="rs-type">UnknownTool</span>(call.name.clone()))?;
         <span class="rs-kw">let</span> metadata = <span class="rs-self">self</span>
             .execution_metadata_reader
-            .<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-execution-metadata-53">build_execution_metadata</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ExecutionMetadataBuildInput-31">ExecutionMetadataBuildInput</a> {
+            .<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-execution-metadata-56">build_execution_metadata</a>(<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ExecutionMetadataBuildInput-34">ExecutionMetadataBuildInput</a> {
                 agent_run_id: state.agent_run_id.clone(),
                 tool_name,
                 tool_use_id: call.tool_use_id.clone(),
@@ -1260,7 +1260,7 @@
         <span class="rs-kw">let</span> hooks = state.<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-state-rs.html#method-background-195">background</a>().and_then(|background| {
             <span class="rs-self">self</span>.hook_stores
                 .clone()
-                .map(|stores| <span class="rs-kw">crate</span>::tool_call::<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(background, stores))
+                .map(|stores| <span class="rs-kw">crate</span>::tool_call::<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(background, stores))
         });
         <span class="rs-kw">let</span> result = <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-execute-rs.html#item-fn-execute-tool-once-9">execute_tool_once</a>(tool, &amp;call.input, &amp;metadata, hooks.as_ref()).<span class="rs-kw">await</span>?;
         <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-executor-rs.html#method-emit-event-495">emit_event</a>(&amp;<a class="symbol-link rs-type" href="eos-engine--src-run-output-stream-rs.html#item-enum-AgentRunStreamEvent-19">AgentRunStreamEvent</a>::<span class="rs-type">ToolExecutionCompleted</span> {
@@ -1280,9 +1280,9 @@
         <span class="rs-kw">let</span> <span class="rs-type">Some</span>(inputs) = &amp;<span class="rs-self">self</span>.background_sessions <span class="rs-kw">else</span> {
             <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-state-rs.html#item-struct-AgentLoopRunServices-215">AgentLoopRunServices</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-state-rs.html#method-inert-223">inert</a>();
         };
-        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-EngineNotificationQueue-272">EngineNotificationQueue</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+        <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-EngineNotificationQueue-272">EngineNotificationQueue</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
         <span class="rs-kw">let</span> background =
-            inputs.<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-runtime-171">build_runtime</a>(agent_run_id.clone(), &amp;<span class="rs-self">self</span>.agent_run_api, notifier.clone());
+            inputs.<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-runtime-174">build_runtime</a>(agent_run_id.clone(), &amp;<span class="rs-self">self</span>.agent_run_api, notifier.clone());
         <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-state-rs.html#item-struct-AgentLoopRunServices-215">AgentLoopRunServices</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-state-rs.html#method-from-background-231">from_background</a>(&amp;background, notifier)
     }
 
@@ -1406,7 +1406,7 @@
 }
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-executor-rs.html#item-fn-split-record-initial-messages-589">split_record_initial_messages</a>(messages: &amp;[<span class="rs-type">AgentLoopMessage</span>]) -&gt; (<span class="rs-type">String</span>, <span class="rs-type">Vec</span>&lt;<span class="rs-type">Message</span>&gt;) {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> system_prompt = <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> system_prompt = <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     <span class="rs-kw">let</span> llm_messages = messages
         .iter()
         .filter_map(|message| <span class="rs-kw">match</span> message {
@@ -1454,7 +1454,7 @@
     <span class="rs-type">ToolResult</span> {
         output: message.to_owned(),
         is_error: <span class="rs-kw">true</span>,
-        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+        metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
         is_terminal: <span class="rs-kw">false</span>,
     }
 }

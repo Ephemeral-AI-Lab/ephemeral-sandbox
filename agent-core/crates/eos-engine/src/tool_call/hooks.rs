@@ -1,6 +1,5 @@
 //! Engine-owned hook execution policy.
 
-use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use eos_tool::{ExecutionMetadata, Hook, ToolError, ToolResult};
@@ -101,47 +100,12 @@ impl ToolCallHooks {
         &self,
         ctx: &ExecutionMetadata,
     ) -> Result<Option<WorkflowId>, ToolError> {
-        if let Some(workflow_id) = &ctx.workflow_id {
-            return Ok(Some(workflow_id.clone()));
-        }
-        let Some(agent_run_id) = &ctx.agent_run_id else {
-            return Ok(None);
-        };
-        let Some(run) = self.dependencies.agent_run_store.get(agent_run_id).await? else {
-            return Ok(None);
-        };
-        let Some(task_id) = run.task_id else {
-            return Ok(None);
-        };
-        let Some(task) = self.dependencies.task_store.get(&task_id).await? else {
-            return Ok(None);
-        };
-        Ok(task.workflow_id)
+        Ok(ctx.workflow_id.clone())
     }
 
     async fn workflow_depth(&self, workflow_id: &WorkflowId) -> Result<u32, ToolError> {
-        let mut depth = 1;
-        let mut current = workflow_id.clone();
-        let mut seen = HashSet::new();
-        while seen.insert(current.clone()) {
-            let Some(workflow) = self.dependencies.workflow_store.get(&current).await? else {
-                break;
-            };
-            let Some(parent) = self
-                .dependencies
-                .task_store
-                .get(&workflow.parent_task_id)
-                .await?
-            else {
-                break;
-            };
-            let Some(parent_workflow_id) = parent.workflow_id else {
-                break;
-            };
-            depth += 1;
-            current = parent_workflow_id;
-        }
-        Ok(depth)
+        let _ = self.dependencies.workflow_store.get(workflow_id).await?;
+        Ok(1)
     }
 }
 

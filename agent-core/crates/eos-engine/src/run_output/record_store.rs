@@ -569,8 +569,7 @@ fn extend_payload(kind: &TaskAgentRunKind, payload: &mut JsonObject) {
 fn workflow_node_type(role: WorkflowTaskRole) -> &'static str {
     match role {
         WorkflowTaskRole::Planner => "workflow_planner",
-        WorkflowTaskRole::Generator => "workflow_generator",
-        WorkflowTaskRole::Reducer => "workflow_reducer",
+        WorkflowTaskRole::Worker => "workflow_worker",
     }
 }
 

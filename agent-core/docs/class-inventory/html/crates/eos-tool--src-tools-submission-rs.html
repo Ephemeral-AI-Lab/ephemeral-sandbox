@@ -177,30 +177,30 @@
             <span class="rs-self">Self</span> { service }
         }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcome-114">SubmitPlannerOutcome</a></code></summary><table><tbody><tr id="method-execute-126"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcome-114">SubmitPlannerOutcome</a></code></summary><table><tbody><tr id="method-execute-126"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a>(
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcomeInput-105">SubmitPlannerOutcomeInput</a> =
                 <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcome-114">SubmitPlannerOutcome</a>, input) {
                     <span class="rs-type">Ok</span>(v) =&gt; v,
                     <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
                 };
             <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-validate-planner-input-220">validate_planner_input</a>(&amp;parsed) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(message));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(message));
             }
             <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-validate-planner-structure-268">validate_planner_structure</a>(&amp;parsed) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(message));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(message));
             }
 
             <span class="rs-kw">let</span> attempt_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-attempt-id-236">require_attempt_id</a>()?.clone();
             <span class="rs-kw">let</span> planner_task_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-task-id-206">require_task_id</a>()?.clone();
             <span class="rs-kw">let</span> plan = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-planner-plan-167">planner_plan</a>(parsed, attempt_id, planner_task_id.clone()) {
                 <span class="rs-type">Ok</span>(plan) =&gt; plan,
-                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(err.to_string())),
+                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(err.to_string())),
             };
             <span class="rs-kw">let</span> submission_kind = plan.disposition.submission_kind_label();
 
@@ -236,20 +236,20 @@
             <span class="rs-self">Self</span> { service }
         }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcome-355">SubmitRootOutcome</a></code></summary><table><tbody><tr id="method-execute-367"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcome-355">SubmitRootOutcome</a></code></summary><table><tbody><tr id="method-execute-367"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a>(
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcomeInput-349">SubmitRootOutcomeInput</a> =
                 <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcome-355">SubmitRootOutcome</a>, input) {
                     <span class="rs-type">Ok</span>(v) =&gt; v,
                     <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
                 };
             <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-is-blank-42">is_blank</a>(&amp;parsed.outcome) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;outcome must be nonblank&quot;));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(&quot;outcome must be nonblank&quot;));
             }
 
             <span class="rs-kw">let</span> request_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-request-id-216">require_request_id</a>()?;
@@ -261,30 +261,30 @@
             <span class="rs-kw">let</span> task = <span class="rs-kw">match</span> task_store.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(task_id).<span class="rs-kw">await</span>? {
                 <span class="rs-type">Some</span>(task) =&gt; task,
                 <span class="rs-type">None</span> =&gt; {
-                    <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(format!(
+                    <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(format!(
                         &quot;<span class="rs-type">Root</span> task &#x27;{}&#x27; was not found.&quot;,
                         task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()
                     )));
                 }
             };
             <span class="rs-kw">if</span> task.request_id != *request_id {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(
                     &quot;<span class="rs-type">Root</span> task does not belong to this request.&quot;,
                 ));
             }
             <span class="rs-kw">if</span> task.workflow_id.is_some() {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(
                     &quot;submit_root_outcome is only valid <span class="rs-kw">for</span> the root task.&quot;,
                 ));
             }
             <span class="rs-kw">if</span> task.role != <span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span> {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(format!(
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(format!(
                     &quot;<span class="rs-type">Task</span> &#x27;{}&#x27; is not a root task.&quot;,
                     task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()
                 )));
             }
             <span class="rs-kw">if</span> task.status != <span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span> {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(format!(
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(format!(
                     &quot;<span class="rs-type">Root</span> task &#x27;{}&#x27; is not running.&quot;,
                     task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()
                 )));
@@ -327,7 +327,7 @@
                 &quot;root_failure&quot;
             };
             <span class="rs-type">Ok</span>(
-                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-545">ok</a>(format!(&quot;<span class="rs-type">Accepted</span> root {}.&quot;, parsed.status.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-567">with_metadata</a>(
+                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-541">ok</a>(format!(&quot;<span class="rs-type">Accepted</span> root {}.&quot;, parsed.status.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-563">with_metadata</a>(
                     <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-meta-obj-46">meta_obj</a>(&amp;[
                         (&quot;submission_kind&quot;, json!(kind)),
                         (&quot;request_id&quot;, json!(request_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
@@ -398,19 +398,19 @@
             <span class="rs-self">Self</span> { service }
         }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitGeneratorOutcome-667">SubmitGeneratorOutcome</a></code></summary><table><tbody><tr id="method-execute-679"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitGeneratorOutcome-667">SubmitGeneratorOutcome</a></code></summary><table><tbody><tr id="method-execute-679"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a>(
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitGeneratorOutcome-667">SubmitGeneratorOutcome</a>, input) {
                 <span class="rs-type">Ok</span>(v) =&gt; v,
                 <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
             };
             <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-is-blank-42">is_blank</a>(&amp;parsed.outcome) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;outcome must be nonblank&quot;));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(&quot;outcome must be nonblank&quot;));
             }
             <span class="rs-kw">let</span> attempt_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-attempt-id-236">require_attempt_id</a>()?.clone();
             <span class="rs-kw">let</span> task_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-task-id-206">require_task_id</a>()?.clone();
@@ -460,19 +460,19 @@
             <span class="rs-self">Self</span> { service }
         }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitReducerOutcome-765">SubmitReducerOutcome</a></code></summary><table><tbody><tr id="method-execute-777"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitReducerOutcome-765">SubmitReducerOutcome</a></code></summary><table><tbody><tr id="method-execute-777"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a>(
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitReducerOutcome-765">SubmitReducerOutcome</a>, input) {
                 <span class="rs-type">Ok</span>(v) =&gt; v,
                 <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
             };
             <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-is-blank-42">is_blank</a>(&amp;parsed.outcome) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;outcome must be nonblank&quot;));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(&quot;outcome must be nonblank&quot;));
             }
             <span class="rs-kw">let</span> attempt_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-attempt-id-236">require_attempt_id</a>()?.clone();
             <span class="rs-kw">let</span> task_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-task-id-206">require_task_id</a>()?.clone();
@@ -516,22 +516,22 @@
   </div>
   <code class="signature">struct <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedback-887">SubmitAdvisorFeedback</a></code>
   <div class="tags"></div>
-  <h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedback-887">SubmitAdvisorFeedback</a></code></summary><table><tbody><tr id="method-execute-891"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , _ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
+  <h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedback-887">SubmitAdvisorFeedback</a></code></summary><table><tbody><tr id="method-execute-891"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , _ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a>(
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             _ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedbackInput-881">SubmitAdvisorFeedbackInput</a> =
                 <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedback-887">SubmitAdvisorFeedback</a>, input) {
                     <span class="rs-type">Ok</span>(v) =&gt; v,
                     <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
                 };
             <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-is-blank-42">is_blank</a>(&amp;parsed.summary) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;summary must be nonblank&quot;));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(&quot;summary must be nonblank&quot;));
             }
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-545">ok</a>(parsed.summary).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-567">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-meta-obj-46">meta_obj</a>(&amp;[
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-541">ok</a>(parsed.summary).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-563">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-meta-obj-46">meta_obj</a>(&amp;[
                 (&quot;helper_role&quot;, json!(&quot;advisor&quot;)),
                 (&quot;verdict&quot;, json!(parsed.verdict.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
             ])))
@@ -548,22 +548,22 @@
   </div>
   <code class="signature">struct <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResult-959">SubmitSubagentResult</a></code>
   <div class="tags"></div>
-  <h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResult-959">SubmitSubagentResult</a></code></summary><table><tbody><tr id="method-execute-963"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , _ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
+  <h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResult-959">SubmitSubagentResult</a></code></summary><table><tbody><tr id="method-execute-963"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , _ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a>(
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             _ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResultInput-950">SubmitSubagentResultInput</a> =
                 <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResult-959">SubmitSubagentResult</a>, input) {
                     <span class="rs-type">Ok</span>(v) =&gt; v,
                     <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
                 };
             <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-is-blank-42">is_blank</a>(&amp;parsed.summary) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;summary must be nonblank&quot;));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(&quot;summary must be nonblank&quot;));
             }
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-545">ok</a>(parsed.summary).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-567">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-meta-obj-46">meta_obj</a>(&amp;[
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-541">ok</a>(parsed.summary).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-563">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-meta-obj-46">meta_obj</a>(&amp;[
                 (&quot;agent_type&quot;, json!(&quot;subagent&quot;)),
                 (&quot;findings&quot;, json!(parsed.findings)),
                 (&quot;references&quot;, json!(parsed.references)),
@@ -637,7 +637,7 @@
     <h3>submission_ack_result</h3>
     <span class="visibility">pub(crate :: tools :: submission)</span>
   </div>
-  <code class="signature">pub(crate :: tools :: submission) fn <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-fn-submission-ack-result-53">submission_ack_result</a> (ack : SubmissionAck , success : &amp; str , metadata : &amp; JsonObject ,) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
+  <code class="signature">pub(crate :: tools :: submission) fn <a class="symbol-link" href="eos-tool--src-tools-submission-rs.html#item-fn-submission-ack-result-53">submission_ack_result</a> (ack : SubmissionAck , success : &amp; str , metadata : &amp; JsonObject ,) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a></code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
@@ -645,10 +645,10 @@
     ack: <span class="rs-type">SubmissionAck</span>,
     success: &amp;str,
     metadata: &amp;<span class="rs-type">JsonObject</span>,
-) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a> {
     <span class="rs-kw">match</span> ack {
-        <span class="rs-type">SubmissionAck</span>::<span class="rs-type">Accepted</span> =&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-545">ok</a>(success).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-567">with_metadata</a>(metadata.clone()),
-        <span class="rs-type">SubmissionAck</span>::<span class="rs-type">Rejected</span>(message) =&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(message),
+        <span class="rs-type">SubmissionAck</span>::<span class="rs-type">Accepted</span> =&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-541">ok</a>(success).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-563">with_metadata</a>(metadata.clone()),
+        <span class="rs-type">SubmissionAck</span>::<span class="rs-type">Rejected</span>(message) =&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(message),
     }
 }
 </code></pre>
@@ -680,7 +680,7 @@
                 &amp;planner.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcomeInput-105">SubmitPlannerOutcomeInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcome-114">SubmitPlannerOutcome</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(attempt_submission)),
         );
     }
@@ -713,7 +713,7 @@
                 &amp;root.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcomeInput-349">SubmitRootOutcomeInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcome-355">SubmitRootOutcome</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(root_submission)),
         );
     }
@@ -746,7 +746,7 @@
                 &amp;generator.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitGeneratorOutcome-667">SubmitGeneratorOutcome</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(attempt_submission)),
         );
     }
@@ -779,7 +779,7 @@
                 &amp;reducer.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitReducerOutcome-765">SubmitReducerOutcome</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(attempt_submission)),
         );
     }
@@ -808,7 +808,7 @@
                 &amp;advisor.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedbackInput-881">SubmitAdvisorFeedbackInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedback-887">SubmitAdvisorFeedback</a>),
         );
     }
@@ -837,7 +837,7 @@
                 &amp;subagent.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResultInput-950">SubmitSubagentResultInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResult-959">SubmitSubagentResult</a>),
         );
     }
@@ -887,7 +887,7 @@
     config: &amp;<span class="rs-kw">crate</span>::registry::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a>,
 ) {
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::registry::text_spec;
-    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>};
+    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>};
     <span class="rs-kw">use</span> schemars::schema_for;
 
     <span class="rs-kw">let</span> planner = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcome-114">SubmitPlannerOutcome</a>);
@@ -900,7 +900,7 @@
             &amp;planner.description,
             schema_for!(planner::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcomeInput-105">SubmitPlannerOutcomeInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
     <span class="rs-kw">let</span> root = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcome-355">SubmitRootOutcome</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
@@ -912,7 +912,7 @@
             &amp;root.description,
             schema_for!(root::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcomeInput-349">SubmitRootOutcomeInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
     <span class="rs-kw">let</span> generator = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitGeneratorOutcome-667">SubmitGeneratorOutcome</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
@@ -924,7 +924,7 @@
             &amp;generator.description,
             schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
     <span class="rs-kw">let</span> reducer = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitReducerOutcome-765">SubmitReducerOutcome</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
@@ -936,7 +936,7 @@
             &amp;reducer.description,
             schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
     <span class="rs-kw">let</span> advisor = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedback-887">SubmitAdvisorFeedback</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
@@ -948,7 +948,7 @@
             &amp;advisor.description,
             schema_for!(advisor::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedbackInput-881">SubmitAdvisorFeedbackInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
     <span class="rs-kw">let</span> subagent = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResult-959">SubmitSubagentResult</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
@@ -960,7 +960,7 @@
             &amp;subagent.description,
             schema_for!(subagent::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResultInput-950">SubmitSubagentResultInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
 }
 </code></pre>
@@ -1350,7 +1350,7 @@
 <span class="rs-kw">use</span> serde::{<span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>};
 <span class="rs-kw">use</span> serde_json::<span class="rs-type">Value</span>;
 
-<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>;
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>;
 <span class="rs-kw">use</span> eos_types::<span class="rs-type">SubmissionAck</span>;
 
 <span class="rs-comment">/// `Literal["success", "failed"]`.</span>
@@ -1398,10 +1398,10 @@
     ack: <span class="rs-type">SubmissionAck</span>,
     success: &amp;str,
     metadata: &amp;<span class="rs-type">JsonObject</span>,
-) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a> {
     <span class="rs-kw">match</span> ack {
-        <span class="rs-type">SubmissionAck</span>::<span class="rs-type">Accepted</span> =&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-545">ok</a>(success).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-567">with_metadata</a>(metadata.clone()),
-        <span class="rs-type">SubmissionAck</span>::<span class="rs-type">Rejected</span>(message) =&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(message),
+        <span class="rs-type">SubmissionAck</span>::<span class="rs-type">Accepted</span> =&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-541">ok</a>(success).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-563">with_metadata</a>(metadata.clone()),
+        <span class="rs-type">SubmissionAck</span>::<span class="rs-type">Rejected</span>(message) =&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(message),
     }
 }
 
@@ -1425,7 +1425,7 @@
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a>;
-    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>};
+    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>};
     <span class="rs-kw">use</span> eos_types::{<span class="rs-type">PlanReducer</span>, <span class="rs-type">PlanTask</span>, <span class="rs-type">PlannerPlan</span>};
 
     <span class="rs-kw">use</span> <span class="rs-kw">super</span>::{is_blank, meta_obj, submission_ack_result};
@@ -1471,24 +1471,24 @@
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcomeInput-105">SubmitPlannerOutcomeInput</a> =
                 <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcome-114">SubmitPlannerOutcome</a>, input) {
                     <span class="rs-type">Ok</span>(v) =&gt; v,
                     <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
                 };
             <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-validate-planner-input-220">validate_planner_input</a>(&amp;parsed) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(message));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(message));
             }
             <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-validate-planner-structure-268">validate_planner_structure</a>(&amp;parsed) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(message));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(message));
             }
 
             <span class="rs-kw">let</span> attempt_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-attempt-id-236">require_attempt_id</a>()?.clone();
             <span class="rs-kw">let</span> planner_task_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-task-id-206">require_task_id</a>()?.clone();
             <span class="rs-kw">let</span> plan = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-planner-plan-167">planner_plan</a>(parsed, attempt_id, planner_task_id.clone()) {
                 <span class="rs-type">Ok</span>(plan) =&gt; plan,
-                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(err.to_string())),
+                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(err.to_string())),
             };
             <span class="rs-kw">let</span> submission_kind = plan.disposition.submission_kind_label();
 
@@ -1660,7 +1660,7 @@
                 &amp;planner.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcomeInput-105">SubmitPlannerOutcomeInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcome-114">SubmitPlannerOutcome</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(attempt_submission)),
         );
     }
@@ -1686,7 +1686,7 @@
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a>;
-    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>};
+    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>};
 
     <span class="rs-kw">use</span> <span class="rs-kw">super</span>::{is_blank, meta_obj, <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-enum-SubmissionStatus-12">SubmissionStatus</a>};
 
@@ -1712,14 +1712,14 @@
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcomeInput-349">SubmitRootOutcomeInput</a> =
                 <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcome-355">SubmitRootOutcome</a>, input) {
                     <span class="rs-type">Ok</span>(v) =&gt; v,
                     <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
                 };
             <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-is-blank-42">is_blank</a>(&amp;parsed.outcome) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;outcome must be nonblank&quot;));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(&quot;outcome must be nonblank&quot;));
             }
 
             <span class="rs-kw">let</span> request_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-request-id-216">require_request_id</a>()?;
@@ -1731,30 +1731,30 @@
             <span class="rs-kw">let</span> task = <span class="rs-kw">match</span> task_store.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(task_id).<span class="rs-kw">await</span>? {
                 <span class="rs-type">Some</span>(task) =&gt; task,
                 <span class="rs-type">None</span> =&gt; {
-                    <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(format!(
+                    <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(format!(
                         &quot;<span class="rs-type">Root</span> task &#x27;{}&#x27; was not found.&quot;,
                         task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()
                     )));
                 }
             };
             <span class="rs-kw">if</span> task.request_id != *request_id {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(
                     &quot;<span class="rs-type">Root</span> task does not belong to this request.&quot;,
                 ));
             }
             <span class="rs-kw">if</span> task.workflow_id.is_some() {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(
                     &quot;submit_root_outcome is only valid <span class="rs-kw">for</span> the root task.&quot;,
                 ));
             }
             <span class="rs-kw">if</span> task.role != <span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span> {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(format!(
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(format!(
                     &quot;<span class="rs-type">Task</span> &#x27;{}&#x27; is not a root task.&quot;,
                     task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()
                 )));
             }
             <span class="rs-kw">if</span> task.status != <span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span> {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(format!(
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(format!(
                     &quot;<span class="rs-type">Root</span> task &#x27;{}&#x27; is not running.&quot;,
                     task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()
                 )));
@@ -1797,7 +1797,7 @@
                 &quot;root_failure&quot;
             };
             <span class="rs-type">Ok</span>(
-                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-545">ok</a>(format!(&quot;<span class="rs-type">Accepted</span> root {}.&quot;, parsed.status.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-567">with_metadata</a>(
+                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-541">ok</a>(format!(&quot;<span class="rs-type">Accepted</span> root {}.&quot;, parsed.status.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-563">with_metadata</a>(
                     <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-meta-obj-46">meta_obj</a>(&amp;[
                         (&quot;submission_kind&quot;, json!(kind)),
                         (&quot;request_id&quot;, json!(request_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
@@ -1823,7 +1823,7 @@
                 &amp;root.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcomeInput-349">SubmitRootOutcomeInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcome-355">SubmitRootOutcome</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(root_submission)),
         );
     }
@@ -2004,7 +2004,7 @@
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a>;
-    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>};
+    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>};
 
     <span class="rs-kw">use</span> <span class="rs-kw">super</span>::{is_blank, meta_obj, submission_ack_result, <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a>, <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-enum-SubmissionStatus-12">SubmissionStatus</a>};
 
@@ -2024,13 +2024,13 @@
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitGeneratorOutcome-667">SubmitGeneratorOutcome</a>, input) {
                 <span class="rs-type">Ok</span>(v) =&gt; v,
                 <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
             };
             <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-is-blank-42">is_blank</a>(&amp;parsed.outcome) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;outcome must be nonblank&quot;));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(&quot;outcome must be nonblank&quot;));
             }
             <span class="rs-kw">let</span> attempt_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-attempt-id-236">require_attempt_id</a>()?.clone();
             <span class="rs-kw">let</span> task_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-task-id-206">require_task_id</a>()?.clone();
@@ -2079,7 +2079,7 @@
                 &amp;generator.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitGeneratorOutcome-667">SubmitGeneratorOutcome</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(attempt_submission)),
         );
     }
@@ -2102,7 +2102,7 @@
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a>;
-    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>};
+    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>};
 
     <span class="rs-kw">use</span> <span class="rs-kw">super</span>::{is_blank, meta_obj, submission_ack_result, <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a>, <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-enum-SubmissionStatus-12">SubmissionStatus</a>};
 
@@ -2122,13 +2122,13 @@
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitReducerOutcome-765">SubmitReducerOutcome</a>, input) {
                 <span class="rs-type">Ok</span>(v) =&gt; v,
                 <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
             };
             <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-is-blank-42">is_blank</a>(&amp;parsed.outcome) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;outcome must be nonblank&quot;));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(&quot;outcome must be nonblank&quot;));
             }
             <span class="rs-kw">let</span> attempt_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-attempt-id-236">require_attempt_id</a>()?.clone();
             <span class="rs-kw">let</span> task_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-task-id-206">require_task_id</a>()?.clone();
@@ -2177,7 +2177,7 @@
                 &amp;reducer.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitReducerOutcome-765">SubmitReducerOutcome</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(attempt_submission)),
         );
     }
@@ -2201,7 +2201,7 @@
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a>;
-    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>};
+    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>};
 
     <span class="rs-kw">use</span> <span class="rs-kw">super</span>::{is_blank, meta_obj};
 
@@ -2236,16 +2236,16 @@
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             _ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedbackInput-881">SubmitAdvisorFeedbackInput</a> =
                 <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedback-887">SubmitAdvisorFeedback</a>, input) {
                     <span class="rs-type">Ok</span>(v) =&gt; v,
                     <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
                 };
             <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-is-blank-42">is_blank</a>(&amp;parsed.summary) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;summary must be nonblank&quot;));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(&quot;summary must be nonblank&quot;));
             }
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-545">ok</a>(parsed.summary).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-567">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-meta-obj-46">meta_obj</a>(&amp;[
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-541">ok</a>(parsed.summary).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-563">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-meta-obj-46">meta_obj</a>(&amp;[
                 (&quot;helper_role&quot;, json!(&quot;advisor&quot;)),
                 (&quot;verdict&quot;, json!(parsed.verdict.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
             ])))
@@ -2263,7 +2263,7 @@
                 &amp;advisor.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedbackInput-881">SubmitAdvisorFeedbackInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedback-887">SubmitAdvisorFeedback</a>),
         );
     }
@@ -2287,7 +2287,7 @@
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>;
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a>;
-    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>};
+    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>};
 
     <span class="rs-kw">use</span> <span class="rs-kw">super</span>::{is_blank, meta_obj};
 
@@ -2308,16 +2308,16 @@
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             _ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
-        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+        ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
             <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResultInput-950">SubmitSubagentResultInput</a> =
                 <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResult-959">SubmitSubagentResult</a>, input) {
                     <span class="rs-type">Ok</span>(v) =&gt; v,
                     <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
                 };
             <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-is-blank-42">is_blank</a>(&amp;parsed.summary) {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;summary must be nonblank&quot;));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-552">error</a>(&quot;summary must be nonblank&quot;));
             }
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-545">ok</a>(parsed.summary).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-567">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-meta-obj-46">meta_obj</a>(&amp;[
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-526">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-541">ok</a>(parsed.summary).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-563">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-rs.html#item-fn-meta-obj-46">meta_obj</a>(&amp;[
                 (&quot;agent_type&quot;, json!(&quot;subagent&quot;)),
                 (&quot;findings&quot;, json!(parsed.findings)),
                 (&quot;references&quot;, json!(parsed.references)),
@@ -2336,7 +2336,7 @@
                 &amp;subagent.description,
                 schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResultInput-950">SubmitSubagentResultInput</a>),
             ),
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
             <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResult-959">SubmitSubagentResult</a>),
         );
     }
@@ -2361,7 +2361,7 @@
     config: &amp;<span class="rs-kw">crate</span>::registry::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a>,
 ) {
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::registry::text_spec;
-    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>};
+    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>};
     <span class="rs-kw">use</span> schemars::schema_for;
 
     <span class="rs-kw">let</span> planner = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcome-114">SubmitPlannerOutcome</a>);
@@ -2374,7 +2374,7 @@
             &amp;planner.description,
             schema_for!(planner::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitPlannerOutcomeInput-105">SubmitPlannerOutcomeInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
     <span class="rs-kw">let</span> root = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcome-355">SubmitRootOutcome</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
@@ -2386,7 +2386,7 @@
             &amp;root.description,
             schema_for!(root::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitRootOutcomeInput-349">SubmitRootOutcomeInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
     <span class="rs-kw">let</span> generator = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitGeneratorOutcome-667">SubmitGeneratorOutcome</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
@@ -2398,7 +2398,7 @@
             &amp;generator.description,
             schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
     <span class="rs-kw">let</span> reducer = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitReducerOutcome-765">SubmitReducerOutcome</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
@@ -2410,7 +2410,7 @@
             &amp;reducer.description,
             schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-OutcomeInput-36">OutcomeInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
     <span class="rs-kw">let</span> advisor = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedback-887">SubmitAdvisorFeedback</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
@@ -2422,7 +2422,7 @@
             &amp;advisor.description,
             schema_for!(advisor::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitAdvisorFeedbackInput-881">SubmitAdvisorFeedbackInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
     <span class="rs-kw">let</span> subagent = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResult-959">SubmitSubagentResult</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
@@ -2434,7 +2434,7 @@
             &amp;subagent.description,
             schema_for!(subagent::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-rs.html#item-struct-SubmitSubagentResultInput-950">SubmitSubagentResultInput</a>),
         ),
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-578">OutputShape</a>::<span class="rs-type">Text</span>,
     );
 }
 </code></pre>

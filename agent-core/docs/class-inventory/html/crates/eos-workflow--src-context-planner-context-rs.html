@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eos-workflow · src/context/planner_context.rs</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+</head>
+<body>
+  <header>
+    <a class="central-link" href="/" title="Return to all class inventories">&larr; All inventories</a>
+    <div class="header-row">
+      <div>
+        <p class="eyebrow">Generated Rust source inventory · file-owned OOP map</p>
+        <h1>eos-workflow File Inventory</h1>
+      </div>
+      <div class="refresh-control">
+        <button id="refresh-inventory" type="button" title="Regenerate this inventory from the local Rust sources" data-refresh-command="cd /Users/yifanxu/machine_learning/LoVC/EphemeralOS/agent-core &amp;&amp; cargo run --manifest-path scripts/class-inventory/Cargo.toml">Refresh</button>
+        <span id="refresh-status" role="status"></span>
+      </div>
+    </div>
+  </header>
+  <a class="back-link" href="../index.html">agent-core</a>
+<section class="summary">
+  <div><b>18</b><span>modules</span></div>
+  <div><b>86</b><span>items</span></div>
+  <div><b>73</b><span>fields</span></div>
+  <div><b>111</b><span>methods</span></div>
+</section>
+<section class="toolbar">
+  <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
+  <select id="kind-filter">
+    <option value="">All items</option>
+    <option value="type-model">Type model</option>
+    <option value="struct">Structs</option>
+    <option value="enum">Enums</option>
+    <option value="trait">Traits</option>
+    <option value="impl">Impls</option>
+    <option value="fn">Functions</option>
+    <option value="type">Aliases</option>
+  </select>
+</section>
+<main class="crate-layout">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><span class="folder">attempt</span><ul class="file-tree"><li><a class="file-link" href="eos-workflow.html"><span>active_attempt_runs.rs</span><small>2/0</small></a></li><li><a class="file-link" href="eos-workflow--src-attempt-attempt-run-rs.html"><span>attempt_run.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-workflow--src-attempt-launch-rs.html"><span>launch.rs</span><small>6/5</small></a></li><li><a class="file-link" href="eos-workflow--src-attempt-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-workflow--src-attempt-planner-run-rs.html"><span>planner_run.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-workflow--src-attempt-work-items-rs.html"><span>work_items.rs</span><small>0/11</small></a></li><li><a class="file-link" href="eos-workflow--src-attempt-work-items-run-rs.html"><span>work_items_run.rs</span><small>2/0</small></a></li></ul></li><li><a class="file-link" href="eos-workflow--src-attempt-submission-rs.html"><span>attempt_submission.rs</span><small>1/1</small></a></li><li><a class="file-link" href="eos-workflow--src-config-rs.html"><span>config.rs</span><small>3/1</small></a></li><li><span class="folder">context</span><ul class="file-tree"><li><a class="file-link" href="eos-workflow--src-context-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link active" href="eos-workflow--src-context-planner-context-rs.html"><span>planner_context.rs</span><small>0/1</small></a></li><li><a class="file-link" href="eos-workflow--src-context-render-rs.html"><span>render.rs</span><small>3/4</small></a></li><li><a class="file-link" href="eos-workflow--src-context-scope-rs.html"><span>scope.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-workflow--src-context-worker-context-rs.html"><span>worker_context.rs</span><small>0/2</small></a></li></ul></li><li><a class="file-link" href="eos-workflow--src-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-workflow--src-iteration-run-rs.html"><span>iteration_run.rs</span><small>3/1</small></a></li><li><a class="file-link" href="eos-workflow--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-workflow--src-workflow-run-rs.html"><span>workflow_run.rs</span><small>2/1</small></a></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="context::planner_context crates/eos-workflow/src/context/planner_context.rs render_planner_agent_context">
+  <div class="module-head">
+    <div>
+      <h2>src/context/planner_context.rs</h2>
+      <p class="path">module <code>context::planner_context</code></p>
+    </div>
+    <div class="module-stats">
+      <span>file owns</span>
+      <span>0 types</span>
+      <span>0 impls</span>
+      <span>1 fns</span>
+      <span>0 methods</span>
+    </div>
+  </div>
+  <div class="items"><div class="group-label">Standalone Functions</div><article id="item-fn-render-planner-agent-context-8" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn render_planner_agent_context pub(crate) pub(crate) async fn render_planner_agent_context (deps : &amp; AttemptResources , attempt : &amp; Attempt , planner_task_id : &amp; eos_types :: TaskId ,) -&gt; Result &lt; AgentContext &gt; crates/eos-workflow/src/context/planner_context.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>render_planner_agent_context</h3>
+    <span class="visibility">pub(crate)</span>
+  </div>
+  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-workflow--src-context-planner-context-rs.html#item-fn-render-planner-agent-context-8">render_planner_agent_context</a> (deps : &amp; <a class="symbol-link" href="eos-workflow--src-attempt-launch-rs.html#item-struct-AttemptResources-136">AttemptResources</a> , attempt : &amp; Attempt , planner_task_id : &amp; eos_types :: TaskId ,) -&gt; <a class="symbol-link" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a> &lt; <a class="symbol-link" href="eos-workflow--src-context-render-rs.html#item-struct-AgentContext-75">AgentContext</a> &gt;</code>
+  <div class="tags"><span>async</span></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-context-planner-context-rs.html#item-fn-render-planner-agent-context-8">render_planner_agent_context</a>(
+    deps: &amp;<a class="symbol-link rs-type" href="eos-workflow--src-attempt-launch-rs.html#item-struct-AttemptResources-136">AttemptResources</a>,
+    attempt: &amp;<span class="rs-type">Attempt</span>,
+    planner_task_id: &amp;eos_types::<span class="rs-type">TaskId</span>,
+) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;<a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-AgentContext-75">AgentContext</a>&gt; {
+    <span class="rs-kw">let</span> iteration = deps
+        .iteration_store
+        .<a class="symbol-link rs-fn" href="eos-workflow.html#method-get-48">get</a>(&amp;attempt.iteration_id)
+        .<span class="rs-kw">await</span>?
+        .ok_or_else(|| <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-not-found-46">not_found</a>(&quot;iteration&quot;, attempt.iteration_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()))?;
+    <span class="rs-kw">let</span> workflow = deps
+        .workflow_store
+        .<a class="symbol-link rs-fn" href="eos-workflow.html#method-get-48">get</a>(&amp;attempt.workflow_id)
+        .<span class="rs-kw">await</span>?
+        .ok_or_else(|| <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-not-found-46">not_found</a>(&quot;workflow&quot;, attempt.workflow_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()))?;
+
+    <span class="rs-kw">let</span> prior_attempts = deps
+        .attempt_store
+        .list_for_iteration(&amp;iteration.id)
+        .<span class="rs-kw">await</span>?
+        .into_iter()
+        .filter(|candidate| candidate.id != attempt.id)
+        .map(|candidate| {
+            <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;attempt&quot;).<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-attrs-53">with_attrs</a>(vec![
+                (&quot;attempt_id&quot;.to_owned(), candidate.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                (
+                    &quot;sequence_no&quot;.to_owned(),
+                    candidate.attempt_sequence_no.to_string(),
+                ),
+                (&quot;status&quot;.to_owned(), candidate.status().<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+            ])
+        })
+        .collect::&lt;<span class="rs-type">Vec</span>&lt;_&gt;&gt;();
+
+    <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-AgentContext-75">AgentContext</a> {
+        role: <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-enum-ContextRole-4">ContextRole</a>::<span class="rs-type">Planner</span>,
+        sections: vec![
+            <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;workflow&quot;)
+                .<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-attrs-53">with_attrs</a>(vec![
+                    (&quot;workflow_id&quot;.to_owned(), workflow.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                    (&quot;request_id&quot;.to_owned(), workflow.request_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                ])
+                .<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-children-67">with_children</a>(vec![<a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;workflow_goal&quot;)
+                    .<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-text-60">with_text</a>(workflow.workflow_goal)]),
+            <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;current_iteration&quot;)
+                .<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-attrs-53">with_attrs</a>(vec![
+                    (&quot;iteration_id&quot;.to_owned(), iteration.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                    (&quot;attempt_id&quot;.to_owned(), attempt.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                    (&quot;planner_task_id&quot;.to_owned(), planner_task_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                ])
+                .<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-children-67">with_children</a>(vec![
+                    <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;workflow_goal&quot;).<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-text-60">with_text</a>(iteration.workflow_goal),
+                    <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;iteration_goal&quot;).<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-text-60">with_text</a>(iteration.iteration_goal),
+                ]),
+            <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;prior_attempts&quot;).<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-children-67">with_children</a>(prior_attempts),
+        ],
+        directive:
+            &quot;<span class="rs-type">Author</span> a worker plan and finish with submit_plan_outcome.&quot;.to_owned(),
+        context_limits: vec![
+            &quot;<span class="rs-type">Do</span> not execute work items yourself; create worker work_items.&quot;.to_owned(),
+            &quot;<span class="rs-type">Use</span> work_item_id values that are unique within this plan.&quot;.to_owned(),
+        ],
+    })
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-workflow/src/context/planner_context.rs:8</p>
+</article></div>
+</section></div>
+</main>
+<section class="file-source-section">
+  <div class="source-head">
+    <h2>Source File</h2>
+    <p class="path">crates/eos-workflow/src/context/planner_context.rs</p>
+  </div>
+  <pre class="file-source"><code><span class="rs-kw">use</span> eos_types::<span class="rs-type">Attempt</span>;
+
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::attempt::<a class="symbol-link rs-type" href="eos-workflow--src-attempt-launch-rs.html#item-struct-AttemptResources-136">AttemptResources</a>;
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>, <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>};
+
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::{<a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-AgentContext-75">AgentContext</a>, <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-enum-ContextRole-4">ContextRole</a>, <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>};
+
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-workflow--src-context-planner-context-rs.html#item-fn-render-planner-agent-context-8">render_planner_agent_context</a>(
+    deps: &amp;<a class="symbol-link rs-type" href="eos-workflow--src-attempt-launch-rs.html#item-struct-AttemptResources-136">AttemptResources</a>,
+    attempt: &amp;<span class="rs-type">Attempt</span>,
+    planner_task_id: &amp;eos_types::<span class="rs-type">TaskId</span>,
+) -&gt; <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-type-Result-3">Result</a>&lt;<a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-AgentContext-75">AgentContext</a>&gt; {
+    <span class="rs-kw">let</span> iteration = deps
+        .iteration_store
+        .<a class="symbol-link rs-fn" href="eos-workflow.html#method-get-48">get</a>(&amp;attempt.iteration_id)
+        .<span class="rs-kw">await</span>?
+        .ok_or_else(|| <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-not-found-46">not_found</a>(&quot;iteration&quot;, attempt.iteration_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()))?;
+    <span class="rs-kw">let</span> workflow = deps
+        .workflow_store
+        .<a class="symbol-link rs-fn" href="eos-workflow.html#method-get-48">get</a>(&amp;attempt.workflow_id)
+        .<span class="rs-kw">await</span>?
+        .ok_or_else(|| <a class="symbol-link rs-type" href="eos-workflow--src-error-rs.html#item-enum-WorkflowError-6">WorkflowError</a>::<a class="symbol-link rs-fn" href="eos-workflow--src-error-rs.html#method-not-found-46">not_found</a>(&quot;workflow&quot;, attempt.workflow_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>()))?;
+
+    <span class="rs-kw">let</span> prior_attempts = deps
+        .attempt_store
+        .list_for_iteration(&amp;iteration.id)
+        .<span class="rs-kw">await</span>?
+        .into_iter()
+        .filter(|candidate| candidate.id != attempt.id)
+        .map(|candidate| {
+            <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;attempt&quot;).<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-attrs-53">with_attrs</a>(vec![
+                (&quot;attempt_id&quot;.to_owned(), candidate.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                (
+                    &quot;sequence_no&quot;.to_owned(),
+                    candidate.attempt_sequence_no.to_string(),
+                ),
+                (&quot;status&quot;.to_owned(), candidate.status().<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+            ])
+        })
+        .collect::&lt;<span class="rs-type">Vec</span>&lt;_&gt;&gt;();
+
+    <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-AgentContext-75">AgentContext</a> {
+        role: <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-enum-ContextRole-4">ContextRole</a>::<span class="rs-type">Planner</span>,
+        sections: vec![
+            <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;workflow&quot;)
+                .<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-attrs-53">with_attrs</a>(vec![
+                    (&quot;workflow_id&quot;.to_owned(), workflow.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                    (&quot;request_id&quot;.to_owned(), workflow.request_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                ])
+                .<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-children-67">with_children</a>(vec![<a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;workflow_goal&quot;)
+                    .<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-text-60">with_text</a>(workflow.workflow_goal)]),
+            <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;current_iteration&quot;)
+                .<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-attrs-53">with_attrs</a>(vec![
+                    (&quot;iteration_id&quot;.to_owned(), iteration.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                    (&quot;attempt_id&quot;.to_owned(), attempt.id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                    (&quot;planner_task_id&quot;.to_owned(), planner_task_id.<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-as-str-15">as_str</a>().to_owned()),
+                ])
+                .<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-children-67">with_children</a>(vec![
+                    <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;workflow_goal&quot;).<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-text-60">with_text</a>(iteration.workflow_goal),
+                    <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;iteration_goal&quot;).<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-text-60">with_text</a>(iteration.iteration_goal),
+                ]),
+            <a class="symbol-link rs-type" href="eos-workflow--src-context-render-rs.html#item-struct-ContextSection-25">ContextSection</a>::<a class="symbol-link rs-fn" href="eos-workflow.html#method-new-27">new</a>(&quot;prior_attempts&quot;).<a class="symbol-link rs-fn" href="eos-workflow--src-context-render-rs.html#method-with-children-67">with_children</a>(prior_attempts),
+        ],
+        directive:
+            &quot;<span class="rs-type">Author</span> a worker plan and finish with submit_plan_outcome.&quot;.to_owned(),
+        context_limits: vec![
+            &quot;<span class="rs-type">Do</span> not execute work items yourself; create worker work_items.&quot;.to_owned(),
+            &quot;<span class="rs-type">Use</span> work_item_id values that are unique within this plan.&quot;.to_owned(),
+        ],
+    })
+}
+</code></pre>
+</section>
+  <script src="../assets/inventory-data.js"></script>
+  <script src="../assets/inventory.js"></script>
+</body>
+</html>

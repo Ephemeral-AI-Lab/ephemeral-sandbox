@@ -1,12 +1,7 @@
 //! [`TerminalTool`] — the closed set of terminal tools — and the **total**
 //! descriptor catalog.
 //!
-//! Ports `_terminals/registry.py`. The Rust registry has only 4 of 6
-//! descriptors (advisor + subagent rely on `render_terminal_catalog`'s generic
-//! fallback). Resolution (GC-tools-03): the Rust domain is **all six**
-//! `is_terminal_tool=True` tools; the advisor + subagent descriptors are
-//! authored so the fallback branch disappears. Totality is a compile-time
-//! exhaustive `match` over the [`TerminalTool`] enum.
+//! Totality is a compile-time exhaustive `match` over the [`TerminalTool`] enum.
 
 use crate::ToolName;
 
@@ -15,41 +10,37 @@ use crate::ToolName;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum TerminalTool {
-    /// `submit_root_outcome`.
-    Root,
-    /// `submit_generator_outcome`.
-    Generator,
-    /// `submit_reducer_outcome`.
-    Reducer,
-    /// `submit_planner_outcome`.
-    Planner,
-    /// `submit_advisor_feedback`.
-    AdvisorFeedback,
-    /// `submit_subagent_result`.
-    SubagentResult,
+    /// `submit_root_task_outcome`.
+    RootTask,
+    /// `submit_plan_outcome`.
+    Plan,
+    /// `submit_worker_outcome`.
+    Worker,
+    /// `submit_advisor_outcome`.
+    Advisor,
+    /// `submit_subagent_outcome`.
+    Subagent,
 }
 
 impl TerminalTool {
     /// Every terminal tool.
-    pub const ALL: [TerminalTool; 6] = [
-        TerminalTool::Root,
-        TerminalTool::Generator,
-        TerminalTool::Reducer,
-        TerminalTool::Planner,
-        TerminalTool::AdvisorFeedback,
-        TerminalTool::SubagentResult,
+    pub const ALL: [TerminalTool; 5] = [
+        TerminalTool::RootTask,
+        TerminalTool::Plan,
+        TerminalTool::Worker,
+        TerminalTool::Advisor,
+        TerminalTool::Subagent,
     ];
 
     /// The wire [`ToolName`] this terminal submits with.
     #[must_use]
     pub const fn tool_name(self) -> ToolName {
         match self {
-            TerminalTool::Root => ToolName::SubmitRootOutcome,
-            TerminalTool::Generator => ToolName::SubmitGeneratorOutcome,
-            TerminalTool::Reducer => ToolName::SubmitReducerOutcome,
-            TerminalTool::Planner => ToolName::SubmitPlannerOutcome,
-            TerminalTool::AdvisorFeedback => ToolName::SubmitAdvisorFeedback,
-            TerminalTool::SubagentResult => ToolName::SubmitSubagentResult,
+            TerminalTool::RootTask => ToolName::SubmitRootTaskOutcome,
+            TerminalTool::Plan => ToolName::SubmitPlanOutcome,
+            TerminalTool::Worker => ToolName::SubmitWorkerOutcome,
+            TerminalTool::Advisor => ToolName::SubmitAdvisorOutcome,
+            TerminalTool::Subagent => ToolName::SubmitSubagentOutcome,
         }
     }
 
@@ -58,12 +49,11 @@ impl TerminalTool {
     #[must_use]
     pub const fn from_tool_name(name: ToolName) -> Option<TerminalTool> {
         match name {
-            ToolName::SubmitRootOutcome => Some(TerminalTool::Root),
-            ToolName::SubmitGeneratorOutcome => Some(TerminalTool::Generator),
-            ToolName::SubmitReducerOutcome => Some(TerminalTool::Reducer),
-            ToolName::SubmitPlannerOutcome => Some(TerminalTool::Planner),
-            ToolName::SubmitAdvisorFeedback => Some(TerminalTool::AdvisorFeedback),
-            ToolName::SubmitSubagentResult => Some(TerminalTool::SubagentResult),
+            ToolName::SubmitRootTaskOutcome => Some(TerminalTool::RootTask),
+            ToolName::SubmitPlanOutcome => Some(TerminalTool::Plan),
+            ToolName::SubmitWorkerOutcome => Some(TerminalTool::Worker),
+            ToolName::SubmitAdvisorOutcome => Some(TerminalTool::Advisor),
+            ToolName::SubmitSubagentOutcome => Some(TerminalTool::Subagent),
             _ => None,
         }
     }
@@ -84,38 +74,30 @@ pub struct TerminalDescriptor {
 #[must_use]
 pub const fn descriptor(terminal: TerminalTool) -> TerminalDescriptor {
     match terminal {
-        // -- Verbatim from `_terminals/registry.py` (4 of 6). --
-        TerminalTool::Root => TerminalDescriptor {
-            name: ToolName::SubmitRootOutcome,
+        TerminalTool::RootTask => TerminalDescriptor {
+            name: ToolName::SubmitRootTaskOutcome,
             selection_guidance: "Call with status=\"success\" when the user request is complete and verified; call with status=\"failed\" when it cannot be completed. The outcome is the user-facing request result.",
             advisor_review_focus: "Verify the root outcome is complete, factual, and supported by the work done. For failure, confirm the blocker is concrete.",
         },
-        TerminalTool::Generator => TerminalDescriptor {
-            name: ToolName::SubmitGeneratorOutcome,
-            selection_guidance: "Call with status=\"success\" when the `<assigned_task>` deliverable is complete and verified; call with status=\"failed\" when the task cannot be completed in this attempt. The outcome must carry the concrete result, evidence, and artifact references.",
-            advisor_review_focus: "Verify the chosen status matches the work. For success, confirm the deliverable exists, satisfies the task specification, and is consistent with dependencies. For failure, confirm the blocker is real, specific, and not a premature give-up.",
+        TerminalTool::Plan => TerminalDescriptor {
+            name: ToolName::SubmitPlanOutcome,
+            selection_guidance: "Call with a work item plan for this attempt. Omit `deferred_goal_for_next_iteration` when the plan covers all current-iteration goal items and leaves no remaining items; set it only for concrete current-iteration goal items intentionally deferred to the next iteration.",
+            advisor_review_focus: "Review the plan against `<iteration_goal>`: every required current item must have worker work or be explicitly listed in `deferred_goal_for_next_iteration`. Flag missing items, vague deferred goals, backlog dumps, mis-scoped work items, and dependency mistakes.",
         },
-        TerminalTool::Planner => TerminalDescriptor {
-            name: ToolName::SubmitPlannerOutcome,
-            selection_guidance: "Call with a generator/reducer DAG for this attempt. Omit `deferred_goal_for_next_iteration` when the plan covers all current-iteration goal items and leaves no remaining items; set it only for concrete current-iteration goal items intentionally deferred to the next iteration.",
-            advisor_review_focus: "Review the DAG against `<iteration_goal>`: every required current item must have generator work or be explicitly listed in `deferred_goal_for_next_iteration`. Flag missing items, vague deferred goals, backlog dumps, mis-scoped tasks, and dependency mistakes.",
+        TerminalTool::Worker => TerminalDescriptor {
+            name: ToolName::SubmitWorkerOutcome,
+            selection_guidance: "Call with status=\"success\" when the assigned work item is complete and verified; call with status=\"failed\" when it cannot be completed in this attempt. The outcome must summarize the result or blocker.",
+            advisor_review_focus: "Verify the chosen status matches the work item and direct needs. For success, confirm the deliverable exists and satisfies the work specification. For failure, confirm the blocker prevents completion and is specific enough for retry or replanning.",
         },
-        TerminalTool::Reducer => TerminalDescriptor {
-            name: ToolName::SubmitReducerOutcome,
-            selection_guidance: "Call with status=\"success\" when the assigned reducer work is finished from `<dependencies>` context; call with status=\"failed\" when the reducer work cannot be completed from the current context. The outcome must summarize the result or blocker.",
-            advisor_review_focus: "Verify the chosen status matches `<assigned_task>` and `<dependencies>`. For success, confirm the assigned reducer work is actually complete. For failure, confirm the blocker prevents completion and is specific enough for retry or replanning.",
+        TerminalTool::Advisor => TerminalDescriptor {
+            name: ToolName::SubmitAdvisorOutcome,
+            selection_guidance: "Call with verdict=\"approve\" when the pending submission satisfies its contract and is ready to send; call with verdict=\"reject\" when it does not. The outcome must give concrete, actionable reasons for the verdict.",
+            advisor_review_focus: "Confirm the verdict follows from the pending submission's contract and that the outcome names specific, fixable issues rather than vague concerns.",
         },
-        // -- Authored to close the GC-tools-03 gap (the 2 the Rust registry
-        //    leaves to the generic fallback). --
-        TerminalTool::AdvisorFeedback => TerminalDescriptor {
-            name: ToolName::SubmitAdvisorFeedback,
-            selection_guidance: "Call with verdict=\"approve\" when the pending submission satisfies its contract and is ready to send; call with verdict=\"reject\" when it does not. The summary must give concrete, actionable reasons for the verdict.",
-            advisor_review_focus: "Confirm the verdict follows from the pending submission's contract and that the summary names specific, fixable issues rather than vague concerns.",
-        },
-        TerminalTool::SubagentResult => TerminalDescriptor {
-            name: ToolName::SubmitSubagentResult,
-            selection_guidance: "Call when the subagent goal is answered: provide a summary, the concrete findings, and the file/reference paths that support them. Report what was found, not a plan of further work.",
-            advisor_review_focus: "Confirm the summary is supported by the listed findings and references, and that the findings answer the subagent goal without speculative or unsupported claims.",
+        TerminalTool::Subagent => TerminalDescriptor {
+            name: ToolName::SubmitSubagentOutcome,
+            selection_guidance: "Call when the subagent goal is answered. The outcome must report what was found, not a plan of further work.",
+            advisor_review_focus: "Confirm the outcome answers the subagent goal without speculative or unsupported claims.",
         },
     }
 }
@@ -183,12 +165,12 @@ mod tests {
             );
         }
 
-        // Exactly the six submit_* tools are terminal; all others are not.
+        // Exactly the five submit_* tools are terminal; all others are not.
         let terminal_names: Vec<ToolName> = ToolName::ALL
             .into_iter()
             .filter(|n| TerminalTool::from_tool_name(*n).is_some())
             .collect();
-        assert_eq!(terminal_names.len(), 6);
+        assert_eq!(terminal_names.len(), 5);
         assert!(TerminalTool::from_tool_name(ToolName::ReadFile).is_none());
     }
 }

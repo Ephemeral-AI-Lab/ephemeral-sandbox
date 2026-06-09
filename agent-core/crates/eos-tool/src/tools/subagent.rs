@@ -114,7 +114,7 @@ mod run_subagent {
      - Obvious areas you skipped.\n\
      \n\
      ## Submit\n\
-     Call `submit_subagent_result`."
+     Call `submit_subagent_outcome`."
             .to_owned()
     }
 

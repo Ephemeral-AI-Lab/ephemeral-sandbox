@@ -19,66 +19,49 @@ CREATE TABLE requests (
 CREATE TABLE tasks (
     id                   TEXT PRIMARY KEY,
     request_id           TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
-    role                 TEXT NOT NULL,
+    role                 TEXT NOT NULL CHECK (role IN ('root', 'planner', 'worker')),
     instruction          TEXT NOT NULL,
     status               TEXT NOT NULL,
-    workflow_id          TEXT,
-    iteration_id         TEXT,
-    attempt_id           TEXT,
     agent_name           TEXT,
-    needs                TEXT NOT NULL DEFAULT '[]',
-    outcomes             TEXT NOT NULL DEFAULT '[]',
-    terminal_tool_result TEXT,
+    task_outcome         TEXT,
     created_at           TEXT NOT NULL,
     updated_at           TEXT NOT NULL
 );
 CREATE INDEX ix_tasks_request_id ON tasks(request_id);
-CREATE INDEX ix_tasks_workflow_id ON tasks(workflow_id);
-CREATE INDEX ix_tasks_iteration_id ON tasks(iteration_id);
-CREATE INDEX ix_tasks_attempt_id ON tasks(attempt_id);
 
 CREATE TABLE workflows (
     id             TEXT PRIMARY KEY,
     request_id     TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
     parent_task_id TEXT NOT NULL,
-    launched_by_agent_run_id TEXT NOT NULL,
+    parent_agent_run_id TEXT NOT NULL,
     tool_use_id    TEXT,
-    goal           TEXT NOT NULL,
+    workflow_goal  TEXT NOT NULL,
     status         TEXT NOT NULL,
     iteration_ids  TEXT NOT NULL DEFAULT '[]',
-    outcomes       TEXT,
     created_at     TEXT NOT NULL,
     updated_at     TEXT NOT NULL,
     closed_at      TEXT
 );
 CREATE INDEX ix_workflows_request_id ON workflows(request_id);
 CREATE INDEX ix_workflows_parent_task_id ON workflows(parent_task_id);
-CREATE INDEX ix_workflows_launched_by_agent_run_id ON workflows(launched_by_agent_run_id);
+CREATE INDEX ix_workflows_parent_agent_run_id ON workflows(parent_agent_run_id);
 
 CREATE TABLE task_runs (
     task_id          TEXT PRIMARY KEY,
     agent_run_id     TEXT NOT NULL UNIQUE,
     request_id        TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
-    role              TEXT NOT NULL,
+    role              TEXT NOT NULL CHECK (role IN ('root', 'planner', 'worker')),
     status            TEXT NOT NULL,
-    workflow_id       TEXT,
-    iteration_id      TEXT,
-    attempt_id        TEXT,
     agent_name        TEXT NOT NULL,
     terminal_payload  TEXT,
+    task_outcome      TEXT,
     token_count       INTEGER NOT NULL DEFAULT 0,
     error             TEXT,
     created_at        TEXT NOT NULL,
     updated_at        TEXT NOT NULL,
-    finished_at       TEXT,
-    CHECK (
-        (role = 'root' AND workflow_id IS NULL AND iteration_id IS NULL AND attempt_id IS NULL)
-        OR
-        (role IN ('planner', 'generator', 'reducer') AND workflow_id IS NOT NULL AND iteration_id IS NOT NULL AND attempt_id IS NOT NULL)
-    )
+    finished_at       TEXT
 );
 CREATE INDEX ix_task_runs_request_id ON task_runs(request_id);
-CREATE INDEX ix_task_runs_workflow_coordinate ON task_runs(workflow_id, iteration_id, attempt_id);
 
 CREATE TABLE parented_runs (
     task_id              TEXT PRIMARY KEY,
@@ -91,6 +74,7 @@ CREATE TABLE parented_runs (
     tool_use_id          TEXT,
     agent_name           TEXT NOT NULL,
     terminal_payload     TEXT,
+    parented_outcome     TEXT,
     token_count          INTEGER NOT NULL DEFAULT 0,
     error                TEXT,
     created_at           TEXT NOT NULL,
@@ -105,15 +89,14 @@ CREATE TABLE iterations (
     workflow_id     TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
     sequence_no     INTEGER NOT NULL,
     creation_reason TEXT NOT NULL,
-    goal            TEXT NOT NULL,
+    workflow_goal   TEXT NOT NULL,
+    iteration_goal  TEXT NOT NULL,
     attempt_budget  INTEGER NOT NULL,
     status          TEXT NOT NULL,
     attempt_ids     TEXT NOT NULL DEFAULT '[]',
-    deferred_goal   TEXT,
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL,
     closed_at       TEXT,
-    outcomes        TEXT,
     CONSTRAINT uq_iteration_workflow_sequence UNIQUE (workflow_id, sequence_no)
 );
 CREATE INDEX ix_iterations_workflow_id ON iterations(workflow_id);
@@ -125,11 +108,8 @@ CREATE TABLE attempts (
     attempt_sequence_no INTEGER NOT NULL,
     stage               TEXT NOT NULL,
     status              TEXT NOT NULL,
-    planner_task_id     TEXT,
-    generator_task_ids  TEXT NOT NULL DEFAULT '[]',
-    reducer_task_ids    TEXT NOT NULL DEFAULT '[]',
-    outcomes            TEXT NOT NULL DEFAULT '[]',
-    deferred_goal       TEXT,
+    plan_id             TEXT NOT NULL,
+    execution_tree      TEXT NOT NULL DEFAULT '{}',
     fail_reason         TEXT,
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL,

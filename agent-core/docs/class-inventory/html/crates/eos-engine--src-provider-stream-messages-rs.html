@@ -183,7 +183,7 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-provider-stream-messages-rs.html#item-fn-drop-unmatched-tool-blocks-59">drop_unmatched_tool_blocks</a>(messages: &amp;<span class="rs-kw">mut</span> [<span class="rs-type">Message</span>]) {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> pending_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> pending_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> pending_message_index = <span class="rs-type">None</span>;
 
     <span class="rs-kw">for</span> message_index <span class="rs-kw">in</span> 0..messages.len() {
@@ -270,7 +270,7 @@
             content: vec![<span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolUse</span> {
                 tool_use_id: <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-id-66">id</a>(value),
                 name: &quot;read_file&quot;.to_owned(),
-                input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
             }],
         }
     }
@@ -296,7 +296,7 @@
                 .map(|value| <span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolUse</span> {
                     tool_use_id: <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-id-66">id</a>(value),
                     name: &quot;read_file&quot;.to_owned(),
-                    input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                    input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
                 })
                 .collect(),
         }
@@ -324,7 +324,7 @@
                     tool_use_id: <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-id-66">id</a>(value),
                     content: format!(&quot;result {value}&quot;),
                     is_error: <span class="rs-kw">false</span>,
-                    metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                    metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
                     is_terminal: <span class="rs-kw">false</span>,
                 })
                 .collect(),
@@ -529,7 +529,7 @@
                 <span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolUse</span> {
                     tool_use_id: <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-id-66">id</a>(&quot;toolu_a&quot;),
                     name: &quot;read_file&quot;.to_owned(),
-                    input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                    input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
                 },
             ],
         }];
@@ -613,7 +613,7 @@
 }
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-provider-stream-messages-rs.html#item-fn-drop-unmatched-tool-blocks-59">drop_unmatched_tool_blocks</a>(messages: &amp;<span class="rs-kw">mut</span> [<span class="rs-type">Message</span>]) {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> pending_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> pending_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>();
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> pending_message_index = <span class="rs-type">None</span>;
 
     <span class="rs-kw">for</span> message_index <span class="rs-kw">in</span> 0..messages.len() {
@@ -682,7 +682,7 @@
             content: vec![<span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolUse</span> {
                 tool_use_id: <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-id-66">id</a>(value),
                 name: &quot;read_file&quot;.to_owned(),
-                input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
             }],
         }
     }
@@ -695,7 +695,7 @@
                 .map(|value| <span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolUse</span> {
                     tool_use_id: <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-id-66">id</a>(value),
                     name: &quot;read_file&quot;.to_owned(),
-                    input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                    input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
                 })
                 .collect(),
         }
@@ -710,7 +710,7 @@
                     tool_use_id: <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-id-66">id</a>(value),
                     content: format!(&quot;result {value}&quot;),
                     is_error: <span class="rs-kw">false</span>,
-                    metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                    metadata: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
                     is_terminal: <span class="rs-kw">false</span>,
                 })
                 .collect(),
@@ -811,7 +811,7 @@
                 <span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolUse</span> {
                     tool_use_id: <a class="symbol-link rs-fn" href="eos-engine--src-background-command-session-rs.html#method-id-66">id</a>(&quot;toolu_a&quot;),
                     name: &quot;read_file&quot;.to_owned(),
-                    input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+                    input: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
                 },
             ],
         }];

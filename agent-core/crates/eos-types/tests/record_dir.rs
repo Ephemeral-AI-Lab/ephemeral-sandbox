@@ -66,16 +66,10 @@ fn workflow_record_dirs_use_role_task_segments() {
             "planner-task-task-plan",
         ),
         (
-            WorkflowTaskRole::Generator,
-            "task-gen",
-            "run-gen",
-            "generator-task-task-gen",
-        ),
-        (
-            WorkflowTaskRole::Reducer,
-            "task-reduce",
-            "run-reduce",
-            "reducer-task-task-reduce",
+            WorkflowTaskRole::Worker,
+            "task-work",
+            "run-work",
+            "worker-task-task-work",
         ),
     ];
 

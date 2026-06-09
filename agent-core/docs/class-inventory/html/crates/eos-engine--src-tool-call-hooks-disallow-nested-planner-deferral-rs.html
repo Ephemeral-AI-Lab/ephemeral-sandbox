@@ -62,7 +62,7 @@
     <h3>run_disallow_nested_planner_deferral</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-engine--src-tool-call-hooks-disallow-nested-planner-deferral-rs.html#item-fn-run-disallow-nested-planner-deferral-17">run_disallow_nested_planner_deferral</a> (max_depth : u32 , raw_input : &amp; JsonObject , ctx : &amp; ExecutionMetadata , hooks : &amp; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a> ,) -&gt; <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a> , ToolError &gt;</code>
+  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-engine--src-tool-call-hooks-disallow-nested-planner-deferral-rs.html#item-fn-run-disallow-nested-planner-deferral-17">run_disallow_nested_planner_deferral</a> (max_depth : u32 , raw_input : &amp; JsonObject , ctx : &amp; ExecutionMetadata , hooks : &amp; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a> ,) -&gt; <a class="symbol-link" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a> &lt; <a class="symbol-link" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a> , ToolError &gt;</code>
   <p class="docstring">`DisallowNestedPlannerDeferral.run`: deny when a nonblank deferred goal is set<br>and the submitting workflow's depth exceeds `max_depth`. Passes when no<br>deferred goal is set, or when workflow context is unavailable to infer depth.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
@@ -74,21 +74,21 @@
     max_depth: u32,
     raw_input: &amp;<span class="rs-type">JsonObject</span>,
     ctx: &amp;<span class="rs-type">ExecutionMetadata</span>,
-    hooks: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>,
-) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
-    <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-deferred-goal-319">deferred_goal</a>(raw_input).is_none() {
-        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-28">pass</a>());
+    hooks: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>,
+) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
+    <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-deferred-goal-283">deferred_goal</a>(raw_input).is_none() {
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-27">pass</a>());
     }
-    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(depth) = hooks.<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-workflow-depth-for-call-90">workflow_depth_for_call</a>(ctx).<span class="rs-kw">await</span>? <span class="rs-kw">else</span> {
-        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-28">pass</a>());
+    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(depth) = hooks.<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-workflow-depth-for-call-89">workflow_depth_for_call</a>(ctx).<span class="rs-kw">await</span>? <span class="rs-kw">else</span> {
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-27">pass</a>());
     };
     <span class="rs-kw">if</span> depth &gt; max_depth {
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<span class="rs-type">Deny</span>(
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-33">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<span class="rs-type">NESTED_PLANNER_DEFERRAL_MESSAGE</span>, &quot;nested_planner_deferral&quot;)
-                .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-52">with_reason</a>(&quot;nested_workflow&quot;),
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<span class="rs-type">Deny</span>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-32">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<span class="rs-type">NESTED_PLANNER_DEFERRAL_MESSAGE</span>, &quot;nested_planner_deferral&quot;)
+                .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-51">with_reason</a>(&quot;nested_workflow&quot;),
         ))
     } <span class="rs-kw">else</span> {
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-28">pass</a>())
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-27">pass</a>())
     }
 }
 </code></pre>
@@ -115,7 +115,7 @@
 
 <span class="rs-kw">use</span> eos_tool::{<span class="rs-type">ExecutionMetadata</span>, <span class="rs-type">ToolError</span>};
 
-<span class="rs-kw">use</span> <span class="rs-kw">super</span>::{deferred_goal, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-33">HookDenial</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>};
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::{deferred_goal, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-32">HookDenial</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>, <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>};
 
 <span class="rs-kw">const</span> <span class="rs-type">NESTED_PLANNER_DEFERRAL_MESSAGE</span>: &amp;str = &quot;<span class="rs-type">BLOCKED</span>: nested workflow planners cannot set deferred_goal_for_next_iteration. <span class="rs-type">Submit</span> a plan that covers all current child-workflow goal items and leaves no remaining items.&quot;;
 
@@ -126,21 +126,21 @@
     max_depth: u32,
     raw_input: &amp;<span class="rs-type">JsonObject</span>,
     ctx: &amp;<span class="rs-type">ExecutionMetadata</span>,
-    hooks: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-63">ToolCallHooks</a>,
-) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
-    <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-deferred-goal-319">deferred_goal</a>(raw_input).is_none() {
-        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-28">pass</a>());
+    hooks: &amp;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-ToolCallHooks-62">ToolCallHooks</a>,
+) -&gt; <a class="symbol-link rs-type" href="eos-engine--src-run-output-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>, <span class="rs-type">ToolError</span>&gt; {
+    <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#item-fn-deferred-goal-283">deferred_goal</a>(raw_input).is_none() {
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-27">pass</a>());
     }
-    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(depth) = hooks.<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-workflow-depth-for-call-90">workflow_depth_for_call</a>(ctx).<span class="rs-kw">await</span>? <span class="rs-kw">else</span> {
-        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-28">pass</a>());
+    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(depth) = hooks.<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-workflow-depth-for-call-89">workflow_depth_for_call</a>(ctx).<span class="rs-kw">await</span>? <span class="rs-kw">else</span> {
+        <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-27">pass</a>());
     };
     <span class="rs-kw">if</span> depth &gt; max_depth {
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<span class="rs-type">Deny</span>(
-            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-33">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(<span class="rs-type">NESTED_PLANNER_DEFERRAL_MESSAGE</span>, &quot;nested_planner_deferral&quot;)
-                .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-52">with_reason</a>(&quot;nested_workflow&quot;),
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<span class="rs-type">Deny</span>(
+            <a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-struct-HookDenial-32">HookDenial</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(<span class="rs-type">NESTED_PLANNER_DEFERRAL_MESSAGE</span>, &quot;nested_planner_deferral&quot;)
+                .<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-with-reason-51">with_reason</a>(&quot;nested_workflow&quot;),
         ))
     } <span class="rs-kw">else</span> {
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-18">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-28">pass</a>())
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-engine--src-tool-call-hooks-rs.html#item-enum-HookOutcome-17">HookOutcome</a>::<a class="symbol-link rs-fn" href="eos-engine--src-tool-call-hooks-rs.html#method-pass-27">pass</a>())
     }
 }
 </code></pre>

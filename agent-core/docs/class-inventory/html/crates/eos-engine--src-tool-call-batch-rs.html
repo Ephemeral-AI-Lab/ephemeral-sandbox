@@ -179,7 +179,7 @@
 
     <span class="rs-kw">if</span> lifecycle.is_empty() {
         <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-LifecycleBatchDecision-29">LifecycleBatchDecision</a> {
-            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
             dispatched: calls.iter().map(|c| c.tool_use_id.to_owned()).collect(),
         };
     }
@@ -213,7 +213,7 @@
     <span class="rs-kw">let</span> lifecycle_call = lifecycle[0];
     <span class="rs-kw">if</span> non_lifecycle.is_empty() {
         <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-LifecycleBatchDecision-29">LifecycleBatchDecision</a> {
-            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
             dispatched: vec![lifecycle_call.tool_use_id.to_owned()],
         };
     }
@@ -414,7 +414,7 @@
 
     <span class="rs-kw">if</span> lifecycle.is_empty() {
         <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-LifecycleBatchDecision-29">LifecycleBatchDecision</a> {
-            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
             dispatched: calls.iter().map(|c| c.tool_use_id.to_owned()).collect(),
         };
     }
@@ -448,7 +448,7 @@
     <span class="rs-kw">let</span> lifecycle_call = lifecycle[0];
     <span class="rs-kw">if</span> non_lifecycle.is_empty() {
         <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-engine--src-tool-call-batch-rs.html#item-struct-LifecycleBatchDecision-29">LifecycleBatchDecision</a> {
-            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-107">new</a>(),
+            rejected: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-new-110">new</a>(),
             dispatched: vec![lifecycle_call.tool_use_id.to_owned()],
         };
     }

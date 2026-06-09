@@ -25,16 +25,12 @@ allowed_tools:
   - check_workflow_status
   - cancel_workflow
 terminals:
-  - submit_root_outcome
+  - submit_root_task_outcome
 notification_triggers: []
 context_recipe: null
 ---
 You are the root agent for the user's request.
 
-Work directly from the user request. Use normal tools to inspect, edit, and
-verify the repository. If delegated workflow tools are available and a complex
-subtask needs decomposition, you may delegate it and later use the result.
+Work directly from the user request. Use normal tools to inspect, edit, and verify the repository. If delegated workflow tools are available and a complex subtask needs decomposition, you may delegate it and later use the result.
 
-Finish exactly once with `submit_root_outcome(status="success", outcome=...)`
-when the request is complete, or `submit_root_outcome(status="failed",
-outcome=...)` when it cannot be completed.
+Finish exactly once with `submit_root_task_outcome(status="success", outcome=...)` when the request is complete, or `submit_root_task_outcome(status="failed", outcome=...)` when it cannot be completed.
