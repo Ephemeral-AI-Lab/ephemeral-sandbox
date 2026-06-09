@@ -93,7 +93,7 @@
         .fetch_one(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-agent-run-314">row_to_agent_run</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-agent-run-308">row_to_agent_run</a>(row)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-finish-run-54"><td>method</td><td>finish_run</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-agent-run-rs.html#method-finish-run-54">finish_run</a> (&amp; self , agent_run_id : &amp; AgentRunId , terminal_payload : Option &lt; &amp; JsonObject &gt; , token_count : i64 , error : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Option &lt; AgentRun &gt; , CoreError &gt;</code><details class="function-source">
@@ -207,7 +207,7 @@
         .fetch_one(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-agent-run-314">row_to_agent_run</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-agent-run-308">row_to_agent_run</a>(row)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-agent-run-rs.html#method-finish-run-54">finish_run</a>(

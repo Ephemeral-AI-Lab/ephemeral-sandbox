@@ -152,25 +152,27 @@
                     task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()
                 ))
             })?;
-        request_store.finish_request(request_id, request_status).<span class="rs-kw">await</span>?;
+        request_store
+            .finish_request(request_id, request_status)
+            .<span class="rs-kw">await</span>?;
 
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-555">ok</a>(format!(
-            &quot;<span class="rs-type">Accepted</span> root {}.&quot;,
-            parsed.status.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()
-        ))
-        .<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-577">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-meta-obj-20">meta_obj</a>(&amp;[
-            (&quot;kind&quot;, json!(&quot;root&quot;)),
-            (&quot;is_pass&quot;, json!(parsed.status.is_pass())),
-            (&quot;outcome&quot;, json!(parsed.outcome)),
-            (&quot;request_id&quot;, json!(request_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
-            (&quot;task_id&quot;, json!(task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
-        ])))
+        <span class="rs-type">Ok</span>(
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-555">ok</a>(format!(&quot;<span class="rs-type">Accepted</span> root {}.&quot;, parsed.status.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-577">with_metadata</a>(
+                <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-meta-obj-20">meta_obj</a>(&amp;[
+                    (&quot;kind&quot;, json!(&quot;root&quot;)),
+                    (&quot;is_pass&quot;, json!(parsed.status.is_pass())),
+                    (&quot;outcome&quot;, json!(parsed.outcome)),
+                    (&quot;request_id&quot;, json!(request_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
+                    (&quot;task_id&quot;, json!(task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
+                ]),
+            ),
+        )
     }
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
   <p class="source">crates/eos-tool/src/tools/submission/submit_root_task_outcome.rs:25</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-register-122" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , root_submission : RootSubmissionHandle ,) crates/eos-tool/src/tools/submission/submit_root_task_outcome.rs  ">
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-register-124" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , root_submission : RootSubmissionHandle ,) crates/eos-tool/src/tools/submission/submit_root_task_outcome.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register</h3>
@@ -202,8 +204,8 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/submission/submit_root_task_outcome.rs:122</p>
-</article><article id="item-fn-register-schema-142" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register_schema pub(super) pub(super) fn register_schema (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet) crates/eos-tool/src/tools/submission/submit_root_task_outcome.rs  ">
+  <p class="source">crates/eos-tool/src/tools/submission/submit_root_task_outcome.rs:124</p>
+</article><article id="item-fn-register-schema-144" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register_schema pub(super) pub(super) fn register_schema (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet) crates/eos-tool/src/tools/submission/submit_root_task_outcome.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register_schema</h3>
@@ -230,7 +232,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/submission/submit_root_task_outcome.rs:142</p>
+  <p class="source">crates/eos-tool/src/tools/submission/submit_root_task_outcome.rs:144</p>
 </article></div>
 </section></div>
 </main>
@@ -344,19 +346,21 @@
                     task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()
                 ))
             })?;
-        request_store.finish_request(request_id, request_status).<span class="rs-kw">await</span>?;
+        request_store
+            .finish_request(request_id, request_status)
+            .<span class="rs-kw">await</span>?;
 
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-555">ok</a>(format!(
-            &quot;<span class="rs-type">Accepted</span> root {}.&quot;,
-            parsed.status.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()
-        ))
-        .<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-577">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-meta-obj-20">meta_obj</a>(&amp;[
-            (&quot;kind&quot;, json!(&quot;root&quot;)),
-            (&quot;is_pass&quot;, json!(parsed.status.is_pass())),
-            (&quot;outcome&quot;, json!(parsed.outcome)),
-            (&quot;request_id&quot;, json!(request_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
-            (&quot;task_id&quot;, json!(task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
-        ])))
+        <span class="rs-type">Ok</span>(
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-555">ok</a>(format!(&quot;<span class="rs-type">Accepted</span> root {}.&quot;, parsed.status.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-577">with_metadata</a>(
+                <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-meta-obj-20">meta_obj</a>(&amp;[
+                    (&quot;kind&quot;, json!(&quot;root&quot;)),
+                    (&quot;is_pass&quot;, json!(parsed.status.is_pass())),
+                    (&quot;outcome&quot;, json!(parsed.outcome)),
+                    (&quot;request_id&quot;, json!(request_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
+                    (&quot;task_id&quot;, json!(task_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>())),
+                ]),
+            ),
+        )
     }
 }
 

@@ -109,7 +109,7 @@
         .fetch_one(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(row)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-get-70"><td>method</td><td>get</td><td><code>async fn <a class="symbol-link" href="eos-db--src-model-registry-rs.html#method-get-209">get</a> (&amp; self , id : &amp; AttemptId) -&gt; Result &lt; Option &lt; Attempt &gt; , CoreError &gt;</code><details class="function-source">
@@ -143,7 +143,7 @@
         .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-record-plan-nodes-100"><td>method</td><td>record_plan_nodes</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-attempt-rs.html#method-record-plan-nodes-100">record_plan_nodes</a> (&amp; self , id : &amp; AttemptId , nodes : &amp; [ExecutionNode] ,) -&gt; Result &lt; Attempt , CoreError &gt;</code><details class="function-source">
@@ -167,7 +167,7 @@
         .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-bind-worker-task-122"><td>method</td><td>bind_worker_task</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-attempt-rs.html#method-bind-worker-task-122">bind_worker_task</a> (&amp; self , id : &amp; AttemptId , work_item_id : &amp; WorkItemId , task_id : &amp; TaskId ,) -&gt; Result &lt; Attempt , CoreError &gt;</code><details class="function-source">
@@ -202,7 +202,7 @@
         .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-close-155"><td>method</td><td>close</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-attempt-rs.html#method-close-155">close</a> (&amp; self , id : &amp; AttemptId , closure : AttemptClosure) -&gt; Result &lt; Attempt , CoreError &gt;</code><details class="function-source">
@@ -222,7 +222,7 @@
         .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-list-for-iteration-173"><td>method</td><td>list_for_iteration</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-attempt-rs.html#method-list-for-iteration-173">list_for_iteration</a> (&amp; self , iteration_id : &amp; IterationId ,) -&gt; Result &lt; Vec &lt; Attempt &gt; , CoreError &gt;</code><details class="function-source">
@@ -343,7 +343,7 @@
         .fetch_one(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(row)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-get-209">get</a>(&amp;<span class="rs-self">self</span>, id: &amp;<span class="rs-type">AttemptId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">Attempt</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
@@ -373,7 +373,7 @@
         .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-record-plan-nodes-100">record_plan_nodes</a>(
@@ -395,7 +395,7 @@
         .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-bind-worker-task-122">bind_worker_task</a>(
@@ -428,7 +428,7 @@
         .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-close-155">close</a>(&amp;<span class="rs-self">self</span>, id: &amp;<span class="rs-type">AttemptId</span>, closure: <span class="rs-type">AttemptClosure</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Attempt</span>, <span class="rs-type">CoreError</span>&gt; {
@@ -446,7 +446,7 @@
         .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(row.ok_or_else(|| <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-not-found-28">not_found</a>(id))?)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-attempt-rs.html#method-list-for-iteration-173">list_for_iteration</a>(

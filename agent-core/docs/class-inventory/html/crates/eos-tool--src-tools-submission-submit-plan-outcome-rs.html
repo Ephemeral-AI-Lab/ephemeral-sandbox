@@ -99,20 +99,19 @@
         input: &amp;<span class="rs-type">JsonObject</span>,
         ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-141">ExecutionMetadata</a>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
-        <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-278">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcome-39">SubmitPlanOutcome</a>, input)
-        {
+        <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-278">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcome-39">SubmitPlanOutcome</a>, input) {
             <span class="rs-type">Ok</span>(v) =&gt; v,
             <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
         };
-        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-input-133">validate_plan_input</a>(&amp;parsed) {
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-input-126">validate_plan_input</a>(&amp;parsed) {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-566">error</a>(message));
         }
-        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-structure-162">validate_plan_structure</a>(&amp;parsed) {
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-structure-155">validate_plan_structure</a>(&amp;parsed) {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-566">error</a>(message));
         }
 
         <span class="rs-kw">let</span> attempt_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-attempt-id-240">require_attempt_id</a>()?.clone();
-        <span class="rs-kw">let</span> submission = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-plan-submission-102">plan_submission</a>(parsed, attempt_id) {
+        <span class="rs-kw">let</span> submission = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-plan-submission-95">plan_submission</a>(parsed, attempt_id) {
             <span class="rs-type">Ok</span>(submission) =&gt; submission,
             <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-566">error</a>(err.to_string())),
         };
@@ -128,18 +127,12 @@
                 (&quot;kind&quot;, json!(&quot;planner&quot;)),
                 (&quot;plan_spec&quot;, json!(plan_spec)),
                 (&quot;work_items&quot;, json!(work_items)),
-                (
-                    &quot;deferred_goal_for_next_iteration&quot;,
-                    json!(deferred_goal),
-                ),
+                (&quot;deferred_goal_for_next_iteration&quot;, json!(deferred_goal)),
                 (
                     &quot;attempt_id&quot;,
                     json!(ctx.attempt_id.as_ref().map(eos_types::<span class="rs-type">AttemptId</span>::as_str)),
                 ),
-                (
-                    &quot;has_deferred_goal_for_next_iteration&quot;,
-                    json!(has_deferred),
-                ),
+                (&quot;has_deferred_goal_for_next_iteration&quot;, json!(has_deferred)),
             ]),
         ))
     }
@@ -147,7 +140,7 @@
 </details></td></tr></tbody></table></details></div>
 
   <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:39</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-register-221" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , attempt_submission : AttemptSubmissionHandle ,) crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-register-219" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , attempt_submission : AttemptSubmissionHandle ,) crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register</h3>
@@ -179,8 +172,8 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:221</p>
-</article><article id="item-fn-register-schema-241" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register_schema pub(super) pub(super) fn register_schema (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet) crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
+  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:219</p>
+</article><article id="item-fn-register-schema-239" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register_schema pub(super) pub(super) fn register_schema (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet) crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register_schema</h3>
@@ -207,18 +200,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:241</p>
-</article><article id="item-fn-plan-submission-102" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn plan_submission private fn plan_submission (parsed : SubmitPlanOutcomeInput , attempt_id : eos_types :: AttemptId ,) -&gt; Result &lt; PlanOutcomeSubmission , eos_types :: CoreError &gt; crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
+  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:239</p>
+</article><article id="item-fn-plan-submission-95" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn plan_submission private fn plan_submission (parsed : SubmitPlanOutcomeInput , attempt_id : eos_types :: AttemptId ,) -&gt; Result &lt; PlanOutcomeSubmission , eos_types :: CoreError &gt; crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>plan_submission</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-plan-submission-102">plan_submission</a> (parsed : <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a> , attempt_id : eos_types :: AttemptId ,) -&gt; Result &lt; PlanOutcomeSubmission , eos_types :: CoreError &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-plan-submission-95">plan_submission</a> (parsed : <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a> , attempt_id : eos_types :: AttemptId ,) -&gt; Result &lt; PlanOutcomeSubmission , eos_types :: CoreError &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-plan-submission-102">plan_submission</a>(
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-plan-submission-95">plan_submission</a>(
     parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>,
     attempt_id: eos_types::<span class="rs-type">AttemptId</span>,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PlanOutcomeSubmission</span>, eos_types::<span class="rs-type">CoreError</span>&gt; {
@@ -251,18 +244,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:102</p>
-</article><article id="item-fn-validate-plan-input-133" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn validate_plan_input private fn validate_plan_input (input : &amp; SubmitPlanOutcomeInput) -&gt; Result &lt; () , String &gt; crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
+  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:95</p>
+</article><article id="item-fn-validate-plan-input-126" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn validate_plan_input private fn validate_plan_input (input : &amp; SubmitPlanOutcomeInput) -&gt; Result &lt; () , String &gt; crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>validate_plan_input</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-input-133">validate_plan_input</a> (input : &amp; <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; Result &lt; () , String &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-input-126">validate_plan_input</a> (input : &amp; <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; Result &lt; () , String &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-input-133">validate_plan_input</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-input-126">validate_plan_input</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
     <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-is-blank-16">is_blank</a>(&amp;input.plan_spec) {
         <span class="rs-kw">return</span> <span class="rs-type">Err</span>(&quot;plan_spec must be nonblank&quot;.to_owned());
     }
@@ -293,22 +286,25 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:133</p>
-</article><article id="item-fn-validate-plan-structure-162" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn validate_plan_structure private fn validate_plan_structure (input : &amp; SubmitPlanOutcomeInput) -&gt; Result &lt; () , String &gt; crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
+  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:126</p>
+</article><article id="item-fn-validate-plan-structure-155" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn validate_plan_structure private fn validate_plan_structure (input : &amp; SubmitPlanOutcomeInput) -&gt; Result &lt; () , String &gt; crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>validate_plan_structure</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-structure-162">validate_plan_structure</a> (input : &amp; <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; Result &lt; () , String &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-structure-155">validate_plan_structure</a> (input : &amp; <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; Result &lt; () , String &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-structure-162">validate_plan_structure</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-structure-155">validate_plan_structure</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>();
     <span class="rs-kw">for</span> item <span class="rs-kw">in</span> &amp;input.work_items {
         <span class="rs-kw">if</span> !seen.insert(item.id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()) {
-            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(format!(&quot;<span class="rs-type">Plan</span> contains duplicate work item id &#x27;{}&#x27;.&quot;, item.id));
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(format!(
+                &quot;<span class="rs-type">Plan</span> contains duplicate work item id &#x27;{}&#x27;.&quot;,
+                item.id
+            ));
         }
     }
     <span class="rs-kw">for</span> item <span class="rs-kw">in</span> &amp;input.work_items {
@@ -321,23 +317,23 @@
             }
         }
     }
-    <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-assert-acyclic-182">assert_acyclic</a>(input)
+    <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-assert-acyclic-178">assert_acyclic</a>(input)
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:162</p>
-</article><article id="item-fn-assert-acyclic-182" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn assert_acyclic private fn assert_acyclic (input : &amp; SubmitPlanOutcomeInput) -&gt; Result &lt; () , String &gt; crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
+  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:155</p>
+</article><article id="item-fn-assert-acyclic-178" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn assert_acyclic private fn assert_acyclic (input : &amp; SubmitPlanOutcomeInput) -&gt; Result &lt; () , String &gt; crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>assert_acyclic</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-assert-acyclic-182">assert_acyclic</a> (input : &amp; <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; Result &lt; () , String &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-assert-acyclic-178">assert_acyclic</a> (input : &amp; <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; Result &lt; () , String &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-assert-acyclic-182">assert_acyclic</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-assert-acyclic-178">assert_acyclic</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
     <span class="rs-kw">let</span> graph: <span class="rs-type">BTreeMap</span>&lt;&amp;str, <span class="rs-type">Vec</span>&lt;&amp;str&gt;&gt; = input
         .work_items
         .iter()
@@ -351,21 +347,21 @@
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> visiting = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>();
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> visited = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>();
     <span class="rs-kw">for</span> id <span class="rs-kw">in</span> graph.keys().copied() {
-        <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-visit-201">visit</a>(id, &amp;graph, &amp;<span class="rs-kw">mut</span> visiting, &amp;<span class="rs-kw">mut</span> visited)?;
+        <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-visit-197">visit</a>(id, &amp;graph, &amp;<span class="rs-kw">mut</span> visiting, &amp;<span class="rs-kw">mut</span> visited)?;
     }
     <span class="rs-type">Ok</span>(())
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:182</p>
-</article><article id="item-fn-visit-201" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn visit private fn visit &lt; 'a &gt; (id : &amp; 'a str , graph : &amp; BTreeMap &lt; &amp; 'a str , Vec &lt; &amp; 'a str &gt; &gt; , visiting : &amp; mut BTreeSet &lt; &amp; 'a str &gt; , visited : &amp; mut BTreeSet &lt; &amp; 'a str &gt; ,) -&gt; Result &lt; () , String &gt; crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
+  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:178</p>
+</article><article id="item-fn-visit-197" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn visit private fn visit &lt; 'a &gt; (id : &amp; 'a str , graph : &amp; BTreeMap &lt; &amp; 'a str , Vec &lt; &amp; 'a str &gt; &gt; , visiting : &amp; mut BTreeSet &lt; &amp; 'a str &gt; , visited : &amp; mut BTreeSet &lt; &amp; 'a str &gt; ,) -&gt; Result &lt; () , String &gt; crates/eos-tool/src/tools/submission/submit_plan_outcome.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>visit</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-visit-201">visit</a> &lt; &#x27;a &gt; (id : &amp; &#x27;a str , graph : &amp; BTreeMap &lt; &amp; &#x27;a str , Vec &lt; &amp; &#x27;a str &gt; &gt; , visiting : &amp; mut BTreeSet &lt; &amp; &#x27;a str &gt; , visited : &amp; mut BTreeSet &lt; &amp; &#x27;a str &gt; ,) -&gt; Result &lt; () , String &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-visit-197">visit</a> &lt; &#x27;a &gt; (id : &amp; &#x27;a str , graph : &amp; BTreeMap &lt; &amp; &#x27;a str , Vec &lt; &amp; &#x27;a str &gt; &gt; , visiting : &amp; mut BTreeSet &lt; &amp; &#x27;a str &gt; , visited : &amp; mut BTreeSet &lt; &amp; &#x27;a str &gt; ,) -&gt; Result &lt; () , String &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
@@ -379,10 +375,12 @@
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(());
     }
     <span class="rs-kw">if</span> !visiting.insert(id) {
-        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(format!(&quot;<span class="rs-type">Plan</span> contains a dependency cycle involving &#x27;{id}&#x27;.&quot;));
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(format!(
+            &quot;<span class="rs-type">Plan</span> contains a dependency cycle involving &#x27;{id}&#x27;.&quot;
+        ));
     }
     <span class="rs-kw">for</span> need <span class="rs-kw">in</span> graph.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(id).into_iter().flatten().copied() {
-        <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-visit-201">visit</a>(need, graph, visiting, visited)?;
+        <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-visit-197">visit</a>(need, graph, visiting, visited)?;
     }
     visiting.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-remove-186">remove</a>(id);
     visited.insert(id);
@@ -391,7 +389,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:201</p>
+  <p class="source">crates/eos-tool/src/tools/submission/submit_plan_outcome.rs:197</p>
 </article></div>
 </section></div>
 </main>
@@ -455,20 +453,19 @@
         input: &amp;<span class="rs-type">JsonObject</span>,
         ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-141">ExecutionMetadata</a>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
-        <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-278">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcome-39">SubmitPlanOutcome</a>, input)
-        {
+        <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-278">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcome-39">SubmitPlanOutcome</a>, input) {
             <span class="rs-type">Ok</span>(v) =&gt; v,
             <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
         };
-        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-input-133">validate_plan_input</a>(&amp;parsed) {
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-input-126">validate_plan_input</a>(&amp;parsed) {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-566">error</a>(message));
         }
-        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-structure-162">validate_plan_structure</a>(&amp;parsed) {
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(message) = <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-structure-155">validate_plan_structure</a>(&amp;parsed) {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-566">error</a>(message));
         }
 
         <span class="rs-kw">let</span> attempt_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-attempt-id-240">require_attempt_id</a>()?.clone();
-        <span class="rs-kw">let</span> submission = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-plan-submission-102">plan_submission</a>(parsed, attempt_id) {
+        <span class="rs-kw">let</span> submission = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-plan-submission-95">plan_submission</a>(parsed, attempt_id) {
             <span class="rs-type">Ok</span>(submission) =&gt; submission,
             <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-566">error</a>(err.to_string())),
         };
@@ -484,24 +481,18 @@
                 (&quot;kind&quot;, json!(&quot;planner&quot;)),
                 (&quot;plan_spec&quot;, json!(plan_spec)),
                 (&quot;work_items&quot;, json!(work_items)),
-                (
-                    &quot;deferred_goal_for_next_iteration&quot;,
-                    json!(deferred_goal),
-                ),
+                (&quot;deferred_goal_for_next_iteration&quot;, json!(deferred_goal)),
                 (
                     &quot;attempt_id&quot;,
                     json!(ctx.attempt_id.as_ref().map(eos_types::<span class="rs-type">AttemptId</span>::as_str)),
                 ),
-                (
-                    &quot;has_deferred_goal_for_next_iteration&quot;,
-                    json!(has_deferred),
-                ),
+                (&quot;has_deferred_goal_for_next_iteration&quot;, json!(has_deferred)),
             ]),
         ))
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-plan-submission-102">plan_submission</a>(
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-plan-submission-95">plan_submission</a>(
     parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>,
     attempt_id: eos_types::<span class="rs-type">AttemptId</span>,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PlanOutcomeSubmission</span>, eos_types::<span class="rs-type">CoreError</span>&gt; {
@@ -532,7 +523,7 @@
     })
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-input-133">validate_plan_input</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-input-126">validate_plan_input</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
     <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-is-blank-16">is_blank</a>(&amp;input.plan_spec) {
         <span class="rs-kw">return</span> <span class="rs-type">Err</span>(&quot;plan_spec must be nonblank&quot;.to_owned());
     }
@@ -561,11 +552,14 @@
     <span class="rs-type">Ok</span>(())
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-structure-162">validate_plan_structure</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-validate-plan-structure-155">validate_plan_structure</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seen = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>();
     <span class="rs-kw">for</span> item <span class="rs-kw">in</span> &amp;input.work_items {
         <span class="rs-kw">if</span> !seen.insert(item.id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()) {
-            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(format!(&quot;<span class="rs-type">Plan</span> contains duplicate work item id &#x27;{}&#x27;.&quot;, item.id));
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(format!(
+                &quot;<span class="rs-type">Plan</span> contains duplicate work item id &#x27;{}&#x27;.&quot;,
+                item.id
+            ));
         }
     }
     <span class="rs-kw">for</span> item <span class="rs-kw">in</span> &amp;input.work_items {
@@ -578,10 +572,10 @@
             }
         }
     }
-    <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-assert-acyclic-182">assert_acyclic</a>(input)
+    <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-assert-acyclic-178">assert_acyclic</a>(input)
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-assert-acyclic-182">assert_acyclic</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-assert-acyclic-178">assert_acyclic</a>(input: &amp;<a class="symbol-link rs-type" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-struct-SubmitPlanOutcomeInput-22">SubmitPlanOutcomeInput</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">String</span>&gt; {
     <span class="rs-kw">let</span> graph: <span class="rs-type">BTreeMap</span>&lt;&amp;str, <span class="rs-type">Vec</span>&lt;&amp;str&gt;&gt; = input
         .work_items
         .iter()
@@ -595,7 +589,7 @@
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> visiting = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>();
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> visited = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>();
     <span class="rs-kw">for</span> id <span class="rs-kw">in</span> graph.keys().copied() {
-        <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-visit-201">visit</a>(id, &amp;graph, &amp;<span class="rs-kw">mut</span> visiting, &amp;<span class="rs-kw">mut</span> visited)?;
+        <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-visit-197">visit</a>(id, &amp;graph, &amp;<span class="rs-kw">mut</span> visiting, &amp;<span class="rs-kw">mut</span> visited)?;
     }
     <span class="rs-type">Ok</span>(())
 }
@@ -610,10 +604,12 @@
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(());
     }
     <span class="rs-kw">if</span> !visiting.insert(id) {
-        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(format!(&quot;<span class="rs-type">Plan</span> contains a dependency cycle involving &#x27;{id}&#x27;.&quot;));
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(format!(
+            &quot;<span class="rs-type">Plan</span> contains a dependency cycle involving &#x27;{id}&#x27;.&quot;
+        ));
     }
     <span class="rs-kw">for</span> need <span class="rs-kw">in</span> graph.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(id).into_iter().flatten().copied() {
-        <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-visit-201">visit</a>(need, graph, visiting, visited)?;
+        <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-submit-plan-outcome-rs.html#item-fn-visit-197">visit</a>(need, graph, visiting, visited)?;
     }
     visiting.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-remove-186">remove</a>(id);
     visited.insert(id);

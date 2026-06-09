@@ -1,8 +1,6 @@
-use std::fs;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use eos_tool::{render_tool_instruction, ToolInstructions, ToolName};
 use eos_types::{
     AgentDefinition, AgentName, AgentRegistry, AgentType, Attempt, AttemptStore, IterationStore,
     PlanId, RequestId, TaskId, TaskStore, WorkItemId, WorkItemSpec, WorkflowCoordinates,
@@ -11,8 +9,8 @@ use eos_types::{
 
 use crate::config::WorkflowLifecycleConfig;
 use crate::context::{
-    render_context_xml, render_planner_agent_context, render_task_guidance,
-    render_worker_agent_context, ContextScope,
+    build_skill_message, render_context_xml, render_planner_agent_context, render_task_guidance,
+    render_worker_agent_context, wrap_task_guidance,
 };
 use crate::{Result, WorkflowError};
 
@@ -351,87 +349,5 @@ impl AgentLaunchFactory {
             )));
         }
         Ok(agent_def)
-    }
-}
-
-fn wrap_task_guidance(prose: &str, agent_def: &AgentDefinition) -> String {
-    let body = prose.trim_end();
-    if let Some(block) = terminal_selection_block(agent_def) {
-        format!("<Task Guidance>\n{body}\n\n{block}\n</Task Guidance>")
-    } else {
-        format!("<Task Guidance>\n{body}\n</Task Guidance>")
-    }
-}
-
-fn build_skill_message(agent_def: &AgentDefinition) -> Result<Option<String>> {
-    let Some(path) = &agent_def.skill else {
-        return Ok(None);
-    };
-    let raw =
-        fs::read_to_string(path).map_err(|err| WorkflowError::AgentDefinition(err.to_string()))?;
-    let body = strip_frontmatter(&raw).trim().to_owned();
-    let skill_name = path
-        .parent()
-        .and_then(|p| p.file_name())
-        .and_then(|s| s.to_str())
-        .unwrap_or("skill");
-    let mut parts = vec![
-        format!("Load skill: {skill_name}"),
-        String::new(),
-        "<skill>".to_owned(),
-        body,
-        "</skill>".to_owned(),
-    ];
-    if let Some(block) = terminal_selection_block(agent_def) {
-        parts.push(String::new());
-        parts.push(block);
-    }
-    Ok(Some(parts.join("\n")))
-}
-
-fn strip_frontmatter(raw: &str) -> &str {
-    let Some(rest) = raw.strip_prefix("---") else {
-        return raw;
-    };
-    let Some((_, body)) = rest.split_once("\n---") else {
-        return raw;
-    };
-    body
-}
-
-fn terminal_selection_block(agent_def: &AgentDefinition) -> Option<String> {
-    let mut terminals = Vec::new();
-    for terminal in &agent_def.terminals {
-        let Ok(name) = terminal.parse::<ToolName>() else {
-            continue;
-        };
-        terminals.push(name);
-    }
-    if terminals.is_empty() {
-        None
-    } else {
-        let catalog = render_tool_instruction(&terminals, ToolInstructions::SelectionGuidance);
-        Some(format!(
-            "<terminal_tool_selection>\n{catalog}\n</terminal_tool_selection>"
-        ))
-    }
-}
-
-#[allow(dead_code)]
-fn _scope_for_launch(launch: &AgentLaunch) -> ContextScope {
-    match &launch.kind {
-        AgentLaunchKind::Planner => ContextScope::for_planner(
-            launch.coords.workflow_id.clone(),
-            launch.coords.iteration_id.clone(),
-            launch.coords.attempt_id.clone(),
-            launch.task_id.clone(),
-        ),
-        AgentLaunchKind::Worker { work_item_id } => ContextScope::for_worker(
-            launch.coords.workflow_id.clone(),
-            launch.coords.iteration_id.clone(),
-            launch.coords.attempt_id.clone(),
-            launch.task_id.clone(),
-            work_item_id.clone(),
-        ),
     }
 }

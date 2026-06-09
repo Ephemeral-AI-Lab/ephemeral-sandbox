@@ -85,12 +85,12 @@
     <span class="visibility">pub(crate)</span>
   </div>
   <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-db--src-json-col-rs.html#item-fn-decode-default-20">decode_default</a> &lt; T : DeserializeOwned + Default &gt; (text : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; T , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
-  <p class="docstring">Default-to-empty decode for the `x or []` columns (needs, task/attempt<br>outcomes, iteration/attempt id lists, generator/reducer task ids). A<br>NULL/empty cell decodes to `T::default()`.<br># Errors<br>Returns [`DbError::JsonDecode`] if a non-empty cell is malformed JSON.</p>
+  <p class="docstring">Default-to-empty decode for the `x or []` columns (iteration/attempt id<br>lists and execution-tree arrays). A<br>NULL/empty cell decodes to `T::default()`.<br># Errors<br>Returns [`DbError::JsonDecode`] if a non-empty cell is malformed JSON.</p>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// Default-to-empty decode for the `x or []` columns (needs, task/attempt</span>
-<span class="rs-comment">/// outcomes, iteration/attempt id lists, generator/reducer task ids). A</span>
+  <pre><code><span class="rs-comment">/// Default-to-empty decode for the `x or []` columns (iteration/attempt id</span>
+<span class="rs-comment">/// lists and execution-tree arrays). A</span>
 <span class="rs-comment">/// NULL/empty cell decodes to `T::default()`.</span>
 <span class="rs-comment">///</span>
 <span class="rs-comment">/// # Errors</span>
@@ -257,8 +257,8 @@
     serde_json::to_string(value).map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">JsonEncode</span>)
 }
 
-<span class="rs-comment">/// Default-to-empty decode for the `x or []` columns (needs, task/attempt</span>
-<span class="rs-comment">/// outcomes, iteration/attempt id lists, generator/reducer task ids). A</span>
+<span class="rs-comment">/// Default-to-empty decode for the `x or []` columns (iteration/attempt id</span>
+<span class="rs-comment">/// lists and execution-tree arrays). A</span>
 <span class="rs-comment">/// NULL/empty cell decodes to `T::default()`.</span>
 <span class="rs-comment">///</span>
 <span class="rs-comment">/// # Errors</span>

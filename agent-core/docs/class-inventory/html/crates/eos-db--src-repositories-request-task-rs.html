@@ -200,7 +200,12 @@
         .bind(&amp;task.instruction)
         .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-129">enum_to_db</a>(&amp;task.status))
         .bind(task.agent_name.as_deref())
-        .bind(task.task_outcome.as_ref().map(json_col::encode).transpose()?)
+        .bind(
+            task.task_outcome
+                .as_ref()
+                .map(json_col::encode)
+                .transpose()?,
+        )
         .bind(now)
         .bind(now)
         .execute(&amp;<span class="rs-self">self</span>.pool)
@@ -209,7 +214,7 @@
         <span class="rs-type">Ok</span>(())
     }
 </code></pre>
-</details></td></tr><tr id="method-get-166"><td>method</td><td>get</td><td><code>async fn <a class="symbol-link" href="eos-db--src-model-registry-rs.html#method-get-209">get</a> (&amp; self , id : &amp; TaskId) -&gt; Result &lt; Option &lt; Task &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-get-171"><td>method</td><td>get</td><td><code>async fn <a class="symbol-link" href="eos-db--src-model-registry-rs.html#method-get-209">get</a> (&amp; self , id : &amp; TaskId) -&gt; Result &lt; Option &lt; Task &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-get-209">get</a>(&amp;<span class="rs-self">self</span>, id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">Task</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
         <span class="rs-kw">let</span> row = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-TaskRow-30">TaskRow</a>&gt;(&quot;<span class="rs-type">SELECT</span> * <span class="rs-type">FROM</span> tasks <span class="rs-type">WHERE</span> id = ?&quot;)
@@ -220,9 +225,9 @@
         <span class="rs-type">Ok</span>(row.map(row_to_task).transpose()?)
     }
 </code></pre>
-</details></td></tr><tr id="method-set-task-status-if-current-175"><td>method</td><td>set_task_status_if_current</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-request-task-rs.html#method-set-task-status-if-current-175">set_task_status_if_current</a> (&amp; self , id : &amp; TaskId , expected : TaskStatus , status : TaskStatus , task_outcome : Option &lt; &amp; TaskOutcome &gt; ,) -&gt; Result &lt; Option &lt; Task &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-set-task-status-if-current-180"><td>method</td><td>set_task_status_if_current</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-request-task-rs.html#method-set-task-status-if-current-180">set_task_status_if_current</a> (&amp; self , id : &amp; TaskId , expected : TaskStatus , status : TaskStatus , task_outcome : Option &lt; &amp; TaskOutcome &gt; ,) -&gt; Result &lt; Option &lt; Task &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-set-task-status-if-current-175">set_task_status_if_current</a>(
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-set-task-status-if-current-180">set_task_status_if_current</a>(
         &amp;<span class="rs-self">self</span>,
         id: &amp;<span class="rs-type">TaskId</span>,
         expected: <span class="rs-type">TaskStatus</span>,
@@ -258,12 +263,9 @@
         <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-task-153">row_to_task</a>(updated)?))
     }
 </code></pre>
-</details></td></tr><tr id="method-latch-attempt-tasks-cancelled-211"><td>method</td><td>latch_attempt_tasks_cancelled</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-request-task-rs.html#method-latch-attempt-tasks-cancelled-211">latch_attempt_tasks_cancelled</a> (&amp; self , ids : &amp; [TaskId] ,) -&gt; Result &lt; () , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-latch-attempt-tasks-cancelled-216"><td>method</td><td>latch_attempt_tasks_cancelled</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-request-task-rs.html#method-latch-attempt-tasks-cancelled-216">latch_attempt_tasks_cancelled</a> (&amp; self , ids : &amp; [TaskId]) -&gt; Result &lt; () , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-latch-attempt-tasks-cancelled-211">latch_attempt_tasks_cancelled</a>(
-        &amp;<span class="rs-self">self</span>,
-        ids: &amp;[<span class="rs-type">TaskId</span>],
-    ) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">CoreError</span>&gt; {
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-latch-attempt-tasks-cancelled-216">latch_attempt_tasks_cancelled</a>(&amp;<span class="rs-self">self</span>, ids: &amp;[<span class="rs-type">TaskId</span>]) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">CoreError</span>&gt; {
         <span class="rs-kw">if</span> ids.is_empty() {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(());
         }
@@ -293,9 +295,9 @@
         <span class="rs-type">Ok</span>(())
     }
 </code></pre>
-</details></td></tr><tr id="method-list-for-request-244"><td>method</td><td>list_for_request</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-request-task-rs.html#method-list-for-request-244">list_for_request</a> (&amp; self , request_id : &amp; RequestId) -&gt; Result &lt; Vec &lt; Task &gt; , CoreError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-list-for-request-246"><td>method</td><td>list_for_request</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-request-task-rs.html#method-list-for-request-246">list_for_request</a> (&amp; self , request_id : &amp; RequestId) -&gt; Result &lt; Vec &lt; Task &gt; , CoreError &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-list-for-request-244">list_for_request</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">Task</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-list-for-request-246">list_for_request</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">Task</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
         <span class="rs-kw">let</span> rows = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-TaskRow-30">TaskRow</a>&gt;(
             &quot;<span class="rs-type">SELECT</span> * <span class="rs-type">FROM</span> tasks <span class="rs-type">WHERE</span> request_id = ? <span class="rs-type">ORDER</span> <span class="rs-type">BY</span> created_at <span class="rs-type">ASC</span>, id <span class="rs-type">ASC</span>&quot;,
         )
@@ -476,7 +478,12 @@
         .bind(&amp;task.instruction)
         .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-129">enum_to_db</a>(&amp;task.status))
         .bind(task.agent_name.as_deref())
-        .bind(task.task_outcome.as_ref().map(json_col::encode).transpose()?)
+        .bind(
+            task.task_outcome
+                .as_ref()
+                .map(json_col::encode)
+                .transpose()?,
+        )
         .bind(now)
         .bind(now)
         .execute(&amp;<span class="rs-self">self</span>.pool)
@@ -494,7 +501,7 @@
         <span class="rs-type">Ok</span>(row.map(row_to_task).transpose()?)
     }
 
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-set-task-status-if-current-175">set_task_status_if_current</a>(
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-set-task-status-if-current-180">set_task_status_if_current</a>(
         &amp;<span class="rs-self">self</span>,
         id: &amp;<span class="rs-type">TaskId</span>,
         expected: <span class="rs-type">TaskStatus</span>,
@@ -530,10 +537,7 @@
         <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-task-153">row_to_task</a>(updated)?))
     }
 
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-latch-attempt-tasks-cancelled-211">latch_attempt_tasks_cancelled</a>(
-        &amp;<span class="rs-self">self</span>,
-        ids: &amp;[<span class="rs-type">TaskId</span>],
-    ) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">CoreError</span>&gt; {
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-latch-attempt-tasks-cancelled-216">latch_attempt_tasks_cancelled</a>(&amp;<span class="rs-self">self</span>, ids: &amp;[<span class="rs-type">TaskId</span>]) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">CoreError</span>&gt; {
         <span class="rs-kw">if</span> ids.is_empty() {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(());
         }
@@ -563,7 +567,7 @@
         <span class="rs-type">Ok</span>(())
     }
 
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-list-for-request-244">list_for_request</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">Task</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-list-for-request-246">list_for_request</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">Task</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
         <span class="rs-kw">let</span> rows = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-TaskRow-30">TaskRow</a>&gt;(
             &quot;<span class="rs-type">SELECT</span> * <span class="rs-type">FROM</span> tasks <span class="rs-type">WHERE</span> request_id = ? <span class="rs-type">ORDER</span> <span class="rs-type">BY</span> created_at <span class="rs-type">ASC</span>, id <span class="rs-type">ASC</span>&quot;,
         )

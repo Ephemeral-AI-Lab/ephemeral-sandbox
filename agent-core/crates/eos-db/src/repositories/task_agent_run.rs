@@ -508,14 +508,17 @@ fn row_to_parented_run(row: ParentedRunRow) -> Result<ParentedRun, DbError> {
     })
 }
 
-fn task_run_record_index(row: &TaskRunRow) -> Result<AgentRunRecordIndex, DbError> {
+async fn task_run_record_index(
+    pool: &SqlitePool,
+    row: &TaskRunRow,
+) -> Result<AgentRunRecordIndex, DbError> {
     let task_id = parse_id("task_runs.task_id", &row.task_id)?;
     let request_id = parse_id("task_runs.request_id", &row.request_id)?;
     let agent_run_id = parse_id("task_runs.agent_run_id", &row.agent_run_id)?;
     let role = parse_enum::<TaskRole>("task_runs.role", &row.role)?;
     let kind = match role {
         TaskRole::Root => TaskAgentRunKind::Root,
-        TaskRole::Planner | TaskRole::Worker => TaskAgentRunKind::Root,
+        TaskRole::Planner | TaskRole::Worker => workflow_task_run_kind(pool, &task_id, role).await?,
     };
     Ok(AgentRunRecordIndex {
         request_id,
@@ -524,6 +527,65 @@ fn task_run_record_index(row: &TaskRunRow) -> Result<AgentRunRecordIndex, DbErro
         kind,
         parent_record_dir: None,
     })
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct WorkflowTaskRecordIndexRow {
+    attempt_id: String,
+    iteration_id: String,
+    workflow_id: String,
+}
+
+async fn workflow_task_run_kind(
+    pool: &SqlitePool,
+    task_id: &TaskId,
+    role: TaskRole,
+) -> Result<TaskAgentRunKind, DbError> {
+    let row = workflow_task_record_index_row(pool, task_id, role)
+        .await?
+        .ok_or_else(|| DbError::NotFound {
+            table: "attempts.execution_tree",
+            id: task_id.to_string(),
+        })?;
+    Ok(TaskAgentRunKind::Workflow {
+        workflow: WorkflowCoordinates {
+            workflow_id: parse_id("attempts.workflow_id", &row.workflow_id)?,
+            iteration_id: parse_id("attempts.iteration_id", &row.iteration_id)?,
+            attempt_id: parse_id("attempts.id", &row.attempt_id)?,
+        },
+        role: workflow_role_from_task_role(role)?,
+    })
+}
+
+async fn workflow_task_record_index_row(
+    pool: &SqlitePool,
+    task_id: &TaskId,
+    role: TaskRole,
+) -> Result<Option<WorkflowTaskRecordIndexRow>, DbError> {
+    let row = match role {
+        TaskRole::Planner => sqlx::query_as::<Sqlite, WorkflowTaskRecordIndexRow>(
+            "SELECT id AS attempt_id, iteration_id, workflow_id \
+             FROM attempts \
+             WHERE json_extract(execution_tree, '$.planner_task_id') = ? \
+             ORDER BY created_at DESC, id DESC LIMIT 1",
+        )
+        .bind(task_id.as_str())
+        .fetch_optional(pool)
+        .await
+        .map_err(DbError::from)?,
+        TaskRole::Worker => sqlx::query_as::<Sqlite, WorkflowTaskRecordIndexRow>(
+            "SELECT attempts.id AS attempt_id, attempts.iteration_id, attempts.workflow_id \
+             FROM attempts, json_each(attempts.execution_tree, '$.nodes') AS node \
+             WHERE json_extract(node.value, '$.task_id') = ? \
+             ORDER BY attempts.created_at DESC, attempts.id DESC LIMIT 1",
+        )
+        .bind(task_id.as_str())
+        .fetch_optional(pool)
+        .await
+        .map_err(DbError::from)?,
+        TaskRole::Root => None,
+    };
+    Ok(row)
 }
 
 fn parented_run_record_index(
@@ -560,7 +622,7 @@ async fn resolved_record_index(
                 .await
                 .map_err(DbError::from)?
         {
-            let mut index = task_run_record_index(&row)?;
+            let mut index = task_run_record_index(pool, &row).await?;
             while let Some(parented) = parented_chain.pop() {
                 let parent_record_dir = format_record_dir(&index);
                 index = parented_run_record_index(&parented, parent_record_dir)?;
@@ -595,6 +657,17 @@ fn task_role_from_workflow_role(role: WorkflowTaskRole) -> TaskRole {
     match role {
         WorkflowTaskRole::Planner => TaskRole::Planner,
         WorkflowTaskRole::Worker => TaskRole::Worker,
+    }
+}
+
+fn workflow_role_from_task_role(role: TaskRole) -> Result<WorkflowTaskRole, DbError> {
+    match role {
+        TaskRole::Planner => Ok(WorkflowTaskRole::Planner),
+        TaskRole::Worker => Ok(WorkflowTaskRole::Worker),
+        TaskRole::Root => Err(DbError::InvalidEnum {
+            field: "task_runs.role",
+            value: role.as_str().to_owned(),
+        }),
     }
 }
 

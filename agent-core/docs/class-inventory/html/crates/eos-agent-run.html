@@ -81,7 +81,7 @@
         loop_cancellation: <span class="rs-type">AgentLoopCancellationHandle</span>,
     ) {
         <span class="rs-kw">let</span> (completion_tx, _) = watch::channel(<span class="rs-type">None</span>);
-        <span class="rs-self">self</span>.active_runs.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>().<span class="rs-kw">await</span>.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(
+        <span class="rs-self">self</span>.active_runs.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>().<span class="rs-kw">await</span>.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(
             agent_run_id.clone(),
             <a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunHandle-22">ActiveAgentRunHandle</a> {
                 agent_run_id,
@@ -95,7 +95,7 @@
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-take-52">take</a>(&amp;<span class="rs-self">self</span>, agent_run_id: &amp;<span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunCompletion-88">ActiveAgentRunCompletion</a>&gt; {
         <span class="rs-self">self</span>.active_runs
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>()
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>()
             .<span class="rs-kw">await</span>
             .remove(agent_run_id)
             .map(|handle| <a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunCompletion-88">ActiveAgentRunCompletion</a> {
@@ -112,9 +112,9 @@
         agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
     ) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunOutcome</span>&gt; {
         <span class="rs-self">self</span>.active_runs
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>()
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>()
             .<span class="rs-kw">await</span>
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(agent_run_id)
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(agent_run_id)
             .and_then(|handle| handle.completion_tx.borrow().clone())
     }
 </code></pre>
@@ -125,9 +125,9 @@
         agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
     ) -&gt; <span class="rs-type">Result</span>&lt;watch::<span class="rs-type">Receiver</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunOutcome</span>&gt;&gt;, <span class="rs-type">AgentRunError</span>&gt; {
         <span class="rs-self">self</span>.active_runs
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>()
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>()
             .<span class="rs-kw">await</span>
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(agent_run_id)
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(agent_run_id)
             .map(|handle| handle.completion_tx.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-subscribe-75">subscribe</a>())
             .ok_or_else(|| <span class="rs-type">AgentRunError</span>::<span class="rs-type">NotActiveInProcess</span>(agent_run_id.clone()))
     }
@@ -231,7 +231,7 @@
         loop_cancellation: <span class="rs-type">AgentLoopCancellationHandle</span>,
     ) {
         <span class="rs-kw">let</span> (completion_tx, _) = watch::channel(<span class="rs-type">None</span>);
-        <span class="rs-self">self</span>.active_runs.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>().<span class="rs-kw">await</span>.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(
+        <span class="rs-self">self</span>.active_runs.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>().<span class="rs-kw">await</span>.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(
             agent_run_id.clone(),
             <a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunHandle-22">ActiveAgentRunHandle</a> {
                 agent_run_id,
@@ -243,7 +243,7 @@
 
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-take-52">take</a>(&amp;<span class="rs-self">self</span>, agent_run_id: &amp;<span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunCompletion-88">ActiveAgentRunCompletion</a>&gt; {
         <span class="rs-self">self</span>.active_runs
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>()
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>()
             .<span class="rs-kw">await</span>
             .remove(agent_run_id)
             .map(|handle| <a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunCompletion-88">ActiveAgentRunCompletion</a> {
@@ -258,9 +258,9 @@
         agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
     ) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunOutcome</span>&gt; {
         <span class="rs-self">self</span>.active_runs
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>()
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>()
             .<span class="rs-kw">await</span>
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(agent_run_id)
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(agent_run_id)
             .and_then(|handle| handle.completion_tx.borrow().clone())
     }
 
@@ -269,9 +269,9 @@
         agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
     ) -&gt; <span class="rs-type">Result</span>&lt;watch::<span class="rs-type">Receiver</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunOutcome</span>&gt;&gt;, <span class="rs-type">AgentRunError</span>&gt; {
         <span class="rs-self">self</span>.active_runs
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-600">lock</a>()
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#item-fn-lock-599">lock</a>()
             .<span class="rs-kw">await</span>
-            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(agent_run_id)
+            .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(agent_run_id)
             .map(|handle| handle.completion_tx.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-subscribe-75">subscribe</a>())
             .ok_or_else(|| <span class="rs-type">AgentRunError</span>::<span class="rs-type">NotActiveInProcess</span>(agent_run_id.clone()))
     }

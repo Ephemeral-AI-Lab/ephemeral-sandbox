@@ -78,7 +78,7 @@
     <span class="rs-kw">let</span> requested_agent_name = request.agent_name.as_str().to_owned();
     <span class="rs-kw">let</span> agent_name = <span class="rs-type">DefinitionAgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(request.agent_name.as_str())
         .map_err(|_| <span class="rs-type">AgentRunError</span>::<span class="rs-type">AgentNotRegistered</span>(requested_agent_name.clone()))?;
-    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent_def) = service.agent_registry.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(&amp;agent_name) <span class="rs-kw">else</span> {
+    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent_def) = service.agent_registry.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(&amp;agent_name) <span class="rs-kw">else</span> {
         <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<span class="rs-type">AgentRunError</span>::<span class="rs-type">AgentNotRegistered</span>(requested_agent_name));
     };
     <span class="rs-kw">let</span> expected = <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-180">expected_agent_type</a>(&amp;request.target.task_agent_run_kind());
@@ -93,7 +93,7 @@
     <span class="rs-kw">let</span> agent_def = (**agent_def).clone();
     <span class="rs-kw">let</span> agent_run_id = <span class="rs-type">AgentRunId</span>::new_v4();
     <span class="rs-kw">let</span> created_run = <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-create-task-agent-run-72">create_task_agent_run</a>(service, &amp;request, &amp;agent_run_id, &amp;agent_name).<span class="rs-kw">await</span>?;
-    <span class="rs-kw">let</span> compat_task_id = <span class="rs-kw">match</span> &amp;request.target {
+    <span class="rs-kw">let</span> primary_task_id = <span class="rs-kw">match</span> &amp;request.target {
         <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Root</span> { .. } | <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Workflow</span> { .. } =&gt; {
             <span class="rs-type">Some</span>(&amp;created_run.task_id)
         }
@@ -101,7 +101,7 @@
     };
     <a class="symbol-link rs-fn" href="eos-agent-run--src-persistence-rs.html#item-fn-create-agent-run-11">create_agent_run</a>(
         &amp;*service.agent_run_store,
-        compat_task_id,
+        primary_task_id,
         &amp;agent_run_id,
         agent_def.name.as_str(),
     )
@@ -111,7 +111,7 @@
     <span class="rs-kw">let</span> agent_run_api: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt; = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(service.clone());
     <span class="rs-kw">let</span> started = service
         .loop_launcher
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-start-agent-loop-302">start_agent_loop</a>(start_request, agent_run_api);
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-start-agent-loop-301">start_agent_loop</a>(start_request, agent_run_api);
 
     service
         .active_agent_runs
@@ -148,7 +148,7 @@
         initial_messages: <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-initial-loop-messages-149">initial_loop_messages</a>(agent, request.initial_messages),
         model_key: agent.model.clone().unwrap_or_default(),
         max_completion_tokens: <span class="rs-type">DEFAULT_MAX_TOKENS</span>,
-        tool_call_limit: agent.tool_call_limit.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(),
+        tool_call_limit: agent.tool_call_limit.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(),
     }
 }
 </code></pre>
@@ -202,7 +202,7 @@
         <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Root</span> { request_id } =&gt; {
             service
                 .task_agent_run_store
-                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-root-task-agent-run-421">create_root_task_agent_run</a>(request_id, agent_run_id, agent_name)
+                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-root-task-agent-run-420">create_root_task_agent_run</a>(request_id, agent_run_id, agent_name)
                 .<span class="rs-kw">await</span>
         }
         <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Workflow</span> {
@@ -214,7 +214,7 @@
         } =&gt; {
             service
                 .task_agent_run_store
-                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-workflow-task-agent-run-438">create_workflow_task_agent_run</a>(
+                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-workflow-task-agent-run-437">create_workflow_task_agent_run</a>(
                     request_id,
                     agent_run_id,
                     coords,
@@ -228,7 +228,7 @@
         <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Subagent</span> { parent } =&gt; {
             service
                 .task_agent_run_store
-                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-451">create_parented_task_agent_run</a>(
+                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-450">create_parented_task_agent_run</a>(
                     agent_run_id,
                     parent,
                     <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span>,
@@ -240,7 +240,7 @@
         <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Advisor</span> { parent } =&gt; {
             service
                 .task_agent_run_store
-                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-451">create_parented_task_agent_run</a>(
+                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-450">create_parented_task_agent_run</a>(
                     agent_run_id,
                     parent,
                     <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Advisor</span>,
@@ -348,7 +348,7 @@
     <span class="rs-kw">let</span> requested_agent_name = request.agent_name.as_str().to_owned();
     <span class="rs-kw">let</span> agent_name = <span class="rs-type">DefinitionAgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(request.agent_name.as_str())
         .map_err(|_| <span class="rs-type">AgentRunError</span>::<span class="rs-type">AgentNotRegistered</span>(requested_agent_name.clone()))?;
-    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent_def) = service.agent_registry.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(&amp;agent_name) <span class="rs-kw">else</span> {
+    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent_def) = service.agent_registry.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(&amp;agent_name) <span class="rs-kw">else</span> {
         <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<span class="rs-type">AgentRunError</span>::<span class="rs-type">AgentNotRegistered</span>(requested_agent_name));
     };
     <span class="rs-kw">let</span> expected = <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-expected-agent-type-180">expected_agent_type</a>(&amp;request.target.task_agent_run_kind());
@@ -363,7 +363,7 @@
     <span class="rs-kw">let</span> agent_def = (**agent_def).clone();
     <span class="rs-kw">let</span> agent_run_id = <span class="rs-type">AgentRunId</span>::new_v4();
     <span class="rs-kw">let</span> created_run = <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-create-task-agent-run-72">create_task_agent_run</a>(service, &amp;request, &amp;agent_run_id, &amp;agent_name).<span class="rs-kw">await</span>?;
-    <span class="rs-kw">let</span> compat_task_id = <span class="rs-kw">match</span> &amp;request.target {
+    <span class="rs-kw">let</span> primary_task_id = <span class="rs-kw">match</span> &amp;request.target {
         <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Root</span> { .. } | <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Workflow</span> { .. } =&gt; {
             <span class="rs-type">Some</span>(&amp;created_run.task_id)
         }
@@ -371,7 +371,7 @@
     };
     <a class="symbol-link rs-fn" href="eos-agent-run--src-persistence-rs.html#item-fn-create-agent-run-11">create_agent_run</a>(
         &amp;*service.agent_run_store,
-        compat_task_id,
+        primary_task_id,
         &amp;agent_run_id,
         agent_def.name.as_str(),
     )
@@ -381,7 +381,7 @@
     <span class="rs-kw">let</span> agent_run_api: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt; = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(service.clone());
     <span class="rs-kw">let</span> started = service
         .loop_launcher
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-start-agent-loop-302">start_agent_loop</a>(start_request, agent_run_api);
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-start-agent-loop-301">start_agent_loop</a>(start_request, agent_run_api);
 
     service
         .active_agent_runs
@@ -402,7 +402,7 @@
         <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Root</span> { request_id } =&gt; {
             service
                 .task_agent_run_store
-                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-root-task-agent-run-421">create_root_task_agent_run</a>(request_id, agent_run_id, agent_name)
+                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-root-task-agent-run-420">create_root_task_agent_run</a>(request_id, agent_run_id, agent_name)
                 .<span class="rs-kw">await</span>
         }
         <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Workflow</span> {
@@ -414,7 +414,7 @@
         } =&gt; {
             service
                 .task_agent_run_store
-                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-workflow-task-agent-run-438">create_workflow_task_agent_run</a>(
+                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-workflow-task-agent-run-437">create_workflow_task_agent_run</a>(
                     request_id,
                     agent_run_id,
                     coords,
@@ -428,7 +428,7 @@
         <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Subagent</span> { parent } =&gt; {
             service
                 .task_agent_run_store
-                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-451">create_parented_task_agent_run</a>(
+                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-450">create_parented_task_agent_run</a>(
                     agent_run_id,
                     parent,
                     <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span>,
@@ -440,7 +440,7 @@
         <span class="rs-type">SpawnAgentTarget</span>::<span class="rs-type">Advisor</span> { parent } =&gt; {
             service
                 .task_agent_run_store
-                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-451">create_parented_task_agent_run</a>(
+                .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-parented-task-agent-run-450">create_parented_task_agent_run</a>(
                     agent_run_id,
                     parent,
                     <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Advisor</span>,
@@ -465,7 +465,7 @@
         initial_messages: <a class="symbol-link rs-fn" href="eos-agent-run--src-spawn-rs.html#item-fn-initial-loop-messages-149">initial_loop_messages</a>(agent, request.initial_messages),
         model_key: agent.model.clone().unwrap_or_default(),
         max_completion_tokens: <span class="rs-type">DEFAULT_MAX_TOKENS</span>,
-        tool_call_limit: agent.tool_call_limit.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(),
+        tool_call_limit: agent.tool_call_limit.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(),
     }
 }
 

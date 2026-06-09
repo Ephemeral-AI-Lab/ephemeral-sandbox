@@ -161,9 +161,9 @@
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
         <span class="rs-kw">let</span> index = <span class="rs-type">AgentRunRecordIndex</span> {
             request_id: request_id.clone(),
-                agent_run_id: agent_run_id.clone(),
-                task_id,
-                kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> {
+            agent_run_id: agent_run_id.clone(),
+            task_id,
+            kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> {
                 workflow: coords.clone(),
                 role,
             },
@@ -869,8 +869,8 @@
     <span class="rs-type">AgentRunRecordIndex</span>, <span class="rs-type">AgentRunRecordTarget</span>, <span class="rs-type">CoreError</span>, <span class="rs-type">CreatedTaskAgentRun</span>,
     <span class="rs-type">ParentAgentRunAnchor</span>, <span class="rs-type">ParentedAgentRunKind</span>, <span class="rs-type">ParentedOutcome</span>, <span class="rs-type">ParentedRun</span>, <span class="rs-type">PlanId</span>, <span class="rs-type">RequestId</span>,
     <span class="rs-type">RunningRequestAgentRun</span>, <span class="rs-type">Sealed</span>, <span class="rs-type">TaskAgentRunKind</span>, <span class="rs-type">TaskAgentRunStore</span>, <span class="rs-type">TaskExecutionIndex</span>,
-    <span class="rs-type">TaskId</span>, <span class="rs-type">TaskOutcome</span>, <span class="rs-type">TaskRole</span>, <span class="rs-type">TaskRun</span>, <span class="rs-type">TaskStatus</span>, <span class="rs-type">ToolUseId</span>, <span class="rs-type">WorkflowCoordinates</span>,
-    <span class="rs-type">WorkflowTaskRole</span>, <span class="rs-type">WorkItemId</span>,
+    <span class="rs-type">TaskId</span>, <span class="rs-type">TaskOutcome</span>, <span class="rs-type">TaskRole</span>, <span class="rs-type">TaskRun</span>, <span class="rs-type">TaskStatus</span>, <span class="rs-type">ToolUseId</span>, <span class="rs-type">WorkItemId</span>, <span class="rs-type">WorkflowCoordinates</span>,
+    <span class="rs-type">WorkflowTaskRole</span>,
 };
 
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::error::<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>;
@@ -979,9 +979,9 @@
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
         <span class="rs-kw">let</span> index = <span class="rs-type">AgentRunRecordIndex</span> {
             request_id: request_id.clone(),
-                agent_run_id: agent_run_id.clone(),
-                task_id,
-                kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> {
+            agent_run_id: agent_run_id.clone(),
+            task_id,
+            kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> {
                 workflow: coords.clone(),
                 role,
             },

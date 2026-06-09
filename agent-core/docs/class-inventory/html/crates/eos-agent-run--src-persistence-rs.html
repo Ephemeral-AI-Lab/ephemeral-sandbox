@@ -73,7 +73,7 @@
     agent_name: &amp;str,
 ) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     store
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-run-354">create_run</a>(agent_run_id, task_id, agent_name)
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-run-353">create_run</a>(agent_run_id, task_id, agent_name)
         .<span class="rs-kw">await</span>
         .map_err(|err| <span class="rs-type">AgentRunError</span>::<span class="rs-type">Internal</span>(err.to_string()))?;
     <span class="rs-type">Ok</span>(())
@@ -100,7 +100,7 @@
     error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
 ) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     store
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-374">finish_run</a>(
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-373">finish_run</a>(
             agent_run_id,
             submission_payload,
             token_count.unwrap_or_default(),
@@ -131,7 +131,7 @@
 ) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     <span class="rs-kw">let</span> payload = <a class="symbol-link rs-fn" href="eos-agent-run--src-persistence-rs.html#item-fn-cancelled-payload-143">cancelled_payload</a>(reason);
     store
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-374">finish_run</a>(agent_run_id, <span class="rs-type">Some</span>(&amp;payload), 0, <span class="rs-type">Some</span>(reason))
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-373">finish_run</a>(agent_run_id, <span class="rs-type">Some</span>(&amp;payload), 0, <span class="rs-type">Some</span>(reason))
         .<span class="rs-kw">await</span>
         .map(|_| ())
         .map_err(|err| <span class="rs-type">AgentRunError</span>::<span class="rs-type">Internal</span>(err.to_string()))
@@ -160,7 +160,7 @@
 ) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     <span class="rs-kw">let</span> task_outcome = terminal_payload.and_then(decode_task_outcome);
     <span class="rs-kw">if</span> store
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-task-run-462">finish_task_run</a>(
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-task-run-461">finish_task_run</a>(
             agent_run_id,
             status,
             terminal_payload,
@@ -177,7 +177,7 @@
 
     <span class="rs-kw">let</span> parented_outcome = terminal_payload.and_then(decode_parented_outcome);
     <span class="rs-kw">if</span> store
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-parented-run-492">finish_parented_run</a>(
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-parented-run-491">finish_parented_run</a>(
             agent_run_id,
             status,
             terminal_payload,
@@ -285,7 +285,7 @@
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-persistence-rs.html#item-fn-is-cancelled-payload-150">is_cancelled_payload</a>(payload: &amp;<span class="rs-type">JsonObject</span>) -&gt; bool {
     payload
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(&quot;fail_reason&quot;)
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(&quot;fail_reason&quot;)
         .and_then(serde_json::<span class="rs-type">Value</span>::as_str)
         == <span class="rs-type">Some</span>(&quot;cancelled&quot;)
 }
@@ -352,7 +352,7 @@
     agent_name: &amp;str,
 ) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     store
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-run-354">create_run</a>(agent_run_id, task_id, agent_name)
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-create-run-353">create_run</a>(agent_run_id, task_id, agent_name)
         .<span class="rs-kw">await</span>
         .map_err(|err| <span class="rs-type">AgentRunError</span>::<span class="rs-type">Internal</span>(err.to_string()))?;
     <span class="rs-type">Ok</span>(())
@@ -366,7 +366,7 @@
     error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
 ) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     store
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-374">finish_run</a>(
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-373">finish_run</a>(
             agent_run_id,
             submission_payload,
             token_count.unwrap_or_default(),
@@ -384,7 +384,7 @@
 ) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     <span class="rs-kw">let</span> payload = <a class="symbol-link rs-fn" href="eos-agent-run--src-persistence-rs.html#item-fn-cancelled-payload-143">cancelled_payload</a>(reason);
     store
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-374">finish_run</a>(agent_run_id, <span class="rs-type">Some</span>(&amp;payload), 0, <span class="rs-type">Some</span>(reason))
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-run-373">finish_run</a>(agent_run_id, <span class="rs-type">Some</span>(&amp;payload), 0, <span class="rs-type">Some</span>(reason))
         .<span class="rs-kw">await</span>
         .map(|_| ())
         .map_err(|err| <span class="rs-type">AgentRunError</span>::<span class="rs-type">Internal</span>(err.to_string()))
@@ -400,7 +400,7 @@
 ) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     <span class="rs-kw">let</span> task_outcome = terminal_payload.and_then(decode_task_outcome);
     <span class="rs-kw">if</span> store
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-task-run-462">finish_task_run</a>(
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-task-run-461">finish_task_run</a>(
             agent_run_id,
             status,
             terminal_payload,
@@ -417,7 +417,7 @@
 
     <span class="rs-kw">let</span> parented_outcome = terminal_payload.and_then(decode_parented_outcome);
     <span class="rs-kw">if</span> store
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-parented-run-492">finish_parented_run</a>(
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-finish-parented-run-491">finish_parented_run</a>(
             agent_run_id,
             status,
             terminal_payload,
@@ -486,7 +486,7 @@
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-persistence-rs.html#item-fn-is-cancelled-payload-150">is_cancelled_payload</a>(payload: &amp;<span class="rs-type">JsonObject</span>) -&gt; bool {
     payload
-        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-393">get</a>(&quot;fail_reason&quot;)
+        .<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-get-392">get</a>(&quot;fail_reason&quot;)
         .and_then(serde_json::<span class="rs-type">Value</span>::as_str)
         == <span class="rs-type">Some</span>(&quot;cancelled&quot;)
 }

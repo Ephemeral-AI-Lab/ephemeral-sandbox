@@ -6,8 +6,8 @@ use eos_types::{
     AdvisorVerdict, AgentName, AttemptBudget, AttemptClosure, DeferredGoal, ExecutionNode,
     IterationCreationReason, IterationStatus, JsonObject, ParentAgentRunAnchor,
     ParentedAgentRunKind, ParentedOutcome, PlanId, RequestId, RequestStatus, Task, TaskOutcome,
-    TaskRole, TaskStatus, ToolUseId, UtcDateTime, WorkItemId, WorkItemSpec, WorkflowCoordinates,
-    WorkflowStatus, WorkflowTaskRole,
+    TaskAgentRunKind, TaskRole, TaskStatus, ToolUseId, UtcDateTime, WorkItemId, WorkItemSpec,
+    WorkflowCoordinates, WorkflowStatus, WorkflowTaskRole,
 };
 use serde_json::json;
 use sqlx::Row;
@@ -462,6 +462,124 @@ async fn task_agent_run_typed_outcomes_roundtrip() {
         .expect("finish advisor")
         .expect("parented row");
     assert_eq!(finished_parented.parented_outcome, Some(parented_outcome));
+}
+
+#[tokio::test]
+async fn workflow_task_record_index_resolves_from_execution_tree() {
+    let (_dir, db) = open_temp().await;
+    let request_id = rid("req-record-index");
+    db.requests()
+        .create_request(&request_id, "/work", None, "record index")
+        .await
+        .expect("create request");
+    let root_run = db
+        .task_agent_runs()
+        .create_root_task_agent_run(&request_id, &arid("run-root-record"), &agent_name("root"))
+        .await
+        .expect("root run");
+    let workflow = db
+        .workflows()
+        .insert(
+            &request_id,
+            &root_run.task_id,
+            &root_run.agent_run_id,
+            None,
+            "workflow goal",
+        )
+        .await
+        .expect("workflow");
+    let iteration = db
+        .iterations()
+        .insert(
+            &workflow.id,
+            1,
+            IterationCreationReason::Initial,
+            &workflow.workflow_goal,
+            "iteration goal",
+            AttemptBudget::try_from_u32(2).expect("budget"),
+        )
+        .await
+        .expect("iteration");
+    let attempt = db
+        .attempts()
+        .insert(&iteration.id, &workflow.id, 1)
+        .await
+        .expect("attempt");
+    let coords = WorkflowCoordinates {
+        workflow_id: workflow.id.clone(),
+        iteration_id: iteration.id.clone(),
+        attempt_id: attempt.id.clone(),
+    };
+    let planner_run = db
+        .task_agent_runs()
+        .create_workflow_task_agent_run(
+            &request_id,
+            &arid("run-planner-record"),
+            &coords,
+            WorkflowTaskRole::Planner,
+            &attempt.plan_id,
+            None,
+            &agent_name("planner"),
+        )
+        .await
+        .expect("planner run");
+    db.attempts()
+        .bind_planner_task(&attempt.id, &planner_run.task_id)
+        .await
+        .expect("bind planner");
+    let nodes = vec![ExecutionNode {
+        work_item_id: work_item_id("w1"),
+        needs: Vec::new(),
+        task_id: None,
+    }];
+    db.attempts()
+        .record_plan_nodes(&attempt.id, &nodes)
+        .await
+        .expect("record nodes");
+    let worker_run = db
+        .task_agent_runs()
+        .create_workflow_task_agent_run(
+            &request_id,
+            &arid("run-worker-record"),
+            &coords,
+            WorkflowTaskRole::Worker,
+            &attempt.plan_id,
+            Some(&work_item_id("w1")),
+            &agent_name("executor"),
+        )
+        .await
+        .expect("worker run");
+    db.attempts()
+        .bind_worker_task(&attempt.id, &work_item_id("w1"), &worker_run.task_id)
+        .await
+        .expect("bind worker");
+
+    let planner_index = db
+        .task_agent_runs()
+        .record_index_for_agent_run(&planner_run.agent_run_id)
+        .await
+        .expect("planner index")
+        .expect("planner index exists");
+    assert_eq!(
+        planner_index.kind,
+        TaskAgentRunKind::Workflow {
+            workflow: coords.clone(),
+            role: WorkflowTaskRole::Planner,
+        }
+    );
+    let worker_index = db
+        .task_agent_runs()
+        .record_index_for_agent_run(&worker_run.agent_run_id)
+        .await
+        .expect("worker index")
+        .expect("worker index exists");
+    assert_eq!(
+        worker_index.kind,
+        TaskAgentRunKind::Workflow {
+            workflow: coords,
+            role: WorkflowTaskRole::Worker,
+        }
+    );
 }
 
 #[tokio::test]

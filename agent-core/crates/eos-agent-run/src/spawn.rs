@@ -40,7 +40,7 @@ pub(crate) async fn spawn_agent(
     let agent_def = (**agent_def).clone();
     let agent_run_id = AgentRunId::new_v4();
     let created_run = create_task_agent_run(service, &request, &agent_run_id, &agent_name).await?;
-    let compat_task_id = match &request.target {
+    let primary_task_id = match &request.target {
         SpawnAgentTarget::Root { .. } | SpawnAgentTarget::Workflow { .. } => {
             Some(&created_run.task_id)
         }
@@ -48,7 +48,7 @@ pub(crate) async fn spawn_agent(
     };
     create_agent_run(
         &*service.agent_run_store,
-        compat_task_id,
+        primary_task_id,
         &agent_run_id,
         agent_def.name.as_str(),
     )

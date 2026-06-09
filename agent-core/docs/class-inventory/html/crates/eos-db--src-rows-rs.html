@@ -280,10 +280,7 @@
         status: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-enum-119">parse_enum</a>(&quot;workflows.status&quot;, &amp;r.status)?,
         iteration_ids: json_col::<a class="symbol-link rs-fn" href="eos-db--src-json-col-rs.html#item-fn-decode-default-20">decode_default</a>(<span class="rs-type">Some</span>(&amp;r.iteration_ids))?,
         parent_task_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-102">parse_id</a>(&quot;workflows.parent_task_id&quot;, &amp;r.parent_task_id)?,
-        parent_agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-102">parse_id</a>(
-            &quot;workflows.parent_agent_run_id&quot;,
-            &amp;r.parent_agent_run_id,
-        )?,
+        parent_agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-102">parse_id</a>(&quot;workflows.parent_agent_run_id&quot;, &amp;r.parent_agent_run_id)?,
         tool_use_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-opt-id-112">opt_id</a>(&quot;workflows.tool_use_id&quot;, r.tool_use_id.as_deref())?,
         created_at: <span class="rs-type">UtcDateTime</span>::from_offset(r.created_at),
         updated_at: <span class="rs-type">UtcDateTime</span>::from_offset(r.updated_at),
@@ -294,17 +291,17 @@
 </details>
 
   <p class="source">crates/eos-db/src/rows.rs:165</p>
-</article><article id="item-fn-row-to-iteration-184" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_iteration pub(crate) pub(crate) fn row_to_iteration (r : IterationRow) -&gt; Result &lt; Iteration , DbError &gt; crates/eos-db/src/rows.rs  ">
+</article><article id="item-fn-row-to-iteration-181" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_iteration pub(crate) pub(crate) fn row_to_iteration (r : IterationRow) -&gt; Result &lt; Iteration , DbError &gt; crates/eos-db/src/rows.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>row_to_iteration</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-184">row_to_iteration</a> (r : <a class="symbol-link" href="eos-db--src-rows-rs.html#item-struct-IterationRow-56">IterationRow</a>) -&gt; Result &lt; Iteration , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-181">row_to_iteration</a> (r : <a class="symbol-link" href="eos-db--src-rows-rs.html#item-struct-IterationRow-56">IterationRow</a>) -&gt; Result &lt; Iteration , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-184">row_to_iteration</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-IterationRow-56">IterationRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Iteration</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-181">row_to_iteration</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-IterationRow-56">IterationRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Iteration</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
     <span class="rs-kw">let</span> attempt_budget =
         <span class="rs-type">AttemptBudget</span>::try_from_i64(r.attempt_budget).map_err(|_| <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
             field: &quot;iterations.attempt_budget&quot;,
@@ -328,23 +325,23 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-db/src/rows.rs:184</p>
-</article><article id="item-fn-row-to-attempt-206" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_attempt pub(crate) pub(crate) fn row_to_attempt (r : AttemptRow) -&gt; Result &lt; Attempt , DbError &gt; crates/eos-db/src/rows.rs  ">
+  <p class="source">crates/eos-db/src/rows.rs:181</p>
+</article><article id="item-fn-row-to-attempt-203" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_attempt pub(crate) pub(crate) fn row_to_attempt (r : AttemptRow) -&gt; Result &lt; Attempt , DbError &gt; crates/eos-db/src/rows.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>row_to_attempt</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a> (r : <a class="symbol-link" href="eos-db--src-rows-rs.html#item-struct-AttemptRow-72">AttemptRow</a>) -&gt; Result &lt; Attempt , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a> (r : <a class="symbol-link" href="eos-db--src-rows-rs.html#item-struct-AttemptRow-72">AttemptRow</a>) -&gt; Result &lt; Attempt , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-AttemptRow-72">AttemptRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Attempt</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-AttemptRow-72">AttemptRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Attempt</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
     <span class="rs-kw">let</span> plan_id = <span class="rs-type">PlanId</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(r.plan_id.clone()).map_err(|_| <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
         field: &quot;attempts.plan_id&quot;,
         value: r.plan_id,
     })?;
-    <span class="rs-kw">let</span> execution_tree = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-decode-execution-tree-240">decode_execution_tree</a>(&amp;r.execution_tree, &amp;plan_id)?;
+    <span class="rs-kw">let</span> execution_tree = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-decode-execution-tree-237">decode_execution_tree</a>(&amp;r.execution_tree, &amp;plan_id)?;
     <span class="rs-kw">let</span> stage = parse_enum::&lt;<span class="rs-type">AttemptStage</span>&gt;(&quot;attempts.stage&quot;, &amp;r.stage)?;
     <span class="rs-kw">let</span> status = parse_enum::&lt;<span class="rs-type">AttemptStatus</span>&gt;(&quot;attempts.status&quot;, &amp;r.status)?;
     <span class="rs-kw">let</span> fail_reason: <span class="rs-type">Option</span>&lt;<span class="rs-type">AttemptFailReason</span>&gt; = r
@@ -353,7 +350,7 @@
         .map(|s| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-enum-119">parse_enum</a>(&quot;attempts.fail_reason&quot;, s))
         .transpose()?;
     <span class="rs-kw">let</span> closed_at = r.closed_at.map(<span class="rs-type">UtcDateTime</span>::from_offset);
-    <span class="rs-kw">let</span> state = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-attempt-state-from-columns-258">attempt_state_from_columns</a>(
+    <span class="rs-kw">let</span> state = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-attempt-state-from-columns-252">attempt_state_from_columns</a>(
         stage,
         status,
         fail_reason,
@@ -375,18 +372,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-db/src/rows.rs:206</p>
-</article><article id="item-fn-row-to-agent-run-314" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_agent_run pub(crate) pub(crate) fn row_to_agent_run (r : AgentRunRow) -&gt; Result &lt; AgentRun , DbError &gt; crates/eos-db/src/rows.rs  ">
+  <p class="source">crates/eos-db/src/rows.rs:203</p>
+</article><article id="item-fn-row-to-agent-run-308" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_agent_run pub(crate) pub(crate) fn row_to_agent_run (r : AgentRunRow) -&gt; Result &lt; AgentRun , DbError &gt; crates/eos-db/src/rows.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>row_to_agent_run</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-db--src-rows-rs.html#item-fn-row-to-agent-run-314">row_to_agent_run</a> (r : <a class="symbol-link" href="eos-db--src-rows-rs.html#item-struct-AgentRunRow-88">AgentRunRow</a>) -&gt; Result &lt; AgentRun , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-db--src-rows-rs.html#item-fn-row-to-agent-run-308">row_to_agent_run</a> (r : <a class="symbol-link" href="eos-db--src-rows-rs.html#item-struct-AgentRunRow-88">AgentRunRow</a>) -&gt; Result &lt; AgentRun , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-agent-run-314">row_to_agent_run</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-AgentRunRow-88">AgentRunRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRun</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-agent-run-308">row_to_agent_run</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-AgentRunRow-88">AgentRunRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRun</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
     <span class="rs-type">Ok</span>(<span class="rs-type">AgentRun</span> {
         id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-102">parse_id</a>(&quot;agent_runs.id&quot;, &amp;r.id)?,
         task_id: r
@@ -405,21 +402,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-db/src/rows.rs:314</p>
-</article><article id="item-fn-decode-execution-tree-240" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn decode_execution_tree private fn decode_execution_tree (raw : &amp; str , plan_id : &amp; PlanId ,) -&gt; Result &lt; AttemptExecutionTree , DbError &gt; crates/eos-db/src/rows.rs  ">
+  <p class="source">crates/eos-db/src/rows.rs:308</p>
+</article><article id="item-fn-decode-execution-tree-237" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn decode_execution_tree private fn decode_execution_tree (raw : &amp; str , plan_id : &amp; PlanId) -&gt; Result &lt; AttemptExecutionTree , DbError &gt; crates/eos-db/src/rows.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>decode_execution_tree</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-db--src-rows-rs.html#item-fn-decode-execution-tree-240">decode_execution_tree</a> (raw : &amp; str , plan_id : &amp; PlanId ,) -&gt; Result &lt; AttemptExecutionTree , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-rows-rs.html#item-fn-decode-execution-tree-237">decode_execution_tree</a> (raw : &amp; str , plan_id : &amp; PlanId) -&gt; Result &lt; AttemptExecutionTree , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-decode-execution-tree-240">decode_execution_tree</a>(
-    raw: &amp;str,
-    plan_id: &amp;<span class="rs-type">PlanId</span>,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AttemptExecutionTree</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-decode-execution-tree-237">decode_execution_tree</a>(raw: &amp;str, plan_id: &amp;<span class="rs-type">PlanId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AttemptExecutionTree</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
     <span class="rs-kw">let</span> tree = <span class="rs-kw">if</span> raw.trim() == &quot;{}&quot; {
         <span class="rs-type">AttemptExecutionTree</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(plan_id.clone())
     } <span class="rs-kw">else</span> {
@@ -436,18 +430,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-db/src/rows.rs:240</p>
-</article><article id="item-fn-attempt-state-from-columns-258" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn attempt_state_from_columns private fn attempt_state_from_columns (stage : AttemptStage , status : AttemptStatus , fail_reason : Option &lt; AttemptFailReason &gt; , closed_at : Option &lt; UtcDateTime &gt; , planner_started : bool ,) -&gt; Result &lt; AttemptState , DbError &gt; crates/eos-db/src/rows.rs  ">
+  <p class="source">crates/eos-db/src/rows.rs:237</p>
+</article><article id="item-fn-attempt-state-from-columns-252" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn attempt_state_from_columns private fn attempt_state_from_columns (stage : AttemptStage , status : AttemptStatus , fail_reason : Option &lt; AttemptFailReason &gt; , closed_at : Option &lt; UtcDateTime &gt; , planner_started : bool ,) -&gt; Result &lt; AttemptState , DbError &gt; crates/eos-db/src/rows.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>attempt_state_from_columns</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-db--src-rows-rs.html#item-fn-attempt-state-from-columns-258">attempt_state_from_columns</a> (stage : AttemptStage , status : AttemptStatus , fail_reason : Option &lt; AttemptFailReason &gt; , closed_at : Option &lt; UtcDateTime &gt; , planner_started : bool ,) -&gt; Result &lt; AttemptState , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-rows-rs.html#item-fn-attempt-state-from-columns-252">attempt_state_from_columns</a> (stage : AttemptStage , status : AttemptStatus , fail_reason : Option &lt; AttemptFailReason &gt; , closed_at : Option &lt; UtcDateTime &gt; , planner_started : bool ,) -&gt; Result &lt; AttemptState , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-attempt-state-from-columns-258">attempt_state_from_columns</a>(
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-attempt-state-from-columns-252">attempt_state_from_columns</a>(
     stage: <span class="rs-type">AttemptStage</span>,
     status: <span class="rs-type">AttemptStatus</span>,
     fail_reason: <span class="rs-type">Option</span>&lt;<span class="rs-type">AttemptFailReason</span>&gt;,
@@ -505,7 +499,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-db/src/rows.rs:258</p>
+  <p class="source">crates/eos-db/src/rows.rs:252</p>
 </article></div>
 </section></div>
 </main>
@@ -686,10 +680,7 @@
         status: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-enum-119">parse_enum</a>(&quot;workflows.status&quot;, &amp;r.status)?,
         iteration_ids: json_col::<a class="symbol-link rs-fn" href="eos-db--src-json-col-rs.html#item-fn-decode-default-20">decode_default</a>(<span class="rs-type">Some</span>(&amp;r.iteration_ids))?,
         parent_task_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-102">parse_id</a>(&quot;workflows.parent_task_id&quot;, &amp;r.parent_task_id)?,
-        parent_agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-102">parse_id</a>(
-            &quot;workflows.parent_agent_run_id&quot;,
-            &amp;r.parent_agent_run_id,
-        )?,
+        parent_agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-102">parse_id</a>(&quot;workflows.parent_agent_run_id&quot;, &amp;r.parent_agent_run_id)?,
         tool_use_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-opt-id-112">opt_id</a>(&quot;workflows.tool_use_id&quot;, r.tool_use_id.as_deref())?,
         created_at: <span class="rs-type">UtcDateTime</span>::from_offset(r.created_at),
         updated_at: <span class="rs-type">UtcDateTime</span>::from_offset(r.updated_at),
@@ -697,7 +688,7 @@
     })
 }
 
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-184">row_to_iteration</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-IterationRow-56">IterationRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Iteration</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-181">row_to_iteration</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-IterationRow-56">IterationRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Iteration</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
     <span class="rs-kw">let</span> attempt_budget =
         <span class="rs-type">AttemptBudget</span>::try_from_i64(r.attempt_budget).map_err(|_| <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
             field: &quot;iterations.attempt_budget&quot;,
@@ -719,12 +710,12 @@
     })
 }
 
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-206">row_to_attempt</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-AttemptRow-72">AttemptRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Attempt</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-attempt-203">row_to_attempt</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-AttemptRow-72">AttemptRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Attempt</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
     <span class="rs-kw">let</span> plan_id = <span class="rs-type">PlanId</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(r.plan_id.clone()).map_err(|_| <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
         field: &quot;attempts.plan_id&quot;,
         value: r.plan_id,
     })?;
-    <span class="rs-kw">let</span> execution_tree = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-decode-execution-tree-240">decode_execution_tree</a>(&amp;r.execution_tree, &amp;plan_id)?;
+    <span class="rs-kw">let</span> execution_tree = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-decode-execution-tree-237">decode_execution_tree</a>(&amp;r.execution_tree, &amp;plan_id)?;
     <span class="rs-kw">let</span> stage = parse_enum::&lt;<span class="rs-type">AttemptStage</span>&gt;(&quot;attempts.stage&quot;, &amp;r.stage)?;
     <span class="rs-kw">let</span> status = parse_enum::&lt;<span class="rs-type">AttemptStatus</span>&gt;(&quot;attempts.status&quot;, &amp;r.status)?;
     <span class="rs-kw">let</span> fail_reason: <span class="rs-type">Option</span>&lt;<span class="rs-type">AttemptFailReason</span>&gt; = r
@@ -733,7 +724,7 @@
         .map(|s| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-enum-119">parse_enum</a>(&quot;attempts.fail_reason&quot;, s))
         .transpose()?;
     <span class="rs-kw">let</span> closed_at = r.closed_at.map(<span class="rs-type">UtcDateTime</span>::from_offset);
-    <span class="rs-kw">let</span> state = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-attempt-state-from-columns-258">attempt_state_from_columns</a>(
+    <span class="rs-kw">let</span> state = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-attempt-state-from-columns-252">attempt_state_from_columns</a>(
         stage,
         status,
         fail_reason,
@@ -753,10 +744,7 @@
     })
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-decode-execution-tree-240">decode_execution_tree</a>(
-    raw: &amp;str,
-    plan_id: &amp;<span class="rs-type">PlanId</span>,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AttemptExecutionTree</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-decode-execution-tree-237">decode_execution_tree</a>(raw: &amp;str, plan_id: &amp;<span class="rs-type">PlanId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AttemptExecutionTree</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
     <span class="rs-kw">let</span> tree = <span class="rs-kw">if</span> raw.trim() == &quot;{}&quot; {
         <span class="rs-type">AttemptExecutionTree</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(plan_id.clone())
     } <span class="rs-kw">else</span> {
@@ -771,7 +759,7 @@
     <span class="rs-type">Ok</span>(tree)
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-attempt-state-from-columns-258">attempt_state_from_columns</a>(
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-attempt-state-from-columns-252">attempt_state_from_columns</a>(
     stage: <span class="rs-type">AttemptStage</span>,
     status: <span class="rs-type">AttemptStatus</span>,
     fail_reason: <span class="rs-type">Option</span>&lt;<span class="rs-type">AttemptFailReason</span>&gt;,
@@ -827,7 +815,7 @@
     }
 }
 
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-agent-run-314">row_to_agent_run</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-AgentRunRow-88">AgentRunRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRun</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-agent-run-308">row_to_agent_run</a>(r: <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-AgentRunRow-88">AgentRunRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRun</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
     <span class="rs-type">Ok</span>(<span class="rs-type">AgentRun</span> {
         id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-102">parse_id</a>(&quot;agent_runs.id&quot;, &amp;r.id)?,
         task_id: r

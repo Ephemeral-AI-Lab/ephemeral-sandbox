@@ -101,7 +101,7 @@
         .fetch_one(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-184">row_to_iteration</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-181">row_to_iteration</a>(row)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-get-62"><td>method</td><td>get</td><td><code>async fn <a class="symbol-link" href="eos-db--src-model-registry-rs.html#method-get-209">get</a> (&amp; self , id : &amp; IterationId) -&gt; Result &lt; Option &lt; Iteration &gt; , CoreError &gt;</code><details class="function-source">
@@ -138,7 +138,7 @@
             table: &quot;iterations&quot;,
             id: id.to_string(),
         })?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-184">row_to_iteration</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-181">row_to_iteration</a>(row)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-set-status-95"><td>method</td><td>set_status</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-iteration-rs.html#method-set-status-95">set_status</a> (&amp; self , id : &amp; IterationId , status : IterationStatus , closed_at : Option &lt; UtcDateTime &gt; ,) -&gt; Result &lt; Iteration , CoreError &gt;</code><details class="function-source">
@@ -166,7 +166,7 @@
             table: &quot;iterations&quot;,
             id: id.to_string(),
         })?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-184">row_to_iteration</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-181">row_to_iteration</a>(row)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-list-for-workflow-121"><td>method</td><td>list_for_workflow</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-iteration-rs.html#method-list-for-workflow-121">list_for_workflow</a> (&amp; self , workflow_id : &amp; WorkflowId ,) -&gt; Result &lt; Vec &lt; Iteration &gt; , CoreError &gt;</code><details class="function-source">
@@ -280,7 +280,7 @@
         .fetch_one(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-184">row_to_iteration</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-181">row_to_iteration</a>(row)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-get-209">get</a>(&amp;<span class="rs-self">self</span>, id: &amp;<span class="rs-type">IterationId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">Iteration</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
@@ -313,7 +313,7 @@
             table: &quot;iterations&quot;,
             id: id.to_string(),
         })?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-184">row_to_iteration</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-181">row_to_iteration</a>(row)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-iteration-rs.html#method-set-status-95">set_status</a>(
@@ -339,7 +339,7 @@
             table: &quot;iterations&quot;,
             id: id.to_string(),
         })?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-184">row_to_iteration</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-iteration-181">row_to_iteration</a>(row)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-iteration-rs.html#method-list-for-workflow-121">list_for_workflow</a>(

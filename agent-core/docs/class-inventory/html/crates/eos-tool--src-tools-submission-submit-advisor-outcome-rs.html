@@ -90,17 +90,19 @@
         <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-is-blank-16">is_blank</a>(&amp;parsed.outcome) {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-566">error</a>(&quot;outcome must be nonblank&quot;));
         }
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-555">ok</a>(parsed.outcome.clone()).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-577">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-meta-obj-20">meta_obj</a>(&amp;[
-            (&quot;kind&quot;, json!(&quot;advisor&quot;)),
-            (&quot;verdict&quot;, json!(parsed.verdict)),
-            (&quot;outcome&quot;, json!(parsed.outcome)),
-        ])))
+        <span class="rs-type">Ok</span>(
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-555">ok</a>(parsed.outcome.clone()).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-577">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-meta-obj-20">meta_obj</a>(&amp;[
+                (&quot;kind&quot;, json!(&quot;advisor&quot;)),
+                (&quot;verdict&quot;, json!(parsed.verdict)),
+                (&quot;outcome&quot;, json!(parsed.outcome)),
+            ])),
+        )
     }
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
   <p class="source">crates/eos-tool/src/tools/submission/submit_advisor_outcome.rs:25</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-register-50" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet) crates/eos-tool/src/tools/submission/submit_advisor_outcome.rs  ">
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-register-52" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet) crates/eos-tool/src/tools/submission/submit_advisor_outcome.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register</h3>
@@ -128,8 +130,8 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/submission/submit_advisor_outcome.rs:50</p>
-</article><article id="item-fn-register-schema-66" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register_schema pub(super) pub(super) fn register_schema (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet) crates/eos-tool/src/tools/submission/submit_advisor_outcome.rs  ">
+  <p class="source">crates/eos-tool/src/tools/submission/submit_advisor_outcome.rs:52</p>
+</article><article id="item-fn-register-schema-68" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register_schema pub(super) pub(super) fn register_schema (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet) crates/eos-tool/src/tools/submission/submit_advisor_outcome.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register_schema</h3>
@@ -156,7 +158,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/submission/submit_advisor_outcome.rs:66</p>
+  <p class="source">crates/eos-tool/src/tools/submission/submit_advisor_outcome.rs:68</p>
 </article></div>
 </section></div>
 </main>
@@ -206,11 +208,13 @@
         <span class="rs-kw">if</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-is-blank-16">is_blank</a>(&amp;parsed.outcome) {
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-566">error</a>(&quot;outcome must be nonblank&quot;));
         }
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-555">ok</a>(parsed.outcome.clone()).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-577">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-meta-obj-20">meta_obj</a>(&amp;[
-            (&quot;kind&quot;, json!(&quot;advisor&quot;)),
-            (&quot;verdict&quot;, json!(parsed.verdict)),
-            (&quot;outcome&quot;, json!(parsed.outcome)),
-        ])))
+        <span class="rs-type">Ok</span>(
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-540">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-ok-555">ok</a>(parsed.outcome.clone()).<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-577">with_metadata</a>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-submission-support-rs.html#item-fn-meta-obj-20">meta_obj</a>(&amp;[
+                (&quot;kind&quot;, json!(&quot;advisor&quot;)),
+                (&quot;verdict&quot;, json!(parsed.verdict)),
+                (&quot;outcome&quot;, json!(parsed.outcome)),
+            ])),
+        )
     }
 }
 
