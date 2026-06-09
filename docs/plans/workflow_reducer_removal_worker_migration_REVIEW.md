@@ -350,4 +350,158 @@ SPEC's "verify no deployed DB" contingency covers the repo; note the residual op
 5. **Home the §1 orphans** (`starter.rs`, render-types, `DeferredGoal`/`AttemptBudget`,
    the three `outcomes.rs` free fns).
 6. **Verify `Worker{needs}` is actually consumed** before carrying it into the new struct.
+
+---
+
+## Appendix — concrete resulting structure (files + types)
+
+### Full file/folder tree (SPEC §3 + this review's refinements)
+
+```text
+agent-core/crates/eos-types/src/
+  contracts/
+    record.rs          TaskAgentRunKind, WorkflowTaskRole{Planner,Worker},
+                       SpawnAgentTarget (Workflow arm reshaped)
+    workflow.rs        WorkflowApi, WorkflowAttemptSubmissionApi (2 methods)
+  state/
+    request_task/task.rs   TaskRole{Root,Planner,Worker}, TaskStatus(is_terminal), Task, TaskRun, ParentedRun
+    tools/submissions.rs   PlanOutcomeSubmission, WorkerOutcomeSubmission, SubmissionStatus
+    workflow/
+      workflow.rs      Workflow, WorkflowStatus, WorkflowOutcome      (was entity.rs)
+      iteration.rs     Iteration, IterationStatus, IterationOutcome
+      attempt.rs       AttemptState, AttemptClosure, AttemptStatus, Attempt, AttemptBudget
+      work_item.rs     WorkItemId, WorkItemSpec, DeferredGoal, planner_task_id(), worker_task_id()
+      outcome.rs       TaskOutcome{Root,Planner,Worker}, ParentedOutcome{Advisor,Subagent}, AdvisorVerdict
+  # DELETED: state/workflow/plan.rs (→ work_item.rs + attempt.rs),
+  #          state/workflow/outcomes.rs (binary ExecutionRole/ExecutionTaskOutcome/TaskOutcomeStatus)
+
+agent-core/crates/eos-tool/src/
+  model.rs             ToolName: 5 terminals (was 6), ALL[21]
+  tools/
+    terminal.rs        TerminalTool{RootTask,Plan,Worker,Advisor,Subagent}
+    submission/
+      mod.rs · support.rs (SubmissionStatus, OutcomeInput, helpers)
+      submit_root_task_outcome.rs · submit_plan_outcome.rs
+      submit_worker_outcome.rs   (submit_generator + submit_reducer twins folded)
+      submit_advisor_outcome.rs · submit_subagent_outcome.rs
+
+agent-core/crates/eos-workflow/src/
+  attempt/
+    attempt_run.rs        PURE lifecycle: start/close/asserts
+    planner_run.rs        planner launch+settle + record_plan + worker materialization  ◄ async
+    work_items.rs         PURE sync: validation residual + DAG readiness + worker_task_id map
+    work_items_run.rs     ASYNC: worker waves, settlement, missing-terminal synthesis, collection
+    active_attempt_runs.rs  ActiveAttemptRuns + OpenIterationCoordinatorRegistry
+    launch.rs             AgentLaunch (struct+kind), AgentLaunchFactory, AgentRunner, AttemptResources
+  context/
+    planner_context.rs · worker_context.rs · render.rs (homes AgentContext/ContextSection/ContextRole)
+    composer.rs · scope.rs (ContextScope{Planner,Worker})
+  workflow_run.rs         WorkflowApi + create/close_workflow  (absorbs starter.rs + lifecycle.rs)
+  iteration_run.rs · attempt_submission.rs · config.rs · error.rs · util.rs · lib.rs
+  # DELETED: ids.rs, state.rs, attempt/{orchestrator,run_stage,plan_dag}.rs,
+  #          context/engine.rs, starter.rs, lifecycle.rs, submission.rs
+
+agent-core/crates/eos-db/        # no new files
+  migrations/0001_initial.sql    attempts: keep planner_task_id; drop generator_task_ids,
+                                 reducer_task_ids, outcomes, deferred_goal. tasks: drop outcomes.
+                                 task_runs CHECK: role IN ('planner','worker')
+  src/rows.rs                    -250..300 LOC (normalizer + MaterializedPlan build + parity tests gone)
+agent-core/crates/eos-agent-run/src/spawn.rs   reshape SpawnAgentTarget::Workflow arm
+
+.eos-agents/
+  profile/main/{root,planner,executor}.md   # reducer.md deleted
+  profile/helper/advisor.md · profile/subagent/subagent.md · skills/ (reducer/ deleted)
+  tools/{submit_root_task_outcome, submit_plan_outcome, submit_worker_outcome,
+         submit_advisor_outcome, submit_subagent_outcome}.md
+```
+
+### Key target type signatures
+
+```rust
+// ── eos-types task.rs ──
+pub enum TaskRole { Root, Planner, Worker }                 // was {Root,Planner,Generator,Reducer}
+pub const TASK_AGENT_ROLES: [TaskRole; 3] = [Root, Planner, Worker];
+impl TaskStatus { pub const fn is_terminal(self) -> bool {/* Done|Failed|Blocked|Cancelled */} }
+pub struct Task {                                           // `outcomes: Vec<…>` field REMOVED
+    pub id: TaskId, pub request_id: RequestId, pub role: TaskRole,
+    pub instruction: String, pub status: TaskStatus,
+    pub workflow_id: Option<WorkflowId>, pub iteration_id: Option<IterationId>,
+    pub attempt_id: Option<AttemptId>, pub agent_name: Option<String>,
+    pub needs: Vec<TaskId>,
+    pub terminal_payload: Option<JsonObject>,               // stays Option<JsonObject>; holds a TaskOutcome
+}   // ParentedRun unchanged; its terminal_payload holds a ParentedOutcome (separate family)
+
+// ── eos-types work_item.rs ──
+pub struct WorkItemId(String);                              // was GeneratorId
+pub struct DeferredGoal(String);                            // kept (PlanDisposition deleted)
+pub struct WorkItemSpec { pub id: WorkItemId, pub agent_name: AgentName,
+                          pub work_spec: String, pub needs: Vec<WorkItemId> }
+pub fn planner_task_id(attempt_id: &AttemptId) -> TaskId;                       // deterministic
+pub fn worker_task_id(attempt_id: &AttemptId, work_item_id: &WorkItemId) -> TaskId;
+
+// ── eos-types outcome.rs ──  (DELETED: ExecutionRole, ExecutionTaskOutcome, TaskOutcomeStatus,
+//                                       present_status, execution_outcome_for_submission)
+#[serde(tag="kind", rename_all="snake_case")]
+pub enum TaskOutcome {                                       // workflow-task family (Task rows)
+    Root    { outcome: String },
+    Planner { plan_spec: String, work_items: Vec<WorkItemSpec>,
+              deferred_goal_for_next_iteration: Option<DeferredGoal> },
+    Worker  { outcome: String },
+}
+#[serde(tag="kind", rename_all="snake_case")]
+pub enum ParentedOutcome {                                  // parented family (ParentedRun) — DO NOT merge
+    Advisor  { verdict: AdvisorVerdict, outcome: String },
+    Subagent { outcome: String },
+}
+pub enum AdvisorVerdict { Approve, Reject }                 // promoted from tool-private Verdict
+
+// ── eos-types attempt.rs ──  (SPEC §6 literal)
+pub enum AttemptState {
+    Planning { planner_task_id: Option<TaskId> },           // None→Some guards double-start
+    Running  { planner_task_id: TaskId },                   // no MaterializedPlan field
+    Closed   { closure: AttemptClosure, planner_task_id: Option<TaskId> },
+}
+//  ▶ RECOMMENDED tightening (review §3): id is deterministic, so track only "started":
+//        enum AttemptState { Planning { started: bool }, Running, Closed { closure } }
+//    and demote AttemptStage to a derived `matches!` helper.
+pub enum AttemptClosure {                                    // `outcomes: Vec<…>` REMOVED from each variant
+    Passed    { closed_at: UtcDateTime },
+    Failed    { reason: AttemptFailReason, closed_at: UtcDateTime },
+    Cancelled { reason: String, closed_at: UtcDateTime },
+}
+// Attempt::generator_task_ids()/reducer_task_ids()/materialized_plan() DELETED;
+// enumerate workers via worker_task_id(attempt_id, w.id) over the planner's work_items.
+
+// ── eos-types contracts ──
+pub enum WorkflowTaskRole { Planner, Worker }               // was {Planner,Generator,Reducer}
+// WorkflowNodeId DELETED. SpawnAgentTarget::Workflow reshaped:
+pub enum SpawnAgentTarget { /* … */ Workflow { role: WorkflowTaskRole, work_item_id: Option<WorkItemId> } }
+#[async_trait] pub trait WorkflowAttemptSubmissionApi {     // 3 methods → 2
+    async fn submit_plan_outcome(&self, s: PlanOutcomeSubmission)   -> Result<SubmissionAck, CoreError>;
+    async fn submit_worker_outcome(&self, s: WorkerOutcomeSubmission) -> Result<SubmissionAck, CoreError>;
+}
+
+// ── eos-types submissions.rs ──
+pub enum SubmissionStatus { Success, Failed }               // wire-only survivor; maps onto TaskStatus
+pub struct PlanOutcomeSubmission { pub attempt_id: AttemptId, pub plan_spec: String,
+    pub work_items: Vec<WorkItemSpec>, pub deferred_goal_for_next_iteration: Option<DeferredGoal> }
+pub struct WorkerOutcomeSubmission { pub attempt_id: AttemptId, pub task_id: TaskId,
+    pub work_item_id: WorkItemId, pub status: SubmissionStatus, pub outcome: String }
+// DELETED: PlannerFailureSubmission, PlannerFailReason (planner failure = attempt transition)
+
+// ── eos-workflow attempt/launch.rs ──  3 structs → 1; ~11 accessor matches → field reads
+pub struct AgentLaunch {
+    pub task_id: TaskId, pub request_id: RequestId, pub attempt_id: AttemptId,
+    pub iteration_id: IterationId, pub workflow_id: WorkflowId, pub agent_name: String,
+    pub context: String, pub task_guidance: Option<String>,
+    pub agent_def: AgentDefinition, pub skill: Option<String>, pub kind: AgentLaunchKind,
+}
+pub enum AgentLaunchKind { Planner, Worker { work_item_id: WorkItemId } }  // add `needs` ONLY if proven consumed
+impl AgentLaunch { pub fn role(&self) -> TaskRole {/* Planner | Worker */} }  // only surviving match
+
+// ── eos-tool terminals ──
+pub enum TerminalTool { RootTask, Plan, Worker, Advisor, Subagent }   // 6 → 5
+// ToolName terminals: SubmitRootTaskOutcome, SubmitPlanOutcome, SubmitWorkerOutcome,
+//                     SubmitAdvisorOutcome, SubmitSubagentOutcome   (ALL: 22 → 21)
+```
 ```
