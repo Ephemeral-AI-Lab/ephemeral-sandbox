@@ -882,6 +882,7 @@ before Migration Step 2 (the `eos-db` migration).
 | Resolve `AgentRunRecordTarget` from lineage and remove `parents-missing/` | Not started |
 | Add `TaskExecutionIndex` query and the execution-tree facade | Not started |
 | Add focused store and materialization tests | Not started |
+| Update `index.md` Progress Tracker with Phase 03B result and exit artifact | Not started |
 
 ## Acceptance Criteria
 

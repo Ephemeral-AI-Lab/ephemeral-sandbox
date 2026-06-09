@@ -1,12 +1,14 @@
 //! Engine-owned hook execution policy.
 
+use std::collections::HashSet;
 use std::sync::LazyLock;
 
-use eos_tool::{ExecutionMetadata, Hook, HookServices, ToolError, ToolResult};
-use eos_types::JsonObject;
+use eos_tool::{BackgroundSessionCounts, ExecutionMetadata, Hook, ToolError, ToolResult};
+use eos_types::{JsonObject, WorkflowId};
 use regex::Regex;
 use serde_json::{json, Value};
 
+use crate::agent_loop::AgentLoopHookDependencies;
 use crate::background::BackgroundManagers;
 
 mod advisor_approval;
@@ -58,27 +60,120 @@ impl HookDenial {
     }
 }
 
+/// Engine-owned state used by tool-call pre-hooks.
+#[derive(Clone, Debug)]
+pub(crate) struct ToolCallHooks {
+    background: Option<BackgroundManagers>,
+    dependencies: AgentLoopHookDependencies,
+}
+
+impl ToolCallHooks {
+    pub(crate) fn new(
+        background: Option<&BackgroundManagers>,
+        dependencies: AgentLoopHookDependencies,
+    ) -> Self {
+        Self {
+            background: background.cloned(),
+            dependencies,
+        }
+    }
+
+    pub(super) async fn background_counts(&self) -> Result<BackgroundSessionCounts, ToolError> {
+        let background = self.background.as_ref().ok_or_else(|| {
+            ToolError::Internal("background session runtime not initialized".to_owned())
+        })?;
+        Ok(background.count().await)
+    }
+
+    pub(super) async fn cancel_all_subagents(&self, reason: &str) -> Result<(), ToolError> {
+        let background = self.background.as_ref().ok_or_else(|| {
+            ToolError::Internal("background session runtime not initialized".to_owned())
+        })?;
+        background.cancel_all_subagents(reason).await;
+        Ok(())
+    }
+
+    pub(super) async fn workflow_depth_for_call(
+        &self,
+        ctx: &ExecutionMetadata,
+    ) -> Result<Option<u32>, ToolError> {
+        let Some(workflow_id) = self.workflow_id_for_call(ctx).await? else {
+            return Ok(None);
+        };
+        self.workflow_depth(&workflow_id).await.map(Some)
+    }
+
+    async fn workflow_id_for_call(
+        &self,
+        ctx: &ExecutionMetadata,
+    ) -> Result<Option<WorkflowId>, ToolError> {
+        if let Some(workflow_id) = &ctx.workflow_id {
+            return Ok(Some(workflow_id.clone()));
+        }
+        let Some(agent_run_id) = &ctx.agent_run_id else {
+            return Ok(None);
+        };
+        let Some(run) = self.dependencies.agent_run_store.get(agent_run_id).await? else {
+            return Ok(None);
+        };
+        let Some(task_id) = run.task_id else {
+            return Ok(None);
+        };
+        let Some(task) = self.dependencies.task_store.get(&task_id).await? else {
+            return Ok(None);
+        };
+        Ok(task.workflow_id)
+    }
+
+    async fn workflow_depth(&self, workflow_id: &WorkflowId) -> Result<u32, ToolError> {
+        let mut depth = 1;
+        let mut current = workflow_id.clone();
+        let mut seen = HashSet::new();
+        while seen.insert(current.clone()) {
+            let Some(workflow) = self.dependencies.workflow_store.get(&current).await? else {
+                break;
+            };
+            let Some(parent) = self
+                .dependencies
+                .task_store
+                .get(&workflow.parent_task_id)
+                .await?
+            else {
+                break;
+            };
+            let Some(parent_workflow_id) = parent.workflow_id else {
+                break;
+            };
+            depth += 1;
+            current = parent_workflow_id;
+        }
+        Ok(depth)
+    }
+}
+
 pub(super) async fn run_hook(
     hook: Hook,
     raw_input: &JsonObject,
     ctx: &ExecutionMetadata,
-    services: &HookServices,
-    background: Option<&BackgroundManagers>,
+    hooks: Option<&ToolCallHooks>,
 ) -> Result<HookOutcome, ToolError> {
     match hook {
         Hook::DestructiveGitShell { .. } => Ok(run_destructive_git(raw_input)),
         Hook::DestructiveShell { .. } => Ok(run_destructive_shell(raw_input)),
         Hook::BlockInIsolatedMode { .. } => run_block_in_isolated_mode(ctx).await,
         Hook::RequireNoBackgroundSessions { tool } => {
-            require_no_background_sessions::run_require_no_background_sessions(
-                tool, raw_input, ctx, services, background,
-            )
-            .await
+            let hooks = hooks.ok_or_else(|| {
+                ToolError::Internal("tool-call hook dependencies not initialized".to_owned())
+            })?;
+            require_no_background_sessions::run_require_no_background_sessions(tool, hooks).await
         }
         Hook::AdvisorApproval { tool } => advisor_approval::run_advisor_approval(tool, ctx).await,
         Hook::DisallowNestedPlannerDeferral { max_depth, .. } => {
+            let hooks = hooks.ok_or_else(|| {
+                ToolError::Internal("tool-call hook dependencies not initialized".to_owned())
+            })?;
             disallow_nested_planner_deferral::run_disallow_nested_planner_deferral(
-                max_depth, raw_input, ctx, services,
+                max_depth, raw_input, ctx, hooks,
             )
             .await
         }

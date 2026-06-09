@@ -2,17 +2,68 @@
 
 use std::sync::Arc;
 
-use eos_agent_ports::{
-    agent_loop_cancel_pair, AgentExecutionMetadataService, AgentLoopLauncher, AgentLoopOutcome,
-    AgentLoopOutcomeKind, StartAgentLoopRequest, StartedAgentLoop,
-};
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, watch};
 
 use super::{
-    AgentLoopBackgroundDependencies, AgentLoopExecutor, AgentLoopHooks,
-    AgentLoopToolRegistryFactory, NoopAgentLoopHooks,
+    AgentExecutionMetadataService, AgentLoopBackgroundDependencies, AgentLoopExecutor,
+    AgentLoopHookDependencies, AgentLoopHooks, AgentLoopOutcome, AgentLoopOutcomeKind,
+    AgentLoopToolRegistryFactory, NoopAgentLoopHooks, StartAgentLoopRequest,
 };
 use crate::query::{EventCallback, EventSource, EventSourceFactory};
+
+/// Public non-blocking launcher for agent loops.
+pub trait AgentLoopLauncher: Send + Sync {
+    /// Start an agent loop and return immediately with its outcome receiver.
+    fn start_agent_loop(&self, request: StartAgentLoopRequest) -> StartedAgentLoop;
+}
+
+/// Handle returned after an agent loop has been started.
+#[derive(Debug)]
+pub struct StartedAgentLoop {
+    /// Receives the terminal loop outcome.
+    pub outcome_receiver: oneshot::Receiver<AgentLoopOutcome>,
+    /// Cooperative cancellation handle for the running loop.
+    pub cancel_handle: AgentLoopCancelHandle,
+}
+
+/// Cooperative cancellation handle for one agent loop.
+#[derive(Clone, Debug)]
+pub struct AgentLoopCancelHandle {
+    sender: watch::Sender<Option<String>>,
+}
+
+impl AgentLoopCancelHandle {
+    /// Request loop cancellation. The first reason wins.
+    pub fn cancel(&self, reason: impl Into<String>) {
+        if self.sender.borrow().is_none() {
+            let _ignored = self.sender.send(Some(reason.into()));
+        }
+    }
+}
+
+/// Loop-side cancellation signal.
+#[derive(Clone, Debug)]
+pub(crate) struct AgentLoopCancelSignal {
+    receiver: watch::Receiver<Option<String>>,
+}
+
+impl AgentLoopCancelSignal {
+    /// Current cancellation reason, if cancellation has been requested.
+    #[must_use]
+    pub(crate) fn reason(&self) -> Option<String> {
+        self.receiver.borrow().clone()
+    }
+}
+
+/// Build a cancel handle/signal pair for one loop.
+#[must_use]
+fn agent_loop_cancel_pair() -> (AgentLoopCancelHandle, AgentLoopCancelSignal) {
+    let (sender, receiver) = watch::channel(None);
+    (
+        AgentLoopCancelHandle { sender },
+        AgentLoopCancelSignal { receiver },
+    )
+}
 
 #[derive(Clone)]
 pub(crate) enum AgentLoopEventSource {
@@ -27,6 +78,7 @@ pub struct TokioAgentLoopLauncher {
     tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
     metadata_service: Arc<dyn AgentExecutionMetadataService>,
     background_dependencies: Option<AgentLoopBackgroundDependencies>,
+    hook_dependencies: Option<AgentLoopHookDependencies>,
     event_callback: Option<EventCallback>,
 }
 
@@ -81,6 +133,7 @@ impl TokioAgentLoopLauncher {
             tool_registry_factory,
             metadata_service,
             background_dependencies: None,
+            hook_dependencies: None,
             event_callback: None,
         }
     }
@@ -92,6 +145,13 @@ impl TokioAgentLoopLauncher {
         dependencies: AgentLoopBackgroundDependencies,
     ) -> Self {
         self.background_dependencies = Some(dependencies);
+        self
+    }
+
+    /// Attach runtime stores for engine-owned tool-call hooks.
+    #[must_use]
+    pub fn with_hook_dependencies(mut self, dependencies: AgentLoopHookDependencies) -> Self {
+        self.hook_dependencies = Some(dependencies);
         self
     }
 
@@ -114,6 +174,7 @@ impl AgentLoopLauncher for TokioAgentLoopLauncher {
             Arc::clone(&self.metadata_service),
             cancel_signal,
             self.background_dependencies.clone(),
+            self.hook_dependencies.clone(),
             self.event_callback.clone(),
         );
 

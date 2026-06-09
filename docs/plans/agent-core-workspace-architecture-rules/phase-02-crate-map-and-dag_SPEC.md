@@ -359,16 +359,17 @@ budget guard must confirm no logic lands there.
 | Generalize explorer-specific subagent naming | Done (2026-06-09; profile/tool naming is `subagent` + `submit_subagent_result`, with advisor kept as a sibling `AgentType`) |
 | Fold `eos-runtime` lib into `eos-agent-core/src/runtime/`; relocate bin to backend-server | Not started |
 | Rename `eos-tools` → `eos-tool`; rename `eos-agent-runner` → `eos-agent-run` | Done (2026-06-09; both crates/packages/imports renamed to the locked singular names) |
-| Fold `eos-tool-ports` into `eos-tool` (+ contracts to `eos-types`) | In progress (2026-06-09; executable tool framework/registry types now compile through `eos-tool`, with remaining legacy cancel/notification/session contracts still to retire) |
-| Split `eos-agent-ports` per the contract floor | In progress (2026-06-09; agent-run lifecycle contracts moved to `eos-types`; metadata/state contracts still need a tool/audit-safe split) |
+| Fold `eos-tool-ports` into `eos-tool` (+ contracts to `eos-types`) | Done (2026-06-09; executable tool framework/registry types live in `eos-tool`, shared cancellation/agent/workflow contracts live in `eos-types`, engine notifications are engine-local, and the crate was removed from the active workspace) |
+| Split `eos-agent-ports` per the contract floor | Done (2026-06-09; agent-run lifecycle DTOs and `AgentState` live in `eos-types`, agent-loop launcher/outcome contracts live in `eos-engine`, runtime keeps the concrete execution-metadata adapter, and the crate was removed from the active workspace) |
 | Fold `eos-agent-message-records` into `eos-engine/src/records.rs` | Done (2026-06-09; crate removed from workspace, implementation/test moved under `eos-engine::records`, runner imports through `eos-engine`) |
 | Fold `eos-skills` into `eos-tool/src/tools/skills.rs` | Done (2026-06-09; folded into `eos-tool::tools::skills`) |
 | Fold `eos-plugin-catalog` into `eos-agent-core/src/runtime/plugins.rs` | Done (2026-06-09; folded into current `eos-runtime::plugins` pending the separate `eos-runtime` → `eos-agent-core` fold) |
-| Fold `eos-agent-def`: DTOs → `eos-types`, loader → `eos-agent-core/src/agents.rs` | In progress (2026-06-09; DTOs and passive registry moved, loader still local) |
+| Fold `eos-agent-def`: DTOs → `eos-types`, loader → `eos-agent-core/src/agents.rs` | Done (2026-06-09; DTOs/passive registry live in `eos-types`, loader/validation moved into the current `eos-runtime::agents` facade staging module, bundled-profile loader coverage moved with it, and the standalone crate was removed from the active workspace) |
 | Dissolve `eos-config`: structs to owners, parser → types, loader → facade | In progress (2026-06-09; pure parser moved, config structs/loader still local) |
 | Fold `eos-audit`: sink → facade, `AuditSink` trait → `eos-types` | Not started |
-| Update workspace dependencies and internal imports | In progress (2026-06-09; staged imports updated for completed sinks, message-record fold, skills fold, plugin-catalog fold, `eos-tool` rename, `eos-agent-run` rename, and partial `eos-tool-ports` framework migration) |
+| Update workspace dependencies and internal imports | In progress (2026-06-09; staged imports updated for completed sinks, DTO direct-import cleanup, message-record fold, skills fold, plugin-catalog fold, agent-definition loader fold, `eos-tool` rename, `eos-agent-run` rename, and full `eos-tool-ports`/`eos-agent-ports` retirement from the active workspace) |
 | Update dependency DAG guard to the target edge set | Done (2026-06-09; staged legacy graph remains active until the final crate map is present) |
+| Update `index.md` Progress Tracker with Phase 02 result and exit artifact | Not started |
 
 ## Acceptance Criteria
 

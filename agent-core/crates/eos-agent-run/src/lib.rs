@@ -12,11 +12,11 @@ mod agent_run_service;
 pub use active_agent_runs::ActiveAgentRuns;
 pub use agent_run_records::to_message_record_kind;
 pub use agent_run_service::AgentRunService;
-pub use eos_agent_ports::{
-    AgentRunApi, AgentRunError, AgentRunMessageRecordKind, AgentRunOutcome, AgentRunStatus,
-    SpawnAgentRequest, WorkflowTaskRole,
-};
 pub use eos_engine::records::{
     AgentMessageRecords, AgentRunRecordHandle, AgentRunRecordStart, MessageRecordError,
     NodeFinishStatus,
+};
+pub use eos_types::{
+    AgentRunApi, AgentRunError, AgentRunMessageRecordKind, AgentRunOutcome, AgentRunStatus,
+    SpawnAgentRequest, WorkflowTaskRole,
 };

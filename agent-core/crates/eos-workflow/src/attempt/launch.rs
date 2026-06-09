@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use eos_agent_def::{AgentDefinition, AgentName, AgentRegistry, AgentType};
 use eos_types::{
-    Attempt, AttemptStore, IterationStore, RequestId, Task, TaskId, TaskRole, TaskStore,
-    WorkflowId, WorkflowStore,
+    AgentDefinition, AgentName, AgentRegistry, AgentType, Attempt, AttemptStore, IterationStore,
+    RequestId, Task, TaskId, TaskRole, TaskStore, WorkflowId, WorkflowStore,
 };
 
 use crate::context::{AgentEntryComposer, ContextScope};

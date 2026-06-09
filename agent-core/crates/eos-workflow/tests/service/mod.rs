@@ -3,9 +3,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use eos_tool_ports::ToolError;
 use eos_types::WorkflowApi as _;
-use eos_types::{AttemptStatus, JsonObject, TaskStatus};
+use eos_types::{AttemptStatus, CancelError, JsonObject, TaskStatus};
 use serde_json::json;
 
 use super::*;
@@ -23,7 +22,7 @@ impl CancelPort for TestCancelPort {
         &self,
         task_id: &eos_types::TaskId,
         reason: &str,
-    ) -> Result<(), ToolError> {
+    ) -> Result<(), CancelError> {
         if let Some(task) = self.task_store.get(task_id).await? {
             if matches!(task.status, TaskStatus::Pending | TaskStatus::Running) {
                 let mut terminal = JsonObject::new();
@@ -47,7 +46,7 @@ impl CancelPort for TestCancelPort {
         &self,
         _agent_run_id: &AgentRunId,
         _reason: &str,
-    ) -> Result<(), ToolError> {
+    ) -> Result<(), CancelError> {
         Ok(())
     }
 }

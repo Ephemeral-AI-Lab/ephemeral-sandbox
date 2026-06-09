@@ -215,7 +215,7 @@ async fn agents_dir_seeds_registry_so_root_resolves() {
         .await
         .expect("non-injected build with agents_dir must succeed");
 
-    let root = eos_agent_def::AgentName::new("root").unwrap();
+    let root = eos_types::AgentName::new("root").unwrap();
     assert!(
         state.agent_core.agent_registry.get(&root).is_some(),
         "agents_dir build must resolve the root profile without injection"

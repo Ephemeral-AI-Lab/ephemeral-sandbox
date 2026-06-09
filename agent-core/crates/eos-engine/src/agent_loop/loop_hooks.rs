@@ -1,7 +1,7 @@
 //! Agent-loop lifecycle hooks.
 
+use super::AgentLoopOutcome;
 use async_trait::async_trait;
-use eos_agent_ports::AgentLoopOutcome;
 
 use super::AgentLoopState;
 

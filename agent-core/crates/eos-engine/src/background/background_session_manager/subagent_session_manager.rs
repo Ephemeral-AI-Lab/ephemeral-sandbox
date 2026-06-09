@@ -3,11 +3,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use eos_agent_ports::{AgentRunApi, AgentRunOutcome, AgentRunStatus};
 use eos_tool::ToolResult;
 #[cfg(test)]
 use eos_types::AgentRun;
-use eos_types::{AgentRunId, JsonObject};
+use eos_types::{AgentRunApi, AgentRunId, AgentRunOutcome, AgentRunStatus, JsonObject};
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -328,10 +327,6 @@ impl SubagentSessionManager {
         self.cancel_agent_run(agent_run_id, reason).await
     }
 
-    pub(in crate::background) async fn count_background_sessions(&self) -> usize {
-        BackgroundSessionManager::count(self).await
-    }
-
     pub(in crate::background) async fn cancel_all_background_sessions(&self, reason: &str) {
         BackgroundSessionManager::cancel(self, reason).await;
     }
@@ -456,8 +451,7 @@ mod tests {
     use std::sync::Arc;
 
     use async_trait::async_trait;
-    use eos_agent_ports::{AgentRunError, SpawnAgentRequest};
-    use eos_types::{AgentRun, UtcDateTime};
+    use eos_types::{AgentRun, AgentRunError, SpawnAgentRequest, UtcDateTime};
 
     use crate::NotificationService;
 

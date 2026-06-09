@@ -6,12 +6,9 @@ rust-version.workspace = true
 
 [dependencies]
 async-trait.workspace = true
-eos-agent-def.workspace = true
-eos-agent-ports.workspace = true
 eos-engine.workspace = true
 eos-llm-client.workspace = true
 eos-tool.workspace = true
-eos-tool-ports.workspace = true
 eos-types.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

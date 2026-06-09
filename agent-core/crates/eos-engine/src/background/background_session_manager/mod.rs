@@ -9,10 +9,12 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use eos_agent_ports::{AgentRunApi, AgentRunError, AgentRunOutcome, SpawnAgentRequest};
 use eos_sandbox_port::SandboxCommandApi;
 use eos_tool::{BackgroundSessionCounts, BackgroundSessions, ToolError};
-use eos_types::{AgentRunId, CommandSessionId, SandboxId, StartedWorkflow, WorkflowApi};
+use eos_types::{
+    AgentRunApi, AgentRunError, AgentRunId, AgentRunOutcome, CommandSessionId, SandboxId,
+    SpawnAgentRequest, StartedWorkflow, WorkflowApi,
+};
 
 use self::command_session_manager::{CommandSessionManager, CommandSessionMonitor};
 use self::subagent_session_manager::{SubagentSessionManager, SubagentSessionMonitor};
@@ -208,6 +210,10 @@ impl BackgroundManagers {
         self.runtime.count().await
     }
 
+    pub(crate) async fn count(&self) -> BackgroundSessionCounts {
+        self.runtime.count().await
+    }
+
     pub(crate) async fn flush_completions(&self) {
         for completion in self
             .runtime
@@ -242,13 +248,6 @@ impl BackgroundManagers {
                 .push_notification_on_completion(completion)
                 .await;
         }
-    }
-
-    pub(crate) async fn count_subagents(&self) -> usize {
-        self.runtime
-            .subagent_session_manager()
-            .count_background_sessions()
-            .await
     }
 
     pub(crate) async fn cancel_all_subagents(&self, reason: &str) {

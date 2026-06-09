@@ -21,10 +21,6 @@ pub enum DaemonError {
     #[error("daemon io error: {0}")]
     Io(#[from] std::io::Error),
 
-    /// The op named in the request is not registered in the op table.
-    #[error("unknown op: {0}")]
-    UnknownOp(String),
-
     /// The envelope was structurally invalid (missing/empty op, non-object args).
     #[error("invalid envelope: {0}")]
     InvalidEnvelope(String),
@@ -80,7 +76,6 @@ impl DaemonError {
         use eos_protocol::ErrorKind;
         match self {
             Self::Protocol(_) => ErrorKind::BadJson,
-            Self::UnknownOp(_) => ErrorKind::UnknownOp,
             Self::InvalidEnvelope(_) => ErrorKind::InvalidEnvelope,
             Self::RequestTooLarge { .. } => ErrorKind::RequestTooLarge,
             Self::Unauthorized => ErrorKind::Unauthorized,

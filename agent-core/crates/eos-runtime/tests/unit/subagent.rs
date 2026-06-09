@@ -10,11 +10,10 @@ mod subagent_lifecycle {
     use std::time::Duration;
 
     use async_trait::async_trait;
-    use eos_agent_def::{AgentDefinition, AgentType};
     use eos_engine::{EngineError, EngineStream, EventSource, StreamEvent};
     use eos_llm_client::{ContentBlock, LlmRequest};
     use eos_types::RequestId;
-    use eos_types::{RequestStatus, TaskStatus};
+    use eos_types::{AgentDefinition, AgentType, RequestStatus, TaskStatus};
     use serde_json::json;
 
     use super::run_request;

@@ -39,14 +39,7 @@ pub const RETIRED_CRATES: &[&str] = &[
     "eos-audit",
 ];
 
-pub const LEGACY_MIGRATION_CRATES: &[&str] = &[
-    "eos-runtime",
-    "eos-agent-ports",
-    "eos-tool-ports",
-    "eos-agent-def",
-    "eos-config",
-    "eos-audit",
-];
+pub const LEGACY_MIGRATION_CRATES: &[&str] = &["eos-runtime", "eos-config", "eos-audit"];
 
 pub const FORBIDDEN_VOCABULARY: &[&str] = &["composition", "deps", "runtime_services"];
 

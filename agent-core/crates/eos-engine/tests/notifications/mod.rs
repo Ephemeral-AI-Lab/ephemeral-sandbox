@@ -64,7 +64,7 @@ fn tool_turn() -> [Message; 1] {
 
 /// Enqueue the firing rules onto the context notifier and drain them — the
 /// loop-top sequence in miniature.
-async fn fire_rules(messages: &[Message], fixture: &mut RuleFixture) -> Vec<ToolNotification> {
+async fn fire_rules(messages: &[Message], fixture: &mut RuleFixture) -> Vec<SystemNotification> {
     let terminal_tools = fixture.terminal_tools.clone();
     let context = NotificationRuleContext {
         tool_calls_used: fixture.tool_calls_used,
@@ -142,7 +142,7 @@ async fn reasoning_only_does_not_nudge_but_text_only_does() {
 async fn notification_service_queues_and_drains() {
     let service = NotificationService::new();
     service
-        .notify_system(ToolNotification {
+        .notify_system(SystemNotification {
             event: "evt".to_owned(),
             message: "body".to_owned(),
         })

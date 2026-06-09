@@ -425,40 +425,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 
 [[package]]
-name = "eos-agent-def"
-version = "0.1.0"
-dependencies = [
- "eos-types",
- "serde",
- "serde_json",
- "serde_yaml",
- "thiserror",
-]
-
-[[package]]
-name = "eos-agent-ports"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "eos-audit",
- "eos-tool",
- "eos-tool-ports",
- "eos-types",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "eos-agent-run"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "eos-agent-def",
- "eos-agent-ports",
  "eos-engine",
  "eos-llm-client",
  "eos-tool",
- "eos-tool-ports",
  "eos-types",
  "serde_json",
  "tokio",
@@ -507,11 +480,9 @@ name = "eos-engine"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "eos-agent-ports",
  "eos-llm-client",
  "eos-sandbox-port",
  "eos-tool",
- "eos-tool-ports",
  "eos-types",
  "futures",
  "regex",
@@ -554,8 +525,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "console-subscriber",
- "eos-agent-def",
- "eos-agent-ports",
  "eos-agent-run",
  "eos-audit",
  "eos-config",
@@ -565,7 +534,6 @@ dependencies = [
  "eos-sandbox-port",
  "eos-testkit",
  "eos-tool",
- "eos-tool-ports",
  "eos-types",
  "eos-workflow",
  "futures",
@@ -601,12 +569,10 @@ name = "eos-testkit"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "eos-agent-def",
- "eos-agent-ports",
  "eos-engine",
  "eos-llm-client",
  "eos-sandbox-port",
- "eos-tool-ports",
+ "eos-tool",
  "eos-types",
  "futures",
  "serde_json",
@@ -630,20 +596,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eos-tool-ports"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "eos-llm-client",
- "eos-sandbox-port",
- "eos-types",
- "schemars",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
 name = "eos-types"
 version = "0.1.0"
 dependencies = [
@@ -663,9 +615,7 @@ name = "eos-workflow"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "eos-agent-def",
  "eos-tool",
- "eos-tool-ports",
  "eos-types",
  "parking_lot",
  "schemars",

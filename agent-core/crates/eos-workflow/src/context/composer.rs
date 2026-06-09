@@ -1,8 +1,8 @@
 use std::fs;
 use std::sync::Arc;
 
-use eos_agent_def::{AgentDefinition, AgentName, AgentRegistry};
 use eos_tool::{render_tool_instruction, ToolInstructions, ToolName};
+use eos_types::{AgentDefinition, AgentName, AgentRegistry};
 
 use crate::{Result, WorkflowError};
 
@@ -181,7 +181,7 @@ fn terminal_selection_block(agent_def: &AgentDefinition) -> Option<String> {
 mod tests {
     use std::num::NonZeroU32;
 
-    use eos_agent_def::{AgentName, AgentType};
+    use eos_types::{AgentName, AgentType};
 
     use super::*;
 

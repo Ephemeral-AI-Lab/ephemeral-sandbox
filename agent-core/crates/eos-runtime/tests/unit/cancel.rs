@@ -4,8 +4,7 @@
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use eos_tool_ports::{CancelPort, ToolError};
-use eos_types::{AgentRunId, TaskId};
+use eos_types::{AgentRunId, CancelError, CancelPort, TaskId};
 
 use super::*;
 use crate::cancel::cancel_agent_core_user_request;
@@ -18,7 +17,7 @@ struct RecordingCancelPort {
 
 #[async_trait]
 impl CancelPort for RecordingCancelPort {
-    async fn cancel_task(&self, task_id: &TaskId, _reason: &str) -> Result<(), ToolError> {
+    async fn cancel_task(&self, task_id: &TaskId, _reason: &str) -> Result<(), CancelError> {
         self.cancelled_tasks.lock().unwrap().push(task_id.clone());
         Ok(())
     }
@@ -27,7 +26,7 @@ impl CancelPort for RecordingCancelPort {
         &self,
         _agent_run_id: &AgentRunId,
         _reason: &str,
-    ) -> Result<(), ToolError> {
+    ) -> Result<(), CancelError> {
         Ok(())
     }
 }

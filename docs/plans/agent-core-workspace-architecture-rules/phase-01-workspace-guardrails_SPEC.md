@@ -242,6 +242,7 @@ agent-core/workspace-guard/tests/
 | Add advisory folder-depth/root-LOC reporting | Done |
 | Add public surface drift guard | Done |
 | Wire guard command into CI/docs | Done (docs; no CI workflow present) |
+| Update `index.md` Progress Tracker with Phase 01 result and exit artifact | Done |
 
 ## Acceptance Criteria
 

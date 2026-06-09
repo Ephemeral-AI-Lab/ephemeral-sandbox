@@ -8,15 +8,14 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use eos_agent_def::{AgentDefinition, AgentRegistry};
 use eos_config::{DatabaseConfig, DatabaseUrl, ProvidersConfig, WorkflowConfig};
 use eos_db::Database;
 use eos_engine::{EngineError, EngineStream, EventSource, StreamEvent};
 use eos_llm_client::{ContentBlock, LlmClient, LlmRequest, LlmStream, ProviderError};
 use eos_tool::{Hook, ToolName};
-use eos_types::RequestId;
 use eos_types::{
-    AgentRunId, Page, RequestListFilter, RequestStatus, Task, TaskRole, TaskStatus, WorkflowStatus,
+    AgentDefinition, AgentRegistry, AgentRunId, AgentType, Page, RequestId, RequestListFilter,
+    RequestStatus, Task, TaskRole, TaskStatus, WorkflowStatus,
 };
 use serde_json::json;
 
@@ -40,7 +39,9 @@ fn root_agent() -> AgentDefinition {
 /// The advisor helper agent: read-only tools + the (ungated) advisor terminal.
 /// Resolved by name in the engine-driven `ask_advisor` run.
 fn advisor_agent() -> AgentDefinition {
-    agent_def("advisor", &["read_file"], &["submit_advisor_feedback"])
+    let mut def = agent_def("advisor", &["read_file"], &["submit_advisor_feedback"]);
+    def.agent_type = AgentType::Advisor;
+    def
 }
 
 #[derive(Debug)]

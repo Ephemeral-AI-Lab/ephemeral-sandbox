@@ -158,6 +158,8 @@ agent-core/
 | Remove dead dependencies | Not started |
 | Remove compatibility re-exports | Not started |
 | Update final docs and index tracker | Not started |
+| Update `index.md` Progress Tracker with Phase 06 result and exit artifact | Not started |
+| Confirm `index.md` Progress Tracker records every phase result and exit artifact | Not started |
 
 ## Acceptance Criteria
 

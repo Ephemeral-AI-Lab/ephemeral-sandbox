@@ -1,13 +1,15 @@
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use eos_e2e_test::audit::section;
 use eos_e2e_test::next_invocation_id;
 use eos_protocol::ops;
 use serde_json::{json, Value};
 
-use crate::support::{as_i64, as_str, live_pool_or_skip, reset_isolated_workspaces};
+use crate::support::{
+    as_i64, as_str, live_pool_or_skip, reset_isolated_workspaces, wait_for_active_leases,
+};
 
 #[test]
 fn enter_acquires_lease() -> Result<()> {
@@ -253,18 +255,4 @@ fn write_public_versions(
         )?;
     }
     Ok(())
-}
-
-fn wait_for_active_leases(lease: &eos_e2e_test::NodeLease<'_>, expected: i64) -> Result<Value> {
-    let deadline = Instant::now() + Duration::from_secs(3);
-    loop {
-        let metrics = lease.call_ok(ops::API_LAYER_METRICS, json!({}))?;
-        if as_i64(&metrics, "active_leases")? == expected {
-            return Ok(metrics);
-        }
-        if Instant::now() >= deadline {
-            bail!("active_leases did not reach {expected}: {metrics}");
-        }
-        thread::sleep(Duration::from_millis(50));
-    }
 }

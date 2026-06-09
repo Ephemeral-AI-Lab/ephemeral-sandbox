@@ -28,7 +28,7 @@ fn emit_section<T: Serialize>(event_type: &str, section_key: &str, section: &T, 
 }
 
 pub(crate) fn emit_dispatch_audit(request: &Request, response: &Value, dispatch_s: f64) {
-    if skip_dispatch_audit(&request.op) {
+    if !should_emit_tool_call_event(&request.op) {
         return;
     }
     let total_ms = dispatch_s * 1000.0;
@@ -83,9 +83,9 @@ pub(crate) fn emit_dispatch_audit(request: &Request, response: &Value, dispatch_
     emit_background_audit(request, response, total_ms);
 }
 
-fn skip_dispatch_audit(op: &str) -> bool {
-    op.starts_with("api.audit.")
-        || matches!(
+pub(crate) fn should_emit_tool_call_event(op: &str) -> bool {
+    !op.starts_with("api.audit.")
+        && !matches!(
             op,
             "api.runtime.ready"
                 | "api.v1.heartbeat"

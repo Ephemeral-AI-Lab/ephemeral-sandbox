@@ -4,9 +4,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
-use eos_agent_ports::{AgentRunError, AgentRunMessageRecordKind, SpawnAgentRequest};
 use eos_tool::{ToolError, WorkspaceMode};
-use eos_types::{AgentRunId, AttemptId, IterationId, RequestId, SandboxId, TaskId, WorkflowId};
+use eos_types::{
+    AgentRunError, AgentRunId, AgentRunMessageRecordKind, AttemptId, IterationId, RequestId,
+    SandboxId, SpawnAgentRequest, TaskId, WorkflowId,
+};
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct RuntimeAgentStateService {

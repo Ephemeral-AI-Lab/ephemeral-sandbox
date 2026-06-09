@@ -3,20 +3,19 @@
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
-use eos_agent_ports::{
-    AgentExecutionMetadataService, AgentLoopLauncher, AgentPortError, AgentRunApi, AgentRunError,
-    AgentRunOutcome, AgentState, AuditNodeBuildInput, ExecutionMetadataBuildInput,
-};
-use eos_audit::AuditNode;
 use eos_engine::{
-    AgentLoopBackgroundDependencies, AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory,
-    EventCallback, ProviderEventSource, TokioAgentLoopLauncher,
+    AgentExecutionMetadataService, AgentLoopBackgroundDependencies, AgentLoopHookDependencies,
+    AgentLoopLauncher, AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory, EngineError,
+    EventCallback, ExecutionMetadataBuildInput, ProviderEventSource, TokioAgentLoopLauncher,
 };
 use eos_sandbox_port::SandboxCommandService;
 use eos_tool::{
     build_default_registry, CallerScope, ExecutionMetadata, Submission, ToolRegistry, ToolRuntime,
 };
-use eos_types::{AttemptSubmissionPort, WorkflowApi, WorkflowApiError};
+use eos_types::{
+    AgentRunApi, AgentRunError, AgentRunOutcome, AgentState, AttemptSubmissionPort,
+    SpawnAgentRequest, WorkflowApi, WorkflowApiError,
+};
 
 use super::RuntimeServices;
 use crate::plugins::register_plugin_tools;
@@ -48,6 +47,11 @@ pub(crate) fn build_agent_loop_launcher(
         services.engine.command_session_completion_poll_interval(),
         registry_factory.workflow_service.clone(),
     );
+    let hook_dependencies = AgentLoopHookDependencies::new(
+        services.db.task_store.clone(),
+        services.db.agent_run_store.clone(),
+        services.db.workflow_store.clone(),
+    );
     let launcher_impl = match services.engine.event_source_factory.clone() {
         Some(factory) => TokioAgentLoopLauncher::with_event_source_factory(
             factory,
@@ -61,6 +65,7 @@ pub(crate) fn build_agent_loop_launcher(
         ),
     }
     .with_background_dependencies(background_dependencies)
+    .with_hook_dependencies(hook_dependencies)
     .with_event_callback(event_callback);
     let launcher: Arc<dyn AgentLoopLauncher> = Arc::new(launcher_impl);
     (launcher, agent_run_api)
@@ -95,7 +100,7 @@ impl std::fmt::Debug for LateBoundAgentRunApi {
 impl AgentRunApi for LateBoundAgentRunApi {
     async fn spawn_agent(
         &self,
-        request: eos_agent_ports::SpawnAgentRequest,
+        request: SpawnAgentRequest,
     ) -> Result<eos_types::AgentRunId, AgentRunError> {
         self.service()?.spawn_agent(request).await
     }
@@ -265,7 +270,7 @@ impl RuntimeExecutionMetadataService {
     async fn load_agent_state(
         &self,
         agent_run_id: &eos_types::AgentRunId,
-    ) -> Result<AgentState, AgentPortError> {
+    ) -> Result<AgentState, EngineError> {
         let runtime_state = self.services.agent_state.get(agent_run_id);
         let run = self
             .services
@@ -273,12 +278,12 @@ impl RuntimeExecutionMetadataService {
             .agent_run_store
             .get(agent_run_id)
             .await
-            .map_err(|err| AgentPortError::Internal(err.to_string()))?;
+            .map_err(|err| EngineError::Internal(err.to_string()))?;
         let agent_name = run
             .as_ref()
             .map(|run| run.agent_name.clone())
             .or_else(|| runtime_state.as_ref().map(|state| state.agent_name.clone()))
-            .ok_or_else(|| AgentPortError::Internal(format!("agent run {agent_run_id} missing")))?;
+            .ok_or_else(|| EngineError::Internal(format!("agent run {agent_run_id} missing")))?;
         let task_id = run
             .as_ref()
             .and_then(|run| run.task_id.clone())
@@ -294,7 +299,7 @@ impl RuntimeExecutionMetadataService {
                 .task_store
                 .get(task_id)
                 .await
-                .map_err(|err| AgentPortError::Internal(err.to_string()))?,
+                .map_err(|err| EngineError::Internal(err.to_string()))?,
             None => None,
         };
         let request_id = task
@@ -312,7 +317,7 @@ impl RuntimeExecutionMetadataService {
                 .request_store
                 .get(request_id)
                 .await
-                .map_err(|err| AgentPortError::Internal(err.to_string()))?,
+                .map_err(|err| EngineError::Internal(err.to_string()))?,
             None => None,
         };
         let runtime_workspace_root = runtime_state
@@ -373,14 +378,14 @@ impl AgentExecutionMetadataService for RuntimeExecutionMetadataService {
     async fn agent_state(
         &self,
         agent_run_id: &eos_types::AgentRunId,
-    ) -> Result<AgentState, AgentPortError> {
+    ) -> Result<AgentState, EngineError> {
         self.load_agent_state(agent_run_id).await
     }
 
     async fn build_execution_metadata(
         &self,
         input: ExecutionMetadataBuildInput,
-    ) -> Result<ExecutionMetadata, AgentPortError> {
+    ) -> Result<ExecutionMetadata, EngineError> {
         let state = self.load_agent_state(&input.agent_run_id).await?;
         Ok(ExecutionMetadata {
             agent_name: state.agent_name,
@@ -396,40 +401,5 @@ impl AgentExecutionMetadataService for RuntimeExecutionMetadataService {
             workspace_root: state.workspace_root,
             conversation: input.conversation,
         })
-    }
-
-    async fn build_audit_node(
-        &self,
-        input: AuditNodeBuildInput,
-    ) -> Result<AuditNode, AgentPortError> {
-        let state = self.load_agent_state(&input.agent_run_id).await?;
-        let mut builder = AuditNode::builder()
-            .agent_run_id(state.agent_run_id)
-            .agent_name(state.agent_name);
-        if let Some(request_id) = state.request_id {
-            builder = builder.request_id(request_id);
-        }
-        if let Some(task_id) = state.task_id {
-            builder = builder.task_id(task_id);
-        }
-        if let Some(workflow_id) = state.workflow_id {
-            builder = builder.workflow_id(workflow_id);
-        }
-        if let Some(iteration_id) = state.iteration_id {
-            builder = builder.iteration_id(iteration_id);
-        }
-        if let Some(attempt_id) = state.attempt_id {
-            builder = builder.attempt_id(attempt_id);
-        }
-        if let Some(sandbox_id) = state.sandbox_id {
-            builder = builder.sandbox_id(sandbox_id);
-        }
-        if let Some(tool_name) = input.tool_name {
-            builder = builder.tool_name(tool_name.as_str());
-        }
-        if let Some(tool_use_id) = input.tool_use_id {
-            builder = builder.tool_use_id(tool_use_id);
-        }
-        Ok(builder.build())
     }
 }

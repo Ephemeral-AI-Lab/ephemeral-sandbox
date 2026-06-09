@@ -15,13 +15,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use eos_agent_def::{AgentDefinition, AgentRegistry};
 use eos_sandbox_port::{
     RequestProvisioner, RequestSandboxBinding, SandboxGateway, SandboxProvisionError,
     SandboxTransport,
 };
 use eos_testkit::FakeTransport;
-use eos_types::RequestId;
+use eos_types::{AgentDefinition, AgentRegistry, RequestId};
 
 use super::{EventSourceFactory, RuntimeServices};
 

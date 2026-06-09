@@ -12,14 +12,10 @@ futures = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 eos-types = { workspace = true }
-eos-agent-def = { workspace = true }
 eos-engine = { workspace = true }
 eos-llm-client = { workspace = true }
 eos-sandbox-port = { workspace = true }
-eos-tool-ports = { workspace = true }
-
-[dev-dependencies]
-eos-agent-ports = { workspace = true }
+eos-tool = { workspace = true }
 
 [lints]
 workspace = true

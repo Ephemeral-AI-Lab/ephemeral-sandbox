@@ -3,9 +3,7 @@
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
-use eos_agent_ports::AgentRunApi;
-use eos_tool_ports::{CancelPort, ToolError};
-use eos_types::{AgentRunId, TaskId};
+use eos_types::{AgentRunApi, AgentRunId, CancelError, CancelPort, TaskId};
 use eos_types::{AgentRunStore, JsonObject, TaskStatus, TaskStore};
 
 /// Request-scoped cancellation port wired to the runner service.
@@ -39,7 +37,7 @@ impl RuntimeCancelPort {
         &self,
         task_id: &TaskId,
         reason: &str,
-    ) -> Result<(), ToolError> {
+    ) -> Result<(), CancelError> {
         let Some(run) = self.agent_run_store.get_for_task(task_id).await? else {
             return Ok(());
         };
@@ -52,7 +50,7 @@ impl RuntimeCancelPort {
 
 #[async_trait]
 impl CancelPort for RuntimeCancelPort {
-    async fn cancel_task(&self, task_id: &TaskId, reason: &str) -> Result<(), ToolError> {
+    async fn cancel_task(&self, task_id: &TaskId, reason: &str) -> Result<(), CancelError> {
         if let Some(task) = self.task_store.get(task_id).await? {
             if matches!(task.status, TaskStatus::Pending | TaskStatus::Running) {
                 let terminal = cancelled_terminal(reason);
@@ -74,14 +72,14 @@ impl CancelPort for RuntimeCancelPort {
         &self,
         agent_run_id: &AgentRunId,
         reason: &str,
-    ) -> Result<(), ToolError> {
+    ) -> Result<(), CancelError> {
         let Some(agent_run_api) = self.agent_run_api.get().cloned() else {
             return Ok(());
         };
         agent_run_api
             .cancel_agent_run(agent_run_id, reason)
             .await
-            .map_err(|err| ToolError::Internal(err.to_string()))
+            .map_err(|err| CancelError::Internal(err.to_string()))
     }
 }
 

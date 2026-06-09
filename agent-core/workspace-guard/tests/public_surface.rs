@@ -54,37 +54,13 @@ fn trim_entry(rest: &str) -> String {
 fn legacy_public_surface() -> BTreeMap<String, BTreeSet<String>> {
     surface_map(&[
         (
-            "eos-agent-def",
-            &[
-                "use:error",
-                "use:loader",
-                "use:model",
-                "use:registry",
-                "use:validation",
-            ],
-        ),
-        (
-            "eos-agent-ports",
-            &[
-                "mod:agent_loop",
-                "use:agent_loop",
-                "use:agent_name",
-                "use:agent_run_api",
-                "use:agent_run_outcome",
-                "use:agent_state",
-                "use:error",
-                "use:metadata_service",
-                "use:spawn_agent_request",
-            ],
-        ),
-        (
             "eos-agent-run",
             &[
                 "use:active_agent_runs",
                 "use:agent_run_records",
                 "use:agent_run_service",
                 "use:eos_engine",
-                "use:eos_agent_ports",
+                "use:eos_types",
             ],
         ),
         (
@@ -173,21 +149,6 @@ fn legacy_public_surface() -> BTreeMap<String, BTreeSet<String>> {
                 "use:llm",
                 "use:meta",
                 "use:sandbox",
-            ],
-        ),
-        (
-            "eos-tool-ports",
-            &[
-                "mod:core",
-                "mod:hooks",
-                "mod:registry",
-                "mod:runtime",
-                "mod:services",
-                "use:core",
-                "use:hooks",
-                "use:registry",
-                "use:runtime",
-                "use:services",
             ],
         ),
         (

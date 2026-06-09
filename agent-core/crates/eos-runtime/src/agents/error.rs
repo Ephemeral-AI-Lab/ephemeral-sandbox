@@ -54,11 +54,4 @@ pub enum AgentDefError {
         /// The resolved (absolute) path that did not exist.
         resolved: PathBuf,
     },
-
-    /// One or more declared skill files violated the terminal-silence contract.
-    #[error("skill-file lint failed")]
-    SkillLint {
-        /// One human-readable description per violation.
-        violations: Vec<String>,
-    },
 }

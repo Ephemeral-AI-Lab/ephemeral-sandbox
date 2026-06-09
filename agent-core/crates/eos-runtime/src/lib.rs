@@ -23,6 +23,7 @@
 #![warn(missing_docs)]
 
 mod agent_runner;
+mod agents;
 mod cancel;
 mod entry;
 pub mod observability;

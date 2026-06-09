@@ -332,6 +332,10 @@ agent-core/
 
 ## Progress Tracker
 
+Every phase must end by updating this shared tracker before the phase is treated
+as complete. The final status note should name the exit artifact and the last
+verification command or evidence used for that phase.
+
 | Phase | Status | Exit artifact |
 | --- | --- | --- |
 | 0. Architecture lock | Accepted | final 10-crate map and vocabulary are approved |
@@ -368,6 +372,9 @@ agent-core/
 - `eos-engine` contains no concrete model-facing tool family modules.
 - `eos-tool` owns tool model, registry, hooks, concrete tool behavior, and
   skills.
+- Each phase spec has a final progress item requiring an `index.md` Progress
+  Tracker update, and no phase is considered complete until this shared tracker
+  records the phase result.
 - `eos-workflow` depends on `eos-types` and `eos-tool`, not `eos-agent-run`.
 - `eos-agent-core` owns external facade plus hidden request runtime wiring.
 - `eos-llm-client` uses `client` and `providers`, not `services`.

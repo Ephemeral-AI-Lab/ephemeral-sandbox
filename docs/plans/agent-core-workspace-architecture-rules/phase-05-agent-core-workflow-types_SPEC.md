@@ -206,6 +206,7 @@ runtime_services
 | Remove `router` vocabulary from agent-core | Not started |
 | Update backend/external import path documentation | Not started |
 | Update workspace guard allowlists | Not started |
+| Update `index.md` Progress Tracker with Phase 05 result and exit artifact | Not started |
 
 ## Acceptance Criteria
 

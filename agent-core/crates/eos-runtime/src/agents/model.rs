@@ -6,7 +6,7 @@ use std::path::PathBuf;
 pub use eos_types::{AgentDefinition, AgentName, AgentType};
 use serde::Deserialize;
 
-use crate::error::AgentDefError;
+use super::error::AgentDefError;
 
 /// The serde DTO for the YAML frontmatter block (`extra="forbid"` →
 /// `#[serde(deny_unknown_fields)]`, GC-eos-agent-def-02).

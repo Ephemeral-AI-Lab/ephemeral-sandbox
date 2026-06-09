@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use eos_tool_ports::ExecutionMetadata;
+use eos_tool::ExecutionMetadata;
 
 /// A minimal [`ExecutionMetadata`] fact set for engine/tool tests.
 #[must_use]

@@ -30,6 +30,14 @@ manager port implemented by `eos-engine`'s existing `BackgroundSessionRuntime`.
 The isolated-workspace toggle stays a small `WorkspaceMode` port. Both stay
 inside `registry.rs`; the locked module tree is unchanged.
 
+Revision 2026-06-09 (hook execution ownership): removed the previously implied
+hook-resource bundle from `ToolRuntime` / `RegisteredTool`. `eos-tool` owns only
+hook declarations (`Hook` tokens on `RegisteredTool`). `eos-engine` owns the
+tool-call hook runner and its fields: the run-local `BackgroundManagers` aggregate
+for background-session counts/cancellation, plus engine/store lineage helpers for
+nested workflow depth. No `HookServices`, `HookRuntime`, `HookHandles`, or other
+hook execution resource type is exported by `eos-tool`.
+
 ## Scope
 
 This phase rebuilds `eos-tool` as the owner of the tool framework contracts,
@@ -78,9 +86,10 @@ final dependency DAG. Those are Phase 02 / integration responsibilities. Phase
 - workspace crate-map edits.
 
 `eos-engine` receives a `ToolRegistry`, runs its own pre-hook execution pipeline,
-looks up `RegisteredTool` entries, and calls the stored `ToolExecutor`. The
-dependency direction is `eos-engine -> eos-tool`; `eos-tool` must not depend on
-`eos-engine`.
+looks up `RegisteredTool` entries, and calls the stored `ToolExecutor`. A
+`RegisteredTool` carries only static hook declarations (`Vec<Hook>`), not hook
+execution resources. The dependency direction is `eos-engine -> eos-tool`;
+`eos-tool` must not depend on `eos-engine`.
 
 ```mermaid
 flowchart LR
@@ -88,7 +97,7 @@ flowchart LR
     AgentCore -->|"build_default_registry(...)"| Registry["ToolRegistry"]
     AgentCore -->|"loop request carries registry"| Engine["eos-engine"]
     Engine -->|"get_wire(name)"| Registered["RegisteredTool"]
-    Engine -->|"run hooks, then execute"| Executor["dyn ToolExecutor"]
+    Engine -->|"run engine-owned hooks, then execute"| Executor["dyn ToolExecutor"]
 ```
 
 ## Resulting File Structure
@@ -215,10 +224,11 @@ replaces the current ten `*Service` structs (the two `services.rs` files in
 `eos-tools` and `eos-tool-ports`) and the eleven-argument
 `build_default_registry_with_services` entry point.
 
-`ToolRuntime` fields are named by capability and hold raw handles; there are no
-`*Service` / `*Resource` field types and no per-tool service. The three
-run-local session trackers (subagent, command, workflow) collapse into one
-`BackgroundSessions` manager port (see Mandated runtime simplifications):
+`ToolRuntime` fields are named by capability and hold raw handles for concrete
+tool executors; there are no `*Service` / `*Resource` field types and no per-tool
+service. It does **not** carry a hook-resource bundle. The three run-local session
+trackers (subagent, command, workflow) collapse into one `BackgroundSessions`
+manager port (see Mandated runtime simplifications):
 
 | Field | Type | Built by | Used by |
 | --- | --- | --- | --- |
@@ -259,6 +269,25 @@ pub trait BackgroundSessions: Send + Sync {
     async fn cancel_subagent(&self, run: AgentRunId, reason: &str) -> Result<bool, ToolError>;
 }
 ```
+
+Engine-side tool-call hooks use normal engine fields, not a `RegisteredTool`
+resource bundle:
+
+```rust
+pub(crate) struct ToolCallHooks {
+    background: BackgroundManagers,
+    lineage: WorkflowLineageReader, // engine/store-owned helper; no eos-tool port
+}
+```
+
+`RequireNoBackgroundSessions` reads and optionally cancels through
+`BackgroundManagers`, which already tracks subagent runs, delegated workflows, and
+background command sessions for the current agent run. It does not call the
+sandbox daemon directly and does not receive sandbox transport through
+`RegisteredTool`. `DisallowNestedPlannerDeferral` reads workflow ancestry through
+engine/store-owned lineage state (today this may be the existing workflow-depth
+helper; the target is a store-backed helper owned outside `eos-tool`), not a
+tool-stamped `WorkflowApi` handle.
 
 Fields are non-optional per Mandated runtime simplification 1; that requires the
 `eos-agent-core` composition root to build `launcher` / `workflow` before the
@@ -320,10 +349,11 @@ helpers, not a single dispatch axis.
    reads the aggregate directly. `WorkflowApi` and `AgentRunApi` stay the
    `eos-types`-owned `dyn` ports they already are.
 
-Each `ToolRuntime` field is an injected handle whose **trait is defined in
-`eos-tool`** (or, for `WorkflowApi`/`AgentRunApi`, in `eos-types`) and whose
-**concrete impl is built at the `eos-agent-core` composition root**, then passed
-into the engine via `AgentLoopExecutionRequest`. This keeps the graph acyclic:
+Each `ToolRuntime` field is an injected handle used by concrete tool executors.
+Its **trait is defined in `eos-tool`** (or, for `WorkflowApi`/`AgentRunApi`, in
+`eos-types`) and its **concrete impl is built at the `eos-agent-core`
+composition root**, then passed into the engine via `AgentLoopExecutionRequest`.
+This keeps the graph acyclic:
 
 - `eos-engine` builds the `background` manager — its own
   `BackgroundSessionRuntime`, the `BackgroundSessions` impl — because it already
@@ -343,16 +373,12 @@ into the engine via `AgentLoopExecutionRequest`. This keeps the graph acyclic:
   on `eos-workflow` or `eos-agent-run`.
 
 Hook *declarations* live in `hooks.rs`. Hook *execution* — the pipeline and
-`HookOutcome` — lives in `eos-engine`. The unified `background` manager narrows
-what the hook-resource bundle must carry. `RequireNoBackgroundSessions` counts
-open sessions, which the engine reads from the `BackgroundSessions` aggregate it
-owns — so no subagent handle is stamped onto the tool for that hook.
-`DisallowNestedPlannerDeferral` reads workflow depth through `WorkflowApi`, which
-**is** stamped onto each `RegisteredTool` from `ToolRuntime.workflow`:
-`eos-engine` has no edge to `eos-workflow` and cannot build that port itself — the
-same acyclic constraint that governs `ToolRuntime`. Only the pure policy/pattern
-state (the destructive-git/shell regexes, the isolated-mode check) is
-engine-private; the injected `WorkflowApi` handle is not.
+`HookOutcome` — lives in `eos-engine`. The hook runner owns the live state it
+needs as class fields. `RequireNoBackgroundSessions` counts open sessions from
+the engine-owned `BackgroundManagers` aggregate and cancels subagents through the
+same aggregate for terminal/exit tools. `DisallowNestedPlannerDeferral` reads
+nested workflow depth through engine/store-owned lineage helpers. Nothing is
+stamped onto `RegisteredTool` for hook execution.
 
 Rejected `Service` names:
 
@@ -360,7 +386,7 @@ Rejected `Service` names:
 | --- | --- |
 | private tool executor resource group | `ToolRuntime` |
 | static registry config holder | `ToolRegistry` default entries |
-| hook-only injected resources | `ToolRuntime` hook-resource bundle |
+| hook-only injected resources | engine-owned tool-call hook runner fields |
 | hook-only policy/pattern state | engine-private hook policy state |
 | test-only helper | test fixture name |
 
@@ -423,8 +449,9 @@ subfolder splits, which trade two large cohesive files for two folders.
 | Move hook declarations into `eos-tool/hooks.rs` and keep hook execution in `eos-engine` | Done |
 | Move concrete tool behavior into the Phase 00 `tools/` family modules | Done |
 | Keep `tools/submission.rs` flat with all six submission executors and shared file-private helpers | Done |
-| Define `ToolRuntime` in `registry.rs` with non-optional live handles, the shared agent-launch field, and the hook-resource bundle | Done |
+| Define `ToolRuntime` in `registry.rs` with non-optional live handles and the shared agent-launch field; keep hook execution resources out of `ToolRuntime` / `RegisteredTool` | Done |
 | Split the schema-snapshot builder (`build_registry_schema`) from the live builder and delete the `Option`/`MissingPort`/`InertSandboxTransport` layer | Done |
+| Delete `HookServices` / hook-resource stamping and move tool-call hook dependencies to engine-owned runner fields | Done |
 | Unify subagent/command/workflow session tracking into one `BackgroundSessions` port (impl = engine `BackgroundSessionRuntime`; register/cancel only); keep the `WorkspaceMode` toggle as the one run-local port | Done |
 | Name `ToolRuntime` fields by capability with raw `Arc<dyn …>` handles; drop the `*Service`/`*Resource` field types and the separate command field (derive `SandboxCommandApi` from `sandbox`) | Done |
 | Collapse sandbox file/edit and isolated-workspace tools into `tools/sandbox.rs` | Done |
@@ -433,6 +460,7 @@ subfolder splits, which trade two large cohesive files for two folders.
 | Collapse workflow and skill tool files into `tools/workflow.rs` and `tools/skills.rs` | Done |
 | Remove obsolete one-file-per-tool deep tree | Done |
 | Update engine and agent-core imports through the Phase 02 integration lane | Done |
+| Update `index.md` Progress Tracker with Phase 03 result and exit artifact | Done |
 
 Implementation verification (2026-06-09):
 
@@ -484,9 +512,11 @@ Implementation verification (2026-06-09):
   states `eos-engine` does not own hook *contracts*; the two specs must use
   "hook contracts/declarations" for `eos-tool` and "hook execution" for
   `eos-engine` consistently.
-- The stateful pre-hooks' injected resources (sandbox/workflow/subagent) are
-  carried by `ToolRuntime` and stamped onto `RegisteredTool`, not built by
-  `eos-engine`.
+- Stateful pre-hook dependencies are normal fields on the engine-owned tool-call
+  hook runner, not `eos-tool` API and not stamped onto `RegisteredTool`.
+  `RequireNoBackgroundSessions` reads `BackgroundManagers`; nested deferral reads
+  engine/store-owned workflow lineage. There is no `HookServices`,
+  `HookRuntime`, `HookHandles`, or `RegisteredTool.hook_services`.
 - `tools/command.rs` owns `exec_command`, `write_stdin`, and
   `read_command_progress`.
 - `tools/sandbox.rs` owns the file/edit tools and `enter_isolated_workspace` /

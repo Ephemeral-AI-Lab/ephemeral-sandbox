@@ -12,32 +12,30 @@ mod overlay;
 mod process;
 mod refresh;
 mod service;
+mod setup;
 mod state;
 
 #[cfg(test)]
 use std::sync::Arc;
 use std::time::Duration;
-use std::{
-    path::PathBuf,
-    sync::{OnceLock, RwLock},
-};
 
 #[cfg(test)]
 use eos_plugin::PluginServiceState;
-use eos_plugin::{PluginError, PluginManifest};
+use eos_plugin::PluginError;
 #[cfg(test)]
 use eos_plugin::{PpcDirection, PpcEnvelope};
 use serde_json::{json, Value};
 
-use crate::config::PluginRuntimeConfig;
 use crate::dispatcher::DispatchContext;
 use crate::error::DaemonError;
 #[cfg(test)]
 use connected::response_payload_from_reply;
 #[cfg(test)]
 use dispatch::route_for_op;
-use eos_plugin::host::ensure_args::{validate_plugin_caller_fields, ParsedEnsure};
-use eos_plugin::host::{ensure_package, needs_upload_response, PackageEnsureReport};
+use eos_plugin::host::ensure_args::ParsedEnsure;
+#[cfg(test)]
+use eos_plugin::host::ensure_args::validate_plugin_caller_fields;
+use eos_plugin::host::{ensure_package, needs_upload_response};
 use state::loaded_matches_parsed;
 #[cfg(test)]
 use refresh::WORKSPACE_SNAPSHOT_REFRESH_OP;
@@ -50,59 +48,18 @@ use service::{
 use service::{
     insert_started_service_processes, reap_exited_processes, running_process_values,
     service_specs_to_start, spawn_service_processes, stop_plugin_service_processes,
-    stop_services_for_layer_stack_root as stop_services_for_layer_stack_root_in_state,
 };
+use setup::{
+    ensure_plugin_family_allowed, package_report_value, plugin_runtime_config, ppc_socket_root,
+    record_setup_failure,
+};
+pub(crate) use setup::{configure_plugin_runtime, stop_services_for_layer_stack_root};
 #[cfg(test)]
 use eos_plugin::host::ensure_args::MAX_PLUGIN_CALLER_FIELD_CHARS;
 use state::{
     connected_ppc_routes, connected_ppc_services, loaded_plugin_values, lock_state, process_values,
     route_values, setup_failure_key, setup_failure_values, LoadedPluginRuntime,
 };
-
-pub(crate) fn configure_plugin_runtime(config: &PluginRuntimeConfig) {
-    let mut guard = plugin_runtime_config_cell()
-        .write()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    *guard = config.clone();
-}
-
-pub(super) fn plugin_runtime_config() -> PluginRuntimeConfig {
-    plugin_runtime_config_cell()
-        .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone()
-}
-
-fn plugin_runtime_config_cell() -> &'static RwLock<PluginRuntimeConfig> {
-    static CONFIG: OnceLock<RwLock<PluginRuntimeConfig>> = OnceLock::new();
-    CONFIG.get_or_init(|| RwLock::new(default_plugin_runtime_config()))
-}
-
-/// PPC socket root for `ParsedEnsure` spec construction. Reads the daemon
-/// runtime config global, so it stays daemon-side and is threaded into the
-/// host-neutral parser.
-fn ppc_socket_root(args: &Value) -> String {
-    #[cfg(test)]
-    {
-        if let Some(root) = args.get("ppc_socket_root").and_then(Value::as_str) {
-            return root.to_owned();
-        }
-    }
-    let _ = args;
-    plugin_runtime_config()
-        .ppc_root
-        .to_string_lossy()
-        .into_owned()
-}
-
-fn default_plugin_runtime_config() -> PluginRuntimeConfig {
-    PluginRuntimeConfig {
-        ppc_root: PathBuf::from("/eos/plugin/ppc"),
-        ppc_timeout_ms: 5_000,
-        service_probe_timeout_ms: 5_000,
-        max_response_bytes: 8 * 1024 * 1024,
-    }
-}
 
 pub fn op_ensure(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
     ensure_plugin_family_allowed(args)?;
@@ -307,62 +264,6 @@ fn register_ppc_client_for_tests(
     );
     drop(state);
     Ok(())
-}
-
-fn ensure_plugin_family_allowed(args: &Value) -> Result<(), DaemonError> {
-    validate_plugin_caller_fields(args)?;
-    let caller_id = args
-        .get("caller_id")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .trim();
-    if !caller_id.is_empty()
-        && crate::adapters::workspace_run::isolated::caller_has_active_handle(caller_id)
-    {
-        return Err(DaemonError::Plugin(
-            PluginError::ForbiddenInIsolatedWorkspace,
-        ));
-    }
-    Ok(())
-}
-
-fn package_report_value(report: &PackageEnsureReport) -> Value {
-    if !report.active {
-        return Value::Null;
-    }
-    json!({
-        "needs_upload": report.needs_upload,
-        "package_root": report.package_root.as_ref().map(|path| path.to_string_lossy().into_owned()),
-        "dependency_root": report.dependency_root.as_ref().map(|path| path.to_string_lossy().into_owned()),
-        "package_published": report.package_published,
-        "setup_ran": report.setup_ran,
-    })
-}
-
-fn record_setup_failure(manifest: Option<&PluginManifest>, err: &DaemonError) {
-    let Some(manifest) = manifest else {
-        return;
-    };
-    if let Ok(mut state) = lock_state() {
-        state.setup_failures.insert(
-            setup_failure_key(&manifest.plugin_id, &manifest.plugin_digest),
-            json!({
-                "plugin": manifest.plugin_id,
-                "digest": manifest.plugin_digest,
-                "error": err.to_string(),
-            }),
-        );
-    }
-}
-
-pub(crate) fn stop_services_for_layer_stack_root(
-    layer_stack_root: &str,
-) -> Result<usize, DaemonError> {
-    let mut state = lock_state()?;
-    Ok(stop_services_for_layer_stack_root_in_state(
-        &mut state,
-        layer_stack_root,
-    ))
 }
 
 #[cfg(test)]

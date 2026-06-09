@@ -14,13 +14,12 @@ mod command_session_delivery {
     use std::time::Duration;
 
     use async_trait::async_trait;
-    use eos_agent_def::AgentRegistry;
     use eos_config::RuntimeConfig;
     use eos_engine::{EngineError, EngineStream, EventSource, StreamEvent};
     use eos_llm_client::{ContentBlock, LlmRequest};
     use eos_sandbox_port::{DaemonOp, SandboxPortError, SandboxTransport};
     use eos_types::TaskStatus;
-    use eos_types::{JsonObject, RequestId, SandboxId};
+    use eos_types::{AgentRegistry, JsonObject, RequestId, SandboxId};
     use serde_json::json;
 
     use super::run_request;

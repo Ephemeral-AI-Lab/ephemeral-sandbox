@@ -1,6 +1,6 @@
 //! Private adapter to engine-owned message records.
 
-use eos_agent_ports::{AgentRunMessageRecordKind, WorkflowTaskRole};
+use eos_types::{AgentRunMessageRecordKind, WorkflowTaskRole};
 
 /// Convert the public runner/port record kind into the engine message-record
 /// type.

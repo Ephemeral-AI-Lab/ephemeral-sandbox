@@ -8,7 +8,6 @@ use std::sync::{Arc, Mutex as StdMutex};
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use eos_agent_def::{load_agents_tree, AgentRegistry, AgentRegistryBuilder};
 use eos_agent_run::AgentMessageRecords;
 use eos_audit::{AuditSink, BufferedAuditShutdown, BufferedJsonlSink, NoopAuditSink};
 use eos_config::{
@@ -26,12 +25,14 @@ use eos_sandbox_port::{
 use eos_tool::{
     build_registry_schema, CallerScope, SkillRegistry, ToolConfigSet, ToolKey, ToolRegistry,
 };
+use eos_types::{AgentRegistry, AgentRegistryBuilder};
 use eos_types::{JsonObject, RequestId, SandboxId};
 
 use super::{
     AgentCoreRegistryService, AuditService, DbStoreService, EngineService, EventSourceFactory,
     MessageRecordService, RuntimeServices, SandboxService,
 };
+use crate::agents::load_agents_tree;
 use crate::plugins::register_plugin_tools;
 
 /// Placeholder client used when no provider is selected and no

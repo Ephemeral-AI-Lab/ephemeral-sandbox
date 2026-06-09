@@ -124,10 +124,10 @@ async fn failed_reducer_closes_attempt_failed() {
 // agent (a model-facing validation error), not a silent accept.
 #[tokio::test]
 async fn record_plan_rejects_bad_shape_with_real_ack() {
-    use eos_tool_ports::{
-        AttemptSubmissionPort, PlanReducer, PlanTask, PlannerPlan, SubmissionAck,
+    use eos_types::{
+        AttemptSubmissionPort, PlanDisposition, PlanNodeId, PlanReducer, PlanTask, PlannerPlan,
+        SubmissionAck,
     };
-    use eos_types::{PlanDisposition, PlanNodeId};
 
     use crate::AttemptSubmissionAdapter;
 
@@ -220,10 +220,10 @@ async fn record_plan_rejects_bad_shape_with_real_ack() {
 // `g2`'s registry check failed.
 #[tokio::test]
 async fn record_plan_rejects_late_agent_without_orphan_rows() {
-    use eos_tool_ports::{
-        AttemptSubmissionPort, PlanReducer, PlanTask, PlannerPlan, SubmissionAck,
+    use eos_types::{
+        AttemptSubmissionPort, PlanDisposition, PlanNodeId, PlanReducer, PlanTask, PlannerPlan,
+        SubmissionAck,
     };
-    use eos_types::{PlanDisposition, PlanNodeId};
 
     use crate::AttemptSubmissionAdapter;
 

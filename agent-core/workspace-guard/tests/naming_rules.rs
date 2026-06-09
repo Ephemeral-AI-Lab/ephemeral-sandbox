@@ -5,7 +5,7 @@ use workspace_guard::{
     Workspace, FORBIDDEN_VOCABULARY, LEGACY_MIGRATION_CRATES,
 };
 
-const PORT_CRATE_ALLOWLIST: &[&str] = &["eos-sandbox-port", "eos-agent-ports", "eos-tool-ports"];
+const PORT_CRATE_ALLOWLIST: &[&str] = &["eos-sandbox-port"];
 const API_MODULE_ALLOWLIST: &[&str] = &["crates/eos-sandbox-port/src/tool_api"];
 const RUNTIME_PATH_ALLOWLIST: &[&str] = &[
     "crates/eos-agent-core/src/runtime.rs",

@@ -3,21 +3,20 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use eos_agent_ports::{
-    AgentLoopMessage, AgentLoopOutcome, AgentLoopOutcomeKind, StartAgentLoopRequest,
-};
 use eos_llm_client::{ContentBlock, Message, MessageRole};
 use eos_tool::{ToolKey, ToolRegistry, ToolResult};
-use eos_tool_ports::SystemNotification;
 use eos_types::AgentRunId;
 
 use crate::background::{BackgroundManagers, BackgroundTeardownService};
 use crate::notifications::{
     enqueue_notification_rules, make_default_notification_rules, NotificationRule,
-    NotificationRuleContext, NotificationService,
+    NotificationRuleContext, NotificationService, SystemNotification,
 };
 
-use super::{AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory};
+use super::{
+    AgentLoopMessage, AgentLoopOutcome, AgentLoopOutcomeKind, AgentLoopToolRegistryBuildInput,
+    AgentLoopToolRegistryFactory, StartAgentLoopRequest,
+};
 use crate::EngineError;
 
 /// Engine-private mutable loop state.

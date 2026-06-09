@@ -5,7 +5,7 @@
 //! ([`ScriptedSource`] — the only definition in the workspace, `TESTING_SPEC` AC3),
 //! the fake [`SandboxTransport`](eos_sandbox_port::SandboxTransport)
 //! ([`FakeTransport`]), agent-definition builders, the `run_until` stream
-//! stepper, and the [`ExecutionMetadata`](eos_tool_ports::ExecutionMetadata) fixture
+//! stepper, and the [`ExecutionMetadata`](eos_tool::ExecutionMetadata) fixture
 //! ([`metadata`]). Consumed as a `[dev-dependencies]` crate, so its `src/` *is*
 //! test infrastructure and no production crate carries test-support code in its
 //! own `src/` (`TESTING_SPEC` I2).

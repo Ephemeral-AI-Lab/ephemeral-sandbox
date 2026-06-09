@@ -260,6 +260,7 @@ move.
 | Approve module budget | Approved |
 | Approve parallel work lanes | Approved |
 | Approve verification ladder | Approved |
+| Update `index.md` Progress Tracker with Phase 00 result and exit artifact | Approved |
 
 ## Acceptance Criteria
 

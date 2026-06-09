@@ -22,7 +22,6 @@ mod executor {
     use eos_types::JsonObject;
     use eos_types::ToolSpec;
 
-    use super::HookServices;
     use crate::hooks::Hook;
     use crate::ExecutionMetadata;
     use crate::ToolError;
@@ -62,8 +61,6 @@ mod executor {
         pub spec: ToolSpec,
         /// The pre-hooks run before the body, in order.
         pub hooks: Vec<Hook>,
-        /// Dependencies available to stateful pre-hooks.
-        pub(crate) hook_services: Arc<HookServices>,
         /// The declared output shape the pipeline validates against.
         pub(crate) output: OutputShape,
         /// The executor implementation.
@@ -99,7 +96,6 @@ mod executor {
                 is_terminal,
                 spec,
                 hooks: Vec::new(),
-                hook_services: Arc::new(HookServices::default()),
                 output,
                 executor,
             }
@@ -112,14 +108,6 @@ mod executor {
             self
         }
 
-        /// Attach stateful hook dependencies.
-        #[must_use]
-        pub fn with_hook_services(mut self, services: Arc<HookServices>) -> Self {
-            self.hook_services = services;
-            self
-        }
-
-        /// The declared output shape.
         /// The declared output shape.
         #[must_use]
         pub fn output(&self) -> &OutputShape {
@@ -130,12 +118,6 @@ mod executor {
         #[must_use]
         pub fn executor(&self) -> &dyn ToolExecutor {
             &*self.executor
-        }
-
-        /// The stateful hook dependencies.
-        #[must_use]
-        pub fn hook_services(&self) -> &HookServices {
-            &self.hook_services
         }
     }
 }
@@ -154,7 +136,6 @@ mod tool_registry {
 
     use eos_types::ToolSpec;
 
-    use super::HookServices;
     use super::RegisteredTool;
     use crate::ToolKey;
 
@@ -181,14 +162,6 @@ mod tool_registry {
                 let idx = self.tools.len();
                 self.index.insert(tool.name.clone(), idx);
                 self.tools.push(tool);
-            }
-        }
-
-        /// Attach one hook-service set to every registered tool.
-        pub fn apply_hook_services(&mut self, services: HookServices) {
-            let services = std::sync::Arc::new(services);
-            for tool in &mut self.tools {
-                tool.hook_services = services.clone();
             }
         }
 
@@ -985,50 +958,5 @@ pub struct ToolRuntime {
 impl fmt::Debug for ToolRuntime {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ToolRuntime").finish_non_exhaustive()
-    }
-}
-
-/// Runtime resources stamped onto tools for stateful pre-hooks.
-#[derive(Clone)]
-pub struct HookServices {
-    sandbox_transport: Option<Arc<dyn SandboxTransport>>,
-    workflow: Option<Arc<dyn WorkflowApi>>,
-}
-
-impl HookServices {
-    /// Build hook resources from the live runtime.
-    #[must_use]
-    pub fn new(runtime: &ToolRuntime) -> Self {
-        Self {
-            sandbox_transport: Some(runtime.sandbox.clone()),
-            workflow: Some(runtime.workflow.clone()),
-        }
-    }
-
-    /// Sandbox transport used by command-session hook checks.
-    #[must_use]
-    pub fn sandbox_transport(&self) -> Option<&Arc<dyn SandboxTransport>> {
-        self.sandbox_transport.as_ref()
-    }
-
-    /// Workflow API used by workflow hook checks.
-    #[must_use]
-    pub fn workflow_service(&self) -> Option<&Arc<dyn WorkflowApi>> {
-        self.workflow.as_ref()
-    }
-}
-
-impl Default for HookServices {
-    fn default() -> Self {
-        Self {
-            sandbox_transport: None,
-            workflow: None,
-        }
-    }
-}
-
-impl fmt::Debug for HookServices {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("HookServices").finish_non_exhaustive()
     }
 }

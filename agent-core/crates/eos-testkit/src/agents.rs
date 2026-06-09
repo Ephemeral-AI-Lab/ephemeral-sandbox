@@ -2,7 +2,7 @@
 
 use std::num::NonZeroU32;
 
-use eos_agent_def::{AgentDefinition, AgentName, AgentType};
+use eos_types::{AgentDefinition, AgentName, AgentType};
 
 /// Build a minimal agent definition for tests.
 #[must_use]

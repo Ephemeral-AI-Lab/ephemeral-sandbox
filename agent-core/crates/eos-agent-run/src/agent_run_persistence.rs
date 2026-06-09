@@ -1,8 +1,9 @@
 //! Agent-run persistence helpers owned by the runner.
 
-use eos_agent_ports::{AgentRunOutcome, AgentRunStatus};
 use eos_tool::ToolResult;
-use eos_types::{AgentRun, AgentRunId, AgentRunStore, JsonObject, TaskId};
+use eos_types::{
+    AgentRun, AgentRunId, AgentRunOutcome, AgentRunStatus, AgentRunStore, JsonObject, TaskId,
+};
 use serde_json::json;
 
 use crate::AgentRunError;

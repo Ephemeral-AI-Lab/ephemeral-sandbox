@@ -9,13 +9,12 @@
 //! and never another run's queue (spec §13.1). Callers must clone the terminal
 //! data out from under any manager lock and drop the lock *before* awaiting `emit`.
 
-use eos_tool::ToolResult;
-use eos_tool_ports::{SystemNotification as ToolNotification, ToolError};
+use eos_tool::{ToolError, ToolResult};
 use eos_types::{AgentRunId, CommandSessionId, SandboxId, WorkflowId};
 use serde_json::Value;
 
 use super::background_session_manager::BackgroundSessionStatus;
-use crate::notifications::NotificationService;
+use crate::notifications::{NotificationService, NotificationSink, SystemNotification};
 
 /// A terminal background transition to surface to the owning agent run.
 #[derive(Debug, Clone)]
@@ -141,9 +140,8 @@ impl BackgroundNotificationEmitter {
 
     /// Render and enqueue one background completion into the run's notifier.
     pub async fn emit(&self, completion: BackgroundCompletion) -> Result<(), ToolError> {
-        use eos_tool_ports::NotificationSink;
         self.notifications
-            .notify_system(ToolNotification {
+            .notify_system(SystemNotification {
                 event: completion.event_key(),
                 message: completion.render(),
             })

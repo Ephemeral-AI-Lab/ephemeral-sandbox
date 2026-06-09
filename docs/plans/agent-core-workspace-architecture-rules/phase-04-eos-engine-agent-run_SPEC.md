@@ -214,9 +214,9 @@ pub struct AgentRunService {
 ```
 
 Use `agent_registry` / `AgentRegistry` vocabulary, not `agent_catalog`. The
-target type comes from the Phase 02 agent-definition disposition; while the
-current concrete type still lives in `eos-agent-def`, that edge is a migration
-detail rather than a Phase 04 target edge.
+target type comes from the Phase 02 agent-definition disposition; the concrete
+registry DTO now lives in `eos-types`, so Phase 04 must not recreate an
+agent-definition crate edge.
 
 Target active-run value:
 
@@ -443,6 +443,7 @@ target engine/run surface. The literal file name `messages.jsonl` is unchanged.
 | Add cancellation race tests | Not started |
 | Add background-session accounting tests | Not started |
 | Update `eos-agent-core` runtime wiring | Not started |
+| Update `index.md` Progress Tracker with Phase 04 result and exit artifact | Not started |
 
 ## Acceptance Criteria
 

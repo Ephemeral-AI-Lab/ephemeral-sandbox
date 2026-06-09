@@ -8,17 +8,6 @@ use eos_protocol::audit::{build_event, Lane, ToolCallSection};
 
 use crate::audit::buffer::safe_emit;
 
-pub(super) fn should_emit_tool_call_event(op: &str) -> bool {
-    !op.starts_with("api.audit.")
-        && !matches!(
-            op,
-            "api.runtime.ready"
-                | "api.v1.heartbeat"
-                | "api.v1.inflight_count"
-                | "api.v1.command_session_count"
-        )
-}
-
 pub(super) fn emit_tool_call_event(
     event_type: &str,
     invocation_id: &str,

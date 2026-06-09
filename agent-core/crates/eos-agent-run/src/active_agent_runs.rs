@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use eos_agent_ports::{AgentLoopCancelHandle, AgentRunError, AgentRunOutcome};
 use eos_engine::records::AgentRunRecordHandle;
-use eos_types::AgentRunId;
+use eos_engine::AgentLoopCancelHandle;
+use eos_types::{AgentRunError, AgentRunId, AgentRunOutcome};
 use tokio::sync::{watch, Mutex};
 
 /// Registry of active in-process agent runs.

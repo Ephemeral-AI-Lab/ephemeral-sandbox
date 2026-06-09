@@ -17,13 +17,12 @@
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
-use eos_agent_ports::{
-    AgentName as AgentPortName, AgentRunApi, AgentRunMessageRecordKind, SpawnAgentRequest,
-    WorkflowTaskRole,
-};
 use eos_agent_run::AgentRunService as RunnerAgentRunService;
 use eos_llm_client::Message;
-use eos_types::{AgentRunId, AttemptSubmissionPort, TaskRole, WorkflowApi};
+use eos_types::{
+    AgentName as AgentPortName, AgentRunApi, AgentRunId, AgentRunMessageRecordKind,
+    AttemptSubmissionPort, SpawnAgentRequest, TaskRole, WorkflowApi, WorkflowTaskRole,
+};
 use eos_workflow::{AgentLaunch, AgentRunReport, AgentRunner, Result as WorkflowResult};
 
 use crate::runtime_services::{build_agent_loop_launcher, EventCallback, RuntimeServices};

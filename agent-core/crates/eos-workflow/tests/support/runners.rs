@@ -9,12 +9,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
-use eos_agent_def::{AgentDefinition, AgentName, AgentRegistry, AgentRegistryBuilder};
-use eos_tool_ports::{AttemptSubmissionPort, PlanReducer, PlanTask, PlannerPlan};
 use eos_types::{
-    DeferredGoal, GeneratorSubmission, JsonObject, PlanDisposition, PlanNodeId, ReducerSubmission,
-    RequestId, Task, TaskOutcomeStatus, TaskRole, TaskStatus, WorkflowId, WorkflowStatus,
+    AgentDefinition, AgentName, AgentRegistry, AgentRegistryBuilder, AgentType, DeferredGoal,
+    GeneratorSubmission, JsonObject, PlanDisposition, PlanNodeId, ReducerSubmission, RequestId,
+    Task, TaskOutcomeStatus, TaskRole, TaskStatus, WorkflowId, WorkflowStatus,
 };
+use eos_types::{AttemptSubmissionPort, PlanReducer, PlanTask, PlannerPlan};
 use parking_lot::Mutex;
 use serde_json::json;
 use tokio::sync::Notify;
@@ -325,7 +325,7 @@ fn agent_def(name: &str, role: TaskRole, terminals: Vec<&str>) -> AgentDefinitio
         system_prompt: None,
         model: None,
         tool_call_limit: NonZeroU32::new(16).unwrap(),
-        agent_type: eos_agent_def::AgentType::Agent,
+        agent_type: AgentType::Agent,
         allowed_tools: Vec::new(),
         terminals: terminals.into_iter().map(ToOwned::to_owned).collect(),
         notification_triggers: Vec::new(),

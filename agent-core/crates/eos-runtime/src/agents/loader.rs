@@ -10,8 +10,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::error::AgentDefError;
-use crate::model::{definition_from_frontmatter, AgentDefinition, RawAgentDefinition};
+use super::error::AgentDefError;
+use super::model::{definition_from_frontmatter, AgentDefinition, RawAgentDefinition};
 
 const MAIN_PROFILE_DIRNAME: &str = "main";
 const MAIN_ROLE_CONTRACT_NAME: &str = "_main_role_contract.md";
@@ -24,7 +24,8 @@ const MAIN_ROLE_CONTRACT_NAME: &str = "_main_role_contract.md";
 /// # Errors
 /// Propagates [`AgentDefError`] from any individual profile that fails to read,
 /// parse, or validate.
-pub fn load_agents_dir(directory: &Path) -> Result<Vec<AgentDefinition>, AgentDefError> {
+#[cfg(test)]
+fn load_agents_dir(directory: &Path) -> Result<Vec<AgentDefinition>, AgentDefError> {
     if !directory.is_dir() {
         return Ok(Vec::new());
     }
@@ -46,7 +47,7 @@ pub fn load_agents_dir(directory: &Path) -> Result<Vec<AgentDefinition>, AgentDe
 /// # Errors
 /// Propagates [`AgentDefError`] from any individual profile that fails to read,
 /// parse, or validate.
-pub fn load_agents_tree(directory: &Path) -> Result<Vec<AgentDefinition>, AgentDefError> {
+pub(crate) fn load_agents_tree(directory: &Path) -> Result<Vec<AgentDefinition>, AgentDefError> {
     if !directory.is_dir() {
         return Ok(Vec::new());
     }
@@ -217,6 +218,8 @@ fn split_frontmatter(content: &str) -> (Option<String>, String) {
 mod tests {
     #![allow(clippy::unwrap_used)] // unwrap is permitted in tests (err-no-unwrap-prod)
     use super::*;
+    use eos_types::{AgentName, AgentRegistry, AgentType};
+
     /// A throwaway directory under the system temp dir, unique per test name and
     /// recreated empty. Removed on drop.
     struct Scratch(PathBuf);
@@ -346,5 +349,59 @@ mod tests {
         );
         let defs = load_agents_tree(&s.0).unwrap();
         assert_eq!(defs[0].system_prompt.as_deref(), Some("ADVISOR BODY"));
+    }
+
+    fn bundled_profile_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../.eos-agents/profile")
+    }
+
+    #[test]
+    fn loads_bundled_profiles() {
+        let dir = bundled_profile_dir();
+        assert!(
+            dir.is_dir(),
+            "bundled profile tree not found at {}",
+            dir.display()
+        );
+
+        let definitions = load_agents_tree(&dir).expect("load bundled profiles");
+        let registry: AgentRegistry = definitions.into_iter().collect();
+
+        for name in [
+            "root", "planner", "executor", "reducer", "advisor", "subagent",
+        ] {
+            let key = AgentName::new(name).expect("non-empty name");
+            assert!(
+                registry.get(&key).is_some(),
+                "missing bundled profile {name}"
+            );
+        }
+
+        let executor = registry
+            .get(&AgentName::new("executor").unwrap())
+            .expect("executor present");
+        assert_eq!(executor.agent_type, AgentType::Agent);
+        let skill = executor.skill.as_ref().expect("executor skill resolved");
+        assert!(skill.is_absolute());
+
+        let advisor = registry
+            .get(&AgentName::new("advisor").unwrap())
+            .expect("advisor present");
+        assert_eq!(advisor.agent_type, AgentType::Advisor);
+
+        let dispatchable: Vec<String> = registry
+            .dispatchable_subagent_names()
+            .iter()
+            .map(|n| n.as_str().to_owned())
+            .collect();
+        assert_eq!(dispatchable, vec!["subagent".to_owned()]);
+
+        let root = registry.get(&AgentName::new("root").unwrap()).unwrap();
+        assert!(
+            root.system_prompt
+                .as_deref()
+                .is_some_and(|p| p.contains("Main-Agent Operating Contract")),
+            "root should have the main-role contract prepended"
+        );
     }
 }

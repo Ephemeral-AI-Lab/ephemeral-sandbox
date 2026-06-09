@@ -28,9 +28,9 @@ pub use agent::{
 };
 pub use contracts::{
     AgentRunApi, AgentRunError, AgentRunMessageRecordKind, AgentRunOutcome, AgentRunStatus,
-    AttemptSubmissionPort, OutstandingWorkflow, PlanReducer, PlanTask, PlannerPlan,
-    SpawnAgentRequest, StartWorkflowRequest, StartedWorkflow, SubmissionAck, TerminalWorkflow,
-    WorkflowApi, WorkflowApiError, WorkflowTaskRole, WorkflowTerminalStatus,
+    AgentState, AttemptSubmissionPort, CancelError, CancelPort, OutstandingWorkflow, PlanReducer,
+    PlanTask, PlannerPlan, SpawnAgentRequest, StartWorkflowRequest, StartedWorkflow, SubmissionAck,
+    TerminalWorkflow, WorkflowApi, WorkflowApiError, WorkflowTaskRole, WorkflowTerminalStatus,
 };
 pub use error::CoreError;
 pub use frontmatter::parse_markdown_frontmatter;

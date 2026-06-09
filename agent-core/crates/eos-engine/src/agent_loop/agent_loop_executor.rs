@@ -2,18 +2,16 @@
 
 use std::sync::Arc;
 
-use eos_agent_ports::{
-    AgentExecutionMetadataService, AgentLoopCancelSignal, AgentLoopOutcome,
-    ExecutionMetadataBuildInput, StartAgentLoopRequest,
-};
 use eos_llm_client::{ContentBlock, LlmRequest, Message, UsageSnapshot};
 use eos_tool::{RegisteredTool, ToolName, ToolResult};
-use eos_types::{AgentRunId, JsonObject, ToolUseId};
+use eos_types::{AgentRunId, AgentState, JsonObject, ToolUseId};
 use futures::StreamExt;
 
 use super::{
-    AgentLoopBackgroundDependencies, AgentLoopEventSource, AgentLoopHooks, AgentLoopRunServices,
-    AgentLoopState, AgentLoopToolRegistryFactory,
+    AgentExecutionMetadataService, AgentLoopBackgroundDependencies, AgentLoopCancelSignal,
+    AgentLoopEventSource, AgentLoopHookDependencies, AgentLoopHooks, AgentLoopMessage,
+    AgentLoopOutcome, AgentLoopOutcomeKind, AgentLoopRunServices, AgentLoopState,
+    AgentLoopToolRegistryFactory, ExecutionMetadataBuildInput, StartAgentLoopRequest,
 };
 use crate::notifications::NotificationService;
 use crate::query::{provider_messages::build_provider_messages, EventSource};
@@ -30,6 +28,7 @@ pub(crate) struct AgentLoopExecutor {
     metadata_service: Arc<dyn AgentExecutionMetadataService>,
     cancel_signal: AgentLoopCancelSignal,
     background_dependencies: Option<AgentLoopBackgroundDependencies>,
+    hook_dependencies: Option<AgentLoopHookDependencies>,
     event_callback: Option<crate::query::EventCallback>,
 }
 
@@ -47,6 +46,7 @@ impl AgentLoopExecutor {
         metadata_service: Arc<dyn AgentExecutionMetadataService>,
         cancel_signal: AgentLoopCancelSignal,
         background_dependencies: Option<AgentLoopBackgroundDependencies>,
+        hook_dependencies: Option<AgentLoopHookDependencies>,
         event_callback: Option<crate::query::EventCallback>,
     ) -> Self {
         Self {
@@ -56,6 +56,7 @@ impl AgentLoopExecutor {
             metadata_service,
             cancel_signal,
             background_dependencies,
+            hook_dependencies,
             event_callback,
         }
     }
@@ -72,7 +73,7 @@ impl AgentLoopExecutor {
             Ok(identity) => identity,
             Err(error) => {
                 return AgentLoopOutcome {
-                    kind: eos_agent_ports::AgentLoopOutcomeKind::LoopFailed {
+                    kind: AgentLoopOutcomeKind::LoopFailed {
                         error_summary: error.to_string(),
                     },
                     final_conversation_messages: Vec::new(),
@@ -88,7 +89,7 @@ impl AgentLoopExecutor {
                 Ok(state) => state,
                 Err(error) => {
                     return AgentLoopOutcome {
-                        kind: eos_agent_ports::AgentLoopOutcomeKind::LoopFailed {
+                        kind: AgentLoopOutcomeKind::LoopFailed {
                             error_summary: error.to_string(),
                         },
                         final_conversation_messages: Vec::new(),
@@ -152,7 +153,7 @@ impl AgentLoopExecutor {
     async fn execute_assistant_turn(
         &self,
         event_source: &Arc<dyn EventSource>,
-        event_identity: &eos_agent_ports::AgentState,
+        event_identity: &AgentState,
         state: &mut AgentLoopState,
     ) -> Result<AssistantTurnResult, EngineError> {
         let request = build_loop_provider_request(state);
@@ -194,7 +195,7 @@ impl AgentLoopExecutor {
         state.record_tool_calls(tool_calls.len());
         state
             .conversation_messages
-            .push(eos_agent_ports::AgentLoopMessage::AssistantMessage(message));
+            .push(AgentLoopMessage::AssistantMessage(message));
         if tool_calls.is_empty() {
             state.record_text_only_turn();
             return Ok(AssistantTurnResult::Continue);
@@ -207,9 +208,7 @@ impl AgentLoopExecutor {
         };
         state
             .conversation_messages
-            .push(eos_agent_ports::AgentLoopMessage::UserMessage(
-                result_message,
-            ));
+            .push(AgentLoopMessage::UserMessage(result_message));
 
         match dispatch.submission_outcome {
             Some(outcome) if outcome.is_terminal => {
@@ -319,7 +318,10 @@ impl AgentLoopExecutor {
             tool_input: call.input.clone(),
             tool_use_id: call.tool_use_id.clone(),
         });
-        let result = execute_tool_once(tool, &call.input, &metadata, state.background()).await?;
+        let hooks = self.hook_dependencies.clone().map(|dependencies| {
+            crate::tool_call::ToolCallHooks::new(state.background(), dependencies)
+        });
+        let result = execute_tool_once(tool, &call.input, &metadata, hooks.as_ref()).await?;
         self.emit_event(&StreamEvent::ToolExecutionCompleted {
             agent_name: metadata.agent_name,
             agent_run_id: metadata.agent_run_id,
@@ -345,7 +347,7 @@ impl AgentLoopExecutor {
     fn resolve_event_source(
         &self,
         request: &StartAgentLoopRequest,
-        agent_state: &eos_agent_ports::AgentState,
+        agent_state: &AgentState,
     ) -> Arc<dyn EventSource> {
         match &self.event_source {
             AgentLoopEventSource::Static(source) => Arc::clone(source),
@@ -353,11 +355,7 @@ impl AgentLoopExecutor {
         }
     }
 
-    async fn drain_notifications(
-        &self,
-        state: &mut AgentLoopState,
-        event_identity: &eos_agent_ports::AgentState,
-    ) {
+    async fn drain_notifications(&self, state: &mut AgentLoopState, event_identity: &AgentState) {
         for notification in state.drain_notifications().await {
             self.emit_event(&StreamEvent::SystemNotification {
                 agent_name: event_identity.agent_name.clone(),
@@ -404,12 +402,12 @@ fn build_loop_provider_request(state: &AgentLoopState) -> LlmRequest {
         .conversation_messages
         .iter()
         .filter_map(|message| match message {
-            eos_agent_ports::AgentLoopMessage::SystemPrompt(prompt) => {
+            AgentLoopMessage::SystemPrompt(prompt) => {
                 system_prompt = Some(prompt.clone());
                 None
             }
-            eos_agent_ports::AgentLoopMessage::UserMessage(message)
-            | eos_agent_ports::AgentLoopMessage::AssistantMessage(message) => Some(message.clone()),
+            AgentLoopMessage::UserMessage(message)
+            | AgentLoopMessage::AssistantMessage(message) => Some(message.clone()),
         })
         .collect();
     let mut builder = LlmRequest::builder(state.model_key.clone())
@@ -441,13 +439,13 @@ fn tool_uses_from_message(message: &Message) -> Vec<ToolUseRequest> {
         .collect()
 }
 
-fn loop_messages_to_llm_messages(messages: &[eos_agent_ports::AgentLoopMessage]) -> Vec<Message> {
+fn loop_messages_to_llm_messages(messages: &[AgentLoopMessage]) -> Vec<Message> {
     messages
         .iter()
         .filter_map(|message| match message {
-            eos_agent_ports::AgentLoopMessage::SystemPrompt(_) => None,
-            eos_agent_ports::AgentLoopMessage::UserMessage(message)
-            | eos_agent_ports::AgentLoopMessage::AssistantMessage(message) => Some(message.clone()),
+            AgentLoopMessage::SystemPrompt(_) => None,
+            AgentLoopMessage::UserMessage(message)
+            | AgentLoopMessage::AssistantMessage(message) => Some(message.clone()),
         })
         .collect()
 }

@@ -46,6 +46,31 @@ pub struct SpawnAgentRequest {
     pub record_kind: AgentRunMessageRecordKind,
 }
 
+/// Current runtime metadata facts for one agent run.
+#[derive(Debug, Clone)]
+pub struct AgentState {
+    /// Agent-run id.
+    pub agent_run_id: AgentRunId,
+    /// Bound agent profile name.
+    pub agent_name: String,
+    /// Owning request id.
+    pub request_id: Option<RequestId>,
+    /// Owning task id.
+    pub task_id: Option<TaskId>,
+    /// Owning workflow id.
+    pub workflow_id: Option<WorkflowId>,
+    /// Owning workflow iteration id.
+    pub iteration_id: Option<IterationId>,
+    /// Owning attempt id.
+    pub attempt_id: Option<AttemptId>,
+    /// Bound sandbox id.
+    pub sandbox_id: Option<SandboxId>,
+    /// Request-visible workspace root.
+    pub workspace_root: String,
+    /// Whether the run currently has an isolated workspace open.
+    pub is_isolated_workspace_mode: bool,
+}
+
 /// Agent-run message-record layout choice carried by callers without exposing
 /// the private message-record writer crate outside the runner.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -246,6 +271,32 @@ pub trait AttemptSubmissionPort: Send + Sync {
         &self,
         submission: ReducerSubmission,
     ) -> Result<SubmissionAck, CoreError>;
+}
+
+/// Error returned by recursive request/workflow cancellation.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum CancelError {
+    /// An upstream store operation failed.
+    #[error("store error: {0}")]
+    Store(#[from] CoreError),
+    /// A lifecycle invariant broke or an internal operation failed.
+    #[error("{0}")]
+    Internal(String),
+}
+
+/// Recursive agent-core cancellation primitives.
+#[async_trait]
+pub trait CancelPort: Send + Sync {
+    /// Cancel a persisted task and any live run bound to it.
+    async fn cancel_task(&self, task_id: &TaskId, reason: &str) -> Result<(), CancelError>;
+
+    /// Cancel a live agent run.
+    async fn cancel_agent_run(
+        &self,
+        agent_run_id: &AgentRunId,
+        reason: &str,
+    ) -> Result<(), CancelError>;
 }
 
 /// Request to start a delegated workflow.

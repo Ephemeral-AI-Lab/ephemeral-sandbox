@@ -3,14 +3,14 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use eos_agent_def::{AgentDefinition, AgentName as DefinitionAgentName, AgentRegistry, AgentType};
-use eos_agent_ports::{
-    AgentLoopLauncher, AgentLoopOutcome, AgentLoopOutcomeKind, AgentRunApi, AgentRunError,
-    AgentRunMessageRecordKind, AgentRunOutcome, AgentRunStatus, SpawnAgentRequest,
-};
 use eos_engine::records::{AgentMessageRecords, AgentRunRecordStart, NodeFinishStatus};
+use eos_engine::{AgentLoopLauncher, AgentLoopMessage, AgentLoopOutcome, AgentLoopOutcomeKind};
 use eos_llm_client::Message;
-use eos_types::{AgentRunId, AgentRunStore};
+use eos_types::{
+    AgentDefinition, AgentName as DefinitionAgentName, AgentRegistry, AgentRunApi, AgentRunError,
+    AgentRunId, AgentRunMessageRecordKind, AgentRunOutcome, AgentRunStatus, AgentRunStore,
+    AgentType, SpawnAgentRequest,
+};
 use tokio::sync::oneshot;
 
 use crate::active_agent_runs::{ActiveAgentRunRecord, ActiveAgentRuns};
@@ -406,13 +406,13 @@ fn agent_run_outcome_from_loop(
     }
 }
 
-fn loop_messages_to_llm_messages(messages: Vec<eos_agent_ports::AgentLoopMessage>) -> Vec<Message> {
+fn loop_messages_to_llm_messages(messages: Vec<AgentLoopMessage>) -> Vec<Message> {
     messages
         .into_iter()
         .filter_map(|message| match message {
-            eos_agent_ports::AgentLoopMessage::SystemPrompt(_) => None,
-            eos_agent_ports::AgentLoopMessage::UserMessage(message)
-            | eos_agent_ports::AgentLoopMessage::AssistantMessage(message) => Some(message),
+            AgentLoopMessage::SystemPrompt(_) => None,
+            AgentLoopMessage::UserMessage(message)
+            | AgentLoopMessage::AssistantMessage(message) => Some(message),
         })
         .collect()
 }

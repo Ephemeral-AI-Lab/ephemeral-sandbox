@@ -19,9 +19,9 @@ pub use model::{
     SubagentSessionStatus, ToolIntent, ToolKey, ToolName, ToolResult,
 };
 pub use registry::{
-    build_default_registry, build_registry_schema, BackgroundSessions, CallerScope, HookServices,
-    RegisteredTool, Submission, ToolConfig, ToolConfigError, ToolConfigSet, ToolExecutor,
-    ToolRegistry, ToolRuntime, WorkspaceMode,
+    build_default_registry, build_registry_schema, BackgroundSessions, CallerScope, RegisteredTool,
+    Submission, ToolConfig, ToolConfigError, ToolConfigSet, ToolExecutor, ToolRegistry,
+    ToolRuntime, WorkspaceMode,
 };
 pub use tools::terminal::{render_tool_instruction, TerminalTool, ToolInstructions};
 pub use tools::{

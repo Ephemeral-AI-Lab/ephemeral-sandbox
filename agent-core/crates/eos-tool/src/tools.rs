@@ -18,8 +18,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::registry::{
-    BackgroundSessions, HookServices, Submission, ToolConfig, ToolConfigSet, ToolRuntime,
-    WorkspaceMode,
+    BackgroundSessions, Submission, ToolConfig, ToolConfigSet, ToolRuntime, WorkspaceMode,
 };
 use crate::{
     OutputShape, RegisteredTool, ToolError, ToolExecutor, ToolName, ToolRegistry, ToolResult,
@@ -242,7 +241,6 @@ pub fn build_default_registry(
         background,
     );
     skills::register(&mut registry, config, caller, skills);
-    registry.apply_hook_services(HookServices::new(&runtime));
     registry
 }
 

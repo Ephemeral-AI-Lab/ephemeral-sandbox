@@ -1,14 +1,13 @@
 //! Public fixture-contract tests for `eos-testkit`.
 #![allow(clippy::expect_used)]
 
-use eos_agent_ports::{AgentState, StartAgentLoopRequest};
-use eos_engine::{EngineError, EventSource, StreamEvent};
+use eos_engine::{EngineError, EventSource, StartAgentLoopRequest, StreamEvent};
 use eos_llm_client::{ContentBlock, LlmRequest, Message, ToolSpec};
 use eos_sandbox_port::{DaemonOp, SandboxTransport};
 use eos_testkit::{
     factory_by_agent, run_until, text_turn, tool_use_turn, FakeTransport, ScriptedSource,
 };
-use eos_types::{AgentRunId, JsonObject, SandboxId};
+use eos_types::{AgentRunId, AgentState, JsonObject, SandboxId};
 use futures::StreamExt;
 use serde_json::json;
 

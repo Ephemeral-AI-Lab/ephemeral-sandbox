@@ -10,14 +10,13 @@
 use std::sync::{Arc, OnceLock};
 
 use anyhow::{Context, Result};
-use eos_agent_def::AgentName;
-use eos_agent_ports::{
-    AgentName as AgentPortName, AgentRunApi, AgentRunMessageRecordKind, SpawnAgentRequest,
-};
 use eos_agent_run::AgentRunService as RunnerAgentRunService;
 use eos_llm_client::Message;
-use eos_tool_ports::CancelPort;
-use eos_types::{AgentRunId, AttemptSubmissionPort, JsonObject, RequestId, TaskId, WorkflowApi};
+use eos_types::{
+    AgentName, AgentName as AgentPortName, AgentRunApi, AgentRunId, AgentRunMessageRecordKind,
+    AttemptSubmissionPort, CancelPort, JsonObject, RequestId, SpawnAgentRequest, TaskId,
+    WorkflowApi,
+};
 use eos_types::{RequestStatus, Task, TaskRole, TaskStatus};
 use eos_workflow::{
     AgentEntryComposer, AgentRunner, AttemptDeps, AttemptOrchestratorRegistry,

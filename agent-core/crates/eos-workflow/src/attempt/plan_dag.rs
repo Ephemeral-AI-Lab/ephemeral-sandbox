@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
-use eos_agent_def::{AgentName, AgentRegistry, AgentType};
-use eos_types::{PlanNodeId, PlannerPlan, Task, TaskId, TaskStatus};
+use eos_types::{
+    AgentName, AgentRegistry, AgentType, PlanNodeId, PlannerPlan, Task, TaskId, TaskStatus,
+};
 
 use crate::{Result, WorkflowError};
 

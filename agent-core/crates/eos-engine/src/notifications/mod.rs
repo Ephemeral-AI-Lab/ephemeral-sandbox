@@ -12,13 +12,29 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use eos_llm_client::Message;
-use eos_tool::ToolKey;
-use eos_tool_ports::{NotificationSink, Sealed, SystemNotification as ToolNotification, ToolError};
+use eos_tool::{ToolError, ToolKey};
 use tokio::sync::Mutex;
 
 mod rules;
 
 pub use rules::{TerminalCallReminder, ToolCallBudget};
+
+/// A system notification the engine surfaces to the model transcript.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SystemNotification {
+    /// The notification event key.
+    pub event: String,
+    /// Free-text body.
+    pub message: String,
+}
+
+/// The engine notification sink used by notification rules and background
+/// completion emitters.
+#[async_trait]
+pub trait NotificationSink: Send + Sync {
+    /// Surface one system notification.
+    async fn notify_system(&self, notification: SystemNotification) -> Result<(), ToolError>;
+}
 
 /// One engine-owned notification rule. Concrete rules live in their own modules
 /// and are registered in [`make_default_notification_rules`].
@@ -102,7 +118,7 @@ pub async fn enqueue_notification_rules(
                 notification_fired.insert(name.clone());
             }
             let _ = sink
-                .notify_system(ToolNotification {
+                .notify_system(SystemNotification {
                     event: name,
                     message: rule.body(ctx),
                 })
@@ -114,7 +130,7 @@ pub async fn enqueue_notification_rules(
 /// Queue-backed notification sink for tools and hooks.
 #[derive(Debug, Default, Clone)]
 pub struct NotificationService {
-    queue: Arc<Mutex<VecDeque<ToolNotification>>>,
+    queue: Arc<Mutex<VecDeque<SystemNotification>>>,
 }
 
 impl NotificationService {
@@ -125,16 +141,14 @@ impl NotificationService {
     }
 
     /// Drain queued notifications.
-    pub async fn drain(&self) -> Vec<ToolNotification> {
+    pub async fn drain(&self) -> Vec<SystemNotification> {
         self.queue.lock().await.drain(..).collect()
     }
 }
 
-impl Sealed for NotificationService {}
-
 #[async_trait]
 impl NotificationSink for NotificationService {
-    async fn notify_system(&self, notification: ToolNotification) -> Result<(), ToolError> {
+    async fn notify_system(&self, notification: SystemNotification) -> Result<(), ToolError> {
         self.queue.lock().await.push_back(notification);
         Ok(())
     }

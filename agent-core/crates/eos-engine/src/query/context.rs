@@ -4,11 +4,11 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use eos_agent_ports::{AgentState, StartAgentLoopRequest};
 use eos_llm_client::LlmRequest;
+use eos_types::AgentState;
 use futures::Stream;
 
-use crate::{EngineError, StreamEvent};
+use crate::{EngineError, StartAgentLoopRequest, StreamEvent};
 
 /// The engine stream returned by one model turn.
 pub type EngineStream = Pin<Box<dyn Stream<Item = Result<StreamEvent, EngineError>> + Send>>;
