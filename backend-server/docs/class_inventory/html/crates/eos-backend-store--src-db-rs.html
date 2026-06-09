@@ -65,14 +65,14 @@
   <code class="signature">pub struct <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-struct-BackendStore-56">BackendStore</a></code>
   <p class="docstring">Owns the pool and one instance of each repository. Cloning is cheap (every<br>repository holds a `SqlitePool` clone).</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>pool</td><td><code>SqlitePool</code></td></tr><tr><td>private</td><td>run_meta</td><td><code><a class="symbol-link" href="eos-backend-store--src-run-meta-rs.html#item-struct-RunMetaRepo-15">RunMetaRepo</a></code></td></tr><tr><td>private</td><td>event_log</td><td><code><a class="symbol-link" href="eos-backend-store--src-event-log-rs.html#item-struct-EventLogRepo-18">EventLogRepo</a></code></td></tr><tr><td>private</td><td>obs_events</td><td><code><a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-struct-ObsEventRepo-32">ObsEventRepo</a></code></td></tr><tr><td>private</td><td>correlations</td><td><code><a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-229">SandboxCallCorrelationRepo</a></code></td></tr><tr><td>private</td><td>audit_cursors</td><td><code><a class="symbol-link" href="eos-backend-store.html#item-struct-AuditCursorRepo-15">AuditCursorRepo</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-with-pool-94"><td>constructor</td><td>with_pool</td><td><code>fn <a class="symbol-link" href="eos-backend-store--src-db-rs.html#method-with-pool-94">with_pool</a> (pool : SqlitePool) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>pool</td><td><code>SqlitePool</code></td></tr><tr><td>private</td><td>run_meta</td><td><code><a class="symbol-link" href="eos-backend-store--src-run-meta-rs.html#item-struct-RunMetaRepo-15">RunMetaRepo</a></code></td></tr><tr><td>private</td><td>event_log</td><td><code><a class="symbol-link" href="eos-backend-store--src-event-log-rs.html#item-struct-EventLogRepo-18">EventLogRepo</a></code></td></tr><tr><td>private</td><td>obs_events</td><td><code><a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-struct-ObsEventRepo-32">ObsEventRepo</a></code></td></tr><tr><td>private</td><td>correlations</td><td><code><a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-234">SandboxCallCorrelationRepo</a></code></td></tr><tr><td>private</td><td>audit_cursors</td><td><code><a class="symbol-link" href="eos-backend-store.html#item-struct-AuditCursorRepo-15">AuditCursorRepo</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-with-pool-94"><td>constructor</td><td>with_pool</td><td><code>fn <a class="symbol-link" href="eos-backend-store--src-db-rs.html#method-with-pool-94">with_pool</a> (pool : SqlitePool) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#method-with-pool-94">with_pool</a>(pool: <span class="rs-type">SqlitePool</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             run_meta: <a class="symbol-link rs-type" href="eos-backend-store--src-run-meta-rs.html#item-struct-RunMetaRepo-15">RunMetaRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
             event_log: <a class="symbol-link rs-type" href="eos-backend-store--src-event-log-rs.html#item-struct-EventLogRepo-18">EventLogRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
             obs_events: <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-ObsEventRepo-32">ObsEventRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
-            correlations: <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-229">SandboxCallCorrelationRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
+            correlations: <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-234">SandboxCallCorrelationRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
             audit_cursors: <a class="symbol-link rs-type" href="eos-backend-store.html#item-struct-AuditCursorRepo-15">AuditCursorRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
             pool,
         }
@@ -102,11 +102,11 @@
         &amp;<span class="rs-self">self</span>.obs_events
     }
 </code></pre>
-</details></td></tr><tr id="method-correlations-123"><td>method</td><td>correlations</td><td><code>pub fn <a class="symbol-link" href="eos-backend-store--src-db-rs.html#method-correlations-123">correlations</a> (&amp; self) -&gt; &amp; <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-229">SandboxCallCorrelationRepo</a></code><p class="docstring">The `sandbox_call_correlation` repository.</p><details class="function-source">
+</details></td></tr><tr id="method-correlations-123"><td>method</td><td>correlations</td><td><code>pub fn <a class="symbol-link" href="eos-backend-store--src-db-rs.html#method-correlations-123">correlations</a> (&amp; self) -&gt; &amp; <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-234">SandboxCallCorrelationRepo</a></code><p class="docstring">The `sandbox_call_correlation` repository.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The `sandbox_call_correlation` repository.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#method-correlations-123">correlations</a>(&amp;<span class="rs-self">self</span>) -&gt; &amp;<a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-229">SandboxCallCorrelationRepo</a> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#method-correlations-123">correlations</a>(&amp;<span class="rs-self">self</span>) -&gt; &amp;<a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-234">SandboxCallCorrelationRepo</a> {
         &amp;<span class="rs-self">self</span>.correlations
     }
 </code></pre>
@@ -233,19 +233,22 @@
 </details>
 
   <p class="source">crates/eos-backend-store/src/db.rs:159</p>
-</article><article id="item-fn-opt-id-in-167" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn opt_id_in pub(crate) pub(crate) fn opt_id_in &lt; T &gt; (column : &amp; 'static str , raw : Option &lt; String &gt;) -&gt; Result &lt; Option &lt; T &gt; , StoreError &gt; where T : TryFrom &lt; String , Error = CoreError &gt; , crates/eos-backend-store/src/db.rs  ">
+</article><article id="item-fn-opt-id-in-167" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn opt_id_in pub(crate) pub(crate) fn opt_id_in &lt; T &gt; (column : &amp; 'static str , raw : Option &lt; String &gt; ,) -&gt; Result &lt; Option &lt; T &gt; , StoreError &gt; where T : TryFrom &lt; String , Error = CoreError &gt; , crates/eos-backend-store/src/db.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>opt_id_in</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-fn-opt-id-in-167">opt_id_in</a> &lt; T &gt; (column : &amp; &#x27;static str , raw : Option &lt; String &gt;) -&gt; Result &lt; Option &lt; T &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt; where T : TryFrom &lt; String , Error = CoreError &gt; ,</code>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-fn-opt-id-in-167">opt_id_in</a> &lt; T &gt; (column : &amp; &#x27;static str , raw : Option &lt; String &gt; ,) -&gt; Result &lt; Option &lt; T &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt; where T : TryFrom &lt; String , Error = CoreError &gt; ,</code>
   <p class="docstring">Parse a nullable TEXT id column into an optional typed id.</p>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-comment">/// Parse a nullable TEXT id column into an optional typed id.</span>
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> opt_id_in&lt;<span class="rs-type">T</span>&gt;(column: &amp;&#x27;<span class="rs-kw">static</span> str, raw: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">T</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt;
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> opt_id_in&lt;<span class="rs-type">T</span>&gt;(
+    column: &amp;&#x27;<span class="rs-kw">static</span> str,
+    raw: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">T</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt;
 <span class="rs-kw">where</span>
     <span class="rs-type">T</span>: <span class="rs-type">TryFrom</span>&lt;<span class="rs-type">String</span>, <span class="rs-type">Error</span> = <span class="rs-type">CoreError</span>&gt;,
 {
@@ -255,44 +258,44 @@
 </details>
 
   <p class="source">crates/eos-backend-store/src/db.rs:167</p>
-</article><article id="item-fn-json-encode-175" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn json_encode pub(crate) pub(crate) fn json_encode (value : &amp; serde_json :: Value) -&gt; Result &lt; String , StoreError &gt; crates/eos-backend-store/src/db.rs  ">
+</article><article id="item-fn-json-encode-178" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn json_encode pub(crate) pub(crate) fn json_encode (value : &amp; serde_json :: Value) -&gt; Result &lt; String , StoreError &gt; crates/eos-backend-store/src/db.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>json_encode</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-175">json_encode</a> (value : &amp; serde_json :: Value) -&gt; Result &lt; String , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-178">json_encode</a> (value : &amp; serde_json :: Value) -&gt; Result &lt; String , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
   <p class="docstring">Encode a JSON value to its TEXT-column form.</p>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-comment">/// Encode a JSON value to its TEXT-column form.</span>
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-175">json_encode</a>(value: &amp;serde_json::<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">String</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-178">json_encode</a>(value: &amp;serde_json::<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">String</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     serde_json::to_string(value).map_err(<a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>::<span class="rs-type">JsonEncode</span>)
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-store/src/db.rs:175</p>
-</article><article id="item-fn-json-decode-180" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn json_decode pub(crate) pub(crate) fn json_decode (text : &amp; str) -&gt; Result &lt; serde_json :: Value , StoreError &gt; crates/eos-backend-store/src/db.rs  ">
+  <p class="source">crates/eos-backend-store/src/db.rs:178</p>
+</article><article id="item-fn-json-decode-183" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn json_decode pub(crate) pub(crate) fn json_decode (text : &amp; str) -&gt; Result &lt; serde_json :: Value , StoreError &gt; crates/eos-backend-store/src/db.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>json_decode</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-180">json_decode</a> (text : &amp; str) -&gt; Result &lt; serde_json :: Value , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-183">json_decode</a> (text : &amp; str) -&gt; Result &lt; serde_json :: Value , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
   <p class="docstring">Decode a TEXT JSON column.</p>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-comment">/// Decode a TEXT JSON column.</span>
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-180">json_decode</a>(text: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;serde_json::<span class="rs-type">Value</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-183">json_decode</a>(text: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;serde_json::<span class="rs-type">Value</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     serde_json::from_str(text).map_err(<a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>::<span class="rs-type">JsonDecode</span>)
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-store/src/db.rs:180</p>
+  <p class="source">crates/eos-backend-store/src/db.rs:183</p>
 </article></div>
 </section></div>
 </main>
@@ -315,7 +318,7 @@
 
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::audit_cursor::<a class="symbol-link rs-type" href="eos-backend-store.html#item-struct-AuditCursorRepo-15">AuditCursorRepo</a>;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::event_log::<a class="symbol-link rs-type" href="eos-backend-store--src-event-log-rs.html#item-struct-EventLogRepo-18">EventLogRepo</a>;
-<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::obs::{<a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-ObsEventRepo-32">ObsEventRepo</a>, <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-229">SandboxCallCorrelationRepo</a>};
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::obs::{<a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-ObsEventRepo-32">ObsEventRepo</a>, <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-234">SandboxCallCorrelationRepo</a>};
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::run_meta::<a class="symbol-link rs-type" href="eos-backend-store--src-run-meta-rs.html#item-struct-RunMetaRepo-15">RunMetaRepo</a>;
 
 <span class="rs-comment">/// Errors raised by the `backend.db` persistence layer.</span>
@@ -364,7 +367,7 @@
     run_meta: <a class="symbol-link rs-type" href="eos-backend-store--src-run-meta-rs.html#item-struct-RunMetaRepo-15">RunMetaRepo</a>,
     event_log: <a class="symbol-link rs-type" href="eos-backend-store--src-event-log-rs.html#item-struct-EventLogRepo-18">EventLogRepo</a>,
     obs_events: <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-ObsEventRepo-32">ObsEventRepo</a>,
-    correlations: <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-229">SandboxCallCorrelationRepo</a>,
+    correlations: <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-234">SandboxCallCorrelationRepo</a>,
     audit_cursors: <a class="symbol-link rs-type" href="eos-backend-store.html#item-struct-AuditCursorRepo-15">AuditCursorRepo</a>,
 }
 
@@ -399,7 +402,7 @@
             run_meta: <a class="symbol-link rs-type" href="eos-backend-store--src-run-meta-rs.html#item-struct-RunMetaRepo-15">RunMetaRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
             event_log: <a class="symbol-link rs-type" href="eos-backend-store--src-event-log-rs.html#item-struct-EventLogRepo-18">EventLogRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
             obs_events: <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-ObsEventRepo-32">ObsEventRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
-            correlations: <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-229">SandboxCallCorrelationRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
+            correlations: <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-234">SandboxCallCorrelationRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
             audit_cursors: <a class="symbol-link rs-type" href="eos-backend-store.html#item-struct-AuditCursorRepo-15">AuditCursorRepo</a>::<a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool.clone()),
             pool,
         }
@@ -425,7 +428,7 @@
 
     <span class="rs-comment">/// The `sandbox_call_correlation` repository.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#method-correlations-123">correlations</a>(&amp;<span class="rs-self">self</span>) -&gt; &amp;<a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-229">SandboxCallCorrelationRepo</a> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#method-correlations-123">correlations</a>(&amp;<span class="rs-self">self</span>) -&gt; &amp;<a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-234">SandboxCallCorrelationRepo</a> {
         &amp;<span class="rs-self">self</span>.correlations
     }
 
@@ -468,7 +471,10 @@
 }
 
 <span class="rs-comment">/// Parse a nullable TEXT id column into an optional typed id.</span>
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> opt_id_in&lt;<span class="rs-type">T</span>&gt;(column: &amp;&#x27;<span class="rs-kw">static</span> str, raw: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">T</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt;
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> opt_id_in&lt;<span class="rs-type">T</span>&gt;(
+    column: &amp;&#x27;<span class="rs-kw">static</span> str,
+    raw: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">T</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt;
 <span class="rs-kw">where</span>
     <span class="rs-type">T</span>: <span class="rs-type">TryFrom</span>&lt;<span class="rs-type">String</span>, <span class="rs-type">Error</span> = <span class="rs-type">CoreError</span>&gt;,
 {
@@ -476,12 +482,12 @@
 }
 
 <span class="rs-comment">/// Encode a JSON value to its TEXT-column form.</span>
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-175">json_encode</a>(value: &amp;serde_json::<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">String</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-178">json_encode</a>(value: &amp;serde_json::<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">String</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     serde_json::to_string(value).map_err(<a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>::<span class="rs-type">JsonEncode</span>)
 }
 
 <span class="rs-comment">/// Decode a TEXT JSON column.</span>
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-180">json_decode</a>(text: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;serde_json::<span class="rs-type">Value</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-183">json_decode</a>(text: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;serde_json::<span class="rs-type">Value</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     serde_json::from_str(text).map_err(<a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>::<span class="rs-type">JsonDecode</span>)
 }
 </code></pre>

@@ -13,14 +13,11 @@
 #![warn(missing_docs)]
 
 mod agent;
-mod audit;
 pub mod agent_loop;
-mod config;
 mod contracts;
 mod error;
 mod frontmatter;
 mod ids;
-mod json;
 mod llm;
 mod models;
 mod state;
@@ -30,17 +27,11 @@ mod time;
 pub use agent::{
     AgentDefinition, AgentName, AgentNameError, AgentRegistry, AgentRegistryBuilder, AgentType,
 };
-pub use audit::{
-    canonical_event_type, from_jsonl_line, to_jsonl_line, AuditError, AuditEvent, AuditNode,
-    AuditNodeBuilder, AuditSink, AuditSource, NoopAuditSink, ObsEnvelope, ObsIds, ObsSource,
-    AGENT_RUN_COMPLETED, OS_RESOURCE_SAMPLED, SCHEMA, SCHEMA_VERSION, TOOL_CALL_COMPLETED,
-};
 pub use agent_loop::{
     AgentLoopCancellation, AgentLoopCancellationHandle, AgentLoopCompletion, AgentLoopLauncher,
     AgentLoopMessage, AgentLoopOutcome, AgentLoopOutcomeKind, StartAgentLoopRequest,
     StartedAgentLoop,
 };
-pub use config::ConfigError;
 pub use contracts::{
     format_record_dir, AgentCoreCancellationApi, AgentRunApi, AgentRunError, AgentRunOutcome,
     AgentRunRecordDir, AgentRunRecordIndex, AgentRunRecordTarget, AgentRunRuntimeSnapshot,
@@ -56,19 +47,17 @@ pub use ids::{
     AgentRunId, AttemptId, CommandSessionId, InvocationId, IterationId, RequestId, SandboxId,
     TaskId, ToolUseId, WorkflowId,
 };
-pub use json::JsonObject;
 pub use llm::{ContentBlock, Message, MessageRole, ToolSpec, DEFAULT_MAX_TOKENS};
-pub use models::{ModelRegistrationConfig, ModelsConfig};
+pub use models::{ConfigError, JsonObject, ModelRegistrationConfig, ModelsConfig};
 pub use state::{
     execution_outcome_for_submission, present_status, AgentRun, Attempt, AttemptBudget,
     AttemptClosure, AttemptFailReason, AttemptStage, AttemptState, AttemptStatus,
     BackgroundSessionCounts, DeferredGoal, ExecutionRole, ExecutionTaskOutcome, GeneratorId,
     GeneratorSubmission, Iteration, IterationCreationReason, IterationOutcome, IterationStatus,
-    MaterializedPlan, ModelRegistration, Page, PageResult, ParentedRun, PlanDisposition,
-    PlannerFailReason, PlannerFailureSubmission, PlannerId, PlannerSubmission, ReducerId,
-    ReducerSubmission, Request, RequestListFilter, RequestStatus, RunningRequestAgentRun, Task,
-    TaskOutcomeStatus, TaskRole, TaskRun, TaskStatus, Workflow, WorkflowOutcome, WorkflowStatus,
-    NO_OUTCOME, TASK_AGENT_ROLES,
+    MaterializedPlan, ModelRegistration, ParentedRun, PlanDisposition, PlannerFailReason,
+    PlannerFailureSubmission, PlannerId, PlannerSubmission, ReducerId, ReducerSubmission, Request,
+    RequestStatus, RunningRequestAgentRun, Task, TaskOutcomeStatus, TaskRole, TaskRun, TaskStatus,
+    Workflow, WorkflowOutcome, WorkflowStatus, NO_OUTCOME, TASK_AGENT_ROLES,
 };
 pub use stores::{
     parented_task_id, root_task_id, workflow_task_id, AgentRunStore, AttemptStore, IterationStore,

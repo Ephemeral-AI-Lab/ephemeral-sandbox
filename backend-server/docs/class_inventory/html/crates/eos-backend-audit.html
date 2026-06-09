@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>eos-backend-audit · src/gates.rs</title>
+  <title>eos-backend-audit · src/contract.rs</title>
   <link rel="stylesheet" href="../assets/inventory.css">
 </head>
 <body>
@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">backend-server</a>
 <section class="summary">
-  <div><b>6</b><span>modules</span></div>
-  <div><b>61</b><span>items</span></div>
-  <div><b>64</b><span>fields</span></div>
-  <div><b>22</b><span>methods</span></div>
+  <div><b>7</b><span>modules</span></div>
+  <div><b>83</b><span>items</span></div>
+  <div><b>96</b><span>fields</span></div>
+  <div><b>44</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,1056 +41,1010 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link active" href="eos-backend-audit.html"><span>gates.rs</span><small>10/10</small></a></li><li><a class="file-link" href="eos-backend-audit--src-ingestor-rs.html"><span>ingestor.rs</span><small>3/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-audit--src-normalization-rs.html"><span>normalization.rs</span><small>3/9</small></a></li><li><a class="file-link" href="eos-backend-audit--src-sink-rs.html"><span>sink.rs</span><small>5/4</small></a></li><li><a class="file-link" href="eos-backend-audit--src-stats-rs.html"><span>stats.rs</span><small>1/0</small></a></li></ul></li></ul></nav>
-  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="gates crates/eos-backend-audit/src/gates.rs RunnerCorrectnessEvidence impl RunnerCorrectnessEvidence ExpectedToolUse impl ExpectedToolUse RunnerGateSettings impl Default for RunnerGateSettings RunnerGateInput RunnerGateBatchInput RunnerGateSourceInput RunnerGateMetrics RunnerGateFailure RunnerGateFailureKind RunnerGateReport evaluate_runner_gates evaluate_runner_gate_batches evaluate_runner_gate_sources unique_tool_use_ids valid_tool_call tool_use_id resource_metric_count has_nonnegative_number non_empty_string failure">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link active" href="eos-backend-audit.html"><span>contract.rs</span><small>10/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-gates-rs.html"><span>gates.rs</span><small>10/10</small></a></li><li><a class="file-link" href="eos-backend-audit--src-ingestor-rs.html"><span>ingestor.rs</span><small>3/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-audit--src-normalization-rs.html"><span>normalization.rs</span><small>3/9</small></a></li><li><a class="file-link" href="eos-backend-audit--src-sink-rs.html"><span>sink.rs</span><small>5/4</small></a></li><li><a class="file-link" href="eos-backend-audit--src-stats-rs.html"><span>stats.rs</span><small>1/0</small></a></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="contract crates/eos-backend-audit/src/contract.rs ObsSource ObsIds ObsEnvelope impl ObsEnvelope canonical_event_type from_jsonl_line to_jsonl_line AuditError AuditSource AuditNode impl AuditNode AuditNodeBuilder impl AuditNodeBuilder AuditEvent impl AuditEvent AuditSink NoopAuditSink impl AuditSink for NoopAuditSink obs_source obs_ids deserialize_obs_schema deserialize_schema_version">
   <div class="module-head">
     <div>
-      <h2>src/gates.rs</h2>
-      <p class="path">module <code>gates</code></p>
+      <h2>src/contract.rs</h2>
+      <p class="path">module <code>contract</code></p>
     </div>
     <div class="module-stats">
       <span>file owns</span>
       <span>10 types</span>
-      <span>3 impls</span>
-      <span>10 fns</span>
-      <span>7 methods</span>
+      <span>5 impls</span>
+      <span>7 fns</span>
+      <span>22 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-RunnerCorrectnessEvidence-28" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct RunnerCorrectnessEvidence pub pub struct RunnerCorrectnessEvidence crates/eos-backend-audit/src/gates.rs tool_use_verified bool tool_use_checked_count usize message_correctness_verified bool message_checked_count usize ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-ObsIds-40" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct ObsIds pub pub struct ObsIds crates/eos-backend-audit/src/contract.rs request_id Option &lt; String &gt; task_id Option &lt; String &gt; agent_run_id Option &lt; String &gt; tool_use_id Option &lt; String &gt; sandbox_id Option &lt; String &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
-    <h3>RunnerCorrectnessEvidence</h3>
+    <h3>ObsIds</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a></code>
-  <p class="docstring">External correctness evidence supplied by the Rust runner from state and transcript stores.</p>
-  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Default</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>tool_use_verified</td><td><code>bool</code></td></tr><tr><td>pub</td><td>tool_use_checked_count</td><td><code>usize</code></td></tr><tr><td>pub</td><td>message_correctness_verified</td><td><code>bool</code></td></tr><tr><td>pub</td><td>message_checked_count</td><td><code>usize</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-has-tool-use-evidence-53"><td>method</td><td>has_tool_use_evidence</td><td><code>pub const fn <a class="symbol-link" href="eos-backend-audit.html#method-has-tool-use-evidence-53">has_tool_use_evidence</a> (self) -&gt; bool</code><p class="docstring">Return true when the runner supplied external tool correctness evidence.</p><details class="function-source">
-  <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Return true when the runner supplied external tool correctness evidence.</span>
-    #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-has-tool-use-evidence-53">has_tool_use_evidence</a>(<span class="rs-self">self</span>) -&gt; bool {
-        <span class="rs-self">self</span>.tool_use_verified
-    }
-</code></pre>
-</details></td></tr><tr id="method-has-message-correctness-evidence-59"><td>method</td><td>has_message_correctness_evidence</td><td><code>pub const fn <a class="symbol-link" href="eos-backend-audit.html#method-has-message-correctness-evidence-59">has_message_correctness_evidence</a> (self) -&gt; bool</code><p class="docstring">Return true when the runner supplied external message correctness evidence.</p><details class="function-source">
-  <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Return true when the runner supplied external message correctness evidence.</span>
-    #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-has-message-correctness-evidence-59">has_message_correctness_evidence</a>(<span class="rs-self">self</span>) -&gt; bool {
-        <span class="rs-self">self</span>.message_correctness_verified
-    }
-</code></pre>
-</details></td></tr><tr id="method-verified-42"><td>associated-fn</td><td>verified</td><td><code>pub const fn <a class="symbol-link" href="eos-backend-audit.html#method-verified-42">verified</a> (tool_use_checked_count : usize , message_checked_count : usize) -&gt; Self</code><p class="docstring">Build evidence for successful state/transcript checks.</p><details class="function-source">
-  <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Build evidence for successful state/transcript checks.</span>
-    #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-verified-42">verified</a>(tool_use_checked_count: usize, message_checked_count: usize) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">Self</span> {
-            tool_use_verified: <span class="rs-kw">true</span>,
-            tool_use_checked_count,
-            message_correctness_verified: <span class="rs-kw">true</span>,
-            message_checked_count,
-        }
-    }
-</code></pre>
-</details></td></tr></tbody></table>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a></code>
+  <p class="docstring">Correlation ids shared by normalized audit/observability rows.<br>Every field is optional because a row should carry only ids the producer or<br>collector actually knows. Non-id labels such as `tool_name` belong in<br>`payload`, not here.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Default</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>request_id</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>pub</td><td>task_id</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>pub</td><td>agent_run_id</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>pub</td><td>tool_use_id</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>pub</td><td>sandbox_id</td><td><code>Option &lt; String &gt;</code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-audit/src/gates.rs:28</p>
-</article><article id="item-struct-ExpectedToolUse-66" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct ExpectedToolUse pub pub struct ExpectedToolUse crates/eos-backend-audit/src/gates.rs tool_use_id String tool_name Option &lt; String &gt; terminal_expected Option &lt; bool &gt; ">
+  <p class="source">crates/eos-backend-audit/src/contract.rs:40</p>
+</article><article id="item-struct-ObsEnvelope-64" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct ObsEnvelope pub pub struct ObsEnvelope crates/eos-backend-audit/src/contract.rs schema String source ObsSource event_type String ids ObsIds payload JsonObject seq Option &lt; i64 &gt; lane Option &lt; String &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
-    <h3>ExpectedToolUse</h3>
+    <h3>ObsEnvelope</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a></code>
-  <p class="docstring">Tool-use expectation supplied by Rust state/transcript evidence.</p>
-  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>tool_use_id</td><td><code>String</code></td></tr><tr><td>pub</td><td>tool_name</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>pub</td><td>terminal_expected</td><td><code>Option &lt; bool &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-80"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-new-80">new</a> (tool_use_id : impl Into &lt; String &gt;) -&gt; Self</code><p class="docstring">Build the minimum expected tool-use record.</p><details class="function-source">
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a></code>
+  <p class="docstring">A normalized audit/observability row consumed by collectors and reports.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>schema</td><td><code>String</code></td></tr><tr><td>pub</td><td>source</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a></code></td></tr><tr><td>pub</td><td>event_type</td><td><code>String</code></td></tr><tr><td>pub</td><td>ids</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a></code></td></tr><tr><td>pub</td><td>payload</td><td><code>JsonObject</code></td></tr><tr><td>pub</td><td>seq</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>pub</td><td>lane</td><td><code>Option &lt; String &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-90"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-new-90">new</a> (source : <a class="symbol-link" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a> , event_type : impl Into &lt; String &gt;) -&gt; Self</code><p class="docstring">Build a normalized row with the default schema.</p><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Build the minimum expected tool-use record.</span>
+  <pre><code>    <span class="rs-comment">/// Build a normalized row with the default schema.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(tool_use_id: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(source: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>, event_type: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-kw">let</span> event_type = event_type.into();
         <span class="rs-self">Self</span> {
-            tool_use_id: tool_use_id.into(),
-            tool_name: <span class="rs-type">None</span>,
-            terminal_expected: <span class="rs-type">None</span>,
+            schema: <span class="rs-type">SCHEMA</span>.to_owned(),
+            source,
+            event_type: <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-canonical-event-type-128">canonical_event_type</a>(&amp;event_type).to_owned(),
+            ids: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>(),
+            payload: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(),
+            seq: <span class="rs-type">None</span>,
+            lane: <span class="rs-type">None</span>,
         }
     }
 </code></pre>
-</details></td></tr><tr id="method-with-tool-name-90"><td>method</td><td>with_tool_name</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-with-tool-name-90">with_tool_name</a> (mut self , tool_name : impl Into &lt; String &gt;) -&gt; Self</code><p class="docstring">Attach a state/transcript tool name for diagnostics.</p><details class="function-source">
+</details></td></tr><tr id="method-with-ids-105"><td>method</td><td>with_ids</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-with-ids-105">with_ids</a> (mut self , ids : <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a>) -&gt; Self</code><p class="docstring">Set the row ids.</p><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Attach a state/transcript tool name for diagnostics.</span>
+  <pre><code>    <span class="rs-comment">/// Set the row ids.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-tool-name-90">with_tool_name</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, tool_name: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">self</span>.tool_name = <span class="rs-type">Some</span>(tool_name.into());
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-ids-105">with_ids</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, ids: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.ids = ids;
         <span class="rs-self">self</span>
     }
 </code></pre>
-</details></td></tr><tr id="method-with-terminal-expected-97"><td>method</td><td>with_terminal_expected</td><td><code>pub const fn <a class="symbol-link" href="eos-backend-audit.html#method-with-terminal-expected-97">with_terminal_expected</a> (mut self , terminal_expected : bool) -&gt; Self</code><p class="docstring">Attach whether state/transcript expected a terminal tool call.</p><details class="function-source">
+</details></td></tr><tr id="method-with-payload-112"><td>method</td><td>with_payload</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-with-payload-112">with_payload</a> (mut self , payload : JsonObject) -&gt; Self</code><p class="docstring">Set the row payload.</p><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Attach whether state/transcript expected a terminal tool call.</span>
+  <pre><code>    <span class="rs-comment">/// Set the row payload.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-terminal-expected-97">with_terminal_expected</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, terminal_expected: bool) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">self</span>.terminal_expected = <span class="rs-type">Some</span>(terminal_expected);
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-payload-112">with_payload</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, payload: <span class="rs-type">JsonObject</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.payload = payload;
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-with-ring-metadata-119"><td>method</td><td>with_ring_metadata</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-with-ring-metadata-119">with_ring_metadata</a> (mut self , seq : i64 , lane : impl Into &lt; String &gt;) -&gt; Self</code><p class="docstring">Set sandbox ring metadata.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Set sandbox ring metadata.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-ring-metadata-119">with_ring_metadata</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, seq: i64, lane: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.seq = <span class="rs-type">Some</span>(seq);
+        <span class="rs-self">self</span>.lane = <span class="rs-type">Some</span>(lane.into());
         <span class="rs-self">self</span>
     }
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-audit/src/gates.rs:66</p>
-</article><article id="item-struct-RunnerGateSettings-105" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct RunnerGateSettings pub pub struct RunnerGateSettings crates/eos-backend-audit/src/gates.rs strict_audit_loss bool require_resource_sample bool ">
+  <p class="source">crates/eos-backend-audit/src/contract.rs:64</p>
+</article><article id="item-struct-AuditNode-201" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AuditNode pub pub struct AuditNode crates/eos-backend-audit/src/contract.rs request_id Option &lt; RequestId &gt; workflow_id Option &lt; WorkflowId &gt; iteration_id Option &lt; IterationId &gt; attempt_id Option &lt; AttemptId &gt; task_id Option &lt; TaskId &gt; agent_name Option &lt; String &gt; agent_run_id Option &lt; AgentRunId &gt; sandbox_id Option &lt; SandboxId &gt; tool_name Option &lt; String &gt; tool_use_id Option &lt; ToolUseId &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
-    <h3>RunnerGateSettings</h3>
+    <h3>AuditNode</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code>
-  <p class="docstring">Runner gate switches.</p>
-  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>strict_audit_loss</td><td><code>bool</code></td></tr><tr><td>pub</td><td>require_resource_sample</td><td><code>bool</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl Default for <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code></summary><table><tbody><tr id="method-default-115"><td>constructor</td><td>default</td><td><code>fn <a class="symbol-link" href="eos-backend-audit.html#method-default-115">default</a> () -&gt; Self</code><details class="function-source">
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a></code>
+  <p class="docstring">Correlation envelope for an [`AuditEvent`].<br>Every field defaults to `None`; build one with [`AuditNode::builder`] or<br>[`AuditNode::default`] plus field assignment. Typed ids come from<br>`eos-types`; `agent_name` is a human label and `tool_name` is downstream<br>owned, so both stay `String`.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Default</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>non_exhaustive</span><span>serde</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>request_id</td><td><code>Option &lt; RequestId &gt;</code></td></tr><tr><td>pub</td><td>workflow_id</td><td><code>Option &lt; WorkflowId &gt;</code></td></tr><tr><td>pub</td><td>iteration_id</td><td><code>Option &lt; IterationId &gt;</code></td></tr><tr><td>pub</td><td>attempt_id</td><td><code>Option &lt; AttemptId &gt;</code></td></tr><tr><td>pub</td><td>task_id</td><td><code>Option &lt; TaskId &gt;</code></td></tr><tr><td>pub</td><td>agent_name</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>pub</td><td>agent_run_id</td><td><code>Option &lt; AgentRunId &gt;</code></td></tr><tr><td>pub</td><td>sandbox_id</td><td><code>Option &lt; SandboxId &gt;</code></td></tr><tr><td>pub</td><td>tool_name</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>pub</td><td>tool_use_id</td><td><code>Option &lt; ToolUseId &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-builder-243"><td>associated-fn</td><td>builder</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-builder-243">builder</a> () -&gt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditNodeBuilder-249">AuditNodeBuilder</a></code><p class="docstring">Start a fresh [`AuditNodeBuilder`].</p><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-default-115">default</a>() -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-comment">/// Start a fresh [`AuditNodeBuilder`].</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-builder-243">builder</a>() -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNodeBuilder-249">AuditNodeBuilder</a> {
+        <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNodeBuilder-249">AuditNodeBuilder</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>()
+    }
+</code></pre>
+</details></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/contract.rs:201</p>
+</article><article id="item-struct-AuditNodeBuilder-249" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AuditNodeBuilder pub pub struct AuditNodeBuilder crates/eos-backend-audit/src/contract.rs node AuditNode ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>AuditNodeBuilder</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditNodeBuilder-249">AuditNodeBuilder</a></code>
+  <p class="docstring">Fluent builder for [`AuditNode`]; set only the ids a producer knows.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Default</span><span>must_use</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>node</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-request-id-257"><td>method</td><td>request_id</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-request-id-257">request_id</a> (mut self , id : RequestId) -&gt; Self</code><p class="docstring">Set the request id.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Set the request id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-request-id-257">request_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">RequestId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.request_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-workflow-id-263"><td>method</td><td>workflow_id</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-workflow-id-263">workflow_id</a> (mut self , id : WorkflowId) -&gt; Self</code><p class="docstring">Set the delegated-workflow id.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Set the delegated-workflow id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-workflow-id-263">workflow_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">WorkflowId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.workflow_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-iteration-id-269"><td>method</td><td>iteration_id</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-iteration-id-269">iteration_id</a> (mut self , id : IterationId) -&gt; Self</code><p class="docstring">Set the iteration id.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Set the iteration id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-iteration-id-269">iteration_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">IterationId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.iteration_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-attempt-id-275"><td>method</td><td>attempt_id</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-attempt-id-275">attempt_id</a> (mut self , id : AttemptId) -&gt; Self</code><p class="docstring">Set the attempt id.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Set the attempt id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-attempt-id-275">attempt_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">AttemptId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.attempt_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-task-id-281"><td>method</td><td>task_id</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-task-id-281">task_id</a> (mut self , id : TaskId) -&gt; Self</code><p class="docstring">Set the task id.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Set the task id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-task-id-281">task_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">TaskId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.task_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-agent-name-287"><td>method</td><td>agent_name</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-agent-name-287">agent_name</a> (mut self , name : impl Into &lt; String &gt;) -&gt; Self</code><p class="docstring">Set the agent label.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Set the agent label.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-agent-name-287">agent_name</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, name: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.agent_name = <span class="rs-type">Some</span>(name.into());
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-agent-run-id-293"><td>method</td><td>agent_run_id</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-agent-run-id-293">agent_run_id</a> (mut self , id : AgentRunId) -&gt; Self</code><p class="docstring">Set the agent-run id.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Set the agent-run id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-agent-run-id-293">agent_run_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.agent_run_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-sandbox-id-299"><td>method</td><td>sandbox_id</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-sandbox-id-299">sandbox_id</a> (mut self , id : SandboxId) -&gt; Self</code><p class="docstring">Set the sandbox id.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Set the sandbox id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-sandbox-id-299">sandbox_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">SandboxId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.sandbox_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-tool-name-305"><td>method</td><td>tool_name</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-tool-name-305">tool_name</a> (mut self , name : impl Into &lt; String &gt;) -&gt; Self</code><p class="docstring">Set the tool name.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Set the tool name.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-tool-name-305">tool_name</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, name: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.tool_name = <span class="rs-type">Some</span>(name.into());
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-tool-use-id-311"><td>method</td><td>tool_use_id</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-tool-use-id-311">tool_use_id</a> (mut self , id : ToolUseId) -&gt; Self</code><p class="docstring">Set the tool-use id.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Set the tool-use id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-tool-use-id-311">tool_use_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">ToolUseId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.tool_use_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-build-317"><td>method</td><td>build</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-build-317">build</a> (self) -&gt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a></code><p class="docstring">Finish building the [`AuditNode`].</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Finish building the [`AuditNode`].</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-build-317">build</a>(<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a> {
+        <span class="rs-self">self</span>.node
+    }
+</code></pre>
+</details></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/contract.rs:249</p>
+</article><article id="item-struct-AuditEvent-324" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AuditEvent pub pub struct AuditEvent crates/eos-backend-audit/src/contract.rs schema_version u32 source AuditSource event_type String node AuditNode payload JsonObject correlation_id Option &lt; String &gt; ts UtcDateTime ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>AuditEvent</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a></code>
+  <p class="docstring">A structured audit event emitted by a behavior-owning package.<br>Construct via [`AuditEvent::new`] so `ts` is set once from the injected<br>[`Clock`]. Field order is the wire order; `payload` is always serialized and<br>`correlation_id` is omitted when `None`.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>non_exhaustive</span><span>serde</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>schema_version</td><td><code>u32</code></td></tr><tr><td>pub</td><td>source</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a></code></td></tr><tr><td>pub</td><td>event_type</td><td><code>String</code></td></tr><tr><td>pub</td><td>node</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a></code></td></tr><tr><td>pub</td><td>payload</td><td><code>JsonObject</code></td></tr><tr><td>pub</td><td>correlation_id</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>pub</td><td>ts</td><td><code>UtcDateTime</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-353"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-new-90">new</a> (source : <a class="symbol-link" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a> , event_type : impl Into &lt; String &gt; , node : <a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a> , payload : JsonObject , clock : &amp; dyn Clock ,) -&gt; Self</code><p class="docstring">Build an event, stamping `ts` from `clock`.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Build an event, stamping `ts` from `clock`.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(
+        source: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>,
+        event_type: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;,
+        node: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a>,
+        payload: <span class="rs-type">JsonObject</span>,
+        clock: &amp;<span class="rs-kw">dyn</span> <span class="rs-type">Clock</span>,
+    ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
-            strict_audit_loss: <span class="rs-kw">true</span>,
-            require_resource_sample: <span class="rs-kw">true</span>,
+            schema_version: <span class="rs-type">SCHEMA_VERSION</span>,
+            source,
+            event_type: event_type.into(),
+            node,
+            payload,
+            correlation_id: <span class="rs-type">None</span>,
+            ts: clock.now(),
         }
+    }
+</code></pre>
+</details></td></tr><tr id="method-to-obs-envelope-373"><td>method</td><td>to_obs_envelope</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-to-obs-envelope-373">to_obs_envelope</a> (&amp; self) -&gt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a></code><p class="docstring">Convert this producer event into the normalized collector row.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Convert this producer event into the normalized collector row.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-to-obs-envelope-373">to_obs_envelope</a>(&amp;<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a> {
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-self">self</span>.payload.clone();
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent_name) = &amp;<span class="rs-self">self</span>.node.agent_name {
+            payload
+                .entry(&quot;agent_name&quot;.to_owned())
+                .or_insert_with(|| serde_json::<span class="rs-type">Value</span>::<span class="rs-type">String</span>(agent_name.clone()));
+        }
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(tool_name) = &amp;<span class="rs-self">self</span>.node.tool_name {
+            payload
+                .entry(&quot;tool_name&quot;.to_owned())
+                .or_insert_with(|| serde_json::<span class="rs-type">Value</span>::<span class="rs-type">String</span>(tool_name.clone()));
+        }
+
+        <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-obs-source-429">obs_source</a>(<span class="rs-self">self</span>.source), &amp;<span class="rs-self">self</span>.event_type)
+            .<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-ids-105">with_ids</a>(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-obs-ids-436">obs_ids</a>(&amp;<span class="rs-self">self</span>.node))
+            .<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-payload-112">with_payload</a>(payload)
+    }
+</code></pre>
+</details></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/contract.rs:324</p>
+</article><article id="item-struct-NoopAuditSink-415" class="type-card" data-kind="struct" data-kind-list="impl method struct type-model" data-filter-text="struct NoopAuditSink pub pub struct NoopAuditSink crates/eos-backend-audit/src/contract.rs  ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>NoopAuditSink</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-NoopAuditSink-415">NoopAuditSink</a></code>
+  <p class="docstring">Audit sink used when collection is disabled; every publish is a no-op.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Default</span></div>
+  <h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-backend-audit.html#item-trait-AuditSink-394">AuditSink</a> for <a class="symbol-link" href="eos-backend-audit.html#item-struct-NoopAuditSink-415">NoopAuditSink</a></code></summary><table><tbody><tr id="method-enabled-420"><td>method</td><td>enabled</td><td><code>fn <a class="symbol-link" href="eos-backend-audit.html#method-enabled-399">enabled</a> (&amp; self) -&gt; bool</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-enabled-399">enabled</a>(&amp;<span class="rs-self">self</span>) -&gt; bool {
+        <span class="rs-kw">false</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-publish-424"><td>method</td><td>publish</td><td><code>fn <a class="symbol-link" href="eos-backend-audit.html#method-publish-407">publish</a> (&amp; self , _event : &amp; <a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; Result &lt; () , <a class="symbol-link" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a> &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-publish-407">publish</a>(&amp;<span class="rs-self">self</span>, _event: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a>&gt; {
+        <span class="rs-type">Ok</span>(())
     }
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-backend-audit/src/gates.rs:105</p>
-</article><article id="item-struct-RunnerGateInput-123" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateInput pub pub struct RunnerGateInput&lt; 'a &gt; crates/eos-backend-audit/src/gates.rs rows &amp; 'a [ObsEnvelope] sandbox_loss Option &lt; &amp; 'a SandboxAuditLoss &gt; expected_tool_uses &amp; 'a [ExpectedToolUse] correctness RunnerCorrectnessEvidence settings RunnerGateSettings ">
-  <div class="item-head">
-    <span class="kind">struct</span>
-    <h3>RunnerGateInput</h3>
-    <span class="visibility">pub</span>
-  </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateInput-123">RunnerGateInput</a>&lt; &#x27;a &gt;</code>
-  <p class="docstring">Input for the Rust runner audit/observability gates.</p>
-  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>rows</td><td><code>&amp; &#x27;a [ObsEnvelope]</code></td></tr><tr><td>pub</td><td>sandbox_loss</td><td><code>Option &lt; &amp; &#x27;a <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a> &gt;</code></td></tr><tr><td>pub</td><td>expected_tool_uses</td><td><code>&amp; &#x27;a [<a class="symbol-link" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]</code></td></tr><tr><td>pub</td><td>correctness</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a></code></td></tr><tr><td>pub</td><td>settings</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code></td></tr></tbody></table>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:123</p>
-</article><article id="item-struct-RunnerGateBatchInput-138" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateBatchInput pub pub struct RunnerGateBatchInput&lt; 'a &gt; crates/eos-backend-audit/src/gates.rs agent_core_rows &amp; 'a [ObsEnvelope] sandbox_batches &amp; 'a [SandboxPullBatch] expected_tool_uses &amp; 'a [ExpectedToolUse] correctness RunnerCorrectnessEvidence settings RunnerGateSettings ">
-  <div class="item-head">
-    <span class="kind">struct</span>
-    <h3>RunnerGateBatchInput</h3>
-    <span class="visibility">pub</span>
-  </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a>&lt; &#x27;a &gt;</code>
-  <p class="docstring">Batch-oriented input for runner gates after sandbox pull normalization.</p>
-  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>agent_core_rows</td><td><code>&amp; &#x27;a [ObsEnvelope]</code></td></tr><tr><td>pub</td><td>sandbox_batches</td><td><code>&amp; &#x27;a [<a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-5">SandboxPullBatch</a>]</code></td></tr><tr><td>pub</td><td>expected_tool_uses</td><td><code>&amp; &#x27;a [<a class="symbol-link" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]</code></td></tr><tr><td>pub</td><td>correctness</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a></code></td></tr><tr><td>pub</td><td>settings</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code></td></tr></tbody></table>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:138</p>
-</article><article id="item-struct-RunnerGateSourceInput-153" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateSourceInput pub pub struct RunnerGateSourceInput&lt; 'a &gt; crates/eos-backend-audit/src/gates.rs agent_core_jsonl &amp; 'a str sandbox_pull_responses &amp; 'a [Value] expected_tool_uses &amp; 'a [ExpectedToolUse] correctness RunnerCorrectnessEvidence settings RunnerGateSettings ">
-  <div class="item-head">
-    <span class="kind">struct</span>
-    <h3>RunnerGateSourceInput</h3>
-    <span class="visibility">pub</span>
-  </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateSourceInput-153">RunnerGateSourceInput</a>&lt; &#x27;a &gt;</code>
-  <p class="docstring">Source-level input for the runner audit/observability gates.</p>
-  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>agent_core_jsonl</td><td><code>&amp; &#x27;a str</code></td></tr><tr><td>pub</td><td>sandbox_pull_responses</td><td><code>&amp; &#x27;a [Value]</code></td></tr><tr><td>pub</td><td>expected_tool_uses</td><td><code>&amp; &#x27;a [<a class="symbol-link" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]</code></td></tr><tr><td>pub</td><td>correctness</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a></code></td></tr><tr><td>pub</td><td>settings</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code></td></tr></tbody></table>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:153</p>
-</article><article id="item-struct-RunnerGateMetrics-168" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateMetrics pub pub struct RunnerGateMetrics crates/eos-backend-audit/src/gates.rs expected_tool_use_count usize observed_expected_tool_use_count usize tool_call_completed_count usize resource_sample_count usize resource_metric_count usize ">
-  <div class="item-head">
-    <span class="kind">struct</span>
-    <h3>RunnerGateMetrics</h3>
-    <span class="visibility">pub</span>
-  </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a></code>
-  <p class="docstring">Aggregate metrics collected while evaluating runner gates.</p>
-  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Default</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>expected_tool_use_count</td><td><code>usize</code></td></tr><tr><td>pub</td><td>observed_expected_tool_use_count</td><td><code>usize</code></td></tr><tr><td>pub</td><td>tool_call_completed_count</td><td><code>usize</code></td></tr><tr><td>pub</td><td>resource_sample_count</td><td><code>usize</code></td></tr><tr><td>pub</td><td>resource_metric_count</td><td><code>usize</code></td></tr></tbody></table>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:168</p>
-</article><article id="item-struct-RunnerGateFailure-183" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateFailure pub pub struct RunnerGateFailure crates/eos-backend-audit/src/gates.rs kind RunnerGateFailureKind detail String ">
-  <div class="item-head">
-    <span class="kind">struct</span>
-    <h3>RunnerGateFailure</h3>
-    <span class="visibility">pub</span>
-  </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a></code>
-  <p class="docstring">A failed runner gate.</p>
-  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>kind</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a></code></td></tr><tr><td>pub</td><td>detail</td><td><code>String</code></td></tr></tbody></table>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:183</p>
-</article><article id="item-struct-RunnerGateReport-212" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateReport pub pub struct RunnerGateReport crates/eos-backend-audit/src/gates.rs passed bool failures Vec &lt; RunnerGateFailure &gt; metrics RunnerGateMetrics expected_tool_uses Vec &lt; ExpectedToolUse &gt; settings RunnerGateSettings correctness RunnerCorrectnessEvidence sandbox_loss Option &lt; SandboxAuditLoss &gt; ">
-  <div class="item-head">
-    <span class="kind">struct</span>
-    <h3>RunnerGateReport</h3>
-    <span class="visibility">pub</span>
-  </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a></code>
-  <p class="docstring">Typed result from evaluating the Rust runner audit/observability gates.</p>
-  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>port/service</span><span>serde</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>passed</td><td><code>bool</code></td></tr><tr><td>pub</td><td>failures</td><td><code>Vec &lt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> &gt;</code></td></tr><tr><td>pub</td><td>metrics</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a></code></td></tr><tr><td>pub</td><td>expected_tool_uses</td><td><code>Vec &lt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a> &gt;</code></td></tr><tr><td>pub</td><td>settings</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code></td></tr><tr><td>pub</td><td>correctness</td><td><code><a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a></code></td></tr><tr><td>pub</td><td>sandbox_loss</td><td><code>Option &lt; <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a> &gt;</code></td></tr></tbody></table>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:212</p>
-</article><article id="item-enum-RunnerGateFailureKind-192" class="type-card" data-kind="enum" data-kind-list="enum field type-model" data-filter-text="enum RunnerGateFailureKind pub pub enum RunnerGateFailureKind crates/eos-backend-audit/src/gates.rs  ">
+  <p class="source">crates/eos-backend-audit/src/contract.rs:415</p>
+</article><article id="item-enum-ObsSource-29" class="type-card" data-kind="enum" data-kind-list="enum field type-model" data-filter-text="enum ObsSource pub pub enum ObsSource crates/eos-backend-audit/src/contract.rs  ">
   <div class="item-head">
     <span class="kind">enum</span>
-    <h3>RunnerGateFailureKind</h3>
+    <h3>ObsSource</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub enum <a class="symbol-link" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a></code>
-  <p class="docstring">Machine-readable runner gate failure categories.</p>
-  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span><span>serde: rename_all</span></div>
-  <h4>Variants</h4><table><tbody><tr><td>AuditLoss</td><td><code></code></td></tr><tr><td>MissingToolObs</td><td><code></code></td></tr><tr><td>InvalidToolPayload</td><td><code></code></td></tr><tr><td>MissingResourceSample</td><td><code></code></td></tr><tr><td>MissingResourceMetric</td><td><code></code></td></tr><tr><td>ToolCorrectnessNotVerified</td><td><code></code></td></tr><tr><td>MessageCorrectnessNotVerified</td><td><code></code></td></tr></tbody></table>
+  <code class="signature">pub enum <a class="symbol-link" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a></code>
+  <p class="docstring">The source that produced the native event before collector normalization.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>non_exhaustive</span><span>serde</span><span>serde: rename_all</span></div>
+  <h4>Variants</h4><table><tbody><tr><td>AgentCore</td><td><code></code></td></tr><tr><td>Sandbox</td><td><code></code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-audit/src/gates.rs:192</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-evaluate-runner-gates-232" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn evaluate_runner_gates pub pub fn evaluate_runner_gates (input : RunnerGateInput &lt; '_ &gt;) -&gt; RunnerGateReport crates/eos-backend-audit/src/gates.rs  ">
+  <p class="source">crates/eos-backend-audit/src/contract.rs:29</p>
+</article><article id="item-enum-AuditError-163" class="type-card" data-kind="enum" data-kind-list="enum field type-model" data-filter-text="enum AuditError pub pub enum AuditError crates/eos-backend-audit/src/contract.rs  ">
+  <div class="item-head">
+    <span class="kind">enum</span>
+    <h3>AuditError</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub enum <a class="symbol-link" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a></code>
+  <p class="docstring">Errors reported by an [`AuditSink`].<br>These are recoverable failures surfaced through `Result` without interrupting<br>the emitting domain path. Sinks must not panic.</p>
+  <div class="tags"><span>derive: Debug</span><span>derive: thiserror::Error</span><span>error</span><span>non_exhaustive</span></div>
+  <h4>Variants</h4><table><tbody><tr><td>Jsonl</td><td><code>0: std :: io :: Error</code></td></tr><tr><td>Serialize</td><td><code>0: serde_json :: Error</code></td></tr><tr><td>Backpressure</td><td><code></code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/contract.rs:163</p>
+</article><article id="item-enum-AuditSource-182" class="type-card" data-kind="enum" data-kind-list="enum field type-model" data-filter-text="enum AuditSource pub pub enum AuditSource crates/eos-backend-audit/src/contract.rs  ">
+  <div class="item-head">
+    <span class="kind">enum</span>
+    <h3>AuditSource</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub enum <a class="symbol-link" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a></code>
+  <p class="docstring">The behavior-owning package that emitted an event.<br>Serializes to the exact Rust literal strings: `workflow`, `engine`,<br>`sandbox`, and `live_e2e`.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>non_exhaustive</span><span>serde</span><span>serde: rename_all</span></div>
+  <h4>Variants</h4><table><tbody><tr><td>Workflow</td><td><code></code></td></tr><tr><td>Engine</td><td><code></code></td></tr><tr><td>Sandbox</td><td><code></code></td></tr><tr><td>LiveE2e</td><td><code></code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/contract.rs:182</p>
+</article><article id="item-trait-AuditSink-394" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait AuditSink pub pub trait AuditSink crates/eos-backend-audit/src/contract.rs  enabled fn enabled (&amp; self) -&gt; bool publish fn publish (&amp; self , event : &amp; AuditEvent) -&gt; Result &lt; () , AuditError &gt;">
+  <div class="item-head">
+    <span class="kind">trait</span>
+    <h3>AuditSink</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub trait <a class="symbol-link" href="eos-backend-audit.html#item-trait-AuditSink-394">AuditSink</a></code>
+  <p class="docstring">Write-only audit side channel.<br>Implementations must not panic; recoverable failures are reported through<br>[`AuditError`]. The event is borrowed, not consumed.</p>
+  <div class="tags"><span>error</span></div>
+  <h4>Methods</h4><table><tbody><tr id="method-publish-407"><td>required</td><td>publish</td><td><code>fn <a class="symbol-link" href="eos-backend-audit.html#method-publish-407">publish</a> (&amp; self , event : &amp; <a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; Result &lt; () , <a class="symbol-link" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a> &gt;</code><p class="docstring">Persist one event.<br># Errors<br>Returns [`AuditError`] when the sink cannot persist the event.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Persist one event.</span>
+    <span class="rs-comment">///</span>
+    <span class="rs-comment">/// # Errors</span>
+    <span class="rs-comment">///</span>
+    <span class="rs-comment">/// Returns [`AuditError`] when the sink cannot persist the event.</span>
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-publish-407">publish</a>(&amp;<span class="rs-self">self</span>, event: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a>&gt;;
+</code></pre>
+</details></td></tr><tr id="method-enabled-399"><td>provided</td><td>enabled</td><td><code>fn <a class="symbol-link" href="eos-backend-audit.html#method-enabled-399">enabled</a> (&amp; self) -&gt; bool</code><p class="docstring">Whether this sink persists events.<br>Emitters can use this to skip expensive audit-only sampling work when the<br>composition root installed the no-op sink.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Whether this sink persists events.</span>
+    <span class="rs-comment">///</span>
+    <span class="rs-comment">/// Emitters can use this to skip expensive audit-only sampling work when the</span>
+    <span class="rs-comment">/// composition root installed the no-op sink.</span>
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-enabled-399">enabled</a>(&amp;<span class="rs-self">self</span>) -&gt; bool {
+        <span class="rs-kw">true</span>
+    }
+</code></pre>
+</details></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/contract.rs:394</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-canonical-event-type-128" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn canonical_event_type pub pub fn canonical_event_type (event_type : &amp; str) -&gt; &amp; str crates/eos-backend-audit/src/contract.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
-    <h3>evaluate_runner_gates</h3>
+    <h3>canonical_event_type</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-evaluate-runner-gates-232">evaluate_runner_gates</a> (input : <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateInput-123">RunnerGateInput</a> &lt; &#x27;_ &gt;) -&gt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a></code>
-  <p class="docstring">Evaluate Rust runner audit/observability gates over normalized rows.</p>
+  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-canonical-event-type-128">canonical_event_type</a> (event_type : &amp; str) -&gt; &amp; str</code>
+  <p class="docstring">Return the canonical event type for a native or legacy event type.</p>
   <div class="tags"><span>must_use</span></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// Evaluate Rust runner audit/observability gates over normalized rows.</span>
+  <pre><code><span class="rs-comment">/// Return the canonical event type for a native or legacy event type.</span>
 #[must_use]
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-evaluate-runner-gates-232">evaluate_runner_gates</a>(input: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateInput-123">RunnerGateInput</a>&lt;&#x27;_&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> failures = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>();
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> metrics = <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-default-115">default</a>();
-    <span class="rs-kw">let</span> expected_tool_use_ids = <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-unique-tool-use-ids-412">unique_tool_use_ids</a>(input.expected_tool_uses);
-    metrics.expected_tool_use_count = expected_tool_use_ids.len();
-
-    <span class="rs-kw">if</span> input.settings.strict_audit_loss {
-        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(loss) = input.sandbox_loss {
-            <span class="rs-kw">if</span> loss.<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-has-counted-loss-26">has_counted_loss</a>() {
-                failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-                    <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">AuditLoss</span>,
-                    format!(
-                        &quot;sandbox audit loss reported lost_before_seq={:?} dropped_event_count={:?}&quot;,
-                        loss.lost_before_seq, loss.dropped_event_count
-                    ),
-                ));
-            }
-        }
-    }
-
-    <span class="rs-kw">if</span> !input.correctness.<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-has-tool-use-evidence-53">has_tool_use_evidence</a>() {
-        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-            <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">ToolCorrectnessNotVerified</span>,
-            &quot;state/transcript tool correctness evidence was not supplied&quot;,
-        ));
-    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> input.correctness.tool_use_checked_count &lt; metrics.expected_tool_use_count {
-        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-            <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">ToolCorrectnessNotVerified</span>,
-            format!(
-                &quot;state/transcript tool checks covered {} expected tool uses, expected {}&quot;,
-                input.correctness.tool_use_checked_count, metrics.expected_tool_use_count
-            ),
-        ));
-    }
-    <span class="rs-kw">if</span> !input.correctness.<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-has-message-correctness-evidence-59">has_message_correctness_evidence</a>() {
-        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-            <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MessageCorrectnessNotVerified</span>,
-            &quot;state/transcript message correctness evidence was not supplied&quot;,
-        ));
-    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> input.correctness.message_checked_count == 0 {
-        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-            <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MessageCorrectnessNotVerified</span>,
-            &quot;state/transcript message correctness evidence had zero checked assertions&quot;,
-        ));
-    }
-
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> observed_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>();
-    <span class="rs-kw">for</span> row <span class="rs-kw">in</span> input.rows {
-        <span class="rs-kw">match</span> row.event_type.as_str() {
-            <span class="rs-type">TOOL_CALL_COMPLETED</span> =&gt; {
-                metrics.tool_call_completed_count += 1;
-                <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(tool_use_id) = <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-tool-use-id-430">tool_use_id</a>(row) {
-                    observed_tool_use_ids.insert(tool_use_id);
-                }
-                <span class="rs-kw">if</span> !<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-valid-tool-call-418">valid_tool_call</a>(row) {
-                    failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-                        <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">InvalidToolPayload</span>,
-                        format!(
-                            &quot;invalid tool_call.completed payload <span class="rs-kw">for</span> {:?}&quot;,
-                            row.ids.tool_use_id
-                        ),
-                    ));
-                }
-            }
-            <span class="rs-type">OS_RESOURCE_SAMPLED</span> =&gt; {
-                metrics.resource_sample_count += 1;
-                metrics.resource_metric_count += <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-resource-metric-count-439">resource_metric_count</a>(row);
-            }
-            _ =&gt; {}
-        }
-    }
-
-    metrics.observed_expected_tool_use_count = expected_tool_use_ids
-        .iter()
-        .filter(|tool_use_id| observed_tool_use_ids.contains(**tool_use_id))
-        .count();
-
-    <span class="rs-kw">for</span> tool_use_id <span class="rs-kw">in</span> &amp;expected_tool_use_ids {
-        <span class="rs-kw">if</span> !observed_tool_use_ids.contains(tool_use_id) {
-            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-                <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingToolObs</span>,
-                format!(&quot;missing tool_call.completed obs row <span class="rs-kw">for</span> tool_use_id={tool_use_id}&quot;),
-            ));
-        }
-    }
-
-    <span class="rs-kw">if</span> input.settings.require_resource_sample {
-        <span class="rs-kw">if</span> metrics.resource_sample_count == 0 {
-            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-                <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingResourceSample</span>,
-                &quot;no os_resource.sampled row was observed&quot;,
-            ));
-        } <span class="rs-kw">else</span> <span class="rs-kw">if</span> metrics.resource_metric_count == 0 {
-            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-                <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingResourceMetric</span>,
-                &quot;os_resource.sampled rows did not include any resource metric&quot;,
-            ));
-        }
-    }
-
-    <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
-        passed: failures.is_empty(),
-        failures,
-        metrics,
-        expected_tool_uses: input.expected_tool_uses.to_vec(),
-        settings: input.settings,
-        correctness: input.correctness,
-        sandbox_loss: input.sandbox_loss.cloned(),
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-canonical-event-type-128">canonical_event_type</a>(event_type: &amp;str) -&gt; &amp;str {
+    <span class="rs-kw">match</span> event_type {
+        &quot;tool_call.finished&quot; =&gt; <span class="rs-type">TOOL_CALL_COMPLETED</span>,
+        other =&gt; other,
     }
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/gates.rs:232</p>
-</article><article id="item-fn-evaluate-runner-gate-batches-345" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn evaluate_runner_gate_batches pub pub fn evaluate_runner_gate_batches (input : RunnerGateBatchInput &lt; '_ &gt;) -&gt; RunnerGateReport crates/eos-backend-audit/src/gates.rs  ">
+  <p class="source">crates/eos-backend-audit/src/contract.rs:128</p>
+</article><article id="item-fn-from-jsonl-line-137" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn from_jsonl_line pub pub fn from_jsonl_line (line : &amp; str) -&gt; Result &lt; ObsEnvelope , serde_json :: Error &gt; crates/eos-backend-audit/src/contract.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
-    <h3>evaluate_runner_gate_batches</h3>
+    <h3>from_jsonl_line</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-evaluate-runner-gate-batches-345">evaluate_runner_gate_batches</a> (input : <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a> &lt; &#x27;_ &gt;) -&gt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a></code>
-  <p class="docstring">Evaluate runner gates from normalized agent-core rows and sandbox pull batches.</p>
-  <div class="tags"><span>must_use</span></div>
+  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-from-jsonl-line-137">from_jsonl_line</a> (line : &amp; str) -&gt; Result &lt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a> , serde_json :: Error &gt;</code>
+  <p class="docstring">Parse one normalized JSONL row.<br>The parser accepts any valid JSON object matching [`ObsEnvelope`]. Native<br>sandbox rows should be normalized by the collector before calling this.<br># Errors<br>Returns a JSON parse error when the line is not a valid normalized row.</p>
+  <div class="tags"><span>constructor</span></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// Evaluate runner gates from normalized agent-core rows and sandbox pull batches.</span>
-#[must_use]
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-evaluate-runner-gate-batches-345">evaluate_runner_gate_batches</a>(input: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a>&lt;&#x27;_&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> rows = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-87">with_capacity</a>(
-        input.agent_core_rows.len()
-            + input
-                .sandbox_batches
-                .iter()
-                .map(|batch| batch.rows.len())
-                .sum::&lt;usize&gt;(),
-    );
-    rows.extend_from_slice(input.agent_core_rows);
-    rows.extend(
-        input
-            .sandbox_batches
-            .iter()
-            .flat_map(|batch| batch.rows.iter().cloned()),
-    );
-    <span class="rs-kw">let</span> sandbox_loss = <span class="rs-kw">if</span> input.sandbox_batches.is_empty() {
-        <span class="rs-type">None</span>
-    } <span class="rs-kw">else</span> {
-        <span class="rs-type">Some</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-merge-33">merge</a>(
-            input.sandbox_batches.iter().map(|batch| &amp;batch.loss),
-        ))
-    };
-    <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-evaluate-runner-gates-232">evaluate_runner_gates</a>(<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateInput-123">RunnerGateInput</a> {
-        rows: &amp;rows,
-        sandbox_loss: sandbox_loss.as_ref(),
-        expected_tool_uses: input.expected_tool_uses,
-        correctness: input.correctness,
-        settings: input.settings,
-    })
-}
-</code></pre>
-</details>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:345</p>
-</article><article id="item-fn-evaluate-runner-gate-sources-379" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn evaluate_runner_gate_sources pub pub fn evaluate_runner_gate_sources (input : RunnerGateSourceInput &lt; '_ &gt; ,) -&gt; Result &lt; RunnerGateReport , ObsNormalizationError &gt; crates/eos-backend-audit/src/gates.rs  ">
-  <div class="item-head">
-    <span class="kind">fn</span>
-    <h3>evaluate_runner_gate_sources</h3>
-    <span class="visibility">pub</span>
-  </div>
-  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-evaluate-runner-gate-sources-379">evaluate_runner_gate_sources</a> (input : <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateSourceInput-153">RunnerGateSourceInput</a> &lt; &#x27;_ &gt; ,) -&gt; Result &lt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> , <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a> &gt;</code>
-  <p class="docstring">Parse source artifacts, normalize them, and evaluate runner gates.<br>This is the narrow handoff a Rust runner can call after it has collected the<br>authoritative state/transcript expectations.<br># Errors<br>Returns an error when any agent-core JSONL row or sandbox pull response is<br>invalid.</p>
-  <div class="tags"></div>
-  <details class="function-source">
-  <summary>code</summary>
-  <pre><code><span class="rs-comment">/// Parse source artifacts, normalize them, and evaluate runner gates.</span>
+  <pre><code><span class="rs-comment">/// Parse one normalized JSONL row.</span>
 <span class="rs-comment">///</span>
-<span class="rs-comment">/// This is the narrow handoff a Rust runner can call after it has collected the</span>
-<span class="rs-comment">/// authoritative state/transcript expectations.</span>
+<span class="rs-comment">/// The parser accepts any valid JSON object matching [`ObsEnvelope`]. Native</span>
+<span class="rs-comment">/// sandbox rows should be normalized by the collector before calling this.</span>
 <span class="rs-comment">///</span>
 <span class="rs-comment">/// # Errors</span>
 <span class="rs-comment">///</span>
-<span class="rs-comment">/// Returns an error when any agent-core JSONL row or sandbox pull response is</span>
-<span class="rs-comment">/// invalid.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-evaluate-runner-gate-sources-379">evaluate_runner_gate_sources</a>(
-    input: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateSourceInput-153">RunnerGateSourceInput</a>&lt;&#x27;_&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>&gt; {
-    <span class="rs-kw">let</span> agent_core_rows = input
-        .agent_core_jsonl
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(normalize_agent_core_jsonl_line)
-        .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, _&gt;&gt;()?;
-    <span class="rs-kw">let</span> sandbox_batches = input
-        .sandbox_pull_responses
-        .iter()
-        .map(normalize_sandbox_pull_response)
-        .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, _&gt;&gt;()?;
-
-    <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-evaluate-runner-gate-batches-345">evaluate_runner_gate_batches</a>(<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a> {
-        agent_core_rows: &amp;agent_core_rows,
-        sandbox_batches: &amp;sandbox_batches,
-        expected_tool_uses: input.expected_tool_uses,
-        correctness: input.correctness,
-        settings: input.settings,
-    }))
+<span class="rs-comment">/// Returns a JSON parse error when the line is not a valid normalized row.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-from-jsonl-line-137">from_jsonl_line</a>(line: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>, serde_json::<span class="rs-type">Error</span>&gt; {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> row: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a> = serde_json::from_str(line)?;
+    row.event_type = <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-canonical-event-type-128">canonical_event_type</a>(&amp;row.event_type).to_owned();
+    <span class="rs-type">Ok</span>(row)
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/gates.rs:379</p>
-</article><article id="item-fn-unique-tool-use-ids-412" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn unique_tool_use_ids private fn unique_tool_use_ids (ids : &amp; [ExpectedToolUse]) -&gt; BTreeSet &lt; &amp; str &gt; crates/eos-backend-audit/src/gates.rs  ">
+  <p class="source">crates/eos-backend-audit/src/contract.rs:137</p>
+</article><article id="item-fn-to-jsonl-line-151" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn to_jsonl_line pub pub fn to_jsonl_line (row : &amp; ObsEnvelope) -&gt; Result &lt; String , serde_json :: Error &gt; crates/eos-backend-audit/src/contract.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
-    <h3>unique_tool_use_ids</h3>
-    <span class="visibility">private</span>
+    <h3>to_jsonl_line</h3>
+    <span class="visibility">pub</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-unique-tool-use-ids-412">unique_tool_use_ids</a> (ids : &amp; [<a class="symbol-link" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]) -&gt; BTreeSet &lt; &amp; str &gt;</code>
+  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-to-jsonl-line-151">to_jsonl_line</a> (row : &amp; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; Result &lt; String , serde_json :: Error &gt;</code>
+  <p class="docstring">Serialize one normalized row to a JSONL line.<br># Errors<br>Returns a JSON serialization error if the payload contains a non-serializable<br>value.</p>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-unique-tool-use-ids-412">unique_tool_use_ids</a>(ids: &amp;[<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]) -&gt; <span class="rs-type">BTreeSet</span>&lt;&amp;str&gt; {
-    ids.iter()
-        .map(|expected| expected.tool_use_id.as_str())
-        .collect()
+  <pre><code><span class="rs-comment">/// Serialize one normalized row to a JSONL line.</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// # Errors</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// Returns a JSON serialization error if the payload contains a non-serializable</span>
+<span class="rs-comment">/// value.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-to-jsonl-line-151">to_jsonl_line</a>(row: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">String</span>, serde_json::<span class="rs-type">Error</span>&gt; {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> line = serde_json::to_string(row)?;
+    line.push(&#x27;\n&#x27;);
+    <span class="rs-type">Ok</span>(line)
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/gates.rs:412</p>
-</article><article id="item-fn-valid-tool-call-418" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn valid_tool_call private fn valid_tool_call (row : &amp; ObsEnvelope) -&gt; bool crates/eos-backend-audit/src/gates.rs  ">
+  <p class="source">crates/eos-backend-audit/src/contract.rs:151</p>
+</article><article id="item-fn-obs-source-429" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn obs_source private const fn obs_source (source : AuditSource) -&gt; ObsSource crates/eos-backend-audit/src/contract.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
-    <h3>valid_tool_call</h3>
+    <h3>obs_source</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-valid-tool-call-418">valid_tool_call</a> (row : &amp; ObsEnvelope) -&gt; bool</code>
+  <code class="signature">const fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-obs-source-429">obs_source</a> (source : <a class="symbol-link" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>) -&gt; <a class="symbol-link" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a></code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-valid-tool-call-418">valid_tool_call</a>(row: &amp;<span class="rs-type">ObsEnvelope</span>) -&gt; bool {
-    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(tool_call)) = row.payload.get(&quot;tool_call&quot;) <span class="rs-kw">else</span> {
-        <span class="rs-kw">return</span> <span class="rs-kw">false</span>;
-    };
-    <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(tool_call.get(&quot;duration_ms&quot;))
-        .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(tool_call.get(&quot;total_ms&quot;)))
-        .unwrap_or(<span class="rs-kw">false</span>)
-        &amp;&amp; <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-non-empty-string-455">non_empty_string</a>(tool_call.get(&quot;status&quot;))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-non-empty-string-455">non_empty_string</a>(tool_call.get(&quot;exit_status&quot;)))
-            .unwrap_or(<span class="rs-kw">false</span>)
-}
-</code></pre>
-</details>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:418</p>
-</article><article id="item-fn-tool-use-id-430" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn tool_use_id private fn tool_use_id (row : &amp; ObsEnvelope) -&gt; Option &lt; &amp; str &gt; crates/eos-backend-audit/src/gates.rs  ">
-  <div class="item-head">
-    <span class="kind">fn</span>
-    <h3>tool_use_id</h3>
-    <span class="visibility">private</span>
-  </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-tool-use-id-430">tool_use_id</a> (row : &amp; ObsEnvelope) -&gt; Option &lt; &amp; str &gt;</code>
-  <div class="tags"></div>
-  <details class="function-source">
-  <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-tool-use-id-430">tool_use_id</a>(row: &amp;<span class="rs-type">ObsEnvelope</span>) -&gt; <span class="rs-type">Option</span>&lt;&amp;str&gt; {
-    row.ids.tool_use_id.as_deref().or_else(|| {
-        row.payload
-            .get(&quot;tool_call&quot;)
-            .and_then(|section| section.get(&quot;tool_use_id&quot;))
-            .and_then(<span class="rs-type">Value</span>::as_str)
-    })
-}
-</code></pre>
-</details>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:430</p>
-</article><article id="item-fn-resource-metric-count-439" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn resource_metric_count private fn resource_metric_count (row : &amp; ObsEnvelope) -&gt; usize crates/eos-backend-audit/src/gates.rs  ">
-  <div class="item-head">
-    <span class="kind">fn</span>
-    <h3>resource_metric_count</h3>
-    <span class="visibility">private</span>
-  </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-resource-metric-count-439">resource_metric_count</a> (row : &amp; ObsEnvelope) -&gt; usize</code>
-  <div class="tags"></div>
-  <details class="function-source">
-  <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-resource-metric-count-439">resource_metric_count</a>(row: &amp;<span class="rs-type">ObsEnvelope</span>) -&gt; usize {
-    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(os_resource)) = row.payload.get(&quot;os_resource&quot;) <span class="rs-kw">else</span> {
-        <span class="rs-kw">return</span> 0;
-    };
-    <span class="rs-type">RESOURCE_METRIC_KEYS</span>
-        .iter()
-        .filter(|key| <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(os_resource.get(**key)).unwrap_or(<span class="rs-kw">false</span>))
-        .count()
-}
-</code></pre>
-</details>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:439</p>
-</article><article id="item-fn-has-nonnegative-number-449" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn has_nonnegative_number private fn has_nonnegative_number (value : Option &lt; &amp; Value &gt;) -&gt; Option &lt; bool &gt; crates/eos-backend-audit/src/gates.rs  ">
-  <div class="item-head">
-    <span class="kind">fn</span>
-    <h3>has_nonnegative_number</h3>
-    <span class="visibility">private</span>
-  </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a> (value : Option &lt; &amp; Value &gt;) -&gt; Option &lt; bool &gt;</code>
-  <div class="tags"></div>
-  <details class="function-source">
-  <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(value: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">Value</span>&gt;) -&gt; <span class="rs-type">Option</span>&lt;bool&gt; {
-    value
-        .and_then(<span class="rs-type">Value</span>::as_f64)
-        .map(|number| number.is_finite() &amp;&amp; number &gt;= 0.0)
-}
-</code></pre>
-</details>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:449</p>
-</article><article id="item-fn-non-empty-string-455" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn non_empty_string private fn non_empty_string (value : Option &lt; &amp; Value &gt;) -&gt; Option &lt; bool &gt; crates/eos-backend-audit/src/gates.rs  ">
-  <div class="item-head">
-    <span class="kind">fn</span>
-    <h3>non_empty_string</h3>
-    <span class="visibility">private</span>
-  </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-non-empty-string-455">non_empty_string</a> (value : Option &lt; &amp; Value &gt;) -&gt; Option &lt; bool &gt;</code>
-  <div class="tags"></div>
-  <details class="function-source">
-  <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-non-empty-string-455">non_empty_string</a>(value: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">Value</span>&gt;) -&gt; <span class="rs-type">Option</span>&lt;bool&gt; {
-    value
-        .and_then(<span class="rs-type">Value</span>::as_str)
-        .map(|value| !value.trim().is_empty())
-}
-</code></pre>
-</details>
-
-  <p class="source">crates/eos-backend-audit/src/gates.rs:455</p>
-</article><article id="item-fn-failure-461" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn failure private fn failure (kind : RunnerGateFailureKind , detail : impl Into &lt; String &gt;) -&gt; RunnerGateFailure crates/eos-backend-audit/src/gates.rs  ">
-  <div class="item-head">
-    <span class="kind">fn</span>
-    <h3>failure</h3>
-    <span class="visibility">private</span>
-  </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-failure-461">failure</a> (kind : <a class="symbol-link" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a> , detail : impl Into &lt; String &gt;) -&gt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a></code>
-  <div class="tags"></div>
-  <details class="function-source">
-  <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(kind: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>, detail: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> {
-    <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> {
-        kind,
-        detail: detail.into(),
+  <pre><code><span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-obs-source-429">obs_source</a>(source: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a> {
+    <span class="rs-kw">match</span> source {
+        <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>::<span class="rs-type">Sandbox</span> =&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>::<span class="rs-type">Sandbox</span>,
+        <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>::<span class="rs-type">Workflow</span> | <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>::<span class="rs-type">Engine</span> | <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>::<span class="rs-type">LiveE2e</span> =&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>::<span class="rs-type">AgentCore</span>,
     }
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/gates.rs:461</p>
+  <p class="source">crates/eos-backend-audit/src/contract.rs:429</p>
+</article><article id="item-fn-obs-ids-436" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn obs_ids private fn obs_ids (node : &amp; AuditNode) -&gt; ObsIds crates/eos-backend-audit/src/contract.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>obs_ids</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-obs-ids-436">obs_ids</a> (node : &amp; <a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a>) -&gt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a></code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-obs-ids-436">obs_ids</a>(node: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a> {
+    <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a> {
+        request_id: node.request_id.as_ref().map(<span class="rs-type">ToString</span>::to_string),
+        task_id: node.task_id.as_ref().map(<span class="rs-type">ToString</span>::to_string),
+        agent_run_id: node.agent_run_id.as_ref().map(<span class="rs-type">ToString</span>::to_string),
+        tool_use_id: node.tool_use_id.as_ref().map(<span class="rs-type">ToString</span>::to_string),
+        sandbox_id: node.sandbox_id.as_ref().map(<span class="rs-type">ToString</span>::to_string),
+    }
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/contract.rs:436</p>
+</article><article id="item-fn-deserialize-obs-schema-446" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn deserialize_obs_schema private fn deserialize_obs_schema &lt; 'de , D &gt; (deserializer : D) -&gt; Result &lt; String , D :: Error &gt; where D : Deserializer &lt; 'de &gt; , crates/eos-backend-audit/src/contract.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>deserialize_obs_schema</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-deserialize-obs-schema-446">deserialize_obs_schema</a> &lt; &#x27;de , D &gt; (deserializer : D) -&gt; Result &lt; String , D :: Error &gt; where D : Deserializer &lt; &#x27;de &gt; ,</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> deserialize_obs_schema&lt;&#x27;de, <span class="rs-type">D</span>&gt;(deserializer: <span class="rs-type">D</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">String</span>, <span class="rs-type">D</span>::<span class="rs-type">Error</span>&gt;
+<span class="rs-kw">where</span>
+    <span class="rs-type">D</span>: <span class="rs-type">Deserializer</span>&lt;&#x27;de&gt;,
+{
+    <span class="rs-kw">let</span> schema = <span class="rs-type">String</span>::deserialize(deserializer)?;
+    <span class="rs-kw">if</span> schema == <span class="rs-type">SCHEMA</span> {
+        <span class="rs-type">Ok</span>(schema)
+    } <span class="rs-kw">else</span> {
+        <span class="rs-type">Err</span>(<span class="rs-type">D</span>::<span class="rs-type">Error</span>::custom(format_args!(
+            &quot;unsupported observability schema {schema:?}&quot;
+        )))
+    }
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/contract.rs:446</p>
+</article><article id="item-fn-deserialize-schema-version-460" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn deserialize_schema_version private fn deserialize_schema_version &lt; 'de , D &gt; (deserializer : D) -&gt; Result &lt; u32 , D :: Error &gt; where D : Deserializer &lt; 'de &gt; , crates/eos-backend-audit/src/contract.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>deserialize_schema_version</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit.html#item-fn-deserialize-schema-version-460">deserialize_schema_version</a> &lt; &#x27;de , D &gt; (deserializer : D) -&gt; Result &lt; u32 , D :: Error &gt; where D : Deserializer &lt; &#x27;de &gt; ,</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> deserialize_schema_version&lt;&#x27;de, <span class="rs-type">D</span>&gt;(deserializer: <span class="rs-type">D</span>) -&gt; <span class="rs-type">Result</span>&lt;u32, <span class="rs-type">D</span>::<span class="rs-type">Error</span>&gt;
+<span class="rs-kw">where</span>
+    <span class="rs-type">D</span>: <span class="rs-type">Deserializer</span>&lt;&#x27;de&gt;,
+{
+    <span class="rs-kw">let</span> version = u32::deserialize(deserializer)?;
+    <span class="rs-kw">if</span> version == <span class="rs-type">SCHEMA_VERSION</span> {
+        <span class="rs-type">Ok</span>(version)
+    } <span class="rs-kw">else</span> {
+        <span class="rs-type">Err</span>(<span class="rs-type">D</span>::<span class="rs-type">Error</span>::custom(format_args!(
+            &quot;unsupported audit schema version {version}&quot;
+        )))
+    }
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/contract.rs:460</p>
 </article></div>
 </section></div>
 </main>
 <section class="file-source-section">
   <div class="source-head">
     <h2>Source File</h2>
-    <p class="path">crates/eos-backend-audit/src/gates.rs</p>
+    <p class="path">crates/eos-backend-audit/src/contract.rs</p>
   </div>
-  <pre class="file-source"><code><span class="rs-comment">//! Runner audit/observability gates: evaluate normalized obs rows against the</span>
-<span class="rs-comment">//! state/transcript expectations a Rust runner supplies, producing a typed</span>
-<span class="rs-comment">//! [`RunnerGateReport`] of pass/fail plus metrics. Three input granularities</span>
-<span class="rs-comment">//! (source → batch → rows) feed one pure evaluator.</span>
+  <pre class="file-source"><code><span class="rs-comment">//! Shared audit and observability contracts.</span>
+<span class="rs-comment">//!</span>
+<span class="rs-comment">//! This module owns the passive audit event, sink, and normalized observability</span>
+<span class="rs-comment">//! row shapes shared by agent-core producers and backend collectors. It does not</span>
+<span class="rs-comment">//! own producer policy, persistence, daemon rings, tracing, or report rendering.</span>
 
-<span class="rs-kw">use</span> std::collections::<span class="rs-type">BTreeSet</span>;
+<span class="rs-kw">use</span> serde::de::<span class="rs-type">Error</span> <span class="rs-kw">as</span> _;
+<span class="rs-kw">use</span> serde::{<span class="rs-type">Deserialize</span>, <span class="rs-type">Deserializer</span>, <span class="rs-type">Serialize</span>};
 
-<span class="rs-kw">use</span> eos_audit::{<span class="rs-type">ObsEnvelope</span>, <span class="rs-type">OS_RESOURCE_SAMPLED</span>, <span class="rs-type">TOOL_CALL_COMPLETED</span>};
-<span class="rs-kw">use</span> serde::{<span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>};
-<span class="rs-kw">use</span> serde_json::<span class="rs-type">Value</span>;
-
-<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{
-    normalize_agent_core_jsonl_line, normalize_sandbox_pull_response, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>,
-    <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-5">SandboxPullBatch</a>,
+<span class="rs-kw">pub</span> <span class="rs-kw">use</span> eos_types::<span class="rs-type">JsonObject</span>;
+<span class="rs-kw">use</span> eos_types::{
+    <span class="rs-type">AgentRunId</span>, <span class="rs-type">AttemptId</span>, <span class="rs-type">Clock</span>, <span class="rs-type">IterationId</span>, <span class="rs-type">RequestId</span>, <span class="rs-type">SandboxId</span>, <span class="rs-type">TaskId</span>, <span class="rs-type">ToolUseId</span>,
+    <span class="rs-type">UtcDateTime</span>, <span class="rs-type">WorkflowId</span>,
 };
 
-<span class="rs-kw">const</span> <span class="rs-type">RESOURCE_METRIC_KEYS</span>: &amp;[&amp;str] = &amp;[
-    &quot;rss_bytes&quot;,
-    &quot;cpu_user_s&quot;,
-    &quot;cpu_system_s&quot;,
-    &quot;cpu_throttled_us&quot;,
-    &quot;io_read_bytes&quot;,
-    &quot;io_write_bytes&quot;,
-    &quot;io_read_ops&quot;,
-    &quot;io_write_ops&quot;,
-];
+<span class="rs-comment">/// Normalized observability contract schema.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-type">SCHEMA</span>: &amp;str = &quot;eos.obs.v1&quot;;
 
-<span class="rs-comment">/// External correctness evidence supplied by the Rust runner from state and transcript stores.</span>
-#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">Default</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a> {
-    <span class="rs-comment">/// The runner checked expected tool-use ids and terminal tool outcomes against state/transcript.</span>
-    <span class="rs-kw">pub</span> tool_use_verified: bool,
-    <span class="rs-comment">/// Number of expected tool-use ids checked against state/transcript.</span>
-    <span class="rs-kw">pub</span> tool_use_checked_count: usize,
-    <span class="rs-comment">/// The runner checked model/user-facing message correctness against transcript state.</span>
-    <span class="rs-kw">pub</span> message_correctness_verified: bool,
-    <span class="rs-comment">/// Number of message/transcript assertions checked by the runner.</span>
-    <span class="rs-kw">pub</span> message_checked_count: usize,
-}
+<span class="rs-comment">/// Canonical event name for completed tool calls.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-type">TOOL_CALL_COMPLETED</span>: &amp;str = &quot;tool_call.completed&quot;;
+<span class="rs-comment">/// Canonical event name for completed agent runs.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-type">AGENT_RUN_COMPLETED</span>: &amp;str = &quot;agent_run.completed&quot;;
+<span class="rs-comment">/// Canonical event name for resource samples.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-type">OS_RESOURCE_SAMPLED</span>: &amp;str = &quot;os_resource.sampled&quot;;
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a> {
-    <span class="rs-comment">/// Build evidence for successful state/transcript checks.</span>
-    #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-verified-42">verified</a>(tool_use_checked_count: usize, message_checked_count: usize) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">Self</span> {
-            tool_use_verified: <span class="rs-kw">true</span>,
-            tool_use_checked_count,
-            message_correctness_verified: <span class="rs-kw">true</span>,
-            message_checked_count,
-        }
-    }
+<span class="rs-comment">/// The serialized-row schema version for structured audit events.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-type">SCHEMA_VERSION</span>: u32 = 1;
 
-    <span class="rs-comment">/// Return true when the runner supplied external tool correctness evidence.</span>
-    #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-has-tool-use-evidence-53">has_tool_use_evidence</a>(<span class="rs-self">self</span>) -&gt; bool {
-        <span class="rs-self">self</span>.tool_use_verified
-    }
-
-    <span class="rs-comment">/// Return true when the runner supplied external message correctness evidence.</span>
-    #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-has-message-correctness-evidence-59">has_message_correctness_evidence</a>(<span class="rs-self">self</span>) -&gt; bool {
-        <span class="rs-self">self</span>.message_correctness_verified
-    }
-}
-
-<span class="rs-comment">/// Tool-use expectation supplied by Rust state/transcript evidence.</span>
-#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a> {
-    <span class="rs-comment">/// Provider/tool-call id that must have a `tool_call.completed` obs row.</span>
-    <span class="rs-kw">pub</span> tool_use_id: <span class="rs-type">String</span>,
-    <span class="rs-comment">/// Optional tool name copied from state/transcript for diagnostics.</span>
-    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
-    <span class="rs-kw">pub</span> tool_name: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
-    <span class="rs-comment">/// Whether state/transcript expected the call to be terminal.</span>
-    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
-    <span class="rs-kw">pub</span> terminal_expected: <span class="rs-type">Option</span>&lt;bool&gt;,
-}
-
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a> {
-    <span class="rs-comment">/// Build the minimum expected tool-use record.</span>
-    #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(tool_use_id: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">Self</span> {
-            tool_use_id: tool_use_id.into(),
-            tool_name: <span class="rs-type">None</span>,
-            terminal_expected: <span class="rs-type">None</span>,
-        }
-    }
-
-    <span class="rs-comment">/// Attach a state/transcript tool name for diagnostics.</span>
-    #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-tool-name-90">with_tool_name</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, tool_name: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">self</span>.tool_name = <span class="rs-type">Some</span>(tool_name.into());
-        <span class="rs-self">self</span>
-    }
-
-    <span class="rs-comment">/// Attach whether state/transcript expected a terminal tool call.</span>
-    #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-terminal-expected-97">with_terminal_expected</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, terminal_expected: bool) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">self</span>.terminal_expected = <span class="rs-type">Some</span>(terminal_expected);
-        <span class="rs-self">self</span>
-    }
-}
-
-<span class="rs-comment">/// Runner gate switches.</span>
-#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a> {
-    <span class="rs-comment">/// Fail when a bounded audit surface reports counted loss.</span>
-    <span class="rs-kw">pub</span> strict_audit_loss: bool,
-    <span class="rs-comment">/// Fail when no resource sample with a real metric is present.</span>
-    <span class="rs-kw">pub</span> require_resource_sample: bool,
-}
-
-<span class="rs-kw">impl</span> <span class="rs-type">Default</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-default-115">default</a>() -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">Self</span> {
-            strict_audit_loss: <span class="rs-kw">true</span>,
-            require_resource_sample: <span class="rs-kw">true</span>,
-        }
-    }
-}
-
-<span class="rs-comment">/// Input for the Rust runner audit/observability gates.</span>
-#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateInput-123">RunnerGateInput</a>&lt;&#x27;a&gt; {
-    <span class="rs-comment">/// Normalized observation rows from agent-core JSONL and sandbox pulls.</span>
-    <span class="rs-kw">pub</span> rows: &amp;&#x27;a [<span class="rs-type">ObsEnvelope</span>],
-    <span class="rs-comment">/// Optional loss metadata from the sandbox audit ring.</span>
-    <span class="rs-kw">pub</span> sandbox_loss: <span class="rs-type">Option</span>&lt;&amp;&#x27;a <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a>&gt;,
-    <span class="rs-comment">/// Tool-use records the Rust state/transcript says must be observed.</span>
-    <span class="rs-kw">pub</span> expected_tool_uses: &amp;&#x27;a [<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>],
-    <span class="rs-comment">/// State/transcript correctness checks already performed by the runner.</span>
-    <span class="rs-kw">pub</span> correctness: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a>,
-    <span class="rs-comment">/// Gate settings for this runner invocation.</span>
-    <span class="rs-kw">pub</span> settings: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a>,
-}
-
-<span class="rs-comment">/// Batch-oriented input for runner gates after sandbox pull normalization.</span>
-#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a>&lt;&#x27;a&gt; {
-    <span class="rs-comment">/// Normalized rows from agent-core JSONL.</span>
-    <span class="rs-kw">pub</span> agent_core_rows: &amp;&#x27;a [<span class="rs-type">ObsEnvelope</span>],
-    <span class="rs-comment">/// Normalized sandbox pull/snapshot batches.</span>
-    <span class="rs-kw">pub</span> sandbox_batches: &amp;&#x27;a [<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-5">SandboxPullBatch</a>],
-    <span class="rs-comment">/// Tool-use records the Rust state/transcript says must be observed.</span>
-    <span class="rs-kw">pub</span> expected_tool_uses: &amp;&#x27;a [<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>],
-    <span class="rs-comment">/// State/transcript correctness checks already performed by the runner.</span>
-    <span class="rs-kw">pub</span> correctness: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a>,
-    <span class="rs-comment">/// Gate settings for this runner invocation.</span>
-    <span class="rs-kw">pub</span> settings: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a>,
-}
-
-<span class="rs-comment">/// Source-level input for the runner audit/observability gates.</span>
-#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateSourceInput-153">RunnerGateSourceInput</a>&lt;&#x27;a&gt; {
-    <span class="rs-comment">/// Agent-core `ObsEnvelope` JSONL contents.</span>
-    <span class="rs-kw">pub</span> agent_core_jsonl: &amp;&#x27;a str,
-    <span class="rs-comment">/// Raw sandbox `api.audit.pull` / `api.audit.snapshot` response values.</span>
-    <span class="rs-kw">pub</span> sandbox_pull_responses: &amp;&#x27;a [<span class="rs-type">Value</span>],
-    <span class="rs-comment">/// Tool-use records the Rust state/transcript says must be observed.</span>
-    <span class="rs-kw">pub</span> expected_tool_uses: &amp;&#x27;a [<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>],
-    <span class="rs-comment">/// State/transcript correctness checks already performed by the runner.</span>
-    <span class="rs-kw">pub</span> correctness: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a>,
-    <span class="rs-comment">/// Gate settings for this runner invocation.</span>
-    <span class="rs-kw">pub</span> settings: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a>,
-}
-
-<span class="rs-comment">/// Aggregate metrics collected while evaluating runner gates.</span>
-#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">Default</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a> {
-    <span class="rs-comment">/// Unique expected tool-use ids supplied by state/transcript.</span>
-    <span class="rs-kw">pub</span> expected_tool_use_count: usize,
-    <span class="rs-comment">/// Expected tool-use ids that had a canonical `tool_call.completed` row.</span>
-    <span class="rs-kw">pub</span> observed_expected_tool_use_count: usize,
-    <span class="rs-comment">/// Total canonical `tool_call.completed` rows.</span>
-    <span class="rs-kw">pub</span> tool_call_completed_count: usize,
-    <span class="rs-comment">/// Total `os_resource.sampled` rows.</span>
-    <span class="rs-kw">pub</span> resource_sample_count: usize,
-    <span class="rs-comment">/// Total real resource metrics across resource rows.</span>
-    <span class="rs-kw">pub</span> resource_metric_count: usize,
-}
-
-<span class="rs-comment">/// A failed runner gate.</span>
-#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> {
-    <span class="rs-comment">/// Machine-readable failure kind.</span>
-    <span class="rs-kw">pub</span> kind: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>,
-    <span class="rs-comment">/// Human-readable detail for diagnostics.</span>
-    <span class="rs-kw">pub</span> detail: <span class="rs-type">String</span>,
-}
-
-<span class="rs-comment">/// Machine-readable runner gate failure categories.</span>
+<span class="rs-comment">/// The source that produced the native event before collector normalization.</span>
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
 #[serde(rename_all = &quot;snake_case&quot;)]
-<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a> {
-    <span class="rs-comment">/// A bounded audit surface reported counted loss.</span>
-    <span class="rs-type">AuditLoss</span>,
-    <span class="rs-comment">/// State/transcript expected a tool-use id that had no obs row.</span>
-    <span class="rs-type">MissingToolObs</span>,
-    <span class="rs-comment">/// A `tool_call.completed` row is missing required payload fields or has invalid values.</span>
-    <span class="rs-type">InvalidToolPayload</span>,
-    <span class="rs-comment">/// Resource gates were enabled but no `os_resource.sampled` row was present.</span>
-    <span class="rs-type">MissingResourceSample</span>,
-    <span class="rs-comment">/// Resource gates were enabled but no resource row carried a real metric.</span>
-    <span class="rs-type">MissingResourceMetric</span>,
-    <span class="rs-comment">/// The runner did not supply external tool correctness evidence.</span>
-    <span class="rs-type">ToolCorrectnessNotVerified</span>,
-    <span class="rs-comment">/// The runner did not supply external message correctness evidence.</span>
-    <span class="rs-type">MessageCorrectnessNotVerified</span>,
+#[non_exhaustive]
+<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a> {
+    <span class="rs-comment">/// Rust agent control-plane event.</span>
+    <span class="rs-type">AgentCore</span>,
+    <span class="rs-comment">/// Rust sandbox daemon event.</span>
+    <span class="rs-type">Sandbox</span>,
 }
 
-<span class="rs-comment">/// Typed result from evaluating the Rust runner audit/observability gates.</span>
-#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
-    <span class="rs-comment">/// True when no gate failures were found.</span>
-    <span class="rs-kw">pub</span> passed: bool,
-    <span class="rs-comment">/// Failed gates, if any.</span>
-    <span class="rs-kw">pub</span> failures: <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a>&gt;,
-    <span class="rs-comment">/// Basic obs metrics useful for runner reports.</span>
-    <span class="rs-kw">pub</span> metrics: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a>,
-    <span class="rs-comment">/// Tool-use records the Rust state/transcript expected to observe.</span>
-    <span class="rs-kw">pub</span> expected_tool_uses: <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>&gt;,
-    <span class="rs-comment">/// Gate settings used for this evaluation.</span>
-    <span class="rs-kw">pub</span> settings: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a>,
-    <span class="rs-comment">/// State/transcript correctness evidence supplied by the runner.</span>
-    <span class="rs-kw">pub</span> correctness: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a>,
-    <span class="rs-comment">/// Sandbox loss metadata used for this evaluation, when available.</span>
-    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
-    <span class="rs-kw">pub</span> sandbox_loss: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a>&gt;,
-}
-
-<span class="rs-comment">/// Evaluate Rust runner audit/observability gates over normalized rows.</span>
-#[must_use]
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-evaluate-runner-gates-232">evaluate_runner_gates</a>(input: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateInput-123">RunnerGateInput</a>&lt;&#x27;_&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> failures = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>();
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> metrics = <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-default-115">default</a>();
-    <span class="rs-kw">let</span> expected_tool_use_ids = <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-unique-tool-use-ids-412">unique_tool_use_ids</a>(input.expected_tool_uses);
-    metrics.expected_tool_use_count = expected_tool_use_ids.len();
-
-    <span class="rs-kw">if</span> input.settings.strict_audit_loss {
-        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(loss) = input.sandbox_loss {
-            <span class="rs-kw">if</span> loss.<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-has-counted-loss-26">has_counted_loss</a>() {
-                failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-                    <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">AuditLoss</span>,
-                    format!(
-                        &quot;sandbox audit loss reported lost_before_seq={:?} dropped_event_count={:?}&quot;,
-                        loss.lost_before_seq, loss.dropped_event_count
-                    ),
-                ));
-            }
-        }
-    }
-
-    <span class="rs-kw">if</span> !input.correctness.<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-has-tool-use-evidence-53">has_tool_use_evidence</a>() {
-        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-            <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">ToolCorrectnessNotVerified</span>,
-            &quot;state/transcript tool correctness evidence was not supplied&quot;,
-        ));
-    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> input.correctness.tool_use_checked_count &lt; metrics.expected_tool_use_count {
-        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-            <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">ToolCorrectnessNotVerified</span>,
-            format!(
-                &quot;state/transcript tool checks covered {} expected tool uses, expected {}&quot;,
-                input.correctness.tool_use_checked_count, metrics.expected_tool_use_count
-            ),
-        ));
-    }
-    <span class="rs-kw">if</span> !input.correctness.<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-has-message-correctness-evidence-59">has_message_correctness_evidence</a>() {
-        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-            <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MessageCorrectnessNotVerified</span>,
-            &quot;state/transcript message correctness evidence was not supplied&quot;,
-        ));
-    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> input.correctness.message_checked_count == 0 {
-        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-            <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MessageCorrectnessNotVerified</span>,
-            &quot;state/transcript message correctness evidence had zero checked assertions&quot;,
-        ));
-    }
-
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> observed_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>();
-    <span class="rs-kw">for</span> row <span class="rs-kw">in</span> input.rows {
-        <span class="rs-kw">match</span> row.event_type.as_str() {
-            <span class="rs-type">TOOL_CALL_COMPLETED</span> =&gt; {
-                metrics.tool_call_completed_count += 1;
-                <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(tool_use_id) = <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-tool-use-id-430">tool_use_id</a>(row) {
-                    observed_tool_use_ids.insert(tool_use_id);
-                }
-                <span class="rs-kw">if</span> !<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-valid-tool-call-418">valid_tool_call</a>(row) {
-                    failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-                        <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">InvalidToolPayload</span>,
-                        format!(
-                            &quot;invalid tool_call.completed payload <span class="rs-kw">for</span> {:?}&quot;,
-                            row.ids.tool_use_id
-                        ),
-                    ));
-                }
-            }
-            <span class="rs-type">OS_RESOURCE_SAMPLED</span> =&gt; {
-                metrics.resource_sample_count += 1;
-                metrics.resource_metric_count += <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-resource-metric-count-439">resource_metric_count</a>(row);
-            }
-            _ =&gt; {}
-        }
-    }
-
-    metrics.observed_expected_tool_use_count = expected_tool_use_ids
-        .iter()
-        .filter(|tool_use_id| observed_tool_use_ids.contains(**tool_use_id))
-        .count();
-
-    <span class="rs-kw">for</span> tool_use_id <span class="rs-kw">in</span> &amp;expected_tool_use_ids {
-        <span class="rs-kw">if</span> !observed_tool_use_ids.contains(tool_use_id) {
-            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-                <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingToolObs</span>,
-                format!(&quot;missing tool_call.completed obs row <span class="rs-kw">for</span> tool_use_id={tool_use_id}&quot;),
-            ));
-        }
-    }
-
-    <span class="rs-kw">if</span> input.settings.require_resource_sample {
-        <span class="rs-kw">if</span> metrics.resource_sample_count == 0 {
-            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-                <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingResourceSample</span>,
-                &quot;no os_resource.sampled row was observed&quot;,
-            ));
-        } <span class="rs-kw">else</span> <span class="rs-kw">if</span> metrics.resource_metric_count == 0 {
-            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(
-                <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingResourceMetric</span>,
-                &quot;os_resource.sampled rows did not include any resource metric&quot;,
-            ));
-        }
-    }
-
-    <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
-        passed: failures.is_empty(),
-        failures,
-        metrics,
-        expected_tool_uses: input.expected_tool_uses.to_vec(),
-        settings: input.settings,
-        correctness: input.correctness,
-        sandbox_loss: input.sandbox_loss.cloned(),
-    }
-}
-
-<span class="rs-comment">/// Evaluate runner gates from normalized agent-core rows and sandbox pull batches.</span>
-#[must_use]
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-evaluate-runner-gate-batches-345">evaluate_runner_gate_batches</a>(input: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a>&lt;&#x27;_&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> rows = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-87">with_capacity</a>(
-        input.agent_core_rows.len()
-            + input
-                .sandbox_batches
-                .iter()
-                .map(|batch| batch.rows.len())
-                .sum::&lt;usize&gt;(),
-    );
-    rows.extend_from_slice(input.agent_core_rows);
-    rows.extend(
-        input
-            .sandbox_batches
-            .iter()
-            .flat_map(|batch| batch.rows.iter().cloned()),
-    );
-    <span class="rs-kw">let</span> sandbox_loss = <span class="rs-kw">if</span> input.sandbox_batches.is_empty() {
-        <span class="rs-type">None</span>
-    } <span class="rs-kw">else</span> {
-        <span class="rs-type">Some</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-merge-33">merge</a>(
-            input.sandbox_batches.iter().map(|batch| &amp;batch.loss),
-        ))
-    };
-    <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-evaluate-runner-gates-232">evaluate_runner_gates</a>(<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateInput-123">RunnerGateInput</a> {
-        rows: &amp;rows,
-        sandbox_loss: sandbox_loss.as_ref(),
-        expected_tool_uses: input.expected_tool_uses,
-        correctness: input.correctness,
-        settings: input.settings,
-    })
-}
-
-<span class="rs-comment">/// Parse source artifacts, normalize them, and evaluate runner gates.</span>
+<span class="rs-comment">/// Correlation ids shared by normalized audit/observability rows.</span>
 <span class="rs-comment">///</span>
-<span class="rs-comment">/// This is the narrow handoff a Rust runner can call after it has collected the</span>
-<span class="rs-comment">/// authoritative state/transcript expectations.</span>
+<span class="rs-comment">/// Every field is optional because a row should carry only ids the producer or</span>
+<span class="rs-comment">/// collector actually knows. Non-id labels such as `tool_name` belong in</span>
+<span class="rs-comment">/// `payload`, not here.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Default</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a> {
+    <span class="rs-comment">/// Owning request id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> request_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    <span class="rs-comment">/// Owning task id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> task_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    <span class="rs-comment">/// Owning agent-run id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> agent_run_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    <span class="rs-comment">/// Provider/tool-call id used to join agent-core and sandbox rows.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> tool_use_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    <span class="rs-comment">/// Owning sandbox id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> sandbox_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+}
+
+<span class="rs-comment">/// A normalized audit/observability row consumed by collectors and reports.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a> {
+    <span class="rs-comment">/// Contract schema tag.</span>
+    #[serde(deserialize_with = &quot;deserialize_obs_schema&quot;)]
+    <span class="rs-kw">pub</span> schema: <span class="rs-type">String</span>,
+    <span class="rs-comment">/// Native source that produced the row.</span>
+    <span class="rs-kw">pub</span> source: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>,
+    <span class="rs-comment">/// Canonical event type.</span>
+    #[serde(rename = &quot;<span class="rs-kw">type</span>&quot;)]
+    <span class="rs-kw">pub</span> event_type: <span class="rs-type">String</span>,
+    <span class="rs-comment">/// Common correlation ids.</span>
+    #[serde(default)]
+    <span class="rs-kw">pub</span> ids: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a>,
+    <span class="rs-comment">/// Event-specific sections such as `tool_call`, `occ`, or `os_resource`.</span>
+    #[serde(default)]
+    <span class="rs-kw">pub</span> payload: <span class="rs-type">JsonObject</span>,
+    <span class="rs-comment">/// Sandbox ring sequence, when the source has one.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> seq: <span class="rs-type">Option</span>&lt;i64&gt;,
+    <span class="rs-comment">/// Sandbox ring lane, when the source has one.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> lane: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+}
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a> {
+    <span class="rs-comment">/// Build a normalized row with the default schema.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(source: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>, event_type: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-kw">let</span> event_type = event_type.into();
+        <span class="rs-self">Self</span> {
+            schema: <span class="rs-type">SCHEMA</span>.to_owned(),
+            source,
+            event_type: <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-canonical-event-type-128">canonical_event_type</a>(&amp;event_type).to_owned(),
+            ids: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>(),
+            payload: <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(),
+            seq: <span class="rs-type">None</span>,
+            lane: <span class="rs-type">None</span>,
+        }
+    }
+
+    <span class="rs-comment">/// Set the row ids.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-ids-105">with_ids</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, ids: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.ids = ids;
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Set the row payload.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-payload-112">with_payload</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, payload: <span class="rs-type">JsonObject</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.payload = payload;
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Set sandbox ring metadata.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-ring-metadata-119">with_ring_metadata</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, seq: i64, lane: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.seq = <span class="rs-type">Some</span>(seq);
+        <span class="rs-self">self</span>.lane = <span class="rs-type">Some</span>(lane.into());
+        <span class="rs-self">self</span>
+    }
+}
+
+<span class="rs-comment">/// Return the canonical event type for a native or legacy event type.</span>
+#[must_use]
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-canonical-event-type-128">canonical_event_type</a>(event_type: &amp;str) -&gt; &amp;str {
+    <span class="rs-kw">match</span> event_type {
+        &quot;tool_call.finished&quot; =&gt; <span class="rs-type">TOOL_CALL_COMPLETED</span>,
+        other =&gt; other,
+    }
+}
+
+<span class="rs-comment">/// Parse one normalized JSONL row.</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// The parser accepts any valid JSON object matching [`ObsEnvelope`]. Native</span>
+<span class="rs-comment">/// sandbox rows should be normalized by the collector before calling this.</span>
 <span class="rs-comment">///</span>
 <span class="rs-comment">/// # Errors</span>
 <span class="rs-comment">///</span>
-<span class="rs-comment">/// Returns an error when any agent-core JSONL row or sandbox pull response is</span>
-<span class="rs-comment">/// invalid.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-evaluate-runner-gate-sources-379">evaluate_runner_gate_sources</a>(
-    input: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateSourceInput-153">RunnerGateSourceInput</a>&lt;&#x27;_&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateReport-212">RunnerGateReport</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>&gt; {
-    <span class="rs-kw">let</span> agent_core_rows = input
-        .agent_core_jsonl
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(normalize_agent_core_jsonl_line)
-        .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, _&gt;&gt;()?;
-    <span class="rs-kw">let</span> sandbox_batches = input
-        .sandbox_pull_responses
-        .iter()
-        .map(normalize_sandbox_pull_response)
-        .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, _&gt;&gt;()?;
-
-    <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-evaluate-runner-gate-batches-345">evaluate_runner_gate_batches</a>(<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a> {
-        agent_core_rows: &amp;agent_core_rows,
-        sandbox_batches: &amp;sandbox_batches,
-        expected_tool_uses: input.expected_tool_uses,
-        correctness: input.correctness,
-        settings: input.settings,
-    }))
+<span class="rs-comment">/// Returns a JSON parse error when the line is not a valid normalized row.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-from-jsonl-line-137">from_jsonl_line</a>(line: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>, serde_json::<span class="rs-type">Error</span>&gt; {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> row: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a> = serde_json::from_str(line)?;
+    row.event_type = <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-canonical-event-type-128">canonical_event_type</a>(&amp;row.event_type).to_owned();
+    <span class="rs-type">Ok</span>(row)
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-unique-tool-use-ids-412">unique_tool_use_ids</a>(ids: &amp;[<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]) -&gt; <span class="rs-type">BTreeSet</span>&lt;&amp;str&gt; {
-    ids.iter()
-        .map(|expected| expected.tool_use_id.as_str())
-        .collect()
+<span class="rs-comment">/// Serialize one normalized row to a JSONL line.</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// # Errors</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// Returns a JSON serialization error if the payload contains a non-serializable</span>
+<span class="rs-comment">/// value.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-to-jsonl-line-151">to_jsonl_line</a>(row: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">String</span>, serde_json::<span class="rs-type">Error</span>&gt; {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> line = serde_json::to_string(row)?;
+    line.push(&#x27;\n&#x27;);
+    <span class="rs-type">Ok</span>(line)
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-valid-tool-call-418">valid_tool_call</a>(row: &amp;<span class="rs-type">ObsEnvelope</span>) -&gt; bool {
-    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(tool_call)) = row.payload.get(&quot;tool_call&quot;) <span class="rs-kw">else</span> {
-        <span class="rs-kw">return</span> <span class="rs-kw">false</span>;
-    };
-    <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(tool_call.get(&quot;duration_ms&quot;))
-        .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(tool_call.get(&quot;total_ms&quot;)))
-        .unwrap_or(<span class="rs-kw">false</span>)
-        &amp;&amp; <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-non-empty-string-455">non_empty_string</a>(tool_call.get(&quot;status&quot;))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-non-empty-string-455">non_empty_string</a>(tool_call.get(&quot;exit_status&quot;)))
-            .unwrap_or(<span class="rs-kw">false</span>)
+<span class="rs-comment">/// Errors reported by an [`AuditSink`].</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// These are recoverable failures surfaced through `Result` without interrupting</span>
+<span class="rs-comment">/// the emitting domain path. Sinks must not panic.</span>
+#[derive(<span class="rs-type">Debug</span>, thiserror::<span class="rs-type">Error</span>)]
+#[non_exhaustive]
+<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a> {
+    <span class="rs-comment">/// Appending the event to a `JSONL` file failed.</span>
+    #[error(&quot;audit jsonl write failed&quot;)]
+    <span class="rs-type">Jsonl</span>(#[from] std::io::<span class="rs-type">Error</span>),
+    <span class="rs-comment">/// Encoding the event to canonical JSON failed.</span>
+    #[error(&quot;audit event serialization failed&quot;)]
+    <span class="rs-type">Serialize</span>(#[from] serde_json::<span class="rs-type">Error</span>),
+    <span class="rs-comment">/// The bounded sink queue is full; the event was dropped rather than</span>
+    <span class="rs-comment">/// blocking the caller's runtime thread.</span>
+    #[error(&quot;audit sink queue is full&quot;)]
+    <span class="rs-type">Backpressure</span>,
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-tool-use-id-430">tool_use_id</a>(row: &amp;<span class="rs-type">ObsEnvelope</span>) -&gt; <span class="rs-type">Option</span>&lt;&amp;str&gt; {
-    row.ids.tool_use_id.as_deref().or_else(|| {
-        row.payload
-            .get(&quot;tool_call&quot;)
-            .and_then(|section| section.get(&quot;tool_use_id&quot;))
-            .and_then(<span class="rs-type">Value</span>::as_str)
-    })
+<span class="rs-comment">/// The behavior-owning package that emitted an event.</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// Serializes to the exact Rust literal strings: `workflow`, `engine`,</span>
+<span class="rs-comment">/// `sandbox`, and `live_e2e`.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+#[serde(rename_all = &quot;snake_case&quot;)]
+#[non_exhaustive]
+<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a> {
+    <span class="rs-comment">/// Workflow-layer emitter.</span>
+    <span class="rs-type">Workflow</span>,
+    <span class="rs-comment">/// Engine-layer emitter.</span>
+    <span class="rs-type">Engine</span>,
+    <span class="rs-comment">/// Sandbox-layer emitter.</span>
+    <span class="rs-type">Sandbox</span>,
+    <span class="rs-comment">/// Live end-to-end harness emitter.</span>
+    #[serde(rename = &quot;live_e2e&quot;)]
+    <span class="rs-type">LiveE2e</span>,
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-resource-metric-count-439">resource_metric_count</a>(row: &amp;<span class="rs-type">ObsEnvelope</span>) -&gt; usize {
-    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(os_resource)) = row.payload.get(&quot;os_resource&quot;) <span class="rs-kw">else</span> {
-        <span class="rs-kw">return</span> 0;
-    };
-    <span class="rs-type">RESOURCE_METRIC_KEYS</span>
-        .iter()
-        .filter(|key| <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(os_resource.get(**key)).unwrap_or(<span class="rs-kw">false</span>))
-        .count()
+<span class="rs-comment">/// Correlation envelope for an [`AuditEvent`].</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// Every field defaults to `None`; build one with [`AuditNode::builder`] or</span>
+<span class="rs-comment">/// [`AuditNode::default`] plus field assignment. Typed ids come from</span>
+<span class="rs-comment">/// `eos-types`; `agent_name` is a human label and `tool_name` is downstream</span>
+<span class="rs-comment">/// owned, so both stay `String`.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Default</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+#[non_exhaustive]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a> {
+    <span class="rs-comment">/// Owning request id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> request_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">RequestId</span>&gt;,
+    <span class="rs-comment">/// Owning delegated-workflow id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> workflow_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">WorkflowId</span>&gt;,
+    <span class="rs-comment">/// Owning iteration id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> iteration_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">IterationId</span>&gt;,
+    <span class="rs-comment">/// Owning attempt id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> attempt_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">AttemptId</span>&gt;,
+    <span class="rs-comment">/// Owning task id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> task_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">TaskId</span>&gt;,
+    <span class="rs-comment">/// Agent label, not an id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> agent_name: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    <span class="rs-comment">/// Owning agent-run id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> agent_run_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunId</span>&gt;,
+    <span class="rs-comment">/// Owning sandbox id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> sandbox_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">SandboxId</span>&gt;,
+    <span class="rs-comment">/// Tool name, not an id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> tool_name: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    <span class="rs-comment">/// Owning tool-use id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> tool_use_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">ToolUseId</span>&gt;,
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(value: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">Value</span>&gt;) -&gt; <span class="rs-type">Option</span>&lt;bool&gt; {
-    value
-        .and_then(<span class="rs-type">Value</span>::as_f64)
-        .map(|number| number.is_finite() &amp;&amp; number &gt;= 0.0)
-}
-
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-non-empty-string-455">non_empty_string</a>(value: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">Value</span>&gt;) -&gt; <span class="rs-type">Option</span>&lt;bool&gt; {
-    value
-        .and_then(<span class="rs-type">Value</span>::as_str)
-        .map(|value| !value.trim().is_empty())
-}
-
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-failure-461">failure</a>(kind: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>, detail: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> {
-    <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> {
-        kind,
-        detail: detail.into(),
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a> {
+    <span class="rs-comment">/// Start a fresh [`AuditNodeBuilder`].</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-builder-243">builder</a>() -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNodeBuilder-249">AuditNodeBuilder</a> {
+        <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNodeBuilder-249">AuditNodeBuilder</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>()
     }
 }
 
-#[cfg(test)]
-#[path = &quot;../tests/gates/<span class="rs-kw">mod</span>.rs&quot;]
-<span class="rs-kw">mod</span> tests;
+<span class="rs-comment">/// Fluent builder for [`AuditNode`]; set only the ids a producer knows.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Default</span>)]
+#[must_use]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNodeBuilder-249">AuditNodeBuilder</a> {
+    node: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a>,
+}
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNodeBuilder-249">AuditNodeBuilder</a> {
+    <span class="rs-comment">/// Set the request id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-request-id-257">request_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">RequestId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.request_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Set the delegated-workflow id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-workflow-id-263">workflow_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">WorkflowId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.workflow_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Set the iteration id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-iteration-id-269">iteration_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">IterationId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.iteration_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Set the attempt id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-attempt-id-275">attempt_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">AttemptId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.attempt_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Set the task id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-task-id-281">task_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">TaskId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.task_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Set the agent label.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-agent-name-287">agent_name</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, name: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.agent_name = <span class="rs-type">Some</span>(name.into());
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Set the agent-run id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-agent-run-id-293">agent_run_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.agent_run_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Set the sandbox id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-sandbox-id-299">sandbox_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">SandboxId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.sandbox_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Set the tool name.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-tool-name-305">tool_name</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, name: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.tool_name = <span class="rs-type">Some</span>(name.into());
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Set the tool-use id.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-tool-use-id-311">tool_use_id</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, id: <span class="rs-type">ToolUseId</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.node.tool_use_id = <span class="rs-type">Some</span>(id);
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Finish building the [`AuditNode`].</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-build-317">build</a>(<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a> {
+        <span class="rs-self">self</span>.node
+    }
+}
+
+<span class="rs-comment">/// A structured audit event emitted by a behavior-owning package.</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// Construct via [`AuditEvent::new`] so `ts` is set once from the injected</span>
+<span class="rs-comment">/// [`Clock`]. Field order is the wire order; `payload` is always serialized and</span>
+<span class="rs-comment">/// `correlation_id` is omitted when `None`.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+#[non_exhaustive]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a> {
+    <span class="rs-comment">/// Serialized-row schema version.</span>
+    #[serde(deserialize_with = &quot;deserialize_schema_version&quot;)]
+    <span class="rs-kw">pub</span> schema_version: u32,
+    <span class="rs-comment">/// The emitting package.</span>
+    <span class="rs-kw">pub</span> source: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>,
+    <span class="rs-comment">/// The event-type string.</span>
+    #[serde(rename = &quot;<span class="rs-kw">type</span>&quot;)]
+    <span class="rs-kw">pub</span> event_type: <span class="rs-type">String</span>,
+    <span class="rs-comment">/// Correlation envelope of known ids.</span>
+    <span class="rs-kw">pub</span> node: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a>,
+    <span class="rs-comment">/// Event-specific payload object.</span>
+    #[serde(default)]
+    <span class="rs-kw">pub</span> payload: <span class="rs-type">JsonObject</span>,
+    <span class="rs-comment">/// Optional cross-event correlation id.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;, default)]
+    <span class="rs-kw">pub</span> correlation_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    <span class="rs-comment">/// Emission timestamp, stamped once from the injected clock.</span>
+    <span class="rs-kw">pub</span> ts: <span class="rs-type">UtcDateTime</span>,
+}
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a> {
+    <span class="rs-comment">/// Build an event, stamping `ts` from `clock`.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(
+        source: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>,
+        event_type: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;,
+        node: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a>,
+        payload: <span class="rs-type">JsonObject</span>,
+        clock: &amp;<span class="rs-kw">dyn</span> <span class="rs-type">Clock</span>,
+    ) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span> {
+            schema_version: <span class="rs-type">SCHEMA_VERSION</span>,
+            source,
+            event_type: event_type.into(),
+            node,
+            payload,
+            correlation_id: <span class="rs-type">None</span>,
+            ts: clock.now(),
+        }
+    }
+
+    <span class="rs-comment">/// Convert this producer event into the normalized collector row.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-to-obs-envelope-373">to_obs_envelope</a>(&amp;<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a> {
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-self">self</span>.payload.clone();
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent_name) = &amp;<span class="rs-self">self</span>.node.agent_name {
+            payload
+                .entry(&quot;agent_name&quot;.to_owned())
+                .or_insert_with(|| serde_json::<span class="rs-type">Value</span>::<span class="rs-type">String</span>(agent_name.clone()));
+        }
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(tool_name) = &amp;<span class="rs-self">self</span>.node.tool_name {
+            payload
+                .entry(&quot;tool_name&quot;.to_owned())
+                .or_insert_with(|| serde_json::<span class="rs-type">Value</span>::<span class="rs-type">String</span>(tool_name.clone()));
+        }
+
+        <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-obs-source-429">obs_source</a>(<span class="rs-self">self</span>.source), &amp;<span class="rs-self">self</span>.event_type)
+            .<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-ids-105">with_ids</a>(<a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-obs-ids-436">obs_ids</a>(&amp;<span class="rs-self">self</span>.node))
+            .<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-payload-112">with_payload</a>(payload)
+    }
+}
+
+<span class="rs-comment">/// Write-only audit side channel.</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// Implementations must not panic; recoverable failures are reported through</span>
+<span class="rs-comment">/// [`AuditError`]. The event is borrowed, not consumed.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">trait</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-trait-AuditSink-394">AuditSink</a>: <span class="rs-type">Send</span> + <span class="rs-type">Sync</span> {
+    <span class="rs-comment">/// Whether this sink persists events.</span>
+    <span class="rs-comment">///</span>
+    <span class="rs-comment">/// Emitters can use this to skip expensive audit-only sampling work when the</span>
+    <span class="rs-comment">/// composition root installed the no-op sink.</span>
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-enabled-399">enabled</a>(&amp;<span class="rs-self">self</span>) -&gt; bool {
+        <span class="rs-kw">true</span>
+    }
+
+    <span class="rs-comment">/// Persist one event.</span>
+    <span class="rs-comment">///</span>
+    <span class="rs-comment">/// # Errors</span>
+    <span class="rs-comment">///</span>
+    <span class="rs-comment">/// Returns [`AuditError`] when the sink cannot persist the event.</span>
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-publish-407">publish</a>(&amp;<span class="rs-self">self</span>, event: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a>&gt;;
+}
+
+<span class="rs-comment">/// Audit sink used when collection is disabled; every publish is a no-op.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">Default</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-NoopAuditSink-415">NoopAuditSink</a>;
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-trait-AuditSink-394">AuditSink</a> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-NoopAuditSink-415">NoopAuditSink</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-enabled-399">enabled</a>(&amp;<span class="rs-self">self</span>) -&gt; bool {
+        <span class="rs-kw">false</span>
+    }
+
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-publish-407">publish</a>(&amp;<span class="rs-self">self</span>, _event: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a>&gt; {
+        <span class="rs-type">Ok</span>(())
+    }
+}
+
+<span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-obs-source-429">obs_source</a>(source: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a> {
+    <span class="rs-kw">match</span> source {
+        <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>::<span class="rs-type">Sandbox</span> =&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>::<span class="rs-type">Sandbox</span>,
+        <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>::<span class="rs-type">Workflow</span> | <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>::<span class="rs-type">Engine</span> | <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditSource-182">AuditSource</a>::<span class="rs-type">LiveE2e</span> =&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>::<span class="rs-type">AgentCore</span>,
+    }
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-obs-ids-436">obs_ids</a>(node: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditNode-201">AuditNode</a>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a> {
+    <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a> {
+        request_id: node.request_id.as_ref().map(<span class="rs-type">ToString</span>::to_string),
+        task_id: node.task_id.as_ref().map(<span class="rs-type">ToString</span>::to_string),
+        agent_run_id: node.agent_run_id.as_ref().map(<span class="rs-type">ToString</span>::to_string),
+        tool_use_id: node.tool_use_id.as_ref().map(<span class="rs-type">ToString</span>::to_string),
+        sandbox_id: node.sandbox_id.as_ref().map(<span class="rs-type">ToString</span>::to_string),
+    }
+}
+
+<span class="rs-kw">fn</span> deserialize_obs_schema&lt;&#x27;de, <span class="rs-type">D</span>&gt;(deserializer: <span class="rs-type">D</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">String</span>, <span class="rs-type">D</span>::<span class="rs-type">Error</span>&gt;
+<span class="rs-kw">where</span>
+    <span class="rs-type">D</span>: <span class="rs-type">Deserializer</span>&lt;&#x27;de&gt;,
+{
+    <span class="rs-kw">let</span> schema = <span class="rs-type">String</span>::deserialize(deserializer)?;
+    <span class="rs-kw">if</span> schema == <span class="rs-type">SCHEMA</span> {
+        <span class="rs-type">Ok</span>(schema)
+    } <span class="rs-kw">else</span> {
+        <span class="rs-type">Err</span>(<span class="rs-type">D</span>::<span class="rs-type">Error</span>::custom(format_args!(
+            &quot;unsupported observability schema {schema:?}&quot;
+        )))
+    }
+}
+
+<span class="rs-kw">fn</span> deserialize_schema_version&lt;&#x27;de, <span class="rs-type">D</span>&gt;(deserializer: <span class="rs-type">D</span>) -&gt; <span class="rs-type">Result</span>&lt;u32, <span class="rs-type">D</span>::<span class="rs-type">Error</span>&gt;
+<span class="rs-kw">where</span>
+    <span class="rs-type">D</span>: <span class="rs-type">Deserializer</span>&lt;&#x27;de&gt;,
+{
+    <span class="rs-kw">let</span> version = u32::deserialize(deserializer)?;
+    <span class="rs-kw">if</span> version == <span class="rs-type">SCHEMA_VERSION</span> {
+        <span class="rs-type">Ok</span>(version)
+    } <span class="rs-kw">else</span> {
+        <span class="rs-type">Err</span>(<span class="rs-type">D</span>::<span class="rs-type">Error</span>::custom(format_args!(
+            &quot;unsupported audit schema version {version}&quot;
+        )))
+    }
+}
 </code></pre>
 </section>
   <script src="../assets/inventory-data.js"></script>

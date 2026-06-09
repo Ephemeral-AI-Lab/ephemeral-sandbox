@@ -5,8 +5,8 @@ use std::sync::Arc;
 use eos_agent_run::AgentRunService;
 use eos_sandbox_port::SandboxGateway;
 use eos_types::{
-    AgentName, AttemptStore, IterationStore, Page, PageResult, RequestId, RequestStore,
-    TaskAgentRunStore, TaskRun, WorkflowStore,
+    AgentName, AttemptStore, IterationStore, RequestId, RequestStore, TaskAgentRunStore, TaskRun,
+    WorkflowStore,
 };
 
 use crate::dto::{
@@ -123,7 +123,7 @@ impl AgentCoreService {
         &self,
         request_id: &RequestId,
     ) -> Result<Option<UserRequestDetail>, AgentCoreServerError> {
-        crate::user_request::read::read_user_request(self, request_id).await
+        crate::user_request::query::read_user_request(self, request_id).await
     }
 
     /// List user request summaries.
@@ -132,9 +132,8 @@ impl AgentCoreService {
     /// Returns [`AgentCoreServerError`] on store failure.
     pub async fn list_user_requests(
         &self,
-        page: Page,
-    ) -> Result<PageResult<UserRequestSummary>, AgentCoreServerError> {
-        crate::user_request::list::list_user_requests(self, page).await
+    ) -> Result<Vec<UserRequestSummary>, AgentCoreServerError> {
+        crate::user_request::query::list_user_requests(self).await
     }
 
     /// List task-agent-runs for a user request.
@@ -145,6 +144,6 @@ impl AgentCoreService {
         &self,
         request_id: &RequestId,
     ) -> Result<Vec<TaskRun>, AgentCoreServerError> {
-        crate::user_request::list_tasks::list_user_request_tasks(self, request_id).await
+        crate::user_request::query::list_user_request_tasks(self, request_id).await
     }
 }

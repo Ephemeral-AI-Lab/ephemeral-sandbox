@@ -3,7 +3,7 @@
 use std::num::NonZeroU32;
 
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{CoreError, TaskId};
 
@@ -11,7 +11,7 @@ macro_rules! workflow_role_id {
     ($(#[$meta:meta])* $name:ident, $label:literal) => {
         $(#[$meta])*
         #[derive(
-            Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+            Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, JsonSchema,
         )]
         #[serde(transparent)]
         pub struct $name(String);
@@ -63,6 +63,15 @@ macro_rules! workflow_role_id {
                 Self::new(value.to_owned())
             }
         }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+            }
+        }
     };
 }
 
@@ -85,7 +94,7 @@ workflow_role_id!(
 );
 
 /// Goal carried to the next workflow iteration.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, JsonSchema)]
 #[serde(transparent)]
 pub struct DeferredGoal(String);
 
@@ -136,6 +145,15 @@ impl TryFrom<&str> for DeferredGoal {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         Self::new(value.to_owned())
+    }
+}
+
+impl<'de> Deserialize<'de> for DeferredGoal {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
     }
 }
 
@@ -273,5 +291,37 @@ impl MaterializedPlan {
     #[must_use]
     pub const fn deferred_goal(&self) -> Option<&DeferredGoal> {
         self.disposition.deferred_goal()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use super::*;
+
+    #[test]
+    fn workflow_role_ids_reject_blank_on_serde_path() {
+        let planner: PlannerId = serde_json::from_value(serde_json::json!("planner-1")).unwrap();
+        assert_eq!(planner.as_str(), "planner-1");
+
+        assert!(serde_json::from_value::<PlannerId>(serde_json::json!("   ")).is_err());
+        assert!(serde_json::from_value::<GeneratorId>(serde_json::json!("")).is_err());
+        assert!(serde_json::from_value::<ReducerId>(serde_json::json!("\t")).is_err());
+    }
+
+    #[test]
+    fn deferred_goal_rejects_blank_on_serde_path() {
+        let goal: DeferredGoal = serde_json::from_value(serde_json::json!("continue")).unwrap();
+        assert_eq!(goal.as_str(), "continue");
+
+        assert!(serde_json::from_value::<DeferredGoal>(serde_json::json!(" ")).is_err());
+    }
+
+    #[test]
+    fn attempt_budget_rejects_zero_on_serde_path() {
+        assert!(serde_json::from_value::<AttemptBudget>(serde_json::json!(0)).is_err());
+        let budget: AttemptBudget = serde_json::from_value(serde_json::json!(3)).unwrap();
+        assert_eq!(budget.get(), 3);
     }
 }

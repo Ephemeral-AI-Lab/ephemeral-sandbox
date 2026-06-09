@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">backend-server</a>
 <section class="summary">
-  <div><b>6</b><span>modules</span></div>
-  <div><b>61</b><span>items</span></div>
-  <div><b>64</b><span>fields</span></div>
-  <div><b>22</b><span>methods</span></div>
+  <div><b>7</b><span>modules</span></div>
+  <div><b>83</b><span>items</span></div>
+  <div><b>96</b><span>fields</span></div>
+  <div><b>44</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-audit.html"><span>gates.rs</span><small>10/10</small></a></li><li><a class="file-link" href="eos-backend-audit--src-ingestor-rs.html"><span>ingestor.rs</span><small>3/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-audit--src-normalization-rs.html"><span>normalization.rs</span><small>3/9</small></a></li><li><a class="file-link" href="eos-backend-audit--src-sink-rs.html"><span>sink.rs</span><small>5/4</small></a></li><li><a class="file-link active" href="eos-backend-audit--src-stats-rs.html"><span>stats.rs</span><small>1/0</small></a></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-audit.html"><span>contract.rs</span><small>10/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-gates-rs.html"><span>gates.rs</span><small>10/10</small></a></li><li><a class="file-link" href="eos-backend-audit--src-ingestor-rs.html"><span>ingestor.rs</span><small>3/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-audit--src-normalization-rs.html"><span>normalization.rs</span><small>3/9</small></a></li><li><a class="file-link" href="eos-backend-audit--src-sink-rs.html"><span>sink.rs</span><small>5/4</small></a></li><li><a class="file-link active" href="eos-backend-audit--src-stats-rs.html"><span>stats.rs</span><small>1/0</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="stats crates/eos-backend-audit/src/stats.rs StatsReader impl StatsReader">
   <div class="module-head">
     <div>
@@ -56,75 +56,75 @@
       <span>6 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-StatsReader-20" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct StatsReader pub pub struct StatsReader crates/eos-backend-audit/src/stats.rs obs_events ObsEventRepo cursors AuditCursorRepo ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-StatsReader-17" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct StatsReader pub pub struct StatsReader crates/eos-backend-audit/src/stats.rs obs_events ObsEventRepo cursors AuditCursorRepo ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>StatsReader</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#item-struct-StatsReader-20">StatsReader</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#item-struct-StatsReader-17">StatsReader</a></code>
   <p class="docstring">Reads `/api/stats/*` summaries from `backend.db`. Holds cheap repository clones.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>obs_events</td><td><code>ObsEventRepo</code></td></tr><tr><td>private</td><td>cursors</td><td><code>AuditCursorRepo</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-28"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-new-80">new</a> (obs_events : ObsEventRepo , cursors : AuditCursorRepo) -&gt; Self</code><p class="docstring">Build a stats reader over the backend store's obs/cursor repos.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>obs_events</td><td><code>ObsEventRepo</code></td></tr><tr><td>private</td><td>cursors</td><td><code>AuditCursorRepo</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-25"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-new-90">new</a> (obs_events : ObsEventRepo , cursors : AuditCursorRepo) -&gt; Self</code><p class="docstring">Build a stats reader over the backend store's obs/cursor repos.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Build a stats reader over the backend store's obs/cursor repos.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(obs_events: <span class="rs-type">ObsEventRepo</span>, cursors: <span class="rs-type">AuditCursorRepo</span>) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(obs_events: <span class="rs-type">ObsEventRepo</span>, cursors: <span class="rs-type">AuditCursorRepo</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             obs_events,
             cursors,
         }
     }
 </code></pre>
-</details></td></tr><tr id="method-performance-37"><td>method</td><td>performance</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#method-performance-37">performance</a> (&amp; self) -&gt; Result &lt; PerformanceStats , StoreError &gt;</code><p class="docstring">`/api/stats/performance`: tool-call timing and resource sampling.<br># Errors<br>[`StoreError`] on a query failure.</p><details class="function-source">
+</details></td></tr><tr id="method-performance-34"><td>method</td><td>performance</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#method-performance-34">performance</a> (&amp; self) -&gt; Result &lt; PerformanceStats , StoreError &gt;</code><p class="docstring">`/api/stats/performance`: tool-call timing and resource sampling.<br># Errors<br>[`StoreError`] on a query failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// `/api/stats/performance`: tool-call timing and resource sampling.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-performance-37">performance</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PerformanceStats</span>, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-performance-34">performance</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PerformanceStats</span>, <span class="rs-type">StoreError</span>&gt; {
         <span class="rs-self">self</span>.obs_events
-            .<a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-performance-37">performance</a>(<span class="rs-type">TOOL_CALL_COMPLETED</span>, <span class="rs-type">OS_RESOURCE_SAMPLED</span>)
+            .<a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-performance-34">performance</a>(<span class="rs-type">TOOL_CALL_COMPLETED</span>, <span class="rs-type">OS_RESOURCE_SAMPLED</span>)
             .<span class="rs-kw">await</span>
     }
 </code></pre>
-</details></td></tr><tr id="method-correctness-47"><td>method</td><td>correctness</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#method-correctness-47">correctness</a> (&amp; self) -&gt; Result &lt; CorrectnessStats , StoreError &gt;</code><p class="docstring">`/api/stats/correctness`: observed runs/tool-calls and the matched vs<br>unmatched daemon-audit split.<br># Errors<br>[`StoreError`] on a query failure.</p><details class="function-source">
+</details></td></tr><tr id="method-correctness-44"><td>method</td><td>correctness</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#method-correctness-44">correctness</a> (&amp; self) -&gt; Result &lt; CorrectnessStats , StoreError &gt;</code><p class="docstring">`/api/stats/correctness`: observed runs/tool-calls and the matched vs<br>unmatched daemon-audit split.<br># Errors<br>[`StoreError`] on a query failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// `/api/stats/correctness`: observed runs/tool-calls and the matched vs</span>
     <span class="rs-comment">/// unmatched daemon-audit split.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-correctness-47">correctness</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CorrectnessStats</span>, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-correctness-44">correctness</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CorrectnessStats</span>, <span class="rs-type">StoreError</span>&gt; {
         <span class="rs-self">self</span>.obs_events
-            .<a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-correctness-47">correctness</a>(<span class="rs-type">AGENT_RUN_COMPLETED</span>, <span class="rs-type">TOOL_CALL_COMPLETED</span>)
+            .<a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-correctness-44">correctness</a>(<span class="rs-type">AGENT_RUN_COMPLETED</span>, <span class="rs-type">TOOL_CALL_COMPLETED</span>)
             .<span class="rs-kw">await</span>
     }
 </code></pre>
-</details></td></tr><tr id="method-agent-runs-58"><td>method</td><td>agent_runs</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#method-agent-runs-58">agent_runs</a> (&amp; self) -&gt; Result &lt; Vec &lt; AgentRunStat &gt; , StoreError &gt;</code><p class="docstring">`/api/stats/agent-runs`: per-agent-run obs rollups.<br># Errors<br>[`StoreError`] on a query or id-decode failure.</p><details class="function-source">
+</details></td></tr><tr id="method-agent-runs-55"><td>method</td><td>agent_runs</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#method-agent-runs-55">agent_runs</a> (&amp; self) -&gt; Result &lt; Vec &lt; AgentRunStat &gt; , StoreError &gt;</code><p class="docstring">`/api/stats/agent-runs`: per-agent-run obs rollups.<br># Errors<br>[`StoreError`] on a query or id-decode failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// `/api/stats/agent-runs`: per-agent-run obs rollups.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or id-decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-agent-runs-58">agent_runs</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">AgentRunStat</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-agent-runs-55">agent_runs</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">AgentRunStat</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
         <span class="rs-self">self</span>.obs_events
             .agent_run_stats(<span class="rs-type">TOOL_CALL_COMPLETED</span>, <span class="rs-type">OS_RESOURCE_SAMPLED</span>)
             .<span class="rs-kw">await</span>
     }
 </code></pre>
-</details></td></tr><tr id="method-events-68"><td>method</td><td>events</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#method-events-68">events</a> (&amp; self , page : Page) -&gt; Result &lt; PageResult &lt; ObsEvent &gt; , StoreError &gt;</code><p class="docstring">`/api/stats/events`: a newest-first page of normalized obs events (engine and<br>daemon).<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
+</details></td></tr><tr id="method-events-65"><td>method</td><td>events</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#method-events-65">events</a> (&amp; self , page : Page) -&gt; Result &lt; PageResult &lt; ObsEvent &gt; , StoreError &gt;</code><p class="docstring">`/api/stats/events`: a newest-first page of normalized obs events (engine and<br>daemon).<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// `/api/stats/events`: a newest-first page of normalized obs events (engine and</span>
     <span class="rs-comment">/// daemon).</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-events-68">events</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">ObsEvent</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-events-65">events</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">ObsEvent</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
         <span class="rs-self">self</span>.obs_events.list_page(page).<span class="rs-kw">await</span>
     }
 </code></pre>
-</details></td></tr><tr id="method-obs-loss-77"><td>method</td><td>obs_loss</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#method-obs-loss-77">obs_loss</a> (&amp; self , sink_loss : <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-55">SinkLoss</a>) -&gt; Result &lt; ObsLossStats , StoreError &gt;</code><p class="docstring">Loss accounting: the live sink's in-memory drop/persist-failure counters<br>folded with the durable `audit_cursor` totals. Pass<br>[`PersistingSink::loss_snapshot`](crate::PersistingSink::loss_snapshot).<br># Errors<br>[`StoreError`] on a query failure.</p><details class="function-source">
+</details></td></tr><tr id="method-obs-loss-74"><td>method</td><td>obs_loss</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-stats-rs.html#method-obs-loss-74">obs_loss</a> (&amp; self , sink_loss : <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-56">SinkLoss</a>) -&gt; Result &lt; ObsLossStats , StoreError &gt;</code><p class="docstring">Loss accounting: the live sink's in-memory drop/persist-failure counters<br>folded with the durable `audit_cursor` totals. Pass<br>[`PersistingSink::loss_snapshot`](crate::PersistingSink::loss_snapshot).<br># Errors<br>[`StoreError`] on a query failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Loss accounting: the live sink's in-memory drop/persist-failure counters</span>
     <span class="rs-comment">/// folded with the durable `audit_cursor` totals. Pass</span>
@@ -132,7 +132,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-obs-loss-77">obs_loss</a>(&amp;<span class="rs-self">self</span>, sink_loss: <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-55">SinkLoss</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsLossStats</span>, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-obs-loss-74">obs_loss</a>(&amp;<span class="rs-self">self</span>, sink_loss: <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-56">SinkLoss</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsLossStats</span>, <span class="rs-type">StoreError</span>&gt; {
         <span class="rs-kw">let</span> (audit_dropped, audit_sandboxes_with_loss) = <span class="rs-self">self</span>.cursors.loss_totals().<span class="rs-kw">await</span>?;
         <span class="rs-type">Ok</span>(<span class="rs-type">ObsLossStats</span> {
             obs_dropped_inflight: sink_loss.dropped_inflight,
@@ -144,7 +144,7 @@
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-audit/src/stats.rs:20</p>
+  <p class="source">crates/eos-backend-audit/src/stats.rs:17</p>
 </article></div>
 </section></div>
 </main>
@@ -157,32 +157,29 @@
 <span class="rs-comment">//! `audit_cursor`.</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! This is the backend stats facade the Phase 7 API calls. It owns the canonical</span>
-<span class="rs-comment">//! obs `kind` vocabulary (from `eos-audit`) and hands it to the store's typed</span>
-<span class="rs-comment">//! aggregations, then composes the loss DTO from the durable `audit_cursor` totals</span>
-<span class="rs-comment">//! plus a live [`PersistingSink`](crate::PersistingSink) snapshot. The matched /</span>
-<span class="rs-comment">//! unmatched split keeps daemon-facing and model-facing identities distinct (AC7);</span>
-<span class="rs-comment">//! the richer agent-core state join (agent name, token count, terminal outcome) is</span>
-<span class="rs-comment">//! the Phase 7 read handler's job through `RuntimeServices::state_reader()`.</span>
+<span class="rs-comment">//! obs `kind` vocabulary and hands it to the store's typed aggregations, then</span>
+<span class="rs-comment">//! composes the loss DTO from the durable `audit_cursor` totals plus a live</span>
+<span class="rs-comment">//! [`PersistingSink`](crate::PersistingSink) snapshot. The matched / unmatched</span>
+<span class="rs-comment">//! split keeps daemon-facing and model-facing identities distinct (AC7).</span>
 
-<span class="rs-kw">use</span> eos_audit::{<span class="rs-type">AGENT_RUN_COMPLETED</span>, <span class="rs-type">OS_RESOURCE_SAMPLED</span>, <span class="rs-type">TOOL_CALL_COMPLETED</span>};
 <span class="rs-kw">use</span> eos_backend_store::{<span class="rs-type">AuditCursorRepo</span>, <span class="rs-type">ObsEventRepo</span>, <span class="rs-type">StoreError</span>};
 <span class="rs-kw">use</span> eos_backend_types::{
     <span class="rs-type">AgentRunStat</span>, <span class="rs-type">CorrectnessStats</span>, <span class="rs-type">ObsEvent</span>, <span class="rs-type">ObsLossStats</span>, <span class="rs-type">Page</span>, <span class="rs-type">PageResult</span>, <span class="rs-type">PerformanceStats</span>,
 };
 
-<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::sink::<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-55">SinkLoss</a>;
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{sink::<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-56">SinkLoss</a>, <span class="rs-type">AGENT_RUN_COMPLETED</span>, <span class="rs-type">OS_RESOURCE_SAMPLED</span>, <span class="rs-type">TOOL_CALL_COMPLETED</span>};
 
 <span class="rs-comment">/// Reads `/api/stats/*` summaries from `backend.db`. Holds cheap repository clones.</span>
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-stats-rs.html#item-struct-StatsReader-20">StatsReader</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-stats-rs.html#item-struct-StatsReader-17">StatsReader</a> {
     obs_events: <span class="rs-type">ObsEventRepo</span>,
     cursors: <span class="rs-type">AuditCursorRepo</span>,
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-stats-rs.html#item-struct-StatsReader-20">StatsReader</a> {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-stats-rs.html#item-struct-StatsReader-17">StatsReader</a> {
     <span class="rs-comment">/// Build a stats reader over the backend store's obs/cursor repos.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(obs_events: <span class="rs-type">ObsEventRepo</span>, cursors: <span class="rs-type">AuditCursorRepo</span>) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(obs_events: <span class="rs-type">ObsEventRepo</span>, cursors: <span class="rs-type">AuditCursorRepo</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             obs_events,
             cursors,
@@ -193,9 +190,9 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-performance-37">performance</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PerformanceStats</span>, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-performance-34">performance</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PerformanceStats</span>, <span class="rs-type">StoreError</span>&gt; {
         <span class="rs-self">self</span>.obs_events
-            .<a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-performance-37">performance</a>(<span class="rs-type">TOOL_CALL_COMPLETED</span>, <span class="rs-type">OS_RESOURCE_SAMPLED</span>)
+            .<a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-performance-34">performance</a>(<span class="rs-type">TOOL_CALL_COMPLETED</span>, <span class="rs-type">OS_RESOURCE_SAMPLED</span>)
             .<span class="rs-kw">await</span>
     }
 
@@ -204,9 +201,9 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-correctness-47">correctness</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CorrectnessStats</span>, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-correctness-44">correctness</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CorrectnessStats</span>, <span class="rs-type">StoreError</span>&gt; {
         <span class="rs-self">self</span>.obs_events
-            .<a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-correctness-47">correctness</a>(<span class="rs-type">AGENT_RUN_COMPLETED</span>, <span class="rs-type">TOOL_CALL_COMPLETED</span>)
+            .<a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-correctness-44">correctness</a>(<span class="rs-type">AGENT_RUN_COMPLETED</span>, <span class="rs-type">TOOL_CALL_COMPLETED</span>)
             .<span class="rs-kw">await</span>
     }
 
@@ -214,7 +211,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or id-decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-agent-runs-58">agent_runs</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">AgentRunStat</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-agent-runs-55">agent_runs</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">AgentRunStat</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
         <span class="rs-self">self</span>.obs_events
             .agent_run_stats(<span class="rs-type">TOOL_CALL_COMPLETED</span>, <span class="rs-type">OS_RESOURCE_SAMPLED</span>)
             .<span class="rs-kw">await</span>
@@ -225,7 +222,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-events-68">events</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">ObsEvent</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-events-65">events</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">ObsEvent</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
         <span class="rs-self">self</span>.obs_events.list_page(page).<span class="rs-kw">await</span>
     }
 
@@ -235,7 +232,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-obs-loss-77">obs_loss</a>(&amp;<span class="rs-self">self</span>, sink_loss: <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-55">SinkLoss</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsLossStats</span>, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-stats-rs.html#method-obs-loss-74">obs_loss</a>(&amp;<span class="rs-self">self</span>, sink_loss: <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-56">SinkLoss</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsLossStats</span>, <span class="rs-type">StoreError</span>&gt; {
         <span class="rs-kw">let</span> (audit_dropped, audit_sandboxes_with_loss) = <span class="rs-self">self</span>.cursors.loss_totals().<span class="rs-kw">await</span>?;
         <span class="rs-type">Ok</span>(<span class="rs-type">ObsLossStats</span> {
             obs_dropped_inflight: sink_loss.dropped_inflight,

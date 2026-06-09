@@ -1,6 +1,5 @@
 //! The advisor-approval pre-hook — a **stateless** gate that infers the verdict
-//! from the conversation transcript (verbatim port of Rust
-//! `tools/_hooks/advisor_approval.py`).
+//! from the conversation transcript.
 //!
 //! There is no port and no engine/agent state: the verdict exists only as a
 //! `submit_advisor_feedback` result block in the transcript, surfaced as the

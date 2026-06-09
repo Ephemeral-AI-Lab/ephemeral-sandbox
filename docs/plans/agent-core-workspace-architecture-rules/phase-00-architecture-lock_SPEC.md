@@ -1,6 +1,6 @@
 # Phase 00 - Architecture Lock Spec
 
-Status: Accepted
+Status: Accepted - amended for backend-facing server boundary
 Date: 2026-06-09
 Owner: agent-core architecture
 
@@ -23,19 +23,25 @@ guardrails tightened by user instruction on 2026-06-09. Phase 02's dependency
 DAG and contract-floor placements were ratified back into this lock on
 2026-06-09 before destructive crate moves began.
 
+Amendment record: Phase 05 replaced the original `eos-agent-core` facade target
+with the backend-facing `eos-agent-core-server` crate. Backend-server is now the
+production composition root for concrete stores, sandbox host, and engine
+launcher wiring. Phase 06 also adds an executable final-layout budget gate while
+keeping the default guard run advisory during staged cleanup.
+
 ## Locked Decisions
 
 | Decision | Target |
 | --- | --- |
-| external facade crate | `eos-agent-core` |
+| external facade crate | `eos-agent-core-server` |
 | HTTP/path router | outside `agent-core`; belongs in `backend-server` |
-| removed runtime crate | `eos-runtime` folds into `eos-agent-core/src/runtime/` |
-| removed generic config crate | config structs live with their owning crate; file loading lives in `eos-agent-core/src/runtime/config.rs` |
-| removed agent definition crate | passive DTOs live in `eos-types`; filesystem loading/validation lives in `eos-agent-core/src/agents.rs` |
-| removed audit crate | audit sink lives in `eos-agent-core/src/runtime/audit.rs`; shared audit contracts live in `eos-types` only when lower crates emit audit |
+| removed runtime crate | `eos-runtime` is retired; request lifecycle lives in `eos-agent-core-server`, loop lifecycle in `eos-agent-run` / `eos-engine`, and concrete wiring in `backend-server` |
+| removed generic config crate | config structs live with their owning crate; file loading is backend composition-owned |
+| removed agent definition crate | passive DTOs live in `eos-types`; filesystem loading/validation is backend composition-owned |
+| removed audit crate | backend audit/observability contracts and persistence live in `eos-backend-audit`; `agent-core` has no standalone audit crate |
 | shared contract floor | cross-crate trait ports, neutral LLM DTOs, agent DTOs, store traits, and the pure frontmatter parser live in `eos-types` |
 | only allowed port crate | `eos-sandbox-port` |
-| service meaning | sibling-crate consumed callable surface |
+| service meaning | sibling-crate or backend-composition consumed callable surface |
 | service replacement vocabulary | `runtime`, `handles`, `context`, `client`, `records` |
 | runtime wiring vocabulary | `runtime` and `handles`; no standalone handle file unless it earns its size |
 | folder structure guardrails | thin roots, source tests under `tests/`, no vague buckets, no duplicate module shape |
@@ -47,7 +53,7 @@ DAG and contract-floor placements were ratified back into this lock on
 
 ```text
 agent-core/crates/
-├── eos-agent-core/
+├── eos-agent-core-server/
 ├── eos-agent-run/
 ├── eos-engine/
 ├── eos-tool/
@@ -73,6 +79,7 @@ eos-plugin-catalog
 eos-agent-def
 eos-config
 eos-audit
+eos-agent-core
 ```
 
 ## Locked Dependency DAG
@@ -88,45 +95,40 @@ eos-db            -> eos-types
 eos-tool          -> eos-types, eos-sandbox-port
 eos-engine        -> eos-types, eos-tool, eos-llm-client, eos-sandbox-port
 eos-workflow      -> eos-types, eos-tool
-eos-agent-run     -> eos-types, eos-engine
-eos-agent-core    -> eos-types, eos-db, eos-llm-client, eos-sandbox-port,
-                     eos-tool, eos-engine, eos-workflow, eos-agent-run
-eos-testkit       -> eos-types, eos-engine, eos-agent-run, eos-llm-client,
+eos-agent-run     -> eos-types
+eos-agent-core-server -> eos-types, eos-agent-run, eos-sandbox-port
+eos-testkit       -> eos-types, eos-engine, eos-llm-client,
                      eos-sandbox-port, eos-tool   (dev-only)
 ```
 
 `eos-workflow` has no crate edge to `eos-agent-run`; it starts runs through the
 `AgentRunApi` contract from `eos-types`, and the concrete run lifecycle is wired
-only at the `eos-agent-core` composition root.
+only at the backend composition root.
 
 ## Boundary Rules
 
-### eos-agent-core
+### eos-agent-core-server
 
-Owns the user-facing Rust facade and hidden request runtime wiring.
+Owns the backend-facing request lifecycle service. Backend-server owns concrete
+composition and HTTP routing.
 
 ```text
-eos-agent-core/src/
+eos-agent-core-server/src/
 ├── lib.rs
+├── dto.rs
 ├── error.rs
-├── model.rs
-├── agent_core.rs
-├── request.rs
-├── state.rs
-├── cancellation.rs
-├── agents.rs
-├── runtime.rs
-└── runtime/
-    ├── builder.rs
-    ├── database.rs
-    ├── engine.rs
-    ├── sandbox.rs
-    ├── audit.rs
-    └── plugins.rs
+├── service.rs
+├── user_request.rs
+└── user_request/
+    ├── create.rs
+    ├── cancel.rs
+    ├── finalizer.rs
+    └── query.rs
 ```
 
-Does not own HTTP routing. Does not define domain logic owned by engine, tool,
-workflow, run lifecycle, DB, or sandbox crates.
+Does not own HTTP routing, concrete store construction, agent/profile file
+loading, audit persistence, or domain logic owned by engine, tool, workflow, run
+lifecycle, DB, or sandbox crates.
 
 ### eos-agent-run
 
@@ -183,13 +185,13 @@ There is no standalone generic crate for these concerns in the final target.
 | --- | --- |
 | provider config | `eos-llm-client` |
 | agent definition DTOs | `eos-types/src/agent.rs`; `AgentType` is the launch class `agent` / `subagent` / `advisor` |
-| agent profile and definition loading | `eos-agent-core/src/agents.rs` |
+| agent profile and definition loading | backend composition |
 | workflow config | `eos-workflow` |
 | DB config | `eos-db` |
 | passive shared config DTO, only if unavoidable | `eos-types` |
 | pure markdown frontmatter parser | `eos-types/src/frontmatter.rs` |
-| file-merge config loader | `eos-agent-core/src/runtime/config.rs` |
-| runtime audit sink | `eos-agent-core/src/runtime/audit.rs` |
+| file-merge config loader | backend composition |
+| audit and observability contracts/persistence | `eos-backend-audit` |
 
 ### eos-llm-client
 
@@ -200,8 +202,8 @@ shared with tool, engine, records, and testkit live in `eos-types`.
 ### eos-types
 
 Owns passive shared contracts: typed IDs, state DTOs, store traits,
-`AgentRunApi`, `WorkflowApi`, neutral LLM DTOs, agent-definition DTOs, audit
-contracts when needed, and the pure markdown frontmatter parser. It has no
+`AgentRunApi`, `WorkflowApi`, neutral LLM DTOs, agent-definition DTOs, and the
+pure markdown frontmatter parser. It has no
 runtime, I/O, provider, DB, or service logic.
 
 `AgentType` is the only profile launch/dispatch axis: `agent` is the normal
@@ -217,10 +219,10 @@ is no generic standalone `agent` run. The advisor profile uses
 | --- | --- | --- |
 | `api` | restricted | external contract language only; not the facade crate name |
 | `router` | banned in agent-core | HTTP/path routing belongs in backend-server |
-| `service` | restricted | only sibling-crate consumed callable surfaces |
+| `service` | restricted | only sibling-crate or backend-composition consumed callable surfaces |
 | `context` | allowed | per-call immutable facts |
 | `records` | allowed | persisted record surfaces |
-| `runtime` | allowed | private request-running wiring inside `eos-agent-core` |
+| `runtime` | restricted | request-running wiring belongs to backend composition or owner-local runtime types |
 | `handles` | allowed | grouped concrete resource handles; avoid extra handle modules by default |
 | `catalog` | restricted | loaded/static definitions with lifecycle, not default tool specs |
 | `sink` | allowed | write-only event/audit output |
@@ -237,7 +239,7 @@ is no generic standalone `agent` run. The advisor profile uses
 | Guardrails | `workspace-guard` tests | Phase 0 accepted |
 | Tool | `eos-tool` and folded tool/skill crates | Phase 0 accepted |
 | Engine/run | `eos-engine`, `eos-agent-run`, message records | Phase 0 accepted |
-| Agent core/server/workflow/types | `eos-agent-core`, `eos-agent-core-server`, `eos-workflow`, `eos-types` | Phase 0 accepted |
+| Agent core/server/workflow/types | `eos-agent-core-server`, `eos-workflow`, `eos-types` | Phase 0 accepted |
 | Integration | root `Cargo.toml`, dependency DAG, public exports | after lane contracts are drafted |
 
 Only the integration lane should edit root `Cargo.toml`, shared workspace
@@ -248,7 +250,7 @@ move.
 
 | Item | Status |
 | --- | --- |
-| Approve `eos-agent-core` over `eos-agent-api` / router | Approved |
+| Approve backend-facing `eos-agent-core-server` over router/API crate names | Approved |
 | Approve final 10-crate map | Approved |
 | Approve owner-local config / agent definition / audit folds | Approved |
 | Approve retired crate list | Approved |
@@ -264,7 +266,7 @@ move.
 
 ## Acceptance Criteria
 
-- The target facade crate is `eos-agent-core`.
+- The target facade crate is `eos-agent-core-server`.
 - No target crate or module is named router.
 - `eos-runtime` is not a target crate.
 - `eos-workflow` has no target dependency edge to `eos-agent-run`; run spawning

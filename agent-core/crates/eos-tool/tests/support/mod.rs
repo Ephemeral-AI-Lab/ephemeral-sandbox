@@ -14,8 +14,7 @@ use eos_types::{
     AgentRunId, AttemptId, CoreError, JsonObject, RequestId, SandboxId, TaskId, UtcDateTime,
 };
 use eos_types::{
-    ExecutionTaskOutcome, Page, PageResult, Request, RequestListFilter, RequestStatus,
-    RequestStore, Sealed, Task, TaskStatus, TaskStore,
+    ExecutionTaskOutcome, Request, RequestStatus, RequestStore, Sealed, Task, TaskStatus, TaskStore,
 };
 
 use crate::ExecutionMetadata;
@@ -227,17 +226,10 @@ impl RequestStore for FakeRequestStore {
         Ok(Some(synthetic_request(id, status)))
     }
 
-    async fn list(
-        &self,
-        _filter: RequestListFilter,
-        _page: Page,
-    ) -> Result<PageResult<Request>, CoreError> {
+    async fn list(&self) -> Result<Vec<Request>, CoreError> {
         // This fake records only `finish_request`; the list surface is unused by
-        // the tool tests, so an empty page is the honest result.
-        Ok(PageResult {
-            items: Vec::new(),
-            total: 0,
-        })
+        // the tool tests, so an empty list is the honest result.
+        Ok(Vec::new())
     }
 }
 

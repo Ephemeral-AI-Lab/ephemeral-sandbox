@@ -5,48 +5,11 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use eos_types::{
     AgentLoopLauncher, AgentRegistry, AgentRunApi, AgentRunError, AgentRunId, AgentRunOutcome,
-    AgentRunStore, CreatedTaskAgentRun, SpawnAgentRequest, TaskAgentRunStore,
+    AgentRunStore, SpawnAgentRequest, TaskAgentRunStore,
 };
 
 use crate::active_agent_runs::ActiveAgentRunRegistry;
 use crate::{cancellation, completion, spawn};
-
-type RuntimeStateRecorder = Arc<
-    dyn Fn(&SpawnAgentRequest, &CreatedTaskAgentRun) -> Result<(), AgentRunError> + Send + Sync,
->;
-type RuntimeStateRemover = Arc<dyn Fn(&AgentRunId) + Send + Sync>;
-
-/// Runtime-only state store for mutable execution facts outside durable run rows.
-pub trait AgentRuntimeStateStore: Send + Sync {
-    /// Record state needed by runtime metadata and tool execution after spawn.
-    fn record_spawn_request(
-        &self,
-        request: &SpawnAgentRequest,
-        created_run: &CreatedTaskAgentRun,
-    ) -> Result<(), AgentRunError>;
-
-    /// Remove runtime state after a run reaches a terminal outcome.
-    fn remove_runtime_state(&self, agent_run_id: &AgentRunId);
-}
-
-struct RuntimeStateHooks {
-    record: RuntimeStateRecorder,
-    remove: RuntimeStateRemover,
-}
-
-impl AgentRuntimeStateStore for RuntimeStateHooks {
-    fn record_spawn_request(
-        &self,
-        request: &SpawnAgentRequest,
-        created_run: &CreatedTaskAgentRun,
-    ) -> Result<(), AgentRunError> {
-        (self.record)(request, created_run)
-    }
-
-    fn remove_runtime_state(&self, agent_run_id: &AgentRunId) {
-        (self.remove)(agent_run_id);
-    }
-}
 
 /// Agent-run lifecycle service.
 #[derive(Clone)]
@@ -56,7 +19,6 @@ pub struct AgentRunService {
     pub(crate) agent_run_store: Arc<dyn AgentRunStore>,
     pub(crate) task_agent_run_store: Arc<dyn TaskAgentRunStore>,
     pub(crate) active_agent_runs: ActiveAgentRunRegistry,
-    pub(crate) runtime_state: Option<Arc<dyn AgentRuntimeStateStore>>,
 }
 
 impl std::fmt::Debug for AgentRunService {
@@ -80,34 +42,7 @@ impl AgentRunService {
             agent_run_store,
             task_agent_run_store,
             active_agent_runs: ActiveAgentRunRegistry::new(),
-            runtime_state: None,
         }
-    }
-
-    /// Attach a runtime-only state store used by the production composition layer.
-    #[must_use]
-    pub fn with_runtime_state(mut self, runtime_state: Arc<dyn AgentRuntimeStateStore>) -> Self {
-        self.runtime_state = Some(runtime_state);
-        self
-    }
-
-    /// Attach runtime-only state hooks used by the production composition layer.
-    ///
-    /// The runner still owns agent-run lifecycle state; these hooks only record
-    /// and remove mutable execution facts such as workspace/isolation metadata.
-    #[must_use]
-    pub fn with_runtime_state_hooks<Record, Remove>(self, record: Record, remove: Remove) -> Self
-    where
-        Record: Fn(&SpawnAgentRequest, &CreatedTaskAgentRun) -> Result<(), AgentRunError>
-            + Send
-            + Sync
-            + 'static,
-        Remove: Fn(&AgentRunId) + Send + Sync + 'static,
-    {
-        self.with_runtime_state(Arc::new(RuntimeStateHooks {
-            record: Arc::new(record),
-            remove: Arc::new(remove),
-        }))
     }
 }
 

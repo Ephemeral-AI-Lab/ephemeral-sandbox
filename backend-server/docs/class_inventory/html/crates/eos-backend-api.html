@@ -24,8 +24,8 @@
 <section class="summary">
   <div><b>13</b><span>modules</span></div>
   <div><b>66</b><span>items</span></div>
-  <div><b>35</b><span>fields</span></div>
-  <div><b>22</b><span>methods</span></div>
+  <div><b>44</b><span>fields</span></div>
+  <div><b>19</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,8 +41,8 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link active" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/5</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>4/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
-  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="error crates/eos-backend-api/src/error.rs ApiError ErrorBody ErrorDetail impl ApiError impl IntoResponse for ApiError impl From &lt; StoreError &gt; for ApiError impl From &lt; CoreError &gt; for ApiError impl From &lt; MessageRecordError &gt; for ApiError impl From &lt; SandboxManagerError &gt; for ApiError">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link active" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>3/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="error crates/eos-backend-api/src/error.rs ApiError ErrorBody ErrorDetail impl ApiError impl IntoResponse for ApiError impl From &lt; StoreError &gt; for ApiError impl From &lt; CoreError &gt; for ApiError impl From &lt; AgentCoreServerError &gt; for ApiError impl From &lt; AgentRunRecordError &gt; for ApiError impl From &lt; SandboxManagerError &gt; for ApiError">
   <div class="module-head">
     <div>
       <h2>src/error.rs</h2>
@@ -51,23 +51,23 @@
     <div class="module-stats">
       <span>file owns</span>
       <span>3 types</span>
-      <span>6 impls</span>
+      <span>7 impls</span>
       <span>0 fns</span>
-      <span>6 methods</span>
+      <span>7 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-enum-ApiError-20" class="type-card" data-kind="enum" data-kind-list="enum field impl method type-model" data-filter-text="enum ApiError pub pub enum ApiError crates/eos-backend-api/src/error.rs  ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-enum-ApiError-21" class="type-card" data-kind="enum" data-kind-list="enum field impl method type-model" data-filter-text="enum ApiError pub pub enum ApiError crates/eos-backend-api/src/error.rs  ">
   <div class="item-head">
     <span class="kind">enum</span>
     <h3>ApiError</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub enum <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a></code>
+  <code class="signature">pub enum <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a></code>
   <p class="docstring">A handler failure with an HTTP status and a client-safe message.</p>
   <div class="tags"><span>derive: Debug</span></div>
-  <h4>Variants</h4><table><tbody><tr><td>NotFound</td><td><code>0: &amp; &#x27;static str</code></td></tr><tr><td>BadRequest</td><td><code>0: String</code></td></tr><tr><td>Conflict</td><td><code>0: String</code></td></tr><tr><td>Internal</td><td><code></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-parts-47"><td>method</td><td>parts</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-parts-47">parts</a> (self) -&gt; (StatusCode , &amp; &#x27;static str , String)</code><details class="function-source">
+  <h4>Variants</h4><table><tbody><tr><td>NotFound</td><td><code>0: &amp; &#x27;static str</code></td></tr><tr><td>BadRequest</td><td><code>0: String</code></td></tr><tr><td>Conflict</td><td><code>0: String</code></td></tr><tr><td>Internal</td><td><code></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-parts-48"><td>method</td><td>parts</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-parts-48">parts</a> (self) -&gt; (StatusCode , &amp; &#x27;static str , String)</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-parts-47">parts</a>(<span class="rs-self">self</span>) -&gt; (<span class="rs-type">StatusCode</span>, &amp;&#x27;<span class="rs-kw">static</span> str, <span class="rs-type">String</span>) {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-parts-48">parts</a>(<span class="rs-self">self</span>) -&gt; (<span class="rs-type">StatusCode</span>, &amp;&#x27;<span class="rs-kw">static</span> str, <span class="rs-type">String</span>) {
         <span class="rs-kw">match</span> <span class="rs-self">self</span> {
             <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(what) =&gt; (
                 <span class="rs-type">StatusCode</span>::<span class="rs-type">NOT_FOUND</span>,
@@ -84,40 +84,55 @@
         }
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl IntoResponse for <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a></code></summary><table><tbody><tr id="method-into-response-66"><td>method</td><td>into_response</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-into-response-66">into_response</a> (self) -&gt; Response</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl IntoResponse for <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a></code></summary><table><tbody><tr id="method-into-response-67"><td>method</td><td>into_response</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-into-response-67">into_response</a> (self) -&gt; Response</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-into-response-66">into_response</a>(<span class="rs-self">self</span>) -&gt; <span class="rs-type">Response</span> {
-        <span class="rs-kw">let</span> (status, code, message) = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-backend-api.html#method-parts-47">parts</a>();
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-into-response-67">into_response</a>(<span class="rs-self">self</span>) -&gt; <span class="rs-type">Response</span> {
+        <span class="rs-kw">let</span> (status, code, message) = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-backend-api.html#method-parts-48">parts</a>();
         (
             status,
-            <span class="rs-type">Json</span>(<a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorBody-34">ErrorBody</a> {
-                error: <a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorDetail-40">ErrorDetail</a> { code, message },
+            <span class="rs-type">Json</span>(<a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorBody-35">ErrorBody</a> {
+                error: <a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorDetail-41">ErrorDetail</a> { code, message },
             }),
         )
-            .<a class="symbol-link rs-fn" href="eos-backend-api.html#method-into-response-66">into_response</a>()
+            .<a class="symbol-link rs-fn" href="eos-backend-api.html#method-into-response-67">into_response</a>()
     }
 </code></pre>
-</details></td></tr></tbody></table></details><details><summary><code>impl From &lt; StoreError &gt; for <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a></code></summary><table><tbody><tr id="method-from-81"><td>constructor</td><td>from</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-from-81">from</a> (err : StoreError) -&gt; Self</code><details class="function-source">
+</details></td></tr></tbody></table></details><details><summary><code>impl From &lt; StoreError &gt; for <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a></code></summary><table><tbody><tr id="method-from-82"><td>constructor</td><td>from</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-from-82">from</a> (err : StoreError) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(err: <span class="rs-type">StoreError</span>) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err: <span class="rs-type">StoreError</span>) -&gt; <span class="rs-self">Self</span> {
         tracing::error!(error = %err, &quot;backend store error&quot;);
         <span class="rs-self">Self</span>::<span class="rs-type">Internal</span>
     }
 </code></pre>
-</details></td></tr></tbody></table></details><details><summary><code>impl From &lt; CoreError &gt; for <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a></code></summary><table><tbody><tr id="method-from-90"><td>constructor</td><td>from</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-from-81">from</a> (err : CoreError) -&gt; Self</code><details class="function-source">
+</details></td></tr></tbody></table></details><details><summary><code>impl From &lt; CoreError &gt; for <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a></code></summary><table><tbody><tr id="method-from-91"><td>constructor</td><td>from</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-from-82">from</a> (err : CoreError) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(err: <span class="rs-type">CoreError</span>) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err: <span class="rs-type">CoreError</span>) -&gt; <span class="rs-self">Self</span> {
         tracing::error!(error = %err, &quot;agent-core state read error&quot;);
         <span class="rs-self">Self</span>::<span class="rs-type">Internal</span>
     }
 </code></pre>
-</details></td></tr></tbody></table></details><details><summary><code>impl From &lt; MessageRecordError &gt; for <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a></code></summary><table><tbody><tr id="method-from-99"><td>constructor</td><td>from</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-from-81">from</a> (err : MessageRecordError) -&gt; Self</code><details class="function-source">
+</details></td></tr></tbody></table></details><details><summary><code>impl From &lt; AgentCoreServerError &gt; for <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a></code></summary><table><tbody><tr id="method-from-99"><td>constructor</td><td>from</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-from-82">from</a> (err : AgentCoreServerError) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(err: <span class="rs-type">MessageRecordError</span>) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err: <span class="rs-type">AgentCoreServerError</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-kw">match</span> err {
-            <span class="rs-type">MessageRecordError</span>::<span class="rs-type">NotFound</span>(_) =&gt; <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(&quot;agent run message record&quot;),
-            <span class="rs-type">MessageRecordError</span>::<span class="rs-type">OffsetOutOfRange</span> { .. }
-            | <span class="rs-type">MessageRecordError</span>::<span class="rs-type">UnsafeSegment</span> { .. } =&gt; <span class="rs-self">Self</span>::<span class="rs-type">BadRequest</span>(err.to_string()),
+            <span class="rs-type">AgentCoreServerError</span>::<span class="rs-type">UserRequestNotFound</span>(_) =&gt; <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(&quot;user request&quot;),
+            <span class="rs-type">AgentCoreServerError</span>::<span class="rs-type">UserRequestAlreadyFinished</span> { .. } =&gt; {
+                <span class="rs-self">Self</span>::<span class="rs-type">Conflict</span>(&quot;user request already finished&quot;.to_owned())
+            }
+            other =&gt; {
+                tracing::error!(error = %other, &quot;agent-core service error&quot;);
+                <span class="rs-self">Self</span>::<span class="rs-type">Internal</span>
+            }
+        }
+    }
+</code></pre>
+</details></td></tr></tbody></table></details><details><summary><code>impl From &lt; AgentRunRecordError &gt; for <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a></code></summary><table><tbody><tr id="method-from-116"><td>constructor</td><td>from</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-from-82">from</a> (err : AgentRunRecordError) -&gt; Self</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err: <span class="rs-type">AgentRunRecordError</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-kw">match</span> err {
+            <span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">NotFound</span>(_) =&gt; <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(&quot;agent run message record&quot;),
+            <span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">OffsetOutOfRange</span> { .. }
+            | <span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">UnsafeSegment</span> { .. } =&gt; <span class="rs-self">Self</span>::<span class="rs-type">BadRequest</span>(err.to_string()),
             other =&gt; {
                 tracing::error!(error = %other, &quot;agent message-record error&quot;);
                 <span class="rs-self">Self</span>::<span class="rs-type">Internal</span>
@@ -125,9 +140,9 @@
         }
     }
 </code></pre>
-</details></td></tr></tbody></table></details><details><summary><code>impl From &lt; SandboxManagerError &gt; for <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a></code></summary><table><tbody><tr id="method-from-116"><td>constructor</td><td>from</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-from-81">from</a> (err : SandboxManagerError) -&gt; Self</code><details class="function-source">
+</details></td></tr></tbody></table></details><details><summary><code>impl From &lt; SandboxManagerError &gt; for <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a></code></summary><table><tbody><tr id="method-from-133"><td>constructor</td><td>from</td><td><code>fn <a class="symbol-link" href="eos-backend-api.html#method-from-82">from</a> (err : SandboxManagerError) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(err: <span class="rs-type">SandboxManagerError</span>) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err: <span class="rs-type">SandboxManagerError</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-kw">match</span> err {
             <span class="rs-type">SandboxManagerError</span>::<span class="rs-type">DeleteRejected</span> { reason, .. } =&gt; {
                 <span class="rs-kw">let</span> why = <span class="rs-kw">match</span> reason {
@@ -146,30 +161,30 @@
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-backend-api/src/error.rs:20</p>
-</article><article id="item-struct-ErrorBody-34" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct ErrorBody private struct ErrorBody crates/eos-backend-api/src/error.rs error ErrorDetail ">
+  <p class="source">crates/eos-backend-api/src/error.rs:21</p>
+</article><article id="item-struct-ErrorBody-35" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct ErrorBody private struct ErrorBody crates/eos-backend-api/src/error.rs error ErrorDetail ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>ErrorBody</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">struct <a class="symbol-link" href="eos-backend-api.html#item-struct-ErrorBody-34">ErrorBody</a></code>
+  <code class="signature">struct <a class="symbol-link" href="eos-backend-api.html#item-struct-ErrorBody-35">ErrorBody</a></code>
   <p class="docstring">The JSON error envelope: `{ "error": { "code", "message" } }`.</p>
   <div class="tags"><span>derive: Debug</span><span>derive: Serialize</span><span>serde</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>error</td><td><code><a class="symbol-link" href="eos-backend-api.html#item-struct-ErrorDetail-40">ErrorDetail</a></code></td></tr></tbody></table>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>error</td><td><code><a class="symbol-link" href="eos-backend-api.html#item-struct-ErrorDetail-41">ErrorDetail</a></code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-api/src/error.rs:34</p>
-</article><article id="item-struct-ErrorDetail-40" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct ErrorDetail private struct ErrorDetail crates/eos-backend-api/src/error.rs code &amp; 'static str message String ">
+  <p class="source">crates/eos-backend-api/src/error.rs:35</p>
+</article><article id="item-struct-ErrorDetail-41" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct ErrorDetail private struct ErrorDetail crates/eos-backend-api/src/error.rs code &amp; 'static str message String ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>ErrorDetail</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">struct <a class="symbol-link" href="eos-backend-api.html#item-struct-ErrorDetail-40">ErrorDetail</a></code>
+  <code class="signature">struct <a class="symbol-link" href="eos-backend-api.html#item-struct-ErrorDetail-41">ErrorDetail</a></code>
   <div class="tags"><span>derive: Debug</span><span>derive: Serialize</span><span>serde</span></div>
   <h4>Fields</h4><table><tbody><tr><td>private</td><td>code</td><td><code>&amp; &#x27;static str</code></td></tr><tr><td>private</td><td>message</td><td><code>String</code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-api/src/error.rs:40</p>
+  <p class="source">crates/eos-backend-api/src/error.rs:41</p>
 </article></div>
 </section></div>
 </main>
@@ -192,14 +207,15 @@
 <span class="rs-kw">use</span> axum::<span class="rs-type">Json</span>;
 <span class="rs-kw">use</span> serde::<span class="rs-type">Serialize</span>;
 
-<span class="rs-kw">use</span> eos_agent_message_records::<span class="rs-type">MessageRecordError</span>;
+<span class="rs-kw">use</span> eos_agent_core_server::<span class="rs-type">AgentCoreServerError</span>;
 <span class="rs-kw">use</span> eos_backend_runtime::{<span class="rs-type">DeleteRejection</span>, <span class="rs-type">SandboxManagerError</span>};
 <span class="rs-kw">use</span> eos_backend_store::<span class="rs-type">StoreError</span>;
+<span class="rs-kw">use</span> eos_engine::records::<span class="rs-type">AgentRunRecordError</span>;
 <span class="rs-kw">use</span> eos_types::<span class="rs-type">CoreError</span>;
 
 <span class="rs-comment">/// A handler failure with an HTTP status and a client-safe message.</span>
 #[derive(<span class="rs-type">Debug</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> {
     <span class="rs-comment">/// The targeted resource does not exist (`404`).</span>
     <span class="rs-type">NotFound</span>(&amp;&#x27;<span class="rs-kw">static</span> str),
     <span class="rs-comment">/// The request was malformed or violated a v1 constraint (`400`).</span>
@@ -213,18 +229,18 @@
 
 <span class="rs-comment">/// The JSON error envelope: `{ "error": { "code", "message" } }`.</span>
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Serialize</span>)]
-<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorBody-34">ErrorBody</a> {
-    error: <a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorDetail-40">ErrorDetail</a>,
+<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorBody-35">ErrorBody</a> {
+    error: <a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorDetail-41">ErrorDetail</a>,
 }
 
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Serialize</span>)]
-<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorDetail-40">ErrorDetail</a> {
+<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorDetail-41">ErrorDetail</a> {
     code: &amp;&#x27;<span class="rs-kw">static</span> str,
     message: <span class="rs-type">String</span>,
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-parts-47">parts</a>(<span class="rs-self">self</span>) -&gt; (<span class="rs-type">StatusCode</span>, &amp;&#x27;<span class="rs-kw">static</span> str, <span class="rs-type">String</span>) {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-parts-48">parts</a>(<span class="rs-self">self</span>) -&gt; (<span class="rs-type">StatusCode</span>, &amp;&#x27;<span class="rs-kw">static</span> str, <span class="rs-type">String</span>) {
         <span class="rs-kw">match</span> <span class="rs-self">self</span> {
             <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(what) =&gt; (
                 <span class="rs-type">StatusCode</span>::<span class="rs-type">NOT_FOUND</span>,
@@ -242,23 +258,23 @@
     }
 }
 
-<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-into-response-66">into_response</a>(<span class="rs-self">self</span>) -&gt; <span class="rs-type">Response</span> {
-        <span class="rs-kw">let</span> (status, code, message) = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-backend-api.html#method-parts-47">parts</a>();
+<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-into-response-67">into_response</a>(<span class="rs-self">self</span>) -&gt; <span class="rs-type">Response</span> {
+        <span class="rs-kw">let</span> (status, code, message) = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-backend-api.html#method-parts-48">parts</a>();
         (
             status,
-            <span class="rs-type">Json</span>(<a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorBody-34">ErrorBody</a> {
-                error: <a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorDetail-40">ErrorDetail</a> { code, message },
+            <span class="rs-type">Json</span>(<a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorBody-35">ErrorBody</a> {
+                error: <a class="symbol-link rs-type" href="eos-backend-api.html#item-struct-ErrorDetail-41">ErrorDetail</a> { code, message },
             }),
         )
-            .<a class="symbol-link rs-fn" href="eos-backend-api.html#method-into-response-66">into_response</a>()
+            .<a class="symbol-link rs-fn" href="eos-backend-api.html#method-into-response-67">into_response</a>()
     }
 }
 
 <span class="rs-comment">/// Backend store failures are internal; the sqlx/JSON detail is logged, the</span>
 <span class="rs-comment">/// client sees only a generic `500` (no SQL text, no column data).</span>
-<span class="rs-kw">impl</span> <span class="rs-type">From</span>&lt;<span class="rs-type">StoreError</span>&gt; <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(err: <span class="rs-type">StoreError</span>) -&gt; <span class="rs-self">Self</span> {
+<span class="rs-kw">impl</span> <span class="rs-type">From</span>&lt;<span class="rs-type">StoreError</span>&gt; <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err: <span class="rs-type">StoreError</span>) -&gt; <span class="rs-self">Self</span> {
         tracing::error!(error = %err, &quot;backend store error&quot;);
         <span class="rs-self">Self</span>::<span class="rs-type">Internal</span>
     }
@@ -266,21 +282,37 @@
 
 <span class="rs-comment">/// Agent-core read failures are internal: the backend never surfaces agent-core</span>
 <span class="rs-comment">/// store detail to API clients.</span>
-<span class="rs-kw">impl</span> <span class="rs-type">From</span>&lt;<span class="rs-type">CoreError</span>&gt; <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(err: <span class="rs-type">CoreError</span>) -&gt; <span class="rs-self">Self</span> {
+<span class="rs-kw">impl</span> <span class="rs-type">From</span>&lt;<span class="rs-type">CoreError</span>&gt; <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err: <span class="rs-type">CoreError</span>) -&gt; <span class="rs-self">Self</span> {
         tracing::error!(error = %err, &quot;agent-core state read error&quot;);
         <span class="rs-self">Self</span>::<span class="rs-type">Internal</span>
     }
 }
 
+<span class="rs-comment">/// Agent-core request service errors are mapped at the backend HTTP edge.</span>
+<span class="rs-kw">impl</span> <span class="rs-type">From</span>&lt;<span class="rs-type">AgentCoreServerError</span>&gt; <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err: <span class="rs-type">AgentCoreServerError</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-kw">match</span> err {
+            <span class="rs-type">AgentCoreServerError</span>::<span class="rs-type">UserRequestNotFound</span>(_) =&gt; <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(&quot;user request&quot;),
+            <span class="rs-type">AgentCoreServerError</span>::<span class="rs-type">UserRequestAlreadyFinished</span> { .. } =&gt; {
+                <span class="rs-self">Self</span>::<span class="rs-type">Conflict</span>(&quot;user request already finished&quot;.to_owned())
+            }
+            other =&gt; {
+                tracing::error!(error = %other, &quot;agent-core service error&quot;);
+                <span class="rs-self">Self</span>::<span class="rs-type">Internal</span>
+            }
+        }
+    }
+}
+
 <span class="rs-comment">/// Message-record read failures are sanitized like store failures, except the</span>
 <span class="rs-comment">/// client-controllable lookup/range cases stay specific.</span>
-<span class="rs-kw">impl</span> <span class="rs-type">From</span>&lt;<span class="rs-type">MessageRecordError</span>&gt; <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(err: <span class="rs-type">MessageRecordError</span>) -&gt; <span class="rs-self">Self</span> {
+<span class="rs-kw">impl</span> <span class="rs-type">From</span>&lt;<span class="rs-type">AgentRunRecordError</span>&gt; <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err: <span class="rs-type">AgentRunRecordError</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-kw">match</span> err {
-            <span class="rs-type">MessageRecordError</span>::<span class="rs-type">NotFound</span>(_) =&gt; <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(&quot;agent run message record&quot;),
-            <span class="rs-type">MessageRecordError</span>::<span class="rs-type">OffsetOutOfRange</span> { .. }
-            | <span class="rs-type">MessageRecordError</span>::<span class="rs-type">UnsafeSegment</span> { .. } =&gt; <span class="rs-self">Self</span>::<span class="rs-type">BadRequest</span>(err.to_string()),
+            <span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">NotFound</span>(_) =&gt; <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(&quot;agent run message record&quot;),
+            <span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">OffsetOutOfRange</span> { .. }
+            | <span class="rs-type">AgentRunRecordError</span>::<span class="rs-type">UnsafeSegment</span> { .. } =&gt; <span class="rs-self">Self</span>::<span class="rs-type">BadRequest</span>(err.to_string()),
             other =&gt; {
                 tracing::error!(error = %other, &quot;agent message-record error&quot;);
                 <span class="rs-self">Self</span>::<span class="rs-type">Internal</span>
@@ -292,8 +324,8 @@
 <span class="rs-comment">/// Map the sandbox manager's lifecycle errors to client-safe statuses. A refused</span>
 <span class="rs-comment">/// delete is a `409`; an unknown sandbox is a `404`; everything else (host</span>
 <span class="rs-comment">/// teardown, provisioning, capacity) is an internal `500` with the detail logged.</span>
-<span class="rs-kw">impl</span> <span class="rs-type">From</span>&lt;<span class="rs-type">SandboxManagerError</span>&gt; <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(err: <span class="rs-type">SandboxManagerError</span>) -&gt; <span class="rs-self">Self</span> {
+<span class="rs-kw">impl</span> <span class="rs-type">From</span>&lt;<span class="rs-type">SandboxManagerError</span>&gt; <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(err: <span class="rs-type">SandboxManagerError</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-kw">match</span> err {
             <span class="rs-type">SandboxManagerError</span>::<span class="rs-type">DeleteRejected</span> { reason, .. } =&gt; {
                 <span class="rs-kw">let</span> why = <span class="rs-kw">match</span> reason {

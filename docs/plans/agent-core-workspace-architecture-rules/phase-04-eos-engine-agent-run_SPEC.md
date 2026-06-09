@@ -35,8 +35,9 @@ spawn/wait/poll/cancel/finalization and durable agent-run state updates.
 
 `eos-agent-run` must not depend directly on `eos-engine`. The shared loop launch
 contract lives in `eos-types::agent_loop`; `eos-engine` implements that contract
-with a concrete launcher, and `eos-agent-core` wires the concrete launcher into
-`AgentRunService` at runtime composition. Do not create a new internal port
+with a concrete launcher, and backend composition wires the concrete launcher
+into `AgentRunService` before handing the run service to
+`eos-agent-core-server::AgentCoreService`. Do not create a new internal port
 crate for this contract; `eos-sandbox-port` remains the explicit port-crate
 exception.
 
@@ -99,14 +100,13 @@ The target dependency shape for this phase is:
 ```text
 eos-agent-run   -> eos-types
 eos-engine      -> eos-types, eos-tool, eos-llm-client, eos-sandbox-port
-eos-agent-core  -> eos-agent-run, eos-engine, eos-tool, eos-workflow,
-                   eos-db, eos-llm-client, eos-sandbox-port
+eos-agent-core-server -> eos-agent-run, eos-sandbox-port, eos-types
 ```
 
 `eos-agent-run` consumes `dyn AgentLoopLauncher`; it does not name
 `TokioAgentLoopLauncher`, `AgentLoopExecutor`, or any other concrete engine type.
-`eos-agent-core` is the composition root that constructs the concrete engine
-launcher and passes it into `AgentRunService`.
+Backend composition constructs the concrete engine launcher, passes it into
+`AgentRunService`, and gives that service to `eos-agent-core-server`.
 
 ## Diff Table
 
@@ -116,7 +116,7 @@ launcher and passes it into `AgentRunService`.
 | loop request file | `agent_loop_request.rs` | move spawn-to-loop mapping into `spawn.rs` |
 | persistence file | `agent_run_persistence.rs` | `persistence.rs` |
 | service field | `agent_loop_launcher` | `loop_launcher` |
-| runtime hooks | `runtime_state_recorder`, `runtime_state_remover` | `runtime_state: Option<Arc<dyn AgentRuntimeStateStore>>` |
+| runtime hooks | `runtime_state_recorder`, `runtime_state_remover` | removed; durable state transitions stay inside stores and `AgentRunService` |
 | active handle type | `ActiveAgentRun` | `ActiveAgentRunHandle` |
 | active handle field | no `agent_run_id` | add `agent_run_id` |
 | active handle field | `cancel_handle` | `loop_cancellation` |
@@ -215,7 +215,6 @@ pub struct AgentRunService {
     task_agent_run_store: Arc<dyn TaskAgentRunStore>,
     loop_launcher: Arc<dyn AgentLoopLauncher>,
     active_agent_runs: ActiveAgentRunRegistry,
-    runtime_state: Option<Arc<dyn AgentRuntimeStateStore>>,
 }
 
 struct ActiveAgentRunHandle {
@@ -320,7 +319,6 @@ pub struct AgentRunService {
     task_agent_run_store: Arc<dyn TaskAgentRunStore>,
     loop_launcher: Arc<dyn AgentLoopLauncher>,
     active_agent_runs: ActiveAgentRunRegistry,
-    runtime_state: Option<Arc<dyn AgentRuntimeStateStore>>,
 }
 ```
 
@@ -417,11 +415,11 @@ Contract:
 | `StartedAgentLoop` | `eos-agent-run` | lives in `eos-types::agent_loop`; carries `completion` and the loop cancel handle |
 | `AgentLoopCompletion` | `eos-agent-run` | lives in `eos-types::agent_loop`; resolves once when the engine loop publishes its terminal outcome; hides channel/future implementation details |
 | `AgentLoopOutcome` | `eos-agent-run` | lives in `eos-types::agent_loop`; contains terminal status, passive submission facts, record summary, and background-session closure status |
-| `TokioAgentLoopLauncher` | `eos-agent-core` runtime wiring, tests | concrete engine implementation of `AgentLoopLauncher` |
-| `BackgroundSessionRuntimeFactory` | `eos-agent-core` runtime wiring | builds per-loop background session runtime from runtime-owned sandbox/workflow dependencies |
-| `ToolExecutionMetadataReader` | `eos-agent-core` runtime wiring | reads current runtime facts and builds per-tool execution metadata |
-| `EngineEventOutputs` | `eos-agent-core` runtime wiring, `eos-engine` loop execution | fans out non-fatal live observation, printing, and durable record writes |
-| `EngineEventSink` | `eos-agent-core` runtime wiring, tests | receives stream/tool/system events without owning finalization |
+| `TokioAgentLoopLauncher` | backend composition, tests | concrete engine implementation of `AgentLoopLauncher` |
+| `BackgroundSessionRuntimeFactory` | backend composition | builds per-loop background session runtime from runtime-owned sandbox/workflow dependencies |
+| `ToolExecutionMetadataReader` | backend composition | reads current runtime facts and builds per-tool execution metadata |
+| `EngineEventOutputs` | backend composition, `eos-engine` loop execution | fans out non-fatal live observation, printing, and durable record writes |
+| `EngineEventSink` | backend composition, tests | receives stream/tool/system events without owning finalization |
 
 The engine may receive a run/correlation ID for records and events. It must not
 own the active-run registry, spawn state, or durable lifecycle row.
@@ -499,7 +497,7 @@ run crate.
 Completion flow:
 
 ```text
-eos-agent-core
+backend composition
   -> eos-agent-run::spawn_agent(request)
   -> eos-types::agent_loop::AgentLoopLauncher::start_agent_loop(request)
   -> eos-engine::TokioAgentLoopLauncher starts AgentLoopExecutor
@@ -508,7 +506,7 @@ eos-agent-core
   -> StartedAgentLoop::completion resolves to AgentLoopOutcome
   -> eos-agent-run finalizer persists final agent-run state
   -> eos-agent-run publishes AgentRunOutcome to active-run waiters
-  -> eos-agent-core/caller receives AgentRunOutcome
+  -> caller receives AgentRunOutcome
 ```
 
 There are two event-driven lifecycle paths, and they must stay separate:
@@ -555,7 +553,7 @@ Handoff rules:
 | final outcome is visible to waiters and pollers after persistence succeeds | `eos-agent-run` |
 | `ActiveAgentRunHandle` is removed from the map before final publication | `eos-agent-run` |
 | `wait_for_agent_outcome` subscribes to runner publication, not engine completion | `eos-agent-run` |
-| engine event sinks cannot finalize or publish run outcomes | `eos-engine` / `eos-agent-core` |
+| engine event sinks cannot finalize or publish run outcomes | `eos-engine` / backend composition |
 
 ## Records and Engine Event Printing
 
@@ -568,7 +566,7 @@ Target ownership:
 | record row DTOs and byte ranges | `eos-engine/records/record.rs` |
 | record writing | `eos-engine/records/writer.rs` |
 | durable run finalization | `eos-agent-run` |
-| external record contract | `eos-agent-core`, if externally exposed |
+| external record contract | `eos-types`, if externally exposed |
 
 Reason: the engine sees stream events, tool calls, assistant messages, and
 terminal transitions as they happen. The runner only sees the final outcome.
@@ -581,7 +579,7 @@ Record and print rules:
 | every durable loop-visible event is appended once through the active record handle | `records/handle.rs`, `records/writer.rs` |
 | printing failure cannot corrupt loop state | `event/printer.rs` reports non-fatal sink errors |
 | record write failure is an engine error and appears in `AgentLoopOutcome` | `records/writer.rs`, `agent_loop/executor.rs` |
-| externally exposed record DTOs are re-exported by `eos-agent-core` only if needed | `eos-agent-core` |
+| externally exposed record DTOs are re-exported from `eos-types` only if needed | `eos-types` |
 
 `eos-agent-run` resolves and passes a passive `AgentRunRecordTarget` into
 `StartAgentLoopRequest`. `eos-engine` writes loop-visible records against that
@@ -621,7 +619,7 @@ literal file name `messages.jsonl` is unchanged.
 | Add exactly-once completion handoff tests | Done |
 | Add cancellation race tests | Done |
 | Add background-session accounting tests | Done |
-| Update `eos-agent-core` runtime wiring | Done |
+| Retire `eos-agent-core` runtime wiring in favor of backend composition plus `eos-agent-core-server` | Done |
 | Replace stale `BackgroundSessionInputs` target with `BackgroundSessionRuntimeFactory` | Done |
 | Replace stale `event_sink` / `record_writer` fields with `EngineEventOutputs` fan-out | Done |
 | Replace `AgentRecordWriter` / `MessageRecordError` naming with agent-run record names | Done |
@@ -632,11 +630,11 @@ Latest verification:
 - `cargo fmt --all`
 - `cargo check -p eos-agent-run --all-targets`
 - `cargo check -p eos-engine --all-targets`
-- `cargo check -p eos-agent-core --all-targets`
+- `cargo check -p eos-agent-core-server --all-targets`
 - `cargo test -p eos-agent-run --all-targets`
 - `cargo test -p eos-engine --all-targets`
-- `cargo test -p eos-agent-core --all-targets`
-- `cargo clippy -p eos-agent-run -p eos-engine -p eos-agent-core --all-targets -- -D warnings`
+- `cargo test -p eos-agent-core-server --all-targets`
+- `cargo clippy -p eos-agent-run -p eos-engine -p eos-agent-core-server --all-targets -- -D warnings`
 - `cargo test -p eos-db --all-targets`
 
 ## Acceptance Criteria

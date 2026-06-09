@@ -1,4 +1,7 @@
-use workspace_guard::{public_declared_identifiers, Workspace};
+use workspace_guard::{
+    public_declared_identifiers, read_to_string, relative_to, rust_files_under, SourceFile,
+    Workspace,
+};
 
 const CANONICAL_SERVICE_REPLACEMENTS: &[&str] =
     &["Runtime", "Handles", "Context", "Client", "Records"];
@@ -14,10 +17,11 @@ struct ServiceCandidate {
 fn final_service_named_surfaces_have_sibling_consumers() {
     let workspace = Workspace::load();
     let files = workspace.source_files();
+    let consumer_files = consumer_files(&workspace, &files);
     let candidates = service_candidates(&files);
     let violations = candidates
         .iter()
-        .filter(|candidate| !has_sibling_reference(candidate, &files))
+        .filter(|candidate| !has_sibling_reference(candidate, &consumer_files))
         .map(|candidate| {
             format!(
                 "{}: `{}` uses service vocabulary without a sibling-crate consumer; suggested replacement: {}",
@@ -51,8 +55,12 @@ fn service_candidates(files: &[workspace_guard::SourceFile]) -> Vec<ServiceCandi
         let service_path = file.relative_path.ends_with("/service.rs")
             || file.relative_path.ends_with("/services.rs")
             || file.relative_path.contains("/services/");
-        for symbol in public_declared_identifiers(&file.text) {
-            if symbol.ends_with("Service") || symbol.ends_with("Services") || service_path {
+        let public_symbols = public_declared_identifiers(&file.text);
+        let has_service_symbol = public_symbols
+            .iter()
+            .any(|symbol| symbol.ends_with("Service") || symbol.ends_with("Services"));
+        for symbol in public_symbols {
+            if symbol.ends_with("Service") || symbol.ends_with("Services") {
                 candidates.push(ServiceCandidate {
                     crate_name: file.crate_name.clone(),
                     relative_path: file.relative_path.clone(),
@@ -60,7 +68,7 @@ fn service_candidates(files: &[workspace_guard::SourceFile]) -> Vec<ServiceCandi
                 });
             }
         }
-        if service_path && !file.text.contains("pub struct") && !file.text.contains("pub trait") {
+        if service_path && !has_service_symbol {
             candidates.push(ServiceCandidate {
                 crate_name: file.crate_name.clone(),
                 relative_path: file.relative_path.clone(),
@@ -71,10 +79,24 @@ fn service_candidates(files: &[workspace_guard::SourceFile]) -> Vec<ServiceCandi
     candidates
 }
 
-fn has_sibling_reference(
-    candidate: &ServiceCandidate,
-    files: &[workspace_guard::SourceFile],
-) -> bool {
+fn consumer_files(workspace: &Workspace, files: &[SourceFile]) -> Vec<SourceFile> {
+    let mut consumers = files.to_vec();
+    let Some(repo_root) = workspace.root().parent() else {
+        return consumers;
+    };
+    let backend_src = repo_root.join("backend-server").join("crates");
+    for path in rust_files_under(&backend_src) {
+        consumers.push(SourceFile {
+            crate_name: "backend-server".to_owned(),
+            relative_path: relative_to(&path, repo_root),
+            text: read_to_string(&path),
+            path,
+        });
+    }
+    consumers
+}
+
+fn has_sibling_reference(candidate: &ServiceCandidate, files: &[SourceFile]) -> bool {
     if candidate.symbol == "service module" {
         return false;
     }
@@ -116,7 +138,7 @@ fn service_replacement_suggestions_stay_canonical() {
         ServiceCandidate {
             crate_name: "eos-workflow".to_owned(),
             relative_path: "crates/eos-workflow/src/context.rs".to_owned(),
-            symbol: "WorkflowService".to_owned(),
+            symbol: "ContextService".to_owned(),
         },
         ServiceCandidate {
             crate_name: "eos-tool".to_owned(),

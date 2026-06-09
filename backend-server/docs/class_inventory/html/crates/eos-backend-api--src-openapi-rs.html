@@ -24,8 +24,8 @@
 <section class="summary">
   <div><b>13</b><span>modules</span></div>
   <div><b>66</b><span>items</span></div>
-  <div><b>35</b><span>fields</span></div>
-  <div><b>22</b><span>methods</span></div>
+  <div><b>44</b><span>fields</span></div>
+  <div><b>19</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/5</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link active" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>4/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link active" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>3/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="openapi crates/eos-backend-api/src/openapi.rs openapi_doc document reg schema_ref json_body paths">
   <div class="module-head">
     <div>
@@ -89,7 +89,7 @@
   <pre><code><span class="rs-comment">/// Build the document: component schemas from the DTO derives, plus the static</span>
 <span class="rs-comment">/// path table mirroring [`build_router`](crate::build_router).</span>
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-openapi-rs.html#item-fn-document-24">document</a>() -&gt; <span class="rs-type">Value</span> {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> generator = <span class="rs-type">SchemaGenerator</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>(<span class="rs-type">SchemaSettings</span>::openapi3());
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> generator = <span class="rs-type">SchemaGenerator</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(<span class="rs-type">SchemaSettings</span>::openapi3());
     reg::&lt;<span class="rs-type">CreateUserRequest</span>&gt;(&amp;<span class="rs-kw">mut</span> generator);
     reg::&lt;<span class="rs-type">CreateUserRequestResponse</span>&gt;(&amp;<span class="rs-kw">mut</span> generator);
     reg::&lt;<span class="rs-type">RunRecord</span>&gt;(&amp;<span class="rs-kw">mut</span> generator);
@@ -191,7 +191,7 @@
 <span class="rs-comment">/// `/collection/{id}` form (no `/collection={id}`).</span>
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-openapi-rs.html#item-fn-paths-69">paths</a>() -&gt; <span class="rs-type">Value</span> {
     json!({
-        &quot;/api/user-requests&quot;: {
+        &quot;/api/agent-core/requests&quot;: {
             &quot;post&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Accept</span> a prompt and launch an agent-core run&quot;,
                 &quot;requestBody&quot;: <a class="symbol-link rs-fn" href="eos-backend-api--src-openapi-rs.html#item-fn-json-body-64">json_body</a>(&quot;<span class="rs-type">CreateUserRequest</span>&quot;),
@@ -202,7 +202,7 @@
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;page of run records&quot; } },
             },
         },
-        &quot;/api/user-requests/{request_id}&quot;: {
+        &quot;/api/agent-core/requests/{request_id}&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Backend</span> lifecycle joined with the agent-core outcome&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: <a class="symbol-link rs-fn" href="eos-backend-api--src-openapi-rs.html#item-fn-json-body-64">json_body</a>(&quot;<span class="rs-type">UserRequestDetail</span>&quot;) },
@@ -216,49 +216,49 @@
                 },
             },
         },
-        &quot;/api/user-requests/{request_id}/events&quot;: {
+        &quot;/api/agent-core/requests/{request_id}/events&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Replay</span> persisted milestone events&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;milestone event records&quot; } },
             },
         },
-        &quot;/api/user-requests/{request_id}/stream&quot;: {
+        &quot;/api/agent-core/requests/{request_id}/stream&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">SSE</span>-only milestone stream with replay from last_seq&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;server-sent event stream&quot; } },
             },
         },
-        &quot;/api/user-requests/{request_id}/tasks&quot;: {
+        &quot;/api/agent-core/requests/{request_id}/tasks&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">The</span> request task tree from agent-core state&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;tasks&quot; } },
             },
         },
-        &quot;/api/tasks/{task_id}&quot;: {
+        &quot;/api/agent-core/tasks/{task_id}&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Task</span> detail and related agent run&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;task detail&quot; } },
             },
         },
-        &quot;/api/tasks/{task_id}/transcript&quot;: {
+        &quot;/api/agent-core/tasks/{task_id}/transcript&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Model</span>/tool transcript <span class="rs-kw">for</span> a task&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;transcript&quot; } },
             },
         },
-        &quot;/api/agent-runs/{agent_run_id}/messages&quot;: {
+        &quot;/api/agent-core/agent-runs/{agent_run_id}/messages&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Raw</span> node-local messages.jsonl bytes <span class="rs-kw">for</span> an agent run&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;application/x-ndjson messages&quot; } },
             },
         },
-        &quot;/api/agent-runs/{agent_run_id}/events&quot;: {
+        &quot;/api/agent-core/agent-runs/{agent_run_id}/events&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Replay</span> node-local events.jsonl rows <span class="rs-kw">for</span> an agent run&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;agent-run node events&quot; } },
             },
         },
-        &quot;/api/agent-runs/{agent_run_id}/stream&quot;: {
+        &quot;/api/agent-core/agent-runs/{agent_run_id}/stream&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">SSE</span>-only node-local event stream with replay from last_seq&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;server-sent event stream&quot; } },
@@ -338,7 +338,7 @@
     <span class="rs-type">AgentRunStat</span>, <span class="rs-type">ApiRunStatus</span>, <span class="rs-type">CorrectnessStats</span>, <span class="rs-type">CreateUserRequest</span>, <span class="rs-type">CreateUserRequestResponse</span>,
     <span class="rs-type">EventRecord</span>, <span class="rs-type">PerformanceStats</span>, <span class="rs-type">RunRecord</span>, <span class="rs-type">SandboxView</span>, <span class="rs-type">UserRequestDetail</span>,
 };
-<span class="rs-kw">use</span> eos_state::{<span class="rs-type">AgentRun</span>, <span class="rs-type">Task</span>};
+<span class="rs-kw">use</span> eos_types::{<span class="rs-type">AgentRun</span>, <span class="rs-type">Task</span>};
 
 <span class="rs-comment">/// `GET /openapi.json` — the assembled `OpenAPI` 3.0 document.</span>
 <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-openapi-rs.html#item-fn-openapi-doc-19">openapi_doc</a>() -&gt; <span class="rs-type">Json</span>&lt;<span class="rs-type">Value</span>&gt; {
@@ -348,7 +348,7 @@
 <span class="rs-comment">/// Build the document: component schemas from the DTO derives, plus the static</span>
 <span class="rs-comment">/// path table mirroring [`build_router`](crate::build_router).</span>
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-openapi-rs.html#item-fn-document-24">document</a>() -&gt; <span class="rs-type">Value</span> {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> generator = <span class="rs-type">SchemaGenerator</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>(<span class="rs-type">SchemaSettings</span>::openapi3());
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> generator = <span class="rs-type">SchemaGenerator</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(<span class="rs-type">SchemaSettings</span>::openapi3());
     reg::&lt;<span class="rs-type">CreateUserRequest</span>&gt;(&amp;<span class="rs-kw">mut</span> generator);
     reg::&lt;<span class="rs-type">CreateUserRequestResponse</span>&gt;(&amp;<span class="rs-kw">mut</span> generator);
     reg::&lt;<span class="rs-type">RunRecord</span>&gt;(&amp;<span class="rs-kw">mut</span> generator);
@@ -394,7 +394,7 @@
 <span class="rs-comment">/// `/collection/{id}` form (no `/collection={id}`).</span>
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-openapi-rs.html#item-fn-paths-69">paths</a>() -&gt; <span class="rs-type">Value</span> {
     json!({
-        &quot;/api/user-requests&quot;: {
+        &quot;/api/agent-core/requests&quot;: {
             &quot;post&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Accept</span> a prompt and launch an agent-core run&quot;,
                 &quot;requestBody&quot;: <a class="symbol-link rs-fn" href="eos-backend-api--src-openapi-rs.html#item-fn-json-body-64">json_body</a>(&quot;<span class="rs-type">CreateUserRequest</span>&quot;),
@@ -405,7 +405,7 @@
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;page of run records&quot; } },
             },
         },
-        &quot;/api/user-requests/{request_id}&quot;: {
+        &quot;/api/agent-core/requests/{request_id}&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Backend</span> lifecycle joined with the agent-core outcome&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: <a class="symbol-link rs-fn" href="eos-backend-api--src-openapi-rs.html#item-fn-json-body-64">json_body</a>(&quot;<span class="rs-type">UserRequestDetail</span>&quot;) },
@@ -419,49 +419,49 @@
                 },
             },
         },
-        &quot;/api/user-requests/{request_id}/events&quot;: {
+        &quot;/api/agent-core/requests/{request_id}/events&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Replay</span> persisted milestone events&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;milestone event records&quot; } },
             },
         },
-        &quot;/api/user-requests/{request_id}/stream&quot;: {
+        &quot;/api/agent-core/requests/{request_id}/stream&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">SSE</span>-only milestone stream with replay from last_seq&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;server-sent event stream&quot; } },
             },
         },
-        &quot;/api/user-requests/{request_id}/tasks&quot;: {
+        &quot;/api/agent-core/requests/{request_id}/tasks&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">The</span> request task tree from agent-core state&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;tasks&quot; } },
             },
         },
-        &quot;/api/tasks/{task_id}&quot;: {
+        &quot;/api/agent-core/tasks/{task_id}&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Task</span> detail and related agent run&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;task detail&quot; } },
             },
         },
-        &quot;/api/tasks/{task_id}/transcript&quot;: {
+        &quot;/api/agent-core/tasks/{task_id}/transcript&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Model</span>/tool transcript <span class="rs-kw">for</span> a task&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;transcript&quot; } },
             },
         },
-        &quot;/api/agent-runs/{agent_run_id}/messages&quot;: {
+        &quot;/api/agent-core/agent-runs/{agent_run_id}/messages&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Raw</span> node-local messages.jsonl bytes <span class="rs-kw">for</span> an agent run&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;application/x-ndjson messages&quot; } },
             },
         },
-        &quot;/api/agent-runs/{agent_run_id}/events&quot;: {
+        &quot;/api/agent-core/agent-runs/{agent_run_id}/events&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">Replay</span> node-local events.jsonl rows <span class="rs-kw">for</span> an agent run&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;agent-run node events&quot; } },
             },
         },
-        &quot;/api/agent-runs/{agent_run_id}/stream&quot;: {
+        &quot;/api/agent-core/agent-runs/{agent_run_id}/stream&quot;: {
             &quot;get&quot;: {
                 &quot;summary&quot;: &quot;<span class="rs-type">SSE</span>-only node-local event stream with replay from last_seq&quot;,
                 &quot;responses&quot;: { &quot;200&quot;: { &quot;description&quot;: &quot;server-sent event stream&quot; } },

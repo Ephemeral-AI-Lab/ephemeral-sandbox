@@ -5,9 +5,9 @@ use sqlx::{Sqlite, SqlitePool};
 use time::OffsetDateTime;
 
 use eos_types::{
-    AttemptId, CoreError, ExecutionTaskOutcome, IterationId, JsonObject, Page, PageResult, Request,
-    RequestId, RequestListFilter, RequestStatus, RequestStore, SandboxId, Sealed, Task, TaskId,
-    TaskStatus, TaskStore, WorkflowId,
+    AttemptId, CoreError, ExecutionTaskOutcome, IterationId, JsonObject, Request, RequestId,
+    RequestStatus, RequestStore, SandboxId, Sealed, Task, TaskId, TaskStatus, TaskStore,
+    WorkflowId,
 };
 
 use crate::error::DbError;
@@ -126,41 +126,17 @@ impl RequestStore for SqlRequestTaskStore {
         Ok(Some(row_to_request(updated)?))
     }
 
-    async fn list(
-        &self,
-        filter: RequestListFilter,
-        page: Page,
-    ) -> Result<PageResult<Request>, CoreError> {
-        // Bind the optional status string twice so `(? IS NULL OR status = ?)`
-        // degrades to "no filter" when absent without numbered placeholders.
-        let RequestListFilter { status } = filter;
-        let status = status.map(|s| enum_to_db(&s));
-        let total: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM requests WHERE (? IS NULL OR status = ?)")
-                .bind(status.as_deref())
-                .bind(status.as_deref())
-                .fetch_one(&self.pool)
-                .await
-                .map_err(DbError::from)?;
+    async fn list(&self) -> Result<Vec<Request>, CoreError> {
         let rows = sqlx::query_as::<Sqlite, RequestRow>(
-            "SELECT * FROM requests WHERE (? IS NULL OR status = ?) \
-             ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+            "SELECT * FROM requests ORDER BY created_at DESC, id DESC",
         )
-        .bind(status.as_deref())
-        .bind(status.as_deref())
-        .bind(i64::from(page.limit))
-        .bind(i64::from(page.offset))
         .fetch_all(&self.pool)
         .await
         .map_err(DbError::from)?;
-        let items = rows
-            .into_iter()
+        rows.into_iter()
             .map(row_to_request)
-            .collect::<Result<Vec<_>, DbError>>()?;
-        Ok(PageResult {
-            items,
-            total: u64::try_from(total).unwrap_or(0),
-        })
+            .collect::<Result<Vec<_>, DbError>>()
+            .map_err(CoreError::from)
     }
 }
 

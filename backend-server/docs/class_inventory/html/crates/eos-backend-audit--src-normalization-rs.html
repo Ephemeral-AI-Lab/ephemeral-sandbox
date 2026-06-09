@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">backend-server</a>
 <section class="summary">
-  <div><b>6</b><span>modules</span></div>
-  <div><b>61</b><span>items</span></div>
-  <div><b>64</b><span>fields</span></div>
-  <div><b>22</b><span>methods</span></div>
+  <div><b>7</b><span>modules</span></div>
+  <div><b>83</b><span>items</span></div>
+  <div><b>96</b><span>fields</span></div>
+  <div><b>44</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-audit.html"><span>gates.rs</span><small>10/10</small></a></li><li><a class="file-link" href="eos-backend-audit--src-ingestor-rs.html"><span>ingestor.rs</span><small>3/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link active" href="eos-backend-audit--src-normalization-rs.html"><span>normalization.rs</span><small>3/9</small></a></li><li><a class="file-link" href="eos-backend-audit--src-sink-rs.html"><span>sink.rs</span><small>5/4</small></a></li><li><a class="file-link" href="eos-backend-audit--src-stats-rs.html"><span>stats.rs</span><small>1/0</small></a></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-audit.html"><span>contract.rs</span><small>10/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-gates-rs.html"><span>gates.rs</span><small>10/10</small></a></li><li><a class="file-link" href="eos-backend-audit--src-ingestor-rs.html"><span>ingestor.rs</span><small>3/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link active" href="eos-backend-audit--src-normalization-rs.html"><span>normalization.rs</span><small>3/9</small></a></li><li><a class="file-link" href="eos-backend-audit--src-sink-rs.html"><span>sink.rs</span><small>5/4</small></a></li><li><a class="file-link" href="eos-backend-audit--src-stats-rs.html"><span>stats.rs</span><small>1/0</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="normalization crates/eos-backend-audit/src/normalization.rs SandboxPullBatch SandboxAuditLoss impl SandboxAuditLoss ObsNormalizationError normalize_agent_core_jsonl_line normalize_sandbox_pull_response normalize_sandbox_event sandbox_loss sandbox_ids string_at string_at_object max_known sum_known">
   <div class="module-head">
     <div>
@@ -56,74 +56,74 @@
       <span>2 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-SandboxPullBatch-5" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct SandboxPullBatch pub pub struct SandboxPullBatch crates/eos-backend-audit/src/normalization.rs rows Vec &lt; ObsEnvelope &gt; loss SandboxAuditLoss ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-SandboxPullBatch-6" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct SandboxPullBatch pub pub struct SandboxPullBatch crates/eos-backend-audit/src/normalization.rs rows Vec &lt; ObsEnvelope &gt; loss SandboxAuditLoss ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>SandboxPullBatch</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-5">SandboxPullBatch</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-6">SandboxPullBatch</a></code>
   <p class="docstring">A sandbox pull response normalized for runner consumption.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>rows</td><td><code>Vec &lt; ObsEnvelope &gt;</code></td></tr><tr><td>pub</td><td>loss</td><td><code><a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a></code></td></tr></tbody></table>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>rows</td><td><code>Vec &lt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a> &gt;</code></td></tr><tr><td>pub</td><td>loss</td><td><code><a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a></code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:5</p>
-</article><article id="item-struct-SandboxAuditLoss-14" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct SandboxAuditLoss pub pub struct SandboxAuditLoss crates/eos-backend-audit/src/normalization.rs cursor_after_seq Option &lt; i64 &gt; lost_before_seq Option &lt; i64 &gt; dropped_event_count Option &lt; i64 &gt; ">
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:6</p>
+</article><article id="item-struct-SandboxAuditLoss-15" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct SandboxAuditLoss pub pub struct SandboxAuditLoss crates/eos-backend-audit/src/normalization.rs cursor_after_seq Option &lt; i64 &gt; lost_before_seq Option &lt; i64 &gt; dropped_event_count Option &lt; i64 &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>SandboxAuditLoss</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a></code>
   <p class="docstring">Counted loss and cursor metadata from the daemon audit ring.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Default</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>cursor_after_seq</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>pub</td><td>lost_before_seq</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>pub</td><td>dropped_event_count</td><td><code>Option &lt; i64 &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-has-counted-loss-26"><td>method</td><td>has_counted_loss</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#method-has-counted-loss-26">has_counted_loss</a> (&amp; self) -&gt; bool</code><p class="docstring">Return true when the bounded audit surface reported any counted loss.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>cursor_after_seq</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>pub</td><td>lost_before_seq</td><td><code>Option &lt; i64 &gt;</code></td></tr><tr><td>pub</td><td>dropped_event_count</td><td><code>Option &lt; i64 &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-has-counted-loss-27"><td>method</td><td>has_counted_loss</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#method-has-counted-loss-27">has_counted_loss</a> (&amp; self) -&gt; bool</code><p class="docstring">Return true when the bounded audit surface reported any counted loss.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Return true when the bounded audit surface reported any counted loss.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-has-counted-loss-26">has_counted_loss</a>(&amp;<span class="rs-self">self</span>) -&gt; bool {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-has-counted-loss-27">has_counted_loss</a>(&amp;<span class="rs-self">self</span>) -&gt; bool {
         <span class="rs-self">self</span>.lost_before_seq.is_some_and(|seq| seq &gt; 0)
             || <span class="rs-self">self</span>.dropped_event_count.is_some_and(|count| count &gt; 0)
     }
 </code></pre>
-</details></td></tr><tr id="method-merge-33"><td>associated-fn</td><td>merge</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#method-merge-33">merge</a> &lt; &#x27;a &gt; (losses : impl IntoIterator &lt; Item = &amp; &#x27;a Self &gt;) -&gt; Self</code><p class="docstring">Merge multiple sandbox loss records into one runner-facing summary.</p><details class="function-source">
+</details></td></tr><tr id="method-merge-34"><td>associated-fn</td><td>merge</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#method-merge-34">merge</a> &lt; &#x27;a &gt; (losses : impl IntoIterator &lt; Item = &amp; &#x27;a Self &gt;) -&gt; Self</code><p class="docstring">Merge multiple sandbox loss records into one runner-facing summary.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Merge multiple sandbox loss records into one runner-facing summary.</span>
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> merge&lt;&#x27;a&gt;(losses: <span class="rs-kw">impl</span> <span class="rs-type">IntoIterator</span>&lt;<span class="rs-type">Item</span> = &amp;&#x27;a <span class="rs-self">Self</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         losses
             .into_iter()
-            .fold(<span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-default-115">default</a>(), |<span class="rs-kw">mut</span> merged, loss| {
-                merged.cursor_after_seq = <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-189">max_known</a>(merged.cursor_after_seq, loss.cursor_after_seq);
-                merged.lost_before_seq = <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-189">max_known</a>(merged.lost_before_seq, loss.lost_before_seq);
+            .fold(<span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>(), |<span class="rs-kw">mut</span> merged, loss| {
+                merged.cursor_after_seq = <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-190">max_known</a>(merged.cursor_after_seq, loss.cursor_after_seq);
+                merged.lost_before_seq = <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-190">max_known</a>(merged.lost_before_seq, loss.lost_before_seq);
                 merged.dropped_event_count =
-                    <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sum-known-197">sum_known</a>(merged.dropped_event_count, loss.dropped_event_count);
+                    <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sum-known-198">sum_known</a>(merged.dropped_event_count, loss.dropped_event_count);
                 merged
             })
     }
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:14</p>
-</article><article id="item-enum-ObsNormalizationError-48" class="type-card" data-kind="enum" data-kind-list="enum field type-model" data-filter-text="enum ObsNormalizationError pub pub enum ObsNormalizationError crates/eos-backend-audit/src/normalization.rs  ">
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:15</p>
+</article><article id="item-enum-ObsNormalizationError-49" class="type-card" data-kind="enum" data-kind-list="enum field type-model" data-filter-text="enum ObsNormalizationError pub pub enum ObsNormalizationError crates/eos-backend-audit/src/normalization.rs  ">
   <div class="item-head">
     <span class="kind">enum</span>
     <h3>ObsNormalizationError</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub enum <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a></code>
+  <code class="signature">pub enum <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a></code>
   <p class="docstring">Errors reported while normalizing backend observability inputs.</p>
   <div class="tags"><span>derive: Debug</span><span>derive: thiserror::Error</span><span>error</span></div>
   <h4>Variants</h4><table><tbody><tr><td>AgentCoreJsonl</td><td><code>0: serde_json :: Error</code></td></tr><tr><td>SandboxSchema</td><td><code></code></td></tr><tr><td>MissingEvents</td><td><code></code></td></tr><tr><td>MissingEventType</td><td><code></code></td></tr><tr><td>NonObjectPayload</td><td><code></code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:48</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-normalize-agent-core-jsonl-line-68" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn normalize_agent_core_jsonl_line pub pub fn normalize_agent_core_jsonl_line (line : &amp; str) -&gt; Result &lt; ObsEnvelope , ObsNormalizationError &gt; crates/eos-backend-audit/src/normalization.rs  ">
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:49</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-normalize-agent-core-jsonl-line-69" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn normalize_agent_core_jsonl_line pub pub fn normalize_agent_core_jsonl_line (line : &amp; str) -&gt; Result &lt; ObsEnvelope , ObsNormalizationError &gt; crates/eos-backend-audit/src/normalization.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>normalize_agent_core_jsonl_line</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-agent-core-jsonl-line-68">normalize_agent_core_jsonl_line</a> (line : &amp; str) -&gt; Result &lt; ObsEnvelope , <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a> &gt;</code>
+  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-agent-core-jsonl-line-69">normalize_agent_core_jsonl_line</a> (line : &amp; str) -&gt; Result &lt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a> , <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a> &gt;</code>
   <p class="docstring">Parse one agent-core normalized JSONL row.<br># Errors<br>Returns [`ObsNormalizationError::AgentCoreJsonl`] when the line is not a valid<br>[`ObsEnvelope`] JSON object.</p>
   <div class="tags"></div>
   <details class="function-source">
@@ -134,20 +134,20 @@
 <span class="rs-comment">///</span>
 <span class="rs-comment">/// Returns [`ObsNormalizationError::AgentCoreJsonl`] when the line is not a valid</span>
 <span class="rs-comment">/// [`ObsEnvelope`] JSON object.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-agent-core-jsonl-line-68">normalize_agent_core_jsonl_line</a>(line: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsEnvelope</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>&gt; {
-    from_jsonl_line(line).map_err(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>::<span class="rs-type">AgentCoreJsonl</span>)
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-agent-core-jsonl-line-69">normalize_agent_core_jsonl_line</a>(line: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>&gt; {
+    <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-from-jsonl-line-137">from_jsonl_line</a>(line).map_err(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>::<span class="rs-type">AgentCoreJsonl</span>)
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:68</p>
-</article><article id="item-fn-normalize-sandbox-pull-response-78" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn normalize_sandbox_pull_response pub pub fn normalize_sandbox_pull_response (response : &amp; Value ,) -&gt; Result &lt; SandboxPullBatch , ObsNormalizationError &gt; crates/eos-backend-audit/src/normalization.rs  ">
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:69</p>
+</article><article id="item-fn-normalize-sandbox-pull-response-79" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn normalize_sandbox_pull_response pub pub fn normalize_sandbox_pull_response (response : &amp; Value ,) -&gt; Result &lt; SandboxPullBatch , ObsNormalizationError &gt; crates/eos-backend-audit/src/normalization.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>normalize_sandbox_pull_response</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-pull-response-78">normalize_sandbox_pull_response</a> (response : &amp; Value ,) -&gt; Result &lt; <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-5">SandboxPullBatch</a> , <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a> &gt;</code>
+  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-pull-response-79">normalize_sandbox_pull_response</a> (response : &amp; Value ,) -&gt; Result &lt; <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-6">SandboxPullBatch</a> , <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a> &gt;</code>
   <p class="docstring">Normalize a complete `api.audit.pull` response.<br># Errors<br>Returns an error when the response schema or event array is invalid, or when<br>any contained event cannot be normalized.</p>
   <div class="tags"></div>
   <details class="function-source">
@@ -158,36 +158,36 @@
 <span class="rs-comment">///</span>
 <span class="rs-comment">/// Returns an error when the response schema or event array is invalid, or when</span>
 <span class="rs-comment">/// any contained event cannot be normalized.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-pull-response-78">normalize_sandbox_pull_response</a>(
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-pull-response-79">normalize_sandbox_pull_response</a>(
     response: &amp;<span class="rs-type">Value</span>,
-) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-5">SandboxPullBatch</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-6">SandboxPullBatch</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>&gt; {
     <span class="rs-kw">if</span> response.get(&quot;schema&quot;).and_then(<span class="rs-type">Value</span>::as_str) != <span class="rs-type">Some</span>(eos_protocol::audit::<span class="rs-type">SCHEMA_VERSION</span>) {
-        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>::<span class="rs-type">SandboxSchema</span>);
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>::<span class="rs-type">SandboxSchema</span>);
     }
     <span class="rs-kw">let</span> events = response
         .get(&quot;events&quot;)
         .and_then(<span class="rs-type">Value</span>::as_array)
-        .ok_or(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>::<span class="rs-type">MissingEvents</span>)?;
+        .ok_or(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>::<span class="rs-type">MissingEvents</span>)?;
     <span class="rs-kw">let</span> rows = events
         .iter()
         .map(normalize_sandbox_event)
         .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, _&gt;&gt;()?;
-    <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-5">SandboxPullBatch</a> {
+    <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-6">SandboxPullBatch</a> {
         rows,
-        loss: <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-loss-132">sandbox_loss</a>(response),
+        loss: <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-loss-133">sandbox_loss</a>(response),
     })
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:78</p>
-</article><article id="item-fn-normalize-sandbox-event-104" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn normalize_sandbox_event pub pub fn normalize_sandbox_event (event : &amp; Value) -&gt; Result &lt; ObsEnvelope , ObsNormalizationError &gt; crates/eos-backend-audit/src/normalization.rs  ">
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:79</p>
+</article><article id="item-fn-normalize-sandbox-event-105" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn normalize_sandbox_event pub pub fn normalize_sandbox_event (event : &amp; Value) -&gt; Result &lt; ObsEnvelope , ObsNormalizationError &gt; crates/eos-backend-audit/src/normalization.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>normalize_sandbox_event</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-event-104">normalize_sandbox_event</a> (event : &amp; Value) -&gt; Result &lt; ObsEnvelope , <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a> &gt;</code>
+  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-event-105">normalize_sandbox_event</a> (event : &amp; Value) -&gt; Result &lt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a> , <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a> &gt;</code>
   <p class="docstring">Normalize one daemon audit-ring event.<br># Errors<br>Returns an error when `type` is absent or `payload` is not an object.</p>
   <div class="tags"></div>
   <details class="function-source">
@@ -197,44 +197,44 @@
 <span class="rs-comment">/// # Errors</span>
 <span class="rs-comment">///</span>
 <span class="rs-comment">/// Returns an error when `type` is absent or `payload` is not an object.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-event-104">normalize_sandbox_event</a>(event: &amp;<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsEnvelope</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>&gt; {
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-event-105">normalize_sandbox_event</a>(event: &amp;<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>&gt; {
     <span class="rs-kw">let</span> event_type = event
         .get(&quot;<span class="rs-kw">type</span>&quot;)
         .and_then(<span class="rs-type">Value</span>::as_str)
-        .ok_or(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>::<span class="rs-type">MissingEventType</span>)?;
+        .ok_or(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>::<span class="rs-type">MissingEventType</span>)?;
     <span class="rs-kw">let</span> payload = <span class="rs-kw">match</span> event.get(&quot;payload&quot;) {
-        <span class="rs-type">None</span> =&gt; <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(),
+        <span class="rs-type">None</span> =&gt; <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(),
         <span class="rs-type">Some</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(payload)) =&gt; payload.clone(),
-        <span class="rs-type">Some</span>(_) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>::<span class="rs-type">NonObjectPayload</span>),
+        <span class="rs-type">Some</span>(_) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>::<span class="rs-type">NonObjectPayload</span>),
     };
 
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> row = <span class="rs-type">ObsEnvelope</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(<span class="rs-type">ObsSource</span>::<span class="rs-type">Sandbox</span>, event_type)
-        .with_ids(<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-ids-155">sandbox_ids</a>(event, &amp;payload))
-        .with_payload(payload);
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> row = <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(<a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>::<span class="rs-type">Sandbox</span>, event_type)
+        .<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-ids-105">with_ids</a>(<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-ids-156">sandbox_ids</a>(event, &amp;payload))
+        .<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-payload-112">with_payload</a>(payload);
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> (<span class="rs-type">Some</span>(seq), <span class="rs-type">Some</span>(lane)) = (
         event.get(&quot;seq&quot;).and_then(<span class="rs-type">Value</span>::as_i64),
         event.get(&quot;lane&quot;).and_then(<span class="rs-type">Value</span>::as_str),
     ) {
-        row = row.with_ring_metadata(seq, lane);
+        row = row.<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-ring-metadata-119">with_ring_metadata</a>(seq, lane);
     }
     <span class="rs-type">Ok</span>(row)
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:104</p>
-</article><article id="item-fn-sandbox-loss-132" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn sandbox_loss private fn sandbox_loss (response : &amp; Value) -&gt; SandboxAuditLoss crates/eos-backend-audit/src/normalization.rs  ">
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:105</p>
+</article><article id="item-fn-sandbox-loss-133" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn sandbox_loss private fn sandbox_loss (response : &amp; Value) -&gt; SandboxAuditLoss crates/eos-backend-audit/src/normalization.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>sandbox_loss</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-loss-132">sandbox_loss</a> (response : &amp; Value) -&gt; <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a></code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-loss-133">sandbox_loss</a> (response : &amp; Value) -&gt; <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a></code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-loss-132">sandbox_loss</a>(response: &amp;<span class="rs-type">Value</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a> {
-    <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a> {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-loss-133">sandbox_loss</a>(response: &amp;<span class="rs-type">Value</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a> {
+    <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a> {
         cursor_after_seq: response
             .get(&quot;cursor&quot;)
             .and_then(|cursor| cursor.get(&quot;after_seq&quot;))
@@ -258,52 +258,52 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:132</p>
-</article><article id="item-fn-sandbox-ids-155" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn sandbox_ids private fn sandbox_ids (event : &amp; Value , payload : &amp; JsonObject) -&gt; ObsIds crates/eos-backend-audit/src/normalization.rs  ">
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:133</p>
+</article><article id="item-fn-sandbox-ids-156" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn sandbox_ids private fn sandbox_ids (event : &amp; Value , payload : &amp; JsonObject) -&gt; ObsIds crates/eos-backend-audit/src/normalization.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>sandbox_ids</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-ids-155">sandbox_ids</a> (event : &amp; Value , payload : &amp; JsonObject) -&gt; ObsIds</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-ids-156">sandbox_ids</a> (event : &amp; Value , payload : &amp; JsonObject) -&gt; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a></code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-ids-155">sandbox_ids</a>(event: &amp;<span class="rs-type">Value</span>, payload: &amp;<span class="rs-type">JsonObject</span>) -&gt; <span class="rs-type">ObsIds</span> {
-    <span class="rs-type">ObsIds</span> {
-        request_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(event, &amp;[&quot;request_id&quot;])
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;request_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;request_id&quot;])),
-        task_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(event, &amp;[&quot;task_id&quot;])
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;task_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;task_id&quot;])),
-        agent_run_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(event, &amp;[&quot;agent_run_id&quot;])
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;agent_run_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;agent_run_id&quot;])),
-        tool_use_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(event, &amp;[&quot;tool_use_id&quot;])
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_use_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;tool_use_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;os_resource&quot;, &quot;tool_use_id&quot;])),
-        sandbox_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(event, &amp;[&quot;sandbox_id&quot;])
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;sandbox_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;sandbox_id&quot;])),
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-ids-156">sandbox_ids</a>(event: &amp;<span class="rs-type">Value</span>, payload: &amp;<span class="rs-type">JsonObject</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a> {
+    <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a> {
+        request_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(event, &amp;[&quot;request_id&quot;])
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;request_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;request_id&quot;])),
+        task_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(event, &amp;[&quot;task_id&quot;])
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;task_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;task_id&quot;])),
+        agent_run_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(event, &amp;[&quot;agent_run_id&quot;])
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;agent_run_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;agent_run_id&quot;])),
+        tool_use_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(event, &amp;[&quot;tool_use_id&quot;])
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_use_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;tool_use_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;os_resource&quot;, &quot;tool_use_id&quot;])),
+        sandbox_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(event, &amp;[&quot;sandbox_id&quot;])
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;sandbox_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;sandbox_id&quot;])),
     }
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:155</p>
-</article><article id="item-fn-string-at-176" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn string_at private fn string_at (value : &amp; Value , path : &amp; [&amp; str]) -&gt; Option &lt; String &gt; crates/eos-backend-audit/src/normalization.rs  ">
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:156</p>
+</article><article id="item-fn-string-at-177" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn string_at private fn string_at (value : &amp; Value , path : &amp; [&amp; str]) -&gt; Option &lt; String &gt; crates/eos-backend-audit/src/normalization.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>string_at</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a> (value : &amp; Value , path : &amp; [&amp; str]) -&gt; Option &lt; String &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a> (value : &amp; Value , path : &amp; [&amp; str]) -&gt; Option &lt; String &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(value: &amp;<span class="rs-type">Value</span>, path: &amp;[&amp;str]) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(value: &amp;<span class="rs-type">Value</span>, path: &amp;[&amp;str]) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> current = value;
     <span class="rs-kw">for</span> key <span class="rs-kw">in</span> path {
         current = current.get(*key)?;
@@ -313,36 +313,36 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:176</p>
-</article><article id="item-fn-string-at-object-184" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn string_at_object private fn string_at_object (object : &amp; JsonObject , path : &amp; [&amp; str]) -&gt; Option &lt; String &gt; crates/eos-backend-audit/src/normalization.rs  ">
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:177</p>
+</article><article id="item-fn-string-at-object-185" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn string_at_object private fn string_at_object (object : &amp; JsonObject , path : &amp; [&amp; str]) -&gt; Option &lt; String &gt; crates/eos-backend-audit/src/normalization.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>string_at_object</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a> (object : &amp; JsonObject , path : &amp; [&amp; str]) -&gt; Option &lt; String &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a> (object : &amp; JsonObject , path : &amp; [&amp; str]) -&gt; Option &lt; String &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(object: &amp;<span class="rs-type">JsonObject</span>, path: &amp;[&amp;str]) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(object: &amp;<span class="rs-type">JsonObject</span>, path: &amp;[&amp;str]) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
     <span class="rs-kw">let</span> (first, rest) = path.split_first()?;
-    <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(object.get(*first)?, rest)
+    <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(object.get(*first)?, rest)
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:184</p>
-</article><article id="item-fn-max-known-189" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn max_known private fn max_known (left : Option &lt; i64 &gt; , right : Option &lt; i64 &gt;) -&gt; Option &lt; i64 &gt; crates/eos-backend-audit/src/normalization.rs  ">
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:185</p>
+</article><article id="item-fn-max-known-190" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn max_known private fn max_known (left : Option &lt; i64 &gt; , right : Option &lt; i64 &gt;) -&gt; Option &lt; i64 &gt; crates/eos-backend-audit/src/normalization.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>max_known</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-189">max_known</a> (left : Option &lt; i64 &gt; , right : Option &lt; i64 &gt;) -&gt; Option &lt; i64 &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-190">max_known</a> (left : Option &lt; i64 &gt; , right : Option &lt; i64 &gt;) -&gt; Option &lt; i64 &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-189">max_known</a>(left: <span class="rs-type">Option</span>&lt;i64&gt;, right: <span class="rs-type">Option</span>&lt;i64&gt;) -&gt; <span class="rs-type">Option</span>&lt;i64&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-190">max_known</a>(left: <span class="rs-type">Option</span>&lt;i64&gt;, right: <span class="rs-type">Option</span>&lt;i64&gt;) -&gt; <span class="rs-type">Option</span>&lt;i64&gt; {
     <span class="rs-kw">match</span> (left, right) {
         (<span class="rs-type">Some</span>(left), <span class="rs-type">Some</span>(right)) =&gt; <span class="rs-type">Some</span>(left.max(right)),
         (<span class="rs-type">Some</span>(value), <span class="rs-type">None</span>) | (<span class="rs-type">None</span>, <span class="rs-type">Some</span>(value)) =&gt; <span class="rs-type">Some</span>(value),
@@ -352,18 +352,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:189</p>
-</article><article id="item-fn-sum-known-197" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn sum_known private fn sum_known (left : Option &lt; i64 &gt; , right : Option &lt; i64 &gt;) -&gt; Option &lt; i64 &gt; crates/eos-backend-audit/src/normalization.rs  ">
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:190</p>
+</article><article id="item-fn-sum-known-198" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn sum_known private fn sum_known (left : Option &lt; i64 &gt; , right : Option &lt; i64 &gt;) -&gt; Option &lt; i64 &gt; crates/eos-backend-audit/src/normalization.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>sum_known</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-sum-known-197">sum_known</a> (left : Option &lt; i64 &gt; , right : Option &lt; i64 &gt;) -&gt; Option &lt; i64 &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-fn-sum-known-198">sum_known</a> (left : Option &lt; i64 &gt; , right : Option &lt; i64 &gt;) -&gt; Option &lt; i64 &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sum-known-197">sum_known</a>(left: <span class="rs-type">Option</span>&lt;i64&gt;, right: <span class="rs-type">Option</span>&lt;i64&gt;) -&gt; <span class="rs-type">Option</span>&lt;i64&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sum-known-198">sum_known</a>(left: <span class="rs-type">Option</span>&lt;i64&gt;, right: <span class="rs-type">Option</span>&lt;i64&gt;) -&gt; <span class="rs-type">Option</span>&lt;i64&gt; {
     <span class="rs-kw">match</span> (left, right) {
         (<span class="rs-type">Some</span>(left), <span class="rs-type">Some</span>(right)) =&gt; <span class="rs-type">Some</span>(left + right),
         (<span class="rs-type">Some</span>(value), <span class="rs-type">None</span>) | (<span class="rs-type">None</span>, <span class="rs-type">Some</span>(value)) =&gt; <span class="rs-type">Some</span>(value),
@@ -373,7 +373,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/normalization.rs:197</p>
+  <p class="source">crates/eos-backend-audit/src/normalization.rs:198</p>
 </article></div>
 </section></div>
 </main>
@@ -382,22 +382,23 @@
     <h2>Source File</h2>
     <p class="path">crates/eos-backend-audit/src/normalization.rs</p>
   </div>
-  <pre class="file-source"><code><span class="rs-kw">use</span> eos_audit::{from_jsonl_line, <span class="rs-type">JsonObject</span>, <span class="rs-type">ObsEnvelope</span>, <span class="rs-type">ObsIds</span>, <span class="rs-type">ObsSource</span>};
-<span class="rs-kw">use</span> serde::{<span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>};
+  <pre class="file-source"><code><span class="rs-kw">use</span> serde::{<span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>};
 <span class="rs-kw">use</span> serde_json::<span class="rs-type">Value</span>;
+
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{from_jsonl_line, <span class="rs-type">JsonObject</span>, <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>, <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a>, <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>};
 
 <span class="rs-comment">/// A sandbox pull response normalized for runner consumption.</span>
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-5">SandboxPullBatch</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-6">SandboxPullBatch</a> {
     <span class="rs-comment">/// Normalized rows from the response's `events` array.</span>
-    <span class="rs-kw">pub</span> rows: <span class="rs-type">Vec</span>&lt;<span class="rs-type">ObsEnvelope</span>&gt;,
+    <span class="rs-kw">pub</span> rows: <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>&gt;,
     <span class="rs-comment">/// Cursor and bounded-ring loss metadata reported with the pull.</span>
-    <span class="rs-kw">pub</span> loss: <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a>,
+    <span class="rs-kw">pub</span> loss: <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a>,
 }
 
 <span class="rs-comment">/// Counted loss and cursor metadata from the daemon audit ring.</span>
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Default</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a> {
     <span class="rs-comment">/// Cursor returned by `api.audit.pull` after this pull.</span>
     <span class="rs-kw">pub</span> cursor_after_seq: <span class="rs-type">Option</span>&lt;i64&gt;,
     <span class="rs-comment">/// First retained sequence when older events were evicted.</span>
@@ -406,10 +407,10 @@
     <span class="rs-kw">pub</span> dropped_event_count: <span class="rs-type">Option</span>&lt;i64&gt;,
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a> {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a> {
     <span class="rs-comment">/// Return true when the bounded audit surface reported any counted loss.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-has-counted-loss-26">has_counted_loss</a>(&amp;<span class="rs-self">self</span>) -&gt; bool {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-has-counted-loss-27">has_counted_loss</a>(&amp;<span class="rs-self">self</span>) -&gt; bool {
         <span class="rs-self">self</span>.lost_before_seq.is_some_and(|seq| seq &gt; 0)
             || <span class="rs-self">self</span>.dropped_event_count.is_some_and(|count| count &gt; 0)
     }
@@ -419,11 +420,11 @@
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> merge&lt;&#x27;a&gt;(losses: <span class="rs-kw">impl</span> <span class="rs-type">IntoIterator</span>&lt;<span class="rs-type">Item</span> = &amp;&#x27;a <span class="rs-self">Self</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         losses
             .into_iter()
-            .fold(<span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-default-115">default</a>(), |<span class="rs-kw">mut</span> merged, loss| {
-                merged.cursor_after_seq = <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-189">max_known</a>(merged.cursor_after_seq, loss.cursor_after_seq);
-                merged.lost_before_seq = <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-189">max_known</a>(merged.lost_before_seq, loss.lost_before_seq);
+            .fold(<span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>(), |<span class="rs-kw">mut</span> merged, loss| {
+                merged.cursor_after_seq = <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-190">max_known</a>(merged.cursor_after_seq, loss.cursor_after_seq);
+                merged.lost_before_seq = <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-190">max_known</a>(merged.lost_before_seq, loss.lost_before_seq);
                 merged.dropped_event_count =
-                    <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sum-known-197">sum_known</a>(merged.dropped_event_count, loss.dropped_event_count);
+                    <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sum-known-198">sum_known</a>(merged.dropped_event_count, loss.dropped_event_count);
                 merged
             })
     }
@@ -431,7 +432,7 @@
 
 <span class="rs-comment">/// Errors reported while normalizing backend observability inputs.</span>
 #[derive(<span class="rs-type">Debug</span>, thiserror::<span class="rs-type">Error</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a> {
     <span class="rs-comment">/// A normalized agent-core JSONL row could not be parsed.</span>
     #[error(&quot;agent-core obs <span class="rs-type">JSONL</span> row is invalid&quot;)]
     <span class="rs-type">AgentCoreJsonl</span>(#[source] serde_json::<span class="rs-type">Error</span>),
@@ -455,8 +456,8 @@
 <span class="rs-comment">///</span>
 <span class="rs-comment">/// Returns [`ObsNormalizationError::AgentCoreJsonl`] when the line is not a valid</span>
 <span class="rs-comment">/// [`ObsEnvelope`] JSON object.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-agent-core-jsonl-line-68">normalize_agent_core_jsonl_line</a>(line: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsEnvelope</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>&gt; {
-    from_jsonl_line(line).map_err(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>::<span class="rs-type">AgentCoreJsonl</span>)
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-agent-core-jsonl-line-69">normalize_agent_core_jsonl_line</a>(line: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>&gt; {
+    <a class="symbol-link rs-fn" href="eos-backend-audit.html#item-fn-from-jsonl-line-137">from_jsonl_line</a>(line).map_err(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>::<span class="rs-type">AgentCoreJsonl</span>)
 }
 
 <span class="rs-comment">/// Normalize a complete `api.audit.pull` response.</span>
@@ -465,23 +466,23 @@
 <span class="rs-comment">///</span>
 <span class="rs-comment">/// Returns an error when the response schema or event array is invalid, or when</span>
 <span class="rs-comment">/// any contained event cannot be normalized.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-pull-response-78">normalize_sandbox_pull_response</a>(
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-pull-response-79">normalize_sandbox_pull_response</a>(
     response: &amp;<span class="rs-type">Value</span>,
-) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-5">SandboxPullBatch</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-6">SandboxPullBatch</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>&gt; {
     <span class="rs-kw">if</span> response.get(&quot;schema&quot;).and_then(<span class="rs-type">Value</span>::as_str) != <span class="rs-type">Some</span>(eos_protocol::audit::<span class="rs-type">SCHEMA_VERSION</span>) {
-        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>::<span class="rs-type">SandboxSchema</span>);
+        <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>::<span class="rs-type">SandboxSchema</span>);
     }
     <span class="rs-kw">let</span> events = response
         .get(&quot;events&quot;)
         .and_then(<span class="rs-type">Value</span>::as_array)
-        .ok_or(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>::<span class="rs-type">MissingEvents</span>)?;
+        .ok_or(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>::<span class="rs-type">MissingEvents</span>)?;
     <span class="rs-kw">let</span> rows = events
         .iter()
         .map(normalize_sandbox_event)
         .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, _&gt;&gt;()?;
-    <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-5">SandboxPullBatch</a> {
+    <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-6">SandboxPullBatch</a> {
         rows,
-        loss: <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-loss-132">sandbox_loss</a>(response),
+        loss: <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-loss-133">sandbox_loss</a>(response),
     })
 }
 
@@ -490,31 +491,31 @@
 <span class="rs-comment">/// # Errors</span>
 <span class="rs-comment">///</span>
 <span class="rs-comment">/// Returns an error when `type` is absent or `payload` is not an object.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-event-104">normalize_sandbox_event</a>(event: &amp;<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsEnvelope</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>&gt; {
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-normalize-sandbox-event-105">normalize_sandbox_event</a>(event: &amp;<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>&gt; {
     <span class="rs-kw">let</span> event_type = event
         .get(&quot;<span class="rs-kw">type</span>&quot;)
         .and_then(<span class="rs-type">Value</span>::as_str)
-        .ok_or(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>::<span class="rs-type">MissingEventType</span>)?;
+        .ok_or(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>::<span class="rs-type">MissingEventType</span>)?;
     <span class="rs-kw">let</span> payload = <span class="rs-kw">match</span> event.get(&quot;payload&quot;) {
-        <span class="rs-type">None</span> =&gt; <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(),
+        <span class="rs-type">None</span> =&gt; <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(),
         <span class="rs-type">Some</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(payload)) =&gt; payload.clone(),
-        <span class="rs-type">Some</span>(_) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-48">ObsNormalizationError</a>::<span class="rs-type">NonObjectPayload</span>),
+        <span class="rs-type">Some</span>(_) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>::<span class="rs-type">NonObjectPayload</span>),
     };
 
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> row = <span class="rs-type">ObsEnvelope</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(<span class="rs-type">ObsSource</span>::<span class="rs-type">Sandbox</span>, event_type)
-        .with_ids(<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-ids-155">sandbox_ids</a>(event, &amp;payload))
-        .with_payload(payload);
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> row = <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(<a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>::<span class="rs-type">Sandbox</span>, event_type)
+        .<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-ids-105">with_ids</a>(<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-ids-156">sandbox_ids</a>(event, &amp;payload))
+        .<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-payload-112">with_payload</a>(payload);
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> (<span class="rs-type">Some</span>(seq), <span class="rs-type">Some</span>(lane)) = (
         event.get(&quot;seq&quot;).and_then(<span class="rs-type">Value</span>::as_i64),
         event.get(&quot;lane&quot;).and_then(<span class="rs-type">Value</span>::as_str),
     ) {
-        row = row.with_ring_metadata(seq, lane);
+        row = row.<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-with-ring-metadata-119">with_ring_metadata</a>(seq, lane);
     }
     <span class="rs-type">Ok</span>(row)
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-loss-132">sandbox_loss</a>(response: &amp;<span class="rs-type">Value</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a> {
-    <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-14">SandboxAuditLoss</a> {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-loss-133">sandbox_loss</a>(response: &amp;<span class="rs-type">Value</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a> {
+    <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a> {
         cursor_after_seq: response
             .get(&quot;cursor&quot;)
             .and_then(|cursor| cursor.get(&quot;after_seq&quot;))
@@ -536,28 +537,28 @@
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-ids-155">sandbox_ids</a>(event: &amp;<span class="rs-type">Value</span>, payload: &amp;<span class="rs-type">JsonObject</span>) -&gt; <span class="rs-type">ObsIds</span> {
-    <span class="rs-type">ObsIds</span> {
-        request_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(event, &amp;[&quot;request_id&quot;])
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;request_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;request_id&quot;])),
-        task_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(event, &amp;[&quot;task_id&quot;])
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;task_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;task_id&quot;])),
-        agent_run_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(event, &amp;[&quot;agent_run_id&quot;])
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;agent_run_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;agent_run_id&quot;])),
-        tool_use_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(event, &amp;[&quot;tool_use_id&quot;])
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_use_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;tool_use_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;os_resource&quot;, &quot;tool_use_id&quot;])),
-        sandbox_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(event, &amp;[&quot;sandbox_id&quot;])
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;sandbox_id&quot;]))
-            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;sandbox_id&quot;])),
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sandbox-ids-156">sandbox_ids</a>(event: &amp;<span class="rs-type">Value</span>, payload: &amp;<span class="rs-type">JsonObject</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a> {
+    <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsIds-40">ObsIds</a> {
+        request_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(event, &amp;[&quot;request_id&quot;])
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;request_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;request_id&quot;])),
+        task_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(event, &amp;[&quot;task_id&quot;])
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;task_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;task_id&quot;])),
+        agent_run_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(event, &amp;[&quot;agent_run_id&quot;])
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;agent_run_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;agent_run_id&quot;])),
+        tool_use_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(event, &amp;[&quot;tool_use_id&quot;])
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_use_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;tool_use_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;os_resource&quot;, &quot;tool_use_id&quot;])),
+        sandbox_id: <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(event, &amp;[&quot;sandbox_id&quot;])
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;sandbox_id&quot;]))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(payload, &amp;[&quot;tool_call&quot;, &quot;sandbox_id&quot;])),
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(value: &amp;<span class="rs-type">Value</span>, path: &amp;[&amp;str]) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(value: &amp;<span class="rs-type">Value</span>, path: &amp;[&amp;str]) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> current = value;
     <span class="rs-kw">for</span> key <span class="rs-kw">in</span> path {
         current = current.get(*key)?;
@@ -565,12 +566,12 @@
     current.as_str().map(str::to_owned)
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-184">string_at_object</a>(object: &amp;<span class="rs-type">JsonObject</span>, path: &amp;[&amp;str]) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-string-at-object-185">string_at_object</a>(object: &amp;<span class="rs-type">JsonObject</span>, path: &amp;[&amp;str]) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt; {
     <span class="rs-kw">let</span> (first, rest) = path.split_first()?;
-    <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-261">string_at</a>(object.get(*first)?, rest)
+    <a class="symbol-link rs-fn" href="eos-backend-audit--src-ingestor-rs.html#item-fn-string-at-270">string_at</a>(object.get(*first)?, rest)
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-189">max_known</a>(left: <span class="rs-type">Option</span>&lt;i64&gt;, right: <span class="rs-type">Option</span>&lt;i64&gt;) -&gt; <span class="rs-type">Option</span>&lt;i64&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-max-known-190">max_known</a>(left: <span class="rs-type">Option</span>&lt;i64&gt;, right: <span class="rs-type">Option</span>&lt;i64&gt;) -&gt; <span class="rs-type">Option</span>&lt;i64&gt; {
     <span class="rs-kw">match</span> (left, right) {
         (<span class="rs-type">Some</span>(left), <span class="rs-type">Some</span>(right)) =&gt; <span class="rs-type">Some</span>(left.max(right)),
         (<span class="rs-type">Some</span>(value), <span class="rs-type">None</span>) | (<span class="rs-type">None</span>, <span class="rs-type">Some</span>(value)) =&gt; <span class="rs-type">Some</span>(value),
@@ -578,7 +579,7 @@
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sum-known-197">sum_known</a>(left: <span class="rs-type">Option</span>&lt;i64&gt;, right: <span class="rs-type">Option</span>&lt;i64&gt;) -&gt; <span class="rs-type">Option</span>&lt;i64&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#item-fn-sum-known-198">sum_known</a>(left: <span class="rs-type">Option</span>&lt;i64&gt;, right: <span class="rs-type">Option</span>&lt;i64&gt;) -&gt; <span class="rs-type">Option</span>&lt;i64&gt; {
     <span class="rs-kw">match</span> (left, right) {
         (<span class="rs-type">Some</span>(left), <span class="rs-type">Some</span>(right)) =&gt; <span class="rs-type">Some</span>(left + right),
         (<span class="rs-type">Some</span>(value), <span class="rs-type">None</span>) | (<span class="rs-type">None</span>, <span class="rs-type">Some</span>(value)) =&gt; <span class="rs-type">Some</span>(value),

@@ -8,6 +8,7 @@ use workspace_guard::{
 const PHASE_2_TOTAL_LIMIT: usize = 220;
 const PHASE_4_TOTAL_LIMIT: usize = 190;
 const FINAL_TOTAL_LIMIT: usize = 170;
+const FINAL_LAYOUT_ENV: &str = "EOS_WORKSPACE_GUARD_FINAL_LAYOUT";
 
 const FINAL_CRATE_LIMITS: &[(&str, usize)] = &[
     ("eos-agent-core-server", 10),
@@ -51,10 +52,40 @@ fn module_budget_report_is_available() {
             "advisory over final total budget: total modules {total}, limit {FINAL_TOTAL_LIMIT}"
         );
     }
+    if final_layout_gate_enabled() {
+        eprintln!("final layout gate: enabled by {FINAL_LAYOUT_ENV}=1");
+        assert_final_budget(&counts, total);
+    } else {
+        eprintln!("final layout gate: disabled; set {FINAL_LAYOUT_ENV}=1 to enforce final budget");
+    }
 
     assert!(
         total > 0,
         "module_budget rule violated: no Rust source modules were counted"
+    );
+}
+
+fn final_layout_gate_enabled() -> bool {
+    std::env::var(FINAL_LAYOUT_ENV).is_ok_and(|value| {
+        matches!(
+            value.as_str(),
+            "1" | "true" | "TRUE" | "yes" | "YES" | "on" | "ON"
+        )
+    })
+}
+
+fn assert_final_budget(_counts: &BTreeMap<String, usize>, total: usize) {
+    let mut violations = Vec::new();
+    if total > FINAL_TOTAL_LIMIT {
+        violations.push(format!(
+            "total modules {total} exceed final limit {FINAL_TOTAL_LIMIT}"
+        ));
+    }
+
+    assert!(
+        violations.is_empty(),
+        "module_budget final layout rule violated:\n{}",
+        violations.join("\n")
     );
 }
 

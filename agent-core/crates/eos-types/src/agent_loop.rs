@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use crate::contracts::AgentRunApi;
 use crate::contracts::AgentRunRecordTarget;
-use crate::json::JsonObject;
 use crate::llm::Message;
+use crate::JsonObject;
 
 /// Awaitable terminal completion returned after an agent loop is launched.
 pub struct AgentLoopCompletion {

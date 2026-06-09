@@ -24,8 +24,8 @@
 <section class="summary">
   <div><b>13</b><span>modules</span></div>
   <div><b>66</b><span>items</span></div>
-  <div><b>35</b><span>fields</span></div>
-  <div><b>22</b><span>methods</span></div>
+  <div><b>44</b><span>fields</span></div>
+  <div><b>19</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/5</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link active" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>4/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link active" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>3/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="handlers::sandboxes crates/eos-backend-api/src/handlers/sandboxes.rs list detail delete">
   <div class="module-head">
     <div>
@@ -62,13 +62,13 @@
     <h3>list</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a> &gt;) -&gt; Json &lt; Vec &lt; SandboxView &gt; &gt;</code>
+  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt;) -&gt; Json &lt; Vec &lt; SandboxView &gt; &gt;</code>
   <p class="docstring">`GET /api/sandboxes` — list backend-tracked sandboxes (sanitized views).</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-comment">/// `GET /api/sandboxes` — list backend-tracked sandboxes (sanitized views).</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>(<span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;) -&gt; <span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">SandboxView</span>&gt;&gt; {
+<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>(<span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;) -&gt; <span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">SandboxView</span>&gt;&gt; {
     <span class="rs-type">Json</span>(state.sandboxes.<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>())
 }
 </code></pre>
@@ -81,22 +81,22 @@
     <h3>detail</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-detail-21">detail</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a> &gt; , Path (sandbox_id) : Path &lt; String &gt; ,) -&gt; Result &lt; Json &lt; SandboxView &gt; , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> &gt;</code>
+  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-detail-21">detail</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt; , Path (sandbox_id) : Path &lt; String &gt; ,) -&gt; Result &lt; Json &lt; SandboxView &gt; , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
   <p class="docstring">`GET /api/sandboxes/{sandbox_id}` — one sanitized [`SandboxView`].</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-comment">/// `GET /api/sandboxes/{sandbox_id}` — one sanitized [`SandboxView`].</span>
 <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-detail-21">detail</a>(
-    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;,
+    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(sandbox_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">SandboxView</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">SandboxView</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> sandbox_id: <span class="rs-type">SandboxId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;sandbox_id, &quot;sandbox&quot;)?;
     state
         .sandboxes
-        .<a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-65">view</a>(&amp;sandbox_id)
+        .<a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-32">view</a>(&amp;sandbox_id)
         .map(<span class="rs-type">Json</span>)
-        .ok_or(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>::<span class="rs-type">NotFound</span>(&quot;sandbox&quot;))
+        .ok_or(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">NotFound</span>(&quot;sandbox&quot;))
 }
 </code></pre>
 </details>
@@ -108,7 +108,7 @@
     <h3>delete</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a> &gt; , Path (sandbox_id) : Path &lt; String &gt; ,) -&gt; Result &lt; impl IntoResponse , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> &gt;</code>
+  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt; , Path (sandbox_id) : Path &lt; String &gt; ,) -&gt; Result &lt; impl IntoResponse , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
   <p class="docstring">`DELETE /api/sandboxes/{sandbox_id}` — destroy a backend-owned sandbox.<br>`204` on success; `409` when active or retained; `404` when unknown. Never<br>requires or returns daemon auth material.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
@@ -117,9 +117,9 @@
 <span class="rs-comment">/// `204` on success; `409` when active or retained; `404` when unknown. Never</span>
 <span class="rs-comment">/// requires or returns daemon auth material.</span>
 <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a>(
-    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;,
+    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(sandbox_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> sandbox_id: <span class="rs-type">SandboxId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;sandbox_id, &quot;sandbox&quot;)?;
     state.sandboxes.<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a>(&amp;sandbox_id).<span class="rs-kw">await</span>?;
     <span class="rs-type">Ok</span>(<span class="rs-type">StatusCode</span>::<span class="rs-type">NO_CONTENT</span>)
@@ -148,34 +148,34 @@
 <span class="rs-kw">use</span> eos_types::<span class="rs-type">SandboxId</span>;
 
 <span class="rs-kw">use</span> <span class="rs-kw">super</span>::parse_id;
-<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::error::<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>;
-<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::router::<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>;
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::error::<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>;
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::router::<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>;
 
 <span class="rs-comment">/// `GET /api/sandboxes` — list backend-tracked sandboxes (sanitized views).</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>(<span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;) -&gt; <span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">SandboxView</span>&gt;&gt; {
+<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>(<span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;) -&gt; <span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">SandboxView</span>&gt;&gt; {
     <span class="rs-type">Json</span>(state.sandboxes.<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>())
 }
 
 <span class="rs-comment">/// `GET /api/sandboxes/{sandbox_id}` — one sanitized [`SandboxView`].</span>
 <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-detail-21">detail</a>(
-    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;,
+    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(sandbox_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">SandboxView</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">SandboxView</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> sandbox_id: <span class="rs-type">SandboxId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;sandbox_id, &quot;sandbox&quot;)?;
     state
         .sandboxes
-        .<a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-65">view</a>(&amp;sandbox_id)
+        .<a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-32">view</a>(&amp;sandbox_id)
         .map(<span class="rs-type">Json</span>)
-        .ok_or(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>::<span class="rs-type">NotFound</span>(&quot;sandbox&quot;))
+        .ok_or(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">NotFound</span>(&quot;sandbox&quot;))
 }
 
 <span class="rs-comment">/// `DELETE /api/sandboxes/{sandbox_id}` — destroy a backend-owned sandbox.</span>
 <span class="rs-comment">/// `204` on success; `409` when active or retained; `404` when unknown. Never</span>
 <span class="rs-comment">/// requires or returns daemon auth material.</span>
 <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a>(
-    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;,
+    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(sandbox_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> sandbox_id: <span class="rs-type">SandboxId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;sandbox_id, &quot;sandbox&quot;)?;
     state.sandboxes.<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a>(&amp;sandbox_id).<span class="rs-kw">await</span>?;
     <span class="rs-type">Ok</span>(<span class="rs-type">StatusCode</span>::<span class="rs-type">NO_CONTENT</span>)

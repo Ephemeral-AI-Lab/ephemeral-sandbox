@@ -8,9 +8,7 @@
 //!
 //! The backend runtime owns:
 //!
-//! - [`EventBus`] turns agent-core's synchronous stream callback into replay-safe
-//!   persistence: a non-async classifying callback, an async persist-before-
-//!   broadcast drainer, and a [`EventBus::subscribe`] handoff with no gap.
+//! - [`EventBus`] persists engine milestones and serves replay-safe live streams.
 //! - [`resolve_api_status`] joins backend and agent-core status into the API
 //!   vocabulary.
 #![warn(missing_docs)]

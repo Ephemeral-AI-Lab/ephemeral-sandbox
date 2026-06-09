@@ -117,8 +117,8 @@
 <span class="rs-comment">//! The `/api/stats/*` shapes are owned here and assembled by the Phase 6 stats</span>
 <span class="rs-comment">//! queries in `eos-backend-audit`, which read `obs_event` and `audit_cursor`. They</span>
 <span class="rs-comment">//! are derived from observability rows only: the richer agent-core state join</span>
-<span class="rs-comment">//! (agent name, token count, terminal outcome) is owned by the Phase 7 read</span>
-<span class="rs-comment">//! handler through `RuntimeServices::state_reader()`.</span>
+<span class="rs-comment">//! (agent name, token count, terminal outcome) is owned by the request/read</span>
+<span class="rs-comment">//! handlers through `eos-agent-core-server`.</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! The response shapes are pinned for `OpenAPI` via `JsonSchema`, alongside the</span>
 <span class="rs-comment">//! API route shapes the Phase 7 crate serves.</span>

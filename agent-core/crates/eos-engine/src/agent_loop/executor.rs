@@ -126,11 +126,9 @@ impl AgentLoopExecutor {
 
         loop {
             if let Some(reason) = self.cancel_signal.reason() {
-                state
-                    .teardown_background(&format!("agent loop cancelled: {reason}"))
+                return self
+                    .finish_cancelled_agent_loop(record, state, reason)
                     .await;
-                let outcome = state.loop_failed_summary(format!("agent loop cancelled: {reason}"));
-                return self.finish_agent_run_record(record, outcome).await;
             }
             if state.turn_limit_reached() {
                 state
@@ -142,6 +140,11 @@ impl AgentLoopExecutor {
             }
 
             self.drain_notifications(&mut state, &event_identity).await;
+            if let Some(reason) = self.cancel_signal.reason() {
+                return self
+                    .finish_cancelled_agent_loop(record, state, reason)
+                    .await;
+            }
             let turn_result = match self
                 .execute_assistant_turn(&provider_stream_source, &event_identity, &mut state)
                 .await
@@ -158,6 +161,11 @@ impl AgentLoopExecutor {
 
             match turn_result {
                 AssistantTurnResult::Continue => {}
+                AssistantTurnResult::Cancelled { reason } => {
+                    return self
+                        .finish_cancelled_agent_loop(record, state, reason)
+                        .await;
+                }
                 AssistantTurnResult::TerminalToolSubmitted { outcome } => {
                     state
                         .teardown_background("parent agent submitted its terminal")
@@ -167,6 +175,19 @@ impl AgentLoopExecutor {
                 }
             }
         }
+    }
+
+    async fn finish_cancelled_agent_loop(
+        &self,
+        record: Option<LoopRecordHandle>,
+        state: AgentLoopState,
+        reason: String,
+    ) -> AgentLoopOutcome {
+        state
+            .teardown_background(&format!("agent loop cancelled: {reason}"))
+            .await;
+        let outcome = state.loop_failed_summary(format!("agent loop cancelled: {reason}"));
+        self.finish_agent_run_record(record, outcome).await
     }
 
     async fn start_agent_run_record(
@@ -241,7 +262,16 @@ impl AgentLoopExecutor {
         let mut final_message: Option<Message> = None;
         let mut final_usage: Option<UsageSnapshot> = None;
 
-        while let Some(item) = stream.next().await {
+        loop {
+            let item = tokio::select! {
+                item = stream.next() => item,
+                reason = self.cancel_signal.clone().cancelled_reason() => {
+                    return Ok(AssistantTurnResult::Cancelled { reason });
+                }
+            };
+            let Some(item) = item else {
+                break;
+            };
             let event = item?;
             let event = stamp_identity(
                 event,
@@ -273,12 +303,20 @@ impl AgentLoopExecutor {
         state
             .conversation_messages
             .push(AgentLoopMessage::AssistantMessage(message));
+        if let Some(reason) = self.cancel_signal.reason() {
+            return Ok(AssistantTurnResult::Cancelled { reason });
+        }
         if tool_calls.is_empty() {
             state.record_text_only_turn();
             return Ok(AssistantTurnResult::Continue);
         }
 
-        let dispatch = self.dispatch_tool_batch(state, &tool_calls).await?;
+        let dispatch = tokio::select! {
+            dispatch = self.dispatch_tool_batch(state, &tool_calls) => dispatch?,
+            reason = self.cancel_signal.clone().cancelled_reason() => {
+                return Ok(AssistantTurnResult::Cancelled { reason });
+            }
+        };
         let result_message = Message {
             role: eos_llm_client::MessageRole::User,
             content: dispatch.tool_results,
@@ -489,6 +527,11 @@ struct LoopRecordHandle {
 pub(crate) enum AssistantTurnResult {
     /// Continue the agent loop.
     Continue,
+    /// The loop was cancelled.
+    Cancelled {
+        /// Caller-supplied cancellation reason.
+        reason: String,
+    },
     /// A terminal tool submitted successfully.
     TerminalToolSubmitted {
         /// Terminal tool result.
@@ -629,14 +672,15 @@ mod tests {
     use std::sync::{Mutex as StdMutex, MutexGuard};
 
     use async_trait::async_trait;
-    use eos_llm_client::ToolSpec;
+    use eos_llm_client::{StopReason, ToolSpec};
     use eos_tool::{
         ExecutionMetadata, OutputShape, RegisteredTool, ToolError, ToolExecutor, ToolIntent,
         ToolRegistry,
     };
     use eos_types::{
-        AgentRunError, AgentRunOutcome, AgentRunRecordDir, AgentRunRecordTarget, AgentRunStatus,
-        RequestId, SpawnAgentRequest, TaskAgentRunKind, TaskId,
+        AgentLoopCancellationHandle, AgentLoopLauncher, AgentRunError, AgentRunOutcome,
+        AgentRunRecordDir, AgentRunRecordTarget, AgentRunStatus, RequestId, SpawnAgentRequest,
+        TaskAgentRunKind, TaskId,
     };
     use tokio::sync::Notify;
     use tokio::time::{timeout, Duration};
@@ -644,6 +688,7 @@ mod tests {
     use super::*;
     use crate::provider_stream::EngineStream;
     use crate::AgentLoopToolRegistryBuildInput;
+    use crate::TokioAgentLoopLauncher;
 
     #[tokio::test]
     async fn foreground_tool_batch_uses_bounded_fan_out_and_ordered_fan_in() {
@@ -690,6 +735,69 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn cancellation_during_provider_stream_finishes_promptly() {
+        let stream_started = Arc::new(Notify::new());
+        let launcher = TokioAgentLoopLauncher::new(
+            Arc::new(PendingStreamSource {
+                stream_started: stream_started.clone(),
+            }),
+            Arc::new(FixedRegistryFactory::new(ToolRegistry::new())),
+            Arc::new(TestMetadataReader),
+        );
+        let started = launcher.start_agent_loop(test_start_request(), Arc::new(UnusedAgentRunApi));
+
+        timeout(Duration::from_secs(1), stream_started.notified())
+            .await
+            .expect("provider stream starts");
+        started.cancellation.cancel("caller cancelled");
+
+        let outcome = timeout(Duration::from_millis(200), started.completion.wait())
+            .await
+            .expect("cancellation completes loop promptly");
+        assert!(matches!(
+            outcome.kind,
+            AgentLoopOutcomeKind::LoopFailed { ref error_summary }
+                if error_summary.contains("caller cancelled")
+        ));
+    }
+
+    #[tokio::test]
+    async fn cancellation_after_assistant_completion_skips_tool_dispatch() {
+        let (cancellation, cancel_signal) = AgentLoopCancelSignal::for_test_pair();
+        let executions = Arc::new(AtomicUsize::new(0));
+        let executor = AgentLoopExecutor {
+            provider_stream_source: AgentLoopProviderStream::Static(Arc::new(
+                CancelOnCompletionSource {
+                    cancellation: cancellation.clone(),
+                },
+            )),
+            tool_registry_factory: Arc::new(FixedRegistryFactory::new(
+                registry_with_counting_tool(&executions),
+            )),
+            execution_metadata_reader: Arc::new(TestMetadataReader),
+            cancel_signal,
+            background_sessions: None,
+            hook_stores: None,
+            event_outputs: EngineEventOutputs::new(),
+            agent_run_api: Arc::new(UnusedAgentRunApi),
+        };
+
+        let outcome = timeout(
+            Duration::from_secs(1),
+            executor.execute_agent_loop(test_start_request()),
+        )
+        .await
+        .expect("loop finishes");
+
+        assert_eq!(executions.load(Ordering::SeqCst), 0);
+        assert!(matches!(
+            outcome.kind,
+            AgentLoopOutcomeKind::LoopFailed { ref error_summary }
+                if error_summary.contains("caller cancelled")
+        ));
+    }
+
     fn test_executor() -> AgentLoopExecutor {
         AgentLoopExecutor {
             provider_stream_source: AgentLoopProviderStream::Static(Arc::new(EmptyStreamSource)),
@@ -720,6 +828,26 @@ mod tests {
                 Arc::new(CoordinatedTool { gate: gate.clone() }),
             ));
         }
+        registry
+    }
+
+    fn registry_with_counting_tool(executions: &Arc<AtomicUsize>) -> ToolRegistry {
+        let mut registry = ToolRegistry::new();
+        registry.register(RegisteredTool::new(
+            ToolName::ReadFile,
+            ToolIntent::ReadOnly,
+            false,
+            ToolSpec::new(
+                ToolName::ReadFile.as_str(),
+                "counting test tool",
+                JsonObject::new(),
+                None,
+            ),
+            OutputShape::Text,
+            Arc::new(CountingTool {
+                executions: executions.clone(),
+            }),
+        ));
         registry
     }
 
@@ -802,6 +930,22 @@ mod tests {
         }
     }
 
+    struct CountingTool {
+        executions: Arc<AtomicUsize>,
+    }
+
+    #[async_trait]
+    impl ToolExecutor for CountingTool {
+        async fn execute(
+            &self,
+            _input: &JsonObject,
+            _ctx: &ExecutionMetadata,
+        ) -> Result<ToolResult, ToolError> {
+            self.executions.fetch_add(1, Ordering::SeqCst);
+            Ok(ToolResult::ok("executed"))
+        }
+    }
+
     struct TestMetadataReader;
 
     #[async_trait]
@@ -851,6 +995,54 @@ mod tests {
     impl ProviderStreamSource for EmptyStreamSource {
         async fn stream(&self, _request: &LlmRequest) -> Result<EngineStream, EngineError> {
             Ok(Box::pin(stream::empty()))
+        }
+    }
+
+    struct PendingStreamSource {
+        stream_started: Arc<Notify>,
+    }
+
+    #[async_trait]
+    impl ProviderStreamSource for PendingStreamSource {
+        async fn stream(&self, _request: &LlmRequest) -> Result<EngineStream, EngineError> {
+            self.stream_started.notify_one();
+            Ok(Box::pin(
+                stream::pending::<Result<StreamEvent, EngineError>>(),
+            ))
+        }
+    }
+
+    struct CancelOnCompletionSource {
+        cancellation: AgentLoopCancellationHandle,
+    }
+
+    #[async_trait]
+    impl ProviderStreamSource for CancelOnCompletionSource {
+        async fn stream(&self, _request: &LlmRequest) -> Result<EngineStream, EngineError> {
+            let cancellation = self.cancellation.clone();
+            Ok(Box::pin(stream::once(async move {
+                cancellation.cancel("caller cancelled");
+                Ok(assistant_complete_with_tool_use())
+            })))
+        }
+    }
+
+    fn assistant_complete_with_tool_use() -> StreamEvent {
+        StreamEvent::AssistantMessageComplete {
+            agent_name: String::new(),
+            agent_run_id: None,
+            payload: Box::new(crate::event::AssistantMessageComplete {
+                message: Message {
+                    role: eos_llm_client::MessageRole::Assistant,
+                    content: vec![ContentBlock::ToolUse {
+                        tool_use_id: "toolu_read".parse().expect("tool use id"),
+                        name: ToolName::ReadFile.as_str().to_owned(),
+                        input: JsonObject::new(),
+                    }],
+                },
+                usage: UsageSnapshot::default(),
+                stop_reason: Some(StopReason::ToolUse),
+            }),
         }
     }
 

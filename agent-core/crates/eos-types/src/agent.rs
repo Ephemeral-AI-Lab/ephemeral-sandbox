@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Runtime class of an agent profile.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -23,9 +23,7 @@ pub enum AgentType {
 }
 
 /// A registry key / dispatchable agent profile name.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, JsonSchema)]
 #[serde(transparent)]
 #[schemars(transparent)]
 pub struct AgentName(String);
@@ -53,6 +51,15 @@ impl AgentName {
 impl fmt::Display for AgentName {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for AgentName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
     }
 }
 
@@ -209,6 +216,11 @@ mod tests {
     fn agent_name_trims_and_rejects_empty() {
         assert_eq!(AgentName::new("  root  ").unwrap().as_str(), "root");
         assert!(matches!(AgentName::new("   "), Err(AgentNameError::Empty)));
+
+        let deserialized: AgentName = serde_json::from_value(serde_json::json!("  root  "))
+            .expect("agent name serde trims like the constructor");
+        assert_eq!(deserialized.as_str(), "root");
+        assert!(serde_json::from_value::<AgentName>(serde_json::json!("   ")).is_err());
     }
 
     #[test]

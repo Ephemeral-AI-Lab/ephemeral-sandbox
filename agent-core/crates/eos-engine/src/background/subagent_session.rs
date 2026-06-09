@@ -58,11 +58,12 @@ impl SubagentSession {
         status: BackgroundSessionStatus,
         result: ToolResult,
     ) -> Option<ToolResult> {
-        if status.precedence() > self.status.precedence() {
-            self.status = status;
-            self.result = Some(result);
+        if status.precedence() <= self.status.precedence() {
+            return None;
         }
-        self.result.clone()
+        self.status = status;
+        self.result = Some(result.clone());
+        Some(result)
     }
 }
 
@@ -572,5 +573,33 @@ mod tests {
             .message
             .contains("[BACKGROUND COMPLETED] agent_run_id=run-sub-2"));
         assert!(notifications[0].message.contains("findings"));
+    }
+
+    #[tokio::test]
+    async fn settling_same_terminal_subagent_completion_is_idempotent() {
+        let notifier = EngineNotificationQueue::new();
+        let manager = manager(&notifier);
+        let done_id: AgentRunId = "run-sub-2".parse().expect("agent run id");
+        manager
+            .insert(SubagentSession::tracked(done_id.clone()))
+            .await;
+
+        let first = manager
+            .settle(
+                &done_id,
+                BackgroundSessionStatus::Completed,
+                ToolResult::ok("findings"),
+            )
+            .await;
+        let second = manager
+            .settle(
+                &done_id,
+                BackgroundSessionStatus::Completed,
+                ToolResult::ok("duplicate findings"),
+            )
+            .await;
+
+        assert!(first.is_some());
+        assert!(second.is_none());
     }
 }

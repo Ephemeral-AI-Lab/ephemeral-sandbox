@@ -24,8 +24,8 @@
 <section class="summary">
   <div><b>13</b><span>modules</span></div>
   <div><b>66</b><span>items</span></div>
-  <div><b>35</b><span>fields</span></div>
-  <div><b>22</b><span>methods</span></div>
+  <div><b>44</b><span>fields</span></div>
+  <div><b>19</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/5</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link active" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>4/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link active" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>3/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="lib crates/eos-backend-api/src/lib.rs ">
   <div class="module-head">
     <div>
@@ -68,11 +68,11 @@
 <span class="rs-comment">//! SSE milestone streaming, and the `OpenAPI` document.</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! The crate exposes one composition surface: [`AppState`] (assembled by the</span>
-<span class="rs-comment">//! backend main from the runtime capabilities and store handles) and</span>
-<span class="rs-comment">//! [`build_router`], which wires every route in `SPEC.md`. Two narrow ports —</span>
-<span class="rs-comment">//! [`RunControl`] and [`SandboxRegistry`] — abstract the stateful runtime</span>
-<span class="rs-comment">//! capabilities so the production `RunLauncher` / `SandboxManager` drive the API</span>
-<span class="rs-comment">//! in deployment while test doubles drive it in the contract tests.</span>
+<span class="rs-comment">//! backend main from the agent-core service, sandbox registry, and store handles)</span>
+<span class="rs-comment">//! and [`build_router`], which wires every route in `SPEC.md`. The sandbox</span>
+<span class="rs-comment">//! registry remains a narrow trait because tests substitute it for the production</span>
+<span class="rs-comment">//! `SandboxManager`; agent-core request lifecycle flows through the concrete</span>
+<span class="rs-comment">//! `AgentCoreService`.</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! Two contracts are load-bearing: sandbox responses ([`SandboxView`]) never</span>
 <span class="rs-comment">//! carry daemon connection material or credentials (AC4), and the milestone</span>
@@ -88,7 +88,7 @@
 <span class="rs-kw">mod</span> router;
 <span class="rs-kw">mod</span> stream;
 
-<span class="rs-kw">pub</span> <span class="rs-kw">use</span> router::{build_router, <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a>, <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>, <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-RunControl-31">RunControl</a>, <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-58">SandboxRegistry</a>};
+<span class="rs-kw">pub</span> <span class="rs-kw">use</span> router::{build_router, <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>, <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a>, <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-25">SandboxRegistry</a>};
 </code></pre>
 </section>
   <script src="../assets/inventory-data.js"></script>

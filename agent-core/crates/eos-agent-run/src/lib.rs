@@ -15,4 +15,4 @@ pub use eos_types::{
     AgentRunApi, AgentRunError, AgentRunOutcome, AgentRunStatus, SpawnAgentRequest,
     TaskAgentRunKind, WorkflowTaskRole,
 };
-pub use service::{AgentRunService, AgentRuntimeStateStore};
+pub use service::AgentRunService;

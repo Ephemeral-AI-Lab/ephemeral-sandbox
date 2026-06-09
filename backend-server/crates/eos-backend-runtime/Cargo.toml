@@ -15,7 +15,7 @@ eos-sandbox-host.workspace = true
 # and lifecycle config.
 eos-backend-types.workspace = true
 eos-backend-config.workspace = true
-# backend.db persistence: event_log repositories the event bus writes through
+# backend.db persistence: event_log repositories the event bus streams through
 # (never a raw pool).
 eos-backend-store.workspace = true
 # Engine stream event callback contract used by the backend event bus.

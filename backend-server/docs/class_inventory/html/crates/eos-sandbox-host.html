@@ -422,7 +422,7 @@
 <span class="rs-comment">/// `4c306b4e…`), so any hardcoded amd64 value is a best-effort snapshot that</span>
 <span class="rs-comment">/// races the rebuild and is intentionally NOT unit-test-pinned (a value-coupled</span>
 <span class="rs-comment">/// test would be permanently flaky). This crate is not yet wired into a running</span>
-<span class="rs-comment">/// runtime (`eos-runtime` is Phase 6), so a lagging pin has no runtime impact</span>
+<span class="rs-comment">/// runtime (agent-core request service wiring is Phase 6), so a lagging pin has no runtime impact</span>
 <span class="rs-comment">/// today; Phase-7 cutover reconciles the final release pin against the stabilized</span>
 <span class="rs-comment">/// binary. The upload/verify LOGIC (arch map, sha-mismatch, marker-skip decision)</span>
 <span class="rs-comment">/// is what this crate owns and is fully unit-tested; the pin VALUE is a cutover</span>

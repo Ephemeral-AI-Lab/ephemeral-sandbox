@@ -12,8 +12,7 @@ use eos_backend_types::{
     BackendRunStatus, CreateUserRequest, CreateUserRequestResponse, EventRecord, PageResult,
     RunMeta, RunRecord, UserRequestDetail,
 };
-use eos_types::{Page as AgentCorePage, RequestStatus};
-use eos_types::{RequestId, UtcDateTime};
+use eos_types::{RequestId, RequestStatus, UtcDateTime};
 
 use super::{parse_id, Pagination, ValidatedJson};
 use crate::error::ApiError;
@@ -78,15 +77,13 @@ pub async fn list(
     Query(pagination): Query<Pagination>,
 ) -> Result<Json<PageResult<RunRecord>>, ApiError> {
     let backend_page = pagination.page();
-    let page = state
-        .agent_core
-        .list_user_requests(AgentCorePage {
-            limit: backend_page.limit,
-            offset: backend_page.offset,
-        })
-        .await?;
-    let mut items = Vec::with_capacity(page.items.len());
-    for summary in page.items {
+    let summaries = state.agent_core.list_user_requests().await?;
+    let total = u64::try_from(summaries.len()).unwrap_or(u64::MAX);
+    let offset = usize::try_from(backend_page.offset).unwrap_or(usize::MAX);
+    let limit = usize::try_from(backend_page.limit).unwrap_or(usize::MAX);
+    let visible = summaries.into_iter().skip(offset).take(limit);
+    let mut items = Vec::new();
+    for summary in visible {
         let meta = state.run_meta.get(&summary.request_id).await?;
         let meta = match meta {
             Some(meta) => {
@@ -98,7 +95,7 @@ pub async fn list(
     }
     Ok(Json(PageResult {
         items,
-        total: page.total,
+        total,
         limit: backend_page.limit,
         offset: backend_page.offset,
     }))

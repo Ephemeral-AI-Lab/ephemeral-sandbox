@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    normalize_agent_core_jsonl_line, normalize_sandbox_pull_response, ObsNormalizationError,
-    ObsEnvelope, SandboxAuditLoss, SandboxPullBatch, OS_RESOURCE_SAMPLED, TOOL_CALL_COMPLETED,
+    normalize_agent_core_jsonl_line, normalize_sandbox_pull_response, ObsEnvelope,
+    ObsNormalizationError, SandboxAuditLoss, SandboxPullBatch, OS_RESOURCE_SAMPLED,
+    TOOL_CALL_COMPLETED,
 };
 
 const RESOURCE_METRIC_KEYS: &[&str] = &[

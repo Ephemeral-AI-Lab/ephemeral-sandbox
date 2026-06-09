@@ -54,9 +54,6 @@ pub(crate) async fn spawn_agent(
     )
     .await?;
     let record_target = created_run.record_target.clone();
-    if let Some(runtime_state) = &service.runtime_state {
-        runtime_state.record_spawn_request(&request, &created_run)?;
-    }
     let start_request = build_start_agent_loop_request(&agent_def, request, record_target);
     let agent_run_api: Arc<dyn AgentRunApi> = Arc::new(service.clone());
     let started = service

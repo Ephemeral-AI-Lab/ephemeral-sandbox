@@ -22,7 +22,7 @@
   </header>
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
-  <div><b>11</b><span>modules</span></div>
+  <div><b>9</b><span>modules</span></div>
   <div><b>20</b><span>items</span></div>
   <div><b>45</b><span>fields</span></div>
   <div><b>8</b><span>methods</span></div>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-core-server.html"><span>dto.rs</span><small>6/0</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link active" href="eos-agent-core-server--src-service-rs.html"><span>service.rs</span><small>3/0</small></a></li><li><span class="folder">user_request</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-core-server--src-user-request-cancel-rs.html"><span>cancel.rs</span><small>0/1</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-user-request-create-rs.html"><span>create.rs</span><small>0/1</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-user-request-finalizer-rs.html"><span>finalizer.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-user-request-list-rs.html"><span>list.rs</span><small>0/1</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-user-request-list-tasks-rs.html"><span>list_tasks.rs</span><small>0/1</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-user-request-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-user-request-read-rs.html"><span>read.rs</span><small>0/1</small></a></li></ul></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-core-server.html"><span>dto.rs</span><small>6/0</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link active" href="eos-agent-core-server--src-service-rs.html"><span>service.rs</span><small>3/0</small></a></li><li><span class="folder">user_request</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-core-server--src-user-request-cancel-rs.html"><span>cancel.rs</span><small>0/1</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-user-request-create-rs.html"><span>create.rs</span><small>0/1</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-user-request-finalizer-rs.html"><span>finalizer.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-core-server--src-user-request-query-rs.html"><span>query.rs</span><small>0/3</small></a></li></ul></li><li><a class="file-link" href="eos-agent-core-server--src-user-request-rs.html"><span>user_request.rs</span><small>0/0</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="service crates/eos-agent-core-server/src/service.rs AgentCoreService impl std :: fmt :: Debug for AgentCoreService AgentCoreServiceSettings AgentCoreServiceDependencies impl std :: fmt :: Debug for AgentCoreServiceDependencies impl AgentCoreService">
   <div class="module-head">
     <div>
@@ -120,10 +120,10 @@
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-agent-core-server.html#item-struct-UserRequestDetail-56">UserRequestDetail</a>&gt;, <a class="symbol-link rs-type" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a>&gt; {
-        <span class="rs-kw">crate</span>::user_request::read::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-read-user-request-118">read_user_request</a>(<span class="rs-self">self</span>, request_id).<span class="rs-kw">await</span>
+        <span class="rs-kw">crate</span>::user_request::query::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-read-user-request-118">read_user_request</a>(<span class="rs-self">self</span>, request_id).<span class="rs-kw">await</span>
     }
 </code></pre>
-</details></td></tr><tr id="method-list-user-requests-129"><td>method</td><td>list_user_requests</td><td><code>pub async fn <a class="symbol-link" href="eos-agent-core-server--src-service-rs.html#method-list-user-requests-129">list_user_requests</a> (&amp; self , page : Page ,) -&gt; Result &lt; PageResult &lt; <a class="symbol-link" href="eos-agent-core-server.html#item-struct-UserRequestSummary-39">UserRequestSummary</a> &gt; , <a class="symbol-link" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a> &gt;</code><p class="docstring">List user request summaries.<br># Errors<br>Returns [`AgentCoreServerError`] on store failure.</p><details class="function-source">
+</details></td></tr><tr id="method-list-user-requests-129"><td>method</td><td>list_user_requests</td><td><code>pub async fn <a class="symbol-link" href="eos-agent-core-server--src-service-rs.html#method-list-user-requests-129">list_user_requests</a> (&amp; self ,) -&gt; Result &lt; Vec &lt; <a class="symbol-link" href="eos-agent-core-server.html#item-struct-UserRequestSummary-39">UserRequestSummary</a> &gt; , <a class="symbol-link" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a> &gt;</code><p class="docstring">List user request summaries.<br># Errors<br>Returns [`AgentCoreServerError`] on store failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// List user request summaries.</span>
     <span class="rs-comment">///</span>
@@ -131,22 +131,21 @@
     <span class="rs-comment">/// Returns [`AgentCoreServerError`] on store failure.</span>
     <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-requests-129">list_user_requests</a>(
         &amp;<span class="rs-self">self</span>,
-        page: <span class="rs-type">Page</span>,
-    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<a class="symbol-link rs-type" href="eos-agent-core-server.html#item-struct-UserRequestSummary-39">UserRequestSummary</a>&gt;, <a class="symbol-link rs-type" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a>&gt; {
-        <span class="rs-kw">crate</span>::user_request::list::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-requests-129">list_user_requests</a>(<span class="rs-self">self</span>, page).<span class="rs-kw">await</span>
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-agent-core-server.html#item-struct-UserRequestSummary-39">UserRequestSummary</a>&gt;, <a class="symbol-link rs-type" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a>&gt; {
+        <span class="rs-kw">crate</span>::user_request::query::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-requests-129">list_user_requests</a>(<span class="rs-self">self</span>).<span class="rs-kw">await</span>
     }
 </code></pre>
-</details></td></tr><tr id="method-list-user-request-tasks-140"><td>method</td><td>list_user_request_tasks</td><td><code>pub async fn <a class="symbol-link" href="eos-agent-core-server--src-service-rs.html#method-list-user-request-tasks-140">list_user_request_tasks</a> (&amp; self , request_id : &amp; RequestId ,) -&gt; Result &lt; Vec &lt; TaskRun &gt; , <a class="symbol-link" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a> &gt;</code><p class="docstring">List task-agent-runs for a user request.<br># Errors<br>Returns [`AgentCoreServerError`] on store failure.</p><details class="function-source">
+</details></td></tr><tr id="method-list-user-request-tasks-139"><td>method</td><td>list_user_request_tasks</td><td><code>pub async fn <a class="symbol-link" href="eos-agent-core-server--src-service-rs.html#method-list-user-request-tasks-139">list_user_request_tasks</a> (&amp; self , request_id : &amp; RequestId ,) -&gt; Result &lt; Vec &lt; TaskRun &gt; , <a class="symbol-link" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a> &gt;</code><p class="docstring">List task-agent-runs for a user request.<br># Errors<br>Returns [`AgentCoreServerError`] on store failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// List task-agent-runs for a user request.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// Returns [`AgentCoreServerError`] on store failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-request-tasks-140">list_user_request_tasks</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-request-tasks-139">list_user_request_tasks</a>(
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <a class="symbol-link rs-type" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a>&gt; {
-        <span class="rs-kw">crate</span>::user_request::list_tasks::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-request-tasks-140">list_user_request_tasks</a>(<span class="rs-self">self</span>, request_id).<span class="rs-kw">await</span>
+        <span class="rs-kw">crate</span>::user_request::query::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-request-tasks-139">list_user_request_tasks</a>(<span class="rs-self">self</span>, request_id).<span class="rs-kw">await</span>
     }
 </code></pre>
 </details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-agent-core-server--src-service-rs.html#item-struct-AgentCoreService-18">AgentCoreService</a></code></summary><table><tbody><tr id="method-fmt-32"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-agent-core-server--src-service-rs.html#method-fmt-32">fmt</a> (&amp; self , formatter : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
@@ -209,8 +208,8 @@
 <span class="rs-kw">use</span> eos_agent_run::<span class="rs-type">AgentRunService</span>;
 <span class="rs-kw">use</span> eos_sandbox_port::<span class="rs-type">SandboxGateway</span>;
 <span class="rs-kw">use</span> eos_types::{
-    <span class="rs-type">AgentName</span>, <span class="rs-type">AttemptStore</span>, <span class="rs-type">IterationStore</span>, <span class="rs-type">Page</span>, <span class="rs-type">PageResult</span>, <span class="rs-type">RequestId</span>, <span class="rs-type">RequestStore</span>,
-    <span class="rs-type">TaskAgentRunStore</span>, <span class="rs-type">TaskRun</span>, <span class="rs-type">WorkflowStore</span>,
+    <span class="rs-type">AgentName</span>, <span class="rs-type">AttemptStore</span>, <span class="rs-type">IterationStore</span>, <span class="rs-type">RequestId</span>, <span class="rs-type">RequestStore</span>, <span class="rs-type">TaskAgentRunStore</span>, <span class="rs-type">TaskRun</span>,
+    <span class="rs-type">WorkflowStore</span>,
 };
 
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::dto::{
@@ -327,7 +326,7 @@
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-agent-core-server.html#item-struct-UserRequestDetail-56">UserRequestDetail</a>&gt;, <a class="symbol-link rs-type" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a>&gt; {
-        <span class="rs-kw">crate</span>::user_request::read::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-read-user-request-118">read_user_request</a>(<span class="rs-self">self</span>, request_id).<span class="rs-kw">await</span>
+        <span class="rs-kw">crate</span>::user_request::query::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-read-user-request-118">read_user_request</a>(<span class="rs-self">self</span>, request_id).<span class="rs-kw">await</span>
     }
 
     <span class="rs-comment">/// List user request summaries.</span>
@@ -336,20 +335,19 @@
     <span class="rs-comment">/// Returns [`AgentCoreServerError`] on store failure.</span>
     <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-requests-129">list_user_requests</a>(
         &amp;<span class="rs-self">self</span>,
-        page: <span class="rs-type">Page</span>,
-    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<a class="symbol-link rs-type" href="eos-agent-core-server.html#item-struct-UserRequestSummary-39">UserRequestSummary</a>&gt;, <a class="symbol-link rs-type" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a>&gt; {
-        <span class="rs-kw">crate</span>::user_request::list::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-requests-129">list_user_requests</a>(<span class="rs-self">self</span>, page).<span class="rs-kw">await</span>
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-agent-core-server.html#item-struct-UserRequestSummary-39">UserRequestSummary</a>&gt;, <a class="symbol-link rs-type" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a>&gt; {
+        <span class="rs-kw">crate</span>::user_request::query::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-requests-129">list_user_requests</a>(<span class="rs-self">self</span>).<span class="rs-kw">await</span>
     }
 
     <span class="rs-comment">/// List task-agent-runs for a user request.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// Returns [`AgentCoreServerError`] on store failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-request-tasks-140">list_user_request_tasks</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-request-tasks-139">list_user_request_tasks</a>(
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <a class="symbol-link rs-type" href="eos-agent-core-server--src-error-rs.html#item-enum-AgentCoreServerError-5">AgentCoreServerError</a>&gt; {
-        <span class="rs-kw">crate</span>::user_request::list_tasks::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-request-tasks-140">list_user_request_tasks</a>(<span class="rs-self">self</span>, request_id).<span class="rs-kw">await</span>
+        <span class="rs-kw">crate</span>::user_request::query::<a class="symbol-link rs-fn" href="eos-agent-core-server--src-service-rs.html#method-list-user-request-tasks-139">list_user_request_tasks</a>(<span class="rs-self">self</span>, request_id).<span class="rs-kw">await</span>
     }
 }
 </code></pre>

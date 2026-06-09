@@ -84,7 +84,7 @@
         .bind(meta.request_id.as_str())
         .bind(meta.status.as_str())
         .bind(meta.label.as_deref())
-        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-175">json_encode</a>(&amp;meta.client_meta)?)
+        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-178">json_encode</a>(&amp;meta.client_meta)?)
         .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-in-149">ts_in</a>(meta.created_at))
         .bind(meta.finished_at.map(ts_in))
         .bind(meta.cancel_reason.as_deref())
@@ -100,21 +100,23 @@
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
     <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store.html#method-get-51">get</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">RunMeta</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
-        <span class="rs-kw">let</span> row = sqlx::query(&amp;format!(&quot;<span class="rs-type">SELECT</span> {<span class="rs-type">COLUMNS</span>} <span class="rs-type">FROM</span> run_meta <span class="rs-type">WHERE</span> request_id = ?&quot;))
-            .bind(request_id.as_str())
-            .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
-            .<span class="rs-kw">await</span>?;
+        <span class="rs-kw">let</span> row = sqlx::query(&amp;format!(
+            &quot;<span class="rs-type">SELECT</span> {<span class="rs-type">COLUMNS</span>} <span class="rs-type">FROM</span> run_meta <span class="rs-type">WHERE</span> request_id = ?&quot;
+        ))
+        .bind(request_id.as_str())
+        .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>?;
         row.as_ref().map(row_to_run_meta).transpose()
     }
 </code></pre>
-</details></td></tr><tr id="method-set-status-58"><td>method</td><td>set_status</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-run-meta-rs.html#method-set-status-58">set_status</a> (&amp; self , request_id : &amp; RequestId , status : BackendRunStatus , finished_at : Option &lt; UtcDateTime &gt; , cancel_reason : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Option &lt; RunMeta &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Set a run's terminal status, `finished_at`, and `cancel_reason`. Returns<br>the updated row, or `None` if the run is absent.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
+</details></td></tr><tr id="method-set-status-60"><td>method</td><td>set_status</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-run-meta-rs.html#method-set-status-60">set_status</a> (&amp; self , request_id : &amp; RequestId , status : BackendRunStatus , finished_at : Option &lt; UtcDateTime &gt; , cancel_reason : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Option &lt; RunMeta &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Set a run's terminal status, `finished_at`, and `cancel_reason`. Returns<br>the updated row, or `None` if the run is absent.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Set a run's terminal status, `finished_at`, and `cancel_reason`. Returns</span>
     <span class="rs-comment">/// the updated row, or `None` if the run is absent.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-set-status-58">set_status</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-set-status-60">set_status</a>(
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
         status: <span class="rs-type">BackendRunStatus</span>,
@@ -134,7 +136,7 @@
         row.as_ref().map(row_to_run_meta).transpose()
     }
 </code></pre>
-</details></td></tr><tr id="method-reconcile-terminal-83"><td>method</td><td>reconcile_terminal</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-run-meta-rs.html#method-reconcile-terminal-83">reconcile_terminal</a> (&amp; self , request_id : &amp; RequestId , status : BackendRunStatus , finished_at : UtcDateTime ,) -&gt; Result &lt; Option &lt; RunMeta &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Reconcile a still-non-terminal run to the terminal status agent-core<br>reports, guarded so it never clobbers a concurrently-written terminal<br>status (e.g. a `DELETE` that just wrote `cancelled`). The CAS matches only<br>`accepted`/`running` rows. `Some(updated)` ⇒ this call moved the row;<br>`None` ⇒ the CAS matched nothing (already terminal, or absent) and the<br>caller should re-read to learn the authoritative row.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
+</details></td></tr><tr id="method-reconcile-terminal-85"><td>method</td><td>reconcile_terminal</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-run-meta-rs.html#method-reconcile-terminal-85">reconcile_terminal</a> (&amp; self , request_id : &amp; RequestId , status : BackendRunStatus , finished_at : UtcDateTime ,) -&gt; Result &lt; Option &lt; RunMeta &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Reconcile a still-non-terminal run to the terminal status agent-core<br>reports, guarded so it never clobbers a concurrently-written terminal<br>status (e.g. a `DELETE` that just wrote `cancelled`). The CAS matches only<br>`accepted`/`running` rows. `Some(updated)` ⇒ this call moved the row;<br>`None` ⇒ the CAS matched nothing (already terminal, or absent) and the<br>caller should re-read to learn the authoritative row.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Reconcile a still-non-terminal run to the terminal status agent-core</span>
     <span class="rs-comment">/// reports, guarded so it never clobbers a concurrently-written terminal</span>
@@ -145,7 +147,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-reconcile-terminal-83">reconcile_terminal</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-reconcile-terminal-85">reconcile_terminal</a>(
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
         status: <span class="rs-type">BackendRunStatus</span>,
@@ -163,13 +165,13 @@
         row.as_ref().map(row_to_run_meta).transpose()
     }
 </code></pre>
-</details></td></tr><tr id="method-list-110"><td>method</td><td>list</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-run-meta-rs.html#method-list-110">list</a> (&amp; self , page : Page) -&gt; Result &lt; PageResult &lt; RunMeta &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">List runs newest-first with limit/offset pagination plus a total count.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
+</details></td></tr><tr id="method-list-112"><td>method</td><td>list</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-run-meta-rs.html#method-list-112">list</a> (&amp; self , page : Page) -&gt; Result &lt; PageResult &lt; RunMeta &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">List runs newest-first with limit/offset pagination plus a total count.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// List runs newest-first with limit/offset pagination plus a total count.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-list-110">list</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">RunMeta</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-list-112">list</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">RunMeta</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
         <span class="rs-kw">let</span> total: i64 = sqlx::query_scalar(&quot;<span class="rs-type">SELECT</span> <span class="rs-type">COUNT</span>(*) <span class="rs-type">FROM</span> run_meta&quot;)
             .fetch_one(&amp;<span class="rs-self">self</span>.pool)
             .<span class="rs-kw">await</span>?;
@@ -196,17 +198,17 @@
 </details></td></tr></tbody></table>
 
   <p class="source">crates/eos-backend-store/src/run_meta.rs:15</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-row-to-run-meta-139" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_run_meta private fn row_to_run_meta (row : &amp; SqliteRow) -&gt; Result &lt; RunMeta , StoreError &gt; crates/eos-backend-store/src/run_meta.rs  ">
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-row-to-run-meta-141" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_run_meta private fn row_to_run_meta (row : &amp; SqliteRow) -&gt; Result &lt; RunMeta , StoreError &gt; crates/eos-backend-store/src/run_meta.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>row_to_run_meta</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-store--src-run-meta-rs.html#item-fn-row-to-run-meta-139">row_to_run_meta</a> (row : &amp; SqliteRow) -&gt; Result &lt; RunMeta , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-store--src-run-meta-rs.html#item-fn-row-to-run-meta-141">row_to_run_meta</a> (row : &amp; SqliteRow) -&gt; Result &lt; RunMeta , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#item-fn-row-to-run-meta-139">row_to_run_meta</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RunMeta</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#item-fn-row-to-run-meta-141">row_to_run_meta</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RunMeta</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     <span class="rs-kw">let</span> status_raw: <span class="rs-type">String</span> = row.try_get(&quot;status&quot;)?;
     <span class="rs-kw">let</span> status = <span class="rs-type">BackendRunStatus</span>::from_db(&amp;status_raw).ok_or(<a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>::<span class="rs-type">InvalidEnum</span> {
         field: &quot;run_meta.status&quot;,
@@ -219,7 +221,7 @@
         request_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;run_meta.request_id&quot;, row.try_get(&quot;request_id&quot;)?)?,
         status,
         label: row.try_get(&quot;label&quot;)?,
-        client_meta: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-180">json_decode</a>(&amp;client_meta_json)?,
+        client_meta: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-183">json_decode</a>(&amp;client_meta_json)?,
         created_at: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-out-154">ts_out</a>(created_at),
         finished_at: finished_at.map(ts_out),
         cancel_reason: row.try_get(&quot;cancel_reason&quot;)?,
@@ -228,7 +230,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-store/src/run_meta.rs:139</p>
+  <p class="source">crates/eos-backend-store/src/run_meta.rs:141</p>
 </article></div>
 </section></div>
 </main>
@@ -273,7 +275,7 @@
         .bind(meta.request_id.as_str())
         .bind(meta.status.as_str())
         .bind(meta.label.as_deref())
-        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-175">json_encode</a>(&amp;meta.client_meta)?)
+        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-178">json_encode</a>(&amp;meta.client_meta)?)
         .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-in-149">ts_in</a>(meta.created_at))
         .bind(meta.finished_at.map(ts_in))
         .bind(meta.cancel_reason.as_deref())
@@ -287,10 +289,12 @@
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
     <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store.html#method-get-51">get</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">RunMeta</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
-        <span class="rs-kw">let</span> row = sqlx::query(&amp;format!(&quot;<span class="rs-type">SELECT</span> {<span class="rs-type">COLUMNS</span>} <span class="rs-type">FROM</span> run_meta <span class="rs-type">WHERE</span> request_id = ?&quot;))
-            .bind(request_id.as_str())
-            .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
-            .<span class="rs-kw">await</span>?;
+        <span class="rs-kw">let</span> row = sqlx::query(&amp;format!(
+            &quot;<span class="rs-type">SELECT</span> {<span class="rs-type">COLUMNS</span>} <span class="rs-type">FROM</span> run_meta <span class="rs-type">WHERE</span> request_id = ?&quot;
+        ))
+        .bind(request_id.as_str())
+        .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>?;
         row.as_ref().map(row_to_run_meta).transpose()
     }
 
@@ -299,7 +303,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-set-status-58">set_status</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-set-status-60">set_status</a>(
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
         status: <span class="rs-type">BackendRunStatus</span>,
@@ -328,7 +332,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-reconcile-terminal-83">reconcile_terminal</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-reconcile-terminal-85">reconcile_terminal</a>(
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
         status: <span class="rs-type">BackendRunStatus</span>,
@@ -350,7 +354,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-list-110">list</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">RunMeta</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#method-list-112">list</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">RunMeta</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
         <span class="rs-kw">let</span> total: i64 = sqlx::query_scalar(&quot;<span class="rs-type">SELECT</span> <span class="rs-type">COUNT</span>(*) <span class="rs-type">FROM</span> run_meta&quot;)
             .fetch_one(&amp;<span class="rs-self">self</span>.pool)
             .<span class="rs-kw">await</span>?;
@@ -375,7 +379,7 @@
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#item-fn-row-to-run-meta-139">row_to_run_meta</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RunMeta</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-run-meta-rs.html#item-fn-row-to-run-meta-141">row_to_run_meta</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RunMeta</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     <span class="rs-kw">let</span> status_raw: <span class="rs-type">String</span> = row.try_get(&quot;status&quot;)?;
     <span class="rs-kw">let</span> status = <span class="rs-type">BackendRunStatus</span>::from_db(&amp;status_raw).ok_or(<a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>::<span class="rs-type">InvalidEnum</span> {
         field: &quot;run_meta.status&quot;,
@@ -388,7 +392,7 @@
         request_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;run_meta.request_id&quot;, row.try_get(&quot;request_id&quot;)?)?,
         status,
         label: row.try_get(&quot;label&quot;)?,
-        client_meta: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-180">json_decode</a>(&amp;client_meta_json)?,
+        client_meta: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-183">json_decode</a>(&amp;client_meta_json)?,
         created_at: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-out-154">ts_out</a>(created_at),
         finished_at: finished_at.map(ts_out),
         cancel_reason: row.try_get(&quot;cancel_reason&quot;)?,

@@ -110,28 +110,16 @@ impl AttemptOrchestrator {
     fn spawn_planner_run(self: &Arc<Self>, launch: AgentLaunch) {
         let orchestrator = Arc::clone(self);
         let runner = self.deps.runner.clone();
-        // The planner-driver task drives the whole attempt (PLAN, then RUN via
-        // `advance_run_stage`'s `JoinSet`), so its abort handle is the single
-        // teardown point for the attempt's in-flight provider runs. Spawn it and
-        // record the handle atomically (spawn-under-lock) so a workflow cancel can
-        // abort promptly and the task can never clear the slot before its handle is
-        // stored; normal settlement clears it via `deregister` *without* aborting,
-        // so the task never aborts itself while it is finishing.
-        self.deps
-            .orchestrator_registry
-            .store_planner_abort_with(self.attempt_id.clone(), || {
-                tokio::spawn(async move {
-                    let report = runner.run(launch.clone()).await;
-                    if let Err(err) = orchestrator.settle_planner(launch, report).await {
-                        tracing::warn!(
-                            attempt_id = %orchestrator.attempt_id.as_str(),
-                            error = %err,
-                            "planner run could not be settled"
-                        );
-                    }
-                })
-                .abort_handle()
-            });
+        tokio::spawn(async move {
+            let report = runner.run(launch.clone()).await;
+            if let Err(err) = orchestrator.settle_planner(launch, report).await {
+                tracing::warn!(
+                    attempt_id = %orchestrator.attempt_id.as_str(),
+                    error = %err,
+                    "planner run could not be settled"
+                );
+            }
+        });
     }
 
     /// Settle the planner run after it resolves (Path A-recording). The submit

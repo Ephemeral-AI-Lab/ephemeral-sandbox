@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used)]
-use eos_backend_audit::{to_jsonl_line, JsonObject, ObsIds, ObsSource};
+use crate::{to_jsonl_line, JsonObject, ObsIds, ObsSource};
 use serde_json::json;
 
 use super::*;

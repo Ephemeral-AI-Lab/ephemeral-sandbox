@@ -1,7 +1,4 @@
-//! The disallow-nested-planner-deferral prehook — relocated out of the hooks
-//! module into its own file (mirrors `hooks/advisor_approval.rs`
-//! and `hooks/require_no_background_sessions.rs`), porting Rust
-//! `tools/_hooks/disallow_nested_planner_deferral.py`.
+//! The disallow-nested-planner-deferral prehook.
 //!
 //! It denies a planner terminal that carries a nonblank
 //! `deferred_goal_for_next_iteration` when the submitting workflow's delegation

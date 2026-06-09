@@ -24,8 +24,8 @@
 <section class="summary">
   <div><b>13</b><span>modules</span></div>
   <div><b>66</b><span>items</span></div>
-  <div><b>35</b><span>fields</span></div>
-  <div><b>22</b><span>methods</span></div>
+  <div><b>44</b><span>fields</span></div>
+  <div><b>19</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,8 +41,8 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link active" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/5</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>4/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
-  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="handlers::agent_runs crates/eos-backend-api/src/handlers/agent_runs.rs MessagesQuery EventsQuery StreamQuery messages events stream TailState impl TailState to_sse_event last_event_id">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link active" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>3/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="handlers::agent_runs crates/eos-backend-api/src/handlers/agent_runs.rs MessagesQuery EventsQuery StreamQuery messages events stream TailState impl TailState to_sse_event last_event_id record_dir_for_agent_run">
   <div class="module-head">
     <div>
       <h2>src/handlers/agent_runs.rs</h2>
@@ -52,7 +52,7 @@
       <span>file owns</span>
       <span>4 types</span>
       <span>1 impls</span>
-      <span>5 fns</span>
+      <span>6 fns</span>
       <span>1 methods</span>
     </div>
   </div>
@@ -92,25 +92,25 @@
   <h4>Fields</h4><table><tbody><tr><td>private</td><td>last_seq</td><td><code>Option &lt; u64 &gt;</code></td></tr></tbody></table>
 
   <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:35</p>
-</article><article id="item-struct-TailState-127" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct TailState private struct TailState crates/eos-backend-api/src/handlers/agent_runs.rs message_records AgentMessageRecords agent_run_id AgentRunId next_seq u64 pending VecDeque &lt; NodeEvent &gt; finished bool ">
+</article><article id="item-struct-TailState-130" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct TailState private struct TailState crates/eos-backend-api/src/handlers/agent_runs.rs message_records AgentMessageRecords record_dir AgentRunRecordDir next_seq u64 pending VecDeque &lt; NodeEvent &gt; finished bool ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>TailState</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">struct <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-127">TailState</a></code>
+  <code class="signature">struct <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-130">TailState</a></code>
   <div class="tags"><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>message_records</td><td><code>AgentMessageRecords</code></td></tr><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>next_seq</td><td><code>u64</code></td></tr><tr><td>private</td><td>pending</td><td><code>VecDeque &lt; NodeEvent &gt;</code></td></tr><tr><td>private</td><td>finished</td><td><code>bool</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-137"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a> (message_records : AgentMessageRecords , agent_run_id : AgentRunId , last_seq : u64 , pending : VecDeque &lt; NodeEvent &gt; ,) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>message_records</td><td><code>AgentMessageRecords</code></td></tr><tr><td>private</td><td>record_dir</td><td><code>AgentRunRecordDir</code></td></tr><tr><td>private</td><td>next_seq</td><td><code>u64</code></td></tr><tr><td>private</td><td>pending</td><td><code>VecDeque &lt; NodeEvent &gt;</code></td></tr><tr><td>private</td><td>finished</td><td><code>bool</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-140"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a> (message_records : AgentMessageRecords , record_dir : AgentRunRecordDir , last_seq : u64 , pending : VecDeque &lt; NodeEvent &gt; ,) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>(
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(
         message_records: <span class="rs-type">AgentMessageRecords</span>,
-        agent_run_id: <span class="rs-type">AgentRunId</span>,
+        record_dir: <span class="rs-type">AgentRunRecordDir</span>,
         last_seq: u64,
         pending: <span class="rs-type">VecDeque</span>&lt;<span class="rs-type">NodeEvent</span>&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             message_records,
-            agent_run_id,
+            record_dir,
             next_seq: last_seq,
             pending,
             finished: <span class="rs-kw">false</span>,
@@ -119,100 +119,103 @@
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:127</p>
+  <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:130</p>
 </article><div class="group-label">Standalone Functions</div><article id="item-fn-messages-41" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn messages pub pub async fn messages (State (state) : State &lt; AppState &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; MessagesQuery &gt; ,) -&gt; Result &lt; Response &lt; Body &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/agent_runs.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>messages</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-messages-41">messages</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a> &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-MessagesQuery-23">MessagesQuery</a> &gt; ,) -&gt; Result &lt; Response &lt; Body &gt; , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> &gt;</code>
-  <p class="docstring">`GET /api/agent-runs/{agent_run_id}/messages`.</p>
+  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-messages-41">messages</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-MessagesQuery-23">MessagesQuery</a> &gt; ,) -&gt; Result &lt; Response &lt; Body &gt; , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
+  <p class="docstring">`GET /api/agent-core/agent-runs/{agent_run_id}/messages`.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// `GET /api/agent-runs/{agent_run_id}/messages`.</span>
+  <pre><code><span class="rs-comment">/// `GET /api/agent-core/agent-runs/{agent_run_id}/messages`.</span>
 <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-messages-41">messages</a>(
-    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;,
+    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(agent_run_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
     <span class="rs-type">Query</span>(query): <span class="rs-type">Query</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-MessagesQuery-23">MessagesQuery</a>&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Response</span>&lt;<span class="rs-type">Body</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Response</span>&lt;<span class="rs-type">Body</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> agent_run_id: <span class="rs-type">AgentRunId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;agent_run_id, &quot;agent run&quot;)?;
+    <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
     <span class="rs-kw">let</span> bytes = state
         .message_records
-        .read_messages(&amp;agent_run_id, query.after_byte.unwrap_or(0))
+        .read_messages_at(&amp;record_dir, query.after_byte.unwrap_or(0))
         .<span class="rs-kw">await</span>?;
     <span class="rs-type">Response</span>::builder()
         .header(&quot;content-<span class="rs-kw">type</span>&quot;, &quot;application/x-ndjson&quot;)
         .header(&quot;x-next-byte-offset&quot;, bytes.next_byte_offset.to_string())
-        .body(<span class="rs-type">Body</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(bytes.bytes))
+        .body(<span class="rs-type">Body</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(bytes.bytes))
         .map_err(|err| {
             tracing::error!(error = %err, &quot;failed to build messages response&quot;);
-            <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>::<span class="rs-type">Internal</span>
+            <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">Internal</span>
         })
 }
 </code></pre>
 </details>
 
   <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:41</p>
-</article><article id="item-fn-events-62" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn events pub pub async fn events (State (state) : State &lt; AppState &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; EventsQuery &gt; ,) -&gt; Result &lt; Json &lt; Vec &lt; NodeEvent &gt; &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/agent_runs.rs  ">
+</article><article id="item-fn-events-63" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn events pub pub async fn events (State (state) : State &lt; AppState &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; EventsQuery &gt; ,) -&gt; Result &lt; Json &lt; Vec &lt; NodeEvent &gt; &gt; , ApiError &gt; crates/eos-backend-api/src/handlers/agent_runs.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>events</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-events-62">events</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a> &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-EventsQuery-29">EventsQuery</a> &gt; ,) -&gt; Result &lt; Json &lt; Vec &lt; NodeEvent &gt; &gt; , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> &gt;</code>
-  <p class="docstring">`GET /api/agent-runs/{agent_run_id}/events`.</p>
+  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-events-63">events</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-EventsQuery-29">EventsQuery</a> &gt; ,) -&gt; Result &lt; Json &lt; Vec &lt; NodeEvent &gt; &gt; , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
+  <p class="docstring">`GET /api/agent-core/agent-runs/{agent_run_id}/events`.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// `GET /api/agent-runs/{agent_run_id}/events`.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-events-62">events</a>(
-    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;,
+  <pre><code><span class="rs-comment">/// `GET /api/agent-core/agent-runs/{agent_run_id}/events`.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-events-63">events</a>(
+    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(agent_run_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
     <span class="rs-type">Query</span>(query): <span class="rs-type">Query</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-EventsQuery-29">EventsQuery</a>&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">NodeEvent</span>&gt;&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">NodeEvent</span>&gt;&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> agent_run_id: <span class="rs-type">AgentRunId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;agent_run_id, &quot;agent run&quot;)?;
+    <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
     <span class="rs-type">Ok</span>(<span class="rs-type">Json</span>(
         state
             .message_records
-            .read_events(&amp;agent_run_id, query.after_seq.unwrap_or(0))
+            .read_events_at(&amp;record_dir, query.after_seq.unwrap_or(0))
             .<span class="rs-kw">await</span>?,
     ))
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:62</p>
-</article><article id="item-fn-stream-77" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn stream pub pub async fn stream (State (state) : State &lt; AppState &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; StreamQuery &gt; , headers : HeaderMap ,) -&gt; Result &lt; impl IntoResponse , ApiError &gt; crates/eos-backend-api/src/handlers/agent_runs.rs  ">
+  <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:63</p>
+</article><article id="item-fn-stream-79" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn stream pub pub async fn stream (State (state) : State &lt; AppState &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; StreamQuery &gt; , headers : HeaderMap ,) -&gt; Result &lt; impl IntoResponse , ApiError &gt; crates/eos-backend-api/src/handlers/agent_runs.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>stream</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-stream-77">stream</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a> &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-StreamQuery-35">StreamQuery</a> &gt; , headers : HeaderMap ,) -&gt; Result &lt; impl IntoResponse , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a> &gt;</code>
-  <p class="docstring">`GET /api/agent-runs/{agent_run_id}/stream`.</p>
+  <code class="signature">pub async fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-stream-79">stream</a> (State (state) : State &lt; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> &gt; , Path (agent_run_id) : Path &lt; String &gt; , Query (query) : Query &lt; <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-StreamQuery-35">StreamQuery</a> &gt; , headers : HeaderMap ,) -&gt; Result &lt; impl IntoResponse , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
+  <p class="docstring">`GET /api/agent-core/agent-runs/{agent_run_id}/stream`.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// `GET /api/agent-runs/{agent_run_id}/stream`.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-stream-77">stream</a>(
-    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;,
+  <pre><code><span class="rs-comment">/// `GET /api/agent-core/agent-runs/{agent_run_id}/stream`.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-stream-79">stream</a>(
+    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(agent_run_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
     <span class="rs-type">Query</span>(query): <span class="rs-type">Query</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-StreamQuery-35">StreamQuery</a>&gt;,
     headers: <span class="rs-type">HeaderMap</span>,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> agent_run_id: <span class="rs-type">AgentRunId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;agent_run_id, &quot;agent run&quot;)?;
-    <span class="rs-kw">let</span> last_seq = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-164">last_event_id</a>(&amp;headers).or(query.last_seq).unwrap_or(0);
+    <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
+    <span class="rs-kw">let</span> last_seq = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-167">last_event_id</a>(&amp;headers).or(query.last_seq).unwrap_or(0);
     <span class="rs-kw">let</span> initial = state
         .message_records
-        .read_events(&amp;agent_run_id, last_seq)
+        .read_events_at(&amp;record_dir, last_seq)
         .<span class="rs-kw">await</span>?;
-    <span class="rs-kw">let</span> tail = <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-127">TailState</a>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>(
+    <span class="rs-kw">let</span> tail = <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-130">TailState</a>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(
         state.message_records,
-        agent_run_id,
+        record_dir,
         last_seq,
-        <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(initial),
+        <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(initial),
     );
     <span class="rs-kw">let</span> events = stream::unfold(tail, |<span class="rs-kw">mut</span> tail| <span class="rs-kw">async</span> <span class="rs-kw">move</span> {
         loop {
@@ -221,7 +224,7 @@
                 <span class="rs-kw">if</span> event.kind == &quot;node_finished&quot; {
                     tail.finished = <span class="rs-kw">true</span>;
                 }
-                <span class="rs-kw">return</span> <span class="rs-type">Some</span>((<span class="rs-type">Ok</span>::&lt;<span class="rs-type">Event</span>, <span class="rs-type">Infallible</span>&gt;(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-153">to_sse_event</a>(&amp;event)), tail));
+                <span class="rs-kw">return</span> <span class="rs-type">Some</span>((<span class="rs-type">Ok</span>::&lt;<span class="rs-type">Event</span>, <span class="rs-type">Infallible</span>&gt;(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-156">to_sse_event</a>(&amp;event)), tail));
             }
             <span class="rs-kw">if</span> tail.finished {
                 <span class="rs-kw">return</span> <span class="rs-type">None</span>;
@@ -229,11 +232,11 @@
             tokio::time::sleep(<span class="rs-type">Duration</span>::from_millis(250)).<span class="rs-kw">await</span>;
             <span class="rs-kw">match</span> tail
                 .message_records
-                .read_events(&amp;tail.agent_run_id, tail.next_seq)
+                .read_events_at(&amp;tail.record_dir, tail.next_seq)
                 .<span class="rs-kw">await</span>
             {
                 <span class="rs-type">Ok</span>(events) =&gt; {
-                    tail.pending = <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(events);
+                    tail.pending = <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(events);
                 }
                 <span class="rs-type">Err</span>(err) =&gt; {
                     tracing::error!(error = %err, &quot;agent-run <span class="rs-type">SSE</span> message-record tail failed&quot;);
@@ -242,23 +245,23 @@
             }
         }
     });
-    <span class="rs-type">Ok</span>(<span class="rs-type">Sse</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>(events).keep_alive(<span class="rs-type">KeepAlive</span>::default()))
+    <span class="rs-type">Ok</span>(<span class="rs-type">Sse</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(events).keep_alive(<span class="rs-type">KeepAlive</span>::default()))
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:77</p>
-</article><article id="item-fn-to-sse-event-153" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn to_sse_event private fn to_sse_event (event : &amp; NodeEvent) -&gt; Event crates/eos-backend-api/src/handlers/agent_runs.rs  ">
+  <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:79</p>
+</article><article id="item-fn-to-sse-event-156" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn to_sse_event private fn to_sse_event (event : &amp; NodeEvent) -&gt; Event crates/eos-backend-api/src/handlers/agent_runs.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>to_sse_event</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-153">to_sse_event</a> (event : &amp; NodeEvent) -&gt; Event</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-156">to_sse_event</a> (event : &amp; NodeEvent) -&gt; Event</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-153">to_sse_event</a>(event: &amp;<span class="rs-type">NodeEvent</span>) -&gt; <span class="rs-type">Event</span> {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-156">to_sse_event</a>(event: &amp;<span class="rs-type">NodeEvent</span>) -&gt; <span class="rs-type">Event</span> {
     <span class="rs-kw">let</span> payload = serde_json::to_string(&amp;event.payload).unwrap_or_else(|err| {
         tracing::error!(error = %err, &quot;failed to encode <span class="rs-type">SSE</span> event payload&quot;);
         &quot;{}&quot;.to_owned()
@@ -271,24 +274,49 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:153</p>
-</article><article id="item-fn-last-event-id-164" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn last_event_id private fn last_event_id (headers : &amp; HeaderMap) -&gt; Option &lt; u64 &gt; crates/eos-backend-api/src/handlers/agent_runs.rs  ">
+  <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:156</p>
+</article><article id="item-fn-last-event-id-167" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn last_event_id private fn last_event_id (headers : &amp; HeaderMap) -&gt; Option &lt; u64 &gt; crates/eos-backend-api/src/handlers/agent_runs.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>last_event_id</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-164">last_event_id</a> (headers : &amp; HeaderMap) -&gt; Option &lt; u64 &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-167">last_event_id</a> (headers : &amp; HeaderMap) -&gt; Option &lt; u64 &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-164">last_event_id</a>(headers: &amp;<span class="rs-type">HeaderMap</span>) -&gt; <span class="rs-type">Option</span>&lt;u64&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-167">last_event_id</a>(headers: &amp;<span class="rs-type">HeaderMap</span>) -&gt; <span class="rs-type">Option</span>&lt;u64&gt; {
     headers.get(&quot;last-event-id&quot;)?.to_str().ok()?.parse().ok()
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:164</p>
+  <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:167</p>
+</article><article id="item-fn-record-dir-for-agent-run-171" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn record_dir_for_agent_run private async fn record_dir_for_agent_run (state : &amp; AppState , agent_run_id : &amp; AgentRunId ,) -&gt; Result &lt; AgentRunRecordDir , ApiError &gt; crates/eos-backend-api/src/handlers/agent_runs.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>record_dir_for_agent_run</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">async fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a> (state : &amp; <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> , agent_run_id : &amp; AgentRunId ,) -&gt; Result &lt; AgentRunRecordDir , <a class="symbol-link" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a> &gt;</code>
+  <div class="tags"><span>async</span></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(
+    state: &amp;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>,
+    agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRunRecordDir</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
+    <span class="rs-kw">let</span> index = state
+        .task_agent_run_store
+        .record_index_for_agent_run(agent_run_id)
+        .<span class="rs-kw">await</span>?
+        .ok_or(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">NotFound</span>(&quot;agent run&quot;))?;
+    <span class="rs-type">Ok</span>(format_record_dir(&amp;index))
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-api/src/handlers/agent_runs.rs:171</p>
 </article></div>
 </section></div>
 </main>
@@ -312,12 +340,12 @@
 <span class="rs-kw">use</span> futures::stream;
 <span class="rs-kw">use</span> serde::<span class="rs-type">Deserialize</span>;
 
-<span class="rs-kw">use</span> eos_agent_message_records::{<span class="rs-type">AgentMessageRecords</span>, <span class="rs-type">NodeEvent</span>};
-<span class="rs-kw">use</span> eos_types::<span class="rs-type">AgentRunId</span>;
+<span class="rs-kw">use</span> eos_engine::records::{<span class="rs-type">AgentRunRecordWriter</span> <span class="rs-kw">as</span> <span class="rs-type">AgentMessageRecords</span>, <span class="rs-type">NodeEvent</span>};
+<span class="rs-kw">use</span> eos_types::{format_record_dir, <span class="rs-type">AgentRunId</span>, <span class="rs-type">AgentRunRecordDir</span>};
 
 <span class="rs-kw">use</span> <span class="rs-kw">super</span>::parse_id;
-<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::error::<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>;
-<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::router::<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>;
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::error::<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>;
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::router::<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>;
 
 <span class="rs-comment">/// `?after_byte=` query for raw message JSONL tailing.</span>
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Deserialize</span>)]
@@ -337,60 +365,63 @@
     last_seq: <span class="rs-type">Option</span>&lt;u64&gt;,
 }
 
-<span class="rs-comment">/// `GET /api/agent-runs/{agent_run_id}/messages`.</span>
+<span class="rs-comment">/// `GET /api/agent-core/agent-runs/{agent_run_id}/messages`.</span>
 <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-messages-41">messages</a>(
-    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;,
+    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(agent_run_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
     <span class="rs-type">Query</span>(query): <span class="rs-type">Query</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-MessagesQuery-23">MessagesQuery</a>&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Response</span>&lt;<span class="rs-type">Body</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Response</span>&lt;<span class="rs-type">Body</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> agent_run_id: <span class="rs-type">AgentRunId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;agent_run_id, &quot;agent run&quot;)?;
+    <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
     <span class="rs-kw">let</span> bytes = state
         .message_records
-        .read_messages(&amp;agent_run_id, query.after_byte.unwrap_or(0))
+        .read_messages_at(&amp;record_dir, query.after_byte.unwrap_or(0))
         .<span class="rs-kw">await</span>?;
     <span class="rs-type">Response</span>::builder()
         .header(&quot;content-<span class="rs-kw">type</span>&quot;, &quot;application/x-ndjson&quot;)
         .header(&quot;x-next-byte-offset&quot;, bytes.next_byte_offset.to_string())
-        .body(<span class="rs-type">Body</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(bytes.bytes))
+        .body(<span class="rs-type">Body</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(bytes.bytes))
         .map_err(|err| {
             tracing::error!(error = %err, &quot;failed to build messages response&quot;);
-            <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>::<span class="rs-type">Internal</span>
+            <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">Internal</span>
         })
 }
 
-<span class="rs-comment">/// `GET /api/agent-runs/{agent_run_id}/events`.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-events-62">events</a>(
-    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;,
+<span class="rs-comment">/// `GET /api/agent-core/agent-runs/{agent_run_id}/events`.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-events-63">events</a>(
+    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(agent_run_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
     <span class="rs-type">Query</span>(query): <span class="rs-type">Query</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-EventsQuery-29">EventsQuery</a>&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">NodeEvent</span>&gt;&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Json</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">NodeEvent</span>&gt;&gt;, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> agent_run_id: <span class="rs-type">AgentRunId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;agent_run_id, &quot;agent run&quot;)?;
+    <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
     <span class="rs-type">Ok</span>(<span class="rs-type">Json</span>(
         state
             .message_records
-            .read_events(&amp;agent_run_id, query.after_seq.unwrap_or(0))
+            .read_events_at(&amp;record_dir, query.after_seq.unwrap_or(0))
             .<span class="rs-kw">await</span>?,
     ))
 }
 
-<span class="rs-comment">/// `GET /api/agent-runs/{agent_run_id}/stream`.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-stream-77">stream</a>(
-    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&gt;,
+<span class="rs-comment">/// `GET /api/agent-core/agent-runs/{agent_run_id}/stream`.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-stream-79">stream</a>(
+    <span class="rs-type">State</span>(state): <span class="rs-type">State</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&gt;,
     <span class="rs-type">Path</span>(agent_run_id): <span class="rs-type">Path</span>&lt;<span class="rs-type">String</span>&gt;,
     <span class="rs-type">Query</span>(query): <span class="rs-type">Query</span>&lt;<a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-StreamQuery-35">StreamQuery</a>&gt;,
     headers: <span class="rs-type">HeaderMap</span>,
-) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-20">ApiError</a>&gt; {
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-kw">impl</span> <span class="rs-type">IntoResponse</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
     <span class="rs-kw">let</span> agent_run_id: <span class="rs-type">AgentRunId</span> = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-mod-rs.html#item-fn-parse-id-38">parse_id</a>(&amp;agent_run_id, &quot;agent run&quot;)?;
-    <span class="rs-kw">let</span> last_seq = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-164">last_event_id</a>(&amp;headers).or(query.last_seq).unwrap_or(0);
+    <span class="rs-kw">let</span> record_dir = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(&amp;state, &amp;agent_run_id).<span class="rs-kw">await</span>?;
+    <span class="rs-kw">let</span> last_seq = <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-167">last_event_id</a>(&amp;headers).or(query.last_seq).unwrap_or(0);
     <span class="rs-kw">let</span> initial = state
         .message_records
-        .read_events(&amp;agent_run_id, last_seq)
+        .read_events_at(&amp;record_dir, last_seq)
         .<span class="rs-kw">await</span>?;
-    <span class="rs-kw">let</span> tail = <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-127">TailState</a>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>(
+    <span class="rs-kw">let</span> tail = <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-130">TailState</a>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(
         state.message_records,
-        agent_run_id,
+        record_dir,
         last_seq,
-        <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(initial),
+        <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(initial),
     );
     <span class="rs-kw">let</span> events = stream::unfold(tail, |<span class="rs-kw">mut</span> tail| <span class="rs-kw">async</span> <span class="rs-kw">move</span> {
         loop {
@@ -399,7 +430,7 @@
                 <span class="rs-kw">if</span> event.kind == &quot;node_finished&quot; {
                     tail.finished = <span class="rs-kw">true</span>;
                 }
-                <span class="rs-kw">return</span> <span class="rs-type">Some</span>((<span class="rs-type">Ok</span>::&lt;<span class="rs-type">Event</span>, <span class="rs-type">Infallible</span>&gt;(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-153">to_sse_event</a>(&amp;event)), tail));
+                <span class="rs-kw">return</span> <span class="rs-type">Some</span>((<span class="rs-type">Ok</span>::&lt;<span class="rs-type">Event</span>, <span class="rs-type">Infallible</span>&gt;(<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-156">to_sse_event</a>(&amp;event)), tail));
             }
             <span class="rs-kw">if</span> tail.finished {
                 <span class="rs-kw">return</span> <span class="rs-type">None</span>;
@@ -407,11 +438,11 @@
             tokio::time::sleep(<span class="rs-type">Duration</span>::from_millis(250)).<span class="rs-kw">await</span>;
             <span class="rs-kw">match</span> tail
                 .message_records
-                .read_events(&amp;tail.agent_run_id, tail.next_seq)
+                .read_events_at(&amp;tail.record_dir, tail.next_seq)
                 .<span class="rs-kw">await</span>
             {
                 <span class="rs-type">Ok</span>(events) =&gt; {
-                    tail.pending = <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-81">from</a>(events);
+                    tail.pending = <span class="rs-type">VecDeque</span>::<a class="symbol-link rs-fn" href="eos-backend-api.html#method-from-82">from</a>(events);
                 }
                 <span class="rs-type">Err</span>(err) =&gt; {
                     tracing::error!(error = %err, &quot;agent-run <span class="rs-type">SSE</span> message-record tail failed&quot;);
@@ -420,28 +451,28 @@
             }
         }
     });
-    <span class="rs-type">Ok</span>(<span class="rs-type">Sse</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>(events).keep_alive(<span class="rs-type">KeepAlive</span>::default()))
+    <span class="rs-type">Ok</span>(<span class="rs-type">Sse</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(events).keep_alive(<span class="rs-type">KeepAlive</span>::default()))
 }
 
 #[derive(<span class="rs-type">Debug</span>)]
-<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-127">TailState</a> {
+<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-130">TailState</a> {
     message_records: <span class="rs-type">AgentMessageRecords</span>,
-    agent_run_id: <span class="rs-type">AgentRunId</span>,
+    record_dir: <span class="rs-type">AgentRunRecordDir</span>,
     next_seq: u64,
     pending: <span class="rs-type">VecDeque</span>&lt;<span class="rs-type">NodeEvent</span>&gt;,
     finished: bool,
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-127">TailState</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>(
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-struct-TailState-130">TailState</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(
         message_records: <span class="rs-type">AgentMessageRecords</span>,
-        agent_run_id: <span class="rs-type">AgentRunId</span>,
+        record_dir: <span class="rs-type">AgentRunRecordDir</span>,
         last_seq: u64,
         pending: <span class="rs-type">VecDeque</span>&lt;<span class="rs-type">NodeEvent</span>&gt;,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             message_records,
-            agent_run_id,
+            record_dir,
             next_seq: last_seq,
             pending,
             finished: <span class="rs-kw">false</span>,
@@ -449,7 +480,7 @@
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-153">to_sse_event</a>(event: &amp;<span class="rs-type">NodeEvent</span>) -&gt; <span class="rs-type">Event</span> {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-to-sse-event-156">to_sse_event</a>(event: &amp;<span class="rs-type">NodeEvent</span>) -&gt; <span class="rs-type">Event</span> {
     <span class="rs-kw">let</span> payload = serde_json::to_string(&amp;event.payload).unwrap_or_else(|err| {
         tracing::error!(error = %err, &quot;failed to encode <span class="rs-type">SSE</span> event payload&quot;);
         &quot;{}&quot;.to_owned()
@@ -460,8 +491,20 @@
         .data(payload)
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-164">last_event_id</a>(headers: &amp;<span class="rs-type">HeaderMap</span>) -&gt; <span class="rs-type">Option</span>&lt;u64&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-last-event-id-167">last_event_id</a>(headers: &amp;<span class="rs-type">HeaderMap</span>) -&gt; <span class="rs-type">Option</span>&lt;u64&gt; {
     headers.get(&quot;last-event-id&quot;)?.to_str().ok()?.parse().ok()
+}
+
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#item-fn-record-dir-for-agent-run-171">record_dir_for_agent_run</a>(
+    state: &amp;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>,
+    agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRunRecordDir</span>, <a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>&gt; {
+    <span class="rs-kw">let</span> index = state
+        .task_agent_run_store
+        .record_index_for_agent_run(agent_run_id)
+        .<span class="rs-kw">await</span>?
+        .ok_or(<a class="symbol-link rs-type" href="eos-backend-api.html#item-enum-ApiError-21">ApiError</a>::<span class="rs-type">NotFound</span>(&quot;agent run&quot;))?;
+    <span class="rs-type">Ok</span>(format_record_dir(&amp;index))
 }
 </code></pre>
 </section>

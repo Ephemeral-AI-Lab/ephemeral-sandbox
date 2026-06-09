@@ -71,9 +71,6 @@ async fn forward_agent_loop_outcome(
         finalize_agent_run_from_agent_loop_outcome(&service, agent_run_id.clone(), loop_outcome)
             .await;
     completion.publish(outcome);
-    if let Some(runtime_state) = &service.runtime_state {
-        runtime_state.remove_runtime_state(&agent_run_id);
-    }
 }
 
 async fn finalize_agent_run_from_agent_loop_outcome(

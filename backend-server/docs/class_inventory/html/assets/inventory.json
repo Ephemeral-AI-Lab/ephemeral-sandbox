@@ -10,11 +10,11 @@
         "items": 66,
         "structs": 14,
         "enums": 1,
-        "traits": 2,
-        "functions": 35,
+        "traits": 1,
+        "functions": 36,
         "impls": 14,
-        "fields": 35,
-        "methods": 22
+        "fields": 44,
+        "methods": 19
       },
       "modules": [
         {
@@ -72,7 +72,7 @@
               ],
               "file": "crates/eos-backend-api/src/error.rs",
               "module": "error",
-              "line": 20
+              "line": 21
             },
             {
               "kind": "struct",
@@ -98,7 +98,7 @@
               ],
               "file": "crates/eos-backend-api/src/error.rs",
               "module": "error",
-              "line": 34
+              "line": 35
             },
             {
               "kind": "struct",
@@ -129,7 +129,7 @@
               ],
               "file": "crates/eos-backend-api/src/error.rs",
               "module": "error",
-              "line": 40
+              "line": 41
             },
             {
               "kind": "impl",
@@ -144,7 +144,7 @@
                   "signature": "fn parts (self) -> (StatusCode , & 'static str , String)",
                   "kind": "method",
                   "docs": null,
-                  "line": 47
+                  "line": 48
                 }
               ],
               "impl_target": "ApiError",
@@ -155,7 +155,7 @@
               ],
               "file": "crates/eos-backend-api/src/error.rs",
               "module": "error",
-              "line": 46
+              "line": 47
             },
             {
               "kind": "impl",
@@ -170,7 +170,7 @@
                   "signature": "fn into_response (self) -> Response",
                   "kind": "method",
                   "docs": null,
-                  "line": 66
+                  "line": 67
                 }
               ],
               "impl_target": "ApiError",
@@ -182,7 +182,7 @@
               ],
               "file": "crates/eos-backend-api/src/error.rs",
               "module": "error",
-              "line": 65
+              "line": 66
             },
             {
               "kind": "impl",
@@ -197,7 +197,7 @@
                   "signature": "fn from (err : StoreError) -> Self",
                   "kind": "constructor",
                   "docs": null,
-                  "line": 81
+                  "line": 82
                 }
               ],
               "impl_target": "ApiError",
@@ -209,7 +209,7 @@
               ],
               "file": "crates/eos-backend-api/src/error.rs",
               "module": "error",
-              "line": 78
+              "line": 79
             },
             {
               "kind": "impl",
@@ -224,7 +224,7 @@
                   "signature": "fn from (err : CoreError) -> Self",
                   "kind": "constructor",
                   "docs": null,
-                  "line": 90
+                  "line": 91
                 }
               ],
               "impl_target": "ApiError",
@@ -236,26 +236,53 @@
               ],
               "file": "crates/eos-backend-api/src/error.rs",
               "module": "error",
-              "line": 87
+              "line": 88
             },
             {
               "kind": "impl",
-              "name": "impl From < MessageRecordError > for ApiError",
+              "name": "impl From < AgentCoreServerError > for ApiError",
               "visibility": "private",
-              "signature": "impl From < MessageRecordError > for ApiError",
+              "signature": "impl From < AgentCoreServerError > for ApiError",
               "fields": [],
               "variants": [],
               "methods": [
                 {
                   "name": "from",
-                  "signature": "fn from (err : MessageRecordError) -> Self",
+                  "signature": "fn from (err : AgentCoreServerError) -> Self",
                   "kind": "constructor",
                   "docs": null,
                   "line": 99
                 }
               ],
               "impl_target": "ApiError",
-              "trait_name": "From < MessageRecordError >",
+              "trait_name": "From < AgentCoreServerError >",
+              "docs": "Agent-core request service errors are mapped at the backend HTTP edge.",
+              "tags": [
+                "impl",
+                "trait-impl"
+              ],
+              "file": "crates/eos-backend-api/src/error.rs",
+              "module": "error",
+              "line": 97
+            },
+            {
+              "kind": "impl",
+              "name": "impl From < AgentRunRecordError > for ApiError",
+              "visibility": "private",
+              "signature": "impl From < AgentRunRecordError > for ApiError",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "from",
+                  "signature": "fn from (err : AgentRunRecordError) -> Self",
+                  "kind": "constructor",
+                  "docs": null,
+                  "line": 116
+                }
+              ],
+              "impl_target": "ApiError",
+              "trait_name": "From < AgentRunRecordError >",
               "docs": "Message-record read failures are sanitized like store failures, except the\nclient-controllable lookup/range cases stay specific.",
               "tags": [
                 "impl",
@@ -263,7 +290,7 @@
               ],
               "file": "crates/eos-backend-api/src/error.rs",
               "module": "error",
-              "line": 96
+              "line": 113
             },
             {
               "kind": "impl",
@@ -278,7 +305,7 @@
                   "signature": "fn from (err : SandboxManagerError) -> Self",
                   "kind": "constructor",
                   "docs": null,
-                  "line": 116
+                  "line": 133
                 }
               ],
               "impl_target": "ApiError",
@@ -290,7 +317,7 @@
               ],
               "file": "crates/eos-backend-api/src/error.rs",
               "module": "error",
-              "line": 112
+              "line": 129
             }
           ]
         },
@@ -386,7 +413,7 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "`GET /api/agent-runs/{agent_run_id}/messages`.",
+              "docs": "`GET /api/agent-core/agent-runs/{agent_run_id}/messages`.",
               "tags": [
                 "async"
               ],
@@ -404,13 +431,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "`GET /api/agent-runs/{agent_run_id}/events`.",
+              "docs": "`GET /api/agent-core/agent-runs/{agent_run_id}/events`.",
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-api/src/handlers/agent_runs.rs",
               "module": "handlers::agent_runs",
-              "line": 62
+              "line": 63
             },
             {
               "kind": "fn",
@@ -422,13 +449,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "`GET /api/agent-runs/{agent_run_id}/stream`.",
+              "docs": "`GET /api/agent-core/agent-runs/{agent_run_id}/stream`.",
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-api/src/handlers/agent_runs.rs",
               "module": "handlers::agent_runs",
-              "line": 77
+              "line": 79
             },
             {
               "kind": "struct",
@@ -442,9 +469,9 @@
                   "ty": "AgentMessageRecords"
                 },
                 {
-                  "name": "agent_run_id",
+                  "name": "record_dir",
                   "visibility": "private",
-                  "ty": "AgentRunId"
+                  "ty": "AgentRunRecordDir"
                 },
                 {
                   "name": "next_seq",
@@ -472,7 +499,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/agent_runs.rs",
               "module": "handlers::agent_runs",
-              "line": 127
+              "line": 130
             },
             {
               "kind": "impl",
@@ -484,10 +511,10 @@
               "methods": [
                 {
                   "name": "new",
-                  "signature": "fn new (message_records : AgentMessageRecords , agent_run_id : AgentRunId , last_seq : u64 , pending : VecDeque < NodeEvent > ,) -> Self",
+                  "signature": "fn new (message_records : AgentMessageRecords , record_dir : AgentRunRecordDir , last_seq : u64 , pending : VecDeque < NodeEvent > ,) -> Self",
                   "kind": "constructor",
                   "docs": null,
-                  "line": 137
+                  "line": 140
                 }
               ],
               "impl_target": "TailState",
@@ -498,7 +525,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/agent_runs.rs",
               "module": "handlers::agent_runs",
-              "line": 136
+              "line": 139
             },
             {
               "kind": "fn",
@@ -514,7 +541,7 @@
               "tags": [],
               "file": "crates/eos-backend-api/src/handlers/agent_runs.rs",
               "module": "handlers::agent_runs",
-              "line": 153
+              "line": 156
             },
             {
               "kind": "fn",
@@ -530,7 +557,25 @@
               "tags": [],
               "file": "crates/eos-backend-api/src/handlers/agent_runs.rs",
               "module": "handlers::agent_runs",
-              "line": 164
+              "line": 167
+            },
+            {
+              "kind": "fn",
+              "name": "record_dir_for_agent_run",
+              "visibility": "private",
+              "signature": "async fn record_dir_for_agent_run (state : & AppState , agent_run_id : & AgentRunId ,) -> Result < AgentRunRecordDir , ApiError >",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "async"
+              ],
+              "file": "crates/eos-backend-api/src/handlers/agent_runs.rs",
+              "module": "handlers::agent_runs",
+              "line": 171
             }
           ]
         },
@@ -876,19 +921,19 @@
               "kind": "fn",
               "name": "request_tasks",
               "visibility": "pub",
-              "signature": "pub async fn request_tasks (State (state) : State < AppState > , Path (request_id) : Path < String > ,) -> Result < Json < Vec < Task > > , ApiError >",
+              "signature": "pub async fn request_tasks (State (state) : State < AppState > , Path (request_id) : Path < String > ,) -> Result < Json < Vec < TaskRun > > , ApiError >",
               "fields": [],
               "variants": [],
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "`GET /api/user-requests/{request_id}/tasks` — the request's task tree from\nagent-core state (each task carries its `needs` edges).",
+              "docs": "`GET /api/agent-core/requests/{request_id}/tasks` — task-agent-runs for one\nrequest.",
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-api/src/handlers/tasks.rs",
               "module": "handlers::tasks",
-              "line": 16
+              "line": 17
             },
             {
               "kind": "struct",
@@ -919,7 +964,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/tasks.rs",
               "module": "handlers::tasks",
-              "line": 29
+              "line": 32
             },
             {
               "kind": "fn",
@@ -931,13 +976,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "`GET /api/tasks/{task_id}` — task detail plus its related agent run.",
+              "docs": "`GET /api/agent-core/tasks/{task_id}` — task detail plus its related agent run.",
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-api/src/handlers/tasks.rs",
               "module": "handlers::tasks",
-              "line": 38
+              "line": 41
             },
             {
               "kind": "struct",
@@ -974,7 +1019,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/tasks.rs",
               "module": "handlers::tasks",
-              "line": 54
+              "line": 56
             },
             {
               "kind": "fn",
@@ -986,13 +1031,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "`GET /api/tasks/{task_id}/transcript` — the task's model/tool transcript,\ndrawn from its agent run's message history.",
+              "docs": "`GET /api/agent-core/tasks/{task_id}/transcript` — the task's model/tool\ntranscript, drawn from its agent run's message history.",
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-api/src/handlers/tasks.rs",
               "module": "handlers::tasks",
-              "line": 65
+              "line": 67
             },
             {
               "kind": "fn",
@@ -1008,7 +1053,7 @@
               "tags": [],
               "file": "crates/eos-backend-api/src/handlers/tasks.rs",
               "module": "handlers::tasks",
-              "line": 99
+              "line": 102
             }
           ]
         },
@@ -1026,13 +1071,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "`POST /api/user-requests` — accept a prompt and launch an agent-core run.\nReturns `202 { request_id }`. v1 accepts only `sandbox_args.sandbox_id`;\nunsupported override fields are rejected by `deny_unknown_fields` at\ndeserialize time.",
+              "docs": "`POST /api/agent-core/requests` — accept a prompt and launch an agent-core run.\nReturns `202 { request_id }`. v1 accepts only `sandbox_args.sandbox_id`;\nunsupported override fields are rejected by `deny_unknown_fields` at\ndeserialize time.",
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 24
+              "line": 25
             },
             {
               "kind": "fn",
@@ -1044,13 +1089,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "`GET /api/user-requests` — list backend run records, newest first. Each row's\nstatus comes from `run_meta` alone (the reaper finalizes it on completion), so\nlisting avoids a per-row agent-core join; the detail route does that join.",
+              "docs": "`GET /api/agent-core/requests` — list agent-core request records, newest\nfirst, joined with backend metadata when present.",
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 42
+              "line": 74
             },
             {
               "kind": "fn",
@@ -1062,13 +1107,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "`GET /api/user-requests/{request_id}` — backend lifecycle joined with the\nagent-core request outcome through `RuntimeServices::state_reader()`. When the\nbackend row is still non-terminal but agent-core has finished, the resolved\nterminal status is persisted with a CAS guard so the next read is stable\n(and a concurrent cancellation is never clobbered).",
+              "docs": "`GET /api/agent-core/requests/{request_id}` — backend lifecycle joined with\nthe agent-core request outcome through `AgentCoreService`. When the\nbackend row is still non-terminal but agent-core has finished, the resolved\nterminal status is persisted with a CAS guard so the next read is stable\n(and a concurrent cancellation is never clobbered).",
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 59
+              "line": 107
             },
             {
               "kind": "fn",
@@ -1086,7 +1131,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 94
+              "line": 147
             },
             {
               "kind": "fn",
@@ -1098,13 +1143,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "`DELETE /api/user-requests/{request_id}` — request backend-local cancellation.\n`202` when an in-flight run was signalled; `409` when the run already\nfinalized; `404` when no such run exists.",
+              "docs": "`DELETE /api/agent-core/requests/{request_id}` — request cancellation.\n`202` when the request was cancelled; `409` when the run already finalized;\n`404` when no such run exists.",
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 127
+              "line": 184
             },
             {
               "kind": "struct",
@@ -1130,7 +1175,7 @@
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 144
+              "line": 218
             },
             {
               "kind": "fn",
@@ -1142,29 +1187,29 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "`GET /api/user-requests/{request_id}/events` — replay persisted milestone\nevents from `event_log` (those with `seq > after_seq`), including any\n`event_stream_gap` markers so dropped milestones stay visible.",
+              "docs": "`GET /api/agent-core/requests/{request_id}/events` — replay persisted\nmilestone events from `event_log` (those with `seq > after_seq`), including\nany `event_stream_gap` markers so dropped milestones stay visible.",
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 150
+              "line": 224
             },
             {
               "kind": "fn",
-              "name": "run_record",
+              "name": "run_record_from_summary",
               "visibility": "private",
-              "signature": "fn run_record (meta : RunMeta) -> RunRecord",
+              "signature": "fn run_record_from_summary (summary : eos_agent_core_server :: UserRequestSummary , meta : Option < RunMeta > ,) -> RunRecord",
               "fields": [],
               "variants": [],
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "Map a backend run row to its list record. Status resolves from `run_meta`\nalone (no agent-core row passed), which for a finalized run is authoritative.",
+              "docs": null,
               "tags": [],
               "file": "crates/eos-backend-api/src/handlers/user_requests.rs",
               "module": "handlers::user_requests",
-              "line": 169
+              "line": 243
             }
           ]
         },
@@ -1283,74 +1328,6 @@
           "items": [
             {
               "kind": "trait",
-              "name": "RunControl",
-              "visibility": "pub",
-              "signature": "pub trait RunControl",
-              "fields": [],
-              "variants": [],
-              "methods": [
-                {
-                  "name": "launch",
-                  "signature": "async fn launch (& self , request : CreateUserRequest) -> Result < RequestId , LaunchError >",
-                  "kind": "required",
-                  "docs": "Accept a user request and return the minted request id (the `202` body).\n\n# Errors\n[`LaunchError`] when the initial lifecycle write fails.",
-                  "line": 37
-                },
-                {
-                  "name": "cancel",
-                  "signature": "fn cancel (& self , request_id : & RequestId , reason : & str) -> CancelOutcome",
-                  "kind": "required",
-                  "docs": "Request cancellation of an in-flight run.",
-                  "line": 43
-                }
-              ],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "Launch/cancel capability the API depends on. Implemented by [`RunLauncher`];\nfaked in API tests (the launcher needs a `SandboxManager`, which has no public\ntest constructor, so this seam is what makes the create/cancel routes testable\nin isolation).",
-              "tags": [
-                "async_trait"
-              ],
-              "file": "crates/eos-backend-api/src/router.rs",
-              "module": "router",
-              "line": 31
-            },
-            {
-              "kind": "impl",
-              "name": "impl RunControl for RunLauncher",
-              "visibility": "private",
-              "signature": "impl RunControl for RunLauncher",
-              "fields": [],
-              "variants": [],
-              "methods": [
-                {
-                  "name": "launch",
-                  "signature": "async fn launch (& self , request : CreateUserRequest) -> Result < RequestId , LaunchError >",
-                  "kind": "method",
-                  "docs": null,
-                  "line": 49
-                },
-                {
-                  "name": "cancel",
-                  "signature": "fn cancel (& self , request_id : & RequestId , reason : & str) -> CancelOutcome",
-                  "kind": "method",
-                  "docs": null,
-                  "line": 53
-                }
-              ],
-              "impl_target": "RunLauncher",
-              "trait_name": "RunControl",
-              "docs": null,
-              "tags": [
-                "async_trait",
-                "impl",
-                "trait-impl"
-              ],
-              "file": "crates/eos-backend-api/src/router.rs",
-              "module": "router",
-              "line": 47
-            },
-            {
-              "kind": "trait",
               "name": "SandboxRegistry",
               "visibility": "pub",
               "signature": "pub trait SandboxRegistry",
@@ -1362,21 +1339,21 @@
                   "signature": "fn list (& self) -> Vec < SandboxView >",
                   "kind": "required",
                   "docs": "All tracked sandboxes as sanitized views, newest first.",
-                  "line": 62
+                  "line": 29
                 },
                 {
                   "name": "view",
                   "signature": "fn view (& self , sandbox_id : & SandboxId) -> Option < SandboxView >",
                   "kind": "required",
                   "docs": "The sanitized view of one sandbox, if tracked.",
-                  "line": 65
+                  "line": 32
                 },
                 {
                   "name": "delete",
                   "signature": "async fn delete (& self , sandbox_id : & SandboxId) -> Result < () , SandboxManagerError >",
                   "kind": "required",
                   "docs": "Destroy a backend-owned sandbox, refused while it is referenced.\n\n# Errors\n[`SandboxManagerError`] when the sandbox is unknown, referenced, or\nteardown fails.",
-                  "line": 68
+                  "line": 35
                 }
               ],
               "impl_target": null,
@@ -1387,7 +1364,7 @@
               ],
               "file": "crates/eos-backend-api/src/router.rs",
               "module": "router",
-              "line": 58
+              "line": 25
             },
             {
               "kind": "impl",
@@ -1402,21 +1379,21 @@
                   "signature": "fn list (& self) -> Vec < SandboxView >",
                   "kind": "method",
                   "docs": null,
-                  "line": 78
+                  "line": 45
                 },
                 {
                   "name": "view",
                   "signature": "fn view (& self , sandbox_id : & SandboxId) -> Option < SandboxView >",
                   "kind": "method",
                   "docs": null,
-                  "line": 82
+                  "line": 49
                 },
                 {
                   "name": "delete",
                   "signature": "async fn delete (& self , sandbox_id : & SandboxId) -> Result < () , SandboxManagerError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 86
+                  "line": 53
                 }
               ],
               "impl_target": "SandboxManager",
@@ -1429,68 +1406,7 @@
               ],
               "file": "crates/eos-backend-api/src/router.rs",
               "module": "router",
-              "line": 76
-            },
-            {
-              "kind": "struct",
-              "name": "AgentCoreReads",
-              "visibility": "pub",
-              "signature": "pub struct AgentCoreReads",
-              "fields": [
-                {
-                  "name": "requests",
-                  "visibility": "pub",
-                  "ty": "Arc < dyn RequestStore >"
-                },
-                {
-                  "name": "tasks",
-                  "visibility": "pub",
-                  "ty": "Arc < dyn TaskStore >"
-                },
-                {
-                  "name": "agent_runs",
-                  "visibility": "pub",
-                  "ty": "Arc < dyn AgentRunStore >"
-                }
-              ],
-              "variants": [],
-              "methods": [],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "The three agent-core read stores the API joins against, grouped so the\ncomposition root can hand them over from `RuntimeServices::state_reader()`\nwhile tests supply fakes.",
-              "tags": [
-                "derive: Clone"
-              ],
-              "file": "crates/eos-backend-api/src/router.rs",
-              "module": "router",
-              "line": 91
-            },
-            {
-              "kind": "impl",
-              "name": "impl std :: fmt :: Debug for AgentCoreReads",
-              "visibility": "private",
-              "signature": "impl std :: fmt :: Debug for AgentCoreReads",
-              "fields": [],
-              "variants": [],
-              "methods": [
-                {
-                  "name": "fmt",
-                  "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
-                  "kind": "method",
-                  "docs": null,
-                  "line": 105
-                }
-              ],
-              "impl_target": "AgentCoreReads",
-              "trait_name": "std :: fmt :: Debug",
-              "docs": null,
-              "tags": [
-                "impl",
-                "trait-impl"
-              ],
-              "file": "crates/eos-backend-api/src/router.rs",
-              "module": "router",
-              "line": 104
+              "line": 43
             },
             {
               "kind": "struct",
@@ -1499,9 +1415,9 @@
               "signature": "pub struct AppState",
               "fields": [
                 {
-                  "name": "runs",
+                  "name": "agent_core",
                   "visibility": "pub(crate)",
-                  "ty": "Arc < dyn RunControl >"
+                  "ty": "AgentCoreService"
                 },
                 {
                   "name": "sandboxes",
@@ -1529,9 +1445,19 @@
                   "ty": "StatsReader"
                 },
                 {
-                  "name": "reads",
+                  "name": "task_store",
                   "visibility": "pub(crate)",
-                  "ty": "AgentCoreReads"
+                  "ty": "Arc < dyn TaskStore >"
+                },
+                {
+                  "name": "agent_run_store",
+                  "visibility": "pub(crate)",
+                  "ty": "Arc < dyn AgentRunStore >"
+                },
+                {
+                  "name": "task_agent_run_store",
+                  "visibility": "pub(crate)",
+                  "ty": "Arc < dyn TaskAgentRunStore >"
                 },
                 {
                   "name": "message_records",
@@ -1549,7 +1475,101 @@
               ],
               "file": "crates/eos-backend-api/src/router.rs",
               "module": "router",
-              "line": 110
+              "line": 58
+            },
+            {
+              "kind": "struct",
+              "name": "AppStateParts",
+              "visibility": "pub",
+              "signature": "pub struct AppStateParts",
+              "fields": [
+                {
+                  "name": "agent_core",
+                  "visibility": "pub",
+                  "ty": "AgentCoreService"
+                },
+                {
+                  "name": "sandboxes",
+                  "visibility": "pub",
+                  "ty": "Arc < dyn SandboxRegistry >"
+                },
+                {
+                  "name": "run_meta",
+                  "visibility": "pub",
+                  "ty": "RunMetaRepo"
+                },
+                {
+                  "name": "event_bus",
+                  "visibility": "pub",
+                  "ty": "Arc < EventBus >"
+                },
+                {
+                  "name": "event_log",
+                  "visibility": "pub",
+                  "ty": "EventLogRepo"
+                },
+                {
+                  "name": "stats",
+                  "visibility": "pub",
+                  "ty": "StatsReader"
+                },
+                {
+                  "name": "task_store",
+                  "visibility": "pub",
+                  "ty": "Arc < dyn TaskStore >"
+                },
+                {
+                  "name": "agent_run_store",
+                  "visibility": "pub",
+                  "ty": "Arc < dyn AgentRunStore >"
+                },
+                {
+                  "name": "task_agent_run_store",
+                  "visibility": "pub",
+                  "ty": "Arc < dyn TaskAgentRunStore >"
+                },
+                {
+                  "name": "message_records",
+                  "visibility": "pub",
+                  "ty": "AgentMessageRecords"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Named input parts used to assemble [`AppState`].",
+              "tags": [],
+              "file": "crates/eos-backend-api/src/router.rs",
+              "module": "router",
+              "line": 73
+            },
+            {
+              "kind": "impl",
+              "name": "impl std :: fmt :: Debug for AppStateParts",
+              "visibility": "private",
+              "signature": "impl std :: fmt :: Debug for AppStateParts",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "fmt",
+                  "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 98
+                }
+              ],
+              "impl_target": "AppStateParts",
+              "trait_name": "std :: fmt :: Debug",
+              "docs": null,
+              "tags": [
+                "impl",
+                "trait-impl"
+              ],
+              "file": "crates/eos-backend-api/src/router.rs",
+              "module": "router",
+              "line": 97
             },
             {
               "kind": "impl",
@@ -1564,7 +1584,7 @@
                   "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
                   "kind": "method",
                   "docs": null,
-                  "line": 124
+                  "line": 104
                 }
               ],
               "impl_target": "AppState",
@@ -1576,7 +1596,7 @@
               ],
               "file": "crates/eos-backend-api/src/router.rs",
               "module": "router",
-              "line": 123
+              "line": 103
             },
             {
               "kind": "impl",
@@ -1588,10 +1608,10 @@
               "methods": [
                 {
                   "name": "new",
-                  "signature": "pub fn new (runs : Arc < dyn RunControl > , sandboxes : Arc < dyn SandboxRegistry > , run_meta : RunMetaRepo , event_bus : Arc < EventBus > , event_log : EventLogRepo , stats : StatsReader , reads : AgentCoreReads , message_records : AgentMessageRecords ,) -> Self",
+                  "signature": "pub fn new (parts : AppStateParts) -> Self",
                   "kind": "constructor",
                   "docs": "Assemble application state from the injected runtime capabilities and\nbackend store handles. `event_bus` must be the same instance the launcher\npublishes through so the stream routes replay and tail one stream.",
-                  "line": 130
+                  "line": 110
                 }
               ],
               "impl_target": "AppState",
@@ -1602,7 +1622,7 @@
               ],
               "file": "crates/eos-backend-api/src/router.rs",
               "module": "router",
-              "line": 129
+              "line": 109
             },
             {
               "kind": "fn",
@@ -1618,7 +1638,7 @@
               "tags": [],
               "file": "crates/eos-backend-api/src/router.rs",
               "module": "router",
-              "line": 157
+              "line": 142
             }
           ]
         },
@@ -1641,7 +1661,7 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "Build the SSE response: subscribe (replay from `last_seq`, then live), and map\neach delivered [`EventRecord`] to an SSE event whose `id` is the sequence,\n`event` is the milestone kind, and `data` is the JSON payload. A store error\nmid-stream ends the stream rather than surfacing internals to the client.",
+              "docs": "Build the SSE response: replay records after `last_seq`, and map\neach delivered [`EventRecord`] to an SSE event whose `id` is the sequence,\n`event` is the milestone kind, and `data` is the JSON payload. A store error\nmid-stream ends the stream rather than surfacing internals to the client.",
               "tags": [
                 "async"
               ],
@@ -1673,17 +1693,829 @@
       "name": "eos-backend-audit",
       "path": "crates/eos-backend-audit",
       "stats": {
-        "modules": 6,
-        "items": 61,
-        "structs": 18,
-        "enums": 4,
-        "traits": 0,
-        "functions": 30,
-        "impls": 9,
-        "fields": 64,
-        "methods": 22
+        "modules": 7,
+        "items": 83,
+        "structs": 24,
+        "enums": 7,
+        "traits": 1,
+        "functions": 37,
+        "impls": 14,
+        "fields": 96,
+        "methods": 44
       },
       "modules": [
+        {
+          "path": "crates/eos-backend-audit/src/contract.rs",
+          "module": "contract",
+          "items": [
+            {
+              "kind": "enum",
+              "name": "ObsSource",
+              "visibility": "pub",
+              "signature": "pub enum ObsSource",
+              "fields": [],
+              "variants": [
+                {
+                  "name": "AgentCore",
+                  "fields": []
+                },
+                {
+                  "name": "Sandbox",
+                  "fields": []
+                }
+              ],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "The source that produced the native event before collector normalization.",
+              "tags": [
+                "derive: Clone",
+                "derive: Copy",
+                "derive: Debug",
+                "derive: Deserialize",
+                "derive: Eq",
+                "derive: PartialEq",
+                "derive: Serialize",
+                "non_exhaustive",
+                "serde",
+                "serde: rename_all"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 29
+            },
+            {
+              "kind": "struct",
+              "name": "ObsIds",
+              "visibility": "pub",
+              "signature": "pub struct ObsIds",
+              "fields": [
+                {
+                  "name": "request_id",
+                  "visibility": "pub",
+                  "ty": "Option < String >"
+                },
+                {
+                  "name": "task_id",
+                  "visibility": "pub",
+                  "ty": "Option < String >"
+                },
+                {
+                  "name": "agent_run_id",
+                  "visibility": "pub",
+                  "ty": "Option < String >"
+                },
+                {
+                  "name": "tool_use_id",
+                  "visibility": "pub",
+                  "ty": "Option < String >"
+                },
+                {
+                  "name": "sandbox_id",
+                  "visibility": "pub",
+                  "ty": "Option < String >"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Correlation ids shared by normalized audit/observability rows.\n\nEvery field is optional because a row should carry only ids the producer or\ncollector actually knows. Non-id labels such as `tool_name` belong in\n`payload`, not here.",
+              "tags": [
+                "derive: Clone",
+                "derive: Debug",
+                "derive: Default",
+                "derive: Deserialize",
+                "derive: Eq",
+                "derive: PartialEq",
+                "derive: Serialize",
+                "serde"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 40
+            },
+            {
+              "kind": "struct",
+              "name": "ObsEnvelope",
+              "visibility": "pub",
+              "signature": "pub struct ObsEnvelope",
+              "fields": [
+                {
+                  "name": "schema",
+                  "visibility": "pub",
+                  "ty": "String"
+                },
+                {
+                  "name": "source",
+                  "visibility": "pub",
+                  "ty": "ObsSource"
+                },
+                {
+                  "name": "event_type",
+                  "visibility": "pub",
+                  "ty": "String"
+                },
+                {
+                  "name": "ids",
+                  "visibility": "pub",
+                  "ty": "ObsIds"
+                },
+                {
+                  "name": "payload",
+                  "visibility": "pub",
+                  "ty": "JsonObject"
+                },
+                {
+                  "name": "seq",
+                  "visibility": "pub",
+                  "ty": "Option < i64 >"
+                },
+                {
+                  "name": "lane",
+                  "visibility": "pub",
+                  "ty": "Option < String >"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "A normalized audit/observability row consumed by collectors and reports.",
+              "tags": [
+                "derive: Clone",
+                "derive: Debug",
+                "derive: Deserialize",
+                "derive: PartialEq",
+                "derive: Serialize",
+                "serde"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 64
+            },
+            {
+              "kind": "impl",
+              "name": "impl ObsEnvelope",
+              "visibility": "private",
+              "signature": "impl ObsEnvelope",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "new",
+                  "signature": "pub fn new (source : ObsSource , event_type : impl Into < String >) -> Self",
+                  "kind": "constructor",
+                  "docs": "Build a normalized row with the default schema.",
+                  "line": 90
+                },
+                {
+                  "name": "with_ids",
+                  "signature": "pub fn with_ids (mut self , ids : ObsIds) -> Self",
+                  "kind": "method",
+                  "docs": "Set the row ids.",
+                  "line": 105
+                },
+                {
+                  "name": "with_payload",
+                  "signature": "pub fn with_payload (mut self , payload : JsonObject) -> Self",
+                  "kind": "method",
+                  "docs": "Set the row payload.",
+                  "line": 112
+                },
+                {
+                  "name": "with_ring_metadata",
+                  "signature": "pub fn with_ring_metadata (mut self , seq : i64 , lane : impl Into < String >) -> Self",
+                  "kind": "method",
+                  "docs": "Set sandbox ring metadata.",
+                  "line": 119
+                }
+              ],
+              "impl_target": "ObsEnvelope",
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "impl"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 89
+            },
+            {
+              "kind": "fn",
+              "name": "canonical_event_type",
+              "visibility": "pub",
+              "signature": "pub fn canonical_event_type (event_type : & str) -> & str",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Return the canonical event type for a native or legacy event type.",
+              "tags": [
+                "must_use"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 128
+            },
+            {
+              "kind": "fn",
+              "name": "from_jsonl_line",
+              "visibility": "pub",
+              "signature": "pub fn from_jsonl_line (line : & str) -> Result < ObsEnvelope , serde_json :: Error >",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Parse one normalized JSONL row.\n\nThe parser accepts any valid JSON object matching [`ObsEnvelope`]. Native\nsandbox rows should be normalized by the collector before calling this.\n\n# Errors\n\nReturns a JSON parse error when the line is not a valid normalized row.",
+              "tags": [
+                "constructor"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 137
+            },
+            {
+              "kind": "fn",
+              "name": "to_jsonl_line",
+              "visibility": "pub",
+              "signature": "pub fn to_jsonl_line (row : & ObsEnvelope) -> Result < String , serde_json :: Error >",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Serialize one normalized row to a JSONL line.\n\n# Errors\n\nReturns a JSON serialization error if the payload contains a non-serializable\nvalue.",
+              "tags": [],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 151
+            },
+            {
+              "kind": "enum",
+              "name": "AuditError",
+              "visibility": "pub",
+              "signature": "pub enum AuditError",
+              "fields": [],
+              "variants": [
+                {
+                  "name": "Jsonl",
+                  "fields": [
+                    {
+                      "name": "0",
+                      "visibility": "private",
+                      "ty": "std :: io :: Error"
+                    }
+                  ]
+                },
+                {
+                  "name": "Serialize",
+                  "fields": [
+                    {
+                      "name": "0",
+                      "visibility": "private",
+                      "ty": "serde_json :: Error"
+                    }
+                  ]
+                },
+                {
+                  "name": "Backpressure",
+                  "fields": []
+                }
+              ],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Errors reported by an [`AuditSink`].\n\nThese are recoverable failures surfaced through `Result` without interrupting\nthe emitting domain path. Sinks must not panic.",
+              "tags": [
+                "derive: Debug",
+                "derive: thiserror::Error",
+                "error",
+                "non_exhaustive"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 163
+            },
+            {
+              "kind": "enum",
+              "name": "AuditSource",
+              "visibility": "pub",
+              "signature": "pub enum AuditSource",
+              "fields": [],
+              "variants": [
+                {
+                  "name": "Workflow",
+                  "fields": []
+                },
+                {
+                  "name": "Engine",
+                  "fields": []
+                },
+                {
+                  "name": "Sandbox",
+                  "fields": []
+                },
+                {
+                  "name": "LiveE2e",
+                  "fields": []
+                }
+              ],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "The behavior-owning package that emitted an event.\n\nSerializes to the exact Rust literal strings: `workflow`, `engine`,\n`sandbox`, and `live_e2e`.",
+              "tags": [
+                "derive: Clone",
+                "derive: Copy",
+                "derive: Debug",
+                "derive: Deserialize",
+                "derive: Eq",
+                "derive: PartialEq",
+                "derive: Serialize",
+                "non_exhaustive",
+                "serde",
+                "serde: rename_all"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 182
+            },
+            {
+              "kind": "struct",
+              "name": "AuditNode",
+              "visibility": "pub",
+              "signature": "pub struct AuditNode",
+              "fields": [
+                {
+                  "name": "request_id",
+                  "visibility": "pub",
+                  "ty": "Option < RequestId >"
+                },
+                {
+                  "name": "workflow_id",
+                  "visibility": "pub",
+                  "ty": "Option < WorkflowId >"
+                },
+                {
+                  "name": "iteration_id",
+                  "visibility": "pub",
+                  "ty": "Option < IterationId >"
+                },
+                {
+                  "name": "attempt_id",
+                  "visibility": "pub",
+                  "ty": "Option < AttemptId >"
+                },
+                {
+                  "name": "task_id",
+                  "visibility": "pub",
+                  "ty": "Option < TaskId >"
+                },
+                {
+                  "name": "agent_name",
+                  "visibility": "pub",
+                  "ty": "Option < String >"
+                },
+                {
+                  "name": "agent_run_id",
+                  "visibility": "pub",
+                  "ty": "Option < AgentRunId >"
+                },
+                {
+                  "name": "sandbox_id",
+                  "visibility": "pub",
+                  "ty": "Option < SandboxId >"
+                },
+                {
+                  "name": "tool_name",
+                  "visibility": "pub",
+                  "ty": "Option < String >"
+                },
+                {
+                  "name": "tool_use_id",
+                  "visibility": "pub",
+                  "ty": "Option < ToolUseId >"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Correlation envelope for an [`AuditEvent`].\n\nEvery field defaults to `None`; build one with [`AuditNode::builder`] or\n[`AuditNode::default`] plus field assignment. Typed ids come from\n`eos-types`; `agent_name` is a human label and `tool_name` is downstream\nowned, so both stay `String`.",
+              "tags": [
+                "derive: Clone",
+                "derive: Debug",
+                "derive: Default",
+                "derive: Deserialize",
+                "derive: Eq",
+                "derive: PartialEq",
+                "derive: Serialize",
+                "non_exhaustive",
+                "serde"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 201
+            },
+            {
+              "kind": "impl",
+              "name": "impl AuditNode",
+              "visibility": "private",
+              "signature": "impl AuditNode",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "builder",
+                  "signature": "pub fn builder () -> AuditNodeBuilder",
+                  "kind": "associated-fn",
+                  "docs": "Start a fresh [`AuditNodeBuilder`].",
+                  "line": 243
+                }
+              ],
+              "impl_target": "AuditNode",
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "impl"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 242
+            },
+            {
+              "kind": "struct",
+              "name": "AuditNodeBuilder",
+              "visibility": "pub",
+              "signature": "pub struct AuditNodeBuilder",
+              "fields": [
+                {
+                  "name": "node",
+                  "visibility": "private",
+                  "ty": "AuditNode"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Fluent builder for [`AuditNode`]; set only the ids a producer knows.",
+              "tags": [
+                "derive: Clone",
+                "derive: Debug",
+                "derive: Default",
+                "must_use"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 249
+            },
+            {
+              "kind": "impl",
+              "name": "impl AuditNodeBuilder",
+              "visibility": "private",
+              "signature": "impl AuditNodeBuilder",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "request_id",
+                  "signature": "pub fn request_id (mut self , id : RequestId) -> Self",
+                  "kind": "method",
+                  "docs": "Set the request id.",
+                  "line": 257
+                },
+                {
+                  "name": "workflow_id",
+                  "signature": "pub fn workflow_id (mut self , id : WorkflowId) -> Self",
+                  "kind": "method",
+                  "docs": "Set the delegated-workflow id.",
+                  "line": 263
+                },
+                {
+                  "name": "iteration_id",
+                  "signature": "pub fn iteration_id (mut self , id : IterationId) -> Self",
+                  "kind": "method",
+                  "docs": "Set the iteration id.",
+                  "line": 269
+                },
+                {
+                  "name": "attempt_id",
+                  "signature": "pub fn attempt_id (mut self , id : AttemptId) -> Self",
+                  "kind": "method",
+                  "docs": "Set the attempt id.",
+                  "line": 275
+                },
+                {
+                  "name": "task_id",
+                  "signature": "pub fn task_id (mut self , id : TaskId) -> Self",
+                  "kind": "method",
+                  "docs": "Set the task id.",
+                  "line": 281
+                },
+                {
+                  "name": "agent_name",
+                  "signature": "pub fn agent_name (mut self , name : impl Into < String >) -> Self",
+                  "kind": "method",
+                  "docs": "Set the agent label.",
+                  "line": 287
+                },
+                {
+                  "name": "agent_run_id",
+                  "signature": "pub fn agent_run_id (mut self , id : AgentRunId) -> Self",
+                  "kind": "method",
+                  "docs": "Set the agent-run id.",
+                  "line": 293
+                },
+                {
+                  "name": "sandbox_id",
+                  "signature": "pub fn sandbox_id (mut self , id : SandboxId) -> Self",
+                  "kind": "method",
+                  "docs": "Set the sandbox id.",
+                  "line": 299
+                },
+                {
+                  "name": "tool_name",
+                  "signature": "pub fn tool_name (mut self , name : impl Into < String >) -> Self",
+                  "kind": "method",
+                  "docs": "Set the tool name.",
+                  "line": 305
+                },
+                {
+                  "name": "tool_use_id",
+                  "signature": "pub fn tool_use_id (mut self , id : ToolUseId) -> Self",
+                  "kind": "method",
+                  "docs": "Set the tool-use id.",
+                  "line": 311
+                },
+                {
+                  "name": "build",
+                  "signature": "pub fn build (self) -> AuditNode",
+                  "kind": "method",
+                  "docs": "Finish building the [`AuditNode`].",
+                  "line": 317
+                }
+              ],
+              "impl_target": "AuditNodeBuilder",
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "impl"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 256
+            },
+            {
+              "kind": "struct",
+              "name": "AuditEvent",
+              "visibility": "pub",
+              "signature": "pub struct AuditEvent",
+              "fields": [
+                {
+                  "name": "schema_version",
+                  "visibility": "pub",
+                  "ty": "u32"
+                },
+                {
+                  "name": "source",
+                  "visibility": "pub",
+                  "ty": "AuditSource"
+                },
+                {
+                  "name": "event_type",
+                  "visibility": "pub",
+                  "ty": "String"
+                },
+                {
+                  "name": "node",
+                  "visibility": "pub",
+                  "ty": "AuditNode"
+                },
+                {
+                  "name": "payload",
+                  "visibility": "pub",
+                  "ty": "JsonObject"
+                },
+                {
+                  "name": "correlation_id",
+                  "visibility": "pub",
+                  "ty": "Option < String >"
+                },
+                {
+                  "name": "ts",
+                  "visibility": "pub",
+                  "ty": "UtcDateTime"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "A structured audit event emitted by a behavior-owning package.\n\nConstruct via [`AuditEvent::new`] so `ts` is set once from the injected\n[`Clock`]. Field order is the wire order; `payload` is always serialized and\n`correlation_id` is omitted when `None`.",
+              "tags": [
+                "derive: Clone",
+                "derive: Debug",
+                "derive: Deserialize",
+                "derive: PartialEq",
+                "derive: Serialize",
+                "non_exhaustive",
+                "serde"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 324
+            },
+            {
+              "kind": "impl",
+              "name": "impl AuditEvent",
+              "visibility": "private",
+              "signature": "impl AuditEvent",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "new",
+                  "signature": "pub fn new (source : AuditSource , event_type : impl Into < String > , node : AuditNode , payload : JsonObject , clock : & dyn Clock ,) -> Self",
+                  "kind": "constructor",
+                  "docs": "Build an event, stamping `ts` from `clock`.",
+                  "line": 353
+                },
+                {
+                  "name": "to_obs_envelope",
+                  "signature": "pub fn to_obs_envelope (& self) -> ObsEnvelope",
+                  "kind": "method",
+                  "docs": "Convert this producer event into the normalized collector row.",
+                  "line": 373
+                }
+              ],
+              "impl_target": "AuditEvent",
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "impl"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 352
+            },
+            {
+              "kind": "trait",
+              "name": "AuditSink",
+              "visibility": "pub",
+              "signature": "pub trait AuditSink",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "enabled",
+                  "signature": "fn enabled (& self) -> bool",
+                  "kind": "provided",
+                  "docs": "Whether this sink persists events.\n\nEmitters can use this to skip expensive audit-only sampling work when the\ncomposition root installed the no-op sink.",
+                  "line": 399
+                },
+                {
+                  "name": "publish",
+                  "signature": "fn publish (& self , event : & AuditEvent) -> Result < () , AuditError >",
+                  "kind": "required",
+                  "docs": "Persist one event.\n\n# Errors\n\nReturns [`AuditError`] when the sink cannot persist the event.",
+                  "line": 407
+                }
+              ],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Write-only audit side channel.\n\nImplementations must not panic; recoverable failures are reported through\n[`AuditError`]. The event is borrowed, not consumed.",
+              "tags": [
+                "error"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 394
+            },
+            {
+              "kind": "struct",
+              "name": "NoopAuditSink",
+              "visibility": "pub",
+              "signature": "pub struct NoopAuditSink",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": "Audit sink used when collection is disabled; every publish is a no-op.",
+              "tags": [
+                "derive: Clone",
+                "derive: Copy",
+                "derive: Debug",
+                "derive: Default"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 415
+            },
+            {
+              "kind": "impl",
+              "name": "impl AuditSink for NoopAuditSink",
+              "visibility": "private",
+              "signature": "impl AuditSink for NoopAuditSink",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "enabled",
+                  "signature": "fn enabled (& self) -> bool",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 420
+                },
+                {
+                  "name": "publish",
+                  "signature": "fn publish (& self , _event : & AuditEvent) -> Result < () , AuditError >",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 424
+                }
+              ],
+              "impl_target": "NoopAuditSink",
+              "trait_name": "AuditSink",
+              "docs": null,
+              "tags": [
+                "impl",
+                "trait-impl"
+              ],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 419
+            },
+            {
+              "kind": "fn",
+              "name": "obs_source",
+              "visibility": "private",
+              "signature": "const fn obs_source (source : AuditSource) -> ObsSource",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 429
+            },
+            {
+              "kind": "fn",
+              "name": "obs_ids",
+              "visibility": "private",
+              "signature": "fn obs_ids (node : & AuditNode) -> ObsIds",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 436
+            },
+            {
+              "kind": "fn",
+              "name": "deserialize_obs_schema",
+              "visibility": "private",
+              "signature": "fn deserialize_obs_schema < 'de , D > (deserializer : D) -> Result < String , D :: Error > where D : Deserializer < 'de > ,",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 446
+            },
+            {
+              "kind": "fn",
+              "name": "deserialize_schema_version",
+              "visibility": "private",
+              "signature": "fn deserialize_schema_version < 'de , D > (deserializer : D) -> Result < u32 , D :: Error > where D : Deserializer < 'de > ,",
+              "fields": [],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [],
+              "file": "crates/eos-backend-audit/src/contract.rs",
+              "module": "contract",
+              "line": 460
+            }
+          ]
+        },
         {
           "path": "crates/eos-backend-audit/src/gates.rs",
           "module": "gates",
@@ -2473,7 +3305,7 @@
               ],
               "file": "crates/eos-backend-audit/src/ingestor.rs",
               "module": "ingestor",
-              "line": 46
+              "line": 45
             },
             {
               "kind": "struct",
@@ -2515,7 +3347,7 @@
               ],
               "file": "crates/eos-backend-audit/src/ingestor.rs",
               "module": "ingestor",
-              "line": 62
+              "line": 61
             },
             {
               "kind": "struct",
@@ -2550,7 +3382,7 @@
               ],
               "file": "crates/eos-backend-audit/src/ingestor.rs",
               "module": "ingestor",
-              "line": 75
+              "line": 74
             },
             {
               "kind": "impl",
@@ -2565,14 +3397,14 @@
                   "signature": "pub fn new (obs_events : ObsEventRepo , correlations : SandboxCallCorrelationRepo , cursors : AuditCursorRepo ,) -> Self",
                   "kind": "constructor",
                   "docs": "Build an ingestor over the backend store's obs/correlation/cursor repos.",
-                  "line": 85
+                  "line": 84
                 },
                 {
                   "name": "ingest_pull",
                   "signature": "pub async fn ingest_pull (& self , sandbox_id : & SandboxId , response : & Value ,) -> Result < IngestReport , IngestError >",
                   "kind": "method",
                   "docs": "Ingest one `api.audit.pull` response for `sandbox_id`: persist every\nnormalized event as an `obs_event` (matched or unmatched), then advance the\n`audit_cursor` epoch-safely.\n\n# Errors\n[`IngestError`] when the response lacks boot identity, fails normalization,\nor a store operation fails.",
-                  "line": 99
+                  "line": 98
                 }
               ],
               "impl_target": "AuditIngestor",
@@ -2583,7 +3415,7 @@
               ],
               "file": "crates/eos-backend-audit/src/ingestor.rs",
               "module": "ingestor",
-              "line": 84
+              "line": 83
             },
             {
               "kind": "fn",
@@ -2599,7 +3431,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/ingestor.rs",
               "module": "ingestor",
-              "line": 151
+              "line": 158
             },
             {
               "kind": "fn",
@@ -2615,7 +3447,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/ingestor.rs",
               "module": "ingestor",
-              "line": 185
+              "line": 192
             },
             {
               "kind": "fn",
@@ -2631,7 +3463,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/ingestor.rs",
               "module": "ingestor",
-              "line": 233
+              "line": 242
             },
             {
               "kind": "fn",
@@ -2647,7 +3479,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/ingestor.rs",
               "module": "ingestor",
-              "line": 242
+              "line": 251
             },
             {
               "kind": "fn",
@@ -2663,7 +3495,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/ingestor.rs",
               "module": "ingestor",
-              "line": 250
+              "line": 259
             },
             {
               "kind": "fn",
@@ -2679,7 +3511,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/ingestor.rs",
               "module": "ingestor",
-              "line": 261
+              "line": 270
             },
             {
               "kind": "fn",
@@ -2695,7 +3527,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/ingestor.rs",
               "module": "ingestor",
-              "line": 271
+              "line": 280
             }
           ]
         },
@@ -2740,7 +3572,7 @@
               ],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 5
+              "line": 6
             },
             {
               "kind": "struct",
@@ -2781,7 +3613,7 @@
               ],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 14
+              "line": 15
             },
             {
               "kind": "impl",
@@ -2796,14 +3628,14 @@
                   "signature": "pub fn has_counted_loss (& self) -> bool",
                   "kind": "method",
                   "docs": "Return true when the bounded audit surface reported any counted loss.",
-                  "line": 26
+                  "line": 27
                 },
                 {
                   "name": "merge",
                   "signature": "pub fn merge < 'a > (losses : impl IntoIterator < Item = & 'a Self >) -> Self",
                   "kind": "associated-fn",
                   "docs": "Merge multiple sandbox loss records into one runner-facing summary.",
-                  "line": 33
+                  "line": 34
                 }
               ],
               "impl_target": "SandboxAuditLoss",
@@ -2814,7 +3646,7 @@
               ],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 25
+              "line": 26
             },
             {
               "kind": "enum",
@@ -2861,7 +3693,7 @@
               ],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 48
+              "line": 49
             },
             {
               "kind": "fn",
@@ -2877,7 +3709,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 68
+              "line": 69
             },
             {
               "kind": "fn",
@@ -2893,7 +3725,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 78
+              "line": 79
             },
             {
               "kind": "fn",
@@ -2909,7 +3741,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 104
+              "line": 105
             },
             {
               "kind": "fn",
@@ -2925,7 +3757,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 132
+              "line": 133
             },
             {
               "kind": "fn",
@@ -2941,7 +3773,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 155
+              "line": 156
             },
             {
               "kind": "fn",
@@ -2957,7 +3789,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 176
+              "line": 177
             },
             {
               "kind": "fn",
@@ -2973,7 +3805,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 184
+              "line": 185
             },
             {
               "kind": "fn",
@@ -2989,7 +3821,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 189
+              "line": 190
             },
             {
               "kind": "fn",
@@ -3005,7 +3837,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/normalization.rs",
               "module": "normalization",
-              "line": 197
+              "line": 198
             }
           ]
         },
@@ -3042,7 +3874,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 36
+              "line": 37
             },
             {
               "kind": "struct",
@@ -3072,7 +3904,7 @@
               ],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 45
+              "line": 46
             },
             {
               "kind": "struct",
@@ -3106,7 +3938,7 @@
               ],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 55
+              "line": 56
             },
             {
               "kind": "struct",
@@ -3136,7 +3968,7 @@
               ],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 68
+              "line": 69
             },
             {
               "kind": "impl",
@@ -3151,21 +3983,21 @@
                   "signature": "pub fn new (obs_events : ObsEventRepo) -> (Self , PersistingSinkShutdown)",
                   "kind": "constructor",
                   "docs": "Build a sink draining into `obs_events` with the default queue capacity.\nSpawns the drainer; must be called within a Tokio runtime.",
-                  "line": 80
+                  "line": 81
                 },
                 {
                   "name": "with_capacity",
                   "signature": "pub fn with_capacity (obs_events : ObsEventRepo , capacity : usize ,) -> (Self , PersistingSinkShutdown)",
                   "kind": "constructor",
                   "docs": "Build a sink with an explicit queue bound (used by tests to force overflow\ndeterministically). The bound is floored at 1.",
-                  "line": 87
+                  "line": 88
                 },
                 {
                   "name": "loss_snapshot",
                   "signature": "pub fn loss_snapshot (& self) -> SinkLoss",
                   "kind": "method",
                   "docs": "A snapshot of the in-memory loss counters for `/api/stats/*` loss accounting.",
-                  "line": 109
+                  "line": 110
                 }
               ],
               "impl_target": "PersistingSink",
@@ -3176,7 +4008,7 @@
               ],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 79
+              "line": 80
             },
             {
               "kind": "impl",
@@ -3191,7 +4023,7 @@
                   "signature": "fn publish (& self , event : & AuditEvent) -> Result < () , AuditError >",
                   "kind": "method",
                   "docs": null,
-                  "line": 120
+                  "line": 121
                 }
               ],
               "impl_target": "PersistingSink",
@@ -3203,7 +4035,7 @@
               ],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 119
+              "line": 120
             },
             {
               "kind": "fn",
@@ -3219,7 +4051,7 @@
               "tags": [],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 136
+              "line": 137
             },
             {
               "kind": "fn",
@@ -3237,7 +4069,7 @@
               ],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 169
+              "line": 170
             },
             {
               "kind": "fn",
@@ -3255,7 +4087,7 @@
               ],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 180
+              "line": 181
             },
             {
               "kind": "fn",
@@ -3273,7 +4105,7 @@
               ],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 194
+              "line": 195
             },
             {
               "kind": "struct",
@@ -3302,7 +4134,7 @@
               ],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 203
+              "line": 204
             },
             {
               "kind": "impl",
@@ -3317,7 +4149,7 @@
                   "signature": "pub async fn shutdown (mut self)",
                   "kind": "method",
                   "docs": "Flush accepted events and await the drainer.",
-                  "line": 217
+                  "line": 218
                 }
               ],
               "impl_target": "PersistingSinkShutdown",
@@ -3328,7 +4160,7 @@
               ],
               "file": "crates/eos-backend-audit/src/sink.rs",
               "module": "sink",
-              "line": 216
+              "line": 217
             }
           ]
         },
@@ -3364,7 +4196,7 @@
               ],
               "file": "crates/eos-backend-audit/src/stats.rs",
               "module": "stats",
-              "line": 20
+              "line": 17
             },
             {
               "kind": "impl",
@@ -3379,42 +4211,42 @@
                   "signature": "pub fn new (obs_events : ObsEventRepo , cursors : AuditCursorRepo) -> Self",
                   "kind": "constructor",
                   "docs": "Build a stats reader over the backend store's obs/cursor repos.",
-                  "line": 28
+                  "line": 25
                 },
                 {
                   "name": "performance",
                   "signature": "pub async fn performance (& self) -> Result < PerformanceStats , StoreError >",
                   "kind": "method",
                   "docs": "`/api/stats/performance`: tool-call timing and resource sampling.\n\n# Errors\n[`StoreError`] on a query failure.",
-                  "line": 37
+                  "line": 34
                 },
                 {
                   "name": "correctness",
                   "signature": "pub async fn correctness (& self) -> Result < CorrectnessStats , StoreError >",
                   "kind": "method",
                   "docs": "`/api/stats/correctness`: observed runs/tool-calls and the matched vs\nunmatched daemon-audit split.\n\n# Errors\n[`StoreError`] on a query failure.",
-                  "line": 47
+                  "line": 44
                 },
                 {
                   "name": "agent_runs",
                   "signature": "pub async fn agent_runs (& self) -> Result < Vec < AgentRunStat > , StoreError >",
                   "kind": "method",
                   "docs": "`/api/stats/agent-runs`: per-agent-run obs rollups.\n\n# Errors\n[`StoreError`] on a query or id-decode failure.",
-                  "line": 58
+                  "line": 55
                 },
                 {
                   "name": "events",
                   "signature": "pub async fn events (& self , page : Page) -> Result < PageResult < ObsEvent > , StoreError >",
                   "kind": "method",
                   "docs": "`/api/stats/events`: a newest-first page of normalized obs events (engine and\ndaemon).\n\n# Errors\n[`StoreError`] on a query or decode failure.",
-                  "line": 68
+                  "line": 65
                 },
                 {
                   "name": "obs_loss",
                   "signature": "pub async fn obs_loss (& self , sink_loss : SinkLoss) -> Result < ObsLossStats , StoreError >",
                   "kind": "method",
                   "docs": "Loss accounting: the live sink's in-memory drop/persist-failure counters\nfolded with the durable `audit_cursor` totals. Pass\n[`PersistingSink::loss_snapshot`](crate::PersistingSink::loss_snapshot).\n\n# Errors\n[`StoreError`] on a query failure.",
-                  "line": 77
+                  "line": 74
                 }
               ],
               "impl_target": "StatsReader",
@@ -3425,7 +4257,7 @@
               ],
               "file": "crates/eos-backend-audit/src/stats.rs",
               "module": "stats",
-              "line": 27
+              "line": 24
             }
           ]
         }
@@ -3852,7 +4684,7 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "Backend deployment config, deserialized from `backend.yml < local.yml`.\n\nIt owns only backend deployment and sandbox lifecycle defaults.\n`ProvidersConfig` and `WorkflowConfig` are deliberately absent: agent-core's\n`eos-config` loads and validates those from `agent_core.config_dir`.\n`deny_unknown_fields` makes a stray `providers:` / `workflow:` section a hard\nerror rather than a silently ignored key (AC11).",
+              "docs": "Backend deployment config, deserialized from `backend.yml < local.yml`.\n\nIt owns only backend deployment and sandbox lifecycle defaults.\n`ProvidersConfig` and `WorkflowConfig` are deliberately absent: agent-core's\nowner-local loaders validate those from `agent_core.config_dir`.\n`deny_unknown_fields` makes a stray `providers:` / `workflow:` section a hard\nerror rather than a silently ignored key (AC11).",
               "tags": [
                 "config",
                 "derive: Clone",
@@ -4011,15 +4843,15 @@
       "name": "eos-backend-runtime",
       "path": "crates/eos-backend-runtime",
       "stats": {
-        "modules": 7,
-        "items": 55,
-        "structs": 16,
-        "enums": 6,
-        "traits": 2,
+        "modules": 4,
+        "items": 41,
+        "structs": 13,
+        "enums": 2,
+        "traits": 1,
         "functions": 10,
-        "impls": 21,
-        "fields": 61,
-        "methods": 46
+        "impls": 15,
+        "fields": 50,
+        "methods": 36
       },
       "modules": [
         {
@@ -4052,13 +4884,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "An owned, not-yet-sequenced milestone handed from the sync callback to the\ndrainer. The callback does **not** assign `seq`: the single drainer stamps it at\npersist time ([`drain`]) so persist order, `seq` order, and broadcast order are\nidentical by construction. That is what makes the subscriber high-water dedup\nsound and keeps the `seq` space hole-free.",
+              "docs": null,
               "tags": [
                 "derive: Debug"
               ],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 50
+              "line": 25
             },
             {
               "kind": "struct",
@@ -4086,14 +4918,14 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "Per-request streaming state shared by the sync callback, the async drainer, and\n`subscribe`. The callback touches only atomics + the mpsc sender (held in the\nclosure, not here); this holds the broadcast sender plus the loss accounting.\nThe monotonic `seq` is **not** here — it is a drainer-local counter, because the\ndrainer is the sole sequencer (see [`PendingMilestone`] / [`drain`]).",
+              "docs": null,
               "tags": [
                 "derive: Debug",
                 "dto"
               ],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 62
+              "line": 32
             },
             {
               "kind": "impl",
@@ -4107,8 +4939,8 @@
                   "name": "note_drop",
                   "signature": "fn note_drop (& self)",
                   "kind": "method",
-                  "docs": "Record a dropped milestone and arm the gap marker. `Release` pairs with the\ndrainer's `AcqRel` swap so the bumped `dropped` count is visible to it.",
-                  "line": 79
+                  "docs": null,
+                  "line": 40
                 }
               ],
               "impl_target": "RequestStream",
@@ -4119,7 +4951,103 @@
               ],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 78
+              "line": 39
+            },
+            {
+              "kind": "struct",
+              "name": "RequestStreamHandle",
+              "visibility": "private",
+              "signature": "struct RequestStreamHandle",
+              "fields": [
+                {
+                  "name": "tx",
+                  "visibility": "private",
+                  "ty": "mpsc :: Sender < PendingMilestone >"
+                },
+                {
+                  "name": "stream",
+                  "visibility": "private",
+                  "ty": "Arc < RequestStream >"
+                },
+                {
+                  "name": "active_sinks",
+                  "visibility": "private",
+                  "ty": "AtomicUsize"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "derive: Debug",
+                "dto"
+              ],
+              "file": "crates/eos-backend-runtime/src/event_bus.rs",
+              "module": "event_bus",
+              "line": 46
+            },
+            {
+              "kind": "struct",
+              "name": "SinkGuard",
+              "visibility": "private",
+              "signature": "struct SinkGuard",
+              "fields": [
+                {
+                  "name": "request_id",
+                  "visibility": "private",
+                  "ty": "RequestId"
+                },
+                {
+                  "name": "handle",
+                  "visibility": "private",
+                  "ty": "Arc < RequestStreamHandle >"
+                },
+                {
+                  "name": "streams",
+                  "visibility": "private",
+                  "ty": "Arc < Mutex < HashMap < RequestId , Arc < RequestStreamHandle > > > >"
+                }
+              ],
+              "variants": [],
+              "methods": [],
+              "impl_target": null,
+              "trait_name": null,
+              "docs": null,
+              "tags": [
+                "derive: Debug"
+              ],
+              "file": "crates/eos-backend-runtime/src/event_bus.rs",
+              "module": "event_bus",
+              "line": 53
+            },
+            {
+              "kind": "impl",
+              "name": "impl Drop for SinkGuard",
+              "visibility": "private",
+              "signature": "impl Drop for SinkGuard",
+              "fields": [],
+              "variants": [],
+              "methods": [
+                {
+                  "name": "drop",
+                  "signature": "fn drop (& mut self)",
+                  "kind": "method",
+                  "docs": null,
+                  "line": 61
+                }
+              ],
+              "impl_target": "SinkGuard",
+              "trait_name": "Drop",
+              "docs": null,
+              "tags": [
+                "impl",
+                "trait-impl"
+              ],
+              "file": "crates/eos-backend-runtime/src/event_bus.rs",
+              "module": "event_bus",
+              "line": 60
             },
             {
               "kind": "struct",
@@ -4130,7 +5058,7 @@
                 {
                   "name": "streams",
                   "visibility": "private",
-                  "ty": "Mutex < HashMap < RequestId , Arc < RequestStream > > >"
+                  "ty": "Arc < Mutex < HashMap < RequestId , Arc < RequestStreamHandle > > > >"
                 },
                 {
                   "name": "event_log",
@@ -4152,13 +5080,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "Backend event bus: owns the durable `event_log` writer and the per-request live\nstreams. Share one instance (e.g. `Arc<EventBus>`) between the launcher (which\nregisters a callback per run) and the streaming API (which subscribes).",
+              "docs": "Backend event bus over the durable `event_log` plus request-scoped live tails.",
               "tags": [
                 "derive: Debug"
               ],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 87
+              "line": 75
             },
             {
               "kind": "impl",
@@ -4172,43 +5100,43 @@
                   "name": "new",
                   "signature": "pub fn new (event_log : EventLogRepo) -> Self",
                   "kind": "constructor",
-                  "docs": "Build a bus over the durable `event_log` repository with default capacities.",
-                  "line": 99
+                  "docs": "Build a bus over the durable `event_log` repository.",
+                  "line": 85
                 },
                 {
                   "name": "with_capacity",
                   "signature": "fn with_capacity (event_log : EventLogRepo , queue_capacity : usize , live_capacity : usize) -> Self",
                   "kind": "constructor",
-                  "docs": "Build a bus with explicit queue/broadcast bounds (used by `new` for the\ndefaults and by tests to force overflow and lag deterministically). Both\nbounds are floored at 1.",
-                  "line": 105
+                  "docs": null,
+                  "line": 91
+                },
+                {
+                  "name": "live_event_sink_factory",
+                  "signature": "pub fn live_event_sink_factory (self : & Arc < Self >) -> EngineEventSinkFactory",
+                  "kind": "method",
+                  "docs": "Build the per-loop live sink factory consumed by `TokioAgentLoopLauncher`.",
+                  "line": 100
                 },
                 {
                   "name": "register",
-                  "signature": "pub(crate) fn register (& self , request_id : & RequestId) -> EventCallback",
+                  "signature": "pub fn register (& self , request_id : & RequestId) -> EngineEventSink",
                   "kind": "method",
-                  "docs": "Register a run and return the synchronous engine callback for it. Spawns the\nper-request drainer; must be called within a Tokio runtime.\n\nThe returned [`EventCallback`] owns the only `mpsc::Sender`, so dropping it\n(when the run ends) closes the queue and the drainer exits.\n\nInternal seam: the launcher registers a run; downstream code drives this\ntransitively through `RunLauncher`, never directly.",
-                  "line": 117
+                  "docs": "Register one agent loop under its owning request and return its sync event\nsink. The returned sink must be dropped when the loop finishes; dropping the\nlast sink for a request closes its live tail after the drainer flushes.",
+                  "line": 107
                 },
                 {
-                  "name": "open_stream",
-                  "signature": "fn open_stream (& self , request_id : & RequestId) -> (mpsc :: Sender < PendingMilestone > , Arc < RequestStream >)",
+                  "name": "stream_for_request",
+                  "signature": "fn stream_for_request (& self , request_id : & RequestId) -> Arc < RequestStreamHandle >",
                   "kind": "method",
-                  "docs": "Create the channels + per-request [`RequestStream`], register it, and spawn\nthe drainer. Production [`register`](Self::register) wraps the returned\nsender in the `StreamEvent` callback; tests drive the same enqueue path with\npre-serialized payloads (a `#[non_exhaustive]` `StreamEvent` cannot be built\noutside `eos-engine`).",
-                  "line": 140
+                  "docs": null,
+                  "line": 130
                 },
                 {
                   "name": "subscribe",
                   "signature": "pub async fn subscribe (& self , request_id : & RequestId , after_seq : i64 ,) -> Result < EventSubscription , StoreError >",
                   "kind": "method",
-                  "docs": "Subscribe to a request's stream, replaying persisted records with\n`seq > after_seq` then joining the live broadcast with no handoff gap.\n\n# Errors\n[`StoreError`] if the initial `event_log` replay read fails.",
-                  "line": 163
-                },
-                {
-                  "name": "finish",
-                  "signature": "pub(crate) fn finish (& self , request_id : & RequestId)",
-                  "kind": "method",
-                  "docs": "Drop the bus's handle on a finished run's stream. Combined with the run\ndropping its callback (which closes the queue and exits the drainer), this\nfrees the broadcast sender so live subscribers observe close. Durable\n`event_log` rows remain replayable.\n\nInternal seam: the reaper finishes a run; not part of the downstream API.",
-                  "line": 190
+                  "docs": "Subscribe to a request's stream, replaying persisted rows with\n`seq > after_seq` and then tailing the live stream when one is active.\n\n# Errors\n[`StoreError`] if the initial replay read fails.",
+                  "line": 158
                 }
               ],
               "impl_target": "EventBus",
@@ -4219,7 +5147,7 @@
               ],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 98
+              "line": 84
             },
             {
               "kind": "fn",
@@ -4231,11 +5159,11 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "The callback's synchronous core: classify the serialized event, and for a\nmilestone build an owned [`PendingMilestone`] and `try_send` it. The `seq` is\n**not** assigned here — the drainer stamps it (see [`drain`]). A full queue arms\na gap marker instead of blocking. No `.await`, no lock — this is the AC5 hot-path\ncontract.",
+              "docs": null,
               "tags": [],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 201
+              "line": 184
             },
             {
               "kind": "fn",
@@ -4247,27 +5175,27 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "Milestone classifier: the serde tag of a persist-worthy event, or `None` for a\nhigh-volume delta we drop. Fail-safe — an unknown future event kind is treated\nas a milestone (kept visible) rather than silently dropped.",
+              "docs": null,
               "tags": [],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 224
+              "line": 202
             },
             {
               "kind": "fn",
               "name": "is_delta",
               "visibility": "private",
-              "signature": "fn is_delta (kind : & str) -> bool",
+              "signature": "const fn is_delta (kind : & str) -> bool",
               "fields": [],
               "variants": [],
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "Whether a stream-event kind is a high-volume incremental delta (not persisted).",
+              "docs": null,
               "tags": [],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 232
+              "line": 207
             },
             {
               "kind": "fn",
@@ -4279,13 +5207,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "Per-request drainer and **sole sequencer**: it stamps a monotonic `seq` as it\npersists, so persist order, `seq` order, and broadcast order are identical and no\ngap marker can leapfrog a still-queued lower-`seq` record. It persists before\nbroadcasting and coalesces armed drops into one durable gap marker. `seq` advances\nonly on a durable write, so the space stays hole-free. Exits when the queue closes\n(the run dropped its callback).",
+              "docs": null,
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 240
+              "line": 214
             },
             {
               "kind": "fn",
@@ -4297,13 +5225,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "Stamp the next `seq`, persist the record, then broadcast it. Returns the new\nhigh-water `seq`: it advances only when the row is durably written, so a failed\npersist leaves no hole (the next record reuses the seq) and instead arms a gap\nmarker. A record that cannot be durably written is never broadcast\n(persist-before-broadcast).",
+              "docs": null,
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 265
+              "line": 239
             },
             {
               "kind": "fn",
@@ -4315,13 +5243,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "Stamp the next `seq`, then persist and broadcast one `event_stream_gap` marker\ncarrying the cumulative dropped count. Returns the new high-water `seq` (advanced\nonly when the marker is durably written). Because it is sequenced inline in drain\norder, the marker sits between the records it separates and never leapfrogs a\nqueued record. Best-effort: a failed marker write is logged, not retried into a\nloop.",
+              "docs": null,
               "tags": [
                 "async"
               ],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 308
+              "line": 271
             },
             {
               "kind": "struct",
@@ -4359,13 +5287,13 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "A replay-then-live subscription. [`EventSubscription::recv`] yields records in\n`seq` order with no gap and no duplicate across the replay/live handoff, and\nrecovers broadcast lag from the durable log.\n\nThe dedup is a single high-water mark (`last_seq`): replay raises it, live\ndelivers only `seq > last_seq`. This is sound because the drainer is the sole\nsequencer ([`drain`]): it stamps `seq` as it persists, so persist order, `seq`\norder, and broadcast order are identical — a gap marker can never carry a `seq`\nabove a not-yet-delivered record. The dedup is additionally robust to *broadcast\nreordering* (a slow subscriber that lags is refilled from the durable log).",
+              "docs": "Replay-then-live subscription for one request.",
               "tags": [
                 "derive: Debug"
               ],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 339
+              "line": 296
             },
             {
               "kind": "impl",
@@ -4379,8 +5307,8 @@
                   "name": "recv",
                   "signature": "pub async fn recv (& mut self) -> Result < Option < EventRecord > , StoreError >",
                   "kind": "method",
-                  "docs": "The next record in `seq` order, or `None` when the stream is exhausted.\n\nDrains buffered replay first (skipping any `seq <= last_seq`), then tails the\nlive broadcast (delivering only `seq > last_seq`). On broadcast lag it\nrefills from the durable `event_log` instead of skipping; on close it does a\nfinal durable sweep before ending.\n\n# Errors\n[`StoreError`] if a durable refill read fails.",
-                  "line": 362
+                  "docs": "Return the next event record, recovering live broadcast lag from\n`event_log`.\n\n# Errors\n[`StoreError`] if a durable refill read fails.",
+                  "line": 308
                 }
               ],
               "impl_target": "EventSubscription",
@@ -4391,446 +5319,7 @@
               ],
               "file": "crates/eos-backend-runtime/src/event_bus.rs",
               "module": "event_bus",
-              "line": 361
-            }
-          ]
-        },
-        {
-          "path": "crates/eos-backend-runtime/src/host.rs",
-          "module": "host",
-          "items": [
-            {
-              "kind": "enum",
-              "name": "RunOutcome",
-              "visibility": "pub",
-              "signature": "pub enum RunOutcome",
-              "fields": [],
-              "variants": [
-                {
-                  "name": "Done",
-                  "fields": []
-                },
-                {
-                  "name": "Failed",
-                  "fields": []
-                }
-              ],
-              "methods": [],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "How a completed (non-cancelled) host run resolved. Cancellation is owned by the\nlauncher (it drops the run future), so it is not a host outcome.",
-              "tags": [
-                "derive: Clone",
-                "derive: Copy",
-                "derive: Debug",
-                "derive: Eq",
-                "derive: PartialEq"
-              ],
-              "file": "crates/eos-backend-runtime/src/host.rs",
-              "module": "host",
-              "line": 22
-            },
-            {
-              "kind": "trait",
-              "name": "RunHost",
-              "visibility": "pub",
-              "signature": "pub trait RunHost",
-              "fields": [],
-              "variants": [],
-              "methods": [
-                {
-                  "name": "run",
-                  "signature": "async fn run (& self , request_id : RequestId , prompt : String , sandbox_id : SandboxId , on_event : Option < EventCallback > ,) -> RunOutcome",
-                  "kind": "required",
-                  "docs": "Run `prompt` for `request_id` bound to `sandbox_id`, forwarding\n`on_event` as the engine stream callback. Returns the resolved outcome.",
-                  "line": 42
-                }
-              ],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "The run-to-completion seam the launcher depends on.\n\nOne call runs the request's root agent inline through agent-core and returns\nthe resolved [`RunOutcome`]. Implementations must be cancel-safe at `.await`\npoints: the launcher races this future against a cancellation token and drops\nit on cancel (agent-core's own framework guard handles the abandoned root\ntask; backend leaves that row as supporting detail per spec).",
-              "tags": [
-                "async_trait"
-              ],
-              "file": "crates/eos-backend-runtime/src/host.rs",
-              "module": "host",
-              "line": 33
-            },
-            {
-              "kind": "struct",
-              "name": "RuntimeHost",
-              "visibility": "pub",
-              "signature": "pub struct RuntimeHost",
-              "fields": [
-                {
-                  "name": "services",
-                  "visibility": "private",
-                  "ty": "RuntimeServices"
-                },
-                {
-                  "name": "workspace_root",
-                  "visibility": "private",
-                  "ty": "String"
-                },
-                {
-                  "name": "workflow_config",
-                  "visibility": "private",
-                  "ty": "WorkflowConfig"
-                }
-              ],
-              "variants": [],
-              "methods": [],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "Production [`RunHost`]: the backend composition root's handle on agent-core.\n\nHolds the injected [`RuntimeServices`] graph plus the per-deployment run\ntemplate (`workspace_root` + [`WorkflowConfig`]) — v1 has no per-request\nworkflow override, so these are constant across requests. The resolved\n`sandbox_id` is threaded into [`RequestRunInput`] so `run_request`'s internal\ngateway acquire short-circuits to the binding the launcher already pinned\n(idempotent per request id).",
-              "tags": [],
-              "file": "crates/eos-backend-runtime/src/host.rs",
-              "module": "host",
-              "line": 53
-            },
-            {
-              "kind": "impl",
-              "name": "impl std :: fmt :: Debug for RuntimeHost",
-              "visibility": "private",
-              "signature": "impl std :: fmt :: Debug for RuntimeHost",
-              "fields": [],
-              "variants": [],
-              "methods": [
-                {
-                  "name": "fmt",
-                  "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
-                  "kind": "method",
-                  "docs": null,
-                  "line": 68
-                }
-              ],
-              "impl_target": "RuntimeHost",
-              "trait_name": "std :: fmt :: Debug",
-              "docs": null,
-              "tags": [
-                "impl",
-                "trait-impl"
-              ],
-              "file": "crates/eos-backend-runtime/src/host.rs",
-              "module": "host",
-              "line": 67
-            },
-            {
-              "kind": "impl",
-              "name": "impl RuntimeHost",
-              "visibility": "private",
-              "signature": "impl RuntimeHost",
-              "fields": [],
-              "variants": [],
-              "methods": [
-                {
-                  "name": "new",
-                  "signature": "pub fn new (services : RuntimeServices , workspace_root : impl Into < String > , workflow_config : WorkflowConfig ,) -> Self",
-                  "kind": "constructor",
-                  "docs": "Build the production host from the injected services and run template.",
-                  "line": 76
-                }
-              ],
-              "impl_target": "RuntimeHost",
-              "trait_name": null,
-              "docs": null,
-              "tags": [
-                "impl"
-              ],
-              "file": "crates/eos-backend-runtime/src/host.rs",
-              "module": "host",
-              "line": 75
-            },
-            {
-              "kind": "impl",
-              "name": "impl RunHost for RuntimeHost",
-              "visibility": "private",
-              "signature": "impl RunHost for RuntimeHost",
-              "fields": [],
-              "variants": [],
-              "methods": [
-                {
-                  "name": "run",
-                  "signature": "async fn run (& self , request_id : RequestId , prompt : String , sandbox_id : SandboxId , on_event : Option < EventCallback > ,) -> RunOutcome",
-                  "kind": "method",
-                  "docs": null,
-                  "line": 93
-                }
-              ],
-              "impl_target": "RuntimeHost",
-              "trait_name": "RunHost",
-              "docs": null,
-              "tags": [
-                "async_trait",
-                "impl",
-                "trait-impl"
-              ],
-              "file": "crates/eos-backend-runtime/src/host.rs",
-              "module": "host",
-              "line": 91
-            }
-          ]
-        },
-        {
-          "path": "crates/eos-backend-runtime/src/launcher.rs",
-          "module": "launcher",
-          "items": [
-            {
-              "kind": "enum",
-              "name": "LaunchError",
-              "visibility": "pub",
-              "signature": "pub enum LaunchError",
-              "fields": [],
-              "variants": [
-                {
-                  "name": "Store",
-                  "fields": [
-                    {
-                      "name": "0",
-                      "visibility": "private",
-                      "ty": "StoreError"
-                    }
-                  ]
-                }
-              ],
-              "methods": [],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "Failure to accept a user request (the only synchronous failure is persisting\nthe initial `run_meta` row).",
-              "tags": [
-                "derive: Debug",
-                "derive: thiserror::Error",
-                "error",
-                "non_exhaustive"
-              ],
-              "file": "crates/eos-backend-runtime/src/launcher.rs",
-              "module": "launcher",
-              "line": 34
-            },
-            {
-              "kind": "enum",
-              "name": "CancelOutcome",
-              "visibility": "pub",
-              "signature": "pub enum CancelOutcome",
-              "fields": [],
-              "variants": [
-                {
-                  "name": "Requested",
-                  "fields": []
-                },
-                {
-                  "name": "NotFound",
-                  "fields": []
-                }
-              ],
-              "methods": [],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "Result of a cancellation request.",
-              "tags": [
-                "derive: Clone",
-                "derive: Copy",
-                "derive: Debug",
-                "derive: Eq",
-                "derive: PartialEq"
-              ],
-              "file": "crates/eos-backend-runtime/src/launcher.rs",
-              "module": "launcher",
-              "line": 44
-            },
-            {
-              "kind": "struct",
-              "name": "RunSlot",
-              "visibility": "private",
-              "signature": "struct RunSlot",
-              "fields": [
-                {
-                  "name": "token",
-                  "visibility": "private",
-                  "ty": "CancellationToken"
-                },
-                {
-                  "name": "reason",
-                  "visibility": "private",
-                  "ty": "Mutex < Option < String > >"
-                }
-              ],
-              "variants": [],
-              "methods": [],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "Per-run cancellation slot, registered before the run task spawns so `cancel`\ncan always find it. The reason is stashed before the token fires so the task\nobserves it when it finalizes the cancelled disposition.",
-              "tags": [
-                "derive: Debug"
-              ],
-              "file": "crates/eos-backend-runtime/src/launcher.rs",
-              "module": "launcher",
-              "line": 54
-            },
-            {
-              "kind": "struct",
-              "name": "LauncherInner",
-              "visibility": "private",
-              "signature": "struct LauncherInner",
-              "fields": [
-                {
-                  "name": "host",
-                  "visibility": "private",
-                  "ty": "Arc < dyn RunHost >"
-                },
-                {
-                  "name": "manager",
-                  "visibility": "private",
-                  "ty": "Arc < SandboxManager >"
-                },
-                {
-                  "name": "run_meta",
-                  "visibility": "private",
-                  "ty": "RunMetaRepo"
-                },
-                {
-                  "name": "event_bus",
-                  "visibility": "private",
-                  "ty": "Arc < EventBus >"
-                },
-                {
-                  "name": "reaper",
-                  "visibility": "private",
-                  "ty": "Reaper"
-                },
-                {
-                  "name": "runs",
-                  "visibility": "private",
-                  "ty": "Mutex < HashMap < RequestId , Arc < RunSlot > > >"
-                }
-              ],
-              "variants": [],
-              "methods": [],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "Shared launcher state behind an `Arc` so the spawned run task can drive it.",
-              "tags": [],
-              "file": "crates/eos-backend-runtime/src/launcher.rs",
-              "module": "launcher",
-              "line": 63
-            },
-            {
-              "kind": "impl",
-              "name": "impl std :: fmt :: Debug for LauncherInner",
-              "visibility": "private",
-              "signature": "impl std :: fmt :: Debug for LauncherInner",
-              "fields": [],
-              "variants": [],
-              "methods": [
-                {
-                  "name": "fmt",
-                  "signature": "fn fmt (& self , f : & mut std :: fmt :: Formatter < '_ >) -> std :: fmt :: Result",
-                  "kind": "method",
-                  "docs": null,
-                  "line": 77
-                }
-              ],
-              "impl_target": "LauncherInner",
-              "trait_name": "std :: fmt :: Debug",
-              "docs": null,
-              "tags": [
-                "impl",
-                "trait-impl"
-              ],
-              "file": "crates/eos-backend-runtime/src/launcher.rs",
-              "module": "launcher",
-              "line": 76
-            },
-            {
-              "kind": "impl",
-              "name": "impl LauncherInner",
-              "visibility": "private",
-              "signature": "impl LauncherInner",
-              "fields": [],
-              "variants": [],
-              "methods": [
-                {
-                  "name": "run_to_completion",
-                  "signature": "async fn run_to_completion (self : Arc < Self > , request_id : RequestId , prompt : String , sandbox_id : Option < SandboxId > , callback : EventCallback , slot : Arc < RunSlot > ,)",
-                  "kind": "method",
-                  "docs": "The whole run lifecycle for one request: acquire the sandbox, mark running,\nrun to completion (racing cancellation), then reap exactly once.",
-                  "line": 83
-                }
-              ],
-              "impl_target": "LauncherInner",
-              "trait_name": null,
-              "docs": null,
-              "tags": [
-                "impl"
-              ],
-              "file": "crates/eos-backend-runtime/src/launcher.rs",
-              "module": "launcher",
-              "line": 82
-            },
-            {
-              "kind": "struct",
-              "name": "RunLauncher",
-              "visibility": "pub",
-              "signature": "pub struct RunLauncher",
-              "fields": [
-                {
-                  "name": "inner",
-                  "visibility": "private",
-                  "ty": "Arc < LauncherInner >"
-                }
-              ],
-              "variants": [],
-              "methods": [],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "Backend run launcher and cancellation entry. Cheap to clone (one `Arc`).",
-              "tags": [
-                "derive: Clone",
-                "derive: Debug"
-              ],
-              "file": "crates/eos-backend-runtime/src/launcher.rs",
-              "module": "launcher",
-              "line": 158
-            },
-            {
-              "kind": "impl",
-              "name": "impl RunLauncher",
-              "visibility": "private",
-              "signature": "impl RunLauncher",
-              "fields": [],
-              "variants": [],
-              "methods": [
-                {
-                  "name": "new",
-                  "signature": "pub fn new (host : Arc < dyn RunHost > , manager : Arc < SandboxManager > , run_meta : RunMetaRepo , event_bus : Arc < EventBus > ,) -> Self",
-                  "kind": "constructor",
-                  "docs": "Assemble the launcher from the injected collaborators. The reaper shares the\nsame manager / run-meta repo / event bus (all cheap clones over one state).",
-                  "line": 165
-                },
-                {
-                  "name": "launch",
-                  "signature": "pub async fn launch (& self , request : CreateUserRequest) -> Result < RequestId , LaunchError >",
-                  "kind": "method",
-                  "docs": "Accept a user request: mint its id, persist `run_meta(Accepted)`, register\nthe event stream + cancellation slot, and spawn the run task. Returns the\nminted request id (the `202` body). Must be called within a Tokio runtime.\n\n# Errors\n[`LaunchError::Store`] if the initial `run_meta` write fails (the run is not\nstarted).",
-                  "line": 187
-                },
-                {
-                  "name": "cancel",
-                  "signature": "pub fn cancel (& self , request_id : & RequestId , reason : impl Into < String >) -> CancelOutcome",
-                  "kind": "method",
-                  "docs": "Request cancellation of an in-flight run. Stashes `reason` and fires the\nrun's token; the run task finalizes it as cancelled (backend-local) and the\nreaper releases the sandbox. A run that has already finalized returns\n[`CancelOutcome::NotFound`].",
-                  "line": 240
-                }
-              ],
-              "impl_target": "RunLauncher",
-              "trait_name": null,
-              "docs": null,
-              "tags": [
-                "impl"
-              ],
-              "file": "crates/eos-backend-runtime/src/launcher.rs",
-              "module": "launcher",
-              "line": 164
+              "line": 307
             }
           ]
         },
@@ -4838,119 +5327,6 @@
           "path": "crates/eos-backend-runtime/src/lib.rs",
           "module": "lib",
           "items": []
-        },
-        {
-          "path": "crates/eos-backend-runtime/src/reaper.rs",
-          "module": "reaper",
-          "items": [
-            {
-              "kind": "enum",
-              "name": "Disposition",
-              "visibility": "pub(crate)",
-              "signature": "pub(crate) enum Disposition",
-              "fields": [],
-              "variants": [
-                {
-                  "name": "Done",
-                  "fields": []
-                },
-                {
-                  "name": "Failed",
-                  "fields": []
-                },
-                {
-                  "name": "Cancelled",
-                  "fields": [
-                    {
-                      "name": "0",
-                      "visibility": "private",
-                      "ty": "Option < String >"
-                    }
-                  ]
-                }
-              ],
-              "methods": [],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "How a run finalized, resolved by the launcher task and mapped here to the\nterminal [`BackendRunStatus`].",
-              "tags": [
-                "derive: Clone",
-                "derive: Debug",
-                "derive: Eq",
-                "derive: PartialEq"
-              ],
-              "file": "crates/eos-backend-runtime/src/reaper.rs",
-              "module": "reaper",
-              "line": 19
-            },
-            {
-              "kind": "struct",
-              "name": "Reaper",
-              "visibility": "pub(crate)",
-              "signature": "pub(crate) struct Reaper",
-              "fields": [
-                {
-                  "name": "manager",
-                  "visibility": "private",
-                  "ty": "Arc < SandboxManager >"
-                },
-                {
-                  "name": "run_meta",
-                  "visibility": "private",
-                  "ty": "RunMetaRepo"
-                },
-                {
-                  "name": "event_bus",
-                  "visibility": "private",
-                  "ty": "Arc < EventBus >"
-                }
-              ],
-              "variants": [],
-              "methods": [],
-              "impl_target": null,
-              "trait_name": null,
-              "docs": "Run finalizer: shares the manager, run-meta repo, and event bus with the\nlauncher (all cheap `Arc`/pool clones over the same state).",
-              "tags": [
-                "derive: Debug"
-              ],
-              "file": "crates/eos-backend-runtime/src/reaper.rs",
-              "module": "reaper",
-              "line": 31
-            },
-            {
-              "kind": "impl",
-              "name": "impl Reaper",
-              "visibility": "private",
-              "signature": "impl Reaper",
-              "fields": [],
-              "variants": [],
-              "methods": [
-                {
-                  "name": "new",
-                  "signature": "pub(crate) fn new (manager : Arc < SandboxManager > , run_meta : RunMetaRepo , event_bus : Arc < EventBus > ,) -> Self",
-                  "kind": "constructor",
-                  "docs": "Build a reaper over the shared lifecycle collaborators.",
-                  "line": 41
-                },
-                {
-                  "name": "reap",
-                  "signature": "pub(crate) async fn reap (& self , request_id : & RequestId , disposition : Disposition)",
-                  "kind": "method",
-                  "docs": "Finalize `request_id`: release its sandbox ref (idempotent; destroys an\nephemeral sandbox on its last release), close its event stream, and write\nthe terminal `run_meta` status / `finished_at` / `cancel_reason`.",
-                  "line": 54
-                }
-              ],
-              "impl_target": "Reaper",
-              "trait_name": null,
-              "docs": null,
-              "tags": [
-                "impl"
-              ],
-              "file": "crates/eos-backend-runtime/src/reaper.rs",
-              "module": "reaper",
-              "line": 40
-            }
-          ]
         },
         {
           "path": "crates/eos-backend-runtime/src/sandbox_manager.rs",
@@ -5625,7 +6001,7 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "Backend-owned sandbox lifecycle manager and [`SandboxGateway`] implementation.\n\nConstruct the production manager with [`SandboxManager::with_docker`], inject\nit into `eos-runtime` via `RuntimeServicesBuilder::sandbox_gateway`, and retain\nthe same handle (an `Arc<SandboxManager>`) to drive [`SandboxManager::release`],\n[`SandboxManager::delete`], [`SandboxManager::view`], and\n[`SandboxManager::list`].",
+              "docs": "Backend-owned sandbox lifecycle manager and [`SandboxGateway`] implementation.\n\nConstruct the production manager with [`SandboxManager::with_docker`], inject\nit into the agent-core request service via `AgentCoreServiceDependencies`, and retain\nthe same handle (an `Arc<SandboxManager>`) to drive [`SandboxManager::release`],\n[`SandboxManager::delete`], [`SandboxManager::view`], and\n[`SandboxManager::list`].",
               "tags": [
                 "derive: Debug"
               ],
@@ -5751,7 +6127,7 @@
               "methods": [],
               "impl_target": null,
               "trait_name": null,
-              "docs": "The provisioner the gateway hands to `eos-runtime`: its `prepare_for_run` is\nthe manager's [`ManagerInner::acquire`], so the runtime's bootstrap binding is\nthe refcount-acquiring path. Holds a clone of the shared inner state.",
+              "docs": "The provisioner the gateway hands to agent-core request orchestration: its `prepare_for_run` is\nthe manager's [`ManagerInner::acquire`], so the runtime's bootstrap binding is\nthe refcount-acquiring path. Holds a clone of the shared inner state.",
               "tags": [
                 "derive: Debug"
               ],
@@ -6207,7 +6583,7 @@
               "kind": "fn",
               "name": "opt_id_in",
               "visibility": "pub(crate)",
-              "signature": "pub(crate) fn opt_id_in < T > (column : & 'static str , raw : Option < String >) -> Result < Option < T > , StoreError > where T : TryFrom < String , Error = CoreError > ,",
+              "signature": "pub(crate) fn opt_id_in < T > (column : & 'static str , raw : Option < String > ,) -> Result < Option < T > , StoreError > where T : TryFrom < String , Error = CoreError > ,",
               "fields": [],
               "variants": [],
               "methods": [],
@@ -6233,7 +6609,7 @@
               "tags": [],
               "file": "crates/eos-backend-store/src/db.rs",
               "module": "db",
-              "line": 175
+              "line": 178
             },
             {
               "kind": "fn",
@@ -6249,7 +6625,7 @@
               "tags": [],
               "file": "crates/eos-backend-store/src/db.rs",
               "module": "db",
-              "line": 180
+              "line": 183
             }
           ]
         },
@@ -6343,7 +6719,7 @@
               "tags": [],
               "file": "crates/eos-backend-store/src/event_log.rs",
               "module": "event_log",
-              "line": 80
+              "line": 81
             }
           ]
         },
@@ -6408,35 +6784,35 @@
                   "signature": "pub async fn list_for_request (& self , request_id : & RequestId ,) -> Result < Vec < ObsEvent > , StoreError >",
                   "kind": "method",
                   "docs": "All obs events for a request, oldest-first.\n\n# Errors\n[`StoreError`] on a query or decode failure.",
-                  "line": 67
+                  "line": 72
                 },
                 {
                   "name": "list_page",
                   "signature": "pub async fn list_page (& self , page : Page) -> Result < PageResult < ObsEvent > , StoreError >",
                   "kind": "method",
                   "docs": "A newest-first page of all obs events (`/api/stats/events`). `total` is the\nfull unpaginated row count.\n\n# Errors\n[`StoreError`] on a query or decode failure.",
-                  "line": 84
+                  "line": 89
                 },
                 {
                   "name": "performance",
                   "signature": "pub async fn performance (& self , tool_call_kind : & str , resource_kind : & str ,) -> Result < PerformanceStats , StoreError >",
                   "kind": "method",
-                  "docs": "Timing and resource summary across all obs events. The caller supplies the\ncanonical obs `kind` vocabulary (owned by `eos-backend-audit` / `eos-audit`).\n\n# Errors\n[`StoreError`] on a query failure.",
-                  "line": 112
+                  "docs": "Timing and resource summary across all obs events. The caller supplies the\ncanonical obs `kind` vocabulary (owned by `eos-backend-audit` / `eos-types`).\n\n# Errors\n[`StoreError`] on a query failure.",
+                  "line": 117
                 },
                 {
                   "name": "correctness",
                   "signature": "pub async fn correctness (& self , agent_run_kind : & str , tool_call_kind : & str ,) -> Result < CorrectnessStats , StoreError >",
                   "kind": "method",
                   "docs": "Correctness summary: observed agent runs and tool calls plus the\nmatched/unmatched daemon-audit split (AC7). A matched row has a model-facing\n`tool_use_id` joined through the bridge; an unmatched row has only a\n`sandbox_invocation_id`.\n\n# Errors\n[`StoreError`] on a query failure.",
-                  "line": 150
+                  "line": 155
                 },
                 {
                   "name": "agent_run_stats",
                   "signature": "pub async fn agent_run_stats (& self , tool_call_kind : & str , resource_kind : & str ,) -> Result < Vec < AgentRunStat > , StoreError >",
                   "kind": "method",
                   "docs": "Per-agent-run rollup of tool-call and resource-sample activity, ascending by\nagent-run id. Rows with no `agent_run_id` are excluded.\n\n# Errors\n[`StoreError`] on a query or id-decode failure.",
-                  "line": 188
+                  "line": 193
                 }
               ],
               "impl_target": "ObsEventRepo",
@@ -6472,7 +6848,7 @@
               ],
               "file": "crates/eos-backend-store/src/obs.rs",
               "module": "obs",
-              "line": 229
+              "line": 234
             },
             {
               "kind": "impl",
@@ -6487,21 +6863,21 @@
                   "signature": "pub(crate) fn new (pool : SqlitePool) -> Self",
                   "kind": "constructor",
                   "docs": null,
-                  "line": 236
+                  "line": 241
                 },
                 {
                   "name": "insert",
                   "signature": "pub async fn insert (& self , bridge : & SandboxCallCorrelation) -> Result < () , StoreError >",
                   "kind": "method",
                   "docs": "Insert a correlation bridge row (recorded before the daemon request is\nsent). Keyed by `(sandbox_id, caller_id, sandbox_invocation_id)`.\n\n# Errors\n[`StoreError`] on a primary-key collision or query failure.",
-                  "line": 240
+                  "line": 245
                 },
                 {
                   "name": "get",
                   "signature": "pub async fn get (& self , sandbox_id : & SandboxId , caller_id : & CallerId , sandbox_invocation_id : & InvocationId ,) -> Result < Option < SandboxCallCorrelation > , StoreError >",
                   "kind": "method",
                   "docs": "Look up a bridge row by its full daemon join key.\n\n# Errors\n[`StoreError`] on a query or decode failure.",
-                  "line": 263
+                  "line": 268
                 }
               ],
               "impl_target": "SandboxCallCorrelationRepo",
@@ -6512,7 +6888,7 @@
               ],
               "file": "crates/eos-backend-store/src/obs.rs",
               "module": "obs",
-              "line": 235
+              "line": 240
             },
             {
               "kind": "fn",
@@ -6528,7 +6904,7 @@
               "tags": [],
               "file": "crates/eos-backend-store/src/obs.rs",
               "module": "obs",
-              "line": 286
+              "line": 291
             },
             {
               "kind": "fn",
@@ -6544,7 +6920,7 @@
               "tags": [],
               "file": "crates/eos-backend-store/src/obs.rs",
               "module": "obs",
-              "line": 312
+              "line": 317
             }
           ]
         },
@@ -6611,21 +6987,21 @@
                   "signature": "pub async fn set_status (& self , request_id : & RequestId , status : BackendRunStatus , finished_at : Option < UtcDateTime > , cancel_reason : Option < & str > ,) -> Result < Option < RunMeta > , StoreError >",
                   "kind": "method",
                   "docs": "Set a run's terminal status, `finished_at`, and `cancel_reason`. Returns\nthe updated row, or `None` if the run is absent.\n\n# Errors\n[`StoreError`] on a query or decode failure.",
-                  "line": 58
+                  "line": 60
                 },
                 {
                   "name": "reconcile_terminal",
                   "signature": "pub async fn reconcile_terminal (& self , request_id : & RequestId , status : BackendRunStatus , finished_at : UtcDateTime ,) -> Result < Option < RunMeta > , StoreError >",
                   "kind": "method",
                   "docs": "Reconcile a still-non-terminal run to the terminal status agent-core\nreports, guarded so it never clobbers a concurrently-written terminal\nstatus (e.g. a `DELETE` that just wrote `cancelled`). The CAS matches only\n`accepted`/`running` rows. `Some(updated)` ⇒ this call moved the row;\n`None` ⇒ the CAS matched nothing (already terminal, or absent) and the\ncaller should re-read to learn the authoritative row.\n\n# Errors\n[`StoreError`] on a query or decode failure.",
-                  "line": 83
+                  "line": 85
                 },
                 {
                   "name": "list",
                   "signature": "pub async fn list (& self , page : Page) -> Result < PageResult < RunMeta > , StoreError >",
                   "kind": "method",
                   "docs": "List runs newest-first with limit/offset pagination plus a total count.\n\n# Errors\n[`StoreError`] on a query or decode failure.",
-                  "line": 110
+                  "line": 112
                 }
               ],
               "impl_target": "RunMetaRepo",
@@ -6652,7 +7028,7 @@
               "tags": [],
               "file": "crates/eos-backend-store/src/run_meta.rs",
               "module": "run_meta",
-              "line": 139
+              "line": 141
             }
           ]
         }

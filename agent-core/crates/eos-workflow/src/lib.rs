@@ -14,7 +14,6 @@ mod error;
 mod ids;
 mod iteration;
 mod lifecycle;
-mod service;
 mod starter;
 mod state;
 mod submission;
@@ -41,6 +40,5 @@ pub use context::{
 pub use error::{Result, WorkflowError};
 pub use ids::{generator_task_id, planner_task_id, reducer_task_id, WorkflowLifecycleConfig};
 pub use iteration::OpenIterationCoordinatorRegistry;
-pub use service::WorkflowService;
 pub use starter::{StartedWorkflow, WorkflowStarter};
 pub use submission::AttemptSubmissionAdapter;

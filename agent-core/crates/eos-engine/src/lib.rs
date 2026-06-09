@@ -23,7 +23,7 @@ pub use background::{
 };
 pub use event::{
     stamp_identity, AssistantMessageComplete, EngineEventOutputs, EngineEventPrinter,
-    EngineEventSink, StreamEvent,
+    EngineEventSink, EngineEventSinkFactory, StreamEvent,
 };
 pub use notifications::{
     make_default_notification_rules, EngineNotificationQueue, NotificationRule,

@@ -86,24 +86,29 @@
         .bind(event.task_id.as_ref().map(<span class="rs-type">TaskId</span>::as_str))
         .bind(event.agent_run_id.as_ref().map(<span class="rs-type">AgentRunId</span>::as_str))
         .bind(event.tool_use_id.as_ref().map(<span class="rs-type">ToolUseId</span>::as_str))
-        .bind(event.sandbox_invocation_id.as_ref().map(<span class="rs-type">InvocationId</span>::as_str))
+        .bind(
+            event
+                .sandbox_invocation_id
+                .as_ref()
+                .map(<span class="rs-type">InvocationId</span>::as_str),
+        )
         .bind(event.sandbox_id.as_ref().map(<span class="rs-type">SandboxId</span>::as_str))
         .bind(event.source.as_str())
         .bind(&amp;event.kind)
-        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-175">json_encode</a>(&amp;event.payload)?)
+        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-178">json_encode</a>(&amp;event.payload)?)
         .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-in-149">ts_in</a>(event.created_at))
         .execute(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>?;
         <span class="rs-type">Ok</span>(result.last_insert_rowid())
     }
 </code></pre>
-</details></td></tr><tr id="method-list-for-request-67"><td>method</td><td>list_for_request</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-list-for-request-67">list_for_request</a> (&amp; self , request_id : &amp; RequestId ,) -&gt; Result &lt; Vec &lt; ObsEvent &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">All obs events for a request, oldest-first.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
+</details></td></tr><tr id="method-list-for-request-72"><td>method</td><td>list_for_request</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-list-for-request-72">list_for_request</a> (&amp; self , request_id : &amp; RequestId ,) -&gt; Result &lt; Vec &lt; ObsEvent &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">All obs events for a request, oldest-first.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// All obs events for a request, oldest-first.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-list-for-request-67">list_for_request</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-list-for-request-72">list_for_request</a>(
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">ObsEvent</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
@@ -116,14 +121,14 @@
         rows.iter().map(row_to_obs_event).collect()
     }
 </code></pre>
-</details></td></tr><tr id="method-list-page-84"><td>method</td><td>list_page</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-list-page-84">list_page</a> (&amp; self , page : Page) -&gt; Result &lt; PageResult &lt; ObsEvent &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">A newest-first page of all obs events (`/api/stats/events`). `total` is the<br>full unpaginated row count.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
+</details></td></tr><tr id="method-list-page-89"><td>method</td><td>list_page</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-list-page-89">list_page</a> (&amp; self , page : Page) -&gt; Result &lt; PageResult &lt; ObsEvent &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">A newest-first page of all obs events (`/api/stats/events`). `total` is the<br>full unpaginated row count.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// A newest-first page of all obs events (`/api/stats/events`). `total` is the</span>
     <span class="rs-comment">/// full unpaginated row count.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-list-page-84">list_page</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">ObsEvent</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-list-page-89">list_page</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">ObsEvent</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
         <span class="rs-kw">let</span> total: i64 = sqlx::query_scalar(&quot;<span class="rs-type">SELECT</span> <span class="rs-type">COUNT</span>(*) <span class="rs-type">FROM</span> obs_event&quot;)
             .fetch_one(&amp;<span class="rs-self">self</span>.pool)
             .<span class="rs-kw">await</span>?;
@@ -146,14 +151,14 @@
         })
     }
 </code></pre>
-</details></td></tr><tr id="method-performance-112"><td>method</td><td>performance</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-performance-112">performance</a> (&amp; self , tool_call_kind : &amp; str , resource_kind : &amp; str ,) -&gt; Result &lt; PerformanceStats , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Timing and resource summary across all obs events. The caller supplies the<br>canonical obs `kind` vocabulary (owned by `eos-backend-audit` / `eos-audit`).<br># Errors<br>[`StoreError`] on a query failure.</p><details class="function-source">
+</details></td></tr><tr id="method-performance-117"><td>method</td><td>performance</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-performance-117">performance</a> (&amp; self , tool_call_kind : &amp; str , resource_kind : &amp; str ,) -&gt; Result &lt; PerformanceStats , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Timing and resource summary across all obs events. The caller supplies the<br>canonical obs `kind` vocabulary (owned by `eos-backend-audit` / `eos-types`).<br># Errors<br>[`StoreError`] on a query failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Timing and resource summary across all obs events. The caller supplies the</span>
-    <span class="rs-comment">/// canonical obs `kind` vocabulary (owned by `eos-backend-audit` / `eos-audit`).</span>
+    <span class="rs-comment">/// canonical obs `kind` vocabulary (owned by `eos-backend-audit` / `eos-types`).</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-performance-112">performance</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-performance-117">performance</a>(
         &amp;<span class="rs-self">self</span>,
         tool_call_kind: &amp;str,
         resource_kind: &amp;str,
@@ -186,7 +191,7 @@
         })
     }
 </code></pre>
-</details></td></tr><tr id="method-correctness-150"><td>method</td><td>correctness</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-correctness-150">correctness</a> (&amp; self , agent_run_kind : &amp; str , tool_call_kind : &amp; str ,) -&gt; Result &lt; CorrectnessStats , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Correctness summary: observed agent runs and tool calls plus the<br>matched/unmatched daemon-audit split (AC7). A matched row has a model-facing<br>`tool_use_id` joined through the bridge; an unmatched row has only a<br>`sandbox_invocation_id`.<br># Errors<br>[`StoreError`] on a query failure.</p><details class="function-source">
+</details></td></tr><tr id="method-correctness-155"><td>method</td><td>correctness</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-correctness-155">correctness</a> (&amp; self , agent_run_kind : &amp; str , tool_call_kind : &amp; str ,) -&gt; Result &lt; CorrectnessStats , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Correctness summary: observed agent runs and tool calls plus the<br>matched/unmatched daemon-audit split (AC7). A matched row has a model-facing<br>`tool_use_id` joined through the bridge; an unmatched row has only a<br>`sandbox_invocation_id`.<br># Errors<br>[`StoreError`] on a query failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Correctness summary: observed agent runs and tool calls plus the</span>
     <span class="rs-comment">/// matched/unmatched daemon-audit split (AC7). A matched row has a model-facing</span>
@@ -195,7 +200,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-correctness-150">correctness</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-correctness-155">correctness</a>(
         &amp;<span class="rs-self">self</span>,
         agent_run_kind: &amp;str,
         tool_call_kind: &amp;str,
@@ -226,14 +231,14 @@
         })
     }
 </code></pre>
-</details></td></tr><tr id="method-agent-run-stats-188"><td>method</td><td>agent_run_stats</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-agent-run-stats-188">agent_run_stats</a> (&amp; self , tool_call_kind : &amp; str , resource_kind : &amp; str ,) -&gt; Result &lt; Vec &lt; AgentRunStat &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Per-agent-run rollup of tool-call and resource-sample activity, ascending by<br>agent-run id. Rows with no `agent_run_id` are excluded.<br># Errors<br>[`StoreError`] on a query or id-decode failure.</p><details class="function-source">
+</details></td></tr><tr id="method-agent-run-stats-193"><td>method</td><td>agent_run_stats</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-agent-run-stats-193">agent_run_stats</a> (&amp; self , tool_call_kind : &amp; str , resource_kind : &amp; str ,) -&gt; Result &lt; Vec &lt; AgentRunStat &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Per-agent-run rollup of tool-call and resource-sample activity, ascending by<br>agent-run id. Rows with no `agent_run_id` are excluded.<br># Errors<br>[`StoreError`] on a query or id-decode failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Per-agent-run rollup of tool-call and resource-sample activity, ascending by</span>
     <span class="rs-comment">/// agent-run id. Rows with no `agent_run_id` are excluded.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or id-decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-agent-run-stats-188">agent_run_stats</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-agent-run-stats-193">agent_run_stats</a>(
         &amp;<span class="rs-self">self</span>,
         tool_call_kind: &amp;str,
         resource_kind: &amp;str,
@@ -271,22 +276,22 @@
 </details></td></tr></tbody></table>
 
   <p class="source">crates/eos-backend-store/src/obs.rs:32</p>
-</article><article id="item-struct-SandboxCallCorrelationRepo-229" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct SandboxCallCorrelationRepo pub pub struct SandboxCallCorrelationRepo crates/eos-backend-store/src/obs.rs pool SqlitePool ">
+</article><article id="item-struct-SandboxCallCorrelationRepo-234" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct SandboxCallCorrelationRepo pub pub struct SandboxCallCorrelationRepo crates/eos-backend-store/src/obs.rs pool SqlitePool ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>SandboxCallCorrelationRepo</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-229">SandboxCallCorrelationRepo</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-234">SandboxCallCorrelationRepo</a></code>
   <p class="docstring">Repository for the model/daemon correlation bridge. Holds a cheap pool clone.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>pool</td><td><code>SqlitePool</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-236"><td>constructor</td><td>new</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-backend-store.html#method-new-22">new</a> (pool : SqlitePool) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>pool</td><td><code>SqlitePool</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-241"><td>constructor</td><td>new</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-backend-store.html#method-new-22">new</a> (pool : SqlitePool) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool: <span class="rs-type">SqlitePool</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> { pool }
     }
 </code></pre>
-</details></td></tr><tr id="method-insert-240"><td>method</td><td>insert</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-insert-43">insert</a> (&amp; self , bridge : &amp; SandboxCallCorrelation) -&gt; Result &lt; () , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Insert a correlation bridge row (recorded before the daemon request is<br>sent). Keyed by `(sandbox_id, caller_id, sandbox_invocation_id)`.<br># Errors<br>[`StoreError`] on a primary-key collision or query failure.</p><details class="function-source">
+</details></td></tr><tr id="method-insert-245"><td>method</td><td>insert</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#method-insert-43">insert</a> (&amp; self , bridge : &amp; SandboxCallCorrelation) -&gt; Result &lt; () , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Insert a correlation bridge row (recorded before the daemon request is<br>sent). Keyed by `(sandbox_id, caller_id, sandbox_invocation_id)`.<br># Errors<br>[`StoreError`] on a primary-key collision or query failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Insert a correlation bridge row (recorded before the daemon request is</span>
     <span class="rs-comment">/// sent). Keyed by `(sandbox_id, caller_id, sandbox_invocation_id)`.</span>
@@ -311,7 +316,7 @@
         <span class="rs-type">Ok</span>(())
     }
 </code></pre>
-</details></td></tr><tr id="method-get-263"><td>method</td><td>get</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store.html#method-get-51">get</a> (&amp; self , sandbox_id : &amp; SandboxId , caller_id : &amp; CallerId , sandbox_invocation_id : &amp; InvocationId ,) -&gt; Result &lt; Option &lt; SandboxCallCorrelation &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Look up a bridge row by its full daemon join key.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
+</details></td></tr><tr id="method-get-268"><td>method</td><td>get</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-store.html#method-get-51">get</a> (&amp; self , sandbox_id : &amp; SandboxId , caller_id : &amp; CallerId , sandbox_invocation_id : &amp; InvocationId ,) -&gt; Result &lt; Option &lt; SandboxCallCorrelation &gt; , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code><p class="docstring">Look up a bridge row by its full daemon join key.<br># Errors<br>[`StoreError`] on a query or decode failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Look up a bridge row by its full daemon join key.</span>
     <span class="rs-comment">///</span>
@@ -337,18 +342,18 @@
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-store/src/obs.rs:229</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-row-to-obs-event-286" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_obs_event private fn row_to_obs_event (row : &amp; SqliteRow) -&gt; Result &lt; ObsEvent , StoreError &gt; crates/eos-backend-store/src/obs.rs  ">
+  <p class="source">crates/eos-backend-store/src/obs.rs:234</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-row-to-obs-event-291" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_obs_event private fn row_to_obs_event (row : &amp; SqliteRow) -&gt; Result &lt; ObsEvent , StoreError &gt; crates/eos-backend-store/src/obs.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>row_to_obs_event</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-obs-event-286">row_to_obs_event</a> (row : &amp; SqliteRow) -&gt; Result &lt; ObsEvent , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-obs-event-291">row_to_obs_event</a> (row : &amp; SqliteRow) -&gt; Result &lt; ObsEvent , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-obs-event-286">row_to_obs_event</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsEvent</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-obs-event-291">row_to_obs_event</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsEvent</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     <span class="rs-kw">let</span> source_raw: <span class="rs-type">String</span> = row.try_get(&quot;source&quot;)?;
     <span class="rs-kw">let</span> source = <span class="rs-type">ObsSource</span>::from_db(&amp;source_raw).ok_or(<a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>::<span class="rs-type">InvalidEnum</span> {
         field: &quot;obs_event.source&quot;,
@@ -369,47 +374,56 @@
         sandbox_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-opt-id-in-167">opt_id_in</a>(&quot;obs_event.sandbox_id&quot;, row.try_get(&quot;sandbox_id&quot;)?)?,
         source,
         kind: row.try_get(&quot;kind&quot;)?,
-        payload: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-180">json_decode</a>(&amp;payload_json)?,
+        payload: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-183">json_decode</a>(&amp;payload_json)?,
         created_at: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-out-154">ts_out</a>(created_at),
     })
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-store/src/obs.rs:286</p>
-</article><article id="item-fn-row-to-correlation-312" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_correlation private fn row_to_correlation (row : &amp; SqliteRow) -&gt; Result &lt; SandboxCallCorrelation , StoreError &gt; crates/eos-backend-store/src/obs.rs  ">
+  <p class="source">crates/eos-backend-store/src/obs.rs:291</p>
+</article><article id="item-fn-row-to-correlation-317" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_correlation private fn row_to_correlation (row : &amp; SqliteRow) -&gt; Result &lt; SandboxCallCorrelation , StoreError &gt; crates/eos-backend-store/src/obs.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>row_to_correlation</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-correlation-312">row_to_correlation</a> (row : &amp; SqliteRow) -&gt; Result &lt; SandboxCallCorrelation , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-correlation-317">row_to_correlation</a> (row : &amp; SqliteRow) -&gt; Result &lt; SandboxCallCorrelation , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-correlation-312">row_to_correlation</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">SandboxCallCorrelation</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-correlation-317">row_to_correlation</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">SandboxCallCorrelation</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     <span class="rs-kw">let</span> created_at: <span class="rs-type">OffsetDateTime</span> = row.try_get(&quot;created_at&quot;)?;
     <span class="rs-type">Ok</span>(<span class="rs-type">SandboxCallCorrelation</span> {
-        request_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;sandbox_call_correlation.request_id&quot;, row.try_get(&quot;request_id&quot;)?)?,
+        request_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(
+            &quot;sandbox_call_correlation.request_id&quot;,
+            row.try_get(&quot;request_id&quot;)?,
+        )?,
         task_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;sandbox_call_correlation.task_id&quot;, row.try_get(&quot;task_id&quot;)?)?,
         agent_run_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(
             &quot;sandbox_call_correlation.agent_run_id&quot;,
             row.try_get(&quot;agent_run_id&quot;)?,
         )?,
-        tool_use_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;sandbox_call_correlation.tool_use_id&quot;, row.try_get(&quot;tool_use_id&quot;)?)?,
+        tool_use_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(
+            &quot;sandbox_call_correlation.tool_use_id&quot;,
+            row.try_get(&quot;tool_use_id&quot;)?,
+        )?,
         sandbox_invocation_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(
             &quot;sandbox_call_correlation.sandbox_invocation_id&quot;,
             row.try_get(&quot;sandbox_invocation_id&quot;)?,
         )?,
         caller_id: <span class="rs-type">CallerId</span>(row.try_get(&quot;caller_id&quot;)?),
-        sandbox_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;sandbox_call_correlation.sandbox_id&quot;, row.try_get(&quot;sandbox_id&quot;)?)?,
+        sandbox_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(
+            &quot;sandbox_call_correlation.sandbox_id&quot;,
+            row.try_get(&quot;sandbox_id&quot;)?,
+        )?,
         created_at: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-out-154">ts_out</a>(created_at),
     })
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-store/src/obs.rs:312</p>
+  <p class="source">crates/eos-backend-store/src/obs.rs:317</p>
 </article></div>
 </section></div>
 </main>
@@ -473,11 +487,16 @@
         .bind(event.task_id.as_ref().map(<span class="rs-type">TaskId</span>::as_str))
         .bind(event.agent_run_id.as_ref().map(<span class="rs-type">AgentRunId</span>::as_str))
         .bind(event.tool_use_id.as_ref().map(<span class="rs-type">ToolUseId</span>::as_str))
-        .bind(event.sandbox_invocation_id.as_ref().map(<span class="rs-type">InvocationId</span>::as_str))
+        .bind(
+            event
+                .sandbox_invocation_id
+                .as_ref()
+                .map(<span class="rs-type">InvocationId</span>::as_str),
+        )
         .bind(event.sandbox_id.as_ref().map(<span class="rs-type">SandboxId</span>::as_str))
         .bind(event.source.as_str())
         .bind(&amp;event.kind)
-        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-175">json_encode</a>(&amp;event.payload)?)
+        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-178">json_encode</a>(&amp;event.payload)?)
         .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-in-149">ts_in</a>(event.created_at))
         .execute(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>?;
@@ -488,7 +507,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-list-for-request-67">list_for_request</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-list-for-request-72">list_for_request</a>(
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">ObsEvent</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
@@ -506,7 +525,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-list-page-84">list_page</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">ObsEvent</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-list-page-89">list_page</a>(&amp;<span class="rs-self">self</span>, page: <span class="rs-type">Page</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">PageResult</span>&lt;<span class="rs-type">ObsEvent</span>&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
         <span class="rs-kw">let</span> total: i64 = sqlx::query_scalar(&quot;<span class="rs-type">SELECT</span> <span class="rs-type">COUNT</span>(*) <span class="rs-type">FROM</span> obs_event&quot;)
             .fetch_one(&amp;<span class="rs-self">self</span>.pool)
             .<span class="rs-kw">await</span>?;
@@ -530,11 +549,11 @@
     }
 
     <span class="rs-comment">/// Timing and resource summary across all obs events. The caller supplies the</span>
-    <span class="rs-comment">/// canonical obs `kind` vocabulary (owned by `eos-backend-audit` / `eos-audit`).</span>
+    <span class="rs-comment">/// canonical obs `kind` vocabulary (owned by `eos-backend-audit` / `eos-types`).</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-performance-112">performance</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-performance-117">performance</a>(
         &amp;<span class="rs-self">self</span>,
         tool_call_kind: &amp;str,
         resource_kind: &amp;str,
@@ -574,7 +593,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-correctness-150">correctness</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-correctness-155">correctness</a>(
         &amp;<span class="rs-self">self</span>,
         agent_run_kind: &amp;str,
         tool_call_kind: &amp;str,
@@ -610,7 +629,7 @@
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query or id-decode failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-agent-run-stats-188">agent_run_stats</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#method-agent-run-stats-193">agent_run_stats</a>(
         &amp;<span class="rs-self">self</span>,
         tool_call_kind: &amp;str,
         resource_kind: &amp;str,
@@ -648,11 +667,11 @@
 
 <span class="rs-comment">/// Repository for the model/daemon correlation bridge. Holds a cheap pool clone.</span>
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-229">SandboxCallCorrelationRepo</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-234">SandboxCallCorrelationRepo</a> {
     pool: <span class="rs-type">SqlitePool</span>,
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-229">SandboxCallCorrelationRepo</a> {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-store--src-obs-rs.html#item-struct-SandboxCallCorrelationRepo-234">SandboxCallCorrelationRepo</a> {
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store.html#method-new-22">new</a>(pool: <span class="rs-type">SqlitePool</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> { pool }
     }
@@ -703,7 +722,7 @@
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-obs-event-286">row_to_obs_event</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsEvent</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-obs-event-291">row_to_obs_event</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ObsEvent</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     <span class="rs-kw">let</span> source_raw: <span class="rs-type">String</span> = row.try_get(&quot;source&quot;)?;
     <span class="rs-kw">let</span> source = <span class="rs-type">ObsSource</span>::from_db(&amp;source_raw).ok_or(<a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>::<span class="rs-type">InvalidEnum</span> {
         field: &quot;obs_event.source&quot;,
@@ -724,27 +743,36 @@
         sandbox_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-opt-id-in-167">opt_id_in</a>(&quot;obs_event.sandbox_id&quot;, row.try_get(&quot;sandbox_id&quot;)?)?,
         source,
         kind: row.try_get(&quot;kind&quot;)?,
-        payload: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-180">json_decode</a>(&amp;payload_json)?,
+        payload: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-183">json_decode</a>(&amp;payload_json)?,
         created_at: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-out-154">ts_out</a>(created_at),
     })
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-correlation-312">row_to_correlation</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">SandboxCallCorrelation</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-obs-rs.html#item-fn-row-to-correlation-317">row_to_correlation</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">SandboxCallCorrelation</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     <span class="rs-kw">let</span> created_at: <span class="rs-type">OffsetDateTime</span> = row.try_get(&quot;created_at&quot;)?;
     <span class="rs-type">Ok</span>(<span class="rs-type">SandboxCallCorrelation</span> {
-        request_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;sandbox_call_correlation.request_id&quot;, row.try_get(&quot;request_id&quot;)?)?,
+        request_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(
+            &quot;sandbox_call_correlation.request_id&quot;,
+            row.try_get(&quot;request_id&quot;)?,
+        )?,
         task_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;sandbox_call_correlation.task_id&quot;, row.try_get(&quot;task_id&quot;)?)?,
         agent_run_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(
             &quot;sandbox_call_correlation.agent_run_id&quot;,
             row.try_get(&quot;agent_run_id&quot;)?,
         )?,
-        tool_use_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;sandbox_call_correlation.tool_use_id&quot;, row.try_get(&quot;tool_use_id&quot;)?)?,
+        tool_use_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(
+            &quot;sandbox_call_correlation.tool_use_id&quot;,
+            row.try_get(&quot;tool_use_id&quot;)?,
+        )?,
         sandbox_invocation_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(
             &quot;sandbox_call_correlation.sandbox_invocation_id&quot;,
             row.try_get(&quot;sandbox_invocation_id&quot;)?,
         )?,
         caller_id: <span class="rs-type">CallerId</span>(row.try_get(&quot;caller_id&quot;)?),
-        sandbox_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;sandbox_call_correlation.sandbox_id&quot;, row.try_get(&quot;sandbox_id&quot;)?)?,
+        sandbox_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(
+            &quot;sandbox_call_correlation.sandbox_id&quot;,
+            row.try_get(&quot;sandbox_id&quot;)?,
+        )?,
         created_at: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-out-154">ts_out</a>(created_at),
     })
 }

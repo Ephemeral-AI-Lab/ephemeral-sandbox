@@ -5,10 +5,10 @@ use eos_db::{Database, DatabaseConfig, DatabaseUrl};
 use eos_types::{
     format_record_dir, AgentName, AttemptBudget, AttemptClosure, AttemptFailReason, AttemptStage,
     AttemptStatus, DeferredGoal, ExecutionRole, ExecutionTaskOutcome, IterationCreationReason,
-    IterationStatus, JsonObject, MaterializedPlan, Page, ParentAgentRunAnchor,
-    ParentedAgentRunKind, PlanDisposition, PlannerId, RequestId, RequestListFilter, RequestStatus,
-    Task, TaskAgentRunKind, TaskId, TaskRole, TaskStatus, ToolUseId, UtcDateTime,
-    WorkflowCoordinates, WorkflowNodeId, WorkflowStatus, WorkflowTaskRole,
+    IterationStatus, JsonObject, MaterializedPlan, ParentAgentRunAnchor, ParentedAgentRunKind,
+    PlanDisposition, PlannerId, RequestId, RequestStatus, Task, TaskAgentRunKind, TaskId, TaskRole,
+    TaskStatus, ToolUseId, UtcDateTime, WorkflowCoordinates, WorkflowNodeId, WorkflowStatus,
+    WorkflowTaskRole,
 };
 use sqlx::Row;
 
@@ -861,53 +861,12 @@ async fn read_side_list_apis() {
         }
     }
 
-    // Unfiltered list returns every request; total counts all matches.
-    let all = requests
-        .list(RequestListFilter::default(), Page::default())
-        .await
-        .expect("list all");
-    assert_eq!(all.total, 3);
-    assert_eq!(all.items.len(), 3);
-
-    // The status filter narrows to the single Done request.
-    let done = requests
-        .list(
-            RequestListFilter {
-                status: Some(RequestStatus::Done),
-            },
-            Page::default(),
-        )
-        .await
-        .expect("list done");
-    assert_eq!(done.total, 1);
-    assert_eq!(done.items.len(), 1);
-    assert_eq!(done.items[0].request_prompt, "req-a");
-
-    // Pagination: a 2-row window still reports the full total.
-    let page0 = requests
-        .list(
-            RequestListFilter::default(),
-            Page {
-                limit: 2,
-                offset: 0,
-            },
-        )
-        .await
-        .expect("page0");
-    assert_eq!(page0.items.len(), 2);
-    assert_eq!(page0.total, 3);
-    let page1 = requests
-        .list(
-            RequestListFilter::default(),
-            Page {
-                limit: 2,
-                offset: 2,
-            },
-        )
-        .await
-        .expect("page1");
-    assert_eq!(page1.items.len(), 1);
-    assert_eq!(page1.total, 3);
+    // Unfiltered list returns every request.
+    let all = requests.list().await.expect("list all");
+    assert_eq!(all.len(), 3);
+    assert!(all.iter().any(|request| request.request_prompt == "req-a"));
+    assert!(all.iter().any(|request| request.request_prompt == "req-b"));
+    assert!(all.iter().any(|request| request.request_prompt == "req-c"));
 
     // list_for_request returns only the owning request's tasks.
     let owner = rid("req-a");

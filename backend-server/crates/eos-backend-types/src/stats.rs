@@ -3,8 +3,8 @@
 //! The `/api/stats/*` shapes are owned here and assembled by the Phase 6 stats
 //! queries in `eos-backend-audit`, which read `obs_event` and `audit_cursor`. They
 //! are derived from observability rows only: the richer agent-core state join
-//! (agent name, token count, terminal outcome) is owned by the Phase 7 read
-//! handler through `RuntimeServices::state_reader()`.
+//! (agent name, token count, terminal outcome) is owned by the request/read
+//! handlers through `eos-agent-core-server`.
 //!
 //! The response shapes are pinned for `OpenAPI` via `JsonSchema`, alongside the
 //! API route shapes the Phase 7 crate serves.

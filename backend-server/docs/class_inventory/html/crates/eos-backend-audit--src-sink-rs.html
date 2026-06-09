@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">backend-server</a>
 <section class="summary">
-  <div><b>6</b><span>modules</span></div>
-  <div><b>61</b><span>items</span></div>
-  <div><b>64</b><span>fields</span></div>
-  <div><b>22</b><span>methods</span></div>
+  <div><b>7</b><span>modules</span></div>
+  <div><b>83</b><span>items</span></div>
+  <div><b>96</b><span>fields</span></div>
+  <div><b>44</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-audit.html"><span>gates.rs</span><small>10/10</small></a></li><li><a class="file-link" href="eos-backend-audit--src-ingestor-rs.html"><span>ingestor.rs</span><small>3/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-audit--src-normalization-rs.html"><span>normalization.rs</span><small>3/9</small></a></li><li><a class="file-link active" href="eos-backend-audit--src-sink-rs.html"><span>sink.rs</span><small>5/4</small></a></li><li><a class="file-link" href="eos-backend-audit--src-stats-rs.html"><span>stats.rs</span><small>1/0</small></a></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-audit.html"><span>contract.rs</span><small>10/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-gates-rs.html"><span>gates.rs</span><small>10/10</small></a></li><li><a class="file-link" href="eos-backend-audit--src-ingestor-rs.html"><span>ingestor.rs</span><small>3/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-audit--src-normalization-rs.html"><span>normalization.rs</span><small>3/9</small></a></li><li><a class="file-link active" href="eos-backend-audit--src-sink-rs.html"><span>sink.rs</span><small>5/4</small></a></li><li><a class="file-link" href="eos-backend-audit--src-stats-rs.html"><span>stats.rs</span><small>1/0</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="sink crates/eos-backend-audit/src/sink.rs Msg SinkCounters SinkLoss PersistingSink impl PersistingSink impl AuditSink for PersistingSink to_obs_event drain persist append_with_retry PersistingSinkShutdown impl PersistingSinkShutdown">
   <div class="module-head">
     <div>
@@ -56,109 +56,109 @@
       <span>5 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-SinkLoss-55" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct SinkLoss pub pub struct SinkLoss crates/eos-backend-audit/src/sink.rs dropped_inflight u64 persist_failed u64 ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-SinkLoss-56" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct SinkLoss pub pub struct SinkLoss crates/eos-backend-audit/src/sink.rs dropped_inflight u64 persist_failed u64 ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>SinkLoss</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-55">SinkLoss</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-56">SinkLoss</a></code>
   <p class="docstring">A point-in-time read of a [`PersistingSink`]'s in-memory loss counters.<br>These are not durable (the failing resource is the database itself), so they<br>live in memory and are surfaced to `/api/stats/*` by the stats reader rather<br>than written back to `backend.db`.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Default</span><span>derive: Eq</span><span>derive: PartialEq</span></div>
   <h4>Fields</h4><table><tbody><tr><td>pub</td><td>dropped_inflight</td><td><code>u64</code></td></tr><tr><td>pub</td><td>persist_failed</td><td><code>u64</code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-audit/src/sink.rs:55</p>
-</article><article id="item-struct-PersistingSink-68" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct PersistingSink pub pub struct PersistingSink crates/eos-backend-audit/src/sink.rs tx mpsc :: Sender &lt; Msg &gt; counters Arc &lt; SinkCounters &gt; ">
+  <p class="source">crates/eos-backend-audit/src/sink.rs:56</p>
+</article><article id="item-struct-PersistingSink-69" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct PersistingSink pub pub struct PersistingSink crates/eos-backend-audit/src/sink.rs tx mpsc :: Sender &lt; Msg &gt; counters Arc &lt; SinkCounters &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>PersistingSink</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSink-68">PersistingSink</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSink-69">PersistingSink</a></code>
   <p class="docstring">Backend [`AuditSink`] that async-drains agent-core audit events into `obs_event`.<br>Construct with [`PersistingSink::new`], wrap in `Arc&lt;dyn AuditSink&gt;`, and inject<br>at the agent-core composition root. Retain the returned [`PersistingSinkShutdown`]<br>to flush accepted events on teardown.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>tx</td><td><code>mpsc :: Sender &lt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a> &gt;</code></td></tr><tr><td>private</td><td>counters</td><td><code>Arc &lt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-80"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-new-80">new</a> (obs_events : ObsEventRepo) -&gt; (Self , <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-203">PersistingSinkShutdown</a>)</code><p class="docstring">Build a sink draining into `obs_events` with the default queue capacity.<br>Spawns the drainer; must be called within a Tokio runtime.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>tx</td><td><code>mpsc :: Sender &lt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a> &gt;</code></td></tr><tr><td>private</td><td>counters</td><td><code>Arc &lt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-81"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-new-90">new</a> (obs_events : ObsEventRepo) -&gt; (Self , <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-204">PersistingSinkShutdown</a>)</code><p class="docstring">Build a sink draining into `obs_events` with the default queue capacity.<br>Spawns the drainer; must be called within a Tokio runtime.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Build a sink draining into `obs_events` with the default queue capacity.</span>
     <span class="rs-comment">/// Spawns the drainer; must be called within a Tokio runtime.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(obs_events: <span class="rs-type">ObsEventRepo</span>) -&gt; (<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-203">PersistingSinkShutdown</a>) {
-        <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-87">with_capacity</a>(obs_events, <span class="rs-type">DEFAULT_QUEUE_CAPACITY</span>)
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(obs_events: <span class="rs-type">ObsEventRepo</span>) -&gt; (<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-204">PersistingSinkShutdown</a>) {
+        <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-88">with_capacity</a>(obs_events, <span class="rs-type">DEFAULT_QUEUE_CAPACITY</span>)
     }
 </code></pre>
-</details></td></tr><tr id="method-with-capacity-87"><td>constructor</td><td>with_capacity</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-87">with_capacity</a> (obs_events : ObsEventRepo , capacity : usize ,) -&gt; (Self , <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-203">PersistingSinkShutdown</a>)</code><p class="docstring">Build a sink with an explicit queue bound (used by tests to force overflow<br>deterministically). The bound is floored at 1.</p><details class="function-source">
+</details></td></tr><tr id="method-with-capacity-88"><td>constructor</td><td>with_capacity</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-88">with_capacity</a> (obs_events : ObsEventRepo , capacity : usize ,) -&gt; (Self , <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-204">PersistingSinkShutdown</a>)</code><p class="docstring">Build a sink with an explicit queue bound (used by tests to force overflow<br>deterministically). The bound is floored at 1.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Build a sink with an explicit queue bound (used by tests to force overflow</span>
     <span class="rs-comment">/// deterministically). The bound is floored at 1.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-87">with_capacity</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-88">with_capacity</a>(
         obs_events: <span class="rs-type">ObsEventRepo</span>,
         capacity: usize,
-    ) -&gt; (<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-203">PersistingSinkShutdown</a>) {
-        <span class="rs-kw">let</span> (tx, rx) = mpsc::channel::&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>&gt;(capacity.max(1));
-        <span class="rs-kw">let</span> counters = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-default-115">default</a>());
-        <span class="rs-kw">let</span> handle = tokio::spawn(<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-drain-169">drain</a>(rx, obs_events, counters.clone()));
+    ) -&gt; (<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-204">PersistingSinkShutdown</a>) {
+        <span class="rs-kw">let</span> (tx, rx) = mpsc::channel::&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>&gt;(capacity.max(1));
+        <span class="rs-kw">let</span> counters = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>());
+        <span class="rs-kw">let</span> handle = tokio::spawn(<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-drain-170">drain</a>(rx, obs_events, counters.clone()));
         (
             <span class="rs-self">Self</span> {
                 tx: tx.clone(),
                 counters,
             },
-            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-203">PersistingSinkShutdown</a> {
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-204">PersistingSinkShutdown</a> {
                 ctrl_tx: <span class="rs-type">Some</span>(tx),
                 handle: <span class="rs-type">Some</span>(handle),
             },
         )
     }
 </code></pre>
-</details></td></tr><tr id="method-loss-snapshot-109"><td>method</td><td>loss_snapshot</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#method-loss-snapshot-109">loss_snapshot</a> (&amp; self) -&gt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-55">SinkLoss</a></code><p class="docstring">A snapshot of the in-memory loss counters for `/api/stats/*` loss accounting.</p><details class="function-source">
+</details></td></tr><tr id="method-loss-snapshot-110"><td>method</td><td>loss_snapshot</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#method-loss-snapshot-110">loss_snapshot</a> (&amp; self) -&gt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-56">SinkLoss</a></code><p class="docstring">A snapshot of the in-memory loss counters for `/api/stats/*` loss accounting.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// A snapshot of the in-memory loss counters for `/api/stats/*` loss accounting.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-loss-snapshot-109">loss_snapshot</a>(&amp;<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-55">SinkLoss</a> {
-        <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-55">SinkLoss</a> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-loss-snapshot-110">loss_snapshot</a>(&amp;<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-56">SinkLoss</a> {
+        <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-56">SinkLoss</a> {
             dropped_inflight: <span class="rs-self">self</span>.counters.dropped.load(<span class="rs-type">Ordering</span>::<span class="rs-type">Relaxed</span>),
             persist_failed: <span class="rs-self">self</span>.counters.persist_failed.load(<span class="rs-type">Ordering</span>::<span class="rs-type">Relaxed</span>),
         }
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl AuditSink for <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSink-68">PersistingSink</a></code></summary><table><tbody><tr id="method-publish-120"><td>method</td><td>publish</td><td><code>fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#method-publish-120">publish</a> (&amp; self , event : &amp; AuditEvent) -&gt; Result &lt; () , AuditError &gt;</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-backend-audit.html#item-trait-AuditSink-394">AuditSink</a> for <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSink-69">PersistingSink</a></code></summary><table><tbody><tr id="method-publish-121"><td>method</td><td>publish</td><td><code>fn <a class="symbol-link" href="eos-backend-audit.html#method-publish-407">publish</a> (&amp; self , event : &amp; <a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; Result &lt; () , <a class="symbol-link" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a> &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-publish-120">publish</a>(&amp;<span class="rs-self">self</span>, event: &amp;<span class="rs-type">AuditEvent</span>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AuditError</span>&gt; {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-publish-407">publish</a>(&amp;<span class="rs-self">self</span>, event: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a>&gt; {
         <span class="rs-comment">// Build an OWNED row from the borrowed event (the queue never holds a</span>
         <span class="rs-comment">// reference into `event`), then enqueue without awaiting.</span>
-        <span class="rs-kw">let</span> owned = <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-to-obs-event-136">to_obs_event</a>(event);
-        <span class="rs-kw">match</span> <span class="rs-self">self</span>.tx.try_send(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>::<span class="rs-type">Event</span>(<span class="rs-type">Box</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(owned))) {
+        <span class="rs-kw">let</span> owned = <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-to-obs-event-137">to_obs_event</a>(event);
+        <span class="rs-kw">match</span> <span class="rs-self">self</span>.tx.try_send(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>::<span class="rs-type">Event</span>(<span class="rs-type">Box</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(owned))) {
             <span class="rs-type">Ok</span>(()) =&gt; <span class="rs-type">Ok</span>(()),
             <span class="rs-comment">// Full queue or a gone drainer: drop, count it, and signal backpressure.</span>
             <span class="rs-comment">// The engine may log this but must not block on SQLite.</span>
             <span class="rs-type">Err</span>(mpsc::error::<span class="rs-type">TrySendError</span>::<span class="rs-type">Full</span>(_) | mpsc::error::<span class="rs-type">TrySendError</span>::<span class="rs-type">Closed</span>(_)) =&gt; {
                 <span class="rs-self">self</span>.counters.dropped.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">Relaxed</span>);
-                <span class="rs-type">Err</span>(<span class="rs-type">AuditError</span>::<span class="rs-type">Backpressure</span>)
+                <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a>::<span class="rs-type">Backpressure</span>)
             }
         }
     }
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-backend-audit/src/sink.rs:68</p>
-</article><article id="item-struct-PersistingSinkShutdown-203" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct PersistingSinkShutdown pub pub struct PersistingSinkShutdown crates/eos-backend-audit/src/sink.rs ctrl_tx Option &lt; mpsc :: Sender &lt; Msg &gt; &gt; handle Option &lt; JoinHandle &lt; () &gt; &gt; ">
+  <p class="source">crates/eos-backend-audit/src/sink.rs:69</p>
+</article><article id="item-struct-PersistingSinkShutdown-204" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct PersistingSinkShutdown pub pub struct PersistingSinkShutdown crates/eos-backend-audit/src/sink.rs ctrl_tx Option &lt; mpsc :: Sender &lt; Msg &gt; &gt; handle Option &lt; JoinHandle &lt; () &gt; &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>PersistingSinkShutdown</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-203">PersistingSinkShutdown</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-204">PersistingSinkShutdown</a></code>
   <p class="docstring">Shutdown guard for a [`PersistingSink`]'s drainer task.<br>Retained by the composition root. Call [`shutdown`](Self::shutdown) to send<br>[`Msg::Shutdown`], flush every event accepted before it, then await the drainer;<br>bound the wait with `tokio::time::timeout` to honor a backend shutdown deadline.<br>There is no `Drop` impl: a bare drop detaches the drainer rather than flushing<br>(see the note below this type).</p>
   <div class="tags"><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>ctrl_tx</td><td><code>Option &lt; mpsc :: Sender &lt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a> &gt; &gt;</code></td></tr><tr><td>private</td><td>handle</td><td><code>Option &lt; JoinHandle &lt; () &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-shutdown-217"><td>method</td><td>shutdown</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#method-shutdown-217">shutdown</a> (mut self)</code><p class="docstring">Flush accepted events and await the drainer.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>ctrl_tx</td><td><code>Option &lt; mpsc :: Sender &lt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a> &gt; &gt;</code></td></tr><tr><td>private</td><td>handle</td><td><code>Option &lt; JoinHandle &lt; () &gt; &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-shutdown-218"><td>method</td><td>shutdown</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#method-shutdown-218">shutdown</a> (mut self)</code><p class="docstring">Flush accepted events and await the drainer.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Flush accepted events and await the drainer.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-shutdown-217">shutdown</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-shutdown-218">shutdown</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
         <span class="rs-comment">// Best-effort flush signal: if the queue is momentarily full the send waits</span>
         <span class="rs-comment">// for the drainer to free a slot (it keeps draining), mirroring</span>
-        <span class="rs-comment">// `BufferedAuditShutdown`. A closed channel means the drainer already exited.</span>
+        <span class="rs-comment">// A closed channel means the drainer already exited.</span>
         <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(ctrl_tx) = <span class="rs-self">self</span>.ctrl_tx.take() {
-            <span class="rs-kw">let</span> _ = ctrl_tx.send(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>::<span class="rs-type">Shutdown</span>).<span class="rs-kw">await</span>;
+            <span class="rs-kw">let</span> _ = ctrl_tx.send(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>::<span class="rs-type">Shutdown</span>).<span class="rs-kw">await</span>;
         }
         <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(handle) = <span class="rs-self">self</span>.handle.take() {
             <span class="rs-kw">let</span> _ = handle.<span class="rs-kw">await</span>;
@@ -167,38 +167,38 @@
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-audit/src/sink.rs:203</p>
-</article><article id="item-struct-SinkCounters-45" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct SinkCounters private struct SinkCounters crates/eos-backend-audit/src/sink.rs dropped AtomicU64 persist_failed AtomicU64 ">
+  <p class="source">crates/eos-backend-audit/src/sink.rs:204</p>
+</article><article id="item-struct-SinkCounters-46" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct SinkCounters private struct SinkCounters crates/eos-backend-audit/src/sink.rs dropped AtomicU64 persist_failed AtomicU64 ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>SinkCounters</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">struct <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a></code>
+  <code class="signature">struct <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a></code>
   <p class="docstring">In-memory loss counters shared by the synchronous `publish` and the async<br>drainer; read back through [`PersistingSink::loss_snapshot`].</p>
   <div class="tags"><span>derive: Debug</span><span>derive: Default</span></div>
   <h4>Fields</h4><table><tbody><tr><td>private</td><td>dropped</td><td><code>AtomicU64</code></td></tr><tr><td>private</td><td>persist_failed</td><td><code>AtomicU64</code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-audit/src/sink.rs:45</p>
-</article><article id="item-enum-Msg-36" class="type-card" data-kind="enum" data-kind-list="enum field type-model" data-filter-text="enum Msg private enum Msg crates/eos-backend-audit/src/sink.rs  ">
+  <p class="source">crates/eos-backend-audit/src/sink.rs:46</p>
+</article><article id="item-enum-Msg-37" class="type-card" data-kind="enum" data-kind-list="enum field type-model" data-filter-text="enum Msg private enum Msg crates/eos-backend-audit/src/sink.rs  ">
   <div class="item-head">
     <span class="kind">enum</span>
     <h3>Msg</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">enum <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a></code>
+  <code class="signature">enum <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a></code>
   <p class="docstring">Control message from a synchronous `publish` (or the shutdown guard) to the<br>async drainer. The event is boxed so the enum stays small.</p>
   <div class="tags"></div>
   <h4>Variants</h4><table><tbody><tr><td>Event</td><td><code>0: Box &lt; ObsEvent &gt;</code></td></tr><tr><td>Shutdown</td><td><code></code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-audit/src/sink.rs:36</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-to-obs-event-136" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn to_obs_event private fn to_obs_event (event : &amp; AuditEvent) -&gt; ObsEvent crates/eos-backend-audit/src/sink.rs  ">
+  <p class="source">crates/eos-backend-audit/src/sink.rs:37</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-to-obs-event-137" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn to_obs_event private fn to_obs_event (event : &amp; AuditEvent) -&gt; ObsEvent crates/eos-backend-audit/src/sink.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>to_obs_event</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-fn-to-obs-event-136">to_obs_event</a> (event : &amp; AuditEvent) -&gt; ObsEvent</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-fn-to-obs-event-137">to_obs_event</a> (event : &amp; <a class="symbol-link" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; ObsEvent</code>
   <p class="docstring">Convert a borrowed agent-core [`AuditEvent`] into an owned engine-source<br>[`ObsEvent`]. Model-facing ids come from the node; `sandbox_invocation_id` is<br>always null on this path (the node has no daemon invocation id). `agent_name`<br>and `tool_name` are folded into the payload for downstream labels, mirroring<br>`AuditEvent::to_obs_envelope`.</p>
   <div class="tags"></div>
   <details class="function-source">
@@ -208,7 +208,7 @@
 <span class="rs-comment">/// always null on this path (the node has no daemon invocation id). `agent_name`</span>
 <span class="rs-comment">/// and `tool_name` are folded into the payload for downstream labels, mirroring</span>
 <span class="rs-comment">/// `AuditEvent::to_obs_envelope`.</span>
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-to-obs-event-136">to_obs_event</a>(event: &amp;<span class="rs-type">AuditEvent</span>) -&gt; <span class="rs-type">ObsEvent</span> {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-to-obs-event-137">to_obs_event</a>(event: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; <span class="rs-type">ObsEvent</span> {
     <span class="rs-kw">let</span> node = &amp;event.node;
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = event.payload.clone();
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent_name) = &amp;node.agent_name {
@@ -229,7 +229,7 @@
         tool_use_id: node.tool_use_id.clone(),
         sandbox_invocation_id: <span class="rs-type">None</span>,
         sandbox_id: node.sandbox_id.clone(),
-        source: <span class="rs-type">ObsSource</span>::<span class="rs-type">Engine</span>,
+        source: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>::<span class="rs-type">Engine</span>,
         kind: event.event_type.clone(),
         payload: <span class="rs-type">Value</span>::<span class="rs-type">Object</span>(payload),
         created_at: event.ts,
@@ -238,39 +238,39 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/sink.rs:136</p>
-</article><article id="item-fn-drain-169" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn drain private async fn drain (mut rx : mpsc :: Receiver &lt; Msg &gt; , obs_events : ObsEventRepo , counters : Arc &lt; SinkCounters &gt;) crates/eos-backend-audit/src/sink.rs  ">
+  <p class="source">crates/eos-backend-audit/src/sink.rs:137</p>
+</article><article id="item-fn-drain-170" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn drain private async fn drain (mut rx : mpsc :: Receiver &lt; Msg &gt; , obs_events : ObsEventRepo , counters : Arc &lt; SinkCounters &gt;) crates/eos-backend-audit/src/sink.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>drain</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">async fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-fn-drain-169">drain</a> (mut rx : mpsc :: Receiver &lt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a> &gt; , obs_events : ObsEventRepo , counters : Arc &lt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a> &gt;)</code>
+  <code class="signature">async fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-fn-drain-170">drain</a> (mut rx : mpsc :: Receiver &lt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a> &gt; , obs_events : ObsEventRepo , counters : Arc &lt; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a> &gt;)</code>
   <p class="docstring">Drain accepted events to `obs_event` in FIFO order. Exits on [`Msg::Shutdown`]<br>(every event queued before it is persisted first) or when every sender drops.</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-comment">/// Drain accepted events to `obs_event` in FIFO order. Exits on [`Msg::Shutdown`]</span>
 <span class="rs-comment">/// (every event queued before it is persisted first) or when every sender drops.</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-drain-169">drain</a>(<span class="rs-kw">mut</span> rx: mpsc::<span class="rs-type">Receiver</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>&gt;, obs_events: <span class="rs-type">ObsEventRepo</span>, counters: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a>&gt;) {
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-drain-170">drain</a>(<span class="rs-kw">mut</span> rx: mpsc::<span class="rs-type">Receiver</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>&gt;, obs_events: <span class="rs-type">ObsEventRepo</span>, counters: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a>&gt;) {
     <span class="rs-kw">while</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(msg) = rx.recv().<span class="rs-kw">await</span> {
         <span class="rs-kw">match</span> msg {
-            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>::<span class="rs-type">Event</span>(event) =&gt; <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-persist-180">persist</a>(&amp;obs_events, &amp;counters, &amp;event).<span class="rs-kw">await</span>,
-            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>::<span class="rs-type">Shutdown</span> =&gt; <span class="rs-kw">break</span>,
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>::<span class="rs-type">Event</span>(event) =&gt; <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-persist-181">persist</a>(&amp;obs_events, &amp;counters, &amp;event).<span class="rs-kw">await</span>,
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>::<span class="rs-type">Shutdown</span> =&gt; <span class="rs-kw">break</span>,
         }
     }
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/sink.rs:169</p>
-</article><article id="item-fn-persist-180" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn persist private async fn persist (obs_events : &amp; ObsEventRepo , counters : &amp; SinkCounters , event : &amp; ObsEvent) crates/eos-backend-audit/src/sink.rs  ">
+  <p class="source">crates/eos-backend-audit/src/sink.rs:170</p>
+</article><article id="item-fn-persist-181" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn persist private async fn persist (obs_events : &amp; ObsEventRepo , counters : &amp; SinkCounters , event : &amp; ObsEvent) crates/eos-backend-audit/src/sink.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>persist</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">async fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-fn-persist-180">persist</a> (obs_events : &amp; ObsEventRepo , counters : &amp; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a> , event : &amp; ObsEvent)</code>
+  <code class="signature">async fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-fn-persist-181">persist</a> (obs_events : &amp; ObsEventRepo , counters : &amp; <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a> , event : &amp; ObsEvent)</code>
   <p class="docstring">Persist one event, retrying once on a transient failure. A persistent failure<br>is counted (the database is the failing resource, so the honest fallback is an<br>in-memory loss counter plus a warning, not a database write).</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
@@ -278,8 +278,8 @@
   <pre><code><span class="rs-comment">/// Persist one event, retrying once on a transient failure. A persistent failure</span>
 <span class="rs-comment">/// is counted (the database is the failing resource, so the honest fallback is an</span>
 <span class="rs-comment">/// in-memory loss counter plus a warning, not a database write).</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-persist-180">persist</a>(obs_events: &amp;<span class="rs-type">ObsEventRepo</span>, counters: &amp;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a>, event: &amp;<span class="rs-type">ObsEvent</span>) {
-    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(err) = <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-append-with-retry-194">append_with_retry</a>(obs_events, event).<span class="rs-kw">await</span> {
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-persist-181">persist</a>(obs_events: &amp;<span class="rs-type">ObsEventRepo</span>, counters: &amp;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a>, event: &amp;<span class="rs-type">ObsEvent</span>) {
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(err) = <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-append-with-retry-195">append_with_retry</a>(obs_events, event).<span class="rs-kw">await</span> {
         counters.persist_failed.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">Relaxed</span>);
         tracing::warn!(
             kind = %event.kind,
@@ -291,21 +291,21 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/sink.rs:180</p>
-</article><article id="item-fn-append-with-retry-194" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn append_with_retry private async fn append_with_retry (obs_events : &amp; ObsEventRepo , event : &amp; ObsEvent) -&gt; Result &lt; i64 , StoreError &gt; crates/eos-backend-audit/src/sink.rs  ">
+  <p class="source">crates/eos-backend-audit/src/sink.rs:181</p>
+</article><article id="item-fn-append-with-retry-195" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn append_with_retry private async fn append_with_retry (obs_events : &amp; ObsEventRepo , event : &amp; ObsEvent) -&gt; Result &lt; i64 , StoreError &gt; crates/eos-backend-audit/src/sink.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>append_with_retry</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">async fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-fn-append-with-retry-194">append_with_retry</a> (obs_events : &amp; ObsEventRepo , event : &amp; ObsEvent) -&gt; Result &lt; i64 , StoreError &gt;</code>
+  <code class="signature">async fn <a class="symbol-link" href="eos-backend-audit--src-sink-rs.html#item-fn-append-with-retry-195">append_with_retry</a> (obs_events : &amp; ObsEventRepo , event : &amp; ObsEvent) -&gt; Result &lt; i64 , StoreError &gt;</code>
   <p class="docstring">One retry for a transient insert failure (sqlite busy contention is already<br>absorbed by the pool busy-timeout; this covers a single spurious error).</p>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-comment">/// One retry for a transient insert failure (sqlite busy contention is already</span>
 <span class="rs-comment">/// absorbed by the pool busy-timeout; this covers a single spurious error).</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-append-with-retry-194">append_with_retry</a>(obs_events: &amp;<span class="rs-type">ObsEventRepo</span>, event: &amp;<span class="rs-type">ObsEvent</span>) -&gt; <span class="rs-type">Result</span>&lt;i64, <span class="rs-type">StoreError</span>&gt; {
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-append-with-retry-195">append_with_retry</a>(obs_events: &amp;<span class="rs-type">ObsEventRepo</span>, event: &amp;<span class="rs-type">ObsEvent</span>) -&gt; <span class="rs-type">Result</span>&lt;i64, <span class="rs-type">StoreError</span>&gt; {
     <span class="rs-kw">match</span> obs_events.insert(event).<span class="rs-kw">await</span> {
         <span class="rs-type">Ok</span>(id) =&gt; <span class="rs-type">Ok</span>(id),
         <span class="rs-type">Err</span>(_) =&gt; obs_events.insert(event).<span class="rs-kw">await</span>,
@@ -314,7 +314,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-audit/src/sink.rs:194</p>
+  <p class="source">crates/eos-backend-audit/src/sink.rs:195</p>
 </article></div>
 </section></div>
 </main>
@@ -323,7 +323,7 @@
     <h2>Source File</h2>
     <p class="path">crates/eos-backend-audit/src/sink.rs</p>
   </div>
-  <pre class="file-source"><code><span class="rs-comment">//! [`PersistingSink`] — an [`AuditSink`] that persists agent-core audit events to</span>
+  <pre class="file-source"><code><span class="rs-comment">//! [`PersistingSink`] — an [`AuditSink`] that persists agent audit events to</span>
 <span class="rs-comment">//! `obs_event` without blocking the engine hot path (AC6).</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! [`AuditSink::publish`] is synchronous and borrows its [`AuditEvent`]. This sink</span>
@@ -332,16 +332,16 @@
 <span class="rs-comment">//! bumps a dropped counter — `publish` never `.await`s and never touches `SQLite`. A</span>
 <span class="rs-comment">//! dedicated async drainer owns each payload and persists it through</span>
 <span class="rs-comment">//! [`ObsEventRepo`], retrying once on a transient failure and otherwise counting a</span>
-<span class="rs-comment">//! durable persist loss. The flow mirrors `eos_audit::BufferedJsonlSink` (a bounded</span>
-<span class="rs-comment">//! queue + drainer + an explicit shutdown that flushes accepted events), but the</span>
-<span class="rs-comment">//! drainer is a Tokio task because the destination write is async.</span>
+<span class="rs-comment">//! durable persist loss. The flow is a bounded queue + drainer + an explicit</span>
+<span class="rs-comment">//! shutdown that flushes accepted events; the drainer is a Tokio task because</span>
+<span class="rs-comment">//! the destination write is async.</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! Source mapping: every event published through this sink is agent-core</span>
 <span class="rs-comment">//! engine/tool-path observability, so its persisted [`ObsSource`] is `Engine`.</span>
 <span class="rs-comment">//! Daemon-pulled rows are `Daemon` and flow through the [`ingestor`](crate::ingestor)</span>
-<span class="rs-comment">//! instead. The [`AuditNode`](eos_audit::AuditNode) carries no daemon invocation id,</span>
-<span class="rs-comment">//! so the engine-path `sandbox_invocation_id` is always null here — the model-facing</span>
-<span class="rs-comment">//! `tool_use_id`/`sandbox_id` come straight from the node.</span>
+<span class="rs-comment">//! instead. The [`AuditNode`](crate::AuditNode) carries no daemon invocation id,</span>
+<span class="rs-comment">//! so the engine-path `sandbox_invocation_id` is always null here — the</span>
+<span class="rs-comment">//! model-facing `tool_use_id`/`sandbox_id` come straight from the node.</span>
 
 <span class="rs-kw">use</span> std::sync::atomic::{<span class="rs-type">AtomicU64</span>, <span class="rs-type">Ordering</span>};
 <span class="rs-kw">use</span> std::sync::<span class="rs-type">Arc</span>;
@@ -350,9 +350,10 @@
 <span class="rs-kw">use</span> tokio::sync::mpsc;
 <span class="rs-kw">use</span> tokio::task::<span class="rs-type">JoinHandle</span>;
 
-<span class="rs-kw">use</span> eos_audit::{<span class="rs-type">AuditError</span>, <span class="rs-type">AuditEvent</span>, <span class="rs-type">AuditSink</span>};
 <span class="rs-kw">use</span> eos_backend_store::{<span class="rs-type">ObsEventRepo</span>, <span class="rs-type">StoreError</span>};
-<span class="rs-kw">use</span> eos_backend_types::{<span class="rs-type">ObsEvent</span>, <span class="rs-type">ObsSource</span>};
+<span class="rs-kw">use</span> eos_backend_types::{<span class="rs-type">ObsEvent</span>, <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>};
+
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a>, <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>, <a class="symbol-link rs-type" href="eos-backend-audit.html#item-trait-AuditSink-394">AuditSink</a>};
 
 <span class="rs-comment">/// Default bound on the `publish`→drainer queue (events in flight before overflow</span>
 <span class="rs-comment">/// returns [`AuditError::Backpressure`]).</span>
@@ -360,7 +361,7 @@
 
 <span class="rs-comment">/// Control message from a synchronous `publish` (or the shutdown guard) to the</span>
 <span class="rs-comment">/// async drainer. The event is boxed so the enum stays small.</span>
-<span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a> {
+<span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a> {
     <span class="rs-comment">/// One owned event to persist.</span>
     <span class="rs-type">Event</span>(<span class="rs-type">Box</span>&lt;<span class="rs-type">ObsEvent</span>&gt;),
     <span class="rs-comment">/// Flush every event already queued, then stop the drainer.</span>
@@ -370,7 +371,7 @@
 <span class="rs-comment">/// In-memory loss counters shared by the synchronous `publish` and the async</span>
 <span class="rs-comment">/// drainer; read back through [`PersistingSink::loss_snapshot`].</span>
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Default</span>)]
-<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a> {
+<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a> {
     <span class="rs-comment">/// Events dropped at `publish` because the bounded queue was full or closed.</span>
     dropped: <span class="rs-type">AtomicU64</span>,
     <span class="rs-comment">/// Accepted events the drainer could not durably persist after one retry.</span>
@@ -383,7 +384,7 @@
 <span class="rs-comment">/// live in memory and are surfaced to `/api/stats/*` by the stats reader rather</span>
 <span class="rs-comment">/// than written back to `backend.db`.</span>
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Default</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-55">SinkLoss</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-56">SinkLoss</a> {
     <span class="rs-comment">/// Events dropped at `publish` because the bounded queue was full.</span>
     <span class="rs-kw">pub</span> dropped_inflight: u64,
     <span class="rs-comment">/// Accepted events the drainer could not durably persist after retry.</span>
@@ -396,35 +397,35 @@
 <span class="rs-comment">/// at the agent-core composition root. Retain the returned [`PersistingSinkShutdown`]</span>
 <span class="rs-comment">/// to flush accepted events on teardown.</span>
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSink-68">PersistingSink</a> {
-    tx: mpsc::<span class="rs-type">Sender</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>&gt;,
-    counters: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a>&gt;,
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSink-69">PersistingSink</a> {
+    tx: mpsc::<span class="rs-type">Sender</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>&gt;,
+    counters: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a>&gt;,
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSink-68">PersistingSink</a> {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSink-69">PersistingSink</a> {
     <span class="rs-comment">/// Build a sink draining into `obs_events` with the default queue capacity.</span>
     <span class="rs-comment">/// Spawns the drainer; must be called within a Tokio runtime.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(obs_events: <span class="rs-type">ObsEventRepo</span>) -&gt; (<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-203">PersistingSinkShutdown</a>) {
-        <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-87">with_capacity</a>(obs_events, <span class="rs-type">DEFAULT_QUEUE_CAPACITY</span>)
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(obs_events: <span class="rs-type">ObsEventRepo</span>) -&gt; (<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-204">PersistingSinkShutdown</a>) {
+        <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-88">with_capacity</a>(obs_events, <span class="rs-type">DEFAULT_QUEUE_CAPACITY</span>)
     }
 
     <span class="rs-comment">/// Build a sink with an explicit queue bound (used by tests to force overflow</span>
     <span class="rs-comment">/// deterministically). The bound is floored at 1.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-87">with_capacity</a>(
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-88">with_capacity</a>(
         obs_events: <span class="rs-type">ObsEventRepo</span>,
         capacity: usize,
-    ) -&gt; (<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-203">PersistingSinkShutdown</a>) {
-        <span class="rs-kw">let</span> (tx, rx) = mpsc::channel::&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>&gt;(capacity.max(1));
-        <span class="rs-kw">let</span> counters = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-default-115">default</a>());
-        <span class="rs-kw">let</span> handle = tokio::spawn(<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-drain-169">drain</a>(rx, obs_events, counters.clone()));
+    ) -&gt; (<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-204">PersistingSinkShutdown</a>) {
+        <span class="rs-kw">let</span> (tx, rx) = mpsc::channel::&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>&gt;(capacity.max(1));
+        <span class="rs-kw">let</span> counters = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>());
+        <span class="rs-kw">let</span> handle = tokio::spawn(<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-drain-170">drain</a>(rx, obs_events, counters.clone()));
         (
             <span class="rs-self">Self</span> {
                 tx: tx.clone(),
                 counters,
             },
-            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-203">PersistingSinkShutdown</a> {
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-204">PersistingSinkShutdown</a> {
                 ctrl_tx: <span class="rs-type">Some</span>(tx),
                 handle: <span class="rs-type">Some</span>(handle),
             },
@@ -433,26 +434,26 @@
 
     <span class="rs-comment">/// A snapshot of the in-memory loss counters for `/api/stats/*` loss accounting.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-loss-snapshot-109">loss_snapshot</a>(&amp;<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-55">SinkLoss</a> {
-        <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-55">SinkLoss</a> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-loss-snapshot-110">loss_snapshot</a>(&amp;<span class="rs-self">self</span>) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-56">SinkLoss</a> {
+        <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkLoss-56">SinkLoss</a> {
             dropped_inflight: <span class="rs-self">self</span>.counters.dropped.load(<span class="rs-type">Ordering</span>::<span class="rs-type">Relaxed</span>),
             persist_failed: <span class="rs-self">self</span>.counters.persist_failed.load(<span class="rs-type">Ordering</span>::<span class="rs-type">Relaxed</span>),
         }
     }
 }
 
-<span class="rs-kw">impl</span> <span class="rs-type">AuditSink</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSink-68">PersistingSink</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-publish-120">publish</a>(&amp;<span class="rs-self">self</span>, event: &amp;<span class="rs-type">AuditEvent</span>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AuditError</span>&gt; {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit.html#item-trait-AuditSink-394">AuditSink</a> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSink-69">PersistingSink</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-publish-407">publish</a>(&amp;<span class="rs-self">self</span>, event: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; <span class="rs-type">Result</span>&lt;(), <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a>&gt; {
         <span class="rs-comment">// Build an OWNED row from the borrowed event (the queue never holds a</span>
         <span class="rs-comment">// reference into `event`), then enqueue without awaiting.</span>
-        <span class="rs-kw">let</span> owned = <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-to-obs-event-136">to_obs_event</a>(event);
-        <span class="rs-kw">match</span> <span class="rs-self">self</span>.tx.try_send(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>::<span class="rs-type">Event</span>(<span class="rs-type">Box</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-80">new</a>(owned))) {
+        <span class="rs-kw">let</span> owned = <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-to-obs-event-137">to_obs_event</a>(event);
+        <span class="rs-kw">match</span> <span class="rs-self">self</span>.tx.try_send(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>::<span class="rs-type">Event</span>(<span class="rs-type">Box</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(owned))) {
             <span class="rs-type">Ok</span>(()) =&gt; <span class="rs-type">Ok</span>(()),
             <span class="rs-comment">// Full queue or a gone drainer: drop, count it, and signal backpressure.</span>
             <span class="rs-comment">// The engine may log this but must not block on SQLite.</span>
             <span class="rs-type">Err</span>(mpsc::error::<span class="rs-type">TrySendError</span>::<span class="rs-type">Full</span>(_) | mpsc::error::<span class="rs-type">TrySendError</span>::<span class="rs-type">Closed</span>(_)) =&gt; {
                 <span class="rs-self">self</span>.counters.dropped.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">Relaxed</span>);
-                <span class="rs-type">Err</span>(<span class="rs-type">AuditError</span>::<span class="rs-type">Backpressure</span>)
+                <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-AuditError-163">AuditError</a>::<span class="rs-type">Backpressure</span>)
             }
         }
     }
@@ -463,7 +464,7 @@
 <span class="rs-comment">/// always null on this path (the node has no daemon invocation id). `agent_name`</span>
 <span class="rs-comment">/// and `tool_name` are folded into the payload for downstream labels, mirroring</span>
 <span class="rs-comment">/// `AuditEvent::to_obs_envelope`.</span>
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-to-obs-event-136">to_obs_event</a>(event: &amp;<span class="rs-type">AuditEvent</span>) -&gt; <span class="rs-type">ObsEvent</span> {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-to-obs-event-137">to_obs_event</a>(event: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-AuditEvent-324">AuditEvent</a>) -&gt; <span class="rs-type">ObsEvent</span> {
     <span class="rs-kw">let</span> node = &amp;event.node;
     <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = event.payload.clone();
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent_name) = &amp;node.agent_name {
@@ -484,7 +485,7 @@
         tool_use_id: node.tool_use_id.clone(),
         sandbox_invocation_id: <span class="rs-type">None</span>,
         sandbox_id: node.sandbox_id.clone(),
-        source: <span class="rs-type">ObsSource</span>::<span class="rs-type">Engine</span>,
+        source: <a class="symbol-link rs-type" href="eos-backend-audit.html#item-enum-ObsSource-29">ObsSource</a>::<span class="rs-type">Engine</span>,
         kind: event.event_type.clone(),
         payload: <span class="rs-type">Value</span>::<span class="rs-type">Object</span>(payload),
         created_at: event.ts,
@@ -493,11 +494,11 @@
 
 <span class="rs-comment">/// Drain accepted events to `obs_event` in FIFO order. Exits on [`Msg::Shutdown`]</span>
 <span class="rs-comment">/// (every event queued before it is persisted first) or when every sender drops.</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-drain-169">drain</a>(<span class="rs-kw">mut</span> rx: mpsc::<span class="rs-type">Receiver</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>&gt;, obs_events: <span class="rs-type">ObsEventRepo</span>, counters: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a>&gt;) {
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-drain-170">drain</a>(<span class="rs-kw">mut</span> rx: mpsc::<span class="rs-type">Receiver</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>&gt;, obs_events: <span class="rs-type">ObsEventRepo</span>, counters: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a>&gt;) {
     <span class="rs-kw">while</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(msg) = rx.recv().<span class="rs-kw">await</span> {
         <span class="rs-kw">match</span> msg {
-            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>::<span class="rs-type">Event</span>(event) =&gt; <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-persist-180">persist</a>(&amp;obs_events, &amp;counters, &amp;event).<span class="rs-kw">await</span>,
-            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>::<span class="rs-type">Shutdown</span> =&gt; <span class="rs-kw">break</span>,
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>::<span class="rs-type">Event</span>(event) =&gt; <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-persist-181">persist</a>(&amp;obs_events, &amp;counters, &amp;event).<span class="rs-kw">await</span>,
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>::<span class="rs-type">Shutdown</span> =&gt; <span class="rs-kw">break</span>,
         }
     }
 }
@@ -505,8 +506,8 @@
 <span class="rs-comment">/// Persist one event, retrying once on a transient failure. A persistent failure</span>
 <span class="rs-comment">/// is counted (the database is the failing resource, so the honest fallback is an</span>
 <span class="rs-comment">/// in-memory loss counter plus a warning, not a database write).</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-persist-180">persist</a>(obs_events: &amp;<span class="rs-type">ObsEventRepo</span>, counters: &amp;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-45">SinkCounters</a>, event: &amp;<span class="rs-type">ObsEvent</span>) {
-    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(err) = <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-append-with-retry-194">append_with_retry</a>(obs_events, event).<span class="rs-kw">await</span> {
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-persist-181">persist</a>(obs_events: &amp;<span class="rs-type">ObsEventRepo</span>, counters: &amp;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-SinkCounters-46">SinkCounters</a>, event: &amp;<span class="rs-type">ObsEvent</span>) {
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Err</span>(err) = <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-append-with-retry-195">append_with_retry</a>(obs_events, event).<span class="rs-kw">await</span> {
         counters.persist_failed.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">Relaxed</span>);
         tracing::warn!(
             kind = %event.kind,
@@ -518,7 +519,7 @@
 
 <span class="rs-comment">/// One retry for a transient insert failure (sqlite busy contention is already</span>
 <span class="rs-comment">/// absorbed by the pool busy-timeout; this covers a single spurious error).</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-append-with-retry-194">append_with_retry</a>(obs_events: &amp;<span class="rs-type">ObsEventRepo</span>, event: &amp;<span class="rs-type">ObsEvent</span>) -&gt; <span class="rs-type">Result</span>&lt;i64, <span class="rs-type">StoreError</span>&gt; {
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#item-fn-append-with-retry-195">append_with_retry</a>(obs_events: &amp;<span class="rs-type">ObsEventRepo</span>, event: &amp;<span class="rs-type">ObsEvent</span>) -&gt; <span class="rs-type">Result</span>&lt;i64, <span class="rs-type">StoreError</span>&gt; {
     <span class="rs-kw">match</span> obs_events.insert(event).<span class="rs-kw">await</span> {
         <span class="rs-type">Ok</span>(id) =&gt; <span class="rs-type">Ok</span>(id),
         <span class="rs-type">Err</span>(_) =&gt; obs_events.insert(event).<span class="rs-kw">await</span>,
@@ -533,19 +534,19 @@
 <span class="rs-comment">/// There is no `Drop` impl: a bare drop detaches the drainer rather than flushing</span>
 <span class="rs-comment">/// (see the note below this type).</span>
 #[derive(<span class="rs-type">Debug</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-203">PersistingSinkShutdown</a> {
-    ctrl_tx: <span class="rs-type">Option</span>&lt;mpsc::<span class="rs-type">Sender</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>&gt;&gt;,
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-204">PersistingSinkShutdown</a> {
+    ctrl_tx: <span class="rs-type">Option</span>&lt;mpsc::<span class="rs-type">Sender</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>&gt;&gt;,
     handle: <span class="rs-type">Option</span>&lt;<span class="rs-type">JoinHandle</span>&lt;()&gt;&gt;,
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-203">PersistingSinkShutdown</a> {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-struct-PersistingSinkShutdown-204">PersistingSinkShutdown</a> {
     <span class="rs-comment">/// Flush accepted events and await the drainer.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-shutdown-217">shutdown</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-shutdown-218">shutdown</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
         <span class="rs-comment">// Best-effort flush signal: if the queue is momentarily full the send waits</span>
         <span class="rs-comment">// for the drainer to free a slot (it keeps draining), mirroring</span>
-        <span class="rs-comment">// `BufferedAuditShutdown`. A closed channel means the drainer already exited.</span>
+        <span class="rs-comment">// A closed channel means the drainer already exited.</span>
         <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(ctrl_tx) = <span class="rs-self">self</span>.ctrl_tx.take() {
-            <span class="rs-kw">let</span> _ = ctrl_tx.send(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-36">Msg</a>::<span class="rs-type">Shutdown</span>).<span class="rs-kw">await</span>;
+            <span class="rs-kw">let</span> _ = ctrl_tx.send(<a class="symbol-link rs-type" href="eos-backend-audit--src-sink-rs.html#item-enum-Msg-37">Msg</a>::<span class="rs-type">Shutdown</span>).<span class="rs-kw">await</span>;
         }
         <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(handle) = <span class="rs-self">self</span>.handle.take() {
             <span class="rs-kw">let</span> _ = handle.<span class="rs-kw">await</span>;

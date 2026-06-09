@@ -10,12 +10,12 @@
 //! construction (the invariant is *structural*, not test-asserted).
 //!
 //! All mutable lifecycle state lives in one [`ManagerInner`] behind an `Arc`. The
-//! provisioner handed to the runtime and the manager the backend retains for
+//! provisioner handed to request orchestration and the manager the backend retains for
 //! `release`/`delete`/`view` are clones of that same `Arc`, so acquisition (which
 //! the runtime drives through the gateway provisioner) and release/teardown
 //! (which the backend reaper drives through the manager) touch the same maps.
-//! This matters because `RuntimeServicesBuilder::build` calls `provisioner()`
-//! once and then drops the gateway handle.
+//! This matters because each request service call acquires through
+//! [`SandboxGateway::provisioner`] while teardown uses the retained manager.
 //!
 //! ## Refcount and retention model
 //!

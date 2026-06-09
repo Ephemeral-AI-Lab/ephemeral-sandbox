@@ -33,12 +33,11 @@ use eos_types::{
     AgentLoopLauncher, AgentName, AgentRegistry, AgentRegistryBuilder, AgentRun, AgentRunId,
     AgentRunRecordIndex, AgentRunRecordTarget, AgentType, Attempt, AttemptBudget, AttemptClosure,
     AttemptId, CoreError, CreatedTaskAgentRun, ExecutionTaskOutcome, Iteration,
-    IterationCreationReason, IterationId, IterationStatus, JsonObject, MaterializedPlan, Page,
-    PageResult, ParentAgentRunAnchor, ParentedAgentRunKind, ParentedRun, Request, RequestId,
-    RequestListFilter, RequestStatus, RunningRequestAgentRun, SandboxId, Sealed,
-    StartAgentLoopRequest, StartedAgentLoop, Task, TaskAgentRunKind, TaskExecutionIndex, TaskId,
-    TaskRole, TaskRun, TaskStatus, ToolUseId, UtcDateTime, Workflow, WorkflowCoordinates,
-    WorkflowId, WorkflowNodeId, WorkflowStatus,
+    IterationCreationReason, IterationId, IterationStatus, JsonObject, MaterializedPlan,
+    ParentAgentRunAnchor, ParentedAgentRunKind, ParentedRun, Request, RequestId, RequestStatus,
+    RunningRequestAgentRun, SandboxId, Sealed, StartAgentLoopRequest, StartedAgentLoop, Task,
+    TaskAgentRunKind, TaskExecutionIndex, TaskId, TaskRole, TaskRun, TaskStatus, ToolUseId,
+    UtcDateTime, Workflow, WorkflowCoordinates, WorkflowId, WorkflowNodeId, WorkflowStatus,
 };
 
 /// A temp-backed [`BackendStore`]; keep the [`TempDir`] alive for the test's life.
@@ -440,30 +439,37 @@ impl eos_types::RequestStore for FakeRequestStore {
         Ok(Some(make_request(id, status)))
     }
 
-    async fn list(
-        &self,
-        _filter: RequestListFilter,
-        page: Page,
-    ) -> Result<PageResult<Request>, CoreError> {
-        let backend_page = eos_backend_types::Page::new(page.limit, page.offset);
-        let page_result = self
-            .run_meta
-            .list(backend_page)
-            .await
-            .map_err(|err| CoreError::Store(err.to_string()))?;
-        Ok(PageResult {
-            items: page_result
-                .items
-                .into_iter()
-                .map(|meta| {
-                    let status = self
-                        .status
-                        .unwrap_or_else(|| request_status_from_backend(meta.status));
-                    make_request(&meta.request_id, status)
-                })
-                .collect(),
-            total: page_result.total,
-        })
+    async fn list(&self) -> Result<Vec<Request>, CoreError> {
+        let mut requests = Vec::new();
+        let mut offset = 0;
+        loop {
+            let page = self
+                .run_meta
+                .list(eos_backend_types::Page::new(
+                    eos_backend_types::Page::MAX_LIMIT,
+                    offset,
+                ))
+                .await
+                .map_err(|err| CoreError::Store(err.to_string()))?;
+            let page_len = page.items.len();
+            requests.extend(page.items.into_iter().map(|meta| {
+                let status = self
+                    .status
+                    .unwrap_or_else(|| request_status_from_backend(meta.status));
+                make_request(&meta.request_id, status)
+            }));
+            if page_len < usize::try_from(eos_backend_types::Page::MAX_LIMIT).unwrap_or(usize::MAX)
+            {
+                break;
+            }
+            offset = offset.saturating_add(eos_backend_types::Page::MAX_LIMIT);
+        }
+        for request in lock(&self.created).values().cloned() {
+            if !requests.iter().any(|item| item.id == request.id) {
+                requests.push(request);
+            }
+        }
+        Ok(requests)
     }
 }
 

@@ -1,12 +1,9 @@
 //! Pure batch-dispatch decision functions: terminal-batch rejection and
 //! lifecycle-batch policy.
 //!
-//! Ports the predicates in `engine/tool_call/dispatch.py`. These are **pure,
-//! synchronous** functions over a batch of calls + registry lookups — no async,
-//! no shared state. The async loop that consumes their decisions lives in
-//! `eos-engine` (the *test* of the loop is `eos-engine`'s `test_tool_batch.py` /
-//! `test_tool_call_dispatch_lifecycle.py`; the predicate + its unit test live
-//! here).
+//! These are pure, synchronous functions over a batch of calls and registry
+//! lookups: no async, no shared state. The async loop that consumes their
+//! decisions lives in `agent_loop::executor`; predicate tests live here.
 
 use eos_tool::{ToolIntent, ToolRegistry};
 

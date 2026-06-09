@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used)]
 use super::*;
-use eos_backend_audit::{ObsSource, TOOL_CALL_COMPLETED};
+use crate::{ObsSource, TOOL_CALL_COMPLETED};
 use serde_json::json;
 
 #[test]

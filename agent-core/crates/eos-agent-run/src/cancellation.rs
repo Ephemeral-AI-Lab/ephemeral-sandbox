@@ -51,9 +51,6 @@ pub(crate) async fn cancel_agent_run(
     if let Some(completion) = completion {
         completion.publish(outcome);
     }
-    if let Some(runtime_state) = &service.runtime_state {
-        runtime_state.remove_runtime_state(agent_run_id);
-    }
     if let Some(err) = finalization_error {
         Err(err)
     } else {

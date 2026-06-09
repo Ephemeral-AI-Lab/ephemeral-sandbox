@@ -26,11 +26,7 @@ fn expected_edges() -> Edges {
         ("eos-agent-run", &["eos-types"]),
         (
             "eos-agent-core-server",
-            &[
-                "eos-agent-run",
-                "eos-sandbox-port",
-                "eos-types",
-            ],
+            &["eos-agent-run", "eos-sandbox-port", "eos-types"],
         ),
         (
             "eos-testkit",

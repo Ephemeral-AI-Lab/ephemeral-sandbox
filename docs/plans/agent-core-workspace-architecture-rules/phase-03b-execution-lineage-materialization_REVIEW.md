@@ -37,7 +37,7 @@ fallback.
 | Spawn classification | `AgentRunMessageRecordKind` incl. a generic `Agent` fallback variant (a name 03B/index explicitly forbid) | `TaskRole` + `ParentedRunKind`; no generic `Agent` run | **Win** — removes the banned name and the task-less generic run |
 | Spawn return | bare `AgentRunId` | `SpawnAgentResult { agent_run_id, task_id }` | **Win** — callers stop re-deriving the task id |
 | Parent lineage | **not a durable column** — lives only in the in-memory `AgentRunRecordKind` enum + JSON event payload; placement uses a recursive `std::fs::read_dir` scan with a `parents-missing/` fallback (`eos-engine/records/layout.rs:103-111,149-181`) | durable `parented_runs.parent_agent_run_id`; path derived from lineage | **Strongest win** — replaces a filesystem race/scan with a queryable column |
-| `find_outstanding_workflows` | takes `_agent_run_id` and **ignores it** (`eos-workflow/service.rs:115-131`) | durable `launched_by_agent_run_id` column; exact query | **Win** — closes a silently-dead parameter |
+| outstanding workflow query | previously accepted an agent-run id without using it in the removed workflow service path | durable `launched_by_agent_run_id` column; exact query | **Win** — closed by deleting the stale service path and keeping the exact query at the `WorkflowApi` implementation boundary |
 | Plan materialization | `MaterializedPlan` stores only resolved task ids (`plan.rs:236-256`) | stores planned spawn *inputs* + reserved ids; rows created at admission | **Win** — no early "pending" rows |
 
 The merge is **safe**, and the verification settles the fork:
@@ -389,7 +389,7 @@ agent-core/crates/
 │       └── kind.rs                   ✗ AgentRunRecordKind, WorkflowTaskRole
 ├── eos-workflow/                     # -> eos-types, eos-tool (NO eos-agent-run edge)
 │   └── src/
-│       ├── service.rs                 ◑ find_outstanding_workflows queries launched_by_agent_run_id
+│       ├── (WorkflowApi impl)          ◑ list_open_delegated_workflows_for_agent_run queries launched_by_agent_run_id
 │       └── attempt/orchestrator.rs    ◑ task_store.insert_task(..)  ->  dyn AgentRunApi.spawn_agent(Task(..))
 └── eos-agent-core/                   # facade; -> all
     └── src/

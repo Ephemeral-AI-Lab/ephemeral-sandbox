@@ -1,8 +1,7 @@
 //! SSE stream replay tests. The replay/live handoff correctness is proven in
 //! `eos-backend-runtime`; here we prove the API layer forwards persisted
 //! `event_log` rows from `last_seq`. Events are seeded directly through the
-//! public `EventLogRepo` (the bus's `register` is crate-private), exercising the
-//! replay-only path.
+//! public `EventLogRepo`, exercising the replay path exposed by the runtime bus.
 
 mod support;
 

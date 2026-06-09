@@ -1,0 +1,1099 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eos-backend-audit · src/gates.rs</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+</head>
+<body>
+  <header>
+    <a class="central-link" href="/" title="Return to all class inventories">&larr; All inventories</a>
+    <div class="header-row">
+      <div>
+        <p class="eyebrow">Generated Rust source inventory · file-owned OOP map</p>
+        <h1>eos-backend-audit File Inventory</h1>
+      </div>
+      <div class="refresh-control">
+        <button id="refresh-inventory" type="button" title="Regenerate this inventory from the local Rust sources" data-refresh-command="cd /Users/yifanxu/machine_learning/LoVC/EphemeralOS/backend-server &amp;&amp; cargo run --manifest-path scripts/class-inventory/Cargo.toml">Refresh</button>
+        <span id="refresh-status" role="status"></span>
+      </div>
+    </div>
+  </header>
+  <a class="back-link" href="../index.html">backend-server</a>
+<section class="summary">
+  <div><b>7</b><span>modules</span></div>
+  <div><b>83</b><span>items</span></div>
+  <div><b>96</b><span>fields</span></div>
+  <div><b>44</b><span>methods</span></div>
+</section>
+<section class="toolbar">
+  <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
+  <select id="kind-filter">
+    <option value="">All items</option>
+    <option value="type-model">Type model</option>
+    <option value="struct">Structs</option>
+    <option value="enum">Enums</option>
+    <option value="trait">Traits</option>
+    <option value="impl">Impls</option>
+    <option value="fn">Functions</option>
+    <option value="type">Aliases</option>
+  </select>
+</section>
+<main class="crate-layout">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-audit.html"><span>contract.rs</span><small>10/7</small></a></li><li><a class="file-link active" href="eos-backend-audit--src-gates-rs.html"><span>gates.rs</span><small>10/10</small></a></li><li><a class="file-link" href="eos-backend-audit--src-ingestor-rs.html"><span>ingestor.rs</span><small>3/7</small></a></li><li><a class="file-link" href="eos-backend-audit--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-audit--src-normalization-rs.html"><span>normalization.rs</span><small>3/9</small></a></li><li><a class="file-link" href="eos-backend-audit--src-sink-rs.html"><span>sink.rs</span><small>5/4</small></a></li><li><a class="file-link" href="eos-backend-audit--src-stats-rs.html"><span>stats.rs</span><small>1/0</small></a></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="gates crates/eos-backend-audit/src/gates.rs RunnerCorrectnessEvidence impl RunnerCorrectnessEvidence ExpectedToolUse impl ExpectedToolUse RunnerGateSettings impl Default for RunnerGateSettings RunnerGateInput RunnerGateBatchInput RunnerGateSourceInput RunnerGateMetrics RunnerGateFailure RunnerGateFailureKind RunnerGateReport evaluate_runner_gates evaluate_runner_gate_batches evaluate_runner_gate_sources unique_tool_use_ids valid_tool_call tool_use_id resource_metric_count has_nonnegative_number non_empty_string failure">
+  <div class="module-head">
+    <div>
+      <h2>src/gates.rs</h2>
+      <p class="path">module <code>gates</code></p>
+    </div>
+    <div class="module-stats">
+      <span>file owns</span>
+      <span>10 types</span>
+      <span>3 impls</span>
+      <span>10 fns</span>
+      <span>7 methods</span>
+    </div>
+  </div>
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-RunnerCorrectnessEvidence-28" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct RunnerCorrectnessEvidence pub pub struct RunnerCorrectnessEvidence crates/eos-backend-audit/src/gates.rs tool_use_verified bool tool_use_checked_count usize message_correctness_verified bool message_checked_count usize ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>RunnerCorrectnessEvidence</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a></code>
+  <p class="docstring">External correctness evidence supplied by the Rust runner from state and transcript stores.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Default</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>tool_use_verified</td><td><code>bool</code></td></tr><tr><td>pub</td><td>tool_use_checked_count</td><td><code>usize</code></td></tr><tr><td>pub</td><td>message_correctness_verified</td><td><code>bool</code></td></tr><tr><td>pub</td><td>message_checked_count</td><td><code>usize</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-has-tool-use-evidence-53"><td>method</td><td>has_tool_use_evidence</td><td><code>pub const fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#method-has-tool-use-evidence-53">has_tool_use_evidence</a> (self) -&gt; bool</code><p class="docstring">Return true when the runner supplied external tool correctness evidence.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Return true when the runner supplied external tool correctness evidence.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-has-tool-use-evidence-53">has_tool_use_evidence</a>(<span class="rs-self">self</span>) -&gt; bool {
+        <span class="rs-self">self</span>.tool_use_verified
+    }
+</code></pre>
+</details></td></tr><tr id="method-has-message-correctness-evidence-59"><td>method</td><td>has_message_correctness_evidence</td><td><code>pub const fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#method-has-message-correctness-evidence-59">has_message_correctness_evidence</a> (self) -&gt; bool</code><p class="docstring">Return true when the runner supplied external message correctness evidence.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Return true when the runner supplied external message correctness evidence.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-has-message-correctness-evidence-59">has_message_correctness_evidence</a>(<span class="rs-self">self</span>) -&gt; bool {
+        <span class="rs-self">self</span>.message_correctness_verified
+    }
+</code></pre>
+</details></td></tr><tr id="method-verified-42"><td>associated-fn</td><td>verified</td><td><code>pub const fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#method-verified-42">verified</a> (tool_use_checked_count : usize , message_checked_count : usize) -&gt; Self</code><p class="docstring">Build evidence for successful state/transcript checks.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Build evidence for successful state/transcript checks.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-verified-42">verified</a>(tool_use_checked_count: usize, message_checked_count: usize) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span> {
+            tool_use_verified: <span class="rs-kw">true</span>,
+            tool_use_checked_count,
+            message_correctness_verified: <span class="rs-kw">true</span>,
+            message_checked_count,
+        }
+    }
+</code></pre>
+</details></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:28</p>
+</article><article id="item-struct-ExpectedToolUse-66" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct ExpectedToolUse pub pub struct ExpectedToolUse crates/eos-backend-audit/src/gates.rs tool_use_id String tool_name Option &lt; String &gt; terminal_expected Option &lt; bool &gt; ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>ExpectedToolUse</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a></code>
+  <p class="docstring">Tool-use expectation supplied by Rust state/transcript evidence.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>tool_use_id</td><td><code>String</code></td></tr><tr><td>pub</td><td>tool_name</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>pub</td><td>terminal_expected</td><td><code>Option &lt; bool &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-80"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit.html#method-new-90">new</a> (tool_use_id : impl Into &lt; String &gt;) -&gt; Self</code><p class="docstring">Build the minimum expected tool-use record.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Build the minimum expected tool-use record.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(tool_use_id: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span> {
+            tool_use_id: tool_use_id.into(),
+            tool_name: <span class="rs-type">None</span>,
+            terminal_expected: <span class="rs-type">None</span>,
+        }
+    }
+</code></pre>
+</details></td></tr><tr id="method-with-tool-name-90"><td>method</td><td>with_tool_name</td><td><code>pub fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#method-with-tool-name-90">with_tool_name</a> (mut self , tool_name : impl Into &lt; String &gt;) -&gt; Self</code><p class="docstring">Attach a state/transcript tool name for diagnostics.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Attach a state/transcript tool name for diagnostics.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-with-tool-name-90">with_tool_name</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, tool_name: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.tool_name = <span class="rs-type">Some</span>(tool_name.into());
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-with-terminal-expected-97"><td>method</td><td>with_terminal_expected</td><td><code>pub const fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#method-with-terminal-expected-97">with_terminal_expected</a> (mut self , terminal_expected : bool) -&gt; Self</code><p class="docstring">Attach whether state/transcript expected a terminal tool call.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Attach whether state/transcript expected a terminal tool call.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-with-terminal-expected-97">with_terminal_expected</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, terminal_expected: bool) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.terminal_expected = <span class="rs-type">Some</span>(terminal_expected);
+        <span class="rs-self">self</span>
+    }
+</code></pre>
+</details></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:66</p>
+</article><article id="item-struct-RunnerGateSettings-105" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct RunnerGateSettings pub pub struct RunnerGateSettings crates/eos-backend-audit/src/gates.rs strict_audit_loss bool require_resource_sample bool ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>RunnerGateSettings</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code>
+  <p class="docstring">Runner gate switches.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>strict_audit_loss</td><td><code>bool</code></td></tr><tr><td>pub</td><td>require_resource_sample</td><td><code>bool</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl Default for <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code></summary><table><tbody><tr id="method-default-115"><td>constructor</td><td>default</td><td><code>fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a> () -&gt; Self</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>() -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span> {
+            strict_audit_loss: <span class="rs-kw">true</span>,
+            require_resource_sample: <span class="rs-kw">true</span>,
+        }
+    }
+</code></pre>
+</details></td></tr></tbody></table></details></div>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:105</p>
+</article><article id="item-struct-RunnerGateInput-123" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateInput pub pub struct RunnerGateInput&lt; 'a &gt; crates/eos-backend-audit/src/gates.rs rows &amp; 'a [ObsEnvelope] sandbox_loss Option &lt; &amp; 'a SandboxAuditLoss &gt; expected_tool_uses &amp; 'a [ExpectedToolUse] correctness RunnerCorrectnessEvidence settings RunnerGateSettings ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>RunnerGateInput</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateInput-123">RunnerGateInput</a>&lt; &#x27;a &gt;</code>
+  <p class="docstring">Input for the Rust runner audit/observability gates.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>rows</td><td><code>&amp; &#x27;a [<a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>]</code></td></tr><tr><td>pub</td><td>sandbox_loss</td><td><code>Option &lt; &amp; &#x27;a <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a> &gt;</code></td></tr><tr><td>pub</td><td>expected_tool_uses</td><td><code>&amp; &#x27;a [<a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]</code></td></tr><tr><td>pub</td><td>correctness</td><td><code><a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a></code></td></tr><tr><td>pub</td><td>settings</td><td><code><a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:123</p>
+</article><article id="item-struct-RunnerGateBatchInput-138" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateBatchInput pub pub struct RunnerGateBatchInput&lt; 'a &gt; crates/eos-backend-audit/src/gates.rs agent_core_rows &amp; 'a [ObsEnvelope] sandbox_batches &amp; 'a [SandboxPullBatch] expected_tool_uses &amp; 'a [ExpectedToolUse] correctness RunnerCorrectnessEvidence settings RunnerGateSettings ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>RunnerGateBatchInput</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a>&lt; &#x27;a &gt;</code>
+  <p class="docstring">Batch-oriented input for runner gates after sandbox pull normalization.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>agent_core_rows</td><td><code>&amp; &#x27;a [<a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>]</code></td></tr><tr><td>pub</td><td>sandbox_batches</td><td><code>&amp; &#x27;a [<a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-6">SandboxPullBatch</a>]</code></td></tr><tr><td>pub</td><td>expected_tool_uses</td><td><code>&amp; &#x27;a [<a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]</code></td></tr><tr><td>pub</td><td>correctness</td><td><code><a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a></code></td></tr><tr><td>pub</td><td>settings</td><td><code><a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:138</p>
+</article><article id="item-struct-RunnerGateSourceInput-153" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateSourceInput pub pub struct RunnerGateSourceInput&lt; 'a &gt; crates/eos-backend-audit/src/gates.rs agent_core_jsonl &amp; 'a str sandbox_pull_responses &amp; 'a [Value] expected_tool_uses &amp; 'a [ExpectedToolUse] correctness RunnerCorrectnessEvidence settings RunnerGateSettings ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>RunnerGateSourceInput</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSourceInput-153">RunnerGateSourceInput</a>&lt; &#x27;a &gt;</code>
+  <p class="docstring">Source-level input for the runner audit/observability gates.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>agent_core_jsonl</td><td><code>&amp; &#x27;a str</code></td></tr><tr><td>pub</td><td>sandbox_pull_responses</td><td><code>&amp; &#x27;a [Value]</code></td></tr><tr><td>pub</td><td>expected_tool_uses</td><td><code>&amp; &#x27;a [<a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]</code></td></tr><tr><td>pub</td><td>correctness</td><td><code><a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a></code></td></tr><tr><td>pub</td><td>settings</td><td><code><a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:153</p>
+</article><article id="item-struct-RunnerGateMetrics-168" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateMetrics pub pub struct RunnerGateMetrics crates/eos-backend-audit/src/gates.rs expected_tool_use_count usize observed_expected_tool_use_count usize tool_call_completed_count usize resource_sample_count usize resource_metric_count usize ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>RunnerGateMetrics</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a></code>
+  <p class="docstring">Aggregate metrics collected while evaluating runner gates.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Default</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>expected_tool_use_count</td><td><code>usize</code></td></tr><tr><td>pub</td><td>observed_expected_tool_use_count</td><td><code>usize</code></td></tr><tr><td>pub</td><td>tool_call_completed_count</td><td><code>usize</code></td></tr><tr><td>pub</td><td>resource_sample_count</td><td><code>usize</code></td></tr><tr><td>pub</td><td>resource_metric_count</td><td><code>usize</code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:168</p>
+</article><article id="item-struct-RunnerGateFailure-183" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateFailure pub pub struct RunnerGateFailure crates/eos-backend-audit/src/gates.rs kind RunnerGateFailureKind detail String ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>RunnerGateFailure</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a></code>
+  <p class="docstring">A failed runner gate.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>kind</td><td><code><a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a></code></td></tr><tr><td>pub</td><td>detail</td><td><code>String</code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:183</p>
+</article><article id="item-struct-RunnerGateReport-212" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunnerGateReport pub pub struct RunnerGateReport crates/eos-backend-audit/src/gates.rs passed bool failures Vec &lt; RunnerGateFailure &gt; metrics RunnerGateMetrics expected_tool_uses Vec &lt; ExpectedToolUse &gt; settings RunnerGateSettings correctness RunnerCorrectnessEvidence sandbox_loss Option &lt; SandboxAuditLoss &gt; ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>RunnerGateReport</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a></code>
+  <p class="docstring">Typed result from evaluating the Rust runner audit/observability gates.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>port/service</span><span>serde</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>passed</td><td><code>bool</code></td></tr><tr><td>pub</td><td>failures</td><td><code>Vec &lt; <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> &gt;</code></td></tr><tr><td>pub</td><td>metrics</td><td><code><a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a></code></td></tr><tr><td>pub</td><td>expected_tool_uses</td><td><code>Vec &lt; <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a> &gt;</code></td></tr><tr><td>pub</td><td>settings</td><td><code><a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a></code></td></tr><tr><td>pub</td><td>correctness</td><td><code><a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a></code></td></tr><tr><td>pub</td><td>sandbox_loss</td><td><code>Option &lt; <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a> &gt;</code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:212</p>
+</article><article id="item-enum-RunnerGateFailureKind-192" class="type-card" data-kind="enum" data-kind-list="enum field type-model" data-filter-text="enum RunnerGateFailureKind pub pub enum RunnerGateFailureKind crates/eos-backend-audit/src/gates.rs  ">
+  <div class="item-head">
+    <span class="kind">enum</span>
+    <h3>RunnerGateFailureKind</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub enum <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a></code>
+  <p class="docstring">Machine-readable runner gate failure categories.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: Eq</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span><span>serde: rename_all</span></div>
+  <h4>Variants</h4><table><tbody><tr><td>AuditLoss</td><td><code></code></td></tr><tr><td>MissingToolObs</td><td><code></code></td></tr><tr><td>InvalidToolPayload</td><td><code></code></td></tr><tr><td>MissingResourceSample</td><td><code></code></td></tr><tr><td>MissingResourceMetric</td><td><code></code></td></tr><tr><td>ToolCorrectnessNotVerified</td><td><code></code></td></tr><tr><td>MessageCorrectnessNotVerified</td><td><code></code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:192</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-evaluate-runner-gates-232" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn evaluate_runner_gates pub pub fn evaluate_runner_gates (input : RunnerGateInput &lt; '_ &gt;) -&gt; RunnerGateReport crates/eos-backend-audit/src/gates.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>evaluate_runner_gates</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gates-232">evaluate_runner_gates</a> (input : <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateInput-123">RunnerGateInput</a> &lt; &#x27;_ &gt;) -&gt; <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a></code>
+  <p class="docstring">Evaluate Rust runner audit/observability gates over normalized rows.</p>
+  <div class="tags"><span>must_use</span></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-comment">/// Evaluate Rust runner audit/observability gates over normalized rows.</span>
+#[must_use]
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gates-232">evaluate_runner_gates</a>(input: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateInput-123">RunnerGateInput</a>&lt;&#x27;_&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> failures = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> metrics = <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>();
+    <span class="rs-kw">let</span> expected_tool_use_ids = <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-unique-tool-use-ids-412">unique_tool_use_ids</a>(input.expected_tool_uses);
+    metrics.expected_tool_use_count = expected_tool_use_ids.len();
+
+    <span class="rs-kw">if</span> input.settings.strict_audit_loss {
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(loss) = input.sandbox_loss {
+            <span class="rs-kw">if</span> loss.<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-has-counted-loss-27">has_counted_loss</a>() {
+                failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+                    <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">AuditLoss</span>,
+                    format!(
+                        &quot;sandbox audit loss reported lost_before_seq={:?} dropped_event_count={:?}&quot;,
+                        loss.lost_before_seq, loss.dropped_event_count
+                    ),
+                ));
+            }
+        }
+    }
+
+    <span class="rs-kw">if</span> !input.correctness.<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-has-tool-use-evidence-53">has_tool_use_evidence</a>() {
+        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">ToolCorrectnessNotVerified</span>,
+            &quot;state/transcript tool correctness evidence was not supplied&quot;,
+        ));
+    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> input.correctness.tool_use_checked_count &lt; metrics.expected_tool_use_count {
+        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">ToolCorrectnessNotVerified</span>,
+            format!(
+                &quot;state/transcript tool checks covered {} expected tool uses, expected {}&quot;,
+                input.correctness.tool_use_checked_count, metrics.expected_tool_use_count
+            ),
+        ));
+    }
+    <span class="rs-kw">if</span> !input.correctness.<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-has-message-correctness-evidence-59">has_message_correctness_evidence</a>() {
+        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MessageCorrectnessNotVerified</span>,
+            &quot;state/transcript message correctness evidence was not supplied&quot;,
+        ));
+    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> input.correctness.message_checked_count == 0 {
+        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MessageCorrectnessNotVerified</span>,
+            &quot;state/transcript message correctness evidence had zero checked assertions&quot;,
+        ));
+    }
+
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> observed_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>();
+    <span class="rs-kw">for</span> row <span class="rs-kw">in</span> input.rows {
+        <span class="rs-kw">match</span> row.event_type.as_str() {
+            <span class="rs-type">TOOL_CALL_COMPLETED</span> =&gt; {
+                metrics.tool_call_completed_count += 1;
+                <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(tool_use_id) = <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-tool-use-id-311">tool_use_id</a>(row) {
+                    observed_tool_use_ids.insert(tool_use_id);
+                }
+                <span class="rs-kw">if</span> !<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-valid-tool-call-418">valid_tool_call</a>(row) {
+                    failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+                        <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">InvalidToolPayload</span>,
+                        format!(
+                            &quot;invalid tool_call.completed payload <span class="rs-kw">for</span> {:?}&quot;,
+                            row.ids.tool_use_id
+                        ),
+                    ));
+                }
+            }
+            <span class="rs-type">OS_RESOURCE_SAMPLED</span> =&gt; {
+                metrics.resource_sample_count += 1;
+                metrics.resource_metric_count += <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-resource-metric-count-439">resource_metric_count</a>(row);
+            }
+            _ =&gt; {}
+        }
+    }
+
+    metrics.observed_expected_tool_use_count = expected_tool_use_ids
+        .iter()
+        .filter(|tool_use_id| observed_tool_use_ids.contains(**tool_use_id))
+        .count();
+
+    <span class="rs-kw">for</span> tool_use_id <span class="rs-kw">in</span> &amp;expected_tool_use_ids {
+        <span class="rs-kw">if</span> !observed_tool_use_ids.contains(tool_use_id) {
+            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+                <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingToolObs</span>,
+                format!(&quot;missing tool_call.completed obs row <span class="rs-kw">for</span> tool_use_id={tool_use_id}&quot;),
+            ));
+        }
+    }
+
+    <span class="rs-kw">if</span> input.settings.require_resource_sample {
+        <span class="rs-kw">if</span> metrics.resource_sample_count == 0 {
+            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+                <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingResourceSample</span>,
+                &quot;no os_resource.sampled row was observed&quot;,
+            ));
+        } <span class="rs-kw">else</span> <span class="rs-kw">if</span> metrics.resource_metric_count == 0 {
+            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+                <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingResourceMetric</span>,
+                &quot;os_resource.sampled rows did not include any resource metric&quot;,
+            ));
+        }
+    }
+
+    <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
+        passed: failures.is_empty(),
+        failures,
+        metrics,
+        expected_tool_uses: input.expected_tool_uses.to_vec(),
+        settings: input.settings,
+        correctness: input.correctness,
+        sandbox_loss: input.sandbox_loss.cloned(),
+    }
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:232</p>
+</article><article id="item-fn-evaluate-runner-gate-batches-345" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn evaluate_runner_gate_batches pub pub fn evaluate_runner_gate_batches (input : RunnerGateBatchInput &lt; '_ &gt;) -&gt; RunnerGateReport crates/eos-backend-audit/src/gates.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>evaluate_runner_gate_batches</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gate-batches-345">evaluate_runner_gate_batches</a> (input : <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a> &lt; &#x27;_ &gt;) -&gt; <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a></code>
+  <p class="docstring">Evaluate runner gates from normalized agent-core rows and sandbox pull batches.</p>
+  <div class="tags"><span>must_use</span></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-comment">/// Evaluate runner gates from normalized agent-core rows and sandbox pull batches.</span>
+#[must_use]
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gate-batches-345">evaluate_runner_gate_batches</a>(input: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a>&lt;&#x27;_&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> rows = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-88">with_capacity</a>(
+        input.agent_core_rows.len()
+            + input
+                .sandbox_batches
+                .iter()
+                .map(|batch| batch.rows.len())
+                .sum::&lt;usize&gt;(),
+    );
+    rows.extend_from_slice(input.agent_core_rows);
+    rows.extend(
+        input
+            .sandbox_batches
+            .iter()
+            .flat_map(|batch| batch.rows.iter().cloned()),
+    );
+    <span class="rs-kw">let</span> sandbox_loss = <span class="rs-kw">if</span> input.sandbox_batches.is_empty() {
+        <span class="rs-type">None</span>
+    } <span class="rs-kw">else</span> {
+        <span class="rs-type">Some</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-merge-34">merge</a>(
+            input.sandbox_batches.iter().map(|batch| &amp;batch.loss),
+        ))
+    };
+    <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gates-232">evaluate_runner_gates</a>(<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateInput-123">RunnerGateInput</a> {
+        rows: &amp;rows,
+        sandbox_loss: sandbox_loss.as_ref(),
+        expected_tool_uses: input.expected_tool_uses,
+        correctness: input.correctness,
+        settings: input.settings,
+    })
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:345</p>
+</article><article id="item-fn-evaluate-runner-gate-sources-379" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn evaluate_runner_gate_sources pub pub fn evaluate_runner_gate_sources (input : RunnerGateSourceInput &lt; '_ &gt; ,) -&gt; Result &lt; RunnerGateReport , ObsNormalizationError &gt; crates/eos-backend-audit/src/gates.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>evaluate_runner_gate_sources</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gate-sources-379">evaluate_runner_gate_sources</a> (input : <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSourceInput-153">RunnerGateSourceInput</a> &lt; &#x27;_ &gt; ,) -&gt; Result &lt; <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> , <a class="symbol-link" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a> &gt;</code>
+  <p class="docstring">Parse source artifacts, normalize them, and evaluate runner gates.<br>This is the narrow handoff a Rust runner can call after it has collected the<br>authoritative state/transcript expectations.<br># Errors<br>Returns an error when any agent-core JSONL row or sandbox pull response is<br>invalid.</p>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-comment">/// Parse source artifacts, normalize them, and evaluate runner gates.</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// This is the narrow handoff a Rust runner can call after it has collected the</span>
+<span class="rs-comment">/// authoritative state/transcript expectations.</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// # Errors</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// Returns an error when any agent-core JSONL row or sandbox pull response is</span>
+<span class="rs-comment">/// invalid.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gate-sources-379">evaluate_runner_gate_sources</a>(
+    input: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSourceInput-153">RunnerGateSourceInput</a>&lt;&#x27;_&gt;,
+) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>&gt; {
+    <span class="rs-kw">let</span> agent_core_rows = input
+        .agent_core_jsonl
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(normalize_agent_core_jsonl_line)
+        .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, _&gt;&gt;()?;
+    <span class="rs-kw">let</span> sandbox_batches = input
+        .sandbox_pull_responses
+        .iter()
+        .map(normalize_sandbox_pull_response)
+        .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, _&gt;&gt;()?;
+
+    <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gate-batches-345">evaluate_runner_gate_batches</a>(<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a> {
+        agent_core_rows: &amp;agent_core_rows,
+        sandbox_batches: &amp;sandbox_batches,
+        expected_tool_uses: input.expected_tool_uses,
+        correctness: input.correctness,
+        settings: input.settings,
+    }))
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:379</p>
+</article><article id="item-fn-unique-tool-use-ids-412" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn unique_tool_use_ids private fn unique_tool_use_ids (ids : &amp; [ExpectedToolUse]) -&gt; BTreeSet &lt; &amp; str &gt; crates/eos-backend-audit/src/gates.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>unique_tool_use_ids</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-fn-unique-tool-use-ids-412">unique_tool_use_ids</a> (ids : &amp; [<a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]) -&gt; BTreeSet &lt; &amp; str &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-unique-tool-use-ids-412">unique_tool_use_ids</a>(ids: &amp;[<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]) -&gt; <span class="rs-type">BTreeSet</span>&lt;&amp;str&gt; {
+    ids.iter()
+        .map(|expected| expected.tool_use_id.as_str())
+        .collect()
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:412</p>
+</article><article id="item-fn-valid-tool-call-418" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn valid_tool_call private fn valid_tool_call (row : &amp; ObsEnvelope) -&gt; bool crates/eos-backend-audit/src/gates.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>valid_tool_call</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-fn-valid-tool-call-418">valid_tool_call</a> (row : &amp; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; bool</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-valid-tool-call-418">valid_tool_call</a>(row: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; bool {
+    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(tool_call)) = row.payload.get(&quot;tool_call&quot;) <span class="rs-kw">else</span> {
+        <span class="rs-kw">return</span> <span class="rs-kw">false</span>;
+    };
+    <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(tool_call.get(&quot;duration_ms&quot;))
+        .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(tool_call.get(&quot;total_ms&quot;)))
+        .unwrap_or(<span class="rs-kw">false</span>)
+        &amp;&amp; <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-non-empty-string-455">non_empty_string</a>(tool_call.get(&quot;status&quot;))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-non-empty-string-455">non_empty_string</a>(tool_call.get(&quot;exit_status&quot;)))
+            .unwrap_or(<span class="rs-kw">false</span>)
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:418</p>
+</article><article id="item-fn-tool-use-id-430" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn tool_use_id private fn tool_use_id (row : &amp; ObsEnvelope) -&gt; Option &lt; &amp; str &gt; crates/eos-backend-audit/src/gates.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>tool_use_id</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit.html#method-tool-use-id-311">tool_use_id</a> (row : &amp; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; Option &lt; &amp; str &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-tool-use-id-311">tool_use_id</a>(row: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; <span class="rs-type">Option</span>&lt;&amp;str&gt; {
+    row.ids.tool_use_id.as_deref().or_else(|| {
+        row.payload
+            .get(&quot;tool_call&quot;)
+            .and_then(|section| section.get(&quot;tool_use_id&quot;))
+            .and_then(<span class="rs-type">Value</span>::as_str)
+    })
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:430</p>
+</article><article id="item-fn-resource-metric-count-439" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn resource_metric_count private fn resource_metric_count (row : &amp; ObsEnvelope) -&gt; usize crates/eos-backend-audit/src/gates.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>resource_metric_count</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-fn-resource-metric-count-439">resource_metric_count</a> (row : &amp; <a class="symbol-link" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; usize</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-resource-metric-count-439">resource_metric_count</a>(row: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; usize {
+    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(os_resource)) = row.payload.get(&quot;os_resource&quot;) <span class="rs-kw">else</span> {
+        <span class="rs-kw">return</span> 0;
+    };
+    <span class="rs-type">RESOURCE_METRIC_KEYS</span>
+        .iter()
+        .filter(|key| <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(os_resource.get(**key)).unwrap_or(<span class="rs-kw">false</span>))
+        .count()
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:439</p>
+</article><article id="item-fn-has-nonnegative-number-449" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn has_nonnegative_number private fn has_nonnegative_number (value : Option &lt; &amp; Value &gt;) -&gt; Option &lt; bool &gt; crates/eos-backend-audit/src/gates.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>has_nonnegative_number</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a> (value : Option &lt; &amp; Value &gt;) -&gt; Option &lt; bool &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(value: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">Value</span>&gt;) -&gt; <span class="rs-type">Option</span>&lt;bool&gt; {
+    value
+        .and_then(<span class="rs-type">Value</span>::as_f64)
+        .map(|number| number.is_finite() &amp;&amp; number &gt;= 0.0)
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:449</p>
+</article><article id="item-fn-non-empty-string-455" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn non_empty_string private fn non_empty_string (value : Option &lt; &amp; Value &gt;) -&gt; Option &lt; bool &gt; crates/eos-backend-audit/src/gates.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>non_empty_string</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-fn-non-empty-string-455">non_empty_string</a> (value : Option &lt; &amp; Value &gt;) -&gt; Option &lt; bool &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-non-empty-string-455">non_empty_string</a>(value: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">Value</span>&gt;) -&gt; <span class="rs-type">Option</span>&lt;bool&gt; {
+    value
+        .and_then(<span class="rs-type">Value</span>::as_str)
+        .map(|value| !value.trim().is_empty())
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:455</p>
+</article><article id="item-fn-failure-461" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn failure private fn failure (kind : RunnerGateFailureKind , detail : impl Into &lt; String &gt;) -&gt; RunnerGateFailure crates/eos-backend-audit/src/gates.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>failure</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a> (kind : <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a> , detail : impl Into &lt; String &gt;) -&gt; <a class="symbol-link" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a></code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(kind: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>, detail: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> {
+    <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> {
+        kind,
+        detail: detail.into(),
+    }
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-backend-audit/src/gates.rs:461</p>
+</article></div>
+</section></div>
+</main>
+<section class="file-source-section">
+  <div class="source-head">
+    <h2>Source File</h2>
+    <p class="path">crates/eos-backend-audit/src/gates.rs</p>
+  </div>
+  <pre class="file-source"><code><span class="rs-comment">//! Runner audit/observability gates: evaluate normalized obs rows against the</span>
+<span class="rs-comment">//! state/transcript expectations a Rust runner supplies, producing a typed</span>
+<span class="rs-comment">//! [`RunnerGateReport`] of pass/fail plus metrics. Three input granularities</span>
+<span class="rs-comment">//! (source → batch → rows) feed one pure evaluator.</span>
+
+<span class="rs-kw">use</span> std::collections::<span class="rs-type">BTreeSet</span>;
+
+<span class="rs-kw">use</span> serde::{<span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>};
+<span class="rs-kw">use</span> serde_json::<span class="rs-type">Value</span>;
+
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{
+    normalize_agent_core_jsonl_line, normalize_sandbox_pull_response, <a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>,
+    <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-6">SandboxPullBatch</a>, <span class="rs-type">OS_RESOURCE_SAMPLED</span>,
+    <span class="rs-type">TOOL_CALL_COMPLETED</span>,
+};
+
+<span class="rs-kw">const</span> <span class="rs-type">RESOURCE_METRIC_KEYS</span>: &amp;[&amp;str] = &amp;[
+    &quot;rss_bytes&quot;,
+    &quot;cpu_user_s&quot;,
+    &quot;cpu_system_s&quot;,
+    &quot;cpu_throttled_us&quot;,
+    &quot;io_read_bytes&quot;,
+    &quot;io_write_bytes&quot;,
+    &quot;io_read_ops&quot;,
+    &quot;io_write_ops&quot;,
+];
+
+<span class="rs-comment">/// External correctness evidence supplied by the Rust runner from state and transcript stores.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">Default</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a> {
+    <span class="rs-comment">/// The runner checked expected tool-use ids and terminal tool outcomes against state/transcript.</span>
+    <span class="rs-kw">pub</span> tool_use_verified: bool,
+    <span class="rs-comment">/// Number of expected tool-use ids checked against state/transcript.</span>
+    <span class="rs-kw">pub</span> tool_use_checked_count: usize,
+    <span class="rs-comment">/// The runner checked model/user-facing message correctness against transcript state.</span>
+    <span class="rs-kw">pub</span> message_correctness_verified: bool,
+    <span class="rs-comment">/// Number of message/transcript assertions checked by the runner.</span>
+    <span class="rs-kw">pub</span> message_checked_count: usize,
+}
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a> {
+    <span class="rs-comment">/// Build evidence for successful state/transcript checks.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-verified-42">verified</a>(tool_use_checked_count: usize, message_checked_count: usize) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span> {
+            tool_use_verified: <span class="rs-kw">true</span>,
+            tool_use_checked_count,
+            message_correctness_verified: <span class="rs-kw">true</span>,
+            message_checked_count,
+        }
+    }
+
+    <span class="rs-comment">/// Return true when the runner supplied external tool correctness evidence.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-has-tool-use-evidence-53">has_tool_use_evidence</a>(<span class="rs-self">self</span>) -&gt; bool {
+        <span class="rs-self">self</span>.tool_use_verified
+    }
+
+    <span class="rs-comment">/// Return true when the runner supplied external message correctness evidence.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-has-message-correctness-evidence-59">has_message_correctness_evidence</a>(<span class="rs-self">self</span>) -&gt; bool {
+        <span class="rs-self">self</span>.message_correctness_verified
+    }
+}
+
+<span class="rs-comment">/// Tool-use expectation supplied by Rust state/transcript evidence.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a> {
+    <span class="rs-comment">/// Provider/tool-call id that must have a `tool_call.completed` obs row.</span>
+    <span class="rs-kw">pub</span> tool_use_id: <span class="rs-type">String</span>,
+    <span class="rs-comment">/// Optional tool name copied from state/transcript for diagnostics.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> tool_name: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    <span class="rs-comment">/// Whether state/transcript expected the call to be terminal.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> terminal_expected: <span class="rs-type">Option</span>&lt;bool&gt;,
+}
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a> {
+    <span class="rs-comment">/// Build the minimum expected tool-use record.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>(tool_use_id: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span> {
+            tool_use_id: tool_use_id.into(),
+            tool_name: <span class="rs-type">None</span>,
+            terminal_expected: <span class="rs-type">None</span>,
+        }
+    }
+
+    <span class="rs-comment">/// Attach a state/transcript tool name for diagnostics.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-with-tool-name-90">with_tool_name</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, tool_name: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.tool_name = <span class="rs-type">Some</span>(tool_name.into());
+        <span class="rs-self">self</span>
+    }
+
+    <span class="rs-comment">/// Attach whether state/transcript expected a terminal tool call.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-with-terminal-expected-97">with_terminal_expected</a>(<span class="rs-kw">mut</span> <span class="rs-self">self</span>, terminal_expected: bool) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">self</span>.terminal_expected = <span class="rs-type">Some</span>(terminal_expected);
+        <span class="rs-self">self</span>
+    }
+}
+
+<span class="rs-comment">/// Runner gate switches.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a> {
+    <span class="rs-comment">/// Fail when a bounded audit surface reports counted loss.</span>
+    <span class="rs-kw">pub</span> strict_audit_loss: bool,
+    <span class="rs-comment">/// Fail when no resource sample with a real metric is present.</span>
+    <span class="rs-kw">pub</span> require_resource_sample: bool,
+}
+
+<span class="rs-kw">impl</span> <span class="rs-type">Default</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>() -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span> {
+            strict_audit_loss: <span class="rs-kw">true</span>,
+            require_resource_sample: <span class="rs-kw">true</span>,
+        }
+    }
+}
+
+<span class="rs-comment">/// Input for the Rust runner audit/observability gates.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateInput-123">RunnerGateInput</a>&lt;&#x27;a&gt; {
+    <span class="rs-comment">/// Normalized observation rows from agent-core JSONL and sandbox pulls.</span>
+    <span class="rs-kw">pub</span> rows: &amp;&#x27;a [<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>],
+    <span class="rs-comment">/// Optional loss metadata from the sandbox audit ring.</span>
+    <span class="rs-kw">pub</span> sandbox_loss: <span class="rs-type">Option</span>&lt;&amp;&#x27;a <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a>&gt;,
+    <span class="rs-comment">/// Tool-use records the Rust state/transcript says must be observed.</span>
+    <span class="rs-kw">pub</span> expected_tool_uses: &amp;&#x27;a [<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>],
+    <span class="rs-comment">/// State/transcript correctness checks already performed by the runner.</span>
+    <span class="rs-kw">pub</span> correctness: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a>,
+    <span class="rs-comment">/// Gate settings for this runner invocation.</span>
+    <span class="rs-kw">pub</span> settings: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a>,
+}
+
+<span class="rs-comment">/// Batch-oriented input for runner gates after sandbox pull normalization.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a>&lt;&#x27;a&gt; {
+    <span class="rs-comment">/// Normalized rows from agent-core JSONL.</span>
+    <span class="rs-kw">pub</span> agent_core_rows: &amp;&#x27;a [<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>],
+    <span class="rs-comment">/// Normalized sandbox pull/snapshot batches.</span>
+    <span class="rs-kw">pub</span> sandbox_batches: &amp;&#x27;a [<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxPullBatch-6">SandboxPullBatch</a>],
+    <span class="rs-comment">/// Tool-use records the Rust state/transcript says must be observed.</span>
+    <span class="rs-kw">pub</span> expected_tool_uses: &amp;&#x27;a [<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>],
+    <span class="rs-comment">/// State/transcript correctness checks already performed by the runner.</span>
+    <span class="rs-kw">pub</span> correctness: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a>,
+    <span class="rs-comment">/// Gate settings for this runner invocation.</span>
+    <span class="rs-kw">pub</span> settings: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a>,
+}
+
+<span class="rs-comment">/// Source-level input for the runner audit/observability gates.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSourceInput-153">RunnerGateSourceInput</a>&lt;&#x27;a&gt; {
+    <span class="rs-comment">/// Agent-core `ObsEnvelope` JSONL contents.</span>
+    <span class="rs-kw">pub</span> agent_core_jsonl: &amp;&#x27;a str,
+    <span class="rs-comment">/// Raw sandbox `api.audit.pull` / `api.audit.snapshot` response values.</span>
+    <span class="rs-kw">pub</span> sandbox_pull_responses: &amp;&#x27;a [<span class="rs-type">Value</span>],
+    <span class="rs-comment">/// Tool-use records the Rust state/transcript says must be observed.</span>
+    <span class="rs-kw">pub</span> expected_tool_uses: &amp;&#x27;a [<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>],
+    <span class="rs-comment">/// State/transcript correctness checks already performed by the runner.</span>
+    <span class="rs-kw">pub</span> correctness: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a>,
+    <span class="rs-comment">/// Gate settings for this runner invocation.</span>
+    <span class="rs-kw">pub</span> settings: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a>,
+}
+
+<span class="rs-comment">/// Aggregate metrics collected while evaluating runner gates.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">Default</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a> {
+    <span class="rs-comment">/// Unique expected tool-use ids supplied by state/transcript.</span>
+    <span class="rs-kw">pub</span> expected_tool_use_count: usize,
+    <span class="rs-comment">/// Expected tool-use ids that had a canonical `tool_call.completed` row.</span>
+    <span class="rs-kw">pub</span> observed_expected_tool_use_count: usize,
+    <span class="rs-comment">/// Total canonical `tool_call.completed` rows.</span>
+    <span class="rs-kw">pub</span> tool_call_completed_count: usize,
+    <span class="rs-comment">/// Total `os_resource.sampled` rows.</span>
+    <span class="rs-kw">pub</span> resource_sample_count: usize,
+    <span class="rs-comment">/// Total real resource metrics across resource rows.</span>
+    <span class="rs-kw">pub</span> resource_metric_count: usize,
+}
+
+<span class="rs-comment">/// A failed runner gate.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> {
+    <span class="rs-comment">/// Machine-readable failure kind.</span>
+    <span class="rs-kw">pub</span> kind: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>,
+    <span class="rs-comment">/// Human-readable detail for diagnostics.</span>
+    <span class="rs-kw">pub</span> detail: <span class="rs-type">String</span>,
+}
+
+<span class="rs-comment">/// Machine-readable runner gate failure categories.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+#[serde(rename_all = &quot;snake_case&quot;)]
+<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a> {
+    <span class="rs-comment">/// A bounded audit surface reported counted loss.</span>
+    <span class="rs-type">AuditLoss</span>,
+    <span class="rs-comment">/// State/transcript expected a tool-use id that had no obs row.</span>
+    <span class="rs-type">MissingToolObs</span>,
+    <span class="rs-comment">/// A `tool_call.completed` row is missing required payload fields or has invalid values.</span>
+    <span class="rs-type">InvalidToolPayload</span>,
+    <span class="rs-comment">/// Resource gates were enabled but no `os_resource.sampled` row was present.</span>
+    <span class="rs-type">MissingResourceSample</span>,
+    <span class="rs-comment">/// Resource gates were enabled but no resource row carried a real metric.</span>
+    <span class="rs-type">MissingResourceMetric</span>,
+    <span class="rs-comment">/// The runner did not supply external tool correctness evidence.</span>
+    <span class="rs-type">ToolCorrectnessNotVerified</span>,
+    <span class="rs-comment">/// The runner did not supply external message correctness evidence.</span>
+    <span class="rs-type">MessageCorrectnessNotVerified</span>,
+}
+
+<span class="rs-comment">/// Typed result from evaluating the Rust runner audit/observability gates.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
+    <span class="rs-comment">/// True when no gate failures were found.</span>
+    <span class="rs-kw">pub</span> passed: bool,
+    <span class="rs-comment">/// Failed gates, if any.</span>
+    <span class="rs-kw">pub</span> failures: <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a>&gt;,
+    <span class="rs-comment">/// Basic obs metrics useful for runner reports.</span>
+    <span class="rs-kw">pub</span> metrics: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a>,
+    <span class="rs-comment">/// Tool-use records the Rust state/transcript expected to observe.</span>
+    <span class="rs-kw">pub</span> expected_tool_uses: <span class="rs-type">Vec</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>&gt;,
+    <span class="rs-comment">/// Gate settings used for this evaluation.</span>
+    <span class="rs-kw">pub</span> settings: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSettings-105">RunnerGateSettings</a>,
+    <span class="rs-comment">/// State/transcript correctness evidence supplied by the runner.</span>
+    <span class="rs-kw">pub</span> correctness: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerCorrectnessEvidence-28">RunnerCorrectnessEvidence</a>,
+    <span class="rs-comment">/// Sandbox loss metadata used for this evaluation, when available.</span>
+    #[serde(skip_serializing_if = &quot;<span class="rs-type">Option</span>::is_none&quot;)]
+    <span class="rs-kw">pub</span> sandbox_loss: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a>&gt;,
+}
+
+<span class="rs-comment">/// Evaluate Rust runner audit/observability gates over normalized rows.</span>
+#[must_use]
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gates-232">evaluate_runner_gates</a>(input: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateInput-123">RunnerGateInput</a>&lt;&#x27;_&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> failures = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>();
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> metrics = <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateMetrics-168">RunnerGateMetrics</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-default-115">default</a>();
+    <span class="rs-kw">let</span> expected_tool_use_ids = <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-unique-tool-use-ids-412">unique_tool_use_ids</a>(input.expected_tool_uses);
+    metrics.expected_tool_use_count = expected_tool_use_ids.len();
+
+    <span class="rs-kw">if</span> input.settings.strict_audit_loss {
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(loss) = input.sandbox_loss {
+            <span class="rs-kw">if</span> loss.<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-has-counted-loss-27">has_counted_loss</a>() {
+                failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+                    <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">AuditLoss</span>,
+                    format!(
+                        &quot;sandbox audit loss reported lost_before_seq={:?} dropped_event_count={:?}&quot;,
+                        loss.lost_before_seq, loss.dropped_event_count
+                    ),
+                ));
+            }
+        }
+    }
+
+    <span class="rs-kw">if</span> !input.correctness.<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-has-tool-use-evidence-53">has_tool_use_evidence</a>() {
+        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">ToolCorrectnessNotVerified</span>,
+            &quot;state/transcript tool correctness evidence was not supplied&quot;,
+        ));
+    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> input.correctness.tool_use_checked_count &lt; metrics.expected_tool_use_count {
+        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">ToolCorrectnessNotVerified</span>,
+            format!(
+                &quot;state/transcript tool checks covered {} expected tool uses, expected {}&quot;,
+                input.correctness.tool_use_checked_count, metrics.expected_tool_use_count
+            ),
+        ));
+    }
+    <span class="rs-kw">if</span> !input.correctness.<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#method-has-message-correctness-evidence-59">has_message_correctness_evidence</a>() {
+        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MessageCorrectnessNotVerified</span>,
+            &quot;state/transcript message correctness evidence was not supplied&quot;,
+        ));
+    } <span class="rs-kw">else</span> <span class="rs-kw">if</span> input.correctness.message_checked_count == 0 {
+        failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+            <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MessageCorrectnessNotVerified</span>,
+            &quot;state/transcript message correctness evidence had zero checked assertions&quot;,
+        ));
+    }
+
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> observed_tool_use_ids = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-backend-audit.html#method-new-90">new</a>();
+    <span class="rs-kw">for</span> row <span class="rs-kw">in</span> input.rows {
+        <span class="rs-kw">match</span> row.event_type.as_str() {
+            <span class="rs-type">TOOL_CALL_COMPLETED</span> =&gt; {
+                metrics.tool_call_completed_count += 1;
+                <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(tool_use_id) = <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-tool-use-id-311">tool_use_id</a>(row) {
+                    observed_tool_use_ids.insert(tool_use_id);
+                }
+                <span class="rs-kw">if</span> !<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-valid-tool-call-418">valid_tool_call</a>(row) {
+                    failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+                        <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">InvalidToolPayload</span>,
+                        format!(
+                            &quot;invalid tool_call.completed payload <span class="rs-kw">for</span> {:?}&quot;,
+                            row.ids.tool_use_id
+                        ),
+                    ));
+                }
+            }
+            <span class="rs-type">OS_RESOURCE_SAMPLED</span> =&gt; {
+                metrics.resource_sample_count += 1;
+                metrics.resource_metric_count += <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-resource-metric-count-439">resource_metric_count</a>(row);
+            }
+            _ =&gt; {}
+        }
+    }
+
+    metrics.observed_expected_tool_use_count = expected_tool_use_ids
+        .iter()
+        .filter(|tool_use_id| observed_tool_use_ids.contains(**tool_use_id))
+        .count();
+
+    <span class="rs-kw">for</span> tool_use_id <span class="rs-kw">in</span> &amp;expected_tool_use_ids {
+        <span class="rs-kw">if</span> !observed_tool_use_ids.contains(tool_use_id) {
+            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+                <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingToolObs</span>,
+                format!(&quot;missing tool_call.completed obs row <span class="rs-kw">for</span> tool_use_id={tool_use_id}&quot;),
+            ));
+        }
+    }
+
+    <span class="rs-kw">if</span> input.settings.require_resource_sample {
+        <span class="rs-kw">if</span> metrics.resource_sample_count == 0 {
+            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+                <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingResourceSample</span>,
+                &quot;no os_resource.sampled row was observed&quot;,
+            ));
+        } <span class="rs-kw">else</span> <span class="rs-kw">if</span> metrics.resource_metric_count == 0 {
+            failures.push(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(
+                <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>::<span class="rs-type">MissingResourceMetric</span>,
+                &quot;os_resource.sampled rows did not include any resource metric&quot;,
+            ));
+        }
+    }
+
+    <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
+        passed: failures.is_empty(),
+        failures,
+        metrics,
+        expected_tool_uses: input.expected_tool_uses.to_vec(),
+        settings: input.settings,
+        correctness: input.correctness,
+        sandbox_loss: input.sandbox_loss.cloned(),
+    }
+}
+
+<span class="rs-comment">/// Evaluate runner gates from normalized agent-core rows and sandbox pull batches.</span>
+#[must_use]
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gate-batches-345">evaluate_runner_gate_batches</a>(input: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a>&lt;&#x27;_&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a> {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> rows = <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-sink-rs.html#method-with-capacity-88">with_capacity</a>(
+        input.agent_core_rows.len()
+            + input
+                .sandbox_batches
+                .iter()
+                .map(|batch| batch.rows.len())
+                .sum::&lt;usize&gt;(),
+    );
+    rows.extend_from_slice(input.agent_core_rows);
+    rows.extend(
+        input
+            .sandbox_batches
+            .iter()
+            .flat_map(|batch| batch.rows.iter().cloned()),
+    );
+    <span class="rs-kw">let</span> sandbox_loss = <span class="rs-kw">if</span> input.sandbox_batches.is_empty() {
+        <span class="rs-type">None</span>
+    } <span class="rs-kw">else</span> {
+        <span class="rs-type">Some</span>(<a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-struct-SandboxAuditLoss-15">SandboxAuditLoss</a>::<a class="symbol-link rs-fn" href="eos-backend-audit--src-normalization-rs.html#method-merge-34">merge</a>(
+            input.sandbox_batches.iter().map(|batch| &amp;batch.loss),
+        ))
+    };
+    <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gates-232">evaluate_runner_gates</a>(<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateInput-123">RunnerGateInput</a> {
+        rows: &amp;rows,
+        sandbox_loss: sandbox_loss.as_ref(),
+        expected_tool_uses: input.expected_tool_uses,
+        correctness: input.correctness,
+        settings: input.settings,
+    })
+}
+
+<span class="rs-comment">/// Parse source artifacts, normalize them, and evaluate runner gates.</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// This is the narrow handoff a Rust runner can call after it has collected the</span>
+<span class="rs-comment">/// authoritative state/transcript expectations.</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// # Errors</span>
+<span class="rs-comment">///</span>
+<span class="rs-comment">/// Returns an error when any agent-core JSONL row or sandbox pull response is</span>
+<span class="rs-comment">/// invalid.</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gate-sources-379">evaluate_runner_gate_sources</a>(
+    input: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateSourceInput-153">RunnerGateSourceInput</a>&lt;&#x27;_&gt;,
+) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateReport-212">RunnerGateReport</a>, <a class="symbol-link rs-type" href="eos-backend-audit--src-normalization-rs.html#item-enum-ObsNormalizationError-49">ObsNormalizationError</a>&gt; {
+    <span class="rs-kw">let</span> agent_core_rows = input
+        .agent_core_jsonl
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(normalize_agent_core_jsonl_line)
+        .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, _&gt;&gt;()?;
+    <span class="rs-kw">let</span> sandbox_batches = input
+        .sandbox_pull_responses
+        .iter()
+        .map(normalize_sandbox_pull_response)
+        .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, _&gt;&gt;()?;
+
+    <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-evaluate-runner-gate-batches-345">evaluate_runner_gate_batches</a>(<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateBatchInput-138">RunnerGateBatchInput</a> {
+        agent_core_rows: &amp;agent_core_rows,
+        sandbox_batches: &amp;sandbox_batches,
+        expected_tool_uses: input.expected_tool_uses,
+        correctness: input.correctness,
+        settings: input.settings,
+    }))
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-unique-tool-use-ids-412">unique_tool_use_ids</a>(ids: &amp;[<a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-ExpectedToolUse-66">ExpectedToolUse</a>]) -&gt; <span class="rs-type">BTreeSet</span>&lt;&amp;str&gt; {
+    ids.iter()
+        .map(|expected| expected.tool_use_id.as_str())
+        .collect()
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-valid-tool-call-418">valid_tool_call</a>(row: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; bool {
+    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(tool_call)) = row.payload.get(&quot;tool_call&quot;) <span class="rs-kw">else</span> {
+        <span class="rs-kw">return</span> <span class="rs-kw">false</span>;
+    };
+    <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(tool_call.get(&quot;duration_ms&quot;))
+        .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(tool_call.get(&quot;total_ms&quot;)))
+        .unwrap_or(<span class="rs-kw">false</span>)
+        &amp;&amp; <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-non-empty-string-455">non_empty_string</a>(tool_call.get(&quot;status&quot;))
+            .or_else(|| <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-non-empty-string-455">non_empty_string</a>(tool_call.get(&quot;exit_status&quot;)))
+            .unwrap_or(<span class="rs-kw">false</span>)
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit.html#method-tool-use-id-311">tool_use_id</a>(row: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; <span class="rs-type">Option</span>&lt;&amp;str&gt; {
+    row.ids.tool_use_id.as_deref().or_else(|| {
+        row.payload
+            .get(&quot;tool_call&quot;)
+            .and_then(|section| section.get(&quot;tool_use_id&quot;))
+            .and_then(<span class="rs-type">Value</span>::as_str)
+    })
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-resource-metric-count-439">resource_metric_count</a>(row: &amp;<a class="symbol-link rs-type" href="eos-backend-audit.html#item-struct-ObsEnvelope-64">ObsEnvelope</a>) -&gt; usize {
+    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(<span class="rs-type">Value</span>::<span class="rs-type">Object</span>(os_resource)) = row.payload.get(&quot;os_resource&quot;) <span class="rs-kw">else</span> {
+        <span class="rs-kw">return</span> 0;
+    };
+    <span class="rs-type">RESOURCE_METRIC_KEYS</span>
+        .iter()
+        .filter(|key| <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(os_resource.get(**key)).unwrap_or(<span class="rs-kw">false</span>))
+        .count()
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-has-nonnegative-number-449">has_nonnegative_number</a>(value: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">Value</span>&gt;) -&gt; <span class="rs-type">Option</span>&lt;bool&gt; {
+    value
+        .and_then(<span class="rs-type">Value</span>::as_f64)
+        .map(|number| number.is_finite() &amp;&amp; number &gt;= 0.0)
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-non-empty-string-455">non_empty_string</a>(value: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">Value</span>&gt;) -&gt; <span class="rs-type">Option</span>&lt;bool&gt; {
+    value
+        .and_then(<span class="rs-type">Value</span>::as_str)
+        .map(|value| !value.trim().is_empty())
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-audit--src-gates-rs.html#item-fn-failure-461">failure</a>(kind: <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-enum-RunnerGateFailureKind-192">RunnerGateFailureKind</a>, detail: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> {
+    <a class="symbol-link rs-type" href="eos-backend-audit--src-gates-rs.html#item-struct-RunnerGateFailure-183">RunnerGateFailure</a> {
+        kind,
+        detail: detail.into(),
+    }
+}
+
+#[cfg(test)]
+#[path = &quot;../tests/gates/<span class="rs-kw">mod</span>.rs&quot;]
+<span class="rs-kw">mod</span> tests;
+</code></pre>
+</section>
+  <script src="../assets/inventory-data.js"></script>
+  <script src="../assets/inventory.js"></script>
+</body>
+</html>

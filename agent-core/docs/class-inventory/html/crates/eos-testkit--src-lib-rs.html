@@ -77,7 +77,7 @@
 <span class="rs-comment">//! own `src/` (`TESTING_SPEC` I2).</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! Scope note (`TESTING_SPEC` §14.2 / §15): this crate deliberately does **not**</span>
-<span class="rs-comment">//! hold `build_test_state`/`FakeProvisioner` (single-consumer `eos-agent-core`</span>
+<span class="rs-comment">//! hold `build_test_state`/`FakeProvisioner` (single-consumer request-service</span>
 <span class="rs-comment">//! types) or the Layer-B workflow runner/store doubles (single-consumer</span>
 <span class="rs-comment">//! `eos-workflow` types). A dev-dependency double is only consumable by crate</span>
 <span class="rs-comment">//! `X`'s in-crate tests when none of its types are owned by `X` (the dev-dep</span>

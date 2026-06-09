@@ -243,9 +243,10 @@ Add or preserve these launch-lineage columns:
 | `tool_use_id` | nullable | exact model tool-use id that launched the workflow |
 | lifecycle fields | existing | workflow status, iteration ids, attempt ids |
 
-`WorkflowService::list_open_delegated_workflows_for_agent_run` must query by
-`launched_by_agent_run_id`. It must not accept an agent-run id and then ignore
-it; the launching run is now a durable column, so the query is exact.
+The `WorkflowApi::list_open_delegated_workflows_for_agent_run` implementation
+must query by `launched_by_agent_run_id`. It must not accept an agent-run id and
+then ignore it; the launching run is now a durable column, so the query is
+exact.
 
 ### attempts and planned nodes
 

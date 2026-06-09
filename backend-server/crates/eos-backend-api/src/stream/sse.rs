@@ -12,7 +12,7 @@ use eos_types::RequestId;
 use crate::error::ApiError;
 use crate::router::AppState;
 
-/// Build the SSE response: subscribe (replay from `last_seq`, then live), and map
+/// Build the SSE response: replay records after `last_seq`, and map
 /// each delivered [`EventRecord`] to an SSE event whose `id` is the sequence,
 /// `event` is the milestone kind, and `data` is the JSON payload. A store error
 /// mid-stream ends the stream rather than surfacing internals to the client.

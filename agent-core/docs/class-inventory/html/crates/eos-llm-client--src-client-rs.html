@@ -481,7 +481,7 @@
   <pre class="file-source"><code><span class="rs-comment">//! The [`LlmClient`] seam (DIP + LSP, anchor §6).</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! Source: `providers/types.py::SupportsStreamingMessages`. Stored as</span>
-<span class="rs-comment">//! `Arc&lt;dyn LlmClient&gt;` at the `eos-agent-core` composition root (heterogeneous:</span>
+<span class="rs-comment">//! `Arc&lt;dyn LlmClient&gt;` at the backend composition root (heterogeneous:</span>
 <span class="rs-comment">//! Anthropic, `OpenAI`, mock), so it uses `#[async_trait]` — native</span>
 <span class="rs-comment">//! async-fn-in-trait is not yet `dyn`-safe — and returns a boxed [`LlmStream`].</span>
 

@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">backend-server</a>
 <section class="summary">
-  <div><b>7</b><span>modules</span></div>
-  <div><b>55</b><span>items</span></div>
-  <div><b>61</b><span>fields</span></div>
-  <div><b>46</b><span>methods</span></div>
+  <div><b>4</b><span>modules</span></div>
+  <div><b>41</b><span>items</span></div>
+  <div><b>50</b><span>fields</span></div>
+  <div><b>36</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-runtime.html"><span>event_bus.rs</span><small>4/6</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-host-rs.html"><span>host.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-launcher-rs.html"><span>launcher.rs</span><small>5/0</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-reaper-rs.html"><span>reaper.rs</span><small>2/0</small></a></li><li><a class="file-link active" href="eos-backend-runtime--src-sandbox-manager-rs.html"><span>sandbox_manager.rs</span><small>10/3</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-status-rs.html"><span>status.rs</span><small>0/1</small></a></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-runtime.html"><span>event_bus.rs</span><small>6/6</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link active" href="eos-backend-runtime--src-sandbox-manager-rs.html"><span>sandbox_manager.rs</span><small>10/3</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-status-rs.html"><span>status.rs</span><small>0/1</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="sandbox_manager crates/eos-backend-runtime/src/sandbox_manager.rs DeleteRejection impl std :: fmt :: Display for DeleteRejection SandboxManagerError SandboxTeardown LifecycleTeardown impl SandboxTeardown for LifecycleTeardown SandboxEntry impl SandboxEntry ManagerState impl ManagerState OwnedSlotReservation impl OwnedSlotReservation &lt; 'a &gt; impl Drop for OwnedSlotReservation &lt; '_ &gt; ManagerInner impl std :: fmt :: Debug for ManagerInner impl ManagerInner binding parse_sandbox_id reject_destroying SandboxManager impl SandboxManager impl SandboxGateway for SandboxManager GatewayProvisioner impl RequestProvisioner for GatewayProvisioner">
   <div class="module-head">
     <div>
@@ -63,7 +63,7 @@
     <span class="visibility">pub</span>
   </div>
   <code class="signature">pub struct <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-SandboxManager-452">SandboxManager</a></code>
-  <p class="docstring">Backend-owned sandbox lifecycle manager and [`SandboxGateway`] implementation.<br>Construct the production manager with [`SandboxManager::with_docker`], inject<br>it into `eos-runtime` via `RuntimeServicesBuilder::sandbox_gateway`, and retain<br>the same handle (an `Arc&lt;SandboxManager&gt;`) to drive [`SandboxManager::release`],<br>[`SandboxManager::delete`], [`SandboxManager::view`], and<br>[`SandboxManager::list`].</p>
+  <p class="docstring">Backend-owned sandbox lifecycle manager and [`SandboxGateway`] implementation.<br>Construct the production manager with [`SandboxManager::with_docker`], inject<br>it into the agent-core request service via `AgentCoreServiceDependencies`, and retain<br>the same handle (an `Arc&lt;SandboxManager&gt;`) to drive [`SandboxManager::release`],<br>[`SandboxManager::delete`], [`SandboxManager::view`], and<br>[`SandboxManager::list`].</p>
   <div class="tags"><span>derive: Debug</span></div>
   <h4>Fields</h4><table><tbody><tr><td>private</td><td>inner</td><td><code>Arc &lt; <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerInner-264">ManagerInner</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-with-docker-465"><td>constructor</td><td>with_docker</td><td><code>pub fn <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-with-docker-465">with_docker</a> (config : &amp; SandboxConfig , eosd_artifact_dir : PathBuf ,) -&gt; Result &lt; Self , <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-enum-SandboxManagerError-80">SandboxManagerError</a> &gt;</code><p class="docstring">Compose the production manager: connect the Docker provider, seed one<br>shared registry, and derive the daemon transport, the host provisioner, and<br>the teardown seam from it. `eosd_artifact_dir` holds the pinned<br>`eosd-linux-{arch}` binaries the lifecycle uploads (the sandbox `dist`<br>dir) — *not* the layer-stack root.<br># Errors<br>[`SandboxManagerError::Connect`] if the Docker Engine cannot be reached.</p><details class="function-source">
   <summary>code</summary>
@@ -79,19 +79,19 @@
         config: &amp;<span class="rs-type">SandboxConfig</span>,
         eosd_artifact_dir: <span class="rs-type">PathBuf</span>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-enum-SandboxManagerError-80">SandboxManagerError</a>&gt; {
-        <span class="rs-kw">let</span> registry = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-type">ProviderRegistry</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>());
+        <span class="rs-kw">let</span> registry = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">ProviderRegistry</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>());
         <span class="rs-kw">let</span> docker = <span class="rs-type">DockerProviderAdapter</span>::connect()
             .map_err(|err| <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-enum-SandboxManagerError-80">SandboxManagerError</a>::<span class="rs-type">Connect</span>(err.to_string()))?;
-        registry.seed(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(docker));
-        <span class="rs-kw">let</span> daemon = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-type">DaemonClient</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(registry));
-        <span class="rs-kw">let</span> lifecycle = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-type">SandboxLifecycle</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(daemon.clone(), eosd_artifact_dir));
+        registry.seed(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(docker));
+        <span class="rs-kw">let</span> daemon = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">DaemonClient</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(registry));
+        <span class="rs-kw">let</span> lifecycle = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">SandboxLifecycle</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(daemon.clone(), eosd_artifact_dir));
         <span class="rs-kw">let</span> provisioner: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">RequestProvisioner</span>&gt; =
-            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-type">RequestSandboxProvisioner</span>::with_default_snapshot(
+            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">RequestSandboxProvisioner</span>::with_default_snapshot(
                 lifecycle.clone(),
                 config.default_snapshot.as_deref(),
             ));
         <span class="rs-kw">let</span> transport: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SandboxTransport</span>&gt; = daemon;
-        <span class="rs-kw">let</span> teardown: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-trait-SandboxTeardown-114">SandboxTeardown</a>&gt; = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-LifecycleTeardown-127">LifecycleTeardown</a> { lifecycle });
+        <span class="rs-kw">let</span> teardown: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-trait-SandboxTeardown-114">SandboxTeardown</a>&gt; = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-LifecycleTeardown-127">LifecycleTeardown</a> { lifecycle });
         <span class="rs-type">Ok</span>(<span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-with-seams-499">with_seams</a>(
             provisioner,
             transport,
@@ -114,13 +114,13 @@
         destroy_on_finish: bool,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
-            inner: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerInner-264">ManagerInner</a> {
+            inner: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerInner-264">ManagerInner</a> {
                 provisioner,
                 transport,
                 teardown,
                 max_owned_sandboxes,
                 destroy_on_finish,
-                state: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a>::default()),
+                state: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a>::default()),
             }),
         }
     }
@@ -224,7 +224,7 @@
 </details></td></tr><tr id="method-provisioner-607"><td>method</td><td>provisioner</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-provisioner-607">provisioner</a> (&amp; self) -&gt; Arc &lt; dyn RequestProvisioner &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-provisioner-607">provisioner</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">RequestProvisioner</span>&gt; {
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-GatewayProvisioner-614">GatewayProvisioner</a> {
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-GatewayProvisioner-614">GatewayProvisioner</a> {
             inner: <span class="rs-self">self</span>.inner.clone(),
         })
     }
@@ -241,9 +241,9 @@
   <code class="signature">pub enum <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-enum-DeleteRejection-61">DeleteRejection</a></code>
   <p class="docstring">Why a `DELETE` was refused: the sandbox still has active runs, or it is<br>retained against destruction.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Eq</span><span>derive: PartialEq</span></div>
-  <h4>Variants</h4><table><tbody><tr><td>Active</td><td><code></code></td></tr><tr><td>Retained</td><td><code></code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Display for <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-enum-DeleteRejection-61">DeleteRejection</a></code></summary><table><tbody><tr id="method-fmt-72"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime--src-host-rs.html#method-fmt-68">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+  <h4>Variants</h4><table><tbody><tr><td>Active</td><td><code></code></td></tr><tr><td>Retained</td><td><code></code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Display for <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-enum-DeleteRejection-61">DeleteRejection</a></code></summary><table><tbody><tr id="method-fmt-72"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-fmt-72">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-host-rs.html#method-fmt-68">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.write_str(<span class="rs-kw">match</span> <span class="rs-self">self</span> {
             <span class="rs-self">Self</span>::<span class="rs-type">Active</span> =&gt; &quot;active&quot;,
             <span class="rs-self">Self</span>::<span class="rs-type">Retained</span> =&gt; &quot;retained&quot;,
@@ -346,7 +346,7 @@
         <span class="rs-self">Self</span> {
             state: <span class="rs-type">SandboxState</span>::<span class="rs-type">Active</span>,
             owner_request_id: fresh.then(|| request_id.clone()),
-            active: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(),
+            active: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(),
             retained_refs: u32::from(!fresh),
             destroy_on_finish: fresh &amp;&amp; config_destroy_on_finish,
             created_at: now,
@@ -415,9 +415,9 @@
   </div>
   <code class="signature">struct <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-OwnedSlotReservation-235">OwnedSlotReservation</a>&lt; &#x27;a &gt;</code>
   <div class="tags"></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>state</td><td><code>&amp; &#x27;a Mutex &lt; <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a> &gt;</code></td></tr><tr><td>private</td><td>active</td><td><code>bool</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-241"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime.html#method-new-99">new</a> (state : &amp; &#x27;a Mutex &lt; <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a> &gt;) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>state</td><td><code>&amp; &#x27;a Mutex &lt; <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a> &gt;</code></td></tr><tr><td>private</td><td>active</td><td><code>bool</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-241"><td>constructor</td><td>new</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime.html#method-new-85">new</a> (state : &amp; &#x27;a Mutex &lt; <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a> &gt;) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(state: &amp;&#x27;a <span class="rs-type">Mutex</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a>&gt;) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(state: &amp;&#x27;a <span class="rs-type">Mutex</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             state,
             active: <span class="rs-kw">true</span>,
@@ -433,9 +433,9 @@
         }
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl Drop for <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-OwnedSlotReservation-235">OwnedSlotReservation</a> &lt; &#x27;_ &gt;</code></summary><table><tbody><tr id="method-drop-257"><td>method</td><td>drop</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-drop-257">drop</a> (&amp; mut self)</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl Drop for <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-OwnedSlotReservation-235">OwnedSlotReservation</a> &lt; &#x27;_ &gt;</code></summary><table><tbody><tr id="method-drop-257"><td>method</td><td>drop</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime.html#method-drop-61">drop</a> (&amp; mut self)</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-drop-257">drop</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-drop-61">drop</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
         <span class="rs-kw">if</span> <span class="rs-self">self</span>.active {
             <span class="rs-self">self</span>.state.lock().<a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-release-owned-slot-230">release_owned_slot</a>();
         }
@@ -484,7 +484,7 @@
             }
             <span class="rs-kw">if</span> reserve_owned {
                 state.<a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-reserve-owned-slot-215">reserve_owned_slot</a>(<span class="rs-self">self</span>.max_owned_sandboxes)?;
-                reservation = <span class="rs-type">Some</span>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-OwnedSlotReservation-235">OwnedSlotReservation</a>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(&amp;<span class="rs-self">self</span>.state));
+                reservation = <span class="rs-type">Some</span>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-OwnedSlotReservation-235">OwnedSlotReservation</a>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(&amp;<span class="rs-self">self</span>.state));
             }
         }
 
@@ -598,9 +598,9 @@
         <span class="rs-type">Ok</span>(())
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerInner-264">ManagerInner</a></code></summary><table><tbody><tr id="method-fmt-276"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime--src-host-rs.html#method-fmt-68">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerInner-264">ManagerInner</a></code></summary><table><tbody><tr id="method-fmt-276"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-fmt-72">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-host-rs.html#method-fmt-68">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerInner-264">ManagerInner</a>&quot;)
             .field(&quot;max_owned_sandboxes&quot;, &amp;<span class="rs-self">self</span>.max_owned_sandboxes)
             .field(&quot;destroy_on_finish&quot;, &amp;<span class="rs-self">self</span>.destroy_on_finish)
@@ -617,7 +617,7 @@
     <span class="visibility">private</span>
   </div>
   <code class="signature">struct <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-GatewayProvisioner-614">GatewayProvisioner</a></code>
-  <p class="docstring">The provisioner the gateway hands to `eos-runtime`: its `prepare_for_run` is<br>the manager's [`ManagerInner::acquire`], so the runtime's bootstrap binding is<br>the refcount-acquiring path. Holds a clone of the shared inner state.</p>
+  <p class="docstring">The provisioner the gateway hands to agent-core request orchestration: its `prepare_for_run` is<br>the manager's [`ManagerInner::acquire`], so the runtime's bootstrap binding is<br>the refcount-acquiring path. Holds a clone of the shared inner state.</p>
   <div class="tags"><span>derive: Debug</span></div>
   <h4>Fields</h4><table><tbody><tr><td>private</td><td>inner</td><td><code>Arc &lt; <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerInner-264">ManagerInner</a> &gt;</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl RequestProvisioner for <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-GatewayProvisioner-614">GatewayProvisioner</a></code></summary><table><tbody><tr id="method-prepare-for-run-624"><td>method</td><td>prepare_for_run</td><td><code>async fn <a class="symbol-link" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-prepare-for-run-624">prepare_for_run</a> (&amp; self , request_id : &amp; RequestId , sandbox_id : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; RequestSandboxBinding , SandboxProvisionError &gt;</code><details class="function-source">
   <summary>code</summary>
@@ -629,7 +629,7 @@
         <span class="rs-self">self</span>.inner
             .<a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-acquire-285">acquire</a>(request_id, sandbox_id)
             .<span class="rs-kw">await</span>
-            .map_err(|err| <span class="rs-type">SandboxProvisionError</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(err.to_string()))
+            .map_err(|err| <span class="rs-type">SandboxProvisionError</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(err.to_string()))
     }
 </code></pre>
 </details></td></tr></tbody></table></details></div>
@@ -710,7 +710,7 @@
     <p class="path">crates/eos-backend-runtime/src/sandbox_manager.rs</p>
   </div>
   <pre class="file-source"><code><span class="rs-comment">//! [`SandboxManager`] — backend-owned sandbox lifecycle, refcounting, and the</span>
-<span class="rs-comment">//! [`SandboxGateway`] implementation `eos-runtime` is wired against.</span>
+<span class="rs-comment">//! [`SandboxGateway`] implementation the agent-core request service is wired against.</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! The manager is the single owner of sandbox *setup/destroy policy*: it composes</span>
 <span class="rs-comment">//! the Docker/daemon host (`eos-sandbox-host`) behind one shared</span>
@@ -721,12 +721,12 @@
 <span class="rs-comment">//! construction (the invariant is *structural*, not test-asserted).</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! All mutable lifecycle state lives in one [`ManagerInner`] behind an `Arc`. The</span>
-<span class="rs-comment">//! provisioner handed to the runtime and the manager the backend retains for</span>
+<span class="rs-comment">//! provisioner handed to request orchestration and the manager the backend retains for</span>
 <span class="rs-comment">//! `release`/`delete`/`view` are clones of that same `Arc`, so acquisition (which</span>
 <span class="rs-comment">//! the runtime drives through the gateway provisioner) and release/teardown</span>
 <span class="rs-comment">//! (which the backend reaper drives through the manager) touch the same maps.</span>
-<span class="rs-comment">//! This matters because `RuntimeServicesBuilder::build` calls `provisioner()`</span>
-<span class="rs-comment">//! once and then drops the gateway handle.</span>
+<span class="rs-comment">//! This matters because each request service call acquires through</span>
+<span class="rs-comment">//! [`SandboxGateway::provisioner`] while teardown uses the retained manager.</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! ## Refcount and retention model</span>
 <span class="rs-comment">//!</span>
@@ -780,7 +780,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Display</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-enum-DeleteRejection-61">DeleteRejection</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-host-rs.html#method-fmt-68">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.write_str(<span class="rs-kw">match</span> <span class="rs-self">self</span> {
             <span class="rs-self">Self</span>::<span class="rs-type">Active</span> =&gt; &quot;active&quot;,
             <span class="rs-self">Self</span>::<span class="rs-type">Retained</span> =&gt; &quot;retained&quot;,
@@ -875,7 +875,7 @@
         <span class="rs-self">Self</span> {
             state: <span class="rs-type">SandboxState</span>::<span class="rs-type">Active</span>,
             owner_request_id: fresh.then(|| request_id.clone()),
-            active: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(),
+            active: <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(),
             retained_refs: u32::from(!fresh),
             destroy_on_finish: fresh &amp;&amp; config_destroy_on_finish,
             created_at: now,
@@ -949,7 +949,7 @@
 }
 
 <span class="rs-kw">impl</span>&lt;&#x27;a&gt; <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-OwnedSlotReservation-235">OwnedSlotReservation</a>&lt;&#x27;a&gt; {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(state: &amp;&#x27;a <span class="rs-type">Mutex</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a>&gt;) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(state: &amp;&#x27;a <span class="rs-type">Mutex</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             state,
             active: <span class="rs-kw">true</span>,
@@ -965,7 +965,7 @@
 }
 
 <span class="rs-kw">impl</span> <span class="rs-type">Drop</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-OwnedSlotReservation-235">OwnedSlotReservation</a>&lt;&#x27;_&gt; {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-drop-257">drop</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-drop-61">drop</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
         <span class="rs-kw">if</span> <span class="rs-self">self</span>.active {
             <span class="rs-self">self</span>.state.lock().<a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-release-owned-slot-230">release_owned_slot</a>();
         }
@@ -984,7 +984,7 @@
 
 <span class="rs-comment">// `SandboxTransport` has no `Debug` supertrait, so this cannot derive.</span>
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerInner-264">ManagerInner</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-host-rs.html#method-fmt-68">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-fmt-72">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerInner-264">ManagerInner</a>&quot;)
             .field(&quot;max_owned_sandboxes&quot;, &amp;<span class="rs-self">self</span>.max_owned_sandboxes)
             .field(&quot;destroy_on_finish&quot;, &amp;<span class="rs-self">self</span>.destroy_on_finish)
@@ -1022,7 +1022,7 @@
             }
             <span class="rs-kw">if</span> reserve_owned {
                 state.<a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-reserve-owned-slot-215">reserve_owned_slot</a>(<span class="rs-self">self</span>.max_owned_sandboxes)?;
-                reservation = <span class="rs-type">Some</span>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-OwnedSlotReservation-235">OwnedSlotReservation</a>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(&amp;<span class="rs-self">self</span>.state));
+                reservation = <span class="rs-type">Some</span>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-OwnedSlotReservation-235">OwnedSlotReservation</a>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(&amp;<span class="rs-self">self</span>.state));
             }
         }
 
@@ -1163,7 +1163,7 @@
 <span class="rs-comment">/// Backend-owned sandbox lifecycle manager and [`SandboxGateway`] implementation.</span>
 <span class="rs-comment">///</span>
 <span class="rs-comment">/// Construct the production manager with [`SandboxManager::with_docker`], inject</span>
-<span class="rs-comment">/// it into `eos-runtime` via `RuntimeServicesBuilder::sandbox_gateway`, and retain</span>
+<span class="rs-comment">/// it into the agent-core request service via `AgentCoreServiceDependencies`, and retain</span>
 <span class="rs-comment">/// the same handle (an `Arc&lt;SandboxManager&gt;`) to drive [`SandboxManager::release`],</span>
 <span class="rs-comment">/// [`SandboxManager::delete`], [`SandboxManager::view`], and</span>
 <span class="rs-comment">/// [`SandboxManager::list`].</span>
@@ -1185,19 +1185,19 @@
         config: &amp;<span class="rs-type">SandboxConfig</span>,
         eosd_artifact_dir: <span class="rs-type">PathBuf</span>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-enum-SandboxManagerError-80">SandboxManagerError</a>&gt; {
-        <span class="rs-kw">let</span> registry = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-type">ProviderRegistry</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>());
+        <span class="rs-kw">let</span> registry = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">ProviderRegistry</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>());
         <span class="rs-kw">let</span> docker = <span class="rs-type">DockerProviderAdapter</span>::connect()
             .map_err(|err| <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-enum-SandboxManagerError-80">SandboxManagerError</a>::<span class="rs-type">Connect</span>(err.to_string()))?;
-        registry.seed(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(docker));
-        <span class="rs-kw">let</span> daemon = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-type">DaemonClient</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(registry));
-        <span class="rs-kw">let</span> lifecycle = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-type">SandboxLifecycle</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(daemon.clone(), eosd_artifact_dir));
+        registry.seed(<span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(docker));
+        <span class="rs-kw">let</span> daemon = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">DaemonClient</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(registry));
+        <span class="rs-kw">let</span> lifecycle = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">SandboxLifecycle</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(daemon.clone(), eosd_artifact_dir));
         <span class="rs-kw">let</span> provisioner: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">RequestProvisioner</span>&gt; =
-            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-type">RequestSandboxProvisioner</span>::with_default_snapshot(
+            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">RequestSandboxProvisioner</span>::with_default_snapshot(
                 lifecycle.clone(),
                 config.default_snapshot.as_deref(),
             ));
         <span class="rs-kw">let</span> transport: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SandboxTransport</span>&gt; = daemon;
-        <span class="rs-kw">let</span> teardown: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-trait-SandboxTeardown-114">SandboxTeardown</a>&gt; = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-LifecycleTeardown-127">LifecycleTeardown</a> { lifecycle });
+        <span class="rs-kw">let</span> teardown: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-trait-SandboxTeardown-114">SandboxTeardown</a>&gt; = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-LifecycleTeardown-127">LifecycleTeardown</a> { lifecycle });
         <span class="rs-type">Ok</span>(<span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-with-seams-499">with_seams</a>(
             provisioner,
             transport,
@@ -1218,13 +1218,13 @@
         destroy_on_finish: bool,
     ) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
-            inner: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerInner-264">ManagerInner</a> {
+            inner: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerInner-264">ManagerInner</a> {
                 provisioner,
                 transport,
                 teardown,
                 max_owned_sandboxes,
                 destroy_on_finish,
-                state: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a>::default()),
+                state: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-ManagerState-193">ManagerState</a>::default()),
             }),
         }
     }
@@ -1316,13 +1316,13 @@
     }
 
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-provisioner-607">provisioner</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">RequestProvisioner</span>&gt; {
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-GatewayProvisioner-614">GatewayProvisioner</a> {
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime--src-sandbox-manager-rs.html#item-struct-GatewayProvisioner-614">GatewayProvisioner</a> {
             inner: <span class="rs-self">self</span>.inner.clone(),
         })
     }
 }
 
-<span class="rs-comment">/// The provisioner the gateway hands to `eos-runtime`: its `prepare_for_run` is</span>
+<span class="rs-comment">/// The provisioner the gateway hands to agent-core request orchestration: its `prepare_for_run` is</span>
 <span class="rs-comment">/// the manager's [`ManagerInner::acquire`], so the runtime's bootstrap binding is</span>
 <span class="rs-comment">/// the refcount-acquiring path. Holds a clone of the shared inner state.</span>
 #[derive(<span class="rs-type">Debug</span>)]
@@ -1340,7 +1340,7 @@
         <span class="rs-self">self</span>.inner
             .<a class="symbol-link rs-fn" href="eos-backend-runtime--src-sandbox-manager-rs.html#method-acquire-285">acquire</a>(request_id, sandbox_id)
             .<span class="rs-kw">await</span>
-            .map_err(|err| <span class="rs-type">SandboxProvisionError</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(err.to_string()))
+            .map_err(|err| <span class="rs-type">SandboxProvisionError</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(err.to_string()))
     }
 }
 

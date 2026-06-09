@@ -24,8 +24,8 @@
 <section class="summary">
   <div><b>13</b><span>modules</span></div>
   <div><b>66</b><span>items</span></div>
-  <div><b>35</b><span>fields</span></div>
-  <div><b>22</b><span>methods</span></div>
+  <div><b>44</b><span>fields</span></div>
+  <div><b>19</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,8 +41,8 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/5</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link active" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>4/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
-  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="router crates/eos-backend-api/src/router.rs RunControl impl RunControl for RunLauncher SandboxRegistry impl SandboxRegistry for SandboxManager AgentCoreReads impl std :: fmt :: Debug for AgentCoreReads AppState impl std :: fmt :: Debug for AppState impl AppState build_router">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api.html"><span>error.rs</span><small>3/0</small></a></li><li><span class="folder">handlers</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-handlers-agent-runs-rs.html"><span>agent_runs.rs</span><small>4/6</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-mod-rs.html"><span>mod.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-sandboxes-rs.html"><span>sandboxes.rs</span><small>0/3</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stats-rs.html"><span>stats.rs</span><small>0/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-stream-rs.html"><span>stream.rs</span><small>1/2</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-tasks-rs.html"><span>tasks.rs</span><small>2/4</small></a></li><li><a class="file-link" href="eos-backend-api--src-handlers-user-requests-rs.html"><span>user_requests.rs</span><small>1/7</small></a></li></ul></li><li><a class="file-link" href="eos-backend-api--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-openapi-rs.html"><span>openapi.rs</span><small>0/6</small></a></li><li><a class="file-link active" href="eos-backend-api--src-router-rs.html"><span>router.rs</span><small>3/1</small></a></li><li><span class="folder">stream</span><ul class="file-tree"><li><a class="file-link" href="eos-backend-api--src-stream-mod-rs.html"><span>mod.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-api--src-stream-sse-rs.html"><span>sse.rs</span><small>0/2</small></a></li></ul></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="router crates/eos-backend-api/src/router.rs SandboxRegistry impl SandboxRegistry for SandboxManager AppState AppStateParts impl std :: fmt :: Debug for AppStateParts impl std :: fmt :: Debug for AppState impl AppState build_router">
   <div class="module-head">
     <div>
       <h2>src/router.rs</h2>
@@ -50,121 +50,101 @@
     </div>
     <div class="module-stats">
       <span>file owns</span>
-      <span>4 types</span>
-      <span>5 impls</span>
+      <span>3 types</span>
+      <span>4 impls</span>
       <span>1 fns</span>
-      <span>13 methods</span>
+      <span>9 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-AgentCoreReads-91" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AgentCoreReads pub pub struct AgentCoreReads crates/eos-backend-api/src/router.rs requests Arc &lt; dyn RequestStore &gt; tasks Arc &lt; dyn TaskStore &gt; agent_runs Arc &lt; dyn AgentRunStore &gt; ">
-  <div class="item-head">
-    <span class="kind">struct</span>
-    <h3>AgentCoreReads</h3>
-    <span class="visibility">pub</span>
-  </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a></code>
-  <p class="docstring">The three agent-core read stores the API joins against, grouped so the<br>composition root can hand them over from `RuntimeServices::state_reader()`<br>while tests supply fakes.</p>
-  <div class="tags"><span>derive: Clone</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>requests</td><td><code>Arc &lt; dyn RequestStore &gt;</code></td></tr><tr><td>pub</td><td>tasks</td><td><code>Arc &lt; dyn TaskStore &gt;</code></td></tr><tr><td>pub</td><td>agent_runs</td><td><code>Arc &lt; dyn AgentRunStore &gt;</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a></code></summary><table><tbody><tr id="method-fmt-105"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#method-fmt-105">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
-  <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-fmt-105">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
-        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a>&quot;).finish_non_exhaustive()
-    }
-</code></pre>
-</details></td></tr></tbody></table></details></div>
-
-  <p class="source">crates/eos-backend-api/src/router.rs:91</p>
-</article><article id="item-struct-AppState-110" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AppState pub pub struct AppState crates/eos-backend-api/src/router.rs runs Arc &lt; dyn RunControl &gt; sandboxes Arc &lt; dyn SandboxRegistry &gt; run_meta RunMetaRepo event_bus Arc &lt; EventBus &gt; event_log EventLogRepo stats StatsReader reads AgentCoreReads message_records AgentMessageRecords ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-AppState-58" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AppState pub pub struct AppState crates/eos-backend-api/src/router.rs agent_core AgentCoreService sandboxes Arc &lt; dyn SandboxRegistry &gt; run_meta RunMetaRepo event_bus Arc &lt; EventBus &gt; event_log EventLogRepo stats StatsReader task_store Arc &lt; dyn TaskStore &gt; agent_run_store Arc &lt; dyn AgentRunStore &gt; task_agent_run_store Arc &lt; dyn TaskAgentRunStore &gt; message_records AgentMessageRecords ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>AppState</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a></code>
   <p class="docstring">Shared, cheap-to-clone application state injected into every handler.</p>
   <div class="tags"><span>derive: Clone</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>runs</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-RunControl-31">RunControl</a> &gt;</code></td></tr><tr><td>pub(crate)</td><td>sandboxes</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-58">SandboxRegistry</a> &gt;</code></td></tr><tr><td>pub(crate)</td><td>run_meta</td><td><code>RunMetaRepo</code></td></tr><tr><td>pub(crate)</td><td>event_bus</td><td><code>Arc &lt; EventBus &gt;</code></td></tr><tr><td>pub(crate)</td><td>event_log</td><td><code>EventLogRepo</code></td></tr><tr><td>pub(crate)</td><td>stats</td><td><code>StatsReader</code></td></tr><tr><td>pub(crate)</td><td>reads</td><td><code><a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a></code></td></tr><tr><td>pub(crate)</td><td>message_records</td><td><code>AgentMessageRecords</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-130"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a> (runs : Arc &lt; dyn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-RunControl-31">RunControl</a> &gt; , sandboxes : Arc &lt; dyn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-58">SandboxRegistry</a> &gt; , run_meta : RunMetaRepo , event_bus : Arc &lt; EventBus &gt; , event_log : EventLogRepo , stats : StatsReader , reads : <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a> , message_records : AgentMessageRecords ,) -&gt; Self</code><p class="docstring">Assemble application state from the injected runtime capabilities and<br>backend store handles. `event_bus` must be the same instance the launcher<br>publishes through so the stream routes replay and tail one stream.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>agent_core</td><td><code>AgentCoreService</code></td></tr><tr><td>pub(crate)</td><td>sandboxes</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-25">SandboxRegistry</a> &gt;</code></td></tr><tr><td>pub(crate)</td><td>run_meta</td><td><code>RunMetaRepo</code></td></tr><tr><td>pub(crate)</td><td>event_bus</td><td><code>Arc &lt; EventBus &gt;</code></td></tr><tr><td>pub(crate)</td><td>event_log</td><td><code>EventLogRepo</code></td></tr><tr><td>pub(crate)</td><td>stats</td><td><code>StatsReader</code></td></tr><tr><td>pub(crate)</td><td>task_store</td><td><code>Arc &lt; dyn TaskStore &gt;</code></td></tr><tr><td>pub(crate)</td><td>agent_run_store</td><td><code>Arc &lt; dyn AgentRunStore &gt;</code></td></tr><tr><td>pub(crate)</td><td>task_agent_run_store</td><td><code>Arc &lt; dyn TaskAgentRunStore &gt;</code></td></tr><tr><td>pub(crate)</td><td>message_records</td><td><code>AgentMessageRecords</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-110"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a> (parts : <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a>) -&gt; Self</code><p class="docstring">Assemble application state from the injected runtime capabilities and<br>backend store handles. `event_bus` must be the same instance the launcher<br>publishes through so the stream routes replay and tail one stream.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Assemble application state from the injected runtime capabilities and</span>
     <span class="rs-comment">/// backend store handles. `event_bus` must be the same instance the launcher</span>
     <span class="rs-comment">/// publishes through so the stream routes replay and tail one stream.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>(
-        runs: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-RunControl-31">RunControl</a>&gt;,
-        sandboxes: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-58">SandboxRegistry</a>&gt;,
-        run_meta: <span class="rs-type">RunMetaRepo</span>,
-        event_bus: <span class="rs-type">Arc</span>&lt;<span class="rs-type">EventBus</span>&gt;,
-        event_log: <span class="rs-type">EventLogRepo</span>,
-        stats: <span class="rs-type">StatsReader</span>,
-        reads: <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a>,
-        message_records: <span class="rs-type">AgentMessageRecords</span>,
-    ) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">Self</span> {
-            runs,
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(parts: <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-kw">let</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a> {
+            agent_core,
             sandboxes,
             run_meta,
             event_bus,
             event_log,
             stats,
-            reads,
+            task_store,
+            agent_run_store,
+            task_agent_run_store,
+            message_records,
+        } = parts;
+        <span class="rs-self">Self</span> {
+            agent_core,
+            sandboxes,
+            run_meta,
+            event_bus,
+            event_log,
+            stats,
+            task_store,
+            agent_run_store,
+            task_agent_run_store,
             message_records,
         }
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a></code></summary><table><tbody><tr id="method-fmt-124"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#method-fmt-105">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a></code></summary><table><tbody><tr id="method-fmt-104"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#method-fmt-98">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-fmt-105">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
-        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&quot;).finish_non_exhaustive()
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-fmt-98">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&quot;).finish_non_exhaustive()
     }
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-backend-api/src/router.rs:110</p>
-</article><article id="item-trait-RunControl-31" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait RunControl pub pub trait RunControl crates/eos-backend-api/src/router.rs  launch async fn launch (&amp; self , request : CreateUserRequest) -&gt; Result &lt; RequestId , LaunchError &gt; cancel fn cancel (&amp; self , request_id : &amp; RequestId , reason : &amp; str) -&gt; CancelOutcome">
+  <p class="source">crates/eos-backend-api/src/router.rs:58</p>
+</article><article id="item-struct-AppStateParts-73" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AppStateParts pub pub struct AppStateParts crates/eos-backend-api/src/router.rs agent_core AgentCoreService sandboxes Arc &lt; dyn SandboxRegistry &gt; run_meta RunMetaRepo event_bus Arc &lt; EventBus &gt; event_log EventLogRepo stats StatsReader task_store Arc &lt; dyn TaskStore &gt; agent_run_store Arc &lt; dyn AgentRunStore &gt; task_agent_run_store Arc &lt; dyn TaskAgentRunStore &gt; message_records AgentMessageRecords ">
   <div class="item-head">
-    <span class="kind">trait</span>
-    <h3>RunControl</h3>
+    <span class="kind">struct</span>
+    <h3>AppStateParts</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub trait <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-RunControl-31">RunControl</a></code>
-  <p class="docstring">Launch/cancel capability the API depends on. Implemented by [`RunLauncher`];<br>faked in API tests (the launcher needs a `SandboxManager`, which has no public<br>test constructor, so this seam is what makes the create/cancel routes testable<br>in isolation).</p>
-  <div class="tags"><span>async_trait</span></div>
-  <h4>Methods</h4><table><tbody><tr id="method-cancel-43"><td>required</td><td>cancel</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-127">cancel</a> (&amp; self , request_id : &amp; RequestId , reason : &amp; str) -&gt; CancelOutcome</code><p class="docstring">Request cancellation of an in-flight run.</p><details class="function-source">
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a></code>
+  <p class="docstring">Named input parts used to assemble [`AppState`].</p>
+  <div class="tags"></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>agent_core</td><td><code>AgentCoreService</code></td></tr><tr><td>pub</td><td>sandboxes</td><td><code>Arc &lt; dyn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-25">SandboxRegistry</a> &gt;</code></td></tr><tr><td>pub</td><td>run_meta</td><td><code>RunMetaRepo</code></td></tr><tr><td>pub</td><td>event_bus</td><td><code>Arc &lt; EventBus &gt;</code></td></tr><tr><td>pub</td><td>event_log</td><td><code>EventLogRepo</code></td></tr><tr><td>pub</td><td>stats</td><td><code>StatsReader</code></td></tr><tr><td>pub</td><td>task_store</td><td><code>Arc &lt; dyn TaskStore &gt;</code></td></tr><tr><td>pub</td><td>agent_run_store</td><td><code>Arc &lt; dyn AgentRunStore &gt;</code></td></tr><tr><td>pub</td><td>task_agent_run_store</td><td><code>Arc &lt; dyn TaskAgentRunStore &gt;</code></td></tr><tr><td>pub</td><td>message_records</td><td><code>AgentMessageRecords</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a></code></summary><table><tbody><tr id="method-fmt-98"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#method-fmt-98">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Request cancellation of an in-flight run.</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-127">cancel</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>, reason: &amp;str) -&gt; <span class="rs-type">CancelOutcome</span>;
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-fmt-98">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a>&quot;).finish_non_exhaustive()
+    }
 </code></pre>
-</details></td></tr><tr id="method-launch-37"><td>required</td><td>launch</td><td><code>async fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#method-launch-37">launch</a> (&amp; self , request : CreateUserRequest) -&gt; Result &lt; RequestId , LaunchError &gt;</code><p class="docstring">Accept a user request and return the minted request id (the `202` body).<br># Errors<br>[`LaunchError`] when the initial lifecycle write fails.</p><details class="function-source">
-  <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Accept a user request and return the minted request id (the `202` body).</span>
-    <span class="rs-comment">///</span>
-    <span class="rs-comment">/// # Errors</span>
-    <span class="rs-comment">/// [`LaunchError`] when the initial lifecycle write fails.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-launch-37">launch</a>(&amp;<span class="rs-self">self</span>, request: <span class="rs-type">CreateUserRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RequestId</span>, <span class="rs-type">LaunchError</span>&gt;;
-</code></pre>
-</details></td></tr></tbody></table>
+</details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-backend-api/src/router.rs:31</p>
-</article><article id="item-trait-SandboxRegistry-58" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait SandboxRegistry pub pub trait SandboxRegistry crates/eos-backend-api/src/router.rs  list fn list (&amp; self) -&gt; Vec &lt; SandboxView &gt; view fn view (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Option &lt; SandboxView &gt; delete async fn delete (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Result &lt; () , SandboxManagerError &gt;">
+  <p class="source">crates/eos-backend-api/src/router.rs:73</p>
+</article><article id="item-trait-SandboxRegistry-25" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait SandboxRegistry pub pub trait SandboxRegistry crates/eos-backend-api/src/router.rs  list fn list (&amp; self) -&gt; Vec &lt; SandboxView &gt; view fn view (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Option &lt; SandboxView &gt; delete async fn delete (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Result &lt; () , SandboxManagerError &gt;">
   <div class="item-head">
     <span class="kind">trait</span>
     <h3>SandboxRegistry</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub trait <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-58">SandboxRegistry</a></code>
+  <code class="signature">pub trait <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-25">SandboxRegistry</a></code>
   <p class="docstring">Sandbox list/detail/delete capability over sanitized [`SandboxView`]s.<br>Implemented by [`SandboxManager`]; faked in API tests.</p>
   <div class="tags"><span>async_trait</span></div>
-  <h4>Methods</h4><table><tbody><tr id="method-list-62"><td>required</td><td>list</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a> (&amp; self) -&gt; Vec &lt; SandboxView &gt;</code><p class="docstring">All tracked sandboxes as sanitized views, newest first.</p><details class="function-source">
+  <h4>Methods</h4><table><tbody><tr id="method-list-29"><td>required</td><td>list</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a> (&amp; self) -&gt; Vec &lt; SandboxView &gt;</code><p class="docstring">All tracked sandboxes as sanitized views, newest first.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// All tracked sandboxes as sanitized views, newest first.</span>
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">SandboxView</span>&gt;;
 </code></pre>
-</details></td></tr><tr id="method-view-65"><td>required</td><td>view</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#method-view-65">view</a> (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Option &lt; SandboxView &gt;</code><p class="docstring">The sanitized view of one sandbox, if tracked.</p><details class="function-source">
+</details></td></tr><tr id="method-view-32"><td>required</td><td>view</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#method-view-32">view</a> (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Option &lt; SandboxView &gt;</code><p class="docstring">The sanitized view of one sandbox, if tracked.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The sanitized view of one sandbox, if tracked.</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-65">view</a>(&amp;<span class="rs-self">self</span>, sandbox_id: &amp;<span class="rs-type">SandboxId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">SandboxView</span>&gt;;
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-32">view</a>(&amp;<span class="rs-self">self</span>, sandbox_id: &amp;<span class="rs-type">SandboxId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">SandboxView</span>&gt;;
 </code></pre>
-</details></td></tr><tr id="method-delete-68"><td>required</td><td>delete</td><td><code>async fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a> (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Result &lt; () , SandboxManagerError &gt;</code><p class="docstring">Destroy a backend-owned sandbox, refused while it is referenced.<br># Errors<br>[`SandboxManagerError`] when the sandbox is unknown, referenced, or<br>teardown fails.</p><details class="function-source">
+</details></td></tr><tr id="method-delete-35"><td>required</td><td>delete</td><td><code>async fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a> (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Result &lt; () , SandboxManagerError &gt;</code><p class="docstring">Destroy a backend-owned sandbox, refused while it is referenced.<br># Errors<br>[`SandboxManagerError`] when the sandbox is unknown, referenced, or<br>teardown fails.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Destroy a backend-owned sandbox, refused while it is referenced.</span>
     <span class="rs-comment">///</span>
@@ -175,14 +155,14 @@
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-api/src/router.rs:58</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-build-router-157" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn build_router pub pub fn build_router (state : AppState) -&gt; Router crates/eos-backend-api/src/router.rs  ">
+  <p class="source">crates/eos-backend-api/src/router.rs:25</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-build-router-142" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn build_router pub pub fn build_router (state : AppState) -&gt; Router crates/eos-backend-api/src/router.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>build_router</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-fn-build-router-157">build_router</a> (state : <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>) -&gt; Router</code>
+  <code class="signature">pub fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-fn-build-router-142">build_router</a> (state : <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>) -&gt; Router</code>
   <p class="docstring">Build the backend HTTP router over [`AppState`]. Resource names are plural and<br>id-segment paths use conventional `/collection/{id}` form (no<br>`/collection={id}` style).</p>
   <div class="tags"></div>
   <details class="function-source">
@@ -190,43 +170,46 @@
   <pre><code><span class="rs-comment">/// Build the backend HTTP router over [`AppState`]. Resource names are plural and</span>
 <span class="rs-comment">/// id-segment paths use conventional `/collection/{id}` form (no</span>
 <span class="rs-comment">/// `/collection={id}` style).</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#item-fn-build-router-157">build_router</a>(state: <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>) -&gt; <span class="rs-type">Router</span> {
-    <span class="rs-type">Router</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>()
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#item-fn-build-router-142">build_router</a>(state: <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>) -&gt; <span class="rs-type">Router</span> {
+    <span class="rs-type">Router</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>()
         .route(
-            &quot;/api/user-requests&quot;,
+            &quot;/api/agent-core/requests&quot;,
             post(handlers::user_requests::create).get(handlers::user_requests::list),
         )
         .route(
-            &quot;/api/user-requests/{request_id}&quot;,
+            &quot;/api/agent-core/requests/{request_id}&quot;,
             get(handlers::user_requests::detail).<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a>(handlers::user_requests::cancel),
         )
         .route(
-            &quot;/api/user-requests/{request_id}/events&quot;,
+            &quot;/api/agent-core/requests/{request_id}/events&quot;,
             get(handlers::user_requests::events),
         )
         .route(
-            &quot;/api/user-requests/{request_id}/stream&quot;,
+            &quot;/api/agent-core/requests/{request_id}/stream&quot;,
             get(handlers::stream::stream),
         )
         .route(
-            &quot;/api/user-requests/{request_id}/tasks&quot;,
+            &quot;/api/agent-core/requests/{request_id}/tasks&quot;,
             get(handlers::tasks::request_tasks),
         )
-        .route(&quot;/api/tasks/{task_id}&quot;, get(handlers::tasks::detail))
         .route(
-            &quot;/api/tasks/{task_id}/transcript&quot;,
+            &quot;/api/agent-core/tasks/{task_id}&quot;,
+            get(handlers::tasks::detail),
+        )
+        .route(
+            &quot;/api/agent-core/tasks/{task_id}/transcript&quot;,
             get(handlers::tasks::transcript),
         )
         .route(
-            &quot;/api/agent-runs/{agent_run_id}/messages&quot;,
+            &quot;/api/agent-core/agent-runs/{agent_run_id}/messages&quot;,
             get(handlers::agent_runs::messages),
         )
         .route(
-            &quot;/api/agent-runs/{agent_run_id}/events&quot;,
+            &quot;/api/agent-core/agent-runs/{agent_run_id}/events&quot;,
             get(handlers::agent_runs::events),
         )
         .route(
-            &quot;/api/agent-runs/{agent_run_id}/stream&quot;,
+            &quot;/api/agent-core/agent-runs/{agent_run_id}/stream&quot;,
             get(handlers::agent_runs::stream),
         )
         .route(&quot;/api/stats/performance&quot;, get(handlers::stats::performance))
@@ -244,51 +227,28 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-api/src/router.rs:157</p>
-</article><div class="group-label">Other Implementations</div><article id="item-impl-impl-RunControl-for-RunLauncher-47" class="item-card" data-kind="impl" data-kind-list="impl method" data-filter-text="impl impl RunControl for RunLauncher private impl RunControl for RunLauncher crates/eos-backend-api/src/router.rs  launch async fn launch (&amp; self , request : CreateUserRequest) -&gt; Result &lt; RequestId , LaunchError &gt; cancel fn cancel (&amp; self , request_id : &amp; RequestId , reason : &amp; str) -&gt; CancelOutcome">
-  <div class="item-head">
-    <span class="kind">impl</span>
-    <h3>impl RunControl for RunLauncher</h3>
-    <span class="visibility">private</span>
-  </div>
-  <code class="signature">impl <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-RunControl-31">RunControl</a> for RunLauncher</code>
-  <div class="tags"><span>async_trait</span><span>impl</span><span>trait-impl</span></div>
-  <h4>Methods</h4><table><tbody><tr id="method-cancel-53"><td>method</td><td>cancel</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-127">cancel</a> (&amp; self , request_id : &amp; RequestId , reason : &amp; str) -&gt; CancelOutcome</code><details class="function-source">
-  <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-127">cancel</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>, reason: &amp;str) -&gt; <span class="rs-type">CancelOutcome</span> {
-        <span class="rs-type">RunLauncher</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-127">cancel</a>(<span class="rs-self">self</span>, request_id, reason)
-    }
-</code></pre>
-</details></td></tr><tr id="method-launch-49"><td>method</td><td>launch</td><td><code>async fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#method-launch-37">launch</a> (&amp; self , request : CreateUserRequest) -&gt; Result &lt; RequestId , LaunchError &gt;</code><details class="function-source">
-  <summary>code</summary>
-  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-launch-37">launch</a>(&amp;<span class="rs-self">self</span>, request: <span class="rs-type">CreateUserRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RequestId</span>, <span class="rs-type">LaunchError</span>&gt; {
-        <span class="rs-type">RunLauncher</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-launch-37">launch</a>(<span class="rs-self">self</span>, request).<span class="rs-kw">await</span>
-    }
-</code></pre>
-</details></td></tr></tbody></table>
-
-  <p class="source">crates/eos-backend-api/src/router.rs:47</p>
-</article><article id="item-impl-impl-SandboxRegistry-for-SandboxManager-76" class="item-card" data-kind="impl" data-kind-list="impl method" data-filter-text="impl impl SandboxRegistry for SandboxManager private impl SandboxRegistry for SandboxManager crates/eos-backend-api/src/router.rs  list fn list (&amp; self) -&gt; Vec &lt; SandboxView &gt; view fn view (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Option &lt; SandboxView &gt; delete async fn delete (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Result &lt; () , SandboxManagerError &gt;">
+  <p class="source">crates/eos-backend-api/src/router.rs:142</p>
+</article><div class="group-label">Other Implementations</div><article id="item-impl-impl-SandboxRegistry-for-SandboxManager-43" class="item-card" data-kind="impl" data-kind-list="impl method" data-filter-text="impl impl SandboxRegistry for SandboxManager private impl SandboxRegistry for SandboxManager crates/eos-backend-api/src/router.rs  list fn list (&amp; self) -&gt; Vec &lt; SandboxView &gt; view fn view (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Option &lt; SandboxView &gt; delete async fn delete (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Result &lt; () , SandboxManagerError &gt;">
   <div class="item-head">
     <span class="kind">impl</span>
     <h3>impl SandboxRegistry for SandboxManager</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">impl <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-58">SandboxRegistry</a> for SandboxManager</code>
+  <code class="signature">impl <a class="symbol-link" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-25">SandboxRegistry</a> for SandboxManager</code>
   <div class="tags"><span>async_trait</span><span>impl</span><span>trait-impl</span></div>
-  <h4>Methods</h4><table><tbody><tr id="method-list-78"><td>method</td><td>list</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a> (&amp; self) -&gt; Vec &lt; SandboxView &gt;</code><details class="function-source">
+  <h4>Methods</h4><table><tbody><tr id="method-list-45"><td>method</td><td>list</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a> (&amp; self) -&gt; Vec &lt; SandboxView &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">SandboxView</span>&gt; {
         <span class="rs-type">SandboxManager</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>(<span class="rs-self">self</span>)
     }
 </code></pre>
-</details></td></tr><tr id="method-view-82"><td>method</td><td>view</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#method-view-65">view</a> (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Option &lt; SandboxView &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-view-49"><td>method</td><td>view</td><td><code>fn <a class="symbol-link" href="eos-backend-api--src-router-rs.html#method-view-32">view</a> (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Option &lt; SandboxView &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-65">view</a>(&amp;<span class="rs-self">self</span>, sandbox_id: &amp;<span class="rs-type">SandboxId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">SandboxView</span>&gt; {
-        <span class="rs-type">SandboxManager</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-65">view</a>(<span class="rs-self">self</span>, sandbox_id)
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-32">view</a>(&amp;<span class="rs-self">self</span>, sandbox_id: &amp;<span class="rs-type">SandboxId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">SandboxView</span>&gt; {
+        <span class="rs-type">SandboxManager</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-32">view</a>(<span class="rs-self">self</span>, sandbox_id)
     }
 </code></pre>
-</details></td></tr><tr id="method-delete-86"><td>method</td><td>delete</td><td><code>async fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a> (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Result &lt; () , SandboxManagerError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-delete-53"><td>method</td><td>delete</td><td><code>async fn <a class="symbol-link" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a> (&amp; self , sandbox_id : &amp; SandboxId) -&gt; Result &lt; () , SandboxManagerError &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a>(&amp;<span class="rs-self">self</span>, sandbox_id: &amp;<span class="rs-type">SandboxId</span>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">SandboxManagerError</span>&gt; {
         <span class="rs-type">SandboxManager</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a>(<span class="rs-self">self</span>, sandbox_id).<span class="rs-kw">await</span>
@@ -296,7 +256,7 @@
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-api/src/router.rs:76</p>
+  <p class="source">crates/eos-backend-api/src/router.rs:43</p>
 </article></div>
 </section></div>
 </main>
@@ -305,17 +265,13 @@
     <h2>Source File</h2>
     <p class="path">crates/eos-backend-api/src/router.rs</p>
   </div>
-  <pre class="file-source"><code><span class="rs-comment">//! Shared application state, the runtime-capability ports, and the axum router.</span>
+  <pre class="file-source"><code><span class="rs-comment">//! Shared application state, the sandbox registry seam, and the axum router.</span>
 <span class="rs-comment">//!</span>
 <span class="rs-comment">//! The handlers read backend lifecycle/observability state directly (concrete</span>
-<span class="rs-comment">//! repositories from `eos-backend-store`/`-audit`) but reach the two stateful</span>
-<span class="rs-comment">//! runtime capabilities — launching/cancelling runs and the sandbox lifecycle —</span>
-<span class="rs-comment">//! through the narrow [`RunControl`] and [`SandboxRegistry`] ports. Those are</span>
-<span class="rs-comment">//! `dyn` because test doubles substitute for the production `RunLauncher` /</span>
-<span class="rs-comment">//! `SandboxManager` at this cross-crate boundary (the manager has no public test</span>
-<span class="rs-comment">//! constructor), which is the load-bearing reason the repo reserves trait objects</span>
-<span class="rs-comment">//! for. Agent-core reads ride the already-`dyn` store traits from</span>
-<span class="rs-comment">//! `RuntimeServices::state_reader()`.</span>
+<span class="rs-comment">//! repositories from `eos-backend-store`/`-audit`) and call the concrete</span>
+<span class="rs-comment">//! `AgentCoreService` for agent-core request lifecycle operations. The sandbox</span>
+<span class="rs-comment">//! lifecycle remains behind [`SandboxRegistry`] because tests substitute it for</span>
+<span class="rs-comment">//! the production `SandboxManager` at this cross-crate boundary.</span>
 
 <span class="rs-kw">use</span> std::sync::<span class="rs-type">Arc</span>;
 
@@ -323,54 +279,25 @@
 <span class="rs-kw">use</span> axum::routing::{get, post};
 <span class="rs-kw">use</span> axum::<span class="rs-type">Router</span>;
 
-<span class="rs-kw">use</span> eos_agent_message_records::<span class="rs-type">AgentMessageRecords</span>;
+<span class="rs-kw">use</span> eos_agent_core_server::<span class="rs-type">AgentCoreService</span>;
 <span class="rs-kw">use</span> eos_backend_audit::<span class="rs-type">StatsReader</span>;
-<span class="rs-kw">use</span> eos_backend_runtime::{
-    <span class="rs-type">CancelOutcome</span>, <span class="rs-type">EventBus</span>, <span class="rs-type">LaunchError</span>, <span class="rs-type">RunLauncher</span>, <span class="rs-type">SandboxManager</span>, <span class="rs-type">SandboxManagerError</span>,
-};
+<span class="rs-kw">use</span> eos_backend_runtime::{<span class="rs-type">EventBus</span>, <span class="rs-type">SandboxManager</span>, <span class="rs-type">SandboxManagerError</span>};
 <span class="rs-kw">use</span> eos_backend_store::{<span class="rs-type">EventLogRepo</span>, <span class="rs-type">RunMetaRepo</span>};
-<span class="rs-kw">use</span> eos_backend_types::{<span class="rs-type">CreateUserRequest</span>, <span class="rs-type">SandboxView</span>};
-<span class="rs-kw">use</span> eos_state::{<span class="rs-type">AgentRunStore</span>, <span class="rs-type">RequestStore</span>, <span class="rs-type">TaskStore</span>};
-<span class="rs-kw">use</span> eos_types::{<span class="rs-type">RequestId</span>, <span class="rs-type">SandboxId</span>};
+<span class="rs-kw">use</span> eos_backend_types::<span class="rs-type">SandboxView</span>;
+<span class="rs-kw">use</span> eos_engine::records::<span class="rs-type">AgentRunRecordWriter</span> <span class="rs-kw">as</span> <span class="rs-type">AgentMessageRecords</span>;
+<span class="rs-kw">use</span> eos_types::{<span class="rs-type">AgentRunStore</span>, <span class="rs-type">SandboxId</span>, <span class="rs-type">TaskAgentRunStore</span>, <span class="rs-type">TaskStore</span>};
 
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::handlers;
-
-<span class="rs-comment">/// Launch/cancel capability the API depends on. Implemented by [`RunLauncher`];</span>
-<span class="rs-comment">/// faked in API tests (the launcher needs a `SandboxManager`, which has no public</span>
-<span class="rs-comment">/// test constructor, so this seam is what makes the create/cancel routes testable</span>
-<span class="rs-comment">/// in isolation).</span>
-#[async_trait]
-<span class="rs-kw">pub</span> <span class="rs-kw">trait</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-RunControl-31">RunControl</a>: <span class="rs-type">Send</span> + <span class="rs-type">Sync</span> {
-    <span class="rs-comment">/// Accept a user request and return the minted request id (the `202` body).</span>
-    <span class="rs-comment">///</span>
-    <span class="rs-comment">/// # Errors</span>
-    <span class="rs-comment">/// [`LaunchError`] when the initial lifecycle write fails.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-launch-37">launch</a>(&amp;<span class="rs-self">self</span>, request: <span class="rs-type">CreateUserRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RequestId</span>, <span class="rs-type">LaunchError</span>&gt;;
-
-    <span class="rs-comment">/// Request cancellation of an in-flight run.</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-127">cancel</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>, reason: &amp;str) -&gt; <span class="rs-type">CancelOutcome</span>;
-}
-
-#[async_trait]
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-RunControl-31">RunControl</a> <span class="rs-kw">for</span> <span class="rs-type">RunLauncher</span> {
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-launch-37">launch</a>(&amp;<span class="rs-self">self</span>, request: <span class="rs-type">CreateUserRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RequestId</span>, <span class="rs-type">LaunchError</span>&gt; {
-        <span class="rs-type">RunLauncher</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-launch-37">launch</a>(<span class="rs-self">self</span>, request).<span class="rs-kw">await</span>
-    }
-
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-127">cancel</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>, reason: &amp;str) -&gt; <span class="rs-type">CancelOutcome</span> {
-        <span class="rs-type">RunLauncher</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-user-requests-rs.html#item-fn-cancel-127">cancel</a>(<span class="rs-self">self</span>, request_id, reason)
-    }
-}
 
 <span class="rs-comment">/// Sandbox list/detail/delete capability over sanitized [`SandboxView`]s.</span>
 <span class="rs-comment">/// Implemented by [`SandboxManager`]; faked in API tests.</span>
 #[async_trait]
-<span class="rs-kw">pub</span> <span class="rs-kw">trait</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-58">SandboxRegistry</a>: <span class="rs-type">Send</span> + <span class="rs-type">Sync</span> {
+<span class="rs-kw">pub</span> <span class="rs-kw">trait</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-25">SandboxRegistry</a>: <span class="rs-type">Send</span> + <span class="rs-type">Sync</span> {
     <span class="rs-comment">/// All tracked sandboxes as sanitized views, newest first.</span>
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">SandboxView</span>&gt;;
 
     <span class="rs-comment">/// The sanitized view of one sandbox, if tracked.</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-65">view</a>(&amp;<span class="rs-self">self</span>, sandbox_id: &amp;<span class="rs-type">SandboxId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">SandboxView</span>&gt;;
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-32">view</a>(&amp;<span class="rs-self">self</span>, sandbox_id: &amp;<span class="rs-type">SandboxId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">SandboxView</span>&gt;;
 
     <span class="rs-comment">/// Destroy a backend-owned sandbox, refused while it is referenced.</span>
     <span class="rs-comment">///</span>
@@ -381,13 +308,13 @@
 }
 
 #[async_trait]
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-58">SandboxRegistry</a> <span class="rs-kw">for</span> <span class="rs-type">SandboxManager</span> {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-25">SandboxRegistry</a> <span class="rs-kw">for</span> <span class="rs-type">SandboxManager</span> {
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">SandboxView</span>&gt; {
         <span class="rs-type">SandboxManager</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-list-16">list</a>(<span class="rs-self">self</span>)
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-65">view</a>(&amp;<span class="rs-self">self</span>, sandbox_id: &amp;<span class="rs-type">SandboxId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">SandboxView</span>&gt; {
-        <span class="rs-type">SandboxManager</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-65">view</a>(<span class="rs-self">self</span>, sandbox_id)
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-32">view</a>(&amp;<span class="rs-self">self</span>, sandbox_id: &amp;<span class="rs-type">SandboxId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">SandboxView</span>&gt; {
+        <span class="rs-type">SandboxManager</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-view-32">view</a>(<span class="rs-self">self</span>, sandbox_id)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a>(&amp;<span class="rs-self">self</span>, sandbox_id: &amp;<span class="rs-type">SandboxId</span>) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">SandboxManagerError</span>&gt; {
@@ -395,67 +322,85 @@
     }
 }
 
-<span class="rs-comment">/// The three agent-core read stores the API joins against, grouped so the</span>
-<span class="rs-comment">/// composition root can hand them over from `RuntimeServices::state_reader()`</span>
-<span class="rs-comment">/// while tests supply fakes.</span>
-#[derive(<span class="rs-type">Clone</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a> {
-    <span class="rs-comment">/// Request store (`get` for the detail status join).</span>
-    <span class="rs-kw">pub</span> requests: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">RequestStore</span>&gt;,
-    <span class="rs-comment">/// Task store (`list_for_request` / `get` for the task routes).</span>
-    <span class="rs-kw">pub</span> tasks: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt;,
-    <span class="rs-comment">/// Agent-run store (`get_for_task` for task detail / transcript).</span>
-    <span class="rs-kw">pub</span> agent_runs: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunStore</span>&gt;,
-}
-
-<span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-fmt-105">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
-        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a>&quot;).finish_non_exhaustive()
-    }
-}
-
 <span class="rs-comment">/// Shared, cheap-to-clone application state injected into every handler.</span>
 #[derive(<span class="rs-type">Clone</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) runs: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-RunControl-31">RunControl</a>&gt;,
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) sandboxes: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-58">SandboxRegistry</a>&gt;,
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) agent_core: <span class="rs-type">AgentCoreService</span>,
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) sandboxes: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-25">SandboxRegistry</a>&gt;,
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) run_meta: <span class="rs-type">RunMetaRepo</span>,
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) event_bus: <span class="rs-type">Arc</span>&lt;<span class="rs-type">EventBus</span>&gt;,
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) event_log: <span class="rs-type">EventLogRepo</span>,
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) stats: <span class="rs-type">StatsReader</span>,
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) reads: <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a>,
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) task_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt;,
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) agent_run_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunStore</span>&gt;,
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) task_agent_run_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskAgentRunStore</span>&gt;,
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) message_records: <span class="rs-type">AgentMessageRecords</span>,
 }
 
-<span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-fmt-105">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
-        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>&quot;).finish_non_exhaustive()
+<span class="rs-comment">/// Named input parts used to assemble [`AppState`].</span>
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a> {
+    <span class="rs-comment">/// Backend-facing agent-core request lifecycle service.</span>
+    <span class="rs-kw">pub</span> agent_core: <span class="rs-type">AgentCoreService</span>,
+    <span class="rs-comment">/// Sanitized sandbox lifecycle registry.</span>
+    <span class="rs-kw">pub</span> sandboxes: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-25">SandboxRegistry</a>&gt;,
+    <span class="rs-comment">/// Backend run metadata repository.</span>
+    <span class="rs-kw">pub</span> run_meta: <span class="rs-type">RunMetaRepo</span>,
+    <span class="rs-comment">/// Live event bus used by stream routes.</span>
+    <span class="rs-kw">pub</span> event_bus: <span class="rs-type">Arc</span>&lt;<span class="rs-type">EventBus</span>&gt;,
+    <span class="rs-comment">/// Persisted milestone event log.</span>
+    <span class="rs-kw">pub</span> event_log: <span class="rs-type">EventLogRepo</span>,
+    <span class="rs-comment">/// Backend stats reader.</span>
+    <span class="rs-kw">pub</span> stats: <span class="rs-type">StatsReader</span>,
+    <span class="rs-comment">/// Durable task store.</span>
+    <span class="rs-kw">pub</span> task_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt;,
+    <span class="rs-comment">/// Durable compatibility agent-run store.</span>
+    <span class="rs-kw">pub</span> agent_run_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunStore</span>&gt;,
+    <span class="rs-comment">/// Durable task-agent-run lineage store.</span>
+    <span class="rs-kw">pub</span> task_agent_run_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskAgentRunStore</span>&gt;,
+    <span class="rs-comment">/// File-backed agent-run record reader.</span>
+    <span class="rs-kw">pub</span> message_records: <span class="rs-type">AgentMessageRecords</span>,
+}
+
+<span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-fmt-98">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a>&quot;).finish_non_exhaustive()
     }
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a> {
+<span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#method-fmt-98">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>&quot;).finish_non_exhaustive()
+    }
+}
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a> {
     <span class="rs-comment">/// Assemble application state from the injected runtime capabilities and</span>
     <span class="rs-comment">/// backend store handles. `event_bus` must be the same instance the launcher</span>
     <span class="rs-comment">/// publishes through so the stream routes replay and tail one stream.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>(
-        runs: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-RunControl-31">RunControl</a>&gt;,
-        sandboxes: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-trait-SandboxRegistry-58">SandboxRegistry</a>&gt;,
-        run_meta: <span class="rs-type">RunMetaRepo</span>,
-        event_bus: <span class="rs-type">Arc</span>&lt;<span class="rs-type">EventBus</span>&gt;,
-        event_log: <span class="rs-type">EventLogRepo</span>,
-        stats: <span class="rs-type">StatsReader</span>,
-        reads: <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AgentCoreReads-91">AgentCoreReads</a>,
-        message_records: <span class="rs-type">AgentMessageRecords</span>,
-    ) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">Self</span> {
-            runs,
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>(parts: <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-kw">let</span> <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppStateParts-73">AppStateParts</a> {
+            agent_core,
             sandboxes,
             run_meta,
             event_bus,
             event_log,
             stats,
-            reads,
+            task_store,
+            agent_run_store,
+            task_agent_run_store,
+            message_records,
+        } = parts;
+        <span class="rs-self">Self</span> {
+            agent_core,
+            sandboxes,
+            run_meta,
+            event_bus,
+            event_log,
+            stats,
+            task_store,
+            agent_run_store,
+            task_agent_run_store,
             message_records,
         }
     }
@@ -464,43 +409,46 @@
 <span class="rs-comment">/// Build the backend HTTP router over [`AppState`]. Resource names are plural and</span>
 <span class="rs-comment">/// id-segment paths use conventional `/collection/{id}` form (no</span>
 <span class="rs-comment">/// `/collection={id}` style).</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#item-fn-build-router-157">build_router</a>(state: <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-110">AppState</a>) -&gt; <span class="rs-type">Router</span> {
-    <span class="rs-type">Router</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-137">new</a>()
+<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-api--src-router-rs.html#item-fn-build-router-142">build_router</a>(state: <a class="symbol-link rs-type" href="eos-backend-api--src-router-rs.html#item-struct-AppState-58">AppState</a>) -&gt; <span class="rs-type">Router</span> {
+    <span class="rs-type">Router</span>::<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-agent-runs-rs.html#method-new-140">new</a>()
         .route(
-            &quot;/api/user-requests&quot;,
+            &quot;/api/agent-core/requests&quot;,
             post(handlers::user_requests::create).get(handlers::user_requests::list),
         )
         .route(
-            &quot;/api/user-requests/{request_id}&quot;,
+            &quot;/api/agent-core/requests/{request_id}&quot;,
             get(handlers::user_requests::detail).<a class="symbol-link rs-fn" href="eos-backend-api--src-handlers-sandboxes-rs.html#item-fn-delete-34">delete</a>(handlers::user_requests::cancel),
         )
         .route(
-            &quot;/api/user-requests/{request_id}/events&quot;,
+            &quot;/api/agent-core/requests/{request_id}/events&quot;,
             get(handlers::user_requests::events),
         )
         .route(
-            &quot;/api/user-requests/{request_id}/stream&quot;,
+            &quot;/api/agent-core/requests/{request_id}/stream&quot;,
             get(handlers::stream::stream),
         )
         .route(
-            &quot;/api/user-requests/{request_id}/tasks&quot;,
+            &quot;/api/agent-core/requests/{request_id}/tasks&quot;,
             get(handlers::tasks::request_tasks),
         )
-        .route(&quot;/api/tasks/{task_id}&quot;, get(handlers::tasks::detail))
         .route(
-            &quot;/api/tasks/{task_id}/transcript&quot;,
+            &quot;/api/agent-core/tasks/{task_id}&quot;,
+            get(handlers::tasks::detail),
+        )
+        .route(
+            &quot;/api/agent-core/tasks/{task_id}/transcript&quot;,
             get(handlers::tasks::transcript),
         )
         .route(
-            &quot;/api/agent-runs/{agent_run_id}/messages&quot;,
+            &quot;/api/agent-core/agent-runs/{agent_run_id}/messages&quot;,
             get(handlers::agent_runs::messages),
         )
         .route(
-            &quot;/api/agent-runs/{agent_run_id}/events&quot;,
+            &quot;/api/agent-core/agent-runs/{agent_run_id}/events&quot;,
             get(handlers::agent_runs::events),
         )
         .route(
-            &quot;/api/agent-runs/{agent_run_id}/stream&quot;,
+            &quot;/api/agent-core/agent-runs/{agent_run_id}/stream&quot;,
             get(handlers::agent_runs::stream),
         )
         .route(&quot;/api/stats/performance&quot;, get(handlers::stats::performance))

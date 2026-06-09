@@ -41,7 +41,7 @@ macro_rules! define_id {
         #[repr(transparent)]
         #[derive(
             Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord,
-            ::serde::Serialize, ::serde::Deserialize, ::schemars::JsonSchema,
+            ::serde::Serialize, ::schemars::JsonSchema,
         )]
         #[serde(transparent)]
         pub struct $name(::std::sync::Arc<str>);
@@ -76,6 +76,18 @@ macro_rules! define_id {
                     );
                 }
                 ::core::result::Result::Ok(Self(::std::sync::Arc::from(s)))
+            }
+        }
+
+        impl<'de> ::serde::Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> ::core::result::Result<Self, D::Error>
+            where
+                D: ::serde::Deserializer<'de>,
+            {
+                let value = <::std::string::String as ::serde::Deserialize>::deserialize(
+                    deserializer,
+                )?;
+                value.parse().map_err(::serde::de::Error::custom)
             }
         }
 
@@ -219,6 +231,12 @@ mod tests {
         assert_eq!(serde_json::to_value(&id).unwrap(), serde_json::json!("t1"));
         let back: TaskId = serde_json::from_value(serde_json::json!("t1")).unwrap();
         assert_eq!(back, id);
+
+        let empty = serde_json::from_value::<TaskId>(serde_json::json!(""));
+        assert!(
+            empty.is_err(),
+            "transparent id serde must preserve the non-empty invariant"
+        );
 
         #[derive(serde::Serialize)]
         struct Row {

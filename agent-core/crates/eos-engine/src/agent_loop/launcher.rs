@@ -12,7 +12,7 @@ use super::{
     AgentLoopExecutor, AgentLoopExecutorInput, AgentLoopToolRegistryFactory,
     BackgroundSessionRuntimeFactory, ToolCallHookStores, ToolExecutionMetadataReader,
 };
-use crate::event::EngineEventOutputs;
+use crate::event::{EngineEventOutputs, EngineEventSinkFactory};
 use crate::provider_stream::{ProviderStreamSource, ProviderStreamSourceFactory};
 
 #[derive(Clone, Debug)]
@@ -22,9 +22,13 @@ struct WatchAgentLoopCancellation {
 
 impl AgentLoopCancellation for WatchAgentLoopCancellation {
     fn cancel(&self, reason: &str) {
-        if self.sender.borrow().is_none() {
-            let _ignored = self.sender.send(Some(reason.to_owned()));
-        }
+        self.sender.send_if_modified(|current| {
+            if current.is_some() {
+                return false;
+            }
+            *current = Some(reason.to_owned());
+            true
+        });
     }
 }
 
@@ -41,10 +45,26 @@ impl AgentLoopCancelSignal {
         self.receiver.borrow().clone()
     }
 
+    pub(crate) async fn cancelled_reason(mut self) -> String {
+        loop {
+            if let Some(reason) = self.reason() {
+                return reason;
+            }
+            if self.receiver.changed().await.is_err() {
+                std::future::pending::<()>().await;
+            }
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn for_test() -> Self {
         let (_handle, signal) = agent_loop_cancel_pair();
         signal
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test_pair() -> (AgentLoopCancellationHandle, Self) {
+        agent_loop_cancel_pair()
     }
 }
 
@@ -72,6 +92,7 @@ pub struct TokioAgentLoopLauncher {
     background_sessions: Option<BackgroundSessionRuntimeFactory>,
     hook_stores: Option<ToolCallHookStores>,
     event_outputs: EngineEventOutputs,
+    live_event_sink_factory: Option<EngineEventSinkFactory>,
 }
 
 impl std::fmt::Debug for TokioAgentLoopLauncher {
@@ -123,6 +144,7 @@ impl TokioAgentLoopLauncher {
             background_sessions: None,
             hook_stores: None,
             event_outputs: EngineEventOutputs::new(),
+            live_event_sink_factory: None,
         }
     }
 
@@ -146,6 +168,13 @@ impl TokioAgentLoopLauncher {
         self.event_outputs = event_outputs;
         self
     }
+
+    /// Attach a live event sink factory resolved for each loop start request.
+    #[must_use]
+    pub fn with_live_event_sink_factory(mut self, factory: EngineEventSinkFactory) -> Self {
+        self.live_event_sink_factory = Some(factory);
+        self
+    }
 }
 
 impl AgentLoopLauncher for TokioAgentLoopLauncher {
@@ -156,6 +185,14 @@ impl AgentLoopLauncher for TokioAgentLoopLauncher {
     ) -> StartedAgentLoop {
         let (completion_sender, completion_wait) = oneshot::channel();
         let (cancel_handle, cancel_signal) = agent_loop_cancel_pair();
+        let event_outputs = self
+            .live_event_sink_factory
+            .as_ref()
+            .and_then(|factory| factory(&request))
+            .map_or_else(
+                || self.event_outputs.clone(),
+                |sink| self.event_outputs.clone().with_live_event_sink(Some(sink)),
+            );
         let loop_executor = AgentLoopExecutor::new(AgentLoopExecutorInput {
             provider_stream_source: self.provider_stream_source.clone(),
             tool_registry_factory: Arc::clone(&self.tool_registry_factory),
@@ -163,7 +200,7 @@ impl AgentLoopLauncher for TokioAgentLoopLauncher {
             cancel_signal,
             background_sessions: self.background_sessions.clone(),
             hook_stores: self.hook_stores.clone(),
-            event_outputs: self.event_outputs.clone(),
+            event_outputs,
             agent_run_api,
         });
 
@@ -184,5 +221,20 @@ impl AgentLoopLauncher for TokioAgentLoopLauncher {
             }),
             cancellation: cancel_handle,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cancellation_handle_keeps_first_reason() {
+        let (handle, signal) = agent_loop_cancel_pair();
+
+        handle.cancel("first");
+        handle.cancel("second");
+
+        assert_eq!(signal.reason().as_deref(), Some("first"));
     }
 }

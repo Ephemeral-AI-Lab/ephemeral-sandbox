@@ -1,11 +1,9 @@
-use std::sync::Arc;
-
 use eos_types::{
     AgentRunId, AttemptClosure, AttemptFailReason, AttemptId, TaskId, TaskStatus, ToolUseId,
     WorkflowStatus,
 };
 
-use crate::attempt::{AttemptOrchestratorRegistry, AttemptResources};
+use crate::attempt::AttemptResources;
 use crate::lifecycle::WorkflowLifecycle;
 use crate::{Result, WorkflowError};
 
@@ -41,13 +39,6 @@ impl WorkflowStarter {
     #[must_use]
     pub fn new(deps: AttemptResources) -> Self {
         Self { deps }
-    }
-
-    /// The shared attempt-orchestrator registry these deps were built over. Used
-    /// by the workflow-control adapter's cancel path to abort in-flight
-    /// planner-driver tasks.
-    pub(crate) fn orchestrator_registry(&self) -> &Arc<AttemptOrchestratorRegistry> {
-        &self.deps.orchestrator_registry
     }
 
     /// Start a delegated workflow from `parent_task_id`.

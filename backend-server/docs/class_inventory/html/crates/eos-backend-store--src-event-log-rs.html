@@ -84,7 +84,7 @@
         .bind(record.request_id.as_str())
         .bind(record.seq)
         .bind(&amp;record.kind)
-        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-175">json_encode</a>(&amp;record.payload)?)
+        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-178">json_encode</a>(&amp;record.payload)?)
         .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-in-149">ts_in</a>(record.created_at))
         .execute(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>?;
@@ -120,41 +120,42 @@
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
     <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-event-log-rs.html#method-max-seq-67">max_seq</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;i64&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
-        <span class="rs-kw">let</span> max: <span class="rs-type">Option</span>&lt;i64&gt; = sqlx::query_scalar(&quot;<span class="rs-type">SELECT</span> <span class="rs-type">MAX</span>(seq) <span class="rs-type">FROM</span> event_log <span class="rs-type">WHERE</span> request_id = ?&quot;)
-            .bind(request_id.as_str())
-            .fetch_one(&amp;<span class="rs-self">self</span>.pool)
-            .<span class="rs-kw">await</span>?;
+        <span class="rs-kw">let</span> max: <span class="rs-type">Option</span>&lt;i64&gt; =
+            sqlx::query_scalar(&quot;<span class="rs-type">SELECT</span> <span class="rs-type">MAX</span>(seq) <span class="rs-type">FROM</span> event_log <span class="rs-type">WHERE</span> request_id = ?&quot;)
+                .bind(request_id.as_str())
+                .fetch_one(&amp;<span class="rs-self">self</span>.pool)
+                .<span class="rs-kw">await</span>?;
         <span class="rs-type">Ok</span>(max)
     }
 </code></pre>
 </details></td></tr></tbody></table>
 
   <p class="source">crates/eos-backend-store/src/event_log.rs:18</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-row-to-event-80" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_event private fn row_to_event (row : &amp; SqliteRow) -&gt; Result &lt; EventRecord , StoreError &gt; crates/eos-backend-store/src/event_log.rs  ">
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-row-to-event-81" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_event private fn row_to_event (row : &amp; SqliteRow) -&gt; Result &lt; EventRecord , StoreError &gt; crates/eos-backend-store/src/event_log.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>row_to_event</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-store--src-event-log-rs.html#item-fn-row-to-event-80">row_to_event</a> (row : &amp; SqliteRow) -&gt; Result &lt; EventRecord , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-store--src-event-log-rs.html#item-fn-row-to-event-81">row_to_event</a> (row : &amp; SqliteRow) -&gt; Result &lt; EventRecord , <a class="symbol-link" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-event-log-rs.html#item-fn-row-to-event-80">row_to_event</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">EventRecord</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-event-log-rs.html#item-fn-row-to-event-81">row_to_event</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">EventRecord</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     <span class="rs-kw">let</span> payload_json: <span class="rs-type">String</span> = row.try_get(&quot;payload_json&quot;)?;
     <span class="rs-kw">let</span> created_at: <span class="rs-type">OffsetDateTime</span> = row.try_get(&quot;created_at&quot;)?;
     <span class="rs-type">Ok</span>(<span class="rs-type">EventRecord</span> {
         request_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;event_log.request_id&quot;, row.try_get(&quot;request_id&quot;)?)?,
         seq: row.try_get(&quot;seq&quot;)?,
         kind: row.try_get(&quot;kind&quot;)?,
-        payload: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-180">json_decode</a>(&amp;payload_json)?,
+        payload: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-183">json_decode</a>(&amp;payload_json)?,
         created_at: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-out-154">ts_out</a>(created_at),
     })
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-store/src/event_log.rs:80</p>
+  <p class="source">crates/eos-backend-store/src/event_log.rs:81</p>
 </article></div>
 </section></div>
 </main>
@@ -202,7 +203,7 @@
         .bind(record.request_id.as_str())
         .bind(record.seq)
         .bind(&amp;record.kind)
-        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-175">json_encode</a>(&amp;record.payload)?)
+        .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-encode-178">json_encode</a>(&amp;record.payload)?)
         .bind(<a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-in-149">ts_in</a>(record.created_at))
         .execute(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>?;
@@ -234,22 +235,23 @@
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] on a query failure.</span>
     <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-event-log-rs.html#method-max-seq-67">max_seq</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;i64&gt;, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
-        <span class="rs-kw">let</span> max: <span class="rs-type">Option</span>&lt;i64&gt; = sqlx::query_scalar(&quot;<span class="rs-type">SELECT</span> <span class="rs-type">MAX</span>(seq) <span class="rs-type">FROM</span> event_log <span class="rs-type">WHERE</span> request_id = ?&quot;)
-            .bind(request_id.as_str())
-            .fetch_one(&amp;<span class="rs-self">self</span>.pool)
-            .<span class="rs-kw">await</span>?;
+        <span class="rs-kw">let</span> max: <span class="rs-type">Option</span>&lt;i64&gt; =
+            sqlx::query_scalar(&quot;<span class="rs-type">SELECT</span> <span class="rs-type">MAX</span>(seq) <span class="rs-type">FROM</span> event_log <span class="rs-type">WHERE</span> request_id = ?&quot;)
+                .bind(request_id.as_str())
+                .fetch_one(&amp;<span class="rs-self">self</span>.pool)
+                .<span class="rs-kw">await</span>?;
         <span class="rs-type">Ok</span>(max)
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-event-log-rs.html#item-fn-row-to-event-80">row_to_event</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">EventRecord</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-store--src-event-log-rs.html#item-fn-row-to-event-81">row_to_event</a>(row: &amp;<span class="rs-type">SqliteRow</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">EventRecord</span>, <a class="symbol-link rs-type" href="eos-backend-store--src-db-rs.html#item-enum-StoreError-18">StoreError</a>&gt; {
     <span class="rs-kw">let</span> payload_json: <span class="rs-type">String</span> = row.try_get(&quot;payload_json&quot;)?;
     <span class="rs-kw">let</span> created_at: <span class="rs-type">OffsetDateTime</span> = row.try_get(&quot;created_at&quot;)?;
     <span class="rs-type">Ok</span>(<span class="rs-type">EventRecord</span> {
         request_id: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-id-in-159">id_in</a>(&quot;event_log.request_id&quot;, row.try_get(&quot;request_id&quot;)?)?,
         seq: row.try_get(&quot;seq&quot;)?,
         kind: row.try_get(&quot;kind&quot;)?,
-        payload: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-180">json_decode</a>(&amp;payload_json)?,
+        payload: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-json-decode-183">json_decode</a>(&amp;payload_json)?,
         created_at: <a class="symbol-link rs-fn" href="eos-backend-store--src-db-rs.html#item-fn-ts-out-154">ts_out</a>(created_at),
     })
 }

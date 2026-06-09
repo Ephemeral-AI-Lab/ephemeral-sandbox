@@ -23,6 +23,11 @@ the external request facade. It also rejects the intermediate names
 `active_requests`, `message_records` on the request service, and any public
 cancellation handler.
 
+The legacy `agent-core/crates/eos-agent-core` crate is removed from the
+workspace. Audit/observability contracts and persistence live in
+`eos-backend-audit`; and the old backend
+run-to-completion `RunLauncher` / `RuntimeHost` / `Reaper` path is retired.
+
 `backend-server` remains the HTTP/router owner. `eos-agent-core-server` is not
 an axum router crate. `/api/agent-core` is a backend HTTP namespace, not the
 resource being created; concrete resources stay under that namespace.
@@ -96,14 +101,12 @@ agent-core/crates/eos-agent-core-server/
 │   ├── service.rs
 │   ├── dto.rs
 │   ├── error.rs
+│   ├── user_request.rs
 │   └── user_request/
-│       ├── mod.rs
 │       ├── create.rs
 │       ├── cancel.rs
-│       ├── read.rs
-│       ├── list.rs
-│       ├── list_tasks.rs
-│       └── finalizer.rs
+│       ├── finalizer.rs
+│       └── query.rs
 ```
 
 No additional implementation folders or crate-level test folders are part of the
@@ -113,7 +116,6 @@ first target. Service behavior is covered through backend API contract tests,
 Do not create these files:
 
 ```text
-user_request.rs
 user_request_task.rs
 root_agent.rs
 agent_records.rs
@@ -276,8 +278,7 @@ impl AgentCoreService {
 
     pub async fn list_user_requests(
         &self,
-        page: Page,
-    ) -> Result<PageResult<UserRequestSummary>, AgentCoreServerError>;
+    ) -> Result<Vec<UserRequestSummary>, AgentCoreServerError>;
 
     pub async fn list_user_request_tasks(
         &self,
@@ -291,6 +292,10 @@ implementation detail of `create_user_request`.
 
 There is no separate cancellation handler or cancellation registry in the public
 API. Cancellation is just `cancel_user_request`.
+
+HTTP pagination remains a `backend-server` concern. `AgentCoreService` returns
+the full request-summary list; backend-server keeps `Page`, `PageResult`,
+defaults, clamping, slicing, and the response envelope.
 
 ## API DTOs
 
@@ -597,10 +602,15 @@ references during migration. They must not appear in the final target.
 | 11 | Update backend OpenAPI and API contract tests for `/api/agent-core/*` paths | Implemented |
 | 12 | Update `agent-core/Cargo.toml` workspace members and workspace dependencies | Implemented |
 | 13 | Update phase index and architecture docs after compile gates pass | Implemented |
+| 14 | Remove legacy `agent-core/crates/eos-agent-core` crate | Implemented |
+| 15 | Move audit/obs contracts to `eos-backend-audit` and remove backend `eos-agent-core` dependencies | Implemented |
+| 16 | Remove old backend run-to-completion launcher/host/reaper code | Implemented |
 
 ## Acceptance Criteria
 
 - `agent-core/crates/eos-agent-core-server` exists and builds.
+- `agent-core/crates/eos-agent-core` does not exist and is not a workspace
+  member or dependency.
 - The crate exports `AgentCoreService`; it does not export
   `AgentCoreRuntime`, `AgentCoreHost`, `AgentCoreServerInner`, or
   `AgentCoreReads`.
@@ -618,6 +628,10 @@ references during migration. They must not appear in the final target.
   `/api/user-requests`, `/api/tasks`, or `/api/agent-runs` paths.
 - Backend OpenAPI output and API contract tests use the `/api/agent-core/*`
   route namespace for agent-core resources.
+- Backend runtime no longer exports `RunLauncher`, `RuntimeHost`, `RunHost`, or
+  `Reaper`.
+- `eos-backend-audit` owns audit/obs contracts directly, not through
+  `eos-agent-core` or `eos-types`.
 - Cancellation flows through `AgentCoreService::cancel_user_request`.
 - Cancellation resolves running agent runs from durable task-agent-run rows and
   delegates active handle teardown to `AgentRunService`.

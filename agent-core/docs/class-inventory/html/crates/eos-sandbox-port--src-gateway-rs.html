@@ -88,7 +88,7 @@
   </div>
   <pre class="file-source"><code><span class="rs-comment">//! The single injected sandbox handle (spec §Core Contracts / Sandbox Gateway).</span>
 <span class="rs-comment">//!</span>
-<span class="rs-comment">//! [`SandboxGateway`] is the one production seam `eos-agent-core` accepts to wire</span>
+<span class="rs-comment">//! [`SandboxGateway`] is the one production seam request orchestration accepts to wire</span>
 <span class="rs-comment">//! sandbox access. It hands back the two narrower port objects —</span>
 <span class="rs-comment">//! [`SandboxTransport`] (per-tool daemon RPC) and [`RequestProvisioner`] (request</span>
 <span class="rs-comment">//! binding) — which share one registry/lifecycle inside the implementor. The</span>

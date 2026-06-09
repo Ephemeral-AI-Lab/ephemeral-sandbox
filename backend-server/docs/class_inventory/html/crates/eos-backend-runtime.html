@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">backend-server</a>
 <section class="summary">
-  <div><b>7</b><span>modules</span></div>
-  <div><b>55</b><span>items</span></div>
-  <div><b>61</b><span>fields</span></div>
-  <div><b>46</b><span>methods</span></div>
+  <div><b>4</b><span>modules</span></div>
+  <div><b>41</b><span>items</span></div>
+  <div><b>50</b><span>fields</span></div>
+  <div><b>36</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,8 +41,8 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link active" href="eos-backend-runtime.html"><span>event_bus.rs</span><small>4/6</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-host-rs.html"><span>host.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-launcher-rs.html"><span>launcher.rs</span><small>5/0</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-reaper-rs.html"><span>reaper.rs</span><small>2/0</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-sandbox-manager-rs.html"><span>sandbox_manager.rs</span><small>10/3</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-status-rs.html"><span>status.rs</span><small>0/1</small></a></li></ul></li></ul></nav>
-  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="event_bus crates/eos-backend-runtime/src/event_bus.rs PendingMilestone RequestStream impl RequestStream EventBus impl EventBus classify_and_enqueue milestone_kind is_delta drain persist_and_broadcast emit_gap EventSubscription impl EventSubscription">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link active" href="eos-backend-runtime.html"><span>event_bus.rs</span><small>6/6</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-sandbox-manager-rs.html"><span>sandbox_manager.rs</span><small>10/3</small></a></li><li><a class="file-link" href="eos-backend-runtime--src-status-rs.html"><span>status.rs</span><small>0/1</small></a></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="event_bus crates/eos-backend-runtime/src/event_bus.rs PendingMilestone RequestStream impl RequestStream RequestStreamHandle SinkGuard impl Drop for SinkGuard EventBus impl EventBus classify_and_enqueue milestone_kind is_delta drain persist_and_broadcast emit_gap EventSubscription impl EventSubscription">
   <div class="module-head">
     <div>
       <h2>src/event_bus.rs</h2>
@@ -50,126 +50,123 @@
     </div>
     <div class="module-stats">
       <span>file owns</span>
-      <span>4 types</span>
-      <span>3 impls</span>
+      <span>6 types</span>
+      <span>4 impls</span>
       <span>6 fns</span>
-      <span>8 methods</span>
+      <span>9 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-EventBus-87" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct EventBus pub pub struct EventBus crates/eos-backend-runtime/src/event_bus.rs streams Mutex &lt; HashMap &lt; RequestId , Arc &lt; RequestStream &gt; &gt; &gt; event_log EventLogRepo queue_capacity usize live_capacity usize ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-EventBus-75" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct EventBus pub pub struct EventBus crates/eos-backend-runtime/src/event_bus.rs streams Arc &lt; Mutex &lt; HashMap &lt; RequestId , Arc &lt; RequestStreamHandle &gt; &gt; &gt; &gt; event_log EventLogRepo queue_capacity usize live_capacity usize ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>EventBus</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-runtime.html#item-struct-EventBus-87">EventBus</a></code>
-  <p class="docstring">Backend event bus: owns the durable `event_log` writer and the per-request live<br>streams. Share one instance (e.g. `Arc&lt;EventBus&gt;`) between the launcher (which<br>registers a callback per run) and the streaming API (which subscribes).</p>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-runtime.html#item-struct-EventBus-75">EventBus</a></code>
+  <p class="docstring">Backend event bus over the durable `event_log` plus request-scoped live tails.</p>
   <div class="tags"><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>streams</td><td><code>Mutex &lt; HashMap &lt; RequestId , Arc &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a> &gt; &gt; &gt;</code></td></tr><tr><td>private</td><td>event_log</td><td><code>EventLogRepo</code></td></tr><tr><td>private</td><td>queue_capacity</td><td><code>usize</code></td></tr><tr><td>private</td><td>live_capacity</td><td><code>usize</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-99"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-runtime.html#method-new-99">new</a> (event_log : EventLogRepo) -&gt; Self</code><p class="docstring">Build a bus over the durable `event_log` repository with default capacities.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>streams</td><td><code>Arc &lt; Mutex &lt; HashMap &lt; RequestId , Arc &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a> &gt; &gt; &gt; &gt;</code></td></tr><tr><td>private</td><td>event_log</td><td><code>EventLogRepo</code></td></tr><tr><td>private</td><td>queue_capacity</td><td><code>usize</code></td></tr><tr><td>private</td><td>live_capacity</td><td><code>usize</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-85"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-backend-runtime.html#method-new-85">new</a> (event_log : EventLogRepo) -&gt; Self</code><p class="docstring">Build a bus over the durable `event_log` repository.</p><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Build a bus over the durable `event_log` repository with default capacities.</span>
+  <pre><code>    <span class="rs-comment">/// Build a bus over the durable `event_log` repository.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(event_log: <span class="rs-type">EventLogRepo</span>) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-with-capacity-105">with_capacity</a>(event_log, <span class="rs-type">DEFAULT_QUEUE_CAPACITY</span>, <span class="rs-type">DEFAULT_LIVE_CAPACITY</span>)
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(event_log: <span class="rs-type">EventLogRepo</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-with-capacity-91">with_capacity</a>(event_log, <span class="rs-type">DEFAULT_QUEUE_CAPACITY</span>, <span class="rs-type">DEFAULT_LIVE_CAPACITY</span>)
     }
 </code></pre>
-</details></td></tr><tr id="method-with-capacity-105"><td>constructor</td><td>with_capacity</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime.html#method-with-capacity-105">with_capacity</a> (event_log : EventLogRepo , queue_capacity : usize , live_capacity : usize) -&gt; Self</code><p class="docstring">Build a bus with explicit queue/broadcast bounds (used by `new` for the<br>defaults and by tests to force overflow and lag deterministically). Both<br>bounds are floored at 1.</p><details class="function-source">
+</details></td></tr><tr id="method-with-capacity-91"><td>constructor</td><td>with_capacity</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime.html#method-with-capacity-91">with_capacity</a> (event_log : EventLogRepo , queue_capacity : usize , live_capacity : usize) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Build a bus with explicit queue/broadcast bounds (used by `new` for the</span>
-    <span class="rs-comment">/// defaults and by tests to force overflow and lag deterministically). Both</span>
-    <span class="rs-comment">/// bounds are floored at 1.</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-with-capacity-105">with_capacity</a>(event_log: <span class="rs-type">EventLogRepo</span>, queue_capacity: usize, live_capacity: usize) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-with-capacity-91">with_capacity</a>(event_log: <span class="rs-type">EventLogRepo</span>, queue_capacity: usize, live_capacity: usize) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
-            streams: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>()),
+            streams: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>())),
             event_log,
             queue_capacity: queue_capacity.max(1),
             live_capacity: live_capacity.max(1),
         }
     }
 </code></pre>
-</details></td></tr><tr id="method-finish-190"><td>method</td><td>finish</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-backend-runtime.html#method-finish-190">finish</a> (&amp; self , request_id : &amp; RequestId)</code><p class="docstring">Drop the bus's handle on a finished run's stream. Combined with the run<br>dropping its callback (which closes the queue and exits the drainer), this<br>frees the broadcast sender so live subscribers observe close. Durable<br>`event_log` rows remain replayable.<br>Internal seam: the reaper finishes a run; not part of the downstream API.</p><details class="function-source">
+</details></td></tr><tr id="method-live-event-sink-factory-100"><td>method</td><td>live_event_sink_factory</td><td><code>pub fn <a class="symbol-link" href="eos-backend-runtime.html#method-live-event-sink-factory-100">live_event_sink_factory</a> (self : &amp; Arc &lt; Self &gt;) -&gt; EngineEventSinkFactory</code><p class="docstring">Build the per-loop live sink factory consumed by `TokioAgentLoopLauncher`.</p><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Drop the bus's handle on a finished run's stream. Combined with the run</span>
-    <span class="rs-comment">/// dropping its callback (which closes the queue and exits the drainer), this</span>
-    <span class="rs-comment">/// frees the broadcast sender so live subscribers observe close. Durable</span>
-    <span class="rs-comment">/// `event_log` rows remain replayable.</span>
-    <span class="rs-comment">///</span>
-    <span class="rs-comment">/// Internal seam: the reaper finishes a run; not part of the downstream API.</span>
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-finish-190">finish</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) {
-        <span class="rs-self">self</span>.streams.lock().remove(request_id);
+  <pre><code>    <span class="rs-comment">/// Build the per-loop live sink factory consumed by `TokioAgentLoopLauncher`.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-live-event-sink-factory-100">live_event_sink_factory</a>(<span class="rs-self">self</span>: &amp;<span class="rs-type">Arc</span>&lt;<span class="rs-self">Self</span>&gt;) -&gt; <span class="rs-type">EngineEventSinkFactory</span> {
+        <span class="rs-kw">let</span> bus = <span class="rs-type">Arc</span>::clone(<span class="rs-self">self</span>);
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">move</span> |request| <span class="rs-type">Some</span>(bus.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-107">register</a>(&amp;request.record_target.request_id)))
     }
 </code></pre>
-</details></td></tr><tr id="method-register-117"><td>method</td><td>register</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-backend-runtime.html#method-register-117">register</a> (&amp; self , request_id : &amp; RequestId) -&gt; EventCallback</code><p class="docstring">Register a run and return the synchronous engine callback for it. Spawns the<br>per-request drainer; must be called within a Tokio runtime.<br>The returned [`EventCallback`] owns the only `mpsc::Sender`, so dropping it<br>(when the run ends) closes the queue and the drainer exits.<br>Internal seam: the launcher registers a run; downstream code drives this<br>transitively through `RunLauncher`, never directly.</p><details class="function-source">
+</details></td></tr><tr id="method-register-107"><td>method</td><td>register</td><td><code>pub fn <a class="symbol-link" href="eos-backend-runtime.html#method-register-107">register</a> (&amp; self , request_id : &amp; RequestId) -&gt; EngineEventSink</code><p class="docstring">Register one agent loop under its owning request and return its sync event<br>sink. The returned sink must be dropped when the loop finishes; dropping the<br>last sink for a request closes its live tail after the drainer flushes.</p><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Register a run and return the synchronous engine callback for it. Spawns the</span>
-    <span class="rs-comment">/// per-request drainer; must be called within a Tokio runtime.</span>
-    <span class="rs-comment">///</span>
-    <span class="rs-comment">/// The returned [`EventCallback`] owns the only `mpsc::Sender`, so dropping it</span>
-    <span class="rs-comment">/// (when the run ends) closes the queue and the drainer exits.</span>
-    <span class="rs-comment">///</span>
-    <span class="rs-comment">/// Internal seam: the launcher registers a run; downstream code drives this</span>
-    <span class="rs-comment">/// transitively through `RunLauncher`, never directly.</span>
+  <pre><code>    <span class="rs-comment">/// Register one agent loop under its owning request and return its sync event</span>
+    <span class="rs-comment">/// sink. The returned sink must be dropped when the loop finishes; dropping the</span>
+    <span class="rs-comment">/// last sink for a request closes its live tail after the drainer flushes.</span>
     #[must_use]
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-117">register</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">EventCallback</span> {
-        <span class="rs-kw">let</span> (tx, stream) = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-open-stream-140">open_stream</a>(request_id);
-        <span class="rs-comment">// The closure's `event` is inferred as `&amp;StreamEvent` from the</span>
-        <span class="rs-comment">// `EventCallback` target, so we never name the engine event type. Body is</span>
-        <span class="rs-comment">// strictly synchronous: serialize, then run the shared enqueue path</span>
-        <span class="rs-comment">// (classify, `try_send` an unsequenced milestone) — no `.await`, no lock.</span>
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-kw">move</span> |event| {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-107">register</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">EngineEventSink</span> {
+        <span class="rs-kw">let</span> handle = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-stream-for-request-130">stream_for_request</a>(request_id);
+        handle.active_sinks.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">AcqRel</span>);
+        <span class="rs-kw">let</span> guard = <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-SinkGuard-53">SinkGuard</a> {
+            request_id: request_id.clone(),
+            handle: handle.clone(),
+            streams: <span class="rs-type">Arc</span>::clone(&amp;<span class="rs-self">self</span>.streams),
+        };
+        <span class="rs-kw">let</span> tx = handle.tx.clone();
+        <span class="rs-kw">let</span> stream = handle.stream.clone();
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">move</span> |event: &amp;<span class="rs-type">StreamEvent</span>| {
+            <span class="rs-kw">let</span> _keep_alive = &amp;guard;
             <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(payload) = serde_json::to_value(event) <span class="rs-kw">else</span> {
                 <span class="rs-kw">return</span>;
             };
-            <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-classify-and-enqueue-201">classify_and_enqueue</a>(&amp;tx, &amp;stream, payload);
+            <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-classify-and-enqueue-184">classify_and_enqueue</a>(&amp;tx, &amp;stream, payload);
         })
     }
 </code></pre>
-</details></td></tr><tr id="method-open-stream-140"><td>method</td><td>open_stream</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime.html#method-open-stream-140">open_stream</a> (&amp; self , request_id : &amp; RequestId) -&gt; (mpsc :: Sender &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a> &gt; , Arc &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a> &gt;)</code><p class="docstring">Create the channels + per-request [`RequestStream`], register it, and spawn<br>the drainer. Production [`register`](Self::register) wraps the returned<br>sender in the `StreamEvent` callback; tests drive the same enqueue path with<br>pre-serialized payloads (a `#[non_exhaustive]` `StreamEvent` cannot be built<br>outside `eos-engine`).</p><details class="function-source">
+</details></td></tr><tr id="method-stream-for-request-130"><td>method</td><td>stream_for_request</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime.html#method-stream-for-request-130">stream_for_request</a> (&amp; self , request_id : &amp; RequestId) -&gt; Arc &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a> &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Create the channels + per-request [`RequestStream`], register it, and spawn</span>
-    <span class="rs-comment">/// the drainer. Production [`register`](Self::register) wraps the returned</span>
-    <span class="rs-comment">/// sender in the `StreamEvent` callback; tests drive the same enqueue path with</span>
-    <span class="rs-comment">/// pre-serialized payloads (a `#[non_exhaustive]` `StreamEvent` cannot be built</span>
-    <span class="rs-comment">/// outside `eos-engine`).</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-open-stream-140">open_stream</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; (mpsc::<span class="rs-type">Sender</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a>&gt;, <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a>&gt;) {
-        <span class="rs-kw">let</span> (tx, rx) = mpsc::channel::&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a>&gt;(<span class="rs-self">self</span>.queue_capacity);
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-stream-for-request-130">stream_for_request</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a>&gt; {
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> streams = <span class="rs-self">self</span>.streams.lock();
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(handle) = streams.get(request_id) {
+            <span class="rs-kw">return</span> handle.clone();
+        }
+
+        <span class="rs-kw">let</span> (tx, rx) = mpsc::channel::&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a>&gt;(<span class="rs-self">self</span>.queue_capacity);
         <span class="rs-kw">let</span> (live, _) = broadcast::channel::&lt;<span class="rs-type">EventRecord</span>&gt;(<span class="rs-self">self</span>.live_capacity);
-        <span class="rs-kw">let</span> stream = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a> {
-            gap_pending: <span class="rs-type">AtomicBool</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-kw">false</span>),
-            dropped: <span class="rs-type">AtomicU64</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(0),
+        <span class="rs-kw">let</span> stream = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a> {
+            gap_pending: <span class="rs-type">AtomicBool</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">false</span>),
+            dropped: <span class="rs-type">AtomicU64</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(0),
             live,
         });
-        <span class="rs-self">self</span>.streams.lock().insert(request_id.clone(), stream.clone());
-        tokio::spawn(<a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-drain-240">drain</a>(
+        <span class="rs-kw">let</span> handle = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a> {
+            tx,
+            stream: stream.clone(),
+            active_sinks: <span class="rs-type">AtomicUsize</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(0),
+        });
+        streams.insert(request_id.clone(), handle.clone());
+        tokio::spawn(<a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-drain-214">drain</a>(
             rx,
-            stream.clone(),
+            stream,
             <span class="rs-self">self</span>.event_log.clone(),
             request_id.clone(),
         ));
-        (tx, stream)
+        handle
     }
 </code></pre>
-</details></td></tr><tr id="method-subscribe-163"><td>method</td><td>subscribe</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-runtime.html#method-subscribe-163">subscribe</a> (&amp; self , request_id : &amp; RequestId , after_seq : i64 ,) -&gt; Result &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-EventSubscription-339">EventSubscription</a> , StoreError &gt;</code><p class="docstring">Subscribe to a request's stream, replaying persisted records with<br>`seq &gt; after_seq` then joining the live broadcast with no handoff gap.<br># Errors<br>[`StoreError`] if the initial `event_log` replay read fails.</p><details class="function-source">
+</details></td></tr><tr id="method-subscribe-158"><td>method</td><td>subscribe</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-runtime.html#method-subscribe-158">subscribe</a> (&amp; self , request_id : &amp; RequestId , after_seq : i64 ,) -&gt; Result &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-EventSubscription-296">EventSubscription</a> , StoreError &gt;</code><p class="docstring">Subscribe to a request's stream, replaying persisted rows with<br>`seq &gt; after_seq` and then tailing the live stream when one is active.<br># Errors<br>[`StoreError`] if the initial replay read fails.</p><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Subscribe to a request's stream, replaying persisted records with</span>
-    <span class="rs-comment">/// `seq &gt; after_seq` then joining the live broadcast with no handoff gap.</span>
+  <pre><code>    <span class="rs-comment">/// Subscribe to a request's stream, replaying persisted rows with</span>
+    <span class="rs-comment">/// `seq &gt; after_seq` and then tailing the live stream when one is active.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
-    <span class="rs-comment">/// [`StoreError`] if the initial `event_log` replay read fails.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-subscribe-163">subscribe</a>(
+    <span class="rs-comment">/// [`StoreError`] if the initial replay read fails.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-subscribe-158">subscribe</a>(
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
         after_seq: i64,
-    ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-339">EventSubscription</a>, <span class="rs-type">StoreError</span>&gt; {
-        <span class="rs-comment">// Subscribe to live FIRST (before the replay read) so any record persisted</span>
-        <span class="rs-comment">// and broadcast during the read is captured by `live` rather than lost</span>
-        <span class="rs-comment">// between replay and live. The guard is dropped before the `.await`.</span>
-        <span class="rs-kw">let</span> live = {
-            <span class="rs-kw">let</span> streams = <span class="rs-self">self</span>.streams.lock();
-            streams.get(request_id).map(|s| s.live.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-subscribe-163">subscribe</a>())
-        };
+    ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-296">EventSubscription</a>, <span class="rs-type">StoreError</span>&gt; {
+        <span class="rs-kw">let</span> live = <span class="rs-self">self</span>
+            .streams
+            .lock()
+            .get(request_id)
+            .map(|handle| handle.stream.live.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-subscribe-158">subscribe</a>());
         <span class="rs-kw">let</span> replay = <span class="rs-self">self</span>.event_log.list_since(request_id, after_seq).<span class="rs-kw">await</span>?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-339">EventSubscription</a> {
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-296">EventSubscription</a> {
             request_id: request_id.clone(),
             event_log: <span class="rs-self">self</span>.event_log.clone(),
             replay: replay.into(),
@@ -180,57 +177,55 @@
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:87</p>
-</article><article id="item-struct-EventSubscription-339" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct EventSubscription pub pub struct EventSubscription crates/eos-backend-runtime/src/event_bus.rs request_id RequestId event_log EventLogRepo replay VecDeque &lt; EventRecord &gt; live Option &lt; broadcast :: Receiver &lt; EventRecord &gt; &gt; last_seq i64 ">
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:75</p>
+</article><article id="item-struct-EventSubscription-296" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct EventSubscription pub pub struct EventSubscription crates/eos-backend-runtime/src/event_bus.rs request_id RequestId event_log EventLogRepo replay VecDeque &lt; EventRecord &gt; live Option &lt; broadcast :: Receiver &lt; EventRecord &gt; &gt; last_seq i64 ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>EventSubscription</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-runtime.html#item-struct-EventSubscription-339">EventSubscription</a></code>
-  <p class="docstring">A replay-then-live subscription. [`EventSubscription::recv`] yields records in<br>`seq` order with no gap and no duplicate across the replay/live handoff, and<br>recovers broadcast lag from the durable log.<br>The dedup is a single high-water mark (`last_seq`): replay raises it, live<br>delivers only `seq &gt; last_seq`. This is sound because the drainer is the sole<br>sequencer ([`drain`]): it stamps `seq` as it persists, so persist order, `seq`<br>order, and broadcast order are identical — a gap marker can never carry a `seq`<br>above a not-yet-delivered record. The dedup is additionally robust to *broadcast<br>reordering* (a slow subscriber that lags is refilled from the durable log).</p>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-backend-runtime.html#item-struct-EventSubscription-296">EventSubscription</a></code>
+  <p class="docstring">Replay-then-live subscription for one request.</p>
   <div class="tags"><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>request_id</td><td><code>RequestId</code></td></tr><tr><td>private</td><td>event_log</td><td><code>EventLogRepo</code></td></tr><tr><td>private</td><td>replay</td><td><code>VecDeque &lt; EventRecord &gt;</code></td></tr><tr><td>private</td><td>live</td><td><code>Option &lt; broadcast :: Receiver &lt; EventRecord &gt; &gt;</code></td></tr><tr><td>private</td><td>last_seq</td><td><code>i64</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-recv-362"><td>method</td><td>recv</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-runtime.html#method-recv-362">recv</a> (&amp; mut self) -&gt; Result &lt; Option &lt; EventRecord &gt; , StoreError &gt;</code><p class="docstring">The next record in `seq` order, or `None` when the stream is exhausted.<br>Drains buffered replay first (skipping any `seq &lt;= last_seq`), then tails the<br>live broadcast (delivering only `seq &gt; last_seq`). On broadcast lag it<br>refills from the durable `event_log` instead of skipping; on close it does a<br>final durable sweep before ending.<br># Errors<br>[`StoreError`] if a durable refill read fails.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>request_id</td><td><code>RequestId</code></td></tr><tr><td>private</td><td>event_log</td><td><code>EventLogRepo</code></td></tr><tr><td>private</td><td>replay</td><td><code>VecDeque &lt; EventRecord &gt;</code></td></tr><tr><td>private</td><td>live</td><td><code>Option &lt; broadcast :: Receiver &lt; EventRecord &gt; &gt;</code></td></tr><tr><td>private</td><td>last_seq</td><td><code>i64</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-recv-308"><td>method</td><td>recv</td><td><code>pub async fn <a class="symbol-link" href="eos-backend-runtime.html#method-recv-308">recv</a> (&amp; mut self) -&gt; Result &lt; Option &lt; EventRecord &gt; , StoreError &gt;</code><p class="docstring">Return the next event record, recovering live broadcast lag from<br>`event_log`.<br># Errors<br>[`StoreError`] if a durable refill read fails.</p><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// The next record in `seq` order, or `None` when the stream is exhausted.</span>
-    <span class="rs-comment">///</span>
-    <span class="rs-comment">/// Drains buffered replay first (skipping any `seq &lt;= last_seq`), then tails the</span>
-    <span class="rs-comment">/// live broadcast (delivering only `seq &gt; last_seq`). On broadcast lag it</span>
-    <span class="rs-comment">/// refills from the durable `event_log` instead of skipping; on close it does a</span>
-    <span class="rs-comment">/// final durable sweep before ending.</span>
+  <pre><code>    <span class="rs-comment">/// Return the next event record, recovering live broadcast lag from</span>
+    <span class="rs-comment">/// `event_log`.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] if a durable refill read fails.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-362">recv</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">EventRecord</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-308">recv</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">EventRecord</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
         loop {
             <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(record) = <span class="rs-self">self</span>.replay.pop_front() {
                 <span class="rs-kw">if</span> record.seq &gt; <span class="rs-self">self</span>.last_seq {
                     <span class="rs-self">self</span>.last_seq = record.seq;
                     <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(record));
                 }
-                <span class="rs-kw">continue</span>; <span class="rs-comment">// already delivered — dedup at the replay/live boundary.</span>
+                <span class="rs-kw">continue</span>;
             }
+
             <span class="rs-kw">let</span> <span class="rs-type">Some</span>(live) = <span class="rs-self">self</span>.live.as_mut() <span class="rs-kw">else</span> {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>); <span class="rs-comment">// replay-only (stream already finished) and drained.</span>
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>);
             };
-            <span class="rs-kw">match</span> live.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-362">recv</a>().<span class="rs-kw">await</span> {
+            <span class="rs-kw">match</span> live.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-308">recv</a>().<span class="rs-kw">await</span> {
                 <span class="rs-type">Ok</span>(record) =&gt; {
                     <span class="rs-kw">if</span> record.seq &gt; <span class="rs-self">self</span>.last_seq {
                         <span class="rs-self">self</span>.last_seq = record.seq;
                         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(record));
                     }
-                    <span class="rs-comment">// A replayed seq echoed live — skip it.</span>
                 }
                 <span class="rs-type">Err</span>(broadcast::error::<span class="rs-type">RecvError</span>::<span class="rs-type">Lagged</span>(_)) =&gt; {
-                    <span class="rs-comment">// The dropped live records are durable (persist-before-broadcast),</span>
-                    <span class="rs-comment">// so recover them from the log rather than leaving a gap.</span>
-                    <span class="rs-kw">let</span> refill = <span class="rs-self">self</span>.event_log.list_since(&amp;<span class="rs-self">self</span>.request_id, <span class="rs-self">self</span>.last_seq).<span class="rs-kw">await</span>?;
+                    <span class="rs-kw">let</span> refill = <span class="rs-self">self</span>
+                        .event_log
+                        .list_since(&amp;<span class="rs-self">self</span>.request_id, <span class="rs-self">self</span>.last_seq)
+                        .<span class="rs-kw">await</span>?;
                     <span class="rs-self">self</span>.replay.extend(refill);
                 }
                 <span class="rs-type">Err</span>(broadcast::error::<span class="rs-type">RecvError</span>::<span class="rs-type">Closed</span>) =&gt; {
-                    <span class="rs-comment">// Producer gone: one last durable sweep so a record persisted just</span>
-                    <span class="rs-comment">// before close is never missed, then end the stream.</span>
-                    <span class="rs-kw">let</span> refill = <span class="rs-self">self</span>.event_log.list_since(&amp;<span class="rs-self">self</span>.request_id, <span class="rs-self">self</span>.last_seq).<span class="rs-kw">await</span>?;
+                    <span class="rs-kw">let</span> refill = <span class="rs-self">self</span>
+                        .event_log
+                        .list_since(&amp;<span class="rs-self">self</span>.request_id, <span class="rs-self">self</span>.last_seq)
+                        .<span class="rs-kw">await</span>?;
                     <span class="rs-kw">if</span> refill.is_empty() {
                         <span class="rs-self">self</span>.live = <span class="rs-type">None</span>;
                         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>);
@@ -243,112 +238,133 @@
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:339</p>
-</article><article id="item-struct-PendingMilestone-50" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct PendingMilestone private struct PendingMilestone crates/eos-backend-runtime/src/event_bus.rs kind String payload serde_json :: Value created_at UtcDateTime ">
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:296</p>
+</article><article id="item-struct-PendingMilestone-25" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct PendingMilestone private struct PendingMilestone crates/eos-backend-runtime/src/event_bus.rs kind String payload serde_json :: Value created_at UtcDateTime ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>PendingMilestone</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">struct <a class="symbol-link" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a></code>
-  <p class="docstring">An owned, not-yet-sequenced milestone handed from the sync callback to the<br>drainer. The callback does **not** assign `seq`: the single drainer stamps it at<br>persist time ([`drain`]) so persist order, `seq` order, and broadcast order are<br>identical by construction. That is what makes the subscriber high-water dedup<br>sound and keeps the `seq` space hole-free.</p>
+  <code class="signature">struct <a class="symbol-link" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a></code>
   <div class="tags"><span>derive: Debug</span></div>
   <h4>Fields</h4><table><tbody><tr><td>private</td><td>kind</td><td><code>String</code></td></tr><tr><td>private</td><td>payload</td><td><code>serde_json :: Value</code></td></tr><tr><td>private</td><td>created_at</td><td><code>UtcDateTime</code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:50</p>
-</article><article id="item-struct-RequestStream-62" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct RequestStream private struct RequestStream crates/eos-backend-runtime/src/event_bus.rs gap_pending AtomicBool dropped AtomicU64 live broadcast :: Sender &lt; EventRecord &gt; ">
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:25</p>
+</article><article id="item-struct-RequestStream-32" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct RequestStream private struct RequestStream crates/eos-backend-runtime/src/event_bus.rs gap_pending AtomicBool dropped AtomicU64 live broadcast :: Sender &lt; EventRecord &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>RequestStream</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">struct <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a></code>
-  <p class="docstring">Per-request streaming state shared by the sync callback, the async drainer, and<br>`subscribe`. The callback touches only atomics + the mpsc sender (held in the<br>closure, not here); this holds the broadcast sender plus the loss accounting.<br>The monotonic `seq` is **not** here — it is a drainer-local counter, because the<br>drainer is the sole sequencer (see [`PendingMilestone`] / [`drain`]).</p>
+  <code class="signature">struct <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a></code>
   <div class="tags"><span>derive: Debug</span><span>dto</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>gap_pending</td><td><code>AtomicBool</code></td></tr><tr><td>private</td><td>dropped</td><td><code>AtomicU64</code></td></tr><tr><td>private</td><td>live</td><td><code>broadcast :: Sender &lt; EventRecord &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-note-drop-79"><td>method</td><td>note_drop</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime.html#method-note-drop-79">note_drop</a> (&amp; self)</code><p class="docstring">Record a dropped milestone and arm the gap marker. `Release` pairs with the<br>drainer's `AcqRel` swap so the bumped `dropped` count is visible to it.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>gap_pending</td><td><code>AtomicBool</code></td></tr><tr><td>private</td><td>dropped</td><td><code>AtomicU64</code></td></tr><tr><td>private</td><td>live</td><td><code>broadcast :: Sender &lt; EventRecord &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-note-drop-40"><td>method</td><td>note_drop</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime.html#method-note-drop-40">note_drop</a> (&amp; self)</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-comment">/// Record a dropped milestone and arm the gap marker. `Release` pairs with the</span>
-    <span class="rs-comment">/// drainer's `AcqRel` swap so the bumped `dropped` count is visible to it.</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-79">note_drop</a>(&amp;<span class="rs-self">self</span>) {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-40">note_drop</a>(&amp;<span class="rs-self">self</span>) {
         <span class="rs-self">self</span>.dropped.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">Relaxed</span>);
         <span class="rs-self">self</span>.gap_pending.store(<span class="rs-kw">true</span>, <span class="rs-type">Ordering</span>::<span class="rs-type">Release</span>);
     }
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:62</p>
-</article><div class="group-label">Standalone Functions</div><article id="item-fn-classify-and-enqueue-201" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn classify_and_enqueue private fn classify_and_enqueue (tx : &amp; mpsc :: Sender &lt; PendingMilestone &gt; , stream : &amp; RequestStream , payload : serde_json :: Value ,) crates/eos-backend-runtime/src/event_bus.rs  ">
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:32</p>
+</article><article id="item-struct-RequestStreamHandle-46" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RequestStreamHandle private struct RequestStreamHandle crates/eos-backend-runtime/src/event_bus.rs tx mpsc :: Sender &lt; PendingMilestone &gt; stream Arc &lt; RequestStream &gt; active_sinks AtomicUsize ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>RequestStreamHandle</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">struct <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a></code>
+  <div class="tags"><span>derive: Debug</span><span>dto</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>tx</td><td><code>mpsc :: Sender &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a> &gt;</code></td></tr><tr><td>private</td><td>stream</td><td><code>Arc &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a> &gt;</code></td></tr><tr><td>private</td><td>active_sinks</td><td><code>AtomicUsize</code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:46</p>
+</article><article id="item-struct-SinkGuard-53" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct SinkGuard private struct SinkGuard crates/eos-backend-runtime/src/event_bus.rs request_id RequestId handle Arc &lt; RequestStreamHandle &gt; streams Arc &lt; Mutex &lt; HashMap &lt; RequestId , Arc &lt; RequestStreamHandle &gt; &gt; &gt; &gt; ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>SinkGuard</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">struct <a class="symbol-link" href="eos-backend-runtime.html#item-struct-SinkGuard-53">SinkGuard</a></code>
+  <div class="tags"><span>derive: Debug</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>request_id</td><td><code>RequestId</code></td></tr><tr><td>private</td><td>handle</td><td><code>Arc &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a> &gt;</code></td></tr><tr><td>private</td><td>streams</td><td><code>Arc &lt; Mutex &lt; HashMap &lt; RequestId , Arc &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a> &gt; &gt; &gt; &gt;</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl Drop for <a class="symbol-link" href="eos-backend-runtime.html#item-struct-SinkGuard-53">SinkGuard</a></code></summary><table><tbody><tr id="method-drop-61"><td>method</td><td>drop</td><td><code>fn <a class="symbol-link" href="eos-backend-runtime.html#method-drop-61">drop</a> (&amp; mut self)</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-drop-61">drop</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
+        <span class="rs-kw">if</span> <span class="rs-self">self</span>.handle.active_sinks.fetch_sub(1, <span class="rs-type">Ordering</span>::<span class="rs-type">AcqRel</span>) != 1 {
+            <span class="rs-kw">return</span>;
+        }
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> streams = <span class="rs-self">self</span>.streams.lock();
+        <span class="rs-kw">if</span> streams
+            .get(&amp;<span class="rs-self">self</span>.request_id)
+            .is_some_and(|current| <span class="rs-type">Arc</span>::ptr_eq(current, &amp;<span class="rs-self">self</span>.handle))
+        {
+            streams.remove(&amp;<span class="rs-self">self</span>.request_id);
+        }
+    }
+</code></pre>
+</details></td></tr></tbody></table></details></div>
+
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:53</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-classify-and-enqueue-184" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn classify_and_enqueue private fn classify_and_enqueue (tx : &amp; mpsc :: Sender &lt; PendingMilestone &gt; , stream : &amp; RequestStream , payload : serde_json :: Value ,) crates/eos-backend-runtime/src/event_bus.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>classify_and_enqueue</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-classify-and-enqueue-201">classify_and_enqueue</a> (tx : &amp; mpsc :: Sender &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a> &gt; , stream : &amp; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a> , payload : serde_json :: Value ,)</code>
-  <p class="docstring">The callback's synchronous core: classify the serialized event, and for a<br>milestone build an owned [`PendingMilestone`] and `try_send` it. The `seq` is<br>**not** assigned here — the drainer stamps it (see [`drain`]). A full queue arms<br>a gap marker instead of blocking. No `.await`, no lock — this is the AC5 hot-path<br>contract.</p>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-classify-and-enqueue-184">classify_and_enqueue</a> (tx : &amp; mpsc :: Sender &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a> &gt; , stream : &amp; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a> , payload : serde_json :: Value ,)</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// The callback's synchronous core: classify the serialized event, and for a</span>
-<span class="rs-comment">/// milestone build an owned [`PendingMilestone`] and `try_send` it. The `seq` is</span>
-<span class="rs-comment">/// **not** assigned here — the drainer stamps it (see [`drain`]). A full queue arms</span>
-<span class="rs-comment">/// a gap marker instead of blocking. No `.await`, no lock — this is the AC5 hot-path</span>
-<span class="rs-comment">/// contract.</span>
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-classify-and-enqueue-201">classify_and_enqueue</a>(
-    tx: &amp;mpsc::<span class="rs-type">Sender</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a>&gt;,
-    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a>,
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-classify-and-enqueue-184">classify_and_enqueue</a>(
+    tx: &amp;mpsc::<span class="rs-type">Sender</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a>&gt;,
+    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a>,
     payload: serde_json::<span class="rs-type">Value</span>,
 ) {
-    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(kind) = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-milestone-kind-224">milestone_kind</a>(&amp;payload).map(str::to_owned) <span class="rs-kw">else</span> {
+    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(kind) = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-milestone-kind-202">milestone_kind</a>(&amp;payload).map(str::to_owned) <span class="rs-kw">else</span> {
         <span class="rs-kw">return</span>;
     };
-    <span class="rs-kw">let</span> pending = <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a> {
+    <span class="rs-kw">let</span> pending = <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a> {
         kind,
         payload,
         created_at: <span class="rs-type">UtcDateTime</span>::now(),
     };
     <span class="rs-kw">if</span> tx.try_send(pending).is_err() {
-        stream.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-79">note_drop</a>();
+        stream.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-40">note_drop</a>();
     }
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:201</p>
-</article><article id="item-fn-milestone-kind-224" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn milestone_kind private fn milestone_kind (payload : &amp; serde_json :: Value) -&gt; Option &lt; &amp; str &gt; crates/eos-backend-runtime/src/event_bus.rs  ">
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:184</p>
+</article><article id="item-fn-milestone-kind-202" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn milestone_kind private fn milestone_kind (payload : &amp; serde_json :: Value) -&gt; Option &lt; &amp; str &gt; crates/eos-backend-runtime/src/event_bus.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>milestone_kind</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-milestone-kind-224">milestone_kind</a> (payload : &amp; serde_json :: Value) -&gt; Option &lt; &amp; str &gt;</code>
-  <p class="docstring">Milestone classifier: the serde tag of a persist-worthy event, or `None` for a<br>high-volume delta we drop. Fail-safe — an unknown future event kind is treated<br>as a milestone (kept visible) rather than silently dropped.</p>
+  <code class="signature">fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-milestone-kind-202">milestone_kind</a> (payload : &amp; serde_json :: Value) -&gt; Option &lt; &amp; str &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// Milestone classifier: the serde tag of a persist-worthy event, or `None` for a</span>
-<span class="rs-comment">/// high-volume delta we drop. Fail-safe — an unknown future event kind is treated</span>
-<span class="rs-comment">/// as a milestone (kept visible) rather than silently dropped.</span>
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-milestone-kind-224">milestone_kind</a>(payload: &amp;serde_json::<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Option</span>&lt;&amp;str&gt; {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-milestone-kind-202">milestone_kind</a>(payload: &amp;serde_json::<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Option</span>&lt;&amp;str&gt; {
     <span class="rs-kw">let</span> kind = payload.get(&quot;<span class="rs-kw">type</span>&quot;).and_then(serde_json::<span class="rs-type">Value</span>::as_str)?;
-    (!<a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-232">is_delta</a>(kind)).then_some(kind)
+    (!<a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a>(kind)).then_some(kind)
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:224</p>
-</article><article id="item-fn-is-delta-232" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn is_delta private fn is_delta (kind : &amp; str) -&gt; bool crates/eos-backend-runtime/src/event_bus.rs  ">
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:202</p>
+</article><article id="item-fn-is-delta-207" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn is_delta private const fn is_delta (kind : &amp; str) -&gt; bool crates/eos-backend-runtime/src/event_bus.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>is_delta</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-is-delta-232">is_delta</a> (kind : &amp; str) -&gt; bool</code>
-  <p class="docstring">Whether a stream-event kind is a high-volume incremental delta (not persisted).</p>
+  <code class="signature">const fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a> (kind : &amp; str) -&gt; bool</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// Whether a stream-event kind is a high-volume incremental delta (not persisted).</span>
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-232">is_delta</a>(kind: &amp;str) -&gt; bool {
+  <pre><code><span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a>(kind: &amp;str) -&gt; bool {
     matches!(
         kind,
         &quot;reasoning_delta&quot; | &quot;assistant_text_delta&quot; | &quot;tool_execution_progress&quot;
@@ -357,68 +373,61 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:232</p>
-</article><article id="item-fn-drain-240" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn drain private async fn drain (mut rx : mpsc :: Receiver &lt; PendingMilestone &gt; , stream : Arc &lt; RequestStream &gt; , event_log : EventLogRepo , request_id : RequestId ,) crates/eos-backend-runtime/src/event_bus.rs  ">
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:207</p>
+</article><article id="item-fn-drain-214" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn drain private async fn drain (mut rx : mpsc :: Receiver &lt; PendingMilestone &gt; , stream : Arc &lt; RequestStream &gt; , event_log : EventLogRepo , request_id : RequestId ,) crates/eos-backend-runtime/src/event_bus.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>drain</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">async fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-drain-240">drain</a> (mut rx : mpsc :: Receiver &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a> &gt; , stream : Arc &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a> &gt; , event_log : EventLogRepo , request_id : RequestId ,)</code>
-  <p class="docstring">Per-request drainer and **sole sequencer**: it stamps a monotonic `seq` as it<br>persists, so persist order, `seq` order, and broadcast order are identical and no<br>gap marker can leapfrog a still-queued lower-`seq` record. It persists before<br>broadcasting and coalesces armed drops into one durable gap marker. `seq` advances<br>only on a durable write, so the space stays hole-free. Exits when the queue closes<br>(the run dropped its callback).</p>
+  <code class="signature">async fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-drain-214">drain</a> (mut rx : mpsc :: Receiver &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a> &gt; , stream : Arc &lt; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a> &gt; , event_log : EventLogRepo , request_id : RequestId ,)</code>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// Per-request drainer and **sole sequencer**: it stamps a monotonic `seq` as it</span>
-<span class="rs-comment">/// persists, so persist order, `seq` order, and broadcast order are identical and no</span>
-<span class="rs-comment">/// gap marker can leapfrog a still-queued lower-`seq` record. It persists before</span>
-<span class="rs-comment">/// broadcasting and coalesces armed drops into one durable gap marker. `seq` advances</span>
-<span class="rs-comment">/// only on a durable write, so the space stays hole-free. Exits when the queue closes</span>
-<span class="rs-comment">/// (the run dropped its callback).</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-drain-240">drain</a>(
-    <span class="rs-kw">mut</span> rx: mpsc::<span class="rs-type">Receiver</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a>&gt;,
-    stream: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a>&gt;,
+  <pre><code><span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-drain-214">drain</a>(
+    <span class="rs-kw">mut</span> rx: mpsc::<span class="rs-type">Receiver</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a>&gt;,
+    stream: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a>&gt;,
     event_log: <span class="rs-type">EventLogRepo</span>,
     request_id: <span class="rs-type">RequestId</span>,
 ) {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seq: i64 = 0;
-    <span class="rs-kw">while</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(pending) = rx.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-362">recv</a>().<span class="rs-kw">await</span> {
-        seq = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-persist-and-broadcast-265">persist_and_broadcast</a>(&amp;event_log, &amp;stream, &amp;request_id, seq, pending).<span class="rs-kw">await</span>;
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seq = <span class="rs-kw">match</span> event_log.max_seq(&amp;request_id).<span class="rs-kw">await</span> {
+        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(seq)) =&gt; seq,
+        <span class="rs-type">Ok</span>(<span class="rs-type">None</span>) =&gt; 0,
+        <span class="rs-type">Err</span>(err) =&gt; {
+            tracing::warn!(error = %err, &quot;failed to read event_log high-water seq&quot;);
+            0
+        }
+    };
+    <span class="rs-kw">while</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(pending) = rx.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-308">recv</a>().<span class="rs-kw">await</span> {
+        seq = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-persist-and-broadcast-239">persist_and_broadcast</a>(&amp;event_log, &amp;stream, &amp;request_id, seq, pending).<span class="rs-kw">await</span>;
         <span class="rs-kw">if</span> stream.gap_pending.swap(<span class="rs-kw">false</span>, <span class="rs-type">Ordering</span>::<span class="rs-type">AcqRel</span>) {
-            seq = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-308">emit_gap</a>(&amp;event_log, &amp;stream, &amp;request_id, seq).<span class="rs-kw">await</span>;
+            seq = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-271">emit_gap</a>(&amp;event_log, &amp;stream, &amp;request_id, seq).<span class="rs-kw">await</span>;
         }
     }
-    <span class="rs-comment">// A drop armed after the final drained record still owes a marker.</span>
     <span class="rs-kw">if</span> stream.gap_pending.swap(<span class="rs-kw">false</span>, <span class="rs-type">Ordering</span>::<span class="rs-type">AcqRel</span>) {
-        <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-308">emit_gap</a>(&amp;event_log, &amp;stream, &amp;request_id, seq).<span class="rs-kw">await</span>;
+        <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-271">emit_gap</a>(&amp;event_log, &amp;stream, &amp;request_id, seq).<span class="rs-kw">await</span>;
     }
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:240</p>
-</article><article id="item-fn-persist-and-broadcast-265" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn persist_and_broadcast private async fn persist_and_broadcast (event_log : &amp; EventLogRepo , stream : &amp; RequestStream , request_id : &amp; RequestId , seq : i64 , pending : PendingMilestone ,) -&gt; i64 crates/eos-backend-runtime/src/event_bus.rs  ">
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:214</p>
+</article><article id="item-fn-persist-and-broadcast-239" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn persist_and_broadcast private async fn persist_and_broadcast (event_log : &amp; EventLogRepo , stream : &amp; RequestStream , request_id : &amp; RequestId , seq : i64 , pending : PendingMilestone ,) -&gt; i64 crates/eos-backend-runtime/src/event_bus.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>persist_and_broadcast</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">async fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-persist-and-broadcast-265">persist_and_broadcast</a> (event_log : &amp; EventLogRepo , stream : &amp; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a> , request_id : &amp; RequestId , seq : i64 , pending : <a class="symbol-link" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a> ,) -&gt; i64</code>
-  <p class="docstring">Stamp the next `seq`, persist the record, then broadcast it. Returns the new<br>high-water `seq`: it advances only when the row is durably written, so a failed<br>persist leaves no hole (the next record reuses the seq) and instead arms a gap<br>marker. A record that cannot be durably written is never broadcast<br>(persist-before-broadcast).</p>
+  <code class="signature">async fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-persist-and-broadcast-239">persist_and_broadcast</a> (event_log : &amp; EventLogRepo , stream : &amp; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a> , request_id : &amp; RequestId , seq : i64 , pending : <a class="symbol-link" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a> ,) -&gt; i64</code>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// Stamp the next `seq`, persist the record, then broadcast it. Returns the new</span>
-<span class="rs-comment">/// high-water `seq`: it advances only when the row is durably written, so a failed</span>
-<span class="rs-comment">/// persist leaves no hole (the next record reuses the seq) and instead arms a gap</span>
-<span class="rs-comment">/// marker. A record that cannot be durably written is never broadcast</span>
-<span class="rs-comment">/// (persist-before-broadcast).</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-persist-and-broadcast-265">persist_and_broadcast</a>(
+  <pre><code><span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-persist-and-broadcast-239">persist_and_broadcast</a>(
     event_log: &amp;<span class="rs-type">EventLogRepo</span>,
-    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a>,
+    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a>,
     request_id: &amp;<span class="rs-type">RequestId</span>,
     seq: i64,
-    pending: <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a>,
+    pending: <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a>,
 ) -&gt; i64 {
     <span class="rs-kw">let</span> record = <span class="rs-type">EventRecord</span> {
         request_id: request_id.clone(),
@@ -427,14 +436,8 @@
         payload: pending.payload,
         created_at: pending.created_at,
     };
-    <span class="rs-comment">// Single append, no retry: the pool busy-timeout already absorbs SQLITE_BUSY,</span>
-    <span class="rs-comment">// and a retry would reuse the identical `seq` — on a committed-but-errored</span>
-    <span class="rs-comment">// first attempt it would collide on PRIMARY KEY (request_id, seq) and arm a</span>
-    <span class="rs-comment">// *spurious* gap for a record that is in fact durable. A genuine append</span>
-    <span class="rs-comment">// failure here is surfaced honestly as a gap marker instead.</span>
     <span class="rs-kw">match</span> event_log.append(&amp;record).<span class="rs-kw">await</span> {
         <span class="rs-type">Ok</span>(()) =&gt; {
-            <span class="rs-comment">// `send` errs only when there are no subscribers — expected and fine.</span>
             <span class="rs-kw">let</span> stamped = record.seq;
             <span class="rs-kw">let</span> _ = stream.live.send(record);
             stamped
@@ -445,7 +448,7 @@
                 error = %err,
                 &quot;event_log append failed; dropping record and marking a stream gap&quot;
             );
-            stream.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-79">note_drop</a>();
+            stream.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-40">note_drop</a>();
             seq
         }
     }
@@ -453,27 +456,20 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:265</p>
-</article><article id="item-fn-emit-gap-308" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn emit_gap private async fn emit_gap (event_log : &amp; EventLogRepo , stream : &amp; RequestStream , request_id : &amp; RequestId , seq : i64 ,) -&gt; i64 crates/eos-backend-runtime/src/event_bus.rs  ">
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:239</p>
+</article><article id="item-fn-emit-gap-271" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn emit_gap private async fn emit_gap (event_log : &amp; EventLogRepo , stream : &amp; RequestStream , request_id : &amp; RequestId , seq : i64 ,) -&gt; i64 crates/eos-backend-runtime/src/event_bus.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>emit_gap</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">async fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-emit-gap-308">emit_gap</a> (event_log : &amp; EventLogRepo , stream : &amp; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a> , request_id : &amp; RequestId , seq : i64 ,) -&gt; i64</code>
-  <p class="docstring">Stamp the next `seq`, then persist and broadcast one `event_stream_gap` marker<br>carrying the cumulative dropped count. Returns the new high-water `seq` (advanced<br>only when the marker is durably written). Because it is sequenced inline in drain<br>order, the marker sits between the records it separates and never leapfrogs a<br>queued record. Best-effort: a failed marker write is logged, not retried into a<br>loop.</p>
+  <code class="signature">async fn <a class="symbol-link" href="eos-backend-runtime.html#item-fn-emit-gap-271">emit_gap</a> (event_log : &amp; EventLogRepo , stream : &amp; <a class="symbol-link" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a> , request_id : &amp; RequestId , seq : i64 ,) -&gt; i64</code>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// Stamp the next `seq`, then persist and broadcast one `event_stream_gap` marker</span>
-<span class="rs-comment">/// carrying the cumulative dropped count. Returns the new high-water `seq` (advanced</span>
-<span class="rs-comment">/// only when the marker is durably written). Because it is sequenced inline in drain</span>
-<span class="rs-comment">/// order, the marker sits between the records it separates and never leapfrogs a</span>
-<span class="rs-comment">/// queued record. Best-effort: a failed marker write is logged, not retried into a</span>
-<span class="rs-comment">/// loop.</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-308">emit_gap</a>(
+  <pre><code><span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-271">emit_gap</a>(
     event_log: &amp;<span class="rs-type">EventLogRepo</span>,
-    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a>,
+    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a>,
     request_id: &amp;<span class="rs-type">RequestId</span>,
     seq: i64,
 ) -&gt; i64 {
@@ -498,7 +494,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:308</p>
+  <p class="source">crates/eos-backend-runtime/src/event_bus.rs:271</p>
 </article></div>
 </section></div>
 </main>
@@ -507,38 +503,17 @@
     <h2>Source File</h2>
     <p class="path">crates/eos-backend-runtime/src/event_bus.rs</p>
   </div>
-  <pre class="file-source"><code><span class="rs-comment">//! [`EventBus`] — replay-safe milestone streaming off agent-core's synchronous</span>
-<span class="rs-comment">//! [`StreamEvent`] callback.</span>
+  <pre class="file-source"><code><span class="rs-comment">//! [`EventBus`] — replay-safe live milestone streaming.</span>
 <span class="rs-comment">//!</span>
-<span class="rs-comment">//! agent-core emits stream events through a borrowing, synchronous callback</span>
-<span class="rs-comment">//! (`Arc&lt;dyn Fn(&amp;StreamEvent)&gt;`). The backend must persist milestones to</span>
-<span class="rs-comment">//! `event_log` and fan them out to SSE subscribers **without** doing any</span>
-<span class="rs-comment">//! async I/O or holding an async lock inside that callback (AC5). The flow:</span>
-<span class="rs-comment">//!</span>
-<span class="rs-comment">//! 1. The sync callback serializes the event, classifies it (milestones only —</span>
-<span class="rs-comment">//!    high-volume deltas are dropped), and `try_send`s an owned, unsequenced</span>
-<span class="rs-comment">//!    milestone into a bounded channel. No `.await`, no lock. On a full queue it</span>
-<span class="rs-comment">//!    bumps a dropped counter and arms a gap marker.</span>
-<span class="rs-comment">//! 2. A per-request async **drainer** is the sole sequencer: it stamps a monotonic</span>
-<span class="rs-comment">//!    `seq`, persists each record to `event_log`, then — and only then —</span>
-<span class="rs-comment">//!    broadcasts it (persist-before-broadcast). Stamping at persist time makes</span>
-<span class="rs-comment">//!    persist order, `seq` order, and broadcast order identical, so a gap marker</span>
-<span class="rs-comment">//!    can never leapfrog a queued record. It coalesces armed drops into one durable</span>
-<span class="rs-comment">//!    [`EVENT_STREAM_GAP`] marker so milestone loss is visible in `/events` and the</span>
-<span class="rs-comment">//!    live stream, never silent.</span>
-<span class="rs-comment">//! 3. [`EventBus::subscribe`] replays `event_log` from `last_seq` and joins the</span>
-<span class="rs-comment">//!    live broadcast with **no gap at the handoff**: it subscribes live *before*</span>
-<span class="rs-comment">//!    reading replay and dedups by `seq`, and it recovers broadcast lag from the</span>
-<span class="rs-comment">//!    durable log rather than skipping.</span>
-<span class="rs-comment">//!</span>
-<span class="rs-comment">//! Lifecycle: the callback owns the only `mpsc::Sender`, so when the run drops its</span>
-<span class="rs-comment">//! callback (completion or cancel) the channel closes and the drainer exits.</span>
-<span class="rs-comment">//! [`EventBus::finish`] drops the bus's stream handle; once the drainer has also</span>
-<span class="rs-comment">//! exited, the broadcast sender is freed and live subscribers observe close (after</span>
-<span class="rs-comment">//! one final durable sweep). `event_log` rows stay durable for later replay.</span>
+<span class="rs-comment">//! The engine observes events through a synchronous callback. The backend callback</span>
+<span class="rs-comment">//! only serializes/classifies the event and `try_send`s an owned milestone into a</span>
+<span class="rs-comment">//! bounded queue. A request-scoped async drainer is the sole sequencer: it stamps a</span>
+<span class="rs-comment">//! monotonic `seq`, persists to `event_log`, then broadcasts to live SSE</span>
+<span class="rs-comment">//! subscribers. Subscriptions join live before replay, dedup by high-water `seq`,</span>
+<span class="rs-comment">//! and recover broadcast lag from the durable log.</span>
 
 <span class="rs-kw">use</span> std::collections::{<span class="rs-type">HashMap</span>, <span class="rs-type">VecDeque</span>};
-<span class="rs-kw">use</span> std::sync::atomic::{<span class="rs-type">AtomicBool</span>, <span class="rs-type">AtomicU64</span>, <span class="rs-type">Ordering</span>};
+<span class="rs-kw">use</span> std::sync::atomic::{<span class="rs-type">AtomicBool</span>, <span class="rs-type">AtomicU64</span>, <span class="rs-type">AtomicUsize</span>, <span class="rs-type">Ordering</span>};
 <span class="rs-kw">use</span> std::sync::<span class="rs-type">Arc</span>;
 
 <span class="rs-kw">use</span> parking_lot::<span class="rs-type">Mutex</span>;
@@ -546,148 +521,162 @@
 
 <span class="rs-kw">use</span> eos_backend_store::{<span class="rs-type">EventLogRepo</span>, <span class="rs-type">StoreError</span>};
 <span class="rs-kw">use</span> eos_backend_types::{<span class="rs-type">EventRecord</span>, <span class="rs-type">EVENT_STREAM_GAP</span>};
-<span class="rs-kw">use</span> eos_runtime::<span class="rs-type">EventCallback</span>;
+<span class="rs-kw">use</span> eos_engine::{<span class="rs-type">EngineEventSink</span>, <span class="rs-type">EngineEventSinkFactory</span>, <span class="rs-type">StreamEvent</span>};
 <span class="rs-kw">use</span> eos_types::{<span class="rs-type">RequestId</span>, <span class="rs-type">UtcDateTime</span>};
 
-<span class="rs-comment">/// Default bound on the callback→drainer queue (records in flight before overflow</span>
-<span class="rs-comment">/// arms a gap marker).</span>
 <span class="rs-kw">const</span> <span class="rs-type">DEFAULT_QUEUE_CAPACITY</span>: usize = 1024;
-<span class="rs-comment">/// Default bound on the drainer→subscriber broadcast buffer (a slow subscriber</span>
-<span class="rs-comment">/// past this lags and recovers from the durable log).</span>
 <span class="rs-kw">const</span> <span class="rs-type">DEFAULT_LIVE_CAPACITY</span>: usize = 1024;
 
-<span class="rs-comment">/// An owned, not-yet-sequenced milestone handed from the sync callback to the</span>
-<span class="rs-comment">/// drainer. The callback does **not** assign `seq`: the single drainer stamps it at</span>
-<span class="rs-comment">/// persist time ([`drain`]) so persist order, `seq` order, and broadcast order are</span>
-<span class="rs-comment">/// identical by construction. That is what makes the subscriber high-water dedup</span>
-<span class="rs-comment">/// sound and keeps the `seq` space hole-free.</span>
 #[derive(<span class="rs-type">Debug</span>)]
-<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a> {
+<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a> {
     kind: <span class="rs-type">String</span>,
     payload: serde_json::<span class="rs-type">Value</span>,
     created_at: <span class="rs-type">UtcDateTime</span>,
 }
 
-<span class="rs-comment">/// Per-request streaming state shared by the sync callback, the async drainer, and</span>
-<span class="rs-comment">/// `subscribe`. The callback touches only atomics + the mpsc sender (held in the</span>
-<span class="rs-comment">/// closure, not here); this holds the broadcast sender plus the loss accounting.</span>
-<span class="rs-comment">/// The monotonic `seq` is **not** here — it is a drainer-local counter, because the</span>
-<span class="rs-comment">/// drainer is the sole sequencer (see [`PendingMilestone`] / [`drain`]).</span>
 #[derive(<span class="rs-type">Debug</span>)]
-<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a> {
-    <span class="rs-comment">/// Set by the callback (or a failed persist) when a drop occurs; the drainer</span>
-    <span class="rs-comment">/// coalesces it into one gap marker.</span>
+<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a> {
     gap_pending: <span class="rs-type">AtomicBool</span>,
-    <span class="rs-comment">/// Cumulative dropped-milestone count (stamped into the gap marker payload).</span>
     dropped: <span class="rs-type">AtomicU64</span>,
-    <span class="rs-comment">/// Live fan-out to subscribers. The drainer is the only sender.</span>
     live: broadcast::<span class="rs-type">Sender</span>&lt;<span class="rs-type">EventRecord</span>&gt;,
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a> {
-    <span class="rs-comment">/// Record a dropped milestone and arm the gap marker. `Release` pairs with the</span>
-    <span class="rs-comment">/// drainer's `AcqRel` swap so the bumped `dropped` count is visible to it.</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-79">note_drop</a>(&amp;<span class="rs-self">self</span>) {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-40">note_drop</a>(&amp;<span class="rs-self">self</span>) {
         <span class="rs-self">self</span>.dropped.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">Relaxed</span>);
         <span class="rs-self">self</span>.gap_pending.store(<span class="rs-kw">true</span>, <span class="rs-type">Ordering</span>::<span class="rs-type">Release</span>);
     }
 }
 
-<span class="rs-comment">/// Backend event bus: owns the durable `event_log` writer and the per-request live</span>
-<span class="rs-comment">/// streams. Share one instance (e.g. `Arc&lt;EventBus&gt;`) between the launcher (which</span>
-<span class="rs-comment">/// registers a callback per run) and the streaming API (which subscribes).</span>
 #[derive(<span class="rs-type">Debug</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventBus-87">EventBus</a> {
-    streams: <span class="rs-type">Mutex</span>&lt;<span class="rs-type">HashMap</span>&lt;<span class="rs-type">RequestId</span>, <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a>&gt;&gt;&gt;,
+<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a> {
+    tx: mpsc::<span class="rs-type">Sender</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a>&gt;,
+    stream: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a>&gt;,
+    active_sinks: <span class="rs-type">AtomicUsize</span>,
+}
+
+#[derive(<span class="rs-type">Debug</span>)]
+<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-SinkGuard-53">SinkGuard</a> {
+    request_id: <span class="rs-type">RequestId</span>,
+    handle: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a>&gt;,
+    streams: <span class="rs-type">Arc</span>&lt;<span class="rs-type">Mutex</span>&lt;<span class="rs-type">HashMap</span>&lt;<span class="rs-type">RequestId</span>, <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a>&gt;&gt;&gt;&gt;,
+}
+
+<span class="rs-kw">impl</span> <span class="rs-type">Drop</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-SinkGuard-53">SinkGuard</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-drop-61">drop</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
+        <span class="rs-kw">if</span> <span class="rs-self">self</span>.handle.active_sinks.fetch_sub(1, <span class="rs-type">Ordering</span>::<span class="rs-type">AcqRel</span>) != 1 {
+            <span class="rs-kw">return</span>;
+        }
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> streams = <span class="rs-self">self</span>.streams.lock();
+        <span class="rs-kw">if</span> streams
+            .get(&amp;<span class="rs-self">self</span>.request_id)
+            .is_some_and(|current| <span class="rs-type">Arc</span>::ptr_eq(current, &amp;<span class="rs-self">self</span>.handle))
+        {
+            streams.remove(&amp;<span class="rs-self">self</span>.request_id);
+        }
+    }
+}
+
+<span class="rs-comment">/// Backend event bus over the durable `event_log` plus request-scoped live tails.</span>
+#[derive(<span class="rs-type">Debug</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventBus-75">EventBus</a> {
+    streams: <span class="rs-type">Arc</span>&lt;<span class="rs-type">Mutex</span>&lt;<span class="rs-type">HashMap</span>&lt;<span class="rs-type">RequestId</span>, <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a>&gt;&gt;&gt;&gt;,
     event_log: <span class="rs-type">EventLogRepo</span>,
     queue_capacity: usize,
     live_capacity: usize,
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventBus-87">EventBus</a> {
-    <span class="rs-comment">/// Build a bus over the durable `event_log` repository with default capacities.</span>
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventBus-75">EventBus</a> {
+    <span class="rs-comment">/// Build a bus over the durable `event_log` repository.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(event_log: <span class="rs-type">EventLogRepo</span>) -&gt; <span class="rs-self">Self</span> {
-        <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-with-capacity-105">with_capacity</a>(event_log, <span class="rs-type">DEFAULT_QUEUE_CAPACITY</span>, <span class="rs-type">DEFAULT_LIVE_CAPACITY</span>)
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(event_log: <span class="rs-type">EventLogRepo</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-with-capacity-91">with_capacity</a>(event_log, <span class="rs-type">DEFAULT_QUEUE_CAPACITY</span>, <span class="rs-type">DEFAULT_LIVE_CAPACITY</span>)
     }
 
-    <span class="rs-comment">/// Build a bus with explicit queue/broadcast bounds (used by `new` for the</span>
-    <span class="rs-comment">/// defaults and by tests to force overflow and lag deterministically). Both</span>
-    <span class="rs-comment">/// bounds are floored at 1.</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-with-capacity-105">with_capacity</a>(event_log: <span class="rs-type">EventLogRepo</span>, queue_capacity: usize, live_capacity: usize) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-with-capacity-91">with_capacity</a>(event_log: <span class="rs-type">EventLogRepo</span>, queue_capacity: usize, live_capacity: usize) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
-            streams: <span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>()),
+            streams: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">Mutex</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-type">HashMap</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>())),
             event_log,
             queue_capacity: queue_capacity.max(1),
             live_capacity: live_capacity.max(1),
         }
     }
 
-    <span class="rs-comment">/// Register a run and return the synchronous engine callback for it. Spawns the</span>
-    <span class="rs-comment">/// per-request drainer; must be called within a Tokio runtime.</span>
-    <span class="rs-comment">///</span>
-    <span class="rs-comment">/// The returned [`EventCallback`] owns the only `mpsc::Sender`, so dropping it</span>
-    <span class="rs-comment">/// (when the run ends) closes the queue and the drainer exits.</span>
-    <span class="rs-comment">///</span>
-    <span class="rs-comment">/// Internal seam: the launcher registers a run; downstream code drives this</span>
-    <span class="rs-comment">/// transitively through `RunLauncher`, never directly.</span>
+    <span class="rs-comment">/// Build the per-loop live sink factory consumed by `TokioAgentLoopLauncher`.</span>
     #[must_use]
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-117">register</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">EventCallback</span> {
-        <span class="rs-kw">let</span> (tx, stream) = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-open-stream-140">open_stream</a>(request_id);
-        <span class="rs-comment">// The closure's `event` is inferred as `&amp;StreamEvent` from the</span>
-        <span class="rs-comment">// `EventCallback` target, so we never name the engine event type. Body is</span>
-        <span class="rs-comment">// strictly synchronous: serialize, then run the shared enqueue path</span>
-        <span class="rs-comment">// (classify, `try_send` an unsequenced milestone) — no `.await`, no lock.</span>
-        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-kw">move</span> |event| {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-live-event-sink-factory-100">live_event_sink_factory</a>(<span class="rs-self">self</span>: &amp;<span class="rs-type">Arc</span>&lt;<span class="rs-self">Self</span>&gt;) -&gt; <span class="rs-type">EngineEventSinkFactory</span> {
+        <span class="rs-kw">let</span> bus = <span class="rs-type">Arc</span>::clone(<span class="rs-self">self</span>);
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">move</span> |request| <span class="rs-type">Some</span>(bus.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-107">register</a>(&amp;request.record_target.request_id)))
+    }
+
+    <span class="rs-comment">/// Register one agent loop under its owning request and return its sync event</span>
+    <span class="rs-comment">/// sink. The returned sink must be dropped when the loop finishes; dropping the</span>
+    <span class="rs-comment">/// last sink for a request closes its live tail after the drainer flushes.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-register-107">register</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">EngineEventSink</span> {
+        <span class="rs-kw">let</span> handle = <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-stream-for-request-130">stream_for_request</a>(request_id);
+        handle.active_sinks.fetch_add(1, <span class="rs-type">Ordering</span>::<span class="rs-type">AcqRel</span>);
+        <span class="rs-kw">let</span> guard = <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-SinkGuard-53">SinkGuard</a> {
+            request_id: request_id.clone(),
+            handle: handle.clone(),
+            streams: <span class="rs-type">Arc</span>::clone(&amp;<span class="rs-self">self</span>.streams),
+        };
+        <span class="rs-kw">let</span> tx = handle.tx.clone();
+        <span class="rs-kw">let</span> stream = handle.stream.clone();
+        <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">move</span> |event: &amp;<span class="rs-type">StreamEvent</span>| {
+            <span class="rs-kw">let</span> _keep_alive = &amp;guard;
             <span class="rs-kw">let</span> <span class="rs-type">Ok</span>(payload) = serde_json::to_value(event) <span class="rs-kw">else</span> {
                 <span class="rs-kw">return</span>;
             };
-            <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-classify-and-enqueue-201">classify_and_enqueue</a>(&amp;tx, &amp;stream, payload);
+            <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-classify-and-enqueue-184">classify_and_enqueue</a>(&amp;tx, &amp;stream, payload);
         })
     }
 
-    <span class="rs-comment">/// Create the channels + per-request [`RequestStream`], register it, and spawn</span>
-    <span class="rs-comment">/// the drainer. Production [`register`](Self::register) wraps the returned</span>
-    <span class="rs-comment">/// sender in the `StreamEvent` callback; tests drive the same enqueue path with</span>
-    <span class="rs-comment">/// pre-serialized payloads (a `#[non_exhaustive]` `StreamEvent` cannot be built</span>
-    <span class="rs-comment">/// outside `eos-engine`).</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-open-stream-140">open_stream</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; (mpsc::<span class="rs-type">Sender</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a>&gt;, <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a>&gt;) {
-        <span class="rs-kw">let</span> (tx, rx) = mpsc::channel::&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a>&gt;(<span class="rs-self">self</span>.queue_capacity);
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-stream-for-request-130">stream_for_request</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a>&gt; {
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> streams = <span class="rs-self">self</span>.streams.lock();
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(handle) = streams.get(request_id) {
+            <span class="rs-kw">return</span> handle.clone();
+        }
+
+        <span class="rs-kw">let</span> (tx, rx) = mpsc::channel::&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a>&gt;(<span class="rs-self">self</span>.queue_capacity);
         <span class="rs-kw">let</span> (live, _) = broadcast::channel::&lt;<span class="rs-type">EventRecord</span>&gt;(<span class="rs-self">self</span>.live_capacity);
-        <span class="rs-kw">let</span> stream = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a> {
-            gap_pending: <span class="rs-type">AtomicBool</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(<span class="rs-kw">false</span>),
-            dropped: <span class="rs-type">AtomicU64</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-99">new</a>(0),
+        <span class="rs-kw">let</span> stream = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a> {
+            gap_pending: <span class="rs-type">AtomicBool</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<span class="rs-kw">false</span>),
+            dropped: <span class="rs-type">AtomicU64</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(0),
             live,
         });
-        <span class="rs-self">self</span>.streams.lock().insert(request_id.clone(), stream.clone());
-        tokio::spawn(<a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-drain-240">drain</a>(
+        <span class="rs-kw">let</span> handle = <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStreamHandle-46">RequestStreamHandle</a> {
+            tx,
+            stream: stream.clone(),
+            active_sinks: <span class="rs-type">AtomicUsize</span>::<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-new-85">new</a>(0),
+        });
+        streams.insert(request_id.clone(), handle.clone());
+        tokio::spawn(<a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-drain-214">drain</a>(
             rx,
-            stream.clone(),
+            stream,
             <span class="rs-self">self</span>.event_log.clone(),
             request_id.clone(),
         ));
-        (tx, stream)
+        handle
     }
 
-    <span class="rs-comment">/// Subscribe to a request's stream, replaying persisted records with</span>
-    <span class="rs-comment">/// `seq &gt; after_seq` then joining the live broadcast with no handoff gap.</span>
+    <span class="rs-comment">/// Subscribe to a request's stream, replaying persisted rows with</span>
+    <span class="rs-comment">/// `seq &gt; after_seq` and then tailing the live stream when one is active.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
-    <span class="rs-comment">/// [`StoreError`] if the initial `event_log` replay read fails.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-subscribe-163">subscribe</a>(
+    <span class="rs-comment">/// [`StoreError`] if the initial replay read fails.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-subscribe-158">subscribe</a>(
         &amp;<span class="rs-self">self</span>,
         request_id: &amp;<span class="rs-type">RequestId</span>,
         after_seq: i64,
-    ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-339">EventSubscription</a>, <span class="rs-type">StoreError</span>&gt; {
-        <span class="rs-comment">// Subscribe to live FIRST (before the replay read) so any record persisted</span>
-        <span class="rs-comment">// and broadcast during the read is captured by `live` rather than lost</span>
-        <span class="rs-comment">// between replay and live. The guard is dropped before the `.await`.</span>
-        <span class="rs-kw">let</span> live = {
-            <span class="rs-kw">let</span> streams = <span class="rs-self">self</span>.streams.lock();
-            streams.get(request_id).map(|s| s.live.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-subscribe-163">subscribe</a>())
-        };
+    ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-296">EventSubscription</a>, <span class="rs-type">StoreError</span>&gt; {
+        <span class="rs-kw">let</span> live = <span class="rs-self">self</span>
+            .streams
+            .lock()
+            .get(request_id)
+            .map(|handle| handle.stream.live.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-subscribe-158">subscribe</a>());
         <span class="rs-kw">let</span> replay = <span class="rs-self">self</span>.event_log.list_since(request_id, after_seq).<span class="rs-kw">await</span>?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-339">EventSubscription</a> {
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-296">EventSubscription</a> {
             request_id: request_id.clone(),
             event_log: <span class="rs-self">self</span>.event_log.clone(),
             replay: replay.into(),
@@ -695,93 +684,69 @@
             last_seq: after_seq,
         })
     }
-
-    <span class="rs-comment">/// Drop the bus's handle on a finished run's stream. Combined with the run</span>
-    <span class="rs-comment">/// dropping its callback (which closes the queue and exits the drainer), this</span>
-    <span class="rs-comment">/// frees the broadcast sender so live subscribers observe close. Durable</span>
-    <span class="rs-comment">/// `event_log` rows remain replayable.</span>
-    <span class="rs-comment">///</span>
-    <span class="rs-comment">/// Internal seam: the reaper finishes a run; not part of the downstream API.</span>
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-finish-190">finish</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) {
-        <span class="rs-self">self</span>.streams.lock().remove(request_id);
-    }
 }
 
-<span class="rs-comment">/// The callback's synchronous core: classify the serialized event, and for a</span>
-<span class="rs-comment">/// milestone build an owned [`PendingMilestone`] and `try_send` it. The `seq` is</span>
-<span class="rs-comment">/// **not** assigned here — the drainer stamps it (see [`drain`]). A full queue arms</span>
-<span class="rs-comment">/// a gap marker instead of blocking. No `.await`, no lock — this is the AC5 hot-path</span>
-<span class="rs-comment">/// contract.</span>
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-classify-and-enqueue-201">classify_and_enqueue</a>(
-    tx: &amp;mpsc::<span class="rs-type">Sender</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a>&gt;,
-    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a>,
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-classify-and-enqueue-184">classify_and_enqueue</a>(
+    tx: &amp;mpsc::<span class="rs-type">Sender</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a>&gt;,
+    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a>,
     payload: serde_json::<span class="rs-type">Value</span>,
 ) {
-    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(kind) = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-milestone-kind-224">milestone_kind</a>(&amp;payload).map(str::to_owned) <span class="rs-kw">else</span> {
+    <span class="rs-kw">let</span> <span class="rs-type">Some</span>(kind) = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-milestone-kind-202">milestone_kind</a>(&amp;payload).map(str::to_owned) <span class="rs-kw">else</span> {
         <span class="rs-kw">return</span>;
     };
-    <span class="rs-kw">let</span> pending = <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a> {
+    <span class="rs-kw">let</span> pending = <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a> {
         kind,
         payload,
         created_at: <span class="rs-type">UtcDateTime</span>::now(),
     };
     <span class="rs-kw">if</span> tx.try_send(pending).is_err() {
-        stream.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-79">note_drop</a>();
+        stream.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-40">note_drop</a>();
     }
 }
 
-<span class="rs-comment">/// Milestone classifier: the serde tag of a persist-worthy event, or `None` for a</span>
-<span class="rs-comment">/// high-volume delta we drop. Fail-safe — an unknown future event kind is treated</span>
-<span class="rs-comment">/// as a milestone (kept visible) rather than silently dropped.</span>
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-milestone-kind-224">milestone_kind</a>(payload: &amp;serde_json::<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Option</span>&lt;&amp;str&gt; {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-milestone-kind-202">milestone_kind</a>(payload: &amp;serde_json::<span class="rs-type">Value</span>) -&gt; <span class="rs-type">Option</span>&lt;&amp;str&gt; {
     <span class="rs-kw">let</span> kind = payload.get(&quot;<span class="rs-kw">type</span>&quot;).and_then(serde_json::<span class="rs-type">Value</span>::as_str)?;
-    (!<a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-232">is_delta</a>(kind)).then_some(kind)
+    (!<a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a>(kind)).then_some(kind)
 }
 
-<span class="rs-comment">/// Whether a stream-event kind is a high-volume incremental delta (not persisted).</span>
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-232">is_delta</a>(kind: &amp;str) -&gt; bool {
+<span class="rs-kw">const</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-is-delta-207">is_delta</a>(kind: &amp;str) -&gt; bool {
     matches!(
         kind,
         &quot;reasoning_delta&quot; | &quot;assistant_text_delta&quot; | &quot;tool_execution_progress&quot;
     )
 }
 
-<span class="rs-comment">/// Per-request drainer and **sole sequencer**: it stamps a monotonic `seq` as it</span>
-<span class="rs-comment">/// persists, so persist order, `seq` order, and broadcast order are identical and no</span>
-<span class="rs-comment">/// gap marker can leapfrog a still-queued lower-`seq` record. It persists before</span>
-<span class="rs-comment">/// broadcasting and coalesces armed drops into one durable gap marker. `seq` advances</span>
-<span class="rs-comment">/// only on a durable write, so the space stays hole-free. Exits when the queue closes</span>
-<span class="rs-comment">/// (the run dropped its callback).</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-drain-240">drain</a>(
-    <span class="rs-kw">mut</span> rx: mpsc::<span class="rs-type">Receiver</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a>&gt;,
-    stream: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a>&gt;,
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-drain-214">drain</a>(
+    <span class="rs-kw">mut</span> rx: mpsc::<span class="rs-type">Receiver</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a>&gt;,
+    stream: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a>&gt;,
     event_log: <span class="rs-type">EventLogRepo</span>,
     request_id: <span class="rs-type">RequestId</span>,
 ) {
-    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seq: i64 = 0;
-    <span class="rs-kw">while</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(pending) = rx.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-362">recv</a>().<span class="rs-kw">await</span> {
-        seq = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-persist-and-broadcast-265">persist_and_broadcast</a>(&amp;event_log, &amp;stream, &amp;request_id, seq, pending).<span class="rs-kw">await</span>;
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> seq = <span class="rs-kw">match</span> event_log.max_seq(&amp;request_id).<span class="rs-kw">await</span> {
+        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(seq)) =&gt; seq,
+        <span class="rs-type">Ok</span>(<span class="rs-type">None</span>) =&gt; 0,
+        <span class="rs-type">Err</span>(err) =&gt; {
+            tracing::warn!(error = %err, &quot;failed to read event_log high-water seq&quot;);
+            0
+        }
+    };
+    <span class="rs-kw">while</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(pending) = rx.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-308">recv</a>().<span class="rs-kw">await</span> {
+        seq = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-persist-and-broadcast-239">persist_and_broadcast</a>(&amp;event_log, &amp;stream, &amp;request_id, seq, pending).<span class="rs-kw">await</span>;
         <span class="rs-kw">if</span> stream.gap_pending.swap(<span class="rs-kw">false</span>, <span class="rs-type">Ordering</span>::<span class="rs-type">AcqRel</span>) {
-            seq = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-308">emit_gap</a>(&amp;event_log, &amp;stream, &amp;request_id, seq).<span class="rs-kw">await</span>;
+            seq = <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-271">emit_gap</a>(&amp;event_log, &amp;stream, &amp;request_id, seq).<span class="rs-kw">await</span>;
         }
     }
-    <span class="rs-comment">// A drop armed after the final drained record still owes a marker.</span>
     <span class="rs-kw">if</span> stream.gap_pending.swap(<span class="rs-kw">false</span>, <span class="rs-type">Ordering</span>::<span class="rs-type">AcqRel</span>) {
-        <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-308">emit_gap</a>(&amp;event_log, &amp;stream, &amp;request_id, seq).<span class="rs-kw">await</span>;
+        <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-271">emit_gap</a>(&amp;event_log, &amp;stream, &amp;request_id, seq).<span class="rs-kw">await</span>;
     }
 }
 
-<span class="rs-comment">/// Stamp the next `seq`, persist the record, then broadcast it. Returns the new</span>
-<span class="rs-comment">/// high-water `seq`: it advances only when the row is durably written, so a failed</span>
-<span class="rs-comment">/// persist leaves no hole (the next record reuses the seq) and instead arms a gap</span>
-<span class="rs-comment">/// marker. A record that cannot be durably written is never broadcast</span>
-<span class="rs-comment">/// (persist-before-broadcast).</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-persist-and-broadcast-265">persist_and_broadcast</a>(
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-persist-and-broadcast-239">persist_and_broadcast</a>(
     event_log: &amp;<span class="rs-type">EventLogRepo</span>,
-    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a>,
+    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a>,
     request_id: &amp;<span class="rs-type">RequestId</span>,
     seq: i64,
-    pending: <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-50">PendingMilestone</a>,
+    pending: <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-PendingMilestone-25">PendingMilestone</a>,
 ) -&gt; i64 {
     <span class="rs-kw">let</span> record = <span class="rs-type">EventRecord</span> {
         request_id: request_id.clone(),
@@ -790,14 +755,8 @@
         payload: pending.payload,
         created_at: pending.created_at,
     };
-    <span class="rs-comment">// Single append, no retry: the pool busy-timeout already absorbs SQLITE_BUSY,</span>
-    <span class="rs-comment">// and a retry would reuse the identical `seq` — on a committed-but-errored</span>
-    <span class="rs-comment">// first attempt it would collide on PRIMARY KEY (request_id, seq) and arm a</span>
-    <span class="rs-comment">// *spurious* gap for a record that is in fact durable. A genuine append</span>
-    <span class="rs-comment">// failure here is surfaced honestly as a gap marker instead.</span>
     <span class="rs-kw">match</span> event_log.append(&amp;record).<span class="rs-kw">await</span> {
         <span class="rs-type">Ok</span>(()) =&gt; {
-            <span class="rs-comment">// `send` errs only when there are no subscribers — expected and fine.</span>
             <span class="rs-kw">let</span> stamped = record.seq;
             <span class="rs-kw">let</span> _ = stream.live.send(record);
             stamped
@@ -808,21 +767,15 @@
                 error = %err,
                 &quot;event_log append failed; dropping record and marking a stream gap&quot;
             );
-            stream.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-79">note_drop</a>();
+            stream.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-note-drop-40">note_drop</a>();
             seq
         }
     }
 }
 
-<span class="rs-comment">/// Stamp the next `seq`, then persist and broadcast one `event_stream_gap` marker</span>
-<span class="rs-comment">/// carrying the cumulative dropped count. Returns the new high-water `seq` (advanced</span>
-<span class="rs-comment">/// only when the marker is durably written). Because it is sequenced inline in drain</span>
-<span class="rs-comment">/// order, the marker sits between the records it separates and never leapfrogs a</span>
-<span class="rs-comment">/// queued record. Best-effort: a failed marker write is logged, not retried into a</span>
-<span class="rs-comment">/// loop.</span>
-<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-308">emit_gap</a>(
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#item-fn-emit-gap-271">emit_gap</a>(
     event_log: &amp;<span class="rs-type">EventLogRepo</span>,
-    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-62">RequestStream</a>,
+    stream: &amp;<a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-RequestStream-32">RequestStream</a>,
     request_id: &amp;<span class="rs-type">RequestId</span>,
     seq: i64,
 ) -&gt; i64 {
@@ -845,68 +798,55 @@
     }
 }
 
-<span class="rs-comment">/// A replay-then-live subscription. [`EventSubscription::recv`] yields records in</span>
-<span class="rs-comment">/// `seq` order with no gap and no duplicate across the replay/live handoff, and</span>
-<span class="rs-comment">/// recovers broadcast lag from the durable log.</span>
-<span class="rs-comment">///</span>
-<span class="rs-comment">/// The dedup is a single high-water mark (`last_seq`): replay raises it, live</span>
-<span class="rs-comment">/// delivers only `seq &gt; last_seq`. This is sound because the drainer is the sole</span>
-<span class="rs-comment">/// sequencer ([`drain`]): it stamps `seq` as it persists, so persist order, `seq`</span>
-<span class="rs-comment">/// order, and broadcast order are identical — a gap marker can never carry a `seq`</span>
-<span class="rs-comment">/// above a not-yet-delivered record. The dedup is additionally robust to *broadcast</span>
-<span class="rs-comment">/// reordering* (a slow subscriber that lags is refilled from the durable log).</span>
+<span class="rs-comment">/// Replay-then-live subscription for one request.</span>
 #[derive(<span class="rs-type">Debug</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-339">EventSubscription</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-296">EventSubscription</a> {
     request_id: <span class="rs-type">RequestId</span>,
     event_log: <span class="rs-type">EventLogRepo</span>,
     replay: <span class="rs-type">VecDeque</span>&lt;<span class="rs-type">EventRecord</span>&gt;,
-    <span class="rs-comment">/// `None` once the stream is exhausted, or for a replay-only subscription whose</span>
-    <span class="rs-comment">/// run already finished (no live broadcast to join).</span>
     live: <span class="rs-type">Option</span>&lt;broadcast::<span class="rs-type">Receiver</span>&lt;<span class="rs-type">EventRecord</span>&gt;&gt;,
-    <span class="rs-comment">/// Highest `seq` delivered so far — the dedup high-water mark.</span>
+    <span class="rs-comment">/// Highest `seq` delivered so far.</span>
     last_seq: i64,
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-339">EventSubscription</a> {
-    <span class="rs-comment">/// The next record in `seq` order, or `None` when the stream is exhausted.</span>
-    <span class="rs-comment">///</span>
-    <span class="rs-comment">/// Drains buffered replay first (skipping any `seq &lt;= last_seq`), then tails the</span>
-    <span class="rs-comment">/// live broadcast (delivering only `seq &gt; last_seq`). On broadcast lag it</span>
-    <span class="rs-comment">/// refills from the durable `event_log` instead of skipping; on close it does a</span>
-    <span class="rs-comment">/// final durable sweep before ending.</span>
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-backend-runtime.html#item-struct-EventSubscription-296">EventSubscription</a> {
+    <span class="rs-comment">/// Return the next event record, recovering live broadcast lag from</span>
+    <span class="rs-comment">/// `event_log`.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// [`StoreError`] if a durable refill read fails.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-362">recv</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">EventRecord</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-308">recv</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">EventRecord</span>&gt;, <span class="rs-type">StoreError</span>&gt; {
         loop {
             <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(record) = <span class="rs-self">self</span>.replay.pop_front() {
                 <span class="rs-kw">if</span> record.seq &gt; <span class="rs-self">self</span>.last_seq {
                     <span class="rs-self">self</span>.last_seq = record.seq;
                     <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(record));
                 }
-                <span class="rs-kw">continue</span>; <span class="rs-comment">// already delivered — dedup at the replay/live boundary.</span>
+                <span class="rs-kw">continue</span>;
             }
+
             <span class="rs-kw">let</span> <span class="rs-type">Some</span>(live) = <span class="rs-self">self</span>.live.as_mut() <span class="rs-kw">else</span> {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>); <span class="rs-comment">// replay-only (stream already finished) and drained.</span>
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>);
             };
-            <span class="rs-kw">match</span> live.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-362">recv</a>().<span class="rs-kw">await</span> {
+            <span class="rs-kw">match</span> live.<a class="symbol-link rs-fn" href="eos-backend-runtime.html#method-recv-308">recv</a>().<span class="rs-kw">await</span> {
                 <span class="rs-type">Ok</span>(record) =&gt; {
                     <span class="rs-kw">if</span> record.seq &gt; <span class="rs-self">self</span>.last_seq {
                         <span class="rs-self">self</span>.last_seq = record.seq;
                         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(record));
                     }
-                    <span class="rs-comment">// A replayed seq echoed live — skip it.</span>
                 }
                 <span class="rs-type">Err</span>(broadcast::error::<span class="rs-type">RecvError</span>::<span class="rs-type">Lagged</span>(_)) =&gt; {
-                    <span class="rs-comment">// The dropped live records are durable (persist-before-broadcast),</span>
-                    <span class="rs-comment">// so recover them from the log rather than leaving a gap.</span>
-                    <span class="rs-kw">let</span> refill = <span class="rs-self">self</span>.event_log.list_since(&amp;<span class="rs-self">self</span>.request_id, <span class="rs-self">self</span>.last_seq).<span class="rs-kw">await</span>?;
+                    <span class="rs-kw">let</span> refill = <span class="rs-self">self</span>
+                        .event_log
+                        .list_since(&amp;<span class="rs-self">self</span>.request_id, <span class="rs-self">self</span>.last_seq)
+                        .<span class="rs-kw">await</span>?;
                     <span class="rs-self">self</span>.replay.extend(refill);
                 }
                 <span class="rs-type">Err</span>(broadcast::error::<span class="rs-type">RecvError</span>::<span class="rs-type">Closed</span>) =&gt; {
-                    <span class="rs-comment">// Producer gone: one last durable sweep so a record persisted just</span>
-                    <span class="rs-comment">// before close is never missed, then end the stream.</span>
-                    <span class="rs-kw">let</span> refill = <span class="rs-self">self</span>.event_log.list_since(&amp;<span class="rs-self">self</span>.request_id, <span class="rs-self">self</span>.last_seq).<span class="rs-kw">await</span>?;
+                    <span class="rs-kw">let</span> refill = <span class="rs-self">self</span>
+                        .event_log
+                        .list_since(&amp;<span class="rs-self">self</span>.request_id, <span class="rs-self">self</span>.last_seq)
+                        .<span class="rs-kw">await</span>?;
                     <span class="rs-kw">if</span> refill.is_empty() {
                         <span class="rs-self">self</span>.live = <span class="rs-type">None</span>;
                         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>);
