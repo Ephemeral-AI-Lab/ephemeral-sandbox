@@ -8,7 +8,7 @@ use eos_types::{BackgroundSessionCounts, JsonObject, WorkflowId};
 use regex::Regex;
 use serde_json::{json, Value};
 
-use crate::agent_loop::AgentLoopHookDependencies;
+use crate::agent_loop::ToolCallHookStores;
 use crate::background::BackgroundManagers;
 
 mod advisor_approval;
@@ -64,14 +64,11 @@ impl HookDenial {
 #[derive(Clone, Debug)]
 pub(crate) struct ToolCallHooks {
     background: BackgroundManagers,
-    dependencies: AgentLoopHookDependencies,
+    dependencies: ToolCallHookStores,
 }
 
 impl ToolCallHooks {
-    pub(crate) fn new(
-        background: &BackgroundManagers,
-        dependencies: AgentLoopHookDependencies,
-    ) -> Self {
+    pub(crate) fn new(background: &BackgroundManagers, dependencies: ToolCallHookStores) -> Self {
         Self {
             background: background.clone(),
             dependencies,

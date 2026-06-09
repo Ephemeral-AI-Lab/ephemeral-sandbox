@@ -4,9 +4,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use eos_engine::{
-    AgentExecutionMetadataService, AgentLoopBackgroundDependencies, AgentLoopHookDependencies,
-    AgentLoopLauncher, AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory, EngineError,
-    EventCallback, ExecutionMetadataBuildInput, ProviderEventSource, TokioAgentLoopLauncher,
+    AgentLoopLauncher, AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory,
+    BackgroundSessionInputs, EngineError, EngineEventSink, ExecutionMetadataBuildInput,
+    LlmProviderStreamSource, TokioAgentLoopLauncher, ToolCallHookStores,
+    ToolExecutionMetadataReader,
 };
 use eos_sandbox_port::SandboxCommandService;
 use eos_tool::{
@@ -23,41 +24,43 @@ pub(crate) fn build_agent_loop_launcher(
     services: &AgentCoreRuntime,
     attempt_submission: Arc<dyn WorkflowAttemptSubmissionApi>,
     workflow_service: Arc<dyn WorkflowApi>,
-    event_callback: Option<EventCallback>,
+    event_sink: Option<EngineEventSink>,
 ) -> Arc<dyn AgentLoopLauncher> {
-    let metadata_service = Arc::new(RuntimeExecutionMetadataService::new(services.clone()));
+    let metadata_service = Arc::new(RuntimeToolExecutionMetadataReader::new(services.clone()));
     let registry_factory = Arc::new(RuntimeToolRegistryFactory {
         services: services.clone(),
         attempt_submission,
         workflow_service,
     });
-    let background_dependencies = AgentLoopBackgroundDependencies::new(
+    let background_dependencies = BackgroundSessionInputs::new(
         Arc::new(SandboxCommandService::new(
             services.sandbox.transport.clone(),
         )),
         services.engine.command_session_completion_poll_interval(),
         registry_factory.workflow_service.clone(),
     );
-    let hook_dependencies = AgentLoopHookDependencies::new(
+    let hook_dependencies = ToolCallHookStores::new(
         services.db.task_store.clone(),
         services.db.agent_run_store.clone(),
         services.db.workflow_store.clone(),
     );
-    let launcher_impl = match services.engine.event_source_factory.clone() {
-        Some(factory) => TokioAgentLoopLauncher::with_event_source_factory(
+    let launcher_impl = match services.engine.provider_stream_source_factory.clone() {
+        Some(factory) => TokioAgentLoopLauncher::with_provider_stream_source_factory(
             factory,
             registry_factory.clone(),
             metadata_service.clone(),
         ),
         None => TokioAgentLoopLauncher::new(
-            Arc::new(ProviderEventSource::new(services.engine.llm_client.clone())),
+            Arc::new(LlmProviderStreamSource::new(
+                services.engine.llm_client.clone(),
+            )),
             registry_factory,
             metadata_service,
         ),
     }
     .with_background_dependencies(background_dependencies)
     .with_hook_dependencies(hook_dependencies)
-    .with_event_callback(event_callback);
+    .with_event_sink(event_sink);
     Arc::new(launcher_impl)
 }
 
@@ -116,11 +119,11 @@ impl AgentLoopToolRegistryFactory for RuntimeToolRegistryFactory {
 }
 
 #[derive(Clone)]
-struct RuntimeExecutionMetadataService {
+struct RuntimeToolExecutionMetadataReader {
     services: AgentCoreRuntime,
 }
 
-impl RuntimeExecutionMetadataService {
+impl RuntimeToolExecutionMetadataReader {
     fn new(services: AgentCoreRuntime) -> Self {
         Self { services }
     }
@@ -232,7 +235,7 @@ impl RuntimeExecutionMetadataService {
 }
 
 #[async_trait]
-impl AgentExecutionMetadataService for RuntimeExecutionMetadataService {
+impl ToolExecutionMetadataReader for RuntimeToolExecutionMetadataReader {
     async fn agent_state(
         &self,
         agent_run_id: &eos_types::AgentRunId,

@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eos-agent-run · src/records/handle.rs</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+</head>
+<body>
+  <header>
+    <a class="central-link" href="/" title="Return to all class inventories">&larr; All inventories</a>
+    <div class="header-row">
+      <div>
+        <p class="eyebrow">Generated Rust source inventory · file-owned OOP map</p>
+        <h1>eos-agent-run File Inventory</h1>
+      </div>
+      <div class="refresh-control">
+        <button id="refresh-inventory" type="button" title="Regenerate this inventory from the local Rust sources" data-refresh-command="cd /Users/yifanxu/machine_learning/LoVC/EphemeralOS/agent-core &amp;&amp; cargo run --manifest-path scripts/class-inventory/Cargo.toml">Refresh</button>
+        <span id="refresh-status" role="status"></span>
+      </div>
+    </div>
+  </header>
+  <a class="back-link" href="../index.html">agent-core</a>
+<section class="summary">
+  <div><b>14</b><span>modules</span></div>
+  <div><b>71</b><span>items</span></div>
+  <div><b>56</b><span>fields</span></div>
+  <div><b>39</b><span>methods</span></div>
+</section>
+<section class="toolbar">
+  <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
+  <select id="kind-filter">
+    <option value="">All items</option>
+    <option value="type-model">Type model</option>
+    <option value="struct">Structs</option>
+    <option value="enum">Enums</option>
+    <option value="trait">Traits</option>
+    <option value="impl">Impls</option>
+    <option value="fn">Functions</option>
+    <option value="type">Aliases</option>
+  </select>
+</section>
+<main class="crate-layout">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>4/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-loop-request-rs.html"><span>agent_loop_request.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-persistence-rs.html"><span>agent_run_persistence.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-records-rs.html"><span>agent_run_records.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-service-rs.html"><span>agent_run_service.rs</span><small>1/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><span class="folder">records</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run--src-records-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link active" href="eos-agent-run--src-records-handle-rs.html"><span>handle.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-io-rs.html"><span>io.rs</span><small>2/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-kind-rs.html"><span>kind.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-layout-rs.html"><span>layout.rs</span><small>0/12</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-record-rs.html"><span>record.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-service-rs.html"><span>service.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-agent-run--src-records-rs.html"><span>records.rs</span><small>0/0</small></a></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="records::handle crates/eos-agent-run/src/records/handle.rs AgentRunRecordHandle impl AgentRunRecordHandle NodeFinishStatus impl NodeFinishStatus message_types">
+  <div class="module-head">
+    <div>
+      <h2>src/records/handle.rs</h2>
+      <p class="path">module <code>records::handle</code></p>
+    </div>
+    <div class="module-stats">
+      <span>file owns</span>
+      <span>2 types</span>
+      <span>2 impls</span>
+      <span>1 fns</span>
+      <span>7 methods</span>
+    </div>
+  </div>
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-AgentRunRecordHandle-12" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AgentRunRecordHandle pub pub struct AgentRunRecordHandle crates/eos-agent-run/src/records/handle.rs node_dir PathBuf messages_path PathBuf events_path PathBuf ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>AgentRunRecordHandle</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#item-struct-AgentRunRecordHandle-12">AgentRunRecordHandle</a></code>
+  <p class="docstring">A started agent-run message-record node.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>node_dir</td><td><code>PathBuf</code></td></tr><tr><td>private</td><td>messages_path</td><td><code>PathBuf</code></td></tr><tr><td>private</td><td>events_path</td><td><code>PathBuf</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-from-node-dir-79"><td>constructor</td><td>from_node_dir</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#method-from-node-dir-79">from_node_dir</a> (node_dir : PathBuf) -&gt; Self</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-from-node-dir-79">from_node_dir</a>(node_dir: <span class="rs-type">PathBuf</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span> {
+            messages_path: node_dir.join(&quot;messages.jsonl&quot;),
+            events_path: node_dir.join(&quot;events.jsonl&quot;),
+            node_dir,
+        }
+    }
+</code></pre>
+</details></td></tr><tr id="method-finish-53"><td>method</td><td>finish</td><td><code>pub async fn <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#method-finish-53">finish</a> (&amp; self , status : <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#item-enum-NodeFinishStatus-88">NodeFinishStatus</a>) -&gt; <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a> &lt; () &gt;</code><p class="docstring">Append the terminal node event.<br># Errors<br>Returns [`super::MessageRecordError`] if event append fails.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Append the terminal node event.</span>
+    <span class="rs-comment">///</span>
+    <span class="rs-comment">/// # Errors</span>
+    <span class="rs-comment">/// Returns [`super::MessageRecordError`] if event append fails.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-finish-53">finish</a>(&amp;<span class="rs-self">self</span>, status: <a class="symbol-link rs-type" href="eos-agent-run--src-records-handle-rs.html#item-enum-NodeFinishStatus-88">NodeFinishStatus</a>) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;()&gt; {
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-37">new</a>();
+        payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(&quot;status&quot;.to_owned(), json!(status.<a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-as-str-99">as_str</a>()));
+        <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-event-71">append_event</a>(&quot;node_finished&quot;, payload).<span class="rs-kw">await</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-node-dir-21"><td>method</td><td>node_dir</td><td><code>pub fn <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#method-node-dir-21">node_dir</a> (&amp; self) -&gt; &amp; Path</code><p class="docstring">Node directory.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Node directory.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-node-dir-21">node_dir</a>(&amp;<span class="rs-self">self</span>) -&gt; &amp;<span class="rs-type">Path</span> {
+        &amp;<span class="rs-self">self</span>.node_dir
+    }
+</code></pre>
+</details></td></tr><tr id="method-append-messages-27"><td>method</td><td>append_messages</td><td><code>pub async fn <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#method-append-messages-27">append_messages</a> (&amp; self , messages : &amp; [Message]) -&gt; <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a> &lt; <a class="symbol-link" href="eos-agent-run--src-records-record-rs.html#item-struct-MessageAppendRange-4">MessageAppendRange</a> &gt;</code><p class="docstring">Append later model-visible messages and announce the byte range in<br>`events.jsonl`.<br># Errors<br>Returns [`super::MessageRecordError`] if message or event append fails.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// Append later model-visible messages and announce the byte range in</span>
+    <span class="rs-comment">/// `events.jsonl`.</span>
+    <span class="rs-comment">///</span>
+    <span class="rs-comment">/// # Errors</span>
+    <span class="rs-comment">/// Returns [`super::MessageRecordError`] if message or event append fails.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-messages-27">append_messages</a>(&amp;<span class="rs-self">self</span>, messages: &amp;[<span class="rs-type">Message</span>]) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-records-record-rs.html#item-struct-MessageAppendRange-4">MessageAppendRange</a>&gt; {
+        <span class="rs-kw">let</span> range = <a class="symbol-link rs-fn" href="eos-agent-run--src-records-io-rs.html#item-fn-append-message-rows-27">append_message_rows</a>(&amp;<span class="rs-self">self</span>.messages_path, &quot;message&quot;, messages).<span class="rs-kw">await</span>?;
+        <span class="rs-kw">if</span> range.count &gt; 0 {
+            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-37">new</a>();
+            payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(&quot;count&quot;.to_owned(), json!(range.count));
+            payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(&quot;messages_start_byte&quot;.to_owned(), json!(range.start_byte));
+            payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(&quot;messages_end_byte&quot;.to_owned(), json!(range.end_byte));
+            payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(
+                &quot;message_types&quot;.to_owned(),
+                <span class="rs-type">Value</span>::<span class="rs-type">Array</span>(
+                    <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#item-fn-message-types-107">message_types</a>(messages)
+                        .into_iter()
+                        .map(<span class="rs-type">Value</span>::<span class="rs-type">String</span>)
+                        .collect(),
+                ),
+            );
+            <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-event-71">append_event</a>(&quot;messages_appended&quot;, payload).<span class="rs-kw">await</span>?;
+        }
+        <span class="rs-type">Ok</span>(range)
+    }
+</code></pre>
+</details></td></tr><tr id="method-append-initial-messages-63"><td>method</td><td>append_initial_messages</td><td><code>pub(crate) async fn <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#method-append-initial-messages-63">append_initial_messages</a> (&amp; self , system_prompt : &amp; str , initial_messages : &amp; [Message] ,) -&gt; <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a> &lt; <a class="symbol-link" href="eos-agent-run--src-records-record-rs.html#item-struct-MessageAppendRange-4">MessageAppendRange</a> &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-initial-messages-63">append_initial_messages</a>(
+        &amp;<span class="rs-self">self</span>,
+        system_prompt: &amp;str,
+        initial_messages: &amp;[<span class="rs-type">Message</span>],
+    ) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-records-record-rs.html#item-struct-MessageAppendRange-4">MessageAppendRange</a>&gt; {
+        <a class="symbol-link rs-fn" href="eos-agent-run--src-records-io-rs.html#item-fn-append-initial-message-rows-43">append_initial_message_rows</a>(&amp;<span class="rs-self">self</span>.messages_path, system_prompt, initial_messages).<span class="rs-kw">await</span>
+    }
+</code></pre>
+</details></td></tr><tr id="method-append-event-71"><td>method</td><td>append_event</td><td><code>pub(crate) async fn <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#method-append-event-71">append_event</a> (&amp; self , kind : impl Into &lt; String &gt; , payload : JsonObject ,) -&gt; <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a> &lt; () &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-event-71">append_event</a>(
+        &amp;<span class="rs-self">self</span>,
+        kind: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;,
+        payload: <span class="rs-type">JsonObject</span>,
+    ) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;()&gt; {
+        <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-event-71">append_event</a>(&amp;<span class="rs-self">self</span>.events_path, kind.into(), payload).<span class="rs-kw">await</span>
+    }
+</code></pre>
+</details></td></tr></tbody></table>
+
+  <p class="source">crates/eos-agent-run/src/records/handle.rs:12</p>
+</article><article id="item-enum-NodeFinishStatus-88" class="type-card" data-kind="enum" data-kind-list="enum field impl method type-model" data-filter-text="enum NodeFinishStatus pub pub enum NodeFinishStatus crates/eos-agent-run/src/records/handle.rs  ">
+  <div class="item-head">
+    <span class="kind">enum</span>
+    <h3>NodeFinishStatus</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub enum <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#item-enum-NodeFinishStatus-88">NodeFinishStatus</a></code>
+  <p class="docstring">Terminal status stored in `node_finished`.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Eq</span><span>derive: PartialEq</span><span>non_exhaustive</span></div>
+  <h4>Variants</h4><table><tbody><tr><td>Completed</td><td><code></code></td></tr><tr><td>Failed</td><td><code></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-as-str-99"><td>method</td><td>as_str</td><td><code>fn <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#method-as-str-99">as_str</a> (self) -&gt; &amp; &#x27;static str</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-as-str-99">as_str</a>(<span class="rs-self">self</span>) -&gt; &amp;&#x27;<span class="rs-kw">static</span> str {
+        <span class="rs-kw">match</span> <span class="rs-self">self</span> {
+            <span class="rs-self">Self</span>::<span class="rs-type">Completed</span> =&gt; &quot;completed&quot;,
+            <span class="rs-self">Self</span>::<span class="rs-type">Failed</span> =&gt; &quot;failed&quot;,
+        }
+    }
+</code></pre>
+</details></td></tr></tbody></table>
+
+  <p class="source">crates/eos-agent-run/src/records/handle.rs:88</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-message-types-107" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn message_types private fn message_types (messages : &amp; [Message]) -&gt; Vec &lt; String &gt; crates/eos-agent-run/src/records/handle.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>message_types</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#item-fn-message-types-107">message_types</a> (messages : &amp; [Message]) -&gt; Vec &lt; String &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#item-fn-message-types-107">message_types</a>(messages: &amp;[<span class="rs-type">Message</span>]) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">String</span>&gt; {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> types = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-37">new</a>();
+    <span class="rs-kw">for</span> block <span class="rs-kw">in</span> messages.iter().flat_map(|message| &amp;message.content) {
+        types.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(
+            <span class="rs-kw">match</span> block {
+                <span class="rs-type">ContentBlock</span>::<span class="rs-type">Text</span> { .. } =&gt; &quot;text&quot;,
+                <span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolUse</span> { .. } =&gt; &quot;tool_use&quot;,
+                <span class="rs-type">ContentBlock</span>::<span class="rs-type">Reasoning</span> { .. } =&gt; &quot;reasoning&quot;,
+                <span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolResult</span> { .. } =&gt; &quot;tool_result&quot;,
+                <span class="rs-type">ContentBlock</span>::<span class="rs-type">SystemNotification</span> { .. } =&gt; &quot;system_notification&quot;,
+                _ =&gt; &quot;unknown&quot;,
+            }
+            .to_owned(),
+        );
+    }
+    types.into_iter().collect()
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-agent-run/src/records/handle.rs:107</p>
+</article></div>
+</section></div>
+</main>
+<section class="file-source-section">
+  <div class="source-head">
+    <h2>Source File</h2>
+    <p class="path">crates/eos-agent-run/src/records/handle.rs</p>
+  </div>
+  <pre class="file-source"><code><span class="rs-kw">use</span> std::collections::<span class="rs-type">BTreeSet</span>;
+<span class="rs-kw">use</span> std::path::{<span class="rs-type">Path</span>, <span class="rs-type">PathBuf</span>};
+
+<span class="rs-kw">use</span> eos_types::<span class="rs-type">JsonObject</span>;
+<span class="rs-kw">use</span> eos_types::{<span class="rs-type">ContentBlock</span>, <span class="rs-type">Message</span>};
+<span class="rs-kw">use</span> serde_json::{json, <span class="rs-type">Value</span>};
+
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::error::<a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>;
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::io::{append_event, append_initial_message_rows, append_message_rows};
+<span class="rs-kw">use</span> <span class="rs-kw">super</span>::record::<a class="symbol-link rs-type" href="eos-agent-run--src-records-record-rs.html#item-struct-MessageAppendRange-4">MessageAppendRange</a>;
+
+<span class="rs-comment">/// A started agent-run message-record node.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-records-handle-rs.html#item-struct-AgentRunRecordHandle-12">AgentRunRecordHandle</a> {
+    node_dir: <span class="rs-type">PathBuf</span>,
+    messages_path: <span class="rs-type">PathBuf</span>,
+    events_path: <span class="rs-type">PathBuf</span>,
+}
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run--src-records-handle-rs.html#item-struct-AgentRunRecordHandle-12">AgentRunRecordHandle</a> {
+    <span class="rs-comment">/// Node directory.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-node-dir-21">node_dir</a>(&amp;<span class="rs-self">self</span>) -&gt; &amp;<span class="rs-type">Path</span> {
+        &amp;<span class="rs-self">self</span>.node_dir
+    }
+
+    <span class="rs-comment">/// Append later model-visible messages and announce the byte range in</span>
+    <span class="rs-comment">/// `events.jsonl`.</span>
+    <span class="rs-comment">///</span>
+    <span class="rs-comment">/// # Errors</span>
+    <span class="rs-comment">/// Returns [`super::MessageRecordError`] if message or event append fails.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-messages-27">append_messages</a>(&amp;<span class="rs-self">self</span>, messages: &amp;[<span class="rs-type">Message</span>]) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-records-record-rs.html#item-struct-MessageAppendRange-4">MessageAppendRange</a>&gt; {
+        <span class="rs-kw">let</span> range = <a class="symbol-link rs-fn" href="eos-agent-run--src-records-io-rs.html#item-fn-append-message-rows-27">append_message_rows</a>(&amp;<span class="rs-self">self</span>.messages_path, &quot;message&quot;, messages).<span class="rs-kw">await</span>?;
+        <span class="rs-kw">if</span> range.count &gt; 0 {
+            <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-37">new</a>();
+            payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(&quot;count&quot;.to_owned(), json!(range.count));
+            payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(&quot;messages_start_byte&quot;.to_owned(), json!(range.start_byte));
+            payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(&quot;messages_end_byte&quot;.to_owned(), json!(range.end_byte));
+            payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(
+                &quot;message_types&quot;.to_owned(),
+                <span class="rs-type">Value</span>::<span class="rs-type">Array</span>(
+                    <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#item-fn-message-types-107">message_types</a>(messages)
+                        .into_iter()
+                        .map(<span class="rs-type">Value</span>::<span class="rs-type">String</span>)
+                        .collect(),
+                ),
+            );
+            <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-event-71">append_event</a>(&quot;messages_appended&quot;, payload).<span class="rs-kw">await</span>?;
+        }
+        <span class="rs-type">Ok</span>(range)
+    }
+
+    <span class="rs-comment">/// Append the terminal node event.</span>
+    <span class="rs-comment">///</span>
+    <span class="rs-comment">/// # Errors</span>
+    <span class="rs-comment">/// Returns [`super::MessageRecordError`] if event append fails.</span>
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-finish-53">finish</a>(&amp;<span class="rs-self">self</span>, status: <a class="symbol-link rs-type" href="eos-agent-run--src-records-handle-rs.html#item-enum-NodeFinishStatus-88">NodeFinishStatus</a>) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;()&gt; {
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-37">new</a>();
+        payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(&quot;status&quot;.to_owned(), json!(status.<a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-as-str-99">as_str</a>()));
+        <span class="rs-self">self</span>.<a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-event-71">append_event</a>(&quot;node_finished&quot;, payload).<span class="rs-kw">await</span>
+    }
+
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-initial-messages-63">append_initial_messages</a>(
+        &amp;<span class="rs-self">self</span>,
+        system_prompt: &amp;str,
+        initial_messages: &amp;[<span class="rs-type">Message</span>],
+    ) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;<a class="symbol-link rs-type" href="eos-agent-run--src-records-record-rs.html#item-struct-MessageAppendRange-4">MessageAppendRange</a>&gt; {
+        <a class="symbol-link rs-fn" href="eos-agent-run--src-records-io-rs.html#item-fn-append-initial-message-rows-43">append_initial_message_rows</a>(&amp;<span class="rs-self">self</span>.messages_path, system_prompt, initial_messages).<span class="rs-kw">await</span>
+    }
+
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-event-71">append_event</a>(
+        &amp;<span class="rs-self">self</span>,
+        kind: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;,
+        payload: <span class="rs-type">JsonObject</span>,
+    ) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;()&gt; {
+        <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-append-event-71">append_event</a>(&amp;<span class="rs-self">self</span>.events_path, kind.into(), payload).<span class="rs-kw">await</span>
+    }
+
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-from-node-dir-79">from_node_dir</a>(node_dir: <span class="rs-type">PathBuf</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span> {
+            messages_path: node_dir.join(&quot;messages.jsonl&quot;),
+            events_path: node_dir.join(&quot;events.jsonl&quot;),
+            node_dir,
+        }
+    }
+}
+
+<span class="rs-comment">/// Terminal status stored in `node_finished`.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>)]
+#[non_exhaustive]
+<span class="rs-kw">pub</span> <span class="rs-kw">enum</span> <a class="symbol-link rs-type" href="eos-agent-run--src-records-handle-rs.html#item-enum-NodeFinishStatus-88">NodeFinishStatus</a> {
+    <span class="rs-comment">/// Agent run completed without framework error.</span>
+    <span class="rs-type">Completed</span>,
+    <span class="rs-comment">/// Agent run failed or crashed.</span>
+    <span class="rs-type">Failed</span>,
+}
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run--src-records-handle-rs.html#item-enum-NodeFinishStatus-88">NodeFinishStatus</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#method-as-str-99">as_str</a>(<span class="rs-self">self</span>) -&gt; &amp;&#x27;<span class="rs-kw">static</span> str {
+        <span class="rs-kw">match</span> <span class="rs-self">self</span> {
+            <span class="rs-self">Self</span>::<span class="rs-type">Completed</span> =&gt; &quot;completed&quot;,
+            <span class="rs-self">Self</span>::<span class="rs-type">Failed</span> =&gt; &quot;failed&quot;,
+        }
+    }
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-handle-rs.html#item-fn-message-types-107">message_types</a>(messages: &amp;[<span class="rs-type">Message</span>]) -&gt; <span class="rs-type">Vec</span>&lt;<span class="rs-type">String</span>&gt; {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> types = <span class="rs-type">BTreeSet</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-37">new</a>();
+    <span class="rs-kw">for</span> block <span class="rs-kw">in</span> messages.iter().flat_map(|message| &amp;message.content) {
+        types.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(
+            <span class="rs-kw">match</span> block {
+                <span class="rs-type">ContentBlock</span>::<span class="rs-type">Text</span> { .. } =&gt; &quot;text&quot;,
+                <span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolUse</span> { .. } =&gt; &quot;tool_use&quot;,
+                <span class="rs-type">ContentBlock</span>::<span class="rs-type">Reasoning</span> { .. } =&gt; &quot;reasoning&quot;,
+                <span class="rs-type">ContentBlock</span>::<span class="rs-type">ToolResult</span> { .. } =&gt; &quot;tool_result&quot;,
+                <span class="rs-type">ContentBlock</span>::<span class="rs-type">SystemNotification</span> { .. } =&gt; &quot;system_notification&quot;,
+                _ =&gt; &quot;unknown&quot;,
+            }
+            .to_owned(),
+        );
+    }
+    types.into_iter().collect()
+}
+</code></pre>
+</section>
+  <script src="../assets/inventory-data.js"></script>
+  <script src="../assets/inventory.js"></script>
+</body>
+</html>

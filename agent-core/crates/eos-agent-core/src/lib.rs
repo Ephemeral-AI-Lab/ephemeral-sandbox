@@ -43,8 +43,8 @@ pub use runtime::audit::{
     OS_RESOURCE_SAMPLED, SCHEMA, SCHEMA_VERSION, TOOL_CALL_COMPLETED,
 };
 pub use runtime::{
-    AgentCoreRuntime, AgentCoreRuntimeBuilder, EventCallback, EventSourceFactory, RuntimeConfig,
-    StateReader,
+    AgentCoreRuntime, AgentCoreRuntimeBuilder, EngineEventSink, ProviderStreamSourceFactory,
+    RuntimeConfig, StateReader,
 };
 
 // Re-export the sandbox binding value object owned by the sandbox port; this

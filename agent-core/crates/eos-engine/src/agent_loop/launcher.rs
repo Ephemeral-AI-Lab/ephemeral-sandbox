@@ -2,46 +2,27 @@
 
 use std::sync::Arc;
 
-use eos_types::AgentRunApi;
+use eos_types::{
+    AgentLoopCancellation, AgentLoopCancellationHandle, AgentLoopLauncher, AgentRunApi,
+    StartAgentLoopRequest, StartedAgentLoop,
+};
 use tokio::sync::{oneshot, watch};
 
 use super::{
-    AgentExecutionMetadataService, AgentLoopBackgroundDependencies, AgentLoopExecutor,
-    AgentLoopHookDependencies, AgentLoopHooks, AgentLoopOutcome, AgentLoopToolRegistryFactory,
-    NoopAgentLoopHooks, StartAgentLoopRequest,
+    AgentLoopExecutor, AgentLoopHooks, AgentLoopToolRegistryFactory, BackgroundSessionInputs,
+    NoopAgentLoopHooks, ToolCallHookStores, ToolExecutionMetadataReader,
 };
-use crate::query::{EventCallback, EventSource, EventSourceFactory};
+use crate::query::{EngineEventSink, ProviderStreamSource, ProviderStreamSourceFactory};
 
-/// Public non-blocking launcher for agent loops.
-pub trait AgentLoopLauncher: Send + Sync {
-    /// Start an agent loop and return immediately with its outcome receiver.
-    fn start_agent_loop(
-        &self,
-        request: StartAgentLoopRequest,
-        agent_run_api: Arc<dyn AgentRunApi>,
-    ) -> StartedAgentLoop;
-}
-
-/// Handle returned after an agent loop has been started.
-#[derive(Debug)]
-pub struct StartedAgentLoop {
-    /// Receives the terminal loop outcome.
-    pub outcome_receiver: oneshot::Receiver<AgentLoopOutcome>,
-    /// Cooperative cancellation handle for the running loop.
-    pub cancel_handle: AgentLoopCancelHandle,
-}
-
-/// Cooperative cancellation handle for one agent loop.
 #[derive(Clone, Debug)]
-pub struct AgentLoopCancelHandle {
+struct WatchAgentLoopCancellation {
     sender: watch::Sender<Option<String>>,
 }
 
-impl AgentLoopCancelHandle {
-    /// Request loop cancellation. The first reason wins.
-    pub fn cancel(&self, reason: impl Into<String>) {
+impl AgentLoopCancellation for WatchAgentLoopCancellation {
+    fn cancel(&self, reason: &str) {
         if self.sender.borrow().is_none() {
-            let _ignored = self.sender.send(Some(reason.into()));
+            let _ignored = self.sender.send(Some(reason.to_owned()));
         }
     }
 }
@@ -62,29 +43,29 @@ impl AgentLoopCancelSignal {
 
 /// Build a cancel handle/signal pair for one loop.
 #[must_use]
-fn agent_loop_cancel_pair() -> (AgentLoopCancelHandle, AgentLoopCancelSignal) {
+fn agent_loop_cancel_pair() -> (AgentLoopCancellationHandle, AgentLoopCancelSignal) {
     let (sender, receiver) = watch::channel(None);
     (
-        AgentLoopCancelHandle { sender },
+        Arc::new(WatchAgentLoopCancellation { sender }),
         AgentLoopCancelSignal { receiver },
     )
 }
 
 #[derive(Clone)]
-pub(crate) enum AgentLoopEventSource {
-    Static(Arc<dyn EventSource>),
-    Factory(EventSourceFactory),
+pub(crate) enum AgentLoopProviderStream {
+    Static(Arc<dyn ProviderStreamSource>),
+    Factory(ProviderStreamSourceFactory),
 }
 
 /// Tokio-backed non-blocking agent-loop launcher.
 pub struct TokioAgentLoopLauncher {
-    event_source: AgentLoopEventSource,
+    provider_stream_source: AgentLoopProviderStream,
     loop_hooks: Arc<dyn AgentLoopHooks>,
     tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-    metadata_service: Arc<dyn AgentExecutionMetadataService>,
-    background_dependencies: Option<AgentLoopBackgroundDependencies>,
-    hook_dependencies: Option<AgentLoopHookDependencies>,
-    event_callback: Option<EventCallback>,
+    metadata_service: Arc<dyn ToolExecutionMetadataReader>,
+    background_dependencies: Option<BackgroundSessionInputs>,
+    hook_dependencies: Option<ToolCallHookStores>,
+    event_sink: Option<EngineEventSink>,
 }
 
 impl std::fmt::Debug for TokioAgentLoopLauncher {
@@ -98,12 +79,12 @@ impl TokioAgentLoopLauncher {
     /// Build a Tokio-backed launcher from engine-owned loop services.
     #[must_use]
     pub fn new(
-        event_source: Arc<dyn EventSource>,
+        provider_stream_source: Arc<dyn ProviderStreamSource>,
         tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-        metadata_service: Arc<dyn AgentExecutionMetadataService>,
+        metadata_service: Arc<dyn ToolExecutionMetadataReader>,
     ) -> Self {
         Self::with_hooks(
-            AgentLoopEventSource::Static(event_source),
+            AgentLoopProviderStream::Static(provider_stream_source),
             Arc::new(NoopAgentLoopHooks),
             tool_registry_factory,
             metadata_service,
@@ -112,13 +93,13 @@ impl TokioAgentLoopLauncher {
 
     /// Build a launcher with a source resolved from each loop request.
     #[must_use]
-    pub fn with_event_source_factory(
-        event_source_factory: EventSourceFactory,
+    pub fn with_provider_stream_source_factory(
+        provider_stream_source_factory: ProviderStreamSourceFactory,
         tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-        metadata_service: Arc<dyn AgentExecutionMetadataService>,
+        metadata_service: Arc<dyn ToolExecutionMetadataReader>,
     ) -> Self {
         Self::with_hooks(
-            AgentLoopEventSource::Factory(event_source_factory),
+            AgentLoopProviderStream::Factory(provider_stream_source_factory),
             Arc::new(NoopAgentLoopHooks),
             tool_registry_factory,
             metadata_service,
@@ -127,43 +108,40 @@ impl TokioAgentLoopLauncher {
 
     #[must_use]
     pub(crate) fn with_hooks(
-        event_source: AgentLoopEventSource,
+        provider_stream_source: AgentLoopProviderStream,
         loop_hooks: Arc<dyn AgentLoopHooks>,
         tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-        metadata_service: Arc<dyn AgentExecutionMetadataService>,
+        metadata_service: Arc<dyn ToolExecutionMetadataReader>,
     ) -> Self {
         Self {
-            event_source,
+            provider_stream_source,
             loop_hooks,
             tool_registry_factory,
             metadata_service,
             background_dependencies: None,
             hook_dependencies: None,
-            event_callback: None,
+            event_sink: None,
         }
     }
 
     /// Attach runtime ports for engine-owned background managers.
     #[must_use]
-    pub fn with_background_dependencies(
-        mut self,
-        dependencies: AgentLoopBackgroundDependencies,
-    ) -> Self {
+    pub fn with_background_dependencies(mut self, dependencies: BackgroundSessionInputs) -> Self {
         self.background_dependencies = Some(dependencies);
         self
     }
 
     /// Attach runtime stores for engine-owned tool-call hooks.
     #[must_use]
-    pub fn with_hook_dependencies(mut self, dependencies: AgentLoopHookDependencies) -> Self {
+    pub fn with_hook_dependencies(mut self, dependencies: ToolCallHookStores) -> Self {
         self.hook_dependencies = Some(dependencies);
         self
     }
 
-    /// Attach an optional stream-event callback invoked by each run.
+    /// Attach an optional stream-event sink invoked by each run.
     #[must_use]
-    pub fn with_event_callback(mut self, callback: Option<EventCallback>) -> Self {
-        self.event_callback = callback;
+    pub fn with_event_sink(mut self, sink: Option<EngineEventSink>) -> Self {
+        self.event_sink = sink;
         self
     }
 }
@@ -177,14 +155,14 @@ impl AgentLoopLauncher for TokioAgentLoopLauncher {
         let (outcome_sender, outcome_receiver) = oneshot::channel();
         let (cancel_handle, cancel_signal) = agent_loop_cancel_pair();
         let loop_executor = AgentLoopExecutor::new(
-            self.event_source.clone(),
+            self.provider_stream_source.clone(),
             Arc::clone(&self.loop_hooks),
             Arc::clone(&self.tool_registry_factory),
             Arc::clone(&self.metadata_service),
             cancel_signal,
             self.background_dependencies.clone(),
             self.hook_dependencies.clone(),
-            self.event_callback.clone(),
+            self.event_sink.clone(),
             agent_run_api,
         );
 
@@ -194,8 +172,8 @@ impl AgentLoopLauncher for TokioAgentLoopLauncher {
         });
 
         StartedAgentLoop {
-            outcome_receiver,
-            cancel_handle,
+            outcome: Box::pin(async move { outcome_receiver.await.ok() }),
+            cancellation: cancel_handle,
         }
     }
 }

@@ -2,7 +2,7 @@ use std::path::Path;
 
 use workspace_guard::{
     directories_under, public_declared_identifiers, relative_to, rust_files_under, snake_case,
-    Workspace, FORBIDDEN_VOCABULARY, LEGACY_MIGRATION_CRATES,
+    Workspace, FORBIDDEN_VOCABULARY,
 };
 
 const PORT_CRATE_ALLOWLIST: &[&str] = &["eos-sandbox-port"];
@@ -41,10 +41,6 @@ fn no_nonexistent_api_facade_crate_name() {
 #[test]
 fn final_target_uses_no_forbidden_vocabulary_in_modules_or_public_types() {
     let workspace = Workspace::load();
-    if !workspace.final_layout_rules_active() {
-        return;
-    }
-
     let mut violations = Vec::new();
     for crate_info in workspace.crates().values() {
         for path in rust_files_under(&crate_info.src_dir) {
@@ -84,10 +80,6 @@ fn final_target_uses_no_forbidden_vocabulary_in_modules_or_public_types() {
 #[test]
 fn final_target_keeps_api_out_of_crate_and_module_suffixes() {
     let workspace = Workspace::load();
-    if !workspace.final_layout_rules_active() {
-        return;
-    }
-
     let mut violations = Vec::new();
     for crate_name in workspace.crate_names() {
         if crate_name.ends_with("-api") {
@@ -126,10 +118,6 @@ fn final_target_keeps_api_out_of_crate_and_module_suffixes() {
 #[test]
 fn final_target_scopes_runtime_to_agent_core_runtime() {
     let workspace = Workspace::load();
-    if !workspace.final_layout_rules_active() {
-        return;
-    }
-
     let violations = workspace
         .crates()
         .values()
@@ -153,16 +141,6 @@ fn final_target_scopes_runtime_to_agent_core_runtime() {
         "naming_rules rule violated:\n{}",
         violations.join("\n")
     );
-}
-
-#[test]
-fn migration_allowlist_contains_only_retired_crates() {
-    for crate_name in LEGACY_MIGRATION_CRATES {
-        assert!(
-            crate_name.starts_with("eos-"),
-            "naming_rules rule violated: migration allowlist entry `{crate_name}` is not an eos crate"
-        );
-    }
 }
 
 fn is_api_allowlisted(path: &Path, root: &Path) -> bool {

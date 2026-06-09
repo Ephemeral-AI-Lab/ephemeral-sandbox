@@ -23,7 +23,6 @@ pub struct AgentRunRecordStart<'a> {
 
 /// Agent-run message-record node type and location facts.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum AgentRunRecordKind {
     /// Root request agent.
     Root,
@@ -48,8 +47,6 @@ pub enum AgentRunRecordKind {
         /// Parent agent-run id.
         parent_agent_run_id: AgentRunId,
     },
-    /// Generic agent run when no narrower layout is known.
-    Agent,
 }
 
 impl AgentRunRecordKind {
@@ -59,7 +56,6 @@ impl AgentRunRecordKind {
             Self::WorkflowTask { role, .. } => role.node_type(),
             Self::Subagent { .. } => "subagent",
             Self::Advisor { .. } => "advisor",
-            Self::Agent => "agent",
         }
     }
 
@@ -87,14 +83,13 @@ impl AgentRunRecordKind {
                     json!(parent_agent_run_id.as_str()),
                 );
             }
-            Self::Root | Self::Agent => {}
+            Self::Root => {}
         }
     }
 }
 
 /// Workflow task role used for message-record path labels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum WorkflowTaskRole {
     /// Planner task.
     Planner,

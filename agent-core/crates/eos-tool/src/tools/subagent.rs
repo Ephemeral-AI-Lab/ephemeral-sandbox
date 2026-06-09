@@ -19,7 +19,10 @@ mod run_subagent {
     use async_trait::async_trait;
     use eos_types::JsonObject;
     use eos_types::Message;
-    use eos_types::{AgentName, AgentRunApi, AgentRunError, SpawnAgentRequest, TaskAgentRunKind};
+    use eos_types::{
+        AgentName, AgentRunApi, AgentRunError, ParentAgentRunAnchor, SpawnAgentRequest,
+        SpawnAgentTarget,
+    };
     use schemars::{schema_for, JsonSchema};
     use serde::{Deserialize, Serialize};
     use serde_json::json;
@@ -137,6 +140,8 @@ mod run_subagent {
                 ));
             }
             let parent_agent_run_id = ctx.require_agent_run_id()?.clone();
+            let parent_task_id = ctx.require_task_id()?.clone();
+            let parent_request_id = ctx.require_request_id()?.clone();
             let requested_agent_name = parsed.agent_name.clone();
             let agent_name = match AgentName::new(&parsed.agent_name) {
                 Ok(agent_name) => agent_name,
@@ -155,18 +160,17 @@ mod run_subagent {
                         Message::from_user_text(parsed.prompt.clone()),
                         Message::from_user_text(subagent_launch_guidance()),
                     ],
-                    parent_agent_run_id: Some(parent_agent_run_id.clone()),
-                    request_id: ctx.request_id.clone(),
-                    task_id: None,
-                    attempt_id: None,
-                    workflow_id: None,
+                    target: SpawnAgentTarget::Subagent {
+                        parent: ParentAgentRunAnchor {
+                            request_id: parent_request_id,
+                            parent_task_id,
+                            agent_run_id: parent_agent_run_id,
+                        },
+                    },
                     sandbox_id: ctx.sandbox_id.clone(),
                     workspace_root: ctx.workspace_root.clone(),
                     is_isolated_workspace_mode: ctx.is_isolated_workspace_mode,
                     persist: true,
-                    task_agent_run_kind: TaskAgentRunKind::Subagent {
-                        parent_agent_run_id,
-                    },
                 })
                 .await
             {

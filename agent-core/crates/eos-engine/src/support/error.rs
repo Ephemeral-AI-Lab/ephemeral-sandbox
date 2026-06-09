@@ -32,9 +32,9 @@ pub enum EngineError {
     #[error("unknown tool: {0}")]
     UnknownTool(String),
 
-    /// Query loop was run without an event source.
-    #[error("query context has no event source")]
-    MissingEventSource,
+    /// Query loop was run without a provider stream source.
+    #[error("query context has no provider stream source")]
+    MissingProviderStreamSource,
 
     /// Engine invariant broke.
     #[error("internal engine error: {0}")]

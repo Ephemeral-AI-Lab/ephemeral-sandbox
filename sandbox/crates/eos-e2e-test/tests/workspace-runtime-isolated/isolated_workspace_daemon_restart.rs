@@ -7,7 +7,7 @@ use crate::support::{
 };
 
 /// A daemon restart runs `reap_startup_orphans`
-/// (`sandbox/crates/eos-isolated-workspace/src/session/gc.rs`): it clears
+/// (`sandbox/crates/eos-workspace-runtime/src/isolated/session/gc.rs`): it clears
 /// in-memory handles, releases each persisted snapshot lease, kills holders, and
 /// removes veth/cgroup/scratch before serving enters. No e2e exercised that
 /// path. Here an isolated handle is opened (holding a snapshot lease), the daemon

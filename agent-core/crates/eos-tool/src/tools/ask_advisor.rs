@@ -245,7 +245,8 @@ mod ask_advisor {
     use async_trait::async_trait;
     use eos_types::JsonObject;
     use eos_types::{
-        AgentName, AgentRunApi, AgentRunError, AgentRunOutcome, SpawnAgentRequest, TaskAgentRunKind,
+        AgentName, AgentRunApi, AgentRunError, AgentRunOutcome, ParentAgentRunAnchor,
+        SpawnAgentRequest, SpawnAgentTarget,
     };
     use schemars::{schema_for, JsonSchema};
     use serde::{Deserialize, Serialize};
@@ -298,7 +299,9 @@ mod ask_advisor {
             }
 
             let agent_run_service = self.agent_run_service.as_ref();
-            let parent_agent_run_id = ctx.agent_run_id.clone();
+            let parent_agent_run_id = ctx.require_agent_run_id()?.clone();
+            let parent_task_id = ctx.require_task_id()?.clone();
+            let parent_request_id = ctx.require_request_id()?.clone();
             let advisor_run_id = match agent_run_service
                 .spawn_agent(SpawnAgentRequest {
                     agent_name: AgentName::new("advisor").expect("advisor agent name is valid"),
@@ -308,20 +311,17 @@ mod ask_advisor {
                         &parsed.tool_name,
                         &parsed.tool_payload,
                     ),
-                    parent_agent_run_id: parent_agent_run_id.clone(),
-                    request_id: ctx.request_id.clone(),
-                    task_id: None,
-                    attempt_id: None,
-                    workflow_id: None,
+                    target: SpawnAgentTarget::Advisor {
+                        parent: ParentAgentRunAnchor {
+                            request_id: parent_request_id,
+                            parent_task_id,
+                            agent_run_id: parent_agent_run_id,
+                        },
+                    },
                     sandbox_id: ctx.sandbox_id.clone(),
                     workspace_root: ctx.workspace_root.clone(),
                     is_isolated_workspace_mode: false,
                     persist: true,
-                    task_agent_run_kind: parent_agent_run_id
-                        .map(|parent_agent_run_id| TaskAgentRunKind::Advisor {
-                            parent_agent_run_id,
-                        })
-                        .unwrap_or(TaskAgentRunKind::Agent),
                 })
                 .await
             {

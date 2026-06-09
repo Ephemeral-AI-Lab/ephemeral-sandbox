@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>eos-isolated-workspace - eos-e2e-test</title>
+<title>workspace-runtime-isolated - eos-e2e-test</title>
 <link rel="stylesheet" href="../assets/e2e-readme.css">
 </head>
 <body data-page="module" data-module-json="readme.json">
@@ -11,17 +11,17 @@
 <script type="application/json" id="readme-module-data">
 {
   "schemaVersion": 1,
-  "name": "eos-isolated-workspace",
-  "displayName": "eos-isolated-workspace",
+  "name": "workspace-runtime-isolated",
+  "displayName": "workspace-runtime-isolated",
   "cargoTestName": "workspace-runtime-isolated",
-  "folder": "eos-isolated-workspace",
-  "path": "tests/eos-isolated-workspace/mod.rs",
-  "page": "eos-isolated-workspace/index.html",
+  "folder": "workspace-runtime-isolated",
+  "path": "tests/workspace-runtime-isolated/mod.rs",
+  "page": "workspace-runtime-isolated/index.html",
   "source": {
     "markdown": "readme.md"
   },
   "overview": {
-    "summary": "This module owns the unified live E2E contract for isolated-session lifecycle, private upperdir routing, SetNs namespace teardown, network isolation, and file-tool routing while a caller is isolated. It exercises daemon ops `api.isolated_workspace.enter`, `api.isolated_workspace.status`, `api.isolated_workspace.exit`, `api.v1.read_file`, `api.v1.write_file`, `api.v1.edit_file`, `api.v1.exec_command`, and `api.v1.command.cancel`. Module config lives at `crates/eos-e2e-test/tests/eos-isolated-workspace/config/default.test.yml`.",
+    "summary": "This module owns the unified live E2E contract for isolated-session lifecycle, private upperdir routing, SetNs namespace teardown, network isolation, and file-tool routing while a caller is isolated. It exercises daemon ops `api.isolated_workspace.enter`, `api.isolated_workspace.status`, `api.isolated_workspace.exit`, `api.v1.read_file`, `api.v1.write_file`, `api.v1.edit_file`, `api.v1.exec_command`, and `api.v1.command.cancel`. Module config lives at `crates/eos-e2e-test/tests/workspace-runtime-isolated/config/default.test.yml`.",
     "moduleConfig": null,
     "ops": [
       "api.isolated_workspace.enter",
@@ -34,7 +34,7 @@
       "api.v1.command.cancel"
     ],
     "tags": [
-      "eos-isolated-workspace",
+      "workspace-runtime-isolated",
       "eos",
       "isolated",
       "workspace"
@@ -46,7 +46,7 @@
       "title": "Isolated Workspace Lifecycle Pin",
       "description": "Enter and status expose the same manifest pin, and exit unregisters the handle, releases the lease, and reports holder/cgroup teardown.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -54,7 +54,7 @@
       "title": "Isolated Workspace Private Persistence",
       "description": "Isolated writes and reads persist across tool calls while the handle is open and report isolated workspace/mutation fields.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -62,7 +62,7 @@
       "title": "Isolated Workspace No Publish",
       "description": "Isolated write, edit, and exec paths do not publish through OCC or release public LayerStack leases.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -70,7 +70,7 @@
       "title": "Isolated Workspace Discard Exit",
       "description": "Exit evicts the private upperdir, and public or ephemeral reads cannot see isolated-only files afterward.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -78,7 +78,7 @@
       "title": "Isolated Workspace Network Isolation",
       "description": "A dedicated isolated netns and veth allow an isolated caller to bind a port already held in the container netns.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -86,7 +86,7 @@
       "title": "Isolated Workspace Same Netns Conflict",
       "description": "Reusing a port in the same namespace conflicts unless the isolated session has exited and cleaned the prior command.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -94,7 +94,7 @@
       "title": "Isolated Workspace Exit Cleanup",
       "description": "Exit or cancel drains long-lived isolated command sessions and removes namespace resources so re-enter starts cleanly.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -102,7 +102,7 @@
       "title": "Isolated Workspace Tool Routing Contract",
       "description": "File tools in isolated mode return explicit workspace, mode, mutation, publish, and conflict fields, then route back to ephemeral after exit.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -110,7 +110,7 @@
       "title": "Isolated Workspace Exec Private Discard",
       "description": "Exec writes inside isolated mode remain private while open, then disappear on exit without OCC publication.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -118,7 +118,7 @@
       "title": "Isolated Workspace Lifecycle Gates",
       "description": "Enter rejects active sandbox-bound background work, repeated enter reports an already-open or lifecycle-in-progress state, and exit drain timeout/retry remains stable.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -126,7 +126,7 @@
       "title": "Isolated Workspace Network Peer Block",
       "description": "Isolated callers can reach their own loopback service but cannot reach peer isolated sessions through namespace or bridge addresses.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -134,7 +134,7 @@
       "title": "Isolated Workspace Audit Trail",
       "description": "Enter, exit, and isolated tool calls emit lifecycle audit fields, teardown timings, discarded-byte counters, and orphan-check evidence.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -142,7 +142,7 @@
       "title": "Isolated Workspace Ttl Eviction",
       "description": "Short test config TTL evicts idle isolated sessions and preserves coherent status/list-open behavior.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -150,7 +150,7 @@
       "title": "Isolated Workspace Cross Mode Consistency",
       "description": "Public writes from non-isolated callers can advance OCC while an isolated caller is open, but the isolated pin/private upperdir stays stable and is discarded without overwriting public state.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     },
     {
@@ -158,7 +158,7 @@
       "title": "Isolated Workspace Daemon Restart Reconciliation",
       "description": "A hard daemon restart runs startup orphan reconciliation, reaping an open isolated handle so `list_open` empties, releasing its snapshot lease with none stranded, and serving fresh isolated enters again.",
       "tags": [
-        "eos-isolated-workspace"
+        "workspace-runtime-isolated"
       ]
     }
   ],

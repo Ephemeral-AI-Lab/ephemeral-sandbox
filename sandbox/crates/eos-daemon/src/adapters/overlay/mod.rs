@@ -30,6 +30,13 @@ use convert::{manifest_from_snapshot, overlay_daemon_error, publish_outcome_from
 
 pub(crate) use eos_workspace_runtime::ephemeral::RunDirCleanup;
 
+/// Wrap any displayable error as an `EphemeralWorkspaceError::PublishFailed`.
+pub(crate) fn publish_failed(error: impl std::fmt::Display) -> EphemeralWorkspaceError {
+    EphemeralWorkspaceError::PublishFailed {
+        reason: error.to_string(),
+    }
+}
+
 pub(crate) struct DaemonPublisherPort<'a> {
     root: &'a Path,
 }
@@ -49,33 +56,19 @@ impl WorkspacePublisherPort for DaemonPublisherPort<'_> {
         _path_kinds: &[PathChange],
     ) -> Result<PublishOutcome, EphemeralWorkspaceError> {
         let route_start = std::time::Instant::now();
-        let route_metrics = occ_route_metrics(self.root, changes).map_err(|error| {
-            EphemeralWorkspaceError::PublishFailed {
-                reason: error.to_string(),
-            }
-        })?;
+        let route_metrics = occ_route_metrics(self.root, changes).map_err(publish_failed)?;
         let route_s = route_start.elapsed().as_secs_f64();
         let snapshot_manifest = manifest_from_snapshot(self.root, snapshot)?;
         let base_hashes = base_hashes_for_snapshot(self.root, &snapshot_manifest, changes)
-            .map_err(|error| EphemeralWorkspaceError::PublishFailed {
-                reason: error.to_string(),
-            })?;
+            .map_err(publish_failed)?;
         let occ_start = std::time::Instant::now();
         let mut changeset = apply_occ_changeset(
             self.root,
-            Some(
-                manifest_version_u64(snapshot.manifest_version).map_err(|error| {
-                    EphemeralWorkspaceError::PublishFailed {
-                        reason: error.to_string(),
-                    }
-                })?,
-            ),
+            Some(manifest_version_u64(snapshot.manifest_version).map_err(publish_failed)?),
             changes,
             &base_hashes,
         )
-        .map_err(|error| EphemeralWorkspaceError::PublishFailed {
-            reason: error.to_string(),
-        })?;
+        .map_err(publish_failed)?;
         let occ_s = occ_start.elapsed().as_secs_f64();
         let mut timing_values = serde_json::Map::new();
         insert_occ_route_timings(&mut timing_values, route_metrics, route_s, occ_s);

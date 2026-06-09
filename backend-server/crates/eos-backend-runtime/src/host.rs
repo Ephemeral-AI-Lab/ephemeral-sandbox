@@ -14,7 +14,7 @@
 
 use async_trait::async_trait;
 
-use eos_agent_core::{run_request, AgentCoreRuntime, EventCallback, RequestRunInput};
+use eos_agent_core::{run_request, AgentCoreRuntime, EngineEventSink, RequestRunInput};
 use eos_types::TaskStatus;
 use eos_types::{RequestId, SandboxId};
 use eos_workflow::WorkflowConfig;
@@ -46,7 +46,7 @@ pub trait RunHost: Send + Sync {
         request_id: RequestId,
         prompt: String,
         sandbox_id: SandboxId,
-        on_event: Option<EventCallback>,
+        on_event: Option<EngineEventSink>,
     ) -> RunOutcome;
 }
 
@@ -95,7 +95,7 @@ impl RunHost for RuntimeHost {
         request_id: RequestId,
         prompt: String,
         sandbox_id: SandboxId,
-        on_event: Option<EventCallback>,
+        on_event: Option<EngineEventSink>,
     ) -> RunOutcome {
         let input = RequestRunInput::new(
             request_id,

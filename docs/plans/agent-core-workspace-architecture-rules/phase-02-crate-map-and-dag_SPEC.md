@@ -4,6 +4,14 @@ Status: Implemented (revised 2026-06-09 — final crate map and DAG active)
 Date: 2026-06-09
 Owner: agent-core workspace integration
 
+Revision 2026-06-09 (DAG/name reconciliation): this spec now reconciles the
+Phase-02 crate map with the post-Phase04 dependency target: agent-loop contracts
+live in `eos-types::agent_loop`, file-backed message records live in
+`eos-agent-run::records`, and `eos-agent-run` no longer depends on `eos-engine`.
+It also aligns stale naming with later phases:
+`ParentedAgentRunKind`, `ToolInstructionRenderer`, `ask_advisor.rs`,
+and `active_agent_runs.rs`.
+
 ## Scope
 
 This phase changes the workspace crate map and internal dependency graph. It:
@@ -75,7 +83,7 @@ agent-core/crates/
 | `eos-runtime` (bin half) | `backend-server` (external) | `main.rs` and `observability.rs` leave `agent-core`; `entry.rs` stays as the facade `run_request` API |
 | `eos-agent-ports` | split (see contract floor) | `AgentRunApi` + spawn/outcome DTOs → `eos-types`; metadata/state contracts → `eos-types`; nothing lands in `agent-run`/`agent-core` that a lower crate consumes |
 | `eos-tool-ports` | `eos-tool` + `eos-types` | model/registry/executor/hooks → `eos-tool`; the `AgentRunApi`-style and `WorkflowApi` contracts it re-exported → `eos-types` |
-| `eos-agent-message-records` | `eos-engine/src/records.rs` | fold record writer/reader into engine-owned records internals |
+| `eos-agent-message-records` | `eos-agent-run/src/records.rs` | fold record writer/reader into the lifecycle owner that starts, appends, and finishes records |
 | `eos-tools` | `eos-tool` | rename; concrete tool collapse executed in Phase 03 |
 | `eos-agent-runner` | `eos-agent-run` | rename lifecycle crate; implements `eos-types::AgentRunApi` |
 | `eos-skills` | `eos-tool/src/tools/skills.rs` | fold skill registry and skill package loading into tool ownership |
@@ -94,7 +102,7 @@ eos-db            -> eos-types
 eos-tool          -> eos-types, eos-sandbox-port
 eos-engine        -> eos-types, eos-tool, eos-llm-client, eos-sandbox-port
 eos-workflow      -> eos-types, eos-tool
-eos-agent-run     -> eos-types, eos-engine
+eos-agent-run     -> eos-types
 eos-agent-core    -> eos-types, eos-db, eos-llm-client, eos-sandbox-port,
                      eos-tool, eos-engine, eos-workflow, eos-agent-run
 eos-testkit       -> eos-types, eos-engine, eos-llm-client,
@@ -103,6 +111,15 @@ eos-testkit       -> eos-types, eos-engine, eos-llm-client,
 
 No target crate depends on a retired crate. No cycles: every cross-crate contract
 is consumed from `eos-types`, which has no internal upstream edge.
+
+Reconciliation from the earlier Phase-02 checkpoint:
+
+| Edge or contract | Phase-02 active checkpoint | Post-Phase04 target |
+| --- | --- | --- |
+| Agent-loop launch/outcome contracts | `eos-engine` | `eos-types::agent_loop` |
+| `eos-agent-run` dependency | `eos-types, eos-engine` | `eos-types` |
+| Engine role | Owns contracts and executor | Owns executor, provider stream source, tool-call hooks, and background managers |
+| Message records | `eos-engine::records` | `eos-agent-run::records` |
 
 Changes vs the prior draft DAG:
 
@@ -113,9 +130,10 @@ Changes vs the prior draft DAG:
 - `eos-workflow`: prior draft said `-> types` only; the code renders tool
   instructions via `eos_tool::render_tool_instruction` in `context`. The DAG now
   records `-> types, tool`. Phase 05 may invert this to types-only by injecting a
-  renderer port.
-- `eos-agent-run`: `-> types, engine` (unchanged). `eos-workflow` does not depend
-  on it.
+  `ToolInstructionRenderer` contract.
+- `eos-agent-run`: now `-> types` only. The earlier `-> engine` edge disappeared
+  once loop-launch contracts moved to `eos-types::agent_loop` and file-backed
+  message records moved to `eos-agent-run::records`.
 - `eos-testkit`: the earlier row included `eos-agent-run`; the active testkit
   crate does not need that edge, so the guard records the smaller honest
   dev-only set.
@@ -129,6 +147,7 @@ preference, forces these placements:
 | Contract | From | Why it must be in `eos-types` |
 | --- | --- | --- |
 | `AgentRunApi` + spawn/outcome/status/error DTOs | `eos-agent-ports` | `eos-engine` background manager consumes `dyn AgentRunApi`; engine cannot depend on `agent-run`/`agent-core` |
+| `AgentLoopLauncher`, `StartAgentLoopRequest`, `StartedAgentLoop`, `AgentLoopOutcome` | `eos-engine` | consumed by `eos-agent-run` and implemented by `eos-engine`; sinking them removes the `agent-run -> engine` edge |
 | `WorkflowApi` (was `workflow_api.rs`) | `eos-types` (rename) | consumed by tool + engine; implemented by workflow |
 | persistence store traits (`AgentRunStore`, …) | `eos-types/ports/` → `stores.rs` | drops banned `port` vocab |
 | neutral LLM DTOs: `Message`, `ContentBlock`, `MessageRole`, `ToolSpec` | `eos-llm-client` | consumed by tool, engine, records, testkit; sinking them severs `tool -> llm-client` and `records -> llm-client` |
@@ -148,8 +167,8 @@ names are tolerated as external-contract language; only the *module* names
 `AgentType` is the only launch/dispatch axis on the agent profile. There is no
 separate `AgentRole`: a run's workflow role is the `TaskRole` on its lineage row
 (`root`, `planner`, `generator`, `reducer`), and a parented run's launch class is
-the `ParentedRunKind` on its run row (`subagent`, `advisor`); neither is a field
-on the profile. The target `AgentType` values are:
+the `ParentedAgentRunKind` on its run row (`subagent`, `advisor`); neither is a
+field on the profile. The target `AgentType` values are:
 
 | `AgentType` | Launcher | Required runner rule |
 | --- | --- | --- |
@@ -189,7 +208,8 @@ These three are flagged so the integration lane does not treat them as renames:
    may land in `eos-agent-run` while a lower crate still consumes it.
 3. **`eos-workflow` tool rendering.** `context` calls a concrete
    `eos-tool` function. This phase records the honest `workflow -> tool` edge;
-   the optional inversion to a types-level renderer port is Phase 05.
+   the optional inversion to a types-level `ToolInstructionRenderer` contract is
+   Phase 05.
 
 ## Config and loader disposition
 
@@ -236,7 +256,7 @@ There is no generic final `eos-config` crate and no replacement loader crate.
   shares come from `eos-types`.
 - `eos-workflow` owns workflow lifecycle and sibling-facing workflow services;
   it renders tool instructions via `eos-tool` and spawns runs via an injected
-  `AgentRunApi` port.
+  `AgentRunApi`.
 - `eos-llm-client` owns outbound provider clients and provider config; it uses
   `client` / `providers` / `stream`, not `services`, and no longer owns the
   neutral transcript DTOs.
@@ -264,13 +284,13 @@ members = [
 ]
 ```
 
-## Resulting File Structure
+## Phase-02 Resulting File Structure
 
 Crate-level structure plus the modules this phase establishes. File-level
 collapses of the concrete tool tree, the engine internals, and the deep
-`eos-types/state` tree are executed in Phases 3–5; their target homes are shown
-here. Legend: `new`, `from <retired crate>`, `renamed`, `out` (moved to another
-crate).
+`eos-types/state` tree are executed in Phases 3–5. Later target corrections are
+shown where they avoid stale or vague file names. Legend: `new`,
+`from <retired crate>`, `renamed`, `out` (moved to another crate).
 
 ```text
 agent-core/crates/
@@ -306,21 +326,24 @@ agent-core/crates/
 ├── eos-tool/                        # from eos-tools + eos-tool-ports + eos-skills (Phase 03 collapse)
 │   └── src/
 │       ├── lib.rs · error.rs · model.rs · registry.rs · hooks.rs · tools.rs
-│       └── tools/{sandbox,command,isolated_workspace,subagent,workflow,submission,advisor,skills,terminal}.rs
-├── eos-engine/                      # execution only; from eos-engine + eos-agent-message-records (Phase 04)
+│       └── tools/{sandbox,command,workflow,subagent,ask_advisor,submission,skills,terminal}.rs
+├── eos-engine/                      # execution only; query loop + tool dispatch + background managers
 │   └── src/
-│       ├── lib.rs · error.rs · model.rs · events.rs · printer.rs · services.rs · query.rs
-│       ├── records.rs               # from eos-agent-message-records
+│       ├── lib.rs · error.rs · query.rs · support.rs · telemetry.rs · tool_call.rs
 │       ├── agent_loop.rs
-│       ├── agent_loop/{executor,state,turn}.rs
+│       ├── agent_loop/{agent_loop_executor,agent_loop_state,contracts,launcher,loop_hooks}.rs
 │       ├── background.rs
-│       └── background/{command_sessions,subagent_sessions,workflow_sessions,notification}.rs
+│       ├── background/{background_session_manager,notification}.rs
+│       ├── notifications/{rules,terminal_reminder,tool_budget}.rs
+│       └── query/{context,provider_messages,provider_source}.rs
 ├── eos-workflow/
 │   └── src/
 │       └── {lib,error,model,services,attempts,planning,iterations,context}.rs
 ├── eos-agent-run/                   # renamed from eos-agent-runner; implements AgentRunApi
 │   └── src/
-│       └── {lib,error,model,services,request,active_runs,persistence,completion}.rs
+│       ├── {lib,active_agent_runs,agent_loop_request,agent_run_persistence,agent_run_records,agent_run_service}.rs
+│       ├── records.rs               # from eos-agent-message-records
+│       └── records/{error,handle,io,kind,layout,record,service}.rs
 ├── eos-agent-core/                  # facade + hidden runtime; from eos-runtime(lib)+audit+agent-def(loader)+plugin-catalog+config(loader)
 │   └── src/
 │       ├── lib.rs                   # public facade API (was eos-runtime/entry.rs)
@@ -332,7 +355,7 @@ agent-core/crates/
 │           ├── builder.rs · database.rs · engine.rs · sandbox.rs   # renamed from runtime_services/
 │           ├── audit.rs             # from eos-audit (sink impl + current runtime-owned audit surface)
 │           ├── plugins.rs           # from eos-plugin-catalog
-│           └── config.rs            # from eos-config loader + RuntimeConfig/AttemptConfig
+│           └── config.rs            # from eos-config loader + RuntimeConfig
 └── eos-testkit/                     # dev-only; edges retargeted to types/engine/agent-run/llm-client/sandbox-port/tool
 ```
 
@@ -361,8 +384,8 @@ Phase 02 crate-map/DAG checks from later final-layout hygiene with the explicit
 | Fold `eos-runtime` lib into `eos-agent-core/src/runtime/`; relocate bin to backend-server | Done (2026-06-09; package/member is now `eos-agent-core`, runtime wiring moved under `src/runtime.rs` + `src/runtime/`, old binary/tracing files removed from agent-core) |
 | Rename `eos-tools` → `eos-tool`; rename `eos-agent-runner` → `eos-agent-run` | Done (2026-06-09; both crates/packages/imports renamed to the locked singular names) |
 | Fold `eos-tool-ports` into `eos-tool` (+ contracts to `eos-types`) | Done (2026-06-09; executable tool framework/registry types live in `eos-tool`, shared cancellation/agent/workflow contracts live in `eos-types`, engine notifications are engine-local, and the crate was removed from the active workspace) |
-| Split `eos-agent-ports` per the contract floor | Done (2026-06-09; agent-run lifecycle DTOs and `AgentState` live in `eos-types`, agent-loop launcher/outcome contracts live in `eos-engine`, runtime keeps the concrete execution-metadata adapter, and the crate was removed from the active workspace) |
-| Fold `eos-agent-message-records` into `eos-engine/src/records.rs` | Done (2026-06-09; crate removed from workspace, implementation/test moved under `eos-engine::records`, runner imports through `eos-engine`) |
+| Split `eos-agent-ports` per the contract floor | Done (2026-06-09; agent-run lifecycle DTOs, `AgentState`, and agent-loop launcher/outcome contracts live in `eos-types`; runtime keeps the concrete execution-metadata adapter, and the crate was removed from the active workspace) |
+| Fold `eos-agent-message-records` into `eos-agent-run/src/records.rs` | Done (2026-06-09; crate removed from workspace, implementation/test moved under `eos-agent-run::records`) |
 | Fold `eos-skills` into `eos-tool/src/tools/skills.rs` | Done (2026-06-09; folded into `eos-tool::tools::skills`) |
 | Fold `eos-plugin-catalog` into `eos-agent-core/src/runtime/plugins.rs` | Done (2026-06-09; folded into `eos-agent-core::runtime::plugins`) |
 | Fold `eos-agent-def`: DTOs → `eos-types`, loader → `eos-agent-core/src/agents.rs` | Done (2026-06-09; DTOs/passive registry live in `eos-types`, loader/validation moved into `eos-agent-core::agents`, bundled-profile loader coverage moved with it, and the standalone crate was removed from the active workspace) |
@@ -385,6 +408,9 @@ Phase 02 crate-map/DAG checks from later final-layout hygiene with the explicit
   `eos-agent-run` edge.
 - `eos-engine` consumes `AgentRunApi` and `WorkflowApi` from `eos-types`, with no
   edge to `eos-agent-run` or `eos-workflow`.
+- `eos-agent-run` depends on `eos-types` only; it consumes the shared
+  `AgentLoopLauncher` contract from `eos-types::agent_loop` and owns
+  file-backed agent-run records.
 - The shared frontmatter parser resolves from `eos-types`; the config file loader
   resolves from `eos-agent-core/src/runtime/config.rs`.
 - Agent profiles and `AgentDefinition` expose `AgentType` only. There is no

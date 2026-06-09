@@ -1,4 +1,4 @@
-//! Production event source: adapt `LlmClient` events into engine events.
+//! Production provider stream source: adapt `LlmClient` events into engine events.
 
 use std::sync::Arc;
 
@@ -10,21 +10,21 @@ use crate::query::EngineStream;
 use crate::telemetry::{AssistantMessageComplete, StreamEvent};
 use crate::EngineError;
 
-/// Provider-backed event source.
+/// LLM-backed provider stream source.
 #[derive(Clone)]
-pub struct ProviderEventSource {
+pub struct LlmProviderStreamSource {
     client: Arc<dyn LlmClient>,
 }
 
-impl std::fmt::Debug for ProviderEventSource {
+impl std::fmt::Debug for LlmProviderStreamSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ProviderEventSource")
+        f.debug_struct("LlmProviderStreamSource")
             .finish_non_exhaustive()
     }
 }
 
-impl ProviderEventSource {
-    /// Create an event source from a provider-neutral client.
+impl LlmProviderStreamSource {
+    /// Create a provider stream source from a provider-neutral client.
     #[must_use]
     pub fn new(client: Arc<dyn LlmClient>) -> Self {
         Self { client }
@@ -74,7 +74,7 @@ fn adapt_event(event: LlmStreamEvent) -> Result<StreamEvent, EngineError> {
 }
 
 #[async_trait]
-impl crate::query::EventSource for ProviderEventSource {
+impl crate::query::ProviderStreamSource for LlmProviderStreamSource {
     async fn stream(&self, request: &LlmRequest) -> Result<EngineStream, EngineError> {
         let stream = self.client.stream_message(request.clone()).await?;
         Ok(Box::pin(stream.map(|item| match item {
@@ -96,7 +96,7 @@ mod tests {
     use futures::StreamExt;
     use serde_json::json;
 
-    use crate::query::EventSource;
+    use crate::query::ProviderStreamSource;
 
     use super::*;
 
@@ -117,14 +117,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn provider_event_source_maps_model_stream_events() {
+    async fn provider_stream_source_maps_model_stream_events() {
         let final_message = Message {
             role: MessageRole::Assistant,
             content: vec![ContentBlock::Text {
                 text: "done".to_owned(),
             }],
         };
-        let source = ProviderEventSource::new(Arc::new(ScriptedClient {
+        let source = LlmProviderStreamSource::new(Arc::new(ScriptedClient {
             stream: vec![
                 Ok(LlmStreamEvent::AssistantTextDelta {
                     text: "hello".to_owned(),
@@ -176,8 +176,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn provider_event_source_propagates_provider_stream_errors() {
-        let source = ProviderEventSource::new(Arc::new(ScriptedClient {
+    async fn provider_stream_source_propagates_provider_stream_errors() {
+        let source = LlmProviderStreamSource::new(Arc::new(ScriptedClient {
             stream: vec![Err(ProviderError::transport("connection reset"))],
         }));
 

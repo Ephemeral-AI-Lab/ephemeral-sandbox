@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 use tokio::sync::Notify;
 
-use eos_agent_core::EventCallback;
+use eos_agent_core::EngineEventSink;
 use eos_backend_store::BackendStore;
 use eos_backend_types::RunMeta;
 use eos_sandbox_port::{
@@ -220,7 +220,7 @@ impl RunHost for FakeRunHost {
         _request_id: RequestId,
         _prompt: String,
         sandbox_id: SandboxId,
-        _on_event: Option<EventCallback>,
+        _on_event: Option<EngineEventSink>,
     ) -> RunOutcome {
         self.started.store(true, Ordering::SeqCst);
         *self.seen_sandbox.lock() = Some(sandbox_id);

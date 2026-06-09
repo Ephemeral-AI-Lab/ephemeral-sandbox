@@ -30,16 +30,16 @@ use crate::response_timings::{
 
 use eos_plugin::host::route::PluginOperationRoute;
 
-pub(crate) struct PluginOverlayCommand {
-    pub(crate) layer_stack_root: PathBuf,
-    pub(crate) invocation_id: String,
-    pub(crate) caller_id: String,
-    pub(crate) public_op: String,
-    pub(crate) plugin_id: String,
-    pub(crate) op_name: String,
-    pub(crate) command: Vec<String>,
-    pub(crate) env: BTreeMap<String, String>,
-    pub(crate) timeout_seconds: Option<f64>,
+struct PluginOverlayCommand {
+    layer_stack_root: PathBuf,
+    invocation_id: String,
+    caller_id: String,
+    public_op: String,
+    plugin_id: String,
+    op_name: String,
+    command: Vec<String>,
+    env: BTreeMap<String, String>,
+    timeout_seconds: Option<f64>,
 }
 
 pub(super) fn dispatch_oneshot_overlay_route(
@@ -121,7 +121,7 @@ struct PluginOverlayRunOutcome {
     upperdir_stats: TreeResourceStats,
 }
 
-pub(crate) fn run_plugin_overlay_command(
+fn run_plugin_overlay_command(
     spec: &PluginOverlayCommand,
     args: &Value,
     total_start: Instant,

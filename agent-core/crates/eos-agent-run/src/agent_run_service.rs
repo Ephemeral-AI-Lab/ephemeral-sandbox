@@ -3,17 +3,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use eos_engine::records::{AgentMessageRecords, AgentRunRecordStart, NodeFinishStatus};
-use eos_engine::{
-    tool_result_payload, AgentLoopLauncher, AgentLoopMessage, AgentLoopOutcome,
-    AgentLoopOutcomeKind,
-};
 use eos_types::{
-    AgentDefinition, AgentName as DefinitionAgentName, AgentRegistry, AgentRunApi, AgentRunError,
-    AgentRunId, AgentRunOutcome, AgentRunStatus, AgentRunStore, AgentType, Message,
-    SpawnAgentRequest, TaskAgentRunKind,
+    AgentDefinition, AgentLoopLauncher, AgentLoopMessage, AgentLoopOutcome, AgentLoopOutcomeFuture,
+    AgentLoopOutcomeKind, AgentName as DefinitionAgentName, AgentRegistry, AgentRunApi,
+    AgentRunError, AgentRunId, AgentRunOutcome, AgentRunStatus, AgentRunStore, AgentType, Message,
+    ParentedAgentRunKind, SpawnAgentRequest, TaskAgentRunKind,
 };
-use tokio::sync::oneshot;
 
 use crate::active_agent_runs::{ActiveAgentRunRecord, ActiveAgentRuns};
 use crate::agent_loop_request::build_start_agent_loop_request;
@@ -21,7 +16,8 @@ use crate::agent_run_persistence::{
     completion_from_agent_run, create_agent_run_if_requested, finish_agent_run_cancelled,
     finish_agent_run_if_requested,
 };
-use crate::to_message_record_kind;
+use crate::agent_run_records::to_agent_run_record_kind;
+use crate::records::{AgentMessageRecords, AgentRunRecordStart, NodeFinishStatus};
 
 type RuntimeStateRecorder =
     Arc<dyn Fn(&SpawnAgentRequest, &AgentRunId) -> Result<(), AgentRunError> + Send + Sync>;
@@ -96,14 +92,12 @@ impl AgentRunService {
         let Some(message_records) = &self.message_records else {
             return Ok(None);
         };
-        let Some(request_id) = request.request_id.as_ref() else {
-            return Ok(None);
-        };
-        let kind = to_message_record_kind(&request.task_agent_run_kind);
+        let request_id = request.target.request_id();
+        let kind = to_agent_run_record_kind(&request.target.task_agent_run_kind());
         let handle = message_records
             .start_agent_run(AgentRunRecordStart {
                 request_id,
-                task_id: request.task_id.as_ref(),
+                task_id: request.target.current_task_id(),
                 agent_run_id,
                 agent_name: agent_def.name.as_str(),
                 kind: &kind,
@@ -219,14 +213,13 @@ impl AgentRunApi for AgentRunService {
         let Some(agent_def) = self.agent_registry.get(&agent_name) else {
             return Err(AgentRunError::AgentNotRegistered(requested_agent_name));
         };
-        if let Some(expected) = expected_agent_type(&request.task_agent_run_kind) {
-            if agent_def.agent_type != expected {
-                return Err(AgentRunError::WrongAgentType {
-                    agent_name: requested_agent_name,
-                    expected: agent_type_value(expected),
-                    actual: agent_type_value(agent_def.agent_type),
-                });
-            }
+        let expected = expected_agent_type(&request.target.task_agent_run_kind());
+        if agent_def.agent_type != expected {
+            return Err(AgentRunError::WrongAgentType {
+                agent_name: requested_agent_name,
+                expected: agent_type_value(expected),
+                actual: agent_type_value(agent_def.agent_type),
+            });
         }
 
         let agent_def = (**agent_def).clone();
@@ -237,7 +230,7 @@ impl AgentRunApi for AgentRunService {
         let persistence_requested = create_agent_run_if_requested(
             &*self.agent_run_store,
             request.persist,
-            request.task_id.as_ref(),
+            request.target.current_task_id(),
             &agent_run_id,
             agent_def.name.as_str(),
         )
@@ -256,7 +249,7 @@ impl AgentRunApi for AgentRunService {
             .start_agent_loop(start_request, agent_run_api);
 
         self.active_agent_runs
-            .insert(agent_run_id.clone(), started.cancel_handle, message_record)
+            .insert(agent_run_id.clone(), started.cancellation, message_record)
             .await;
         let service = self.clone();
         let forward_agent_run_id = agent_run_id.clone();
@@ -265,7 +258,7 @@ impl AgentRunApi for AgentRunService {
                 service,
                 forward_agent_run_id,
                 persistence_requested,
-                started.outcome_receiver,
+                started.outcome,
             )
             .await;
         });
@@ -345,14 +338,14 @@ async fn forward_agent_loop_outcome(
     service: AgentRunService,
     agent_run_id: AgentRunId,
     persistence_requested: bool,
-    outcome_receiver: oneshot::Receiver<AgentLoopOutcome>,
+    outcome: AgentLoopOutcomeFuture,
 ) {
-    let received = outcome_receiver.await;
+    let received = outcome.await;
     let Some(mut completion) = service.active_agent_runs.take(&agent_run_id).await else {
         return;
     };
     let outcome = match received {
-        Ok(outcome) => {
+        Some(outcome) => {
             service
                 .finalize_agent_run_from_agent_loop_outcome(
                     agent_run_id.clone(),
@@ -361,7 +354,7 @@ async fn forward_agent_loop_outcome(
                 )
                 .await
         }
-        Err(_closed) => {
+        None => {
             service
                 .finalize_agent_run_from_dropped_agent_loop_sender(
                     agent_run_id.clone(),
@@ -386,12 +379,10 @@ fn agent_run_outcome_from_loop(
     let message_history = loop_messages_to_llm_messages(outcome.final_conversation_messages);
     let total_token_count = outcome.total_token_count;
     match outcome.kind {
-        AgentLoopOutcomeKind::TerminalToolSubmitted {
-            outcome: tool_result,
-        } => AgentRunOutcome {
+        AgentLoopOutcomeKind::TerminalToolSubmitted { submission_payload } => AgentRunOutcome {
             agent_run_id,
             status: AgentRunStatus::Completed,
-            submission_payload: Some(tool_result_payload(&tool_result)),
+            submission_payload: Some(submission_payload),
             message_history,
             token_count: total_token_count,
             error: None,
@@ -426,14 +417,17 @@ const fn agent_type_value(agent_type: AgentType) -> &'static str {
     }
 }
 
-const fn expected_agent_type(record_kind: &TaskAgentRunKind) -> Option<AgentType> {
-    match record_kind {
-        TaskAgentRunKind::Root
-        | TaskAgentRunKind::WorkflowTask { .. }
-        | TaskAgentRunKind::Agent => Some(AgentType::Agent),
-        TaskAgentRunKind::Subagent { .. } => Some(AgentType::Subagent),
-        TaskAgentRunKind::Advisor { .. } => Some(AgentType::Advisor),
-        _ => None,
+const fn expected_agent_type(task_agent_run_kind: &TaskAgentRunKind) -> AgentType {
+    match task_agent_run_kind {
+        TaskAgentRunKind::Root | TaskAgentRunKind::Workflow { .. } => AgentType::Agent,
+        TaskAgentRunKind::Parented {
+            kind: ParentedAgentRunKind::Subagent,
+            ..
+        } => AgentType::Subagent,
+        TaskAgentRunKind::Parented {
+            kind: ParentedAgentRunKind::Advisor,
+            ..
+        } => AgentType::Advisor,
     }
 }
 
@@ -442,27 +436,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn record_kind_declares_required_agent_type() {
+    fn task_agent_run_kind_declares_required_agent_type() {
         let parent_agent_run_id = AgentRunId::new_v4();
         assert_eq!(
             expected_agent_type(&TaskAgentRunKind::Root),
-            Some(AgentType::Agent)
+            AgentType::Agent
         );
         assert_eq!(
-            expected_agent_type(&TaskAgentRunKind::Agent),
-            Some(AgentType::Agent)
-        );
-        assert_eq!(
-            expected_agent_type(&TaskAgentRunKind::Subagent {
+            expected_agent_type(&TaskAgentRunKind::Parented {
                 parent_agent_run_id: parent_agent_run_id.clone(),
+                kind: ParentedAgentRunKind::Subagent,
             }),
-            Some(AgentType::Subagent)
+            AgentType::Subagent
         );
         assert_eq!(
-            expected_agent_type(&TaskAgentRunKind::Advisor {
+            expected_agent_type(&TaskAgentRunKind::Parented {
                 parent_agent_run_id,
+                kind: ParentedAgentRunKind::Advisor,
             }),
-            Some(AgentType::Advisor)
+            AgentType::Advisor
         );
     }
 }

@@ -11,31 +11,20 @@ mod error;
 pub mod output;
 mod request;
 mod response;
-mod session;
+#[cfg(any(target_os = "linux", test))]
+pub(crate) mod session;
 #[cfg(target_os = "linux")]
 mod transcript;
 #[cfg(any(target_os = "linux", test))]
-mod wait;
+pub(crate) mod wait;
 
 #[cfg(target_os = "linux")]
-pub mod process;
+pub(crate) mod process;
 
-mod config {
-    pub use eos_config::configs::command_session::*;
-}
-
-pub use config::CommandSessionConfig;
+pub use eos_config::configs::command_session::CommandSessionConfig;
 pub use error::CommandSessionError;
 pub use output::tail_lines;
 pub use request::{
     CancelCommandSession, CollectCompleted, ReadCommandProgress, StartCommandSession, WriteStdin,
 };
 pub use response::{CollectCompletedResponse, CommandResponse, CommandSessionCompletion};
-pub use session::{CommandSession, CommandSessionSpec};
-
-#[cfg(target_os = "linux")]
-pub use process::KillReason;
-#[cfg(target_os = "linux")]
-pub use session::{ReapedCommand, RunningCommandSessionParts};
-#[cfg(target_os = "linux")]
-pub use wait::{wait_for_yield, CommandSessionWaitTarget, WaitOutcome};

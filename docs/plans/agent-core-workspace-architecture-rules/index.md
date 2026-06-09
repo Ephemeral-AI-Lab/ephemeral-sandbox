@@ -138,7 +138,7 @@ Retired or folded crates:
 | `eos-runtime` | fold into private `eos-agent-core/src/runtime/` |
 | `eos-agent-ports` | split into `eos-agent-core`, `eos-agent-run`, `eos-engine`, and `eos-types` |
 | `eos-tool-ports` | fold into `eos-tool` |
-| `eos-agent-message-records` | fold into `eos-engine` records internals |
+| `eos-agent-message-records` | fold into `eos-agent-run::records` |
 | `eos-tools` | rename/consolidate as singular `eos-tool` |
 | `eos-agent-runner` | rename/consolidate as `eos-agent-run` |
 | `eos-skills` | fold skill registry/package loading into `eos-tool` |

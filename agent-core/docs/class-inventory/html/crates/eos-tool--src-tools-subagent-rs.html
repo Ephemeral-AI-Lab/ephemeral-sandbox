@@ -56,26 +56,26 @@
       <span>4 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-RunSubagentInput-41" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunSubagentInput pub(super) pub(super) struct RunSubagentInput crates/eos-tool/src/tools/subagent.rs agent_name String prompt String ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-RunSubagentInput-44" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RunSubagentInput pub(super) pub(super) struct RunSubagentInput crates/eos-tool/src/tools/subagent.rs agent_name String prompt String ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>RunSubagentInput</h3>
     <span class="visibility">pub(super)</span>
   </div>
-  <code class="signature">pub(super) struct <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-41">RunSubagentInput</a></code>
+  <code class="signature">pub(super) struct <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-44">RunSubagentInput</a></code>
   <div class="tags"><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: JsonSchema</span><span>derive: Serialize</span><span>serde</span></div>
   <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_name</td><td><code>String</code></td></tr><tr><td>private</td><td>prompt</td><td><code>String</code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:41</p>
-</article><article id="item-struct-RunSubagent-48" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct RunSubagent pub(crate :: tools :: subagent) pub(crate :: tools :: subagent) struct RunSubagent crates/eos-tool/src/tools/subagent.rs agent_run_service Arc &lt; dyn AgentRunApi &gt; subagent_sessions BackgroundHandle ">
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:44</p>
+</article><article id="item-struct-RunSubagent-51" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct RunSubagent pub(crate :: tools :: subagent) pub(crate :: tools :: subagent) struct RunSubagent crates/eos-tool/src/tools/subagent.rs agent_run_service Arc &lt; dyn AgentRunApi &gt; subagent_sessions BackgroundHandle ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>RunSubagent</h3>
     <span class="visibility">pub(crate :: tools :: subagent)</span>
   </div>
-  <code class="signature">pub(crate :: tools :: subagent) struct <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a></code>
+  <code class="signature">pub(crate :: tools :: subagent) struct <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a></code>
   <div class="tags"></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_run_service</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr><tr><td>private</td><td>subagent_sessions</td><td><code><a class="symbol-link" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-54"><td>constructor</td><td>new</td><td><code>pub(crate :: tools :: subagent) fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-new-83">new</a> (agent_run_service : Arc &lt; dyn AgentRunApi &gt; , subagent_sessions : <a class="symbol-link" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a> ,) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_run_service</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr><tr><td>private</td><td>subagent_sessions</td><td><code><a class="symbol-link" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-57"><td>constructor</td><td>new</td><td><code>pub(crate :: tools :: subagent) fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-new-83">new</a> (agent_run_service : Arc &lt; dyn AgentRunApi &gt; , subagent_sessions : <a class="symbol-link" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a> ,) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::tools::subagent) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(
             agent_run_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
@@ -87,14 +87,14 @@
             }
         }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a></code></summary><table><tbody><tr id="method-execute-120"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a></code></summary><table><tbody><tr id="method-execute-123"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a>(
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
-            <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-41">RunSubagentInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>, input) {
+            <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-44">RunSubagentInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>, input) {
                 <span class="rs-type">Ok</span>(v) =&gt; v,
                 <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
             };
@@ -109,11 +109,12 @@
                 ));
             }
             <span class="rs-kw">let</span> parent_agent_run_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-agent-run-id-226">require_agent_run_id</a>()?.clone();
+            <span class="rs-kw">let</span> parent_task_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-task-id-206">require_task_id</a>()?.clone();
             <span class="rs-kw">let</span> requested_agent_name = parsed.agent_name.clone();
             <span class="rs-kw">let</span> agent_name = <span class="rs-kw">match</span> <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(&amp;parsed.agent_name) {
                 <span class="rs-type">Ok</span>(agent_name) =&gt; agent_name,
                 <span class="rs-type">Err</span>(_) =&gt; {
-                    <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-80">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotRegistered</span> {
+                    <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-83">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotRegistered</span> {
                         agent_name: requested_agent_name,
                     }))
                 }
@@ -125,7 +126,7 @@
                     agent_run_id: <span class="rs-type">None</span>,
                     initial_messages: vec![
                         <span class="rs-type">Message</span>::from_user_text(parsed.prompt.clone()),
-                        <span class="rs-type">Message</span>::from_user_text(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-subagent-launch-guidance-101">subagent_launch_guidance</a>()),
+                        <span class="rs-type">Message</span>::from_user_text(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-subagent-launch-guidance-104">subagent_launch_guidance</a>()),
                     ],
                     parent_agent_run_id: <span class="rs-type">Some</span>(parent_agent_run_id.clone()),
                     request_id: ctx.request_id.clone(),
@@ -136,69 +137,71 @@
                     workspace_root: ctx.workspace_root.clone(),
                     is_isolated_workspace_mode: ctx.is_isolated_workspace_mode,
                     persist: <span class="rs-kw">true</span>,
-                    task_agent_run_kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Subagent</span> {
+                    task_agent_run_kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
                         parent_agent_run_id,
+                        parent_task_id,
+                        kind: <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span>,
                     },
                 })
                 .<span class="rs-kw">await</span>
             {
                 <span class="rs-type">Ok</span>(agent_run_id) =&gt; agent_run_id,
-                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-launch-error-206">render_launch_error</a>(err),
+                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-launch-error-212">render_launch_error</a>(err),
             };
             <span class="rs-self">self</span>.subagent_sessions
                 .<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-register-subagent-run-915">register_subagent_run</a>(&amp;agent_run_id)
                 .<span class="rs-kw">await</span>?;
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-result-65">launch_result</a>(&amp;agent_run_id, agent_name.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()))
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-result-68">launch_result</a>(&amp;agent_run_id, agent_name.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()))
         }
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:48</p>
-</article><article id="item-struct-CancelSubagentInput-249" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct CancelSubagentInput pub(super) pub(super) struct CancelSubagentInput crates/eos-tool/src/tools/subagent.rs agent_run_id AgentRunId reason String ">
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:51</p>
+</article><article id="item-struct-CancelSubagentInput-255" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct CancelSubagentInput pub(super) pub(super) struct CancelSubagentInput crates/eos-tool/src/tools/subagent.rs agent_run_id AgentRunId reason String ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>CancelSubagentInput</h3>
     <span class="visibility">pub(super)</span>
   </div>
-  <code class="signature">pub(super) struct <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-249">CancelSubagentInput</a></code>
+  <code class="signature">pub(super) struct <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-255">CancelSubagentInput</a></code>
   <div class="tags"><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: JsonSchema</span><span>derive: Serialize</span><span>serde</span></div>
   <h4>Fields</h4><table><tbody><tr><td>private</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>private</td><td>reason</td><td><code>String</code></td></tr></tbody></table>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:249</p>
-</article><article id="item-struct-CancelSubagent-256" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct CancelSubagent pub(crate :: tools :: subagent) pub(crate :: tools :: subagent) struct CancelSubagent crates/eos-tool/src/tools/subagent.rs subagent_sessions BackgroundHandle ">
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:255</p>
+</article><article id="item-struct-CancelSubagent-262" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct CancelSubagent pub(crate :: tools :: subagent) pub(crate :: tools :: subagent) struct CancelSubagent crates/eos-tool/src/tools/subagent.rs subagent_sessions BackgroundHandle ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>CancelSubagent</h3>
     <span class="visibility">pub(crate :: tools :: subagent)</span>
   </div>
-  <code class="signature">pub(crate :: tools :: subagent) struct <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a></code>
+  <code class="signature">pub(crate :: tools :: subagent) struct <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a></code>
   <div class="tags"></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>subagent_sessions</td><td><code><a class="symbol-link" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-261"><td>constructor</td><td>new</td><td><code>pub(crate :: tools :: subagent) fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-new-83">new</a> (subagent_sessions : <a class="symbol-link" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>subagent_sessions</td><td><code><a class="symbol-link" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a></code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-267"><td>constructor</td><td>new</td><td><code>pub(crate :: tools :: subagent) fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-new-83">new</a> (subagent_sessions : <a class="symbol-link" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::tools::subagent) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(subagent_sessions: <a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>) -&gt; <span class="rs-self">Self</span> {
             <span class="rs-self">Self</span> { subagent_sessions }
         }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a></code></summary><table><tbody><tr id="method-execute-268"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , _ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> for <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a></code></summary><table><tbody><tr id="method-execute-274"><td>method</td><td>execute</td><td><code>async fn <a class="symbol-link" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a> (&amp; self , input : &amp; JsonObject , _ctx : &amp; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a> ,) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>        <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a>(
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             _ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
-            <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-249">CancelSubagentInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>, input) {
+            <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-255">CancelSubagentInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>, input) {
                 <span class="rs-type">Ok</span>(v) =&gt; v,
                 <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
             };
             <span class="rs-kw">if</span> parsed.agent_run_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>().<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-is-empty-212">is_empty</a>() {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-empty-subagent-agent-run-error-6">empty_subagent_agent_run_error</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-empty-subagent-agent-run-error-6">empty_subagent_agent_run_error</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>));
             }
             <span class="rs-kw">if</span> <span class="rs-self">self</span>
                 .subagent_sessions
                 .<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-cancel-subagent-run-925">cancel_subagent_run</a>(&amp;parsed.agent_run_id, &amp;parsed.reason)
                 .<span class="rs-kw">await</span>?
             {
-                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-cancelled-296">render_cancelled</a>(&amp;parsed.agent_run_id, &amp;parsed.reason))
+                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-cancelled-302">render_cancelled</a>(&amp;parsed.agent_run_id, &amp;parsed.reason))
             } <span class="rs-kw">else</span> {
                 <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(format!(
                     &quot;<span class="rs-type">Could</span> not cancel subagent agent run {}. <span class="rs-type">It</span> may have already completed \
@@ -210,7 +213,7 @@
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:256</p>
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:262</p>
 </article><div class="group-label">Standalone Functions</div><article id="item-fn-empty-subagent-agent-run-error-6" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn empty_subagent_agent_run_error pub(super) pub(super) fn empty_subagent_agent_run_error (tool : ToolName) -&gt; ToolResult crates/eos-tool/src/tools/subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
@@ -232,7 +235,7 @@
 </details>
 
   <p class="source">crates/eos-tool/src/tools/subagent.rs:6</p>
-</article><article id="item-fn-register-183" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , caller : &amp; CallerScope , agent_run_service : Arc &lt; dyn AgentRunApi &gt; , subagent_sessions : BackgroundHandle ,) crates/eos-tool/src/tools/subagent.rs  ">
+</article><article id="item-fn-register-189" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , caller : &amp; CallerScope , agent_run_service : Arc &lt; dyn AgentRunApi &gt; , subagent_sessions : BackgroundHandle ,) crates/eos-tool/src/tools/subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register</h3>
@@ -249,26 +252,26 @@
         agent_run_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
         subagent_sessions: <a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>,
     ) {
-        <span class="rs-kw">let</span> run = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>);
+        <span class="rs-kw">let</span> run = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>);
         <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-tool-164">register_tool</a>(
             registry,
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>,
             run,
             <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#item-fn-text-spec-with-agent-enum-828">text_spec_with_agent_enum</a>(
-                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>,
+                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>,
                 &amp;run.description,
-                schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-41">RunSubagentInput</a>),
+                schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-44">RunSubagentInput</a>),
                 &amp;caller.dispatchable_subagents,
             ),
             <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
-            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(agent_run_service, subagent_sessions)),
+            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(agent_run_service, subagent_sessions)),
         );
     }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:183</p>
-</article><article id="item-fn-register-308" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , subagent_sessions : BackgroundHandle ,) crates/eos-tool/src/tools/subagent.rs  ">
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:189</p>
+</article><article id="item-fn-register-314" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , subagent_sessions : BackgroundHandle ,) crates/eos-tool/src/tools/subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register</h3>
@@ -283,25 +286,25 @@
         config: &amp;<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a>,
         subagent_sessions: <a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>,
     ) {
-        <span class="rs-kw">let</span> cancel = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>);
+        <span class="rs-kw">let</span> cancel = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>);
         <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-tool-164">register_tool</a>(
             registry,
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>,
             cancel,
             <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#item-fn-text-spec-806">text_spec</a>(
-                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>,
+                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>,
                 &amp;cancel.description,
-                schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-249">CancelSubagentInput</a>),
+                schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-255">CancelSubagentInput</a>),
             ),
             <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
-            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(subagent_sessions)),
+            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(subagent_sessions)),
         );
     }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:308</p>
-</article><article id="item-fn-register-329" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(crate) pub(crate) fn register (registry : &amp; mut crate :: ToolRegistry , config : &amp; crate :: registry :: ToolConfigSet , caller : &amp; crate :: tools :: CallerScope , launcher : std :: sync :: Arc &lt; dyn eos_types :: AgentRunApi &gt; , background : crate :: tools :: BackgroundHandle ,) crates/eos-tool/src/tools/subagent.rs  ">
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:314</p>
+</article><article id="item-fn-register-335" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(crate) pub(crate) fn register (registry : &amp; mut crate :: ToolRegistry , config : &amp; crate :: registry :: ToolConfigSet , caller : &amp; crate :: tools :: CallerScope , launcher : std :: sync :: Arc &lt; dyn eos_types :: AgentRunApi &gt; , background : crate :: tools :: BackgroundHandle ,) crates/eos-tool/src/tools/subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register</h3>
@@ -324,18 +327,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:329</p>
-</article><article id="item-fn-register-schema-340" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register_schema pub(crate) pub(crate) fn register_schema (registry : &amp; mut crate :: ToolRegistry , config : &amp; crate :: registry :: ToolConfigSet , caller : &amp; crate :: tools :: CallerScope ,) crates/eos-tool/src/tools/subagent.rs  ">
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:335</p>
+</article><article id="item-fn-register-schema-346" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register_schema pub(crate) pub(crate) fn register_schema (registry : &amp; mut crate :: ToolRegistry , config : &amp; crate :: registry :: ToolConfigSet , caller : &amp; crate :: tools :: CallerScope ,) crates/eos-tool/src/tools/subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register_schema</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-421">register_schema</a> (registry : &amp; mut crate :: <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a> , config : &amp; crate :: registry :: <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a> , caller : &amp; crate :: tools :: <a class="symbol-link" href="eos-tool--src-tools-rs.html#item-struct-CallerScope-32">CallerScope</a> ,)</code>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-423">register_schema</a> (registry : &amp; mut crate :: <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a> , config : &amp; crate :: registry :: <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a> , caller : &amp; crate :: tools :: <a class="symbol-link" href="eos-tool--src-tools-rs.html#item-struct-CallerScope-32">CallerScope</a> ,)</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-421">register_schema</a>(
+  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-423">register_schema</a>(
     registry: &amp;<span class="rs-kw">mut</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a>,
     config: &amp;<span class="rs-kw">crate</span>::registry::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a>,
     caller: &amp;<span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-CallerScope-32">CallerScope</a>,
@@ -344,28 +347,28 @@
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>};
     <span class="rs-kw">use</span> schemars::schema_for;
 
-    <span class="rs-kw">let</span> run = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>);
+    <span class="rs-kw">let</span> run = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
         registry,
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>,
         run,
         <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#item-fn-text-spec-with-agent-enum-828">text_spec_with_agent_enum</a>(
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>,
             &amp;run.description,
-            schema_for!(run_subagent::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-41">RunSubagentInput</a>),
+            schema_for!(run_subagent::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-44">RunSubagentInput</a>),
             &amp;caller.dispatchable_subagents,
         ),
         <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
     );
-    <span class="rs-kw">let</span> cancel = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>);
+    <span class="rs-kw">let</span> cancel = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
         registry,
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>,
         cancel,
         <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#item-fn-text-spec-806">text_spec</a>(
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>,
             &amp;cancel.description,
-            schema_for!(cancel_subagent::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-249">CancelSubagentInput</a>),
+            schema_for!(cancel_subagent::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-255">CancelSubagentInput</a>),
         ),
         <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
     );
@@ -373,18 +376,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:340</p>
-</article><article id="item-fn-launch-result-65" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn launch_result private fn launch_result (agent_run_id : &amp; eos_types :: AgentRunId , agent_name : &amp; str) -&gt; ToolResult crates/eos-tool/src/tools/subagent.rs  ">
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:346</p>
+</article><article id="item-fn-launch-result-68" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn launch_result private fn launch_result (agent_run_id : &amp; eos_types :: AgentRunId , agent_name : &amp; str) -&gt; ToolResult crates/eos-tool/src/tools/subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>launch_result</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-result-65">launch_result</a> (agent_run_id : &amp; eos_types :: AgentRunId , agent_name : &amp; str) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-result-68">launch_result</a> (agent_run_id : &amp; eos_types :: AgentRunId , agent_name : &amp; str) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-result-65">launch_result</a>(agent_run_id: &amp;eos_types::<span class="rs-type">AgentRunId</span>, agent_name: &amp;str) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-result-68">launch_result</a>(agent_run_id: &amp;eos_types::<span class="rs-type">AgentRunId</span>, agent_name: &amp;str) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">let</span> agent_run_id_str = agent_run_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>();
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> metadata = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>();
         metadata.insert(&quot;agent_run_id&quot;.to_owned(), json!(agent_run_id_str));
@@ -401,18 +404,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:65</p>
-</article><article id="item-fn-launch-rejection-80" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn launch_rejection private fn launch_rejection (rejection : SubagentLaunchRejection) -&gt; ToolResult crates/eos-tool/src/tools/subagent.rs  ">
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:68</p>
+</article><article id="item-fn-launch-rejection-83" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn launch_rejection private fn launch_rejection (rejection : SubagentLaunchRejection) -&gt; ToolResult crates/eos-tool/src/tools/subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>launch_rejection</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-80">launch_rejection</a> (rejection : <a class="symbol-link" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-83">launch_rejection</a> (rejection : <a class="symbol-link" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-80">launch_rejection</a>(rejection: <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-83">launch_rejection</a>(rejection: <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">let</span> message = <span class="rs-kw">match</span> rejection {
         <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">Recursive</span> =&gt; {
             &quot;run_subagent: subagents may not spawn further subagents. \
@@ -435,18 +438,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:80</p>
-</article><article id="item-fn-subagent-launch-guidance-101" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn subagent_launch_guidance private fn subagent_launch_guidance () -&gt; String crates/eos-tool/src/tools/subagent.rs  ">
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:83</p>
+</article><article id="item-fn-subagent-launch-guidance-104" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn subagent_launch_guidance private fn subagent_launch_guidance () -&gt; String crates/eos-tool/src/tools/subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>subagent_launch_guidance</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-fn-subagent-launch-guidance-101">subagent_launch_guidance</a> () -&gt; String</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-fn-subagent-launch-guidance-104">subagent_launch_guidance</a> () -&gt; String</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-subagent-launch-guidance-101">subagent_launch_guidance</a>() -&gt; <span class="rs-type">String</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-subagent-launch-guidance-104">subagent_launch_guidance</a>() -&gt; <span class="rs-type">String</span> {
         &quot;# <span class="rs-type">What</span>&#x27;s <span class="rs-kw">in</span> context\n\
      - <span class="rs-type">Parent</span>&#x27;s user message above\n\
      \n\
@@ -465,30 +468,30 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:101</p>
-</article><article id="item-fn-render-launch-error-206" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn render_launch_error private fn render_launch_error (err : AgentRunError) -&gt; Result &lt; ToolResult , ToolError &gt; crates/eos-tool/src/tools/subagent.rs  ">
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:104</p>
+</article><article id="item-fn-render-launch-error-212" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn render_launch_error private fn render_launch_error (err : AgentRunError) -&gt; Result &lt; ToolResult , ToolError &gt; crates/eos-tool/src/tools/subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>render_launch_error</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-launch-error-206">render_launch_error</a> (err : AgentRunError) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-launch-error-212">render_launch_error</a> (err : AgentRunError) -&gt; Result &lt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> , <a class="symbol-link" href="eos-tool.html#item-enum-ToolError-6">ToolError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-launch-error-206">render_launch_error</a>(err: <span class="rs-type">AgentRunError</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-launch-error-212">render_launch_error</a>(err: <span class="rs-type">AgentRunError</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
         <span class="rs-kw">match</span> err {
             <span class="rs-type">AgentRunError</span>::<span class="rs-type">RecursiveSubagent</span> =&gt; {
-                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-80">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">Recursive</span>))
+                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-83">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">Recursive</span>))
             }
             <span class="rs-type">AgentRunError</span>::<span class="rs-type">AgentNotRegistered</span>(agent_name) =&gt; {
-                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-80">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotRegistered</span> {
+                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-83">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotRegistered</span> {
                     agent_name,
                 }))
             }
             <span class="rs-type">AgentRunError</span>::<span class="rs-type">WrongAgentType</span> {
                 agent_name, actual, ..
-            } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-80">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotSubagent</span> {
+            } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-83">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotSubagent</span> {
                 agent_name,
                 agent_type: actual.to_owned(),
             })),
@@ -498,18 +501,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:206</p>
-</article><article id="item-fn-render-cancelled-296" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn render_cancelled private fn render_cancelled (agent_run_id : &amp; AgentRunId , reason : &amp; str) -&gt; ToolResult crates/eos-tool/src/tools/subagent.rs  ">
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:212</p>
+</article><article id="item-fn-render-cancelled-302" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn render_cancelled private fn render_cancelled (agent_run_id : &amp; AgentRunId , reason : &amp; str) -&gt; ToolResult crates/eos-tool/src/tools/subagent.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>render_cancelled</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-cancelled-296">render_cancelled</a> (agent_run_id : &amp; AgentRunId , reason : &amp; str) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-cancelled-302">render_cancelled</a> (agent_run_id : &amp; AgentRunId , reason : &amp; str) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-cancelled-296">render_cancelled</a>(agent_run_id: &amp;<span class="rs-type">AgentRunId</span>, reason: &amp;str) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-cancelled-302">render_cancelled</a>(agent_run_id: &amp;<span class="rs-type">AgentRunId</span>, reason: &amp;str) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">let</span> reason_suffix = <span class="rs-kw">if</span> reason.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-is-empty-212">is_empty</a>() {
             <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>()
         } <span class="rs-kw">else</span> {
@@ -523,7 +526,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/subagent.rs:296</p>
+  <p class="source">crates/eos-tool/src/tools/subagent.rs:302</p>
 </article></div>
 </section></div>
 </main>
@@ -553,7 +556,10 @@
     <span class="rs-kw">use</span> async_trait::async_trait;
     <span class="rs-kw">use</span> eos_types::<span class="rs-type">JsonObject</span>;
     <span class="rs-kw">use</span> eos_types::<span class="rs-type">Message</span>;
-    <span class="rs-kw">use</span> eos_types::{<span class="rs-type">AgentName</span>, <span class="rs-type">AgentRunApi</span>, <span class="rs-type">AgentRunError</span>, <span class="rs-type">SpawnAgentRequest</span>, <span class="rs-type">TaskAgentRunKind</span>};
+    <span class="rs-kw">use</span> eos_types::{
+        <span class="rs-type">AgentName</span>, <span class="rs-type">AgentRunApi</span>, <span class="rs-type">AgentRunError</span>, <span class="rs-type">ParentedAgentRunKind</span>, <span class="rs-type">SpawnAgentRequest</span>,
+        <span class="rs-type">TaskAgentRunKind</span>,
+    };
     <span class="rs-kw">use</span> schemars::{schema_for, <span class="rs-type">JsonSchema</span>};
     <span class="rs-kw">use</span> serde::{<span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>};
     <span class="rs-kw">use</span> serde_json::json;
@@ -573,18 +579,18 @@
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>;
 
     #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">JsonSchema</span>)]
-    <span class="rs-kw">pub</span>(<span class="rs-kw">super</span>) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-41">RunSubagentInput</a> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">super</span>) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-44">RunSubagentInput</a> {
         <span class="rs-comment">/// Name of a registered dispatchable subagent (caller-scoped enum).</span>
         agent_name: <span class="rs-type">String</span>,
         prompt: <span class="rs-type">String</span>,
     }
 
-    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::tools::subagent) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::tools::subagent) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a> {
         agent_run_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
         subagent_sessions: <a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>,
     }
 
-    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a> {
+    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a> {
         <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::tools::subagent) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(
             agent_run_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
             subagent_sessions: <a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>,
@@ -596,7 +602,7 @@
         }
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-result-65">launch_result</a>(agent_run_id: &amp;eos_types::<span class="rs-type">AgentRunId</span>, agent_name: &amp;str) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-result-68">launch_result</a>(agent_run_id: &amp;eos_types::<span class="rs-type">AgentRunId</span>, agent_name: &amp;str) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">let</span> agent_run_id_str = agent_run_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>();
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> metadata = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>();
         metadata.insert(&quot;agent_run_id&quot;.to_owned(), json!(agent_run_id_str));
@@ -611,7 +617,7 @@
         .<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-with-metadata-567">with_metadata</a>(metadata)
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-80">launch_rejection</a>(rejection: <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-83">launch_rejection</a>(rejection: <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">let</span> message = <span class="rs-kw">match</span> rejection {
         <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">Recursive</span> =&gt; {
             &quot;run_subagent: subagents may not spawn further subagents. \
@@ -632,7 +638,7 @@
         <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(message)
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-subagent-launch-guidance-101">subagent_launch_guidance</a>() -&gt; <span class="rs-type">String</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-subagent-launch-guidance-104">subagent_launch_guidance</a>() -&gt; <span class="rs-type">String</span> {
         &quot;# <span class="rs-type">What</span>&#x27;s <span class="rs-kw">in</span> context\n\
      - <span class="rs-type">Parent</span>&#x27;s user message above\n\
      \n\
@@ -650,13 +656,13 @@
     }
 
     #[async_trait]
-    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a> {
+    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a> {
         <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a>(
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
-            <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-41">RunSubagentInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>, input) {
+            <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-44">RunSubagentInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>, input) {
                 <span class="rs-type">Ok</span>(v) =&gt; v,
                 <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
             };
@@ -671,11 +677,12 @@
                 ));
             }
             <span class="rs-kw">let</span> parent_agent_run_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-agent-run-id-226">require_agent_run_id</a>()?.clone();
+            <span class="rs-kw">let</span> parent_task_id = ctx.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-require-task-id-206">require_task_id</a>()?.clone();
             <span class="rs-kw">let</span> requested_agent_name = parsed.agent_name.clone();
             <span class="rs-kw">let</span> agent_name = <span class="rs-kw">match</span> <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(&amp;parsed.agent_name) {
                 <span class="rs-type">Ok</span>(agent_name) =&gt; agent_name,
                 <span class="rs-type">Err</span>(_) =&gt; {
-                    <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-80">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotRegistered</span> {
+                    <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-83">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotRegistered</span> {
                         agent_name: requested_agent_name,
                     }))
                 }
@@ -687,7 +694,7 @@
                     agent_run_id: <span class="rs-type">None</span>,
                     initial_messages: vec![
                         <span class="rs-type">Message</span>::from_user_text(parsed.prompt.clone()),
-                        <span class="rs-type">Message</span>::from_user_text(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-subagent-launch-guidance-101">subagent_launch_guidance</a>()),
+                        <span class="rs-type">Message</span>::from_user_text(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-subagent-launch-guidance-104">subagent_launch_guidance</a>()),
                     ],
                     parent_agent_run_id: <span class="rs-type">Some</span>(parent_agent_run_id.clone()),
                     request_id: ctx.request_id.clone(),
@@ -698,19 +705,21 @@
                     workspace_root: ctx.workspace_root.clone(),
                     is_isolated_workspace_mode: ctx.is_isolated_workspace_mode,
                     persist: <span class="rs-kw">true</span>,
-                    task_agent_run_kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Subagent</span> {
+                    task_agent_run_kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
                         parent_agent_run_id,
+                        parent_task_id,
+                        kind: <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span>,
                     },
                 })
                 .<span class="rs-kw">await</span>
             {
                 <span class="rs-type">Ok</span>(agent_run_id) =&gt; agent_run_id,
-                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-launch-error-206">render_launch_error</a>(err),
+                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-launch-error-212">render_launch_error</a>(err),
             };
             <span class="rs-self">self</span>.subagent_sessions
                 .<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-register-subagent-run-915">register_subagent_run</a>(&amp;agent_run_id)
                 .<span class="rs-kw">await</span>?;
-            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-result-65">launch_result</a>(&amp;agent_run_id, agent_name.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()))
+            <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-result-68">launch_result</a>(&amp;agent_run_id, agent_name.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>()))
         }
     }
 
@@ -721,35 +730,35 @@
         agent_run_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
         subagent_sessions: <a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>,
     ) {
-        <span class="rs-kw">let</span> run = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>);
+        <span class="rs-kw">let</span> run = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>);
         <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-tool-164">register_tool</a>(
             registry,
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>,
             run,
             <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#item-fn-text-spec-with-agent-enum-828">text_spec_with_agent_enum</a>(
-                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>,
+                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>,
                 &amp;run.description,
-                schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-41">RunSubagentInput</a>),
+                schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-44">RunSubagentInput</a>),
                 &amp;caller.dispatchable_subagents,
             ),
             <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
-            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(agent_run_service, subagent_sessions)),
+            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(agent_run_service, subagent_sessions)),
         );
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-launch-error-206">render_launch_error</a>(err: <span class="rs-type">AgentRunError</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-launch-error-212">render_launch_error</a>(err: <span class="rs-type">AgentRunError</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
         <span class="rs-kw">match</span> err {
             <span class="rs-type">AgentRunError</span>::<span class="rs-type">RecursiveSubagent</span> =&gt; {
-                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-80">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">Recursive</span>))
+                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-83">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">Recursive</span>))
             }
             <span class="rs-type">AgentRunError</span>::<span class="rs-type">AgentNotRegistered</span>(agent_name) =&gt; {
-                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-80">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotRegistered</span> {
+                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-83">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotRegistered</span> {
                     agent_name,
                 }))
             }
             <span class="rs-type">AgentRunError</span>::<span class="rs-type">WrongAgentType</span> {
                 agent_name, actual, ..
-            } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-80">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotSubagent</span> {
+            } =&gt; <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-launch-rejection-83">launch_rejection</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-SubagentLaunchRejection-630">SubagentLaunchRejection</a>::<span class="rs-type">NotSubagent</span> {
                 agent_name,
                 agent_type: actual.to_owned(),
             })),
@@ -781,42 +790,42 @@
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>;
 
     #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">JsonSchema</span>)]
-    <span class="rs-kw">pub</span>(<span class="rs-kw">super</span>) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-249">CancelSubagentInput</a> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">super</span>) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-255">CancelSubagentInput</a> {
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         #[serde(default)]
         reason: <span class="rs-type">String</span>,
     }
 
-    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::tools::subagent) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::tools::subagent) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a> {
         subagent_sessions: <a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>,
     }
 
-    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a> {
+    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a> {
         <span class="rs-kw">pub</span>(<span class="rs-kw">in</span> <span class="rs-kw">crate</span>::tools::subagent) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(subagent_sessions: <a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>) -&gt; <span class="rs-self">Self</span> {
             <span class="rs-self">Self</span> { subagent_sessions }
         }
     }
 
     #[async_trait]
-    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a> {
+    <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-trait-ToolExecutor-32">ToolExecutor</a> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a> {
         <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-execute-42">execute</a>(
             &amp;<span class="rs-self">self</span>,
             input: &amp;<span class="rs-type">JsonObject</span>,
             _ctx: &amp;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ExecutionMetadata-140">ExecutionMetadata</a>,
         ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>, <a class="symbol-link rs-type" href="eos-tool.html#item-enum-ToolError-6">ToolError</a>&gt; {
-            <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-249">CancelSubagentInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>, input) {
+            <span class="rs-kw">let</span> parsed: <a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-255">CancelSubagentInput</a> = <span class="rs-kw">match</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-parse-input-264">parse_input</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>, input) {
                 <span class="rs-type">Ok</span>(v) =&gt; v,
                 <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(err),
             };
             <span class="rs-kw">if</span> parsed.agent_run_id.<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-as-str-45">as_str</a>().<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-is-empty-212">is_empty</a>() {
-                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-empty-subagent-agent-run-error-6">empty_subagent_agent_run_error</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>));
+                <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-empty-subagent-agent-run-error-6">empty_subagent_agent_run_error</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>));
             }
             <span class="rs-kw">if</span> <span class="rs-self">self</span>
                 .subagent_sessions
                 .<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-cancel-subagent-run-925">cancel_subagent_run</a>(&amp;parsed.agent_run_id, &amp;parsed.reason)
                 .<span class="rs-kw">await</span>?
             {
-                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-cancelled-296">render_cancelled</a>(&amp;parsed.agent_run_id, &amp;parsed.reason))
+                <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-cancelled-302">render_cancelled</a>(&amp;parsed.agent_run_id, &amp;parsed.reason))
             } <span class="rs-kw">else</span> {
                 <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(format!(
                     &quot;<span class="rs-type">Could</span> not cancel subagent agent run {}. <span class="rs-type">It</span> may have already completed \
@@ -827,7 +836,7 @@
         }
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-cancelled-296">render_cancelled</a>(agent_run_id: &amp;<span class="rs-type">AgentRunId</span>, reason: &amp;str) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-subagent-rs.html#item-fn-render-cancelled-302">render_cancelled</a>(agent_run_id: &amp;<span class="rs-type">AgentRunId</span>, reason: &amp;str) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">let</span> reason_suffix = <span class="rs-kw">if</span> reason.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-is-empty-212">is_empty</a>() {
             <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>()
         } <span class="rs-kw">else</span> {
@@ -844,18 +853,18 @@
         config: &amp;<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a>,
         subagent_sessions: <a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-BackgroundHandle-91">BackgroundHandle</a>,
     ) {
-        <span class="rs-kw">let</span> cancel = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>);
+        <span class="rs-kw">let</span> cancel = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>);
         <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-tool-164">register_tool</a>(
             registry,
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>,
             cancel,
             <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#item-fn-text-spec-806">text_spec</a>(
-                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>,
+                <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>,
                 &amp;cancel.description,
-                schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-249">CancelSubagentInput</a>),
+                schema_for!(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-255">CancelSubagentInput</a>),
             ),
             <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
-            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(subagent_sessions)),
+            <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(subagent_sessions)),
         );
     }
 }
@@ -871,7 +880,7 @@
     cancel_subagent::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-register-156">register</a>(registry, config, background);
 }
 
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-421">register_schema</a>(
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-423">register_schema</a>(
     registry: &amp;<span class="rs-kw">mut</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a>,
     config: &amp;<span class="rs-kw">crate</span>::registry::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a>,
     caller: &amp;<span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-type" href="eos-tool--src-tools-rs.html#item-struct-CallerScope-32">CallerScope</a>,
@@ -880,28 +889,28 @@
     <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>, <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>};
     <span class="rs-kw">use</span> schemars::schema_for;
 
-    <span class="rs-kw">let</span> run = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>);
+    <span class="rs-kw">let</span> run = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
         registry,
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>,
         run,
         <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#item-fn-text-spec-with-agent-enum-828">text_spec_with_agent_enum</a>(
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-48">RunSubagent</a>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagent-51">RunSubagent</a>,
             &amp;run.description,
-            schema_for!(run_subagent::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-41">RunSubagentInput</a>),
+            schema_for!(run_subagent::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-RunSubagentInput-44">RunSubagentInput</a>),
             &amp;caller.dispatchable_subagents,
         ),
         <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
     );
-    <span class="rs-kw">let</span> cancel = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>);
+    <span class="rs-kw">let</span> cancel = config.<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>);
     <span class="rs-kw">crate</span>::tools::<a class="symbol-link rs-fn" href="eos-tool--src-tools-rs.html#item-fn-register-schema-tool-179">register_schema_tool</a>(
         registry,
-        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>,
+        <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>,
         cancel,
         <a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#item-fn-text-spec-806">text_spec</a>(
-            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-256">CancelSubagent</a>,
+            <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-ToolName-264">ToolName</a>::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagent-262">CancelSubagent</a>,
             &amp;cancel.description,
-            schema_for!(cancel_subagent::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-249">CancelSubagentInput</a>),
+            schema_for!(cancel_subagent::<a class="symbol-link rs-type" href="eos-tool--src-tools-subagent-rs.html#item-struct-CancelSubagentInput-255">CancelSubagentInput</a>),
         ),
         <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-enum-OutputShape-582">OutputShape</a>::<span class="rs-type">Text</span>,
     );

@@ -20,7 +20,7 @@ use super::{open_pty_pair, terminate_process_group};
 /// consumer that never drains its stdin cannot wedge the writer past this bound.
 const STDIN_WRITE_DEADLINE: Duration = Duration::from_secs(2);
 
-pub struct CommandSessionProcess {
+pub(crate) struct CommandSessionProcess {
     pgid: Option<i32>,
     writer: Mutex<File>,
     reader_done: Mutex<Option<mpsc::Receiver<()>>>,
@@ -28,18 +28,18 @@ pub struct CommandSessionProcess {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CommandProcessExit {
+pub(crate) struct CommandProcessExit {
     exit_code: Option<i64>,
 }
 
 impl CommandProcessExit {
     #[must_use]
-    pub fn unwaitable() -> Self {
+    pub(crate) fn unwaitable() -> Self {
         Self { exit_code: None }
     }
 
     #[must_use]
-    pub fn from_status(status: ExitStatus) -> Self {
+    pub(crate) fn from_status(status: ExitStatus) -> Self {
         let exit_code = status
             .code()
             .map(i64::from)
@@ -48,13 +48,13 @@ impl CommandProcessExit {
     }
 
     #[must_use]
-    pub const fn exit_code(self) -> Option<i64> {
+    pub(crate) const fn exit_code(self) -> Option<i64> {
         self.exit_code
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProcessReap {
+pub(crate) enum ProcessReap {
     Running,
     Exited(CommandProcessExit),
 }
@@ -64,7 +64,7 @@ pub enum ProcessReap {
 /// "timed_out"/124 — and either reason DISCARDS the overlay (a killed command
 /// never OCC-merges).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum KillReason {
+pub(crate) enum KillReason {
     /// A caller asked to cancel (Ctrl-C/Ctrl-D, the cancel op, or run teardown).
     Cancelled,
     /// The session exceeded its deadline and the reaper killed it as a backstop.
@@ -72,14 +72,14 @@ pub enum KillReason {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CommandCompletionStatus {
+pub(crate) struct CommandCompletionStatus {
     status: String,
     exit_code: i64,
 }
 
 impl CommandCompletionStatus {
     #[must_use]
-    pub fn from_process_and_runner(
+    pub(crate) fn from_process_and_runner(
         process_exit: CommandProcessExit,
         runner: Option<&CommandRunnerResult>,
         kill: Option<KillReason>,
@@ -107,18 +107,18 @@ impl CommandCompletionStatus {
     }
 
     #[must_use]
-    pub fn status(&self) -> &str {
+    pub(crate) fn status(&self) -> &str {
         &self.status
     }
 
     #[must_use]
-    pub const fn exit_code(&self) -> i64 {
+    pub(crate) const fn exit_code(&self) -> i64 {
         self.exit_code
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct CommandRunnerResult {
+pub(crate) struct CommandRunnerResult {
     exit_code: i64,
     status: Option<String>,
     value: Value,
@@ -126,14 +126,14 @@ pub struct CommandRunnerResult {
 
 impl CommandRunnerResult {
     #[must_use]
-    pub fn read_from_path(path: &Path) -> Option<Self> {
+    pub(crate) fn read_from_path(path: &Path) -> Option<Self> {
         let bytes = std::fs::read(path).ok()?;
         let value = serde_json::from_slice::<Value>(&bytes).ok()?;
         Self::from_value(value)
     }
 
     #[must_use]
-    pub fn from_value(value: Value) -> Option<Self> {
+    pub(crate) fn from_value(value: Value) -> Option<Self> {
         let exit_code = value.get("exit_code").and_then(|value| {
             value
                 .as_i64()
@@ -153,24 +153,24 @@ impl CommandRunnerResult {
     }
 
     #[must_use]
-    pub const fn exit_code(&self) -> i64 {
+    pub(crate) const fn exit_code(&self) -> i64 {
         self.exit_code
     }
 
     #[must_use]
-    pub fn status(&self) -> Option<&str> {
+    pub(crate) fn status(&self) -> Option<&str> {
         self.status.as_deref()
     }
 
     #[must_use]
-    pub const fn value(&self) -> &Value {
+    pub(crate) const fn value(&self) -> &Value {
         &self.value
     }
 }
 
 impl CommandSessionProcess {
     #[must_use]
-    pub fn inactive(writer: File) -> Self {
+    pub(crate) fn inactive(writer: File) -> Self {
         Self {
             pgid: None,
             writer: Mutex::new(writer),
@@ -184,7 +184,7 @@ impl CommandSessionProcess {
     /// `WouldBlock` and we wait for writability only up to `STDIN_WRITE_DEADLINE`
     /// before returning a structured backpressure error. Cancel/terminate is a
     /// separate (`killpg`) path, so the session stays controllable throughout.
-    pub fn write_stdin(&self, bytes: &[u8]) -> io::Result<()> {
+    pub(crate) fn write_stdin(&self, bytes: &[u8]) -> io::Result<()> {
         let mut writer = lock(&self.writer);
         let deadline = Instant::now() + STDIN_WRITE_DEADLINE;
         let mut offset = 0;
@@ -217,14 +217,14 @@ impl CommandSessionProcess {
         Ok(())
     }
 
-    pub fn terminate(&self) {
+    pub(crate) fn terminate(&self) {
         if let Some(pgid) = self.pgid {
             terminate_process_group(pgid);
         }
     }
 
     #[must_use]
-    pub fn try_reap(&self) -> ProcessReap {
+    pub(crate) fn try_reap(&self) -> ProcessReap {
         let mut child = lock(&self.child);
         match child.as_mut() {
             Some(handle) => match handle.try_wait() {
@@ -242,7 +242,7 @@ impl CommandSessionProcess {
         }
     }
 
-    pub fn wait_for_reader_done(&self, timeout: Duration) {
+    pub(crate) fn wait_for_reader_done(&self, timeout: Duration) {
         let reader_done = lock(&self.reader_done).take();
         if let Some(reader_done) = reader_done {
             let _ = reader_done.recv_timeout(timeout);
@@ -250,7 +250,7 @@ impl CommandSessionProcess {
     }
 }
 
-pub fn spawn_current_exe_ns_runner(
+pub(crate) fn spawn_current_exe_ns_runner(
     request_path: &Path,
     run_request: &Value,
     output_path: &Path,
@@ -381,45 +381,5 @@ fn stdin_backpressure() -> io::Error {
 }
 
 #[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::*;
-
-    fn runner_ok() -> Option<CommandRunnerResult> {
-        CommandRunnerResult::from_value(json!({"exit_code": 0, "tool_result": {"status": "ok"}}))
-    }
-
-    #[test]
-    fn kill_reason_maps_to_terminal_status() {
-        let exit = CommandProcessExit::unwaitable();
-        let runner = runner_ok();
-
-        // Natural exit (`None`): the runner's own status is preserved.
-        let ok = CommandCompletionStatus::from_process_and_runner(exit, runner.as_ref(), None);
-        assert_eq!((ok.status(), ok.exit_code()), ("ok", 0));
-
-        // A user cancel overrides the runner result with cancelled/130.
-        let cancelled = CommandCompletionStatus::from_process_and_runner(
-            exit,
-            runner.as_ref(),
-            Some(KillReason::Cancelled),
-        );
-        assert_eq!(
-            (cancelled.status(), cancelled.exit_code()),
-            ("cancelled", 130)
-        );
-
-        // A deadline timeout is distinct: timed_out/124, so the parked completion
-        // tells the agent the command timed out rather than was cancelled.
-        let timed_out = CommandCompletionStatus::from_process_and_runner(
-            exit,
-            runner.as_ref(),
-            Some(KillReason::TimedOut),
-        );
-        assert_eq!(
-            (timed_out.status(), timed_out.exit_code()),
-            ("timed_out", 124)
-        );
-    }
-}
+#[path = "../../../tests/command_session/process_runner_unit.rs"]
+mod tests;

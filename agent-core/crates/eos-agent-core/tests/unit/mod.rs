@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use eos_db::{Database, DatabaseConfig, DatabaseUrl};
-use eos_engine::{EngineError, EngineStream, EventSource, StreamEvent};
+use eos_engine::{EngineError, EngineStream, ProviderStreamSource, StreamEvent};
 use eos_llm_client::{
     ContentBlock, LlmClient, LlmRequest, LlmStream, ProviderError, ProvidersConfig,
 };
@@ -23,7 +23,7 @@ use serde_json::json;
 
 use crate::entry::root_task_id_for;
 use crate::runtime::support::{build_test_state, build_test_state_with_message_records};
-use crate::runtime::{EventCallback, EventSourceFactory};
+use crate::runtime::{EngineEventSink, ProviderStreamSourceFactory};
 use crate::{AgentCoreRuntime, RequestOutcome, RequestRunInput};
 use eos_testkit::{
     agent_def, factory_by_agent, factory_from, factory_root_blocks_after, test_tools_root,
@@ -114,7 +114,7 @@ async fn run_request(
     request_id: &RequestId,
     prompt: impl Into<String>,
     sandbox_id: Option<&str>,
-    on_event: Option<EventCallback>,
+    on_event: Option<EngineEventSink>,
 ) -> anyhow::Result<RequestOutcome> {
     let mut input = RequestRunInput::new(
         request_id.clone(),

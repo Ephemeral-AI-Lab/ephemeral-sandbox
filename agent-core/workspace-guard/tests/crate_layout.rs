@@ -134,10 +134,6 @@ fn source_tree_does_not_contain_test_modules() {
 #[test]
 fn final_target_crates_do_not_use_mod_rs_maze() {
     let workspace = Workspace::load();
-    if !workspace.final_layout_rules_active() {
-        return;
-    }
-
     let violations = workspace
         .crates()
         .values()
@@ -161,10 +157,6 @@ fn final_target_crates_do_not_use_mod_rs_maze() {
 #[test]
 fn final_target_crates_do_not_use_forbidden_folders() {
     let workspace = Workspace::load();
-    if !workspace.final_layout_rules_active() {
-        return;
-    }
-
     let violations = workspace
         .crates()
         .values()
@@ -182,10 +174,6 @@ fn final_target_crates_do_not_use_forbidden_folders() {
 #[test]
 fn final_target_crates_do_not_mix_module_file_shapes() {
     let workspace = Workspace::load();
-    if !workspace.final_layout_rules_active() {
-        return;
-    }
-
     let violations = workspace
         .crates()
         .values()

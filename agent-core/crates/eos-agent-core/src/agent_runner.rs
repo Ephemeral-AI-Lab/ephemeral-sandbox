@@ -20,12 +20,12 @@ use async_trait::async_trait;
 use eos_agent_run::AgentRunService as RunnerAgentRunService;
 use eos_llm_client::Message;
 use eos_types::{
-    AgentName as SpawnAgentName, AgentRunApi, AgentRunId, SpawnAgentRequest, TaskAgentRunKind,
-    TaskRole, WorkflowApi, WorkflowAttemptSubmissionApi, WorkflowTaskRole,
+    AgentName as SpawnAgentName, AgentRunApi, AgentRunId, SpawnAgentRequest, SpawnAgentTarget,
+    TaskRole, WorkflowApi, WorkflowAttemptSubmissionApi, WorkflowCoordinates, WorkflowTaskRole,
 };
 use eos_workflow::{AgentLaunch, AgentRunReport, AgentRunner, Result as WorkflowResult};
 
-use crate::runtime::{build_agent_loop_launcher, AgentCoreRuntime, EventCallback};
+use crate::runtime::{build_agent_loop_launcher, AgentCoreRuntime, EngineEventSink};
 
 /// Runtime adapter over the shared engine loop, supplied to `AttemptResources.runner`.
 pub(crate) struct RuntimeAgentRunner {
@@ -39,7 +39,7 @@ pub(crate) struct RuntimeAgentRunner {
     /// task agent can start.
     workflow_service: Arc<OnceLock<Arc<dyn WorkflowApi>>>,
     /// Optional stream-event callback shared with the root request.
-    event_callback: Option<EventCallback>,
+    event_sink: Option<EngineEventSink>,
 }
 
 impl std::fmt::Debug for RuntimeAgentRunner {
@@ -54,14 +54,14 @@ impl RuntimeAgentRunner {
         workspace_root: impl Into<String>,
         attempt_submission: Arc<dyn WorkflowAttemptSubmissionApi>,
         workflow_service: Arc<OnceLock<Arc<dyn WorkflowApi>>>,
-        event_callback: Option<EventCallback>,
+        event_sink: Option<EngineEventSink>,
     ) -> Self {
         Self {
             services,
             workspace_root: workspace_root.into(),
             attempt_submission,
             workflow_service,
-            event_callback,
+            event_sink,
         }
     }
 }
@@ -89,7 +89,7 @@ impl AgentRunner for RuntimeAgentRunner {
             &self.services,
             self.attempt_submission.clone(),
             workflow_service,
-            self.event_callback.clone(),
+            self.event_sink.clone(),
         );
         let agent_runs = Arc::new(
             RunnerAgentRunService::new(
@@ -117,21 +117,20 @@ impl AgentRunner for RuntimeAgentRunner {
                     .expect("loaded agent name is valid"),
                 agent_run_id: Some(agent_run_id),
                 initial_messages: vec![Message::from_user_text(prompt)],
-                parent_agent_run_id: None,
-                request_id: Some(launch.request_id().clone()),
-                task_id: Some(launch.task_id().clone()),
-                attempt_id: Some(launch.attempt_id().clone()),
-                workflow_id: Some(launch.workflow_id().clone()),
+                target: SpawnAgentTarget::Workflow {
+                    request_id: launch.request_id().clone(),
+                    task_id: launch.task_id().clone(),
+                    workflow: WorkflowCoordinates {
+                        workflow_id: launch.workflow_id().clone(),
+                        iteration_id: launch.iteration_id().clone(),
+                        attempt_id: launch.attempt_id().clone(),
+                    },
+                    role: workflow_task_agent_run_role(launch.role()),
+                },
                 sandbox_id: None,
                 workspace_root: self.workspace_root.clone(),
                 is_isolated_workspace_mode: false,
                 persist: true,
-                task_agent_run_kind: TaskAgentRunKind::WorkflowTask {
-                    workflow_id: launch.workflow_id().clone(),
-                    iteration_id: launch.iteration_id().clone(),
-                    attempt_id: launch.attempt_id().clone(),
-                    role: workflow_message_record_role(launch.role()),
-                },
             })
             .await
         {
@@ -149,11 +148,11 @@ impl AgentRunner for RuntimeAgentRunner {
     }
 }
 
-fn workflow_message_record_role(role: TaskRole) -> WorkflowTaskRole {
+fn workflow_task_agent_run_role(role: TaskRole) -> WorkflowTaskRole {
     match role {
         TaskRole::Planner => WorkflowTaskRole::Planner,
         TaskRole::Generator => WorkflowTaskRole::Generator,
         TaskRole::Reducer => WorkflowTaskRole::Reducer,
-        TaskRole::Root => WorkflowTaskRole::Generator,
+        TaskRole::Root => unreachable!("workflow task-agent-run role cannot be root"),
     }
 }

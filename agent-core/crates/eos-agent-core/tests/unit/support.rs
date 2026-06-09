@@ -5,7 +5,7 @@
 //! `eos-agent-core` types — the dev-dependency two-instance rule bars an external
 //! `build_test_state`/`FakeProvisioner` from this crate's own in-crate tests
 //! (`TESTING_SPEC` §14.2). Included as a submodule of `runtime` via
-//! `#[path]`, so it can name `super::{AgentCoreRuntime, EventSourceFactory}`; it
+//! `#[path]`, so it can name `super::{AgentCoreRuntime, ProviderStreamSourceFactory}`; it
 //! drives the production `sandbox_gateway(...)` builder seam with a
 //! [`FakeGateway`] wrapping a fake transport and provisioner. The
 //! cross-crate-safe doubles (`ScriptedSource`, `FakeTransport`, factories,
@@ -22,7 +22,7 @@ use eos_sandbox_port::{
 use eos_testkit::FakeTransport;
 use eos_types::{AgentDefinition, AgentRegistry, RequestId};
 
-use super::{AgentCoreRuntime, EventSourceFactory};
+use super::{AgentCoreRuntime, ProviderStreamSourceFactory};
 
 /// A provisioner that binds a fixed sandbox id (`sb-test`) without touching
 /// Docker.
@@ -97,24 +97,24 @@ impl SandboxGateway for FakeGateway {
 
 /// Build fully-wired test [`AgentCoreRuntime`] over a temp `SQLite` db, the fake
 /// provisioner, the workspace `FakeTransport`, the given agent registry, and an
-/// optional event-source factory. Returns the state and the owning temp dir
+/// optional provider-stream factory. Returns the state and the owning temp dir
 /// (keep it alive for the test's duration).
 pub(crate) async fn build_test_state(
-    factory: Option<EventSourceFactory>,
+    factory: Option<ProviderStreamSourceFactory>,
     agents: Vec<AgentDefinition>,
 ) -> (AgentCoreRuntime, tempfile::TempDir) {
     build_test_state_inner(factory, agents, false).await
 }
 
 pub(crate) async fn build_test_state_with_message_records(
-    factory: Option<EventSourceFactory>,
+    factory: Option<ProviderStreamSourceFactory>,
     agents: Vec<AgentDefinition>,
 ) -> (AgentCoreRuntime, tempfile::TempDir) {
     build_test_state_inner(factory, agents, true).await
 }
 
 async fn build_test_state_inner(
-    factory: Option<EventSourceFactory>,
+    factory: Option<ProviderStreamSourceFactory>,
     agents: Vec<AgentDefinition>,
     message_records: bool,
 ) -> (AgentCoreRuntime, tempfile::TempDir) {
@@ -130,7 +130,7 @@ async fn build_test_state_inner(
         )))
         .agent_registry(Arc::new(registry));
     if let Some(factory) = factory {
-        builder = builder.event_source_factory(factory);
+        builder = builder.provider_stream_source_factory(factory);
     }
     if message_records {
         builder = builder.message_records_root(dir.path().join("message-records"));

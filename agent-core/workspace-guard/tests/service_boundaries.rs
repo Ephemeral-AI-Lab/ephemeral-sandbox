@@ -13,10 +13,6 @@ struct ServiceCandidate {
 #[test]
 fn final_service_named_surfaces_have_sibling_consumers() {
     let workspace = Workspace::load();
-    if !workspace.final_layout_rules_active() {
-        return;
-    }
-
     let files = workspace.source_files();
     let candidates = service_candidates(&files);
     let violations = candidates
@@ -108,8 +104,8 @@ fn suggested_replacement(candidate: &ServiceCandidate) -> &'static str {
 fn service_replacement_suggestions_stay_canonical() {
     let candidates = [
         ServiceCandidate {
-            crate_name: "eos-engine".to_owned(),
-            relative_path: "crates/eos-engine/src/records.rs".to_owned(),
+            crate_name: "eos-agent-run".to_owned(),
+            relative_path: "crates/eos-agent-run/src/records.rs".to_owned(),
             symbol: "MessageRecordService".to_owned(),
         },
         ServiceCandidate {

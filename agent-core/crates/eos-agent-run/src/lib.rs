@@ -8,15 +8,15 @@ mod agent_loop_request;
 mod agent_run_persistence;
 mod agent_run_records;
 mod agent_run_service;
+pub mod records;
 
 pub use active_agent_runs::ActiveAgentRuns;
-pub use agent_run_records::to_message_record_kind;
 pub use agent_run_service::AgentRunService;
-pub use eos_engine::records::{
-    AgentMessageRecords, AgentRunRecordHandle, AgentRunRecordStart, MessageRecordError, NodeEvent,
-    NodeFinishStatus,
-};
 pub use eos_types::{
     AgentRunApi, AgentRunError, AgentRunOutcome, AgentRunStatus, SpawnAgentRequest,
     TaskAgentRunKind, WorkflowTaskRole,
+};
+pub use records::{
+    AgentMessageRecords, AgentRunRecordHandle, AgentRunRecordKind, AgentRunRecordStart,
+    MessageRecordError, NodeEvent, NodeFinishStatus,
 };

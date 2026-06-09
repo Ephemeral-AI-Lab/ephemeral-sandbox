@@ -14,7 +14,7 @@ use eos_agent_run::AgentRunService as RunnerAgentRunService;
 use eos_llm_client::Message;
 use eos_types::{
     AgentCoreCancellationApi, AgentName, AgentName as SpawnAgentName, AgentRunApi, AgentRunId,
-    JsonObject, RequestId, SpawnAgentRequest, TaskAgentRunKind, TaskId, WorkflowApi,
+    JsonObject, RequestId, SpawnAgentRequest, SpawnAgentTarget, TaskId, WorkflowApi,
     WorkflowAttemptSubmissionApi,
 };
 use eos_types::{RequestStatus, Task, TaskRole, TaskStatus};
@@ -28,7 +28,7 @@ use serde_json::json;
 use crate::agent_runner::RuntimeAgentRunner;
 use crate::request_input::RequestRunInput;
 use crate::runtime::{
-    build_agent_loop_launcher, AgentCoreRuntime, EventCallback, RuntimeAgentCoreCancellation,
+    build_agent_loop_launcher, AgentCoreRuntime, EngineEventSink, RuntimeAgentCoreCancellation,
 };
 
 /// The terminal outcome of a completed top-level request — the root's outcome
@@ -70,7 +70,7 @@ pub(crate) fn root_task_id_for(request_id: &RequestId) -> TaskId {
 pub async fn run_request(
     services: &AgentCoreRuntime,
     input: RequestRunInput,
-    on_event: Option<EventCallback>,
+    on_event: Option<EngineEventSink>,
 ) -> Result<RequestOutcome> {
     let RequestRunInput {
         request_id,
@@ -237,16 +237,14 @@ pub async fn run_request(
                         .expect("root agent name is valid"),
                     agent_run_id: Some(AgentRunId::new_v4()),
                     initial_messages: vec![Message::from_user_text(prompt.clone())],
-                    parent_agent_run_id: None,
-                    request_id: Some(request_id.clone()),
-                    task_id: Some(root_task_id.clone()),
-                    attempt_id: None,
-                    workflow_id: None,
+                    target: SpawnAgentTarget::Root {
+                        request_id: request_id.clone(),
+                        task_id: root_task_id.clone(),
+                    },
                     sandbox_id: Some(binding.sandbox_id.clone()),
                     workspace_root: workspace_root.clone(),
                     is_isolated_workspace_mode: false,
                     persist: true,
-                    task_agent_run_kind: TaskAgentRunKind::Root,
                 })
                 .await
             {

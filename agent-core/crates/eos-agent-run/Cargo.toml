@@ -6,11 +6,15 @@ rust-version.workspace = true
 
 [dependencies]
 async-trait.workspace = true
-eos-engine.workspace = true
 eos-types.workspace = true
+serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

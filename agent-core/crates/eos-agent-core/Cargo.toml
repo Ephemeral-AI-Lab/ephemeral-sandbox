@@ -27,7 +27,7 @@ tracing.workspace = true
 [dev-dependencies]
 tempfile.workspace = true
 futures.workspace = true
-# Layer-A scripted-LLM/EventSource doubles + fake transport (TESTING_SPEC §11).
+# Layer-A scripted provider stream doubles + fake transport (TESTING_SPEC §11).
 # `build_test_state`/`FakeProvisioner` stay crate-local (tests/unit/support.rs):
 # they are `eos-agent-core` types, so the dev-dep two-instance rule bars consuming
 # them from this crate's in-crate tests (§14.2).

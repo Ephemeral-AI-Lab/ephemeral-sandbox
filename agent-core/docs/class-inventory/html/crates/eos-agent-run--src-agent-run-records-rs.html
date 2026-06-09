@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
-  <div><b>6</b><span>modules</span></div>
-  <div><b>30</b><span>items</span></div>
-  <div><b>16</b><span>fields</span></div>
-  <div><b>21</b><span>methods</span></div>
+  <div><b>14</b><span>modules</span></div>
+  <div><b>71</b><span>items</span></div>
+  <div><b>56</b><span>fields</span></div>
+  <div><b>39</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,8 +41,8 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>4/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-loop-request-rs.html"><span>agent_loop_request.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-persistence-rs.html"><span>agent_run_persistence.rs</span><small>0/6</small></a></li><li><a class="file-link active" href="eos-agent-run--src-agent-run-records-rs.html"><span>agent_run_records.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-service-rs.html"><span>agent_run_service.rs</span><small>1/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li></ul></li></ul></nav>
-  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="agent_run_records crates/eos-agent-run/src/agent_run_records.rs to_message_record_kind to_message_record_workflow_role">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>4/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-loop-request-rs.html"><span>agent_loop_request.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-persistence-rs.html"><span>agent_run_persistence.rs</span><small>0/6</small></a></li><li><a class="file-link active" href="eos-agent-run--src-agent-run-records-rs.html"><span>agent_run_records.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-service-rs.html"><span>agent_run_service.rs</span><small>1/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><span class="folder">records</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run--src-records-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-handle-rs.html"><span>handle.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-io-rs.html"><span>io.rs</span><small>2/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-kind-rs.html"><span>kind.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-layout-rs.html"><span>layout.rs</span><small>0/12</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-record-rs.html"><span>record.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-service-rs.html"><span>service.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-agent-run--src-records-rs.html"><span>records.rs</span><small>0/0</small></a></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="agent_run_records crates/eos-agent-run/src/agent_run_records.rs to_agent_run_record_kind to_agent_run_record_workflow_role">
   <div class="module-head">
     <div>
       <h2>src/agent_run_records.rs</h2>
@@ -56,76 +56,67 @@
       <span>0 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">Standalone Functions</div><article id="item-fn-to-message-record-kind-5" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn to_message_record_kind pub pub fn to_message_record_kind (kind : &amp; TaskAgentRunKind) -&gt; eos_engine :: records :: AgentRunRecordKind crates/eos-agent-run/src/agent_run_records.rs  ">
+  <div class="items"><div class="group-label">Standalone Functions</div><article id="item-fn-to-agent-run-record-kind-7" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn to_agent_run_record_kind pub(crate) pub(crate) fn to_agent_run_record_kind (kind : &amp; TaskAgentRunKind) -&gt; AgentRunRecordKind crates/eos-agent-run/src/agent_run_records.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
-    <h3>to_message_record_kind</h3>
-    <span class="visibility">pub</span>
+    <h3>to_agent_run_record_kind</h3>
+    <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub fn <a class="symbol-link" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-message-record-kind-5">to_message_record_kind</a> (kind : &amp; TaskAgentRunKind) -&gt; eos_engine :: records :: AgentRunRecordKind</code>
-  <p class="docstring">Convert the public runner/port record kind into the engine message-record<br>type.</p>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-agent-run-record-kind-7">to_agent_run_record_kind</a> (kind : &amp; TaskAgentRunKind) -&gt; <a class="symbol-link" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a></code>
+  <p class="docstring">Convert the task-facing run kind into the record kind.</p>
   <div class="tags"><span>must_use</span></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-comment">/// Convert the public runner/port record kind into the engine message-record</span>
-<span class="rs-comment">/// type.</span>
+  <pre><code><span class="rs-comment">/// Convert the task-facing run kind into the record kind.</span>
 #[must_use]
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-message-record-kind-5">to_message_record_kind</a>(kind: &amp;<span class="rs-type">TaskAgentRunKind</span>) -&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span> {
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-agent-run-record-kind-7">to_agent_run_record_kind</a>(kind: &amp;<span class="rs-type">TaskAgentRunKind</span>) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a> {
     <span class="rs-kw">match</span> kind {
-        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span> =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">Root</span>,
-        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">WorkflowTask</span> {
-            workflow_id,
-            iteration_id,
-            attempt_id,
-            role,
-        } =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">WorkflowTask</span> {
-            workflow_id: workflow_id.clone(),
-            iteration_id: iteration_id.clone(),
-            attempt_id: attempt_id.clone(),
-            role: <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-message-record-workflow-role-37">to_message_record_workflow_role</a>(*role),
+        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span> =&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a>::<span class="rs-type">Root</span>,
+        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> { workflow, role } =&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a>::<span class="rs-type">WorkflowTask</span> {
+            workflow_id: workflow.workflow_id.clone(),
+            iteration_id: workflow.iteration_id.clone(),
+            attempt_id: workflow.attempt_id.clone(),
+            role: <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-agent-run-record-workflow-role-33">to_agent_run_record_workflow_role</a>(*role),
         },
-        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Subagent</span> {
+        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
             parent_agent_run_id,
-        } =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">Subagent</span> {
-            parent_agent_run_id: parent_agent_run_id.clone(),
+            kind,
+            ..
+        } =&gt; <span class="rs-kw">match</span> kind {
+            <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span> =&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a>::<span class="rs-type">Subagent</span> {
+                parent_agent_run_id: parent_agent_run_id.clone(),
+            },
+            <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Advisor</span> =&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a>::<span class="rs-type">Advisor</span> {
+                parent_agent_run_id: parent_agent_run_id.clone(),
+            },
         },
-        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Advisor</span> {
-            parent_agent_run_id,
-        } =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">Advisor</span> {
-            parent_agent_run_id: parent_agent_run_id.clone(),
-        },
-        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Agent</span> =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">Agent</span>,
-        _ =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">Agent</span>,
     }
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-agent-run/src/agent_run_records.rs:5</p>
-</article><article id="item-fn-to-message-record-workflow-role-37" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn to_message_record_workflow_role private fn to_message_record_workflow_role (role : WorkflowTaskRole ,) -&gt; eos_engine :: records :: WorkflowTaskRole crates/eos-agent-run/src/agent_run_records.rs  ">
+  <p class="source">crates/eos-agent-run/src/agent_run_records.rs:7</p>
+</article><article id="item-fn-to-agent-run-record-workflow-role-33" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn to_agent_run_record_workflow_role private fn to_agent_run_record_workflow_role (role : WorkflowTaskRole) -&gt; RecordWorkflowTaskRole crates/eos-agent-run/src/agent_run_records.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
-    <h3>to_message_record_workflow_role</h3>
+    <h3>to_agent_run_record_workflow_role</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-message-record-workflow-role-37">to_message_record_workflow_role</a> (role : WorkflowTaskRole ,) -&gt; eos_engine :: records :: WorkflowTaskRole</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-agent-run-record-workflow-role-33">to_agent_run_record_workflow_role</a> (role : <a class="symbol-link" href="eos-agent-run--src-records-kind-rs.html#item-enum-WorkflowTaskRole-95">WorkflowTaskRole</a>) -&gt; RecordWorkflowTaskRole</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-message-record-workflow-role-37">to_message_record_workflow_role</a>(
-    role: <span class="rs-type">WorkflowTaskRole</span>,
-) -&gt; eos_engine::records::<span class="rs-type">WorkflowTaskRole</span> {
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-agent-run-record-workflow-role-33">to_agent_run_record_workflow_role</a>(role: <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-WorkflowTaskRole-95">WorkflowTaskRole</a>) -&gt; <span class="rs-type">RecordWorkflowTaskRole</span> {
     <span class="rs-kw">match</span> role {
-        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Planner</span> =&gt; eos_engine::records::<span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Planner</span>,
-        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span> =&gt; eos_engine::records::<span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span>,
-        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Reducer</span> =&gt; eos_engine::records::<span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Reducer</span>,
-        _ =&gt; eos_engine::records::<span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span>,
+        <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-WorkflowTaskRole-95">WorkflowTaskRole</a>::<span class="rs-type">Planner</span> =&gt; <span class="rs-type">RecordWorkflowTaskRole</span>::<span class="rs-type">Planner</span>,
+        <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-WorkflowTaskRole-95">WorkflowTaskRole</a>::<span class="rs-type">Generator</span> =&gt; <span class="rs-type">RecordWorkflowTaskRole</span>::<span class="rs-type">Generator</span>,
+        <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-WorkflowTaskRole-95">WorkflowTaskRole</a>::<span class="rs-type">Reducer</span> =&gt; <span class="rs-type">RecordWorkflowTaskRole</span>::<span class="rs-type">Reducer</span>,
     }
 }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-agent-run/src/agent_run_records.rs:37</p>
+  <p class="source">crates/eos-agent-run/src/agent_run_records.rs:33</p>
 </article></div>
 </section></div>
 </main>
@@ -134,50 +125,43 @@
     <h2>Source File</h2>
     <p class="path">crates/eos-agent-run/src/agent_run_records.rs</p>
   </div>
-  <pre class="file-source"><code><span class="rs-comment">//! Private adapter to engine-owned message records.</span>
+  <pre class="file-source"><code><span class="rs-comment">//! Private adapter from task-agent-run kinds to record kinds.</span>
 
-<span class="rs-kw">use</span> eos_types::{<span class="rs-type">TaskAgentRunKind</span>, <span class="rs-type">WorkflowTaskRole</span>};
+<span class="rs-kw">use</span> eos_types::{<span class="rs-type">ParentedAgentRunKind</span>, <span class="rs-type">TaskAgentRunKind</span>, <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-WorkflowTaskRole-95">WorkflowTaskRole</a>};
 
-<span class="rs-comment">/// Convert the public runner/port record kind into the engine message-record</span>
-<span class="rs-comment">/// type.</span>
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::records::{<a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a>, <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-WorkflowTaskRole-95">WorkflowTaskRole</a> <span class="rs-kw">as</span> <span class="rs-type">RecordWorkflowTaskRole</span>};
+
+<span class="rs-comment">/// Convert the task-facing run kind into the record kind.</span>
 #[must_use]
-<span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-message-record-kind-5">to_message_record_kind</a>(kind: &amp;<span class="rs-type">TaskAgentRunKind</span>) -&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span> {
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-agent-run-record-kind-7">to_agent_run_record_kind</a>(kind: &amp;<span class="rs-type">TaskAgentRunKind</span>) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a> {
     <span class="rs-kw">match</span> kind {
-        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span> =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">Root</span>,
-        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">WorkflowTask</span> {
-            workflow_id,
-            iteration_id,
-            attempt_id,
-            role,
-        } =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">WorkflowTask</span> {
-            workflow_id: workflow_id.clone(),
-            iteration_id: iteration_id.clone(),
-            attempt_id: attempt_id.clone(),
-            role: <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-message-record-workflow-role-37">to_message_record_workflow_role</a>(*role),
+        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span> =&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a>::<span class="rs-type">Root</span>,
+        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> { workflow, role } =&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a>::<span class="rs-type">WorkflowTask</span> {
+            workflow_id: workflow.workflow_id.clone(),
+            iteration_id: workflow.iteration_id.clone(),
+            attempt_id: workflow.attempt_id.clone(),
+            role: <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-agent-run-record-workflow-role-33">to_agent_run_record_workflow_role</a>(*role),
         },
-        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Subagent</span> {
+        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
             parent_agent_run_id,
-        } =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">Subagent</span> {
-            parent_agent_run_id: parent_agent_run_id.clone(),
+            kind,
+            ..
+        } =&gt; <span class="rs-kw">match</span> kind {
+            <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span> =&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a>::<span class="rs-type">Subagent</span> {
+                parent_agent_run_id: parent_agent_run_id.clone(),
+            },
+            <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Advisor</span> =&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-AgentRunRecordKind-24">AgentRunRecordKind</a>::<span class="rs-type">Advisor</span> {
+                parent_agent_run_id: parent_agent_run_id.clone(),
+            },
         },
-        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Advisor</span> {
-            parent_agent_run_id,
-        } =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">Advisor</span> {
-            parent_agent_run_id: parent_agent_run_id.clone(),
-        },
-        <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Agent</span> =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">Agent</span>,
-        _ =&gt; eos_engine::records::<span class="rs-type">AgentRunRecordKind</span>::<span class="rs-type">Agent</span>,
     }
 }
 
-<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-message-record-workflow-role-37">to_message_record_workflow_role</a>(
-    role: <span class="rs-type">WorkflowTaskRole</span>,
-) -&gt; eos_engine::records::<span class="rs-type">WorkflowTaskRole</span> {
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-records-rs.html#item-fn-to-agent-run-record-workflow-role-33">to_agent_run_record_workflow_role</a>(role: <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-WorkflowTaskRole-95">WorkflowTaskRole</a>) -&gt; <span class="rs-type">RecordWorkflowTaskRole</span> {
     <span class="rs-kw">match</span> role {
-        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Planner</span> =&gt; eos_engine::records::<span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Planner</span>,
-        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span> =&gt; eos_engine::records::<span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span>,
-        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Reducer</span> =&gt; eos_engine::records::<span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Reducer</span>,
-        _ =&gt; eos_engine::records::<span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span>,
+        <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-WorkflowTaskRole-95">WorkflowTaskRole</a>::<span class="rs-type">Planner</span> =&gt; <span class="rs-type">RecordWorkflowTaskRole</span>::<span class="rs-type">Planner</span>,
+        <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-WorkflowTaskRole-95">WorkflowTaskRole</a>::<span class="rs-type">Generator</span> =&gt; <span class="rs-type">RecordWorkflowTaskRole</span>::<span class="rs-type">Generator</span>,
+        <a class="symbol-link rs-type" href="eos-agent-run--src-records-kind-rs.html#item-enum-WorkflowTaskRole-95">WorkflowTaskRole</a>::<span class="rs-type">Reducer</span> =&gt; <span class="rs-type">RecordWorkflowTaskRole</span>::<span class="rs-type">Reducer</span>,
     }
 }
 </code></pre>

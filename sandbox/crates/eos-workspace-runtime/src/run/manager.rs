@@ -16,12 +16,15 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crate::command_session::process::spawn_current_exe_ns_runner;
+use crate::command_session::process::{spawn_current_exe_ns_runner, KillReason};
+use crate::command_session::session::{
+    CommandSession, CommandSessionSpec, ReapedCommand, RunningCommandSessionParts,
+};
+use crate::command_session::wait::{wait_for_yield, WaitOutcome};
 use crate::command_session::{
-    wait_for_yield, CancelCommandSession, CollectCompleted, CollectCompletedResponse,
-    CommandResponse, CommandSession, CommandSessionCompletion, CommandSessionConfig,
-    CommandSessionError, CommandSessionSpec, KillReason, ReadCommandProgress, ReapedCommand,
-    RunningCommandSessionParts, StartCommandSession, WaitOutcome, WriteStdin,
+    CancelCommandSession, CollectCompleted, CollectCompletedResponse, CommandResponse,
+    CommandSessionCompletion, CommandSessionConfig, CommandSessionError, ReadCommandProgress,
+    StartCommandSession, WriteStdin,
 };
 use crate::ephemeral::{
     discard_ephemeral_command, prepare_ephemeral_command, EphemeralCommandPrepareContext,

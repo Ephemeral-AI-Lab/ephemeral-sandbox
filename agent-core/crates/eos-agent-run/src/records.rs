@@ -1,8 +1,9 @@
 //! File-backed agent-run message records.
 //!
 //! The message-record root is supplied by the backend composition root, but the
-//! message/event contents are written at the engine boundary where request,
-//! task, agent-run, and provider-visible message facts are available.
+//! message/event contents are started and finished by the agent-run lifecycle
+//! owner where request, task, agent-run, and provider-visible message facts are
+//! available.
 
 mod error;
 mod handle;

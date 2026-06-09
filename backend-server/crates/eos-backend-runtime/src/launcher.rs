@@ -21,7 +21,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use tokio_util::sync::CancellationToken;
 
-use eos_agent_core::EventCallback;
+use eos_agent_core::EngineEventSink;
 use eos_backend_store::{RunMetaRepo, StoreError};
 use eos_backend_types::{BackendRunStatus, CreateUserRequest, RunMeta};
 use eos_types::{RequestId, SandboxId, UtcDateTime};
@@ -87,7 +87,7 @@ impl LauncherInner {
         request_id: RequestId,
         prompt: String,
         sandbox_id: Option<SandboxId>,
-        callback: EventCallback,
+        callback: EngineEventSink,
         slot: Arc<RunSlot>,
     ) {
         // Acquire to completion BEFORE racing cancellation. `acquire` provisions a

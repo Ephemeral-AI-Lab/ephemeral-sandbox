@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "Shared agent-core test doubles: the single scripted LLM/EventSource (ScriptedSource), the fake daemon transport, agent-definition builders, the run_until stream stepper, and the tool ExecutionMetadata fixture. Dev-dependency only; depends only on crates at or below eos-engine, so a low-level crate's test build never compiles eos-agent-core/eos-workflow."
+description = "Shared agent-core test doubles: the single scripted provider stream source (ScriptedSource), the fake daemon transport, agent-definition builders, the run_until stream stepper, and the tool ExecutionMetadata fixture. Dev-dependency only; depends only on crates at or below eos-engine, so a low-level crate's test build never compiles eos-agent-core/eos-workflow."
 
 [dependencies]
 async-trait = { workspace = true }

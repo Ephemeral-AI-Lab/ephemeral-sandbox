@@ -35,10 +35,6 @@ pub mod network;
 mod ops;
 pub mod session;
 
-pub mod config {
-    pub use eos_config::configs::isolated_workspace::*;
-}
-
 pub use audit::JsonlAuditSink;
 pub use caps::{ResourceCaps, Rfc1918Egress, CGROUP_ROOT, HANDLE_PREFIX};
 pub use command::{

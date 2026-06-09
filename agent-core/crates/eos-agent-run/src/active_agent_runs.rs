@@ -3,10 +3,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use eos_engine::records::AgentRunRecordHandle;
-use eos_engine::AgentLoopCancelHandle;
-use eos_types::{AgentRunError, AgentRunId, AgentRunOutcome};
+use eos_types::{AgentLoopCancellationHandle, AgentRunError, AgentRunId, AgentRunOutcome};
 use tokio::sync::{watch, Mutex};
+
+use crate::records::AgentRunRecordHandle;
 
 /// Registry of active in-process agent runs.
 #[derive(Clone, Default)]
@@ -23,7 +23,7 @@ impl std::fmt::Debug for ActiveAgentRuns {
 #[derive(Clone)]
 struct ActiveAgentRun {
     outcome_tx: watch::Sender<Option<AgentRunOutcome>>,
-    cancel_handle: AgentLoopCancelHandle,
+    cancel_handle: AgentLoopCancellationHandle,
     message_record: Option<ActiveAgentRunRecord>,
 }
 
@@ -52,7 +52,7 @@ impl ActiveAgentRuns {
     pub(crate) async fn insert(
         &self,
         agent_run_id: AgentRunId,
-        cancel_handle: AgentLoopCancelHandle,
+        cancel_handle: AgentLoopCancellationHandle,
         message_record: Option<ActiveAgentRunRecord>,
     ) {
         let (outcome_tx, _) = watch::channel(None);
@@ -104,13 +104,13 @@ impl ActiveAgentRuns {
 
 pub(crate) struct ActiveAgentRunCompletion {
     outcome_tx: watch::Sender<Option<AgentRunOutcome>>,
-    cancel_handle: AgentLoopCancelHandle,
+    cancel_handle: AgentLoopCancellationHandle,
     message_record: Option<ActiveAgentRunRecord>,
 }
 
 impl ActiveAgentRunCompletion {
     pub(crate) fn cancel(&self, reason: &str) {
-        self.cancel_handle.cancel(reason.to_owned());
+        self.cancel_handle.cancel(reason);
     }
 
     pub(crate) fn take_message_record(&mut self) -> Option<ActiveAgentRunRecord> {

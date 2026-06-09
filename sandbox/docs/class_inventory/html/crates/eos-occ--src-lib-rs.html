@@ -76,7 +76,7 @@
 <span class="rs-comment">//! (e.g. the PPC self-managed plugin callback) MUST route through this same</span>
 <span class="rs-comment">//! single writer + storage lease, never a second [`CommitQueue`] instance.</span>
 <span class="rs-comment">//!</span>
-<span class="rs-comment">//! Build-time edges: eos-isolated-workspace and eos-plugin do NOT link this</span>
+<span class="rs-comment">//! Build-time edges: the isolated runtime path and eos-plugin do NOT link this</span>
 <span class="rs-comment">//! crate — that omission is the build-time no-publish guarantee, made possible</span>
 <span class="rs-comment">//! because the snapshot/lease HINGE lives in eos-layerstack, not here.</span>
 

@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 
 use crate::dispatcher::DispatchContext;
 use crate::error::DaemonError;
-use crate::request_args::require_string;
+use crate::request_args::{require_string, trimmed_string};
 
 /// `api.runtime.ready` — binary readiness plus the three plane probes
 /// (`control_plane` / `data_plane` / `mutation_gate`). Requires `layer_stack_root`.
@@ -46,12 +46,7 @@ pub(crate) fn op_runtime_ready(
     reason = "dispatcher handlers share a fallible ABI"
 )]
 pub(crate) fn op_cancel(args: &Value, context: DispatchContext<'_>) -> Result<Value, DaemonError> {
-    let invocation_id = args
-        .get("invocation_id")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .trim()
-        .to_owned();
+    let invocation_id = trimmed_string(args, "invocation_id");
     let (cancelled, cleanup_done) =
         context
             .invocation_registry()

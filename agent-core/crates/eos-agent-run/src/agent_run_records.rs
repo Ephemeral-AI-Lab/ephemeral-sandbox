@@ -1,46 +1,38 @@
-//! Private adapter to engine-owned message records.
+//! Private adapter from task-agent-run kinds to record kinds.
 
-use eos_types::{TaskAgentRunKind, WorkflowTaskRole};
+use eos_types::{ParentedAgentRunKind, TaskAgentRunKind, WorkflowTaskRole};
 
-/// Convert the public runner/port record kind into the engine message-record
-/// type.
+use crate::records::{AgentRunRecordKind, WorkflowTaskRole as RecordWorkflowTaskRole};
+
+/// Convert the task-facing run kind into the record kind.
 #[must_use]
-pub fn to_message_record_kind(kind: &TaskAgentRunKind) -> eos_engine::records::AgentRunRecordKind {
+pub(crate) fn to_agent_run_record_kind(kind: &TaskAgentRunKind) -> AgentRunRecordKind {
     match kind {
-        TaskAgentRunKind::Root => eos_engine::records::AgentRunRecordKind::Root,
-        TaskAgentRunKind::WorkflowTask {
-            workflow_id,
-            iteration_id,
-            attempt_id,
-            role,
-        } => eos_engine::records::AgentRunRecordKind::WorkflowTask {
-            workflow_id: workflow_id.clone(),
-            iteration_id: iteration_id.clone(),
-            attempt_id: attempt_id.clone(),
-            role: to_message_record_workflow_role(*role),
+        TaskAgentRunKind::Root => AgentRunRecordKind::Root,
+        TaskAgentRunKind::Workflow { workflow, role } => AgentRunRecordKind::WorkflowTask {
+            workflow_id: workflow.workflow_id.clone(),
+            iteration_id: workflow.iteration_id.clone(),
+            attempt_id: workflow.attempt_id.clone(),
+            role: to_agent_run_record_workflow_role(*role),
         },
-        TaskAgentRunKind::Subagent {
+        TaskAgentRunKind::Parented {
             parent_agent_run_id,
-        } => eos_engine::records::AgentRunRecordKind::Subagent {
-            parent_agent_run_id: parent_agent_run_id.clone(),
+            kind,
+        } => match kind {
+            ParentedAgentRunKind::Subagent => AgentRunRecordKind::Subagent {
+                parent_agent_run_id: parent_agent_run_id.clone(),
+            },
+            ParentedAgentRunKind::Advisor => AgentRunRecordKind::Advisor {
+                parent_agent_run_id: parent_agent_run_id.clone(),
+            },
         },
-        TaskAgentRunKind::Advisor {
-            parent_agent_run_id,
-        } => eos_engine::records::AgentRunRecordKind::Advisor {
-            parent_agent_run_id: parent_agent_run_id.clone(),
-        },
-        TaskAgentRunKind::Agent => eos_engine::records::AgentRunRecordKind::Agent,
-        _ => eos_engine::records::AgentRunRecordKind::Agent,
     }
 }
 
-fn to_message_record_workflow_role(
-    role: WorkflowTaskRole,
-) -> eos_engine::records::WorkflowTaskRole {
+fn to_agent_run_record_workflow_role(role: WorkflowTaskRole) -> RecordWorkflowTaskRole {
     match role {
-        WorkflowTaskRole::Planner => eos_engine::records::WorkflowTaskRole::Planner,
-        WorkflowTaskRole::Generator => eos_engine::records::WorkflowTaskRole::Generator,
-        WorkflowTaskRole::Reducer => eos_engine::records::WorkflowTaskRole::Reducer,
-        _ => eos_engine::records::WorkflowTaskRole::Generator,
+        WorkflowTaskRole::Planner => RecordWorkflowTaskRole::Planner,
+        WorkflowTaskRole::Generator => RecordWorkflowTaskRole::Generator,
+        WorkflowTaskRole::Reducer => RecordWorkflowTaskRole::Reducer,
     }
 }

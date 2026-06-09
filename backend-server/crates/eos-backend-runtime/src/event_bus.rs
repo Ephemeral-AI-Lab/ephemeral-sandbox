@@ -35,7 +35,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use tokio::sync::{broadcast, mpsc};
 
-use eos_agent_core::EventCallback;
+use eos_agent_core::EngineEventSink;
 use eos_backend_store::{EventLogRepo, StoreError};
 use eos_backend_types::{EventRecord, EVENT_STREAM_GAP};
 use eos_types::{RequestId, UtcDateTime};
@@ -117,16 +117,16 @@ impl EventBus {
     /// Register a run and return the synchronous engine callback for it. Spawns the
     /// per-request drainer; must be called within a Tokio runtime.
     ///
-    /// The returned [`EventCallback`] owns the only `mpsc::Sender`, so dropping it
+    /// The returned [`EngineEventSink`] owns the only `mpsc::Sender`, so dropping it
     /// (when the run ends) closes the queue and the drainer exits.
     ///
     /// Internal seam: the launcher registers a run; downstream code drives this
     /// transitively through `RunLauncher`, never directly.
     #[must_use]
-    pub(crate) fn register(&self, request_id: &RequestId) -> EventCallback {
+    pub(crate) fn register(&self, request_id: &RequestId) -> EngineEventSink {
         let (tx, stream) = self.open_stream(request_id);
         // The closure's `event` is inferred as `&StreamEvent` from the
-        // `EventCallback` target, so we never name the engine event type. Body is
+        // `EngineEventSink` target, so we never name the engine event type. Body is
         // strictly synchronous: serialize, then run the shared enqueue path
         // (classify, `try_send` an unsequenced milestone) — no `.await`, no lock.
         Arc::new(move |event| {

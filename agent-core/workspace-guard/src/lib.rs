@@ -39,8 +39,6 @@ pub const RETIRED_CRATES: &[&str] = &[
     "eos-audit",
 ];
 
-pub const LEGACY_MIGRATION_CRATES: &[&str] = &[];
-
 pub const FORBIDDEN_VOCABULARY: &[&str] = &["composition", "deps", "runtime_services"];
 
 #[derive(Debug, Clone, Copy)]
@@ -68,8 +66,8 @@ pub const RETIRED_CRATE_RULES: &[RetiredCrateRule] = &[
     },
     RetiredCrateRule {
         retired: "eos-agent-message-records",
-        successor: "eos-engine",
-        target: "fold message records into eos-engine",
+        successor: "eos-agent-run",
+        target: "fold message records into eos-agent-run",
     },
     RetiredCrateRule {
         retired: "eos-tools",
@@ -239,20 +237,6 @@ impl Workspace {
 
     pub fn crate_names(&self) -> BTreeSet<String> {
         self.crates.keys().cloned().collect()
-    }
-
-    pub fn target_crates_present(&self) -> bool {
-        TARGET_CRATES
-            .iter()
-            .all(|crate_name| self.crates.contains_key(*crate_name))
-    }
-
-    pub fn is_final_crate_map(&self) -> bool {
-        self.crate_names() == str_set(TARGET_CRATES)
-    }
-
-    pub fn final_layout_rules_active(&self) -> bool {
-        self.is_final_crate_map() && std::env::var_os("EOS_WORKSPACE_GUARD_FINAL_LAYOUT").is_some()
     }
 
     pub fn internal_dependency_edges(&self) -> BTreeMap<String, BTreeSet<String>> {

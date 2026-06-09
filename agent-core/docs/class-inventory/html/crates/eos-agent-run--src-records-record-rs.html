@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eos-agent-run · src/records/record.rs</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+</head>
+<body>
+  <header>
+    <a class="central-link" href="/" title="Return to all class inventories">&larr; All inventories</a>
+    <div class="header-row">
+      <div>
+        <p class="eyebrow">Generated Rust source inventory · file-owned OOP map</p>
+        <h1>eos-agent-run File Inventory</h1>
+      </div>
+      <div class="refresh-control">
+        <button id="refresh-inventory" type="button" title="Regenerate this inventory from the local Rust sources" data-refresh-command="cd /Users/yifanxu/machine_learning/LoVC/EphemeralOS/agent-core &amp;&amp; cargo run --manifest-path scripts/class-inventory/Cargo.toml">Refresh</button>
+        <span id="refresh-status" role="status"></span>
+      </div>
+    </div>
+  </header>
+  <a class="back-link" href="../index.html">agent-core</a>
+<section class="summary">
+  <div><b>14</b><span>modules</span></div>
+  <div><b>71</b><span>items</span></div>
+  <div><b>56</b><span>fields</span></div>
+  <div><b>39</b><span>methods</span></div>
+</section>
+<section class="toolbar">
+  <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
+  <select id="kind-filter">
+    <option value="">All items</option>
+    <option value="type-model">Type model</option>
+    <option value="struct">Structs</option>
+    <option value="enum">Enums</option>
+    <option value="trait">Traits</option>
+    <option value="impl">Impls</option>
+    <option value="fn">Functions</option>
+    <option value="type">Aliases</option>
+  </select>
+</section>
+<main class="crate-layout">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>4/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-loop-request-rs.html"><span>agent_loop_request.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-persistence-rs.html"><span>agent_run_persistence.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-records-rs.html"><span>agent_run_records.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-service-rs.html"><span>agent_run_service.rs</span><small>1/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><span class="folder">records</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run--src-records-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-handle-rs.html"><span>handle.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-io-rs.html"><span>io.rs</span><small>2/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-kind-rs.html"><span>kind.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-layout-rs.html"><span>layout.rs</span><small>0/12</small></a></li><li><a class="file-link active" href="eos-agent-run--src-records-record-rs.html"><span>record.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-service-rs.html"><span>service.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-agent-run--src-records-rs.html"><span>records.rs</span><small>0/0</small></a></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="records::record crates/eos-agent-run/src/records/record.rs MessageAppendRange RecordBytes NodeEvent">
+  <div class="module-head">
+    <div>
+      <h2>src/records/record.rs</h2>
+      <p class="path">module <code>records::record</code></p>
+    </div>
+    <div class="module-stats">
+      <span>file owns</span>
+      <span>3 types</span>
+      <span>0 impls</span>
+      <span>0 fns</span>
+      <span>0 methods</span>
+    </div>
+  </div>
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-MessageAppendRange-4" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct MessageAppendRange pub pub struct MessageAppendRange crates/eos-agent-run/src/records/record.rs count usize start_byte u64 end_byte u64 ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>MessageAppendRange</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-agent-run--src-records-record-rs.html#item-struct-MessageAppendRange-4">MessageAppendRange</a></code>
+  <p class="docstring">Byte range produced by a message append.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Copy</span><span>derive: Debug</span><span>derive: Eq</span><span>derive: PartialEq</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>count</td><td><code>usize</code></td></tr><tr><td>pub</td><td>start_byte</td><td><code>u64</code></td></tr><tr><td>pub</td><td>end_byte</td><td><code>u64</code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-agent-run/src/records/record.rs:4</p>
+</article><article id="item-struct-RecordBytes-15" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RecordBytes pub pub struct RecordBytes crates/eos-agent-run/src/records/record.rs bytes Vec &lt; u8 &gt; next_byte_offset u64 ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>RecordBytes</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-agent-run--src-records-record-rs.html#item-struct-RecordBytes-15">RecordBytes</a></code>
+  <p class="docstring">Raw message-record bytes plus the next tail offset.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Eq</span><span>derive: PartialEq</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>bytes</td><td><code>Vec &lt; u8 &gt;</code></td></tr><tr><td>pub</td><td>next_byte_offset</td><td><code>u64</code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-agent-run/src/records/record.rs:15</p>
+</article><article id="item-struct-NodeEvent-24" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct NodeEvent pub pub struct NodeEvent crates/eos-agent-run/src/records/record.rs seq u64 kind String payload JsonObject created_at UtcDateTime ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>NodeEvent</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-agent-run--src-records-record-rs.html#item-struct-NodeEvent-24">NodeEvent</a></code>
+  <p class="docstring">One node-local event row.</p>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Deserialize</span><span>derive: PartialEq</span><span>derive: Serialize</span><span>serde</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>seq</td><td><code>u64</code></td></tr><tr><td>pub</td><td>kind</td><td><code>String</code></td></tr><tr><td>pub</td><td>payload</td><td><code>JsonObject</code></td></tr><tr><td>pub</td><td>created_at</td><td><code>UtcDateTime</code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-agent-run/src/records/record.rs:24</p>
+</article></div>
+</section></div>
+</main>
+<section class="file-source-section">
+  <div class="source-head">
+    <h2>Source File</h2>
+    <p class="path">crates/eos-agent-run/src/records/record.rs</p>
+  </div>
+  <pre class="file-source"><code><span class="rs-kw">use</span> eos_types::{<span class="rs-type">JsonObject</span>, <span class="rs-type">UtcDateTime</span>};
+<span class="rs-kw">use</span> serde::{<span class="rs-type">Deserialize</span>, <span class="rs-type">Serialize</span>};
+
+<span class="rs-comment">/// Byte range produced by a message append.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">Copy</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-records-record-rs.html#item-struct-MessageAppendRange-4">MessageAppendRange</a> {
+    <span class="rs-comment">/// Number of message rows appended.</span>
+    <span class="rs-kw">pub</span> count: usize,
+    <span class="rs-comment">/// Starting byte offset before the append.</span>
+    <span class="rs-kw">pub</span> start_byte: u64,
+    <span class="rs-comment">/// Ending byte offset after the append.</span>
+    <span class="rs-kw">pub</span> end_byte: u64,
+}
+
+<span class="rs-comment">/// Raw message-record bytes plus the next tail offset.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Eq</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-records-record-rs.html#item-struct-RecordBytes-15">RecordBytes</a> {
+    <span class="rs-comment">/// Raw JSONL bytes.</span>
+    <span class="rs-kw">pub</span> bytes: <span class="rs-type">Vec</span>&lt;u8&gt;,
+    <span class="rs-comment">/// Byte offset after `bytes`.</span>
+    <span class="rs-kw">pub</span> next_byte_offset: u64,
+}
+
+<span class="rs-comment">/// One node-local event row.</span>
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, <span class="rs-type">PartialEq</span>, <span class="rs-type">Serialize</span>, <span class="rs-type">Deserialize</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run--src-records-record-rs.html#item-struct-NodeEvent-24">NodeEvent</a> {
+    <span class="rs-comment">/// Node-local sequence, starting at 1.</span>
+    <span class="rs-kw">pub</span> seq: u64,
+    <span class="rs-comment">/// Stable event category.</span>
+    <span class="rs-kw">pub</span> kind: <span class="rs-type">String</span>,
+    <span class="rs-comment">/// Small routing/status payload.</span>
+    <span class="rs-kw">pub</span> payload: <span class="rs-type">JsonObject</span>,
+    <span class="rs-comment">/// Event creation timestamp.</span>
+    <span class="rs-kw">pub</span> created_at: <span class="rs-type">UtcDateTime</span>,
+}
+</code></pre>
+</section>
+  <script src="../assets/inventory-data.js"></script>
+  <script src="../assets/inventory.js"></script>
+</body>
+</html>

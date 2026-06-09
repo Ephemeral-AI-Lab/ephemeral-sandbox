@@ -1,6 +1,4 @@
-// Guards the agent-core internal dependency topology. During the destructive
-// workspace migration this accepts the current legacy graph until the final
-// ten-crate map is present, then switches to the locked target graph.
+// Guards the agent-core internal dependency topology for the locked ten-crate map.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -8,66 +6,7 @@ use workspace_guard::Workspace;
 
 type Edges = BTreeMap<String, BTreeSet<String>>;
 
-fn legacy_edges() -> Edges {
-    let rows: &[(&str, &[&str])] = &[
-        ("eos-types", &[]),
-        ("eos-db", &["eos-types"]),
-        ("eos-llm-client", &["eos-types"]),
-        (
-            "eos-agent-run",
-            &["eos-types", "eos-engine", "eos-llm-client", "eos-tool"],
-        ),
-        ("eos-sandbox-port", &["eos-types"]),
-        ("eos-tool", &["eos-types", "eos-sandbox-port"]),
-        (
-            "eos-engine",
-            &[
-                "eos-types",
-                "eos-llm-client",
-                "eos-tool",
-                "eos-sandbox-port",
-            ],
-        ),
-        ("eos-workflow", &["eos-types", "eos-tool"]),
-        (
-            "eos-runtime",
-            &[
-                "eos-db",
-                "eos-engine",
-                "eos-workflow",
-                "eos-agent-run",
-                "eos-sandbox-port",
-                "eos-types",
-                "eos-llm-client",
-                "eos-tool",
-            ],
-        ),
-        // Dev-only shared test doubles (TESTING_SPEC). Its reverse edges
-        // (eos-engine/eos-runtime -> eos-testkit) are `[dev-dependencies]`, so
-        // they are filtered out of this DAG (line ~112) and introduce no cycle;
-        // only eos-testkit's own normal deps appear here.
-        (
-            "eos-testkit",
-            &[
-                "eos-types",
-                "eos-engine",
-                "eos-llm-client",
-                "eos-sandbox-port",
-                "eos-tool",
-            ],
-        ),
-    ];
-    rows.iter()
-        .map(|(name, deps)| {
-            (
-                (*name).to_owned(),
-                deps.iter().map(|dep| (*dep).to_owned()).collect(),
-            )
-        })
-        .collect()
-}
-
-fn target_edges() -> Edges {
+fn expected_edges() -> Edges {
     let rows: &[(&str, &[&str])] = &[
         ("eos-types", &[]),
         ("eos-db", &["eos-types"]),
@@ -84,7 +23,7 @@ fn target_edges() -> Edges {
             ],
         ),
         ("eos-workflow", &["eos-types", "eos-tool"]),
-        ("eos-agent-run", &["eos-types", "eos-engine"]),
+        ("eos-agent-run", &["eos-types"]),
         (
             "eos-agent-core",
             &[
@@ -119,26 +58,13 @@ fn target_edges() -> Edges {
         .collect()
 }
 
-fn expected_edges(workspace: &Workspace) -> Edges {
-    if workspace.is_final_crate_map() {
-        target_edges()
-    } else {
-        legacy_edges()
-    }
-}
-
 #[test]
 fn internal_edges_match_expected_set() {
     let workspace = Workspace::load();
     assert_eq!(
         workspace.internal_dependency_edges(),
-        expected_edges(&workspace),
-        "dependency_dag rule violated: normal internal dependency edges do not match the {} graph",
-        if workspace.is_final_crate_map() {
-            "target"
-        } else {
-            "staged legacy"
-        }
+        expected_edges(),
+        "dependency_dag rule violated: normal internal dependency edges do not match the target graph"
     );
 }
 

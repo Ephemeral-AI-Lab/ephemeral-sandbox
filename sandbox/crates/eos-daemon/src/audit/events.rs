@@ -209,19 +209,15 @@ fn emit_workspace_lifecycle_audit(request: &Request, response: &Value, total_ms:
     );
 }
 
-fn emit_workspace_base_audit(request: &Request, response: &Value) {
-    let Some(total_ms) = timing_ms(response, "api.workspace_base.total_s") else {
-        return;
-    };
-    let event_type = match request.op.as_str() {
-        "api.ensure_workspace_base" => "workspace_base.ensured",
-        "api.build_workspace_base" => "workspace_base.built",
-        _ => return,
-    };
-    let manifest_version = response
-        .get("binding")
-        .and_then(|binding| binding.get("active_manifest_version"))
-        .and_then(Value::as_i64);
+/// Emit a `layer_stack` completion event whose section is fully derived from the
+/// active manifest stats. Shared by the workspace-base and commit audits, which
+/// differ only in their event type, manifest-version source, and total timing.
+fn emit_layer_stack_completion(
+    request: &Request,
+    event_type: &str,
+    manifest_version: Option<i64>,
+    total_ms: f64,
+) {
     let active = active_manifest_stats(request, manifest_version);
     emit_section(
         event_type,
@@ -238,6 +234,22 @@ fn emit_workspace_base_audit(request: &Request, response: &Value) {
     );
 }
 
+fn emit_workspace_base_audit(request: &Request, response: &Value) {
+    let Some(total_ms) = timing_ms(response, "api.workspace_base.total_s") else {
+        return;
+    };
+    let event_type = match request.op.as_str() {
+        "api.ensure_workspace_base" => "workspace_base.ensured",
+        "api.build_workspace_base" => "workspace_base.built",
+        _ => return,
+    };
+    let manifest_version = response
+        .get("binding")
+        .and_then(|binding| binding.get("active_manifest_version"))
+        .and_then(Value::as_i64);
+    emit_layer_stack_completion(request, event_type, manifest_version, total_ms);
+}
+
 fn emit_commit_audit(request: &Request, response: &Value) {
     let Some(total_ms) = timing_ms(response, "api.commit_to_workspace.total_s") else {
         return;
@@ -246,19 +258,11 @@ fn emit_commit_audit(request: &Request, response: &Value) {
         return;
     }
     let manifest_version = response.get("manifest_version").and_then(Value::as_i64);
-    let active = active_manifest_stats(request, manifest_version);
-    emit_section(
+    emit_layer_stack_completion(
+        request,
         "layer_stack.commit_completed",
-        "layer_stack",
-        &LayerStackSection {
-            operation_id: Some(request.invocation_id.clone()),
-            manifest_version,
-            manifest_root_hash: active.as_ref().map(|stats| stats.root_hash.clone()),
-            layer_count: active.map(|stats| stats.depth),
-            total_ms: Some(total_ms),
-            ..LayerStackSection::default()
-        },
-        Lane::Normal,
+        manifest_version,
+        total_ms,
     );
 }
 

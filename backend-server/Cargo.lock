@@ -437,9 +437,10 @@ name = "eos-agent-run"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "eos-engine",
  "eos-types",
+ "serde",
  "serde_json",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]

@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
-  <div><b>6</b><span>modules</span></div>
-  <div><b>30</b><span>items</span></div>
-  <div><b>16</b><span>fields</span></div>
-  <div><b>21</b><span>methods</span></div>
+  <div><b>14</b><span>modules</span></div>
+  <div><b>71</b><span>items</span></div>
+  <div><b>56</b><span>fields</span></div>
+  <div><b>39</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>4/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-loop-request-rs.html"><span>agent_loop_request.rs</span><small>0/2</small></a></li><li><a class="file-link active" href="eos-agent-run--src-agent-run-persistence-rs.html"><span>agent_run_persistence.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-records-rs.html"><span>agent_run_records.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-service-rs.html"><span>agent_run_service.rs</span><small>1/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>4/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-loop-request-rs.html"><span>agent_loop_request.rs</span><small>0/2</small></a></li><li><a class="file-link active" href="eos-agent-run--src-agent-run-persistence-rs.html"><span>agent_run_persistence.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-records-rs.html"><span>agent_run_records.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-service-rs.html"><span>agent_run_service.rs</span><small>1/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><span class="folder">records</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run--src-records-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-handle-rs.html"><span>handle.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-io-rs.html"><span>io.rs</span><small>2/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-kind-rs.html"><span>kind.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-layout-rs.html"><span>layout.rs</span><small>0/12</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-record-rs.html"><span>record.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-service-rs.html"><span>service.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-agent-run--src-records-rs.html"><span>records.rs</span><small>0/0</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="agent_run_persistence crates/eos-agent-run/src/agent_run_persistence.rs create_agent_run_if_requested finish_agent_run_if_requested finish_agent_run_cancelled completion_from_agent_run cancelled_payload is_cancelled_payload">
   <div class="module-head">
     <div>
@@ -62,7 +62,7 @@
     <h3>create_agent_run_if_requested</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-agent-run--src-agent-run-persistence-rs.html#item-fn-create-agent-run-if-requested-10">create_agent_run_if_requested</a> (store : &amp; dyn AgentRunStore , persist_agent_run : bool , task_id : Option &lt; &amp; TaskId &gt; , agent_run_id : &amp; AgentRunId , agent_name : &amp; str ,) -&gt; Result &lt; bool , AgentRunError &gt;</code>
+  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-agent-run--src-agent-run-persistence-rs.html#item-fn-create-agent-run-if-requested-10">create_agent_run_if_requested</a> (store : &amp; dyn AgentRunStore , persist_agent_run : bool , task_id : Option &lt; &amp; TaskId &gt; , agent_run_id : &amp; AgentRunId , agent_name : &amp; str ,) -&gt; <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a> &lt; bool , AgentRunError &gt;</code>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
@@ -72,7 +72,7 @@
     task_id: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">TaskId</span>&gt;,
     agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
     agent_name: &amp;str,
-) -&gt; <span class="rs-type">Result</span>&lt;bool, <span class="rs-type">AgentRunError</span>&gt; {
+) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;bool, <span class="rs-type">AgentRunError</span>&gt; {
     <span class="rs-kw">if</span> !persist_agent_run {
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-kw">false</span>);
     }
@@ -92,7 +92,7 @@
     <h3>finish_agent_run_if_requested</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-agent-run--src-agent-run-persistence-rs.html#item-fn-finish-agent-run-if-requested-27">finish_agent_run_if_requested</a> (store : &amp; dyn AgentRunStore , persistence_requested : bool , agent_run_id : &amp; AgentRunId , submission_payload : Option &lt; &amp; JsonObject &gt; , token_count : Option &lt; i64 &gt; , error : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; () , AgentRunError &gt;</code>
+  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-agent-run--src-agent-run-persistence-rs.html#item-fn-finish-agent-run-if-requested-27">finish_agent_run_if_requested</a> (store : &amp; dyn AgentRunStore , persistence_requested : bool , agent_run_id : &amp; AgentRunId , submission_payload : Option &lt; &amp; JsonObject &gt; , token_count : Option &lt; i64 &gt; , error : Option &lt; &amp; str &gt; ,) -&gt; <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a> &lt; () , AgentRunError &gt;</code>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
@@ -103,7 +103,7 @@
     submission_payload: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">JsonObject</span>&gt;,
     token_count: <span class="rs-type">Option</span>&lt;i64&gt;,
     error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
+) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     <span class="rs-kw">if</span> !persistence_requested {
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(());
     }
@@ -129,7 +129,7 @@
     <h3>finish_agent_run_cancelled</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-agent-run--src-agent-run-persistence-rs.html#item-fn-finish-agent-run-cancelled-51">finish_agent_run_cancelled</a> (store : &amp; dyn AgentRunStore , agent_run_id : &amp; AgentRunId , reason : &amp; str ,) -&gt; Result &lt; () , AgentRunError &gt;</code>
+  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-agent-run--src-agent-run-persistence-rs.html#item-fn-finish-agent-run-cancelled-51">finish_agent_run_cancelled</a> (store : &amp; dyn AgentRunStore , agent_run_id : &amp; AgentRunId , reason : &amp; str ,) -&gt; <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a> &lt; () , AgentRunError &gt;</code>
   <div class="tags"><span>async</span></div>
   <details class="function-source">
   <summary>code</summary>
@@ -137,7 +137,7 @@
     store: &amp;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunStore</span>,
     agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
     reason: &amp;str,
-) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
+) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     <span class="rs-kw">let</span> payload = <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-persistence-rs.html#item-fn-cancelled-payload-103">cancelled_payload</a>(reason);
     store
         .finish_run(agent_run_id, <span class="rs-type">None</span>, <span class="rs-type">Some</span>(&amp;payload), 0, <span class="rs-type">Some</span>(reason))
@@ -264,7 +264,7 @@
     task_id: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">TaskId</span>&gt;,
     agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
     agent_name: &amp;str,
-) -&gt; <span class="rs-type">Result</span>&lt;bool, <span class="rs-type">AgentRunError</span>&gt; {
+) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;bool, <span class="rs-type">AgentRunError</span>&gt; {
     <span class="rs-kw">if</span> !persist_agent_run {
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-kw">false</span>);
     }
@@ -282,7 +282,7 @@
     submission_payload: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">JsonObject</span>&gt;,
     token_count: <span class="rs-type">Option</span>&lt;i64&gt;,
     error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
-) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
+) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     <span class="rs-kw">if</span> !persistence_requested {
         <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(());
     }
@@ -303,7 +303,7 @@
     store: &amp;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunStore</span>,
     agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
     reason: &amp;str,
-) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
+) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
     <span class="rs-kw">let</span> payload = <a class="symbol-link rs-fn" href="eos-agent-run--src-agent-run-persistence-rs.html#item-fn-cancelled-payload-103">cancelled_payload</a>(reason);
     store
         .finish_run(agent_run_id, <span class="rs-type">None</span>, <span class="rs-type">Some</span>(&amp;payload), 0, <span class="rs-type">Some</span>(reason))

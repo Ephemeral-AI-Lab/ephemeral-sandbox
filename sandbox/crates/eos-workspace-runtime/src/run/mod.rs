@@ -17,6 +17,7 @@ mod command_handle;
 #[cfg(target_os = "linux")]
 mod manager;
 mod ports;
+#[cfg(any(target_os = "linux", test))]
 mod registry;
 
 pub use command_handle::CommandHandle;

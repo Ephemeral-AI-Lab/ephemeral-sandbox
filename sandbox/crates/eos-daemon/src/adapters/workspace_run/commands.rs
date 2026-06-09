@@ -50,7 +50,10 @@ fn workspace_run_manager() -> &'static WorkspaceRunManager {
 }
 
 /// `api.v1.exec_command` — command-session start contract.
-pub fn op_exec_command(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
+pub(crate) fn op_exec_command(
+    args: &Value,
+    _context: DispatchContext<'_>,
+) -> Result<Value, DaemonError> {
     let cmd = require_command_string(args, "cmd")?;
     #[cfg(target_os = "linux")]
     let command_config = command_session_config();
@@ -138,7 +141,7 @@ fn exec_timeout_seconds(args: &Value, config: &crate::config::CommandSessionConf
         reason = "dispatcher handlers share a fallible ABI"
     )
 )]
-pub fn op_command_write_stdin(
+pub(crate) fn op_command_write_stdin(
     args: &Value,
     _context: DispatchContext<'_>,
 ) -> Result<Value, DaemonError> {
@@ -160,7 +163,7 @@ pub fn op_command_write_stdin(
         reason = "dispatcher handlers share a fallible ABI"
     )
 )]
-pub fn op_command_read_progress(
+pub(crate) fn op_command_read_progress(
     args: &Value,
     _context: DispatchContext<'_>,
 ) -> Result<Value, DaemonError> {
@@ -182,7 +185,7 @@ pub fn op_command_read_progress(
         reason = "dispatcher handlers share a fallible ABI"
     )
 )]
-pub fn op_command_cancel(
+pub(crate) fn op_command_cancel(
     args: &Value,
     _context: DispatchContext<'_>,
 ) -> Result<Value, DaemonError> {
@@ -201,7 +204,7 @@ pub fn op_command_cancel(
     clippy::unnecessary_wraps,
     reason = "dispatcher handlers share a fallible ABI"
 )]
-pub fn op_command_collect_completed(
+pub(crate) fn op_command_collect_completed(
     args: &Value,
     _context: DispatchContext<'_>,
 ) -> Result<Value, DaemonError> {
@@ -226,7 +229,7 @@ pub fn op_command_collect_completed(
     clippy::unnecessary_wraps,
     reason = "dispatcher handlers share a fallible ABI"
 )]
-pub fn op_command_session_count(
+pub(crate) fn op_command_session_count(
     args: &Value,
     _context: DispatchContext<'_>,
 ) -> Result<Value, DaemonError> {
@@ -284,7 +287,7 @@ fn start_manager_command_session(
 }
 
 #[cfg(target_os = "linux")]
-pub(crate) fn command_session_write_stdin(args: &Value) -> Result<Value, DaemonError> {
+fn command_session_write_stdin(args: &Value) -> Result<Value, DaemonError> {
     let request = WriteStdin {
         command_session_id: require_command_string(args, "command_session_id")?,
         chars: require_nonempty_string(args, "chars")?,
@@ -295,7 +298,7 @@ pub(crate) fn command_session_write_stdin(args: &Value) -> Result<Value, DaemonE
 }
 
 #[cfg(target_os = "linux")]
-pub(crate) fn command_session_read_progress(args: &Value) -> Result<Value, DaemonError> {
+fn command_session_read_progress(args: &Value) -> Result<Value, DaemonError> {
     let last_n_lines = optional_u64(args, "last_n_lines").unwrap_or(50);
     let request = ReadCommandProgress {
         command_session_id: require_command_string(args, "command_session_id")?,
@@ -308,7 +311,7 @@ pub(crate) fn command_session_read_progress(args: &Value) -> Result<Value, Daemo
 
 #[cfg(target_os = "linux")]
 #[must_use]
-pub fn active_command_sessions_for_caller(caller_id: &str) -> usize {
+pub(crate) fn active_command_sessions_for_caller(caller_id: &str) -> usize {
     let caller_id = caller_id.trim();
     if caller_id.is_empty() {
         return 0;
@@ -317,12 +320,12 @@ pub fn active_command_sessions_for_caller(caller_id: &str) -> usize {
 }
 
 #[cfg(not(target_os = "linux"))]
-pub const fn active_command_sessions_for_caller(_caller_id: &str) -> usize {
+pub(crate) const fn active_command_sessions_for_caller(_caller_id: &str) -> usize {
     0
 }
 
 #[cfg(target_os = "linux")]
-pub(crate) fn command_session_cancel(args: &Value) -> Result<Value, DaemonError> {
+fn command_session_cancel(args: &Value) -> Result<Value, DaemonError> {
     let request = CancelCommandSession {
         command_session_id: require_command_string(args, "command_session_id")?,
     };
@@ -343,24 +346,27 @@ fn command_session_response_to_wire(
 #[cfg(target_os = "linux")]
 /// Best-effort lifecycle backstop for callers that bypass the model-facing
 /// `RequireNoBackgroundSessions` hook.
-pub fn cleanup_command_sessions_for_caller(caller_id: &str, grace_s: Option<f64>) -> usize {
+pub(crate) fn cleanup_command_sessions_for_caller(caller_id: &str, grace_s: Option<f64>) -> usize {
     workspace_run_manager().cleanup_caller(caller_id, grace_s)
 }
 
 #[cfg(not(target_os = "linux"))]
-pub const fn cleanup_command_sessions_for_caller(_caller_id: &str, _grace_s: Option<f64>) -> usize {
+pub(crate) const fn cleanup_command_sessions_for_caller(
+    _caller_id: &str,
+    _grace_s: Option<f64>,
+) -> usize {
     0
 }
 
 /// Cancel and discard every live command session across all callers (the
 /// whole-sandbox cancel sweep). Returns the number cancelled.
 #[cfg(target_os = "linux")]
-pub fn cancel_all_command_sessions(grace_s: Option<f64>) -> usize {
+pub(crate) fn cancel_all_command_sessions(grace_s: Option<f64>) -> usize {
     workspace_run_manager().cancel_all(grace_s)
 }
 
 #[cfg(not(target_os = "linux"))]
-pub const fn cancel_all_command_sessions(_grace_s: Option<f64>) -> usize {
+pub(crate) const fn cancel_all_command_sessions(_grace_s: Option<f64>) -> usize {
     0
 }
 
@@ -372,7 +378,7 @@ pub const fn cancel_all_command_sessions(_grace_s: Option<f64>) -> usize {
 /// session started without an explicit `timeout` falls back to the configured
 /// wall-clock cap so it can never run forever.
 #[cfg(target_os = "linux")]
-pub fn command_session_reaper_sweep() {
+pub(crate) fn command_session_reaper_sweep() {
     workspace_run_manager().sweep_expired(Instant::now());
 }
 
@@ -384,7 +390,7 @@ pub fn command_session_reaper_sweep() {
 /// persisted, so a restarted daemon could otherwise signal a reused PID. Their
 /// own runner timeout reclaims them; lease cleanup is left to LayerStack GC.
 #[cfg(target_os = "linux")]
-pub fn recover_orphaned_command_sessions() {
+pub(crate) fn recover_orphaned_command_sessions() {
     let dir = command_session_scratch_root();
     let Ok(entries) = std::fs::read_dir(&dir) else {
         return;
@@ -432,10 +438,10 @@ pub fn recover_orphaned_command_sessions() {
 }
 
 #[cfg(not(target_os = "linux"))]
-pub fn command_session_reaper_sweep() {}
+pub(crate) fn command_session_reaper_sweep() {}
 
 #[cfg(not(target_os = "linux"))]
-pub fn recover_orphaned_command_sessions() {}
+pub(crate) fn recover_orphaned_command_sessions() {}
 
 #[cfg(test)]
 #[path = "../../../tests/command/mod.rs"]

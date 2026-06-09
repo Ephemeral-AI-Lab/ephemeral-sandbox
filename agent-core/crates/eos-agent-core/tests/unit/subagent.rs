@@ -10,7 +10,7 @@ mod subagent_lifecycle {
     use std::time::Duration;
 
     use async_trait::async_trait;
-    use eos_engine::{EngineError, EngineStream, EventSource, StreamEvent};
+    use eos_engine::{EngineError, EngineStream, ProviderStreamSource, StreamEvent};
     use eos_llm_client::{ContentBlock, LlmRequest};
     use eos_types::RequestId;
     use eos_types::{AgentDefinition, AgentType, RequestStatus, TaskStatus};
@@ -19,7 +19,7 @@ mod subagent_lifecycle {
     use super::run_request;
     use crate::entry::root_task_id_for;
     use crate::runtime::support::build_test_state;
-    use crate::runtime::EventSourceFactory;
+    use crate::runtime::ProviderStreamSourceFactory;
     use eos_testkit::{agent_def, text_turn, tool_use_turn, ScriptedSource};
 
     fn stream_of(events: Vec<StreamEvent>) -> EngineStream {
@@ -77,18 +77,17 @@ mod subagent_lifecycle {
             tool_use_turn("toolu_root", "submit_root_outcome", payload.clone()),
         ];
         let advisor_turns = vec![approve_turn()];
-        let factory: EventSourceFactory = Arc::new(move |_request, agent_state| match agent_state
-            .agent_name
-            .as_str()
-        {
-            "subagent" => {
-                Arc::new(ScriptedSource::new_blocking(Vec::new())) as Arc<dyn EventSource>
-            }
-            "advisor" => {
-                Arc::new(ScriptedSource::new(advisor_turns.clone())) as Arc<dyn EventSource>
-            }
-            _ => Arc::new(ScriptedSource::new(root_turns.clone())) as Arc<dyn EventSource>,
-        });
+        let factory: ProviderStreamSourceFactory =
+            Arc::new(
+                move |_request, agent_state| match agent_state.agent_name.as_str() {
+                    "subagent" => Arc::new(ScriptedSource::new_blocking(Vec::new()))
+                        as Arc<dyn ProviderStreamSource>,
+                    "advisor" => Arc::new(ScriptedSource::new(advisor_turns.clone()))
+                        as Arc<dyn ProviderStreamSource>,
+                    _ => Arc::new(ScriptedSource::new(root_turns.clone()))
+                        as Arc<dyn ProviderStreamSource>,
+                },
+            );
 
         let (state, _dir) = build_test_state(
             Some(factory),
@@ -142,7 +141,7 @@ mod subagent_lifecycle {
     }
 
     #[async_trait]
-    impl EventSource for FinishProbeSource {
+    impl ProviderStreamSource for FinishProbeSource {
         async fn stream(&self, request: &LlmRequest) -> Result<EngineStream, EngineError> {
             let finished = request.messages.iter().any(|message| {
                 message.content.iter().any(|block| {
@@ -195,19 +194,18 @@ mod subagent_lifecycle {
             json!({"summary": "the bug is at foo.rs:10", "findings": ["foo.rs:10"]}),
         )];
         let advisor_turns = vec![approve_turn()];
-        let factory: EventSourceFactory =
+        let factory: ProviderStreamSourceFactory =
             Arc::new(
                 move |_request, agent_state| match agent_state.agent_name.as_str() {
                     "subagent" => Arc::new(ScriptedSource::new(subagent_turns.clone()))
-                        as Arc<dyn EventSource>,
-                    "advisor" => {
-                        Arc::new(ScriptedSource::new(advisor_turns.clone())) as Arc<dyn EventSource>
-                    }
+                        as Arc<dyn ProviderStreamSource>,
+                    "advisor" => Arc::new(ScriptedSource::new(advisor_turns.clone()))
+                        as Arc<dyn ProviderStreamSource>,
                     _ => Arc::new(FinishProbeSource {
                         started: Arc::new(AtomicBool::new(false)),
                         asked_advisor: Arc::new(AtomicBool::new(false)),
                         saw_finished: saw_finished_factory.clone(),
-                    }) as Arc<dyn EventSource>,
+                    }) as Arc<dyn ProviderStreamSource>,
                 },
             );
 
@@ -248,7 +246,7 @@ mod subagent_lifecycle {
     }
 
     #[async_trait]
-    impl EventSource for RejectionProbe {
+    impl ProviderStreamSource for RejectionProbe {
         async fn stream(&self, request: &LlmRequest) -> Result<EngineStream, EngineError> {
             for message in &request.messages {
                 for block in &message.content {
@@ -290,14 +288,15 @@ mod subagent_lifecycle {
         let rejection: Arc<std::sync::Mutex<Option<String>>> =
             Arc::new(std::sync::Mutex::new(None));
         let rejection_probe = rejection.clone();
-        let factory: EventSourceFactory = Arc::new(move |_request, agent_state| {
+        let factory: ProviderStreamSourceFactory = Arc::new(move |_request, agent_state| {
             if agent_state.agent_name == "advisor" {
-                Arc::new(ScriptedSource::new(advisor_turns.clone())) as Arc<dyn EventSource>
+                Arc::new(ScriptedSource::new(advisor_turns.clone()))
+                    as Arc<dyn ProviderStreamSource>
             } else {
                 Arc::new(RejectionProbe {
                     turns: std::sync::Mutex::new(root_turns.clone()),
                     rejection: rejection_probe.clone(),
-                }) as Arc<dyn EventSource>
+                }) as Arc<dyn ProviderStreamSource>
             }
         });
 

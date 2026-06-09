@@ -56,7 +56,6 @@ pub(crate) fn node_dir(root: &Path, input: &AgentRunRecordStart<'_>) -> Result<P
                 "advisor-run",
                 input.agent_run_id.as_str(),
             )?)),
-        AgentRunRecordKind::Agent => Ok(request_root.join(agent_run_segment)),
     }
 }
 
@@ -74,7 +73,7 @@ pub(crate) fn parent_announcement(
             parent_agent_run_id,
         } => find_agent_run_dir_in(&request_root, parent_agent_run_id)?,
         AgentRunRecordKind::WorkflowTask { .. } => find_root_agent_dir(&request_root)?,
-        AgentRunRecordKind::Root | AgentRunRecordKind::Agent => None,
+        AgentRunRecordKind::Root => None,
     };
     let Some(parent) = parent else {
         return Ok(None);

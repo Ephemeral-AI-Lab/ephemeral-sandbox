@@ -30,13 +30,14 @@ use super::config::{self, RuntimeConfig};
 use super::plugins::register_plugin_tools;
 use super::{
     AgentCoreRegistryService, AgentCoreRuntime, AuditRuntime, DbStoreService, EngineService,
-    EventSourceFactory, MessageRecordService, SandboxService,
+    MessageRecordService, ProviderStreamSourceFactory, SandboxService,
 };
 use crate::agents::load_agents_tree;
 
 /// Placeholder client used when no provider is selected and no
-/// `event_source_factory` is set. Streaming always errors; production wires a
-/// real provider from `providers.active`, and tests set `event_source_factory`.
+/// `provider_stream_source_factory` is set. Streaming always errors; production
+/// wires a real provider from `providers.active`, and tests set
+/// `provider_stream_source_factory`.
 #[derive(Debug, Default)]
 struct UnconfiguredLlmClient;
 
@@ -44,7 +45,7 @@ struct UnconfiguredLlmClient;
 impl LlmClient for UnconfiguredLlmClient {
     async fn stream_message(&self, _request: LlmRequest) -> Result<LlmStream, ProviderError> {
         Err(ProviderError::transport(
-            "no llm provider configured (set providers.active in local.yml or inject an event_source_factory)",
+            "no llm provider configured (set providers.active in local.yml or inject a provider_stream_source_factory)",
         ))
     }
 }
@@ -93,7 +94,8 @@ impl RequestProvisioner for UnconfiguredProvisioner {
 
 /// `#[must_use]` builder for [`AgentCoreRuntime`]. Every field is an optional override:
 /// `None` selects the production default. Tests inject in-memory stores, a mock
-/// `event_source_factory`, a fake sandbox gateway, and explicit registries.
+/// `provider_stream_source_factory`, a fake sandbox gateway, and explicit
+/// registries.
 #[must_use = "AgentCoreRuntimeBuilder does nothing until build() is called"]
 #[derive(Default)]
 pub struct AgentCoreRuntimeBuilder {
@@ -102,7 +104,7 @@ pub struct AgentCoreRuntimeBuilder {
     providers_config: Option<ProvidersConfig>,
     workflow_config: Option<WorkflowConfig>,
     runtime_config: Option<RuntimeConfig>,
-    event_source_factory: Option<EventSourceFactory>,
+    provider_stream_source_factory: Option<ProviderStreamSourceFactory>,
     audit: Option<Arc<dyn AuditSink>>,
     audit_path: Option<PathBuf>,
     message_records_root: Option<PathBuf>,
@@ -155,9 +157,9 @@ impl AgentCoreRuntimeBuilder {
         self
     }
 
-    /// Inject the per-agent event-source factory (mock harness).
-    pub fn event_source_factory(mut self, factory: EventSourceFactory) -> Self {
-        self.event_source_factory = Some(factory);
+    /// Inject the per-agent provider-stream factory (mock harness).
+    pub fn provider_stream_source_factory(mut self, factory: ProviderStreamSourceFactory) -> Self {
+        self.provider_stream_source_factory = Some(factory);
         self
     }
 
@@ -357,7 +359,7 @@ impl AgentCoreRuntimeBuilder {
             },
             engine: EngineService {
                 llm_client,
-                event_source_factory: self.event_source_factory,
+                provider_stream_source_factory: self.provider_stream_source_factory,
                 runtime_config,
             },
             sandbox: SandboxService {

@@ -18,9 +18,9 @@
 //!
 //! # The no-publish guarantee is enforced by the dependency graph
 //!
-//! `eos-isolated-workspace` captures writes for audit but can NEVER publish — guaranteed
-//! structurally because it does not depend on `eos-occ` (a build-time edge, not
-//! a convention). The snapshot/lease read surface ([`LayerStack`] +
+//! The isolated runtime path captures writes for audit but can NEVER publish —
+//! guaranteed structurally because it does not depend on `eos-occ` (a build-time
+//! edge, not a convention). The snapshot/lease read surface ([`LayerStack`] +
 //! [`MergedView`] + [`Lease`]) is owned here; the publish-side transaction is
 //! daemon-owned. Lower crates that need a narrow read port define and inject it
 //! at their own boundary rather than importing this crate.

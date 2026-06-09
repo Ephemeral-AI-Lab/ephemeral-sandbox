@@ -142,15 +142,10 @@
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-from-89">from</a>(request: &amp;<span class="rs-type">SpawnAgentRequest</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-kw">let</span> (record_workflow_id, record_iteration_id, record_attempt_id) =
             <span class="rs-kw">match</span> &amp;request.task_agent_run_kind {
-                <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">WorkflowTask</span> {
-                    workflow_id,
-                    iteration_id,
-                    attempt_id,
-                    ..
-                } =&gt; (
-                    <span class="rs-type">Some</span>(workflow_id.clone()),
-                    <span class="rs-type">Some</span>(iteration_id.clone()),
-                    <span class="rs-type">Some</span>(attempt_id.clone()),
+                <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> { workflow, .. } =&gt; (
+                    <span class="rs-type">Some</span>(workflow.workflow_id.clone()),
+                    <span class="rs-type">Some</span>(workflow.iteration_id.clone()),
+                    <span class="rs-type">Some</span>(workflow.attempt_id.clone()),
                 ),
                 _ =&gt; (<span class="rs-type">None</span>, <span class="rs-type">None</span>, <span class="rs-type">None</span>),
             };
@@ -269,15 +264,10 @@
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-from-89">from</a>(request: &amp;<span class="rs-type">SpawnAgentRequest</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-kw">let</span> (record_workflow_id, record_iteration_id, record_attempt_id) =
             <span class="rs-kw">match</span> &amp;request.task_agent_run_kind {
-                <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">WorkflowTask</span> {
-                    workflow_id,
-                    iteration_id,
-                    attempt_id,
-                    ..
-                } =&gt; (
-                    <span class="rs-type">Some</span>(workflow_id.clone()),
-                    <span class="rs-type">Some</span>(iteration_id.clone()),
-                    <span class="rs-type">Some</span>(attempt_id.clone()),
+                <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> { workflow, .. } =&gt; (
+                    <span class="rs-type">Some</span>(workflow.workflow_id.clone()),
+                    <span class="rs-type">Some</span>(workflow.iteration_id.clone()),
+                    <span class="rs-type">Some</span>(workflow.attempt_id.clone()),
                 ),
                 _ =&gt; (<span class="rs-type">None</span>, <span class="rs-type">None</span>, <span class="rs-type">None</span>),
             };

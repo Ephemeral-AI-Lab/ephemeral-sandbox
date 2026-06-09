@@ -1,7 +1,7 @@
 //! Public fixture-contract tests for `eos-testkit`.
 #![allow(clippy::expect_used)]
 
-use eos_engine::{EngineError, EventSource, StartAgentLoopRequest, StreamEvent};
+use eos_engine::{EngineError, ProviderStreamSource, StartAgentLoopRequest, StreamEvent};
 use eos_llm_client::{ContentBlock, LlmRequest, Message, ToolSpec};
 use eos_sandbox_port::{DaemonOp, SandboxTransport};
 use eos_testkit::{
@@ -54,12 +54,12 @@ fn agent_state(agent_name: &str) -> AgentState {
     }
 }
 
-async fn collect_source(source: &dyn EventSource) -> Vec<StreamEvent> {
+async fn collect_source(source: &dyn ProviderStreamSource) -> Vec<StreamEvent> {
     collect_source_with_request(source, &request()).await
 }
 
 async fn collect_source_with_request(
-    source: &dyn EventSource,
+    source: &dyn ProviderStreamSource,
     request: &LlmRequest,
 ) -> Vec<StreamEvent> {
     let mut stream = source.stream(request).await.expect("stream opens");

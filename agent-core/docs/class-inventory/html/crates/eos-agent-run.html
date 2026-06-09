@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
-  <div><b>6</b><span>modules</span></div>
-  <div><b>30</b><span>items</span></div>
-  <div><b>16</b><span>fields</span></div>
-  <div><b>21</b><span>methods</span></div>
+  <div><b>14</b><span>modules</span></div>
+  <div><b>71</b><span>items</span></div>
+  <div><b>56</b><span>fields</span></div>
+  <div><b>39</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link active" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>4/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-loop-request-rs.html"><span>agent_loop_request.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-persistence-rs.html"><span>agent_run_persistence.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-records-rs.html"><span>agent_run_records.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-service-rs.html"><span>agent_run_service.rs</span><small>1/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link active" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>4/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-loop-request-rs.html"><span>agent_loop_request.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-persistence-rs.html"><span>agent_run_persistence.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-records-rs.html"><span>agent_run_records.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-service-rs.html"><span>agent_run_service.rs</span><small>1/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><span class="folder">records</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run--src-records-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-handle-rs.html"><span>handle.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-io-rs.html"><span>io.rs</span><small>2/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-kind-rs.html"><span>kind.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-layout-rs.html"><span>layout.rs</span><small>0/12</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-record-rs.html"><span>record.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-service-rs.html"><span>service.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-agent-run--src-records-rs.html"><span>records.rs</span><small>0/0</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="active_agent_runs crates/eos-agent-run/src/active_agent_runs.rs ActiveAgentRuns impl std :: fmt :: Debug for ActiveAgentRuns ActiveAgentRun ActiveAgentRunRecord impl ActiveAgentRunRecord impl ActiveAgentRuns ActiveAgentRunCompletion impl ActiveAgentRunCompletion">
   <div class="module-head">
     <div>
@@ -73,12 +73,12 @@
         <span class="rs-self">Self</span>::default()
     }
 </code></pre>
-</details></td></tr><tr id="method-insert-52"><td>method</td><td>insert</td><td><code>pub(crate) async fn <a class="symbol-link" href="eos-agent-run.html#method-insert-52">insert</a> (&amp; self , agent_run_id : AgentRunId , cancel_handle : AgentLoopCancelHandle , message_record : Option &lt; <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a> &gt; ,)</code><details class="function-source">
+</details></td></tr><tr id="method-insert-52"><td>method</td><td>insert</td><td><code>pub(crate) async fn <a class="symbol-link" href="eos-agent-run.html#method-insert-52">insert</a> (&amp; self , agent_run_id : AgentRunId , cancel_handle : AgentLoopCancellationHandle , message_record : Option &lt; <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a> &gt; ,)</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(
         &amp;<span class="rs-self">self</span>,
         agent_run_id: <span class="rs-type">AgentRunId</span>,
-        cancel_handle: <span class="rs-type">AgentLoopCancelHandle</span>,
+        cancel_handle: <span class="rs-type">AgentLoopCancellationHandle</span>,
         message_record: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a>&gt;,
     ) {
         <span class="rs-kw">let</span> (outcome_tx, _) = watch::channel(<span class="rs-type">None</span>);
@@ -119,12 +119,12 @@
             .and_then(|handle| handle.outcome_tx.borrow().clone())
     }
 </code></pre>
-</details></td></tr><tr id="method-subscribe-92"><td>method</td><td>subscribe</td><td><code>pub(crate) async fn <a class="symbol-link" href="eos-agent-run.html#method-subscribe-92">subscribe</a> (&amp; self , agent_run_id : &amp; AgentRunId ,) -&gt; Result &lt; watch :: Receiver &lt; Option &lt; AgentRunOutcome &gt; &gt; , AgentRunError &gt;</code><details class="function-source">
+</details></td></tr><tr id="method-subscribe-92"><td>method</td><td>subscribe</td><td><code>pub(crate) async fn <a class="symbol-link" href="eos-agent-run.html#method-subscribe-92">subscribe</a> (&amp; self , agent_run_id : &amp; AgentRunId ,) -&gt; <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a> &lt; watch :: Receiver &lt; Option &lt; AgentRunOutcome &gt; &gt; , AgentRunError &gt;</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-subscribe-92">subscribe</a>(
         &amp;<span class="rs-self">self</span>,
         agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
-    ) -&gt; <span class="rs-type">Result</span>&lt;watch::<span class="rs-type">Receiver</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunOutcome</span>&gt;&gt;, <span class="rs-type">AgentRunError</span>&gt; {
+    ) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;watch::<span class="rs-type">Receiver</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunOutcome</span>&gt;&gt;, <span class="rs-type">AgentRunError</span>&gt; {
         <span class="rs-self">self</span>.inner
             .lock()
             .<span class="rs-kw">await</span>
@@ -133,9 +133,9 @@
             .ok_or_else(|| <span class="rs-type">AgentRunError</span>::<span class="rs-type">NotActiveInProcess</span>(agent_run_id.clone()))
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRuns-11">ActiveAgentRuns</a></code></summary><table><tbody><tr id="method-fmt-18"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-agent-run.html#method-fmt-18">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRuns-11">ActiveAgentRuns</a></code></summary><table><tbody><tr id="method-fmt-18"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-agent-run.html#method-fmt-18">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a></code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-fmt-18">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-fmt-18">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRuns-11">ActiveAgentRuns</a>&quot;).finish_non_exhaustive()
     }
 </code></pre>
@@ -150,9 +150,9 @@
   </div>
   <code class="signature">pub(crate) struct <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a></code>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>handle</td><td><code>AgentRunRecordHandle</code></td></tr><tr><td>pub(crate)</td><td>initial_message_count</td><td><code>usize</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-37"><td>constructor</td><td>new</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-run.html#method-new-37">new</a> (handle : AgentRunRecordHandle , initial_message_count : usize) -&gt; Self</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>handle</td><td><code><a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#item-struct-AgentRunRecordHandle-12">AgentRunRecordHandle</a></code></td></tr><tr><td>pub(crate)</td><td>initial_message_count</td><td><code>usize</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-37"><td>constructor</td><td>new</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-run.html#method-new-37">new</a> (handle : <a class="symbol-link" href="eos-agent-run--src-records-handle-rs.html#item-struct-AgentRunRecordHandle-12">AgentRunRecordHandle</a> , initial_message_count : usize) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-37">new</a>(handle: <span class="rs-type">AgentRunRecordHandle</span>, initial_message_count: usize) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-37">new</a>(handle: <a class="symbol-link rs-type" href="eos-agent-run--src-records-handle-rs.html#item-struct-AgentRunRecordHandle-12">AgentRunRecordHandle</a>, initial_message_count: usize) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             handle,
             initial_message_count,
@@ -162,7 +162,7 @@
 </details></td></tr></tbody></table>
 
   <p class="source">crates/eos-agent-run/src/active_agent_runs.rs:30</p>
-</article><article id="item-struct-ActiveAgentRunCompletion-105" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct ActiveAgentRunCompletion pub(crate) pub(crate) struct ActiveAgentRunCompletion crates/eos-agent-run/src/active_agent_runs.rs outcome_tx watch :: Sender &lt; Option &lt; AgentRunOutcome &gt; &gt; cancel_handle AgentLoopCancelHandle message_record Option &lt; ActiveAgentRunRecord &gt; ">
+</article><article id="item-struct-ActiveAgentRunCompletion-105" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct ActiveAgentRunCompletion pub(crate) pub(crate) struct ActiveAgentRunCompletion crates/eos-agent-run/src/active_agent_runs.rs outcome_tx watch :: Sender &lt; Option &lt; AgentRunOutcome &gt; &gt; cancel_handle AgentLoopCancellationHandle message_record Option &lt; ActiveAgentRunRecord &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>ActiveAgentRunCompletion</h3>
@@ -170,10 +170,10 @@
   </div>
   <code class="signature">pub(crate) struct <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRunCompletion-105">ActiveAgentRunCompletion</a></code>
   <div class="tags"></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>outcome_tx</td><td><code>watch :: Sender &lt; Option &lt; AgentRunOutcome &gt; &gt;</code></td></tr><tr><td>private</td><td>cancel_handle</td><td><code>AgentLoopCancelHandle</code></td></tr><tr><td>private</td><td>message_record</td><td><code>Option &lt; <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-cancel-112"><td>method</td><td>cancel</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-run.html#method-cancel-112">cancel</a> (&amp; self , reason : &amp; str)</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>outcome_tx</td><td><code>watch :: Sender &lt; Option &lt; AgentRunOutcome &gt; &gt;</code></td></tr><tr><td>private</td><td>cancel_handle</td><td><code>AgentLoopCancellationHandle</code></td></tr><tr><td>private</td><td>message_record</td><td><code>Option &lt; <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-cancel-112"><td>method</td><td>cancel</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-run.html#method-cancel-112">cancel</a> (&amp; self , reason : &amp; str)</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-cancel-112">cancel</a>(&amp;<span class="rs-self">self</span>, reason: &amp;str) {
-        <span class="rs-self">self</span>.cancel_handle.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-cancel-112">cancel</a>(reason.to_owned());
+        <span class="rs-self">self</span>.cancel_handle.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-cancel-112">cancel</a>(reason);
     }
 </code></pre>
 </details></td></tr><tr id="method-take-message-record-116"><td>method</td><td>take_message_record</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-run.html#method-take-message-record-116">take_message_record</a> (&amp; mut self) -&gt; Option &lt; <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a> &gt;</code><details class="function-source">
@@ -191,7 +191,7 @@
 </details></td></tr></tbody></table>
 
   <p class="source">crates/eos-agent-run/src/active_agent_runs.rs:105</p>
-</article><article id="item-struct-ActiveAgentRun-23" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct ActiveAgentRun private struct ActiveAgentRun crates/eos-agent-run/src/active_agent_runs.rs outcome_tx watch :: Sender &lt; Option &lt; AgentRunOutcome &gt; &gt; cancel_handle AgentLoopCancelHandle message_record Option &lt; ActiveAgentRunRecord &gt; ">
+</article><article id="item-struct-ActiveAgentRun-23" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct ActiveAgentRun private struct ActiveAgentRun crates/eos-agent-run/src/active_agent_runs.rs outcome_tx watch :: Sender &lt; Option &lt; AgentRunOutcome &gt; &gt; cancel_handle AgentLoopCancellationHandle message_record Option &lt; ActiveAgentRunRecord &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>ActiveAgentRun</h3>
@@ -199,7 +199,7 @@
   </div>
   <code class="signature">struct <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRun-23">ActiveAgentRun</a></code>
   <div class="tags"><span>derive: Clone</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>outcome_tx</td><td><code>watch :: Sender &lt; Option &lt; AgentRunOutcome &gt; &gt;</code></td></tr><tr><td>private</td><td>cancel_handle</td><td><code>AgentLoopCancelHandle</code></td></tr><tr><td>private</td><td>message_record</td><td><code>Option &lt; <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a> &gt;</code></td></tr></tbody></table>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>outcome_tx</td><td><code>watch :: Sender &lt; Option &lt; AgentRunOutcome &gt; &gt;</code></td></tr><tr><td>private</td><td>cancel_handle</td><td><code>AgentLoopCancellationHandle</code></td></tr><tr><td>private</td><td>message_record</td><td><code>Option &lt; <a class="symbol-link" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a> &gt;</code></td></tr></tbody></table>
 
   <p class="source">crates/eos-agent-run/src/active_agent_runs.rs:23</p>
 </article></div>
@@ -215,10 +215,10 @@
 <span class="rs-kw">use</span> std::collections::<span class="rs-type">HashMap</span>;
 <span class="rs-kw">use</span> std::sync::<span class="rs-type">Arc</span>;
 
-<span class="rs-kw">use</span> eos_engine::records::<span class="rs-type">AgentRunRecordHandle</span>;
-<span class="rs-kw">use</span> eos_engine::<span class="rs-type">AgentLoopCancelHandle</span>;
-<span class="rs-kw">use</span> eos_types::{<span class="rs-type">AgentRunError</span>, <span class="rs-type">AgentRunId</span>, <span class="rs-type">AgentRunOutcome</span>};
+<span class="rs-kw">use</span> eos_types::{<span class="rs-type">AgentLoopCancellationHandle</span>, <span class="rs-type">AgentRunError</span>, <span class="rs-type">AgentRunId</span>, <span class="rs-type">AgentRunOutcome</span>};
 <span class="rs-kw">use</span> tokio::sync::{watch, <span class="rs-type">Mutex</span>};
+
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::records::<a class="symbol-link rs-type" href="eos-agent-run--src-records-handle-rs.html#item-struct-AgentRunRecordHandle-12">AgentRunRecordHandle</a>;
 
 <span class="rs-comment">/// Registry of active in-process agent runs.</span>
 #[derive(<span class="rs-type">Clone</span>, <span class="rs-type">Default</span>)]
@@ -227,7 +227,7 @@
 }
 
 <span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRuns-11">ActiveAgentRuns</a> {
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-fmt-18">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-fmt-18">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a> {
         f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRuns-11">ActiveAgentRuns</a>&quot;).finish_non_exhaustive()
     }
 }
@@ -235,18 +235,18 @@
 #[derive(<span class="rs-type">Clone</span>)]
 <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRun-23">ActiveAgentRun</a> {
     outcome_tx: watch::<span class="rs-type">Sender</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunOutcome</span>&gt;&gt;,
-    cancel_handle: <span class="rs-type">AgentLoopCancelHandle</span>,
+    cancel_handle: <span class="rs-type">AgentLoopCancellationHandle</span>,
     message_record: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a>&gt;,
 }
 
 #[derive(<span class="rs-type">Clone</span>, <span class="rs-type">Debug</span>)]
 <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) handle: <span class="rs-type">AgentRunRecordHandle</span>,
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) handle: <a class="symbol-link rs-type" href="eos-agent-run--src-records-handle-rs.html#item-struct-AgentRunRecordHandle-12">AgentRunRecordHandle</a>,
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) initial_message_count: usize,
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-37">new</a>(handle: <span class="rs-type">AgentRunRecordHandle</span>, initial_message_count: usize) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-37">new</a>(handle: <a class="symbol-link rs-type" href="eos-agent-run--src-records-handle-rs.html#item-struct-AgentRunRecordHandle-12">AgentRunRecordHandle</a>, initial_message_count: usize) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span> {
             handle,
             initial_message_count,
@@ -264,7 +264,7 @@
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-52">insert</a>(
         &amp;<span class="rs-self">self</span>,
         agent_run_id: <span class="rs-type">AgentRunId</span>,
-        cancel_handle: <span class="rs-type">AgentLoopCancelHandle</span>,
+        cancel_handle: <span class="rs-type">AgentLoopCancellationHandle</span>,
         message_record: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a>&gt;,
     ) {
         <span class="rs-kw">let</span> (outcome_tx, _) = watch::channel(<span class="rs-type">None</span>);
@@ -304,7 +304,7 @@
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-subscribe-92">subscribe</a>(
         &amp;<span class="rs-self">self</span>,
         agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
-    ) -&gt; <span class="rs-type">Result</span>&lt;watch::<span class="rs-type">Receiver</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunOutcome</span>&gt;&gt;, <span class="rs-type">AgentRunError</span>&gt; {
+    ) -&gt; <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-type-Result-1">Result</a>&lt;watch::<span class="rs-type">Receiver</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunOutcome</span>&gt;&gt;, <span class="rs-type">AgentRunError</span>&gt; {
         <span class="rs-self">self</span>.inner
             .lock()
             .<span class="rs-kw">await</span>
@@ -316,13 +316,13 @@
 
 <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunCompletion-105">ActiveAgentRunCompletion</a> {
     outcome_tx: watch::<span class="rs-type">Sender</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunOutcome</span>&gt;&gt;,
-    cancel_handle: <span class="rs-type">AgentLoopCancelHandle</span>,
+    cancel_handle: <span class="rs-type">AgentLoopCancellationHandle</span>,
     message_record: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a>&gt;,
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunCompletion-105">ActiveAgentRunCompletion</a> {
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-cancel-112">cancel</a>(&amp;<span class="rs-self">self</span>, reason: &amp;str) {
-        <span class="rs-self">self</span>.cancel_handle.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-cancel-112">cancel</a>(reason.to_owned());
+        <span class="rs-self">self</span>.cancel_handle.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-cancel-112">cancel</a>(reason);
     }
 
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run.html#method-take-message-record-116">take_message_record</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) -&gt; <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-agent-run.html#item-struct-ActiveAgentRunRecord-30">ActiveAgentRunRecord</a>&gt; {

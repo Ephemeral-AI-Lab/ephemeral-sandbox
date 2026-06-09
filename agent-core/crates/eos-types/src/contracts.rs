@@ -24,16 +24,8 @@ pub struct SpawnAgentRequest {
     pub agent_run_id: Option<AgentRunId>,
     /// Initial transcript.
     pub initial_messages: Vec<Message>,
-    /// Parent agent-run id, for helper/subagent lineage.
-    pub parent_agent_run_id: Option<AgentRunId>,
-    /// Owning request id.
-    pub request_id: Option<RequestId>,
-    /// Owning task id.
-    pub task_id: Option<TaskId>,
-    /// Owning attempt id.
-    pub attempt_id: Option<AttemptId>,
-    /// Owning workflow id.
-    pub workflow_id: Option<WorkflowId>,
+    /// Closed spawn target and lineage facts.
+    pub target: SpawnAgentTarget,
     /// Bound sandbox id.
     pub sandbox_id: Option<SandboxId>,
     /// Request-visible workspace root.
@@ -42,8 +34,6 @@ pub struct SpawnAgentRequest {
     pub is_isolated_workspace_mode: bool,
     /// Whether to persist the run row.
     pub persist: bool,
-    /// Task-agent-run kind used by the current record layout.
-    pub task_agent_run_kind: TaskAgentRunKind,
 }
 
 /// Current runtime metadata facts for one agent run.
@@ -71,40 +61,142 @@ pub struct AgentState {
     pub is_isolated_workspace_mode: bool,
 }
 
-/// Task-agent-run layout choice used to derive the current record path.
+/// Workflow coordinates used by workflow task-agent-runs.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
+pub struct WorkflowCoordinates {
+    /// Owning workflow id.
+    pub workflow_id: WorkflowId,
+    /// Owning iteration id.
+    pub iteration_id: IterationId,
+    /// Owning attempt id.
+    pub attempt_id: AttemptId,
+}
+
+/// Parent-launched task-agent-run kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParentedAgentRunKind {
+    /// Background subagent run.
+    Subagent,
+    /// Blocking advisor run.
+    Advisor,
+}
+
+/// Parent run anchor for a parent-launched agent run.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParentAgentRunAnchor {
+    /// Owning request id.
+    pub request_id: RequestId,
+    /// Parent task id.
+    pub parent_task_id: TaskId,
+    /// Parent agent-run id.
+    pub agent_run_id: AgentRunId,
+}
+
+/// Closed spawn target for agent-run creation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpawnAgentTarget {
+    /// Root request agent.
+    Root {
+        /// Owning request id.
+        request_id: RequestId,
+        /// Existing root task id until root row creation moves fully into agent-run.
+        task_id: TaskId,
+    },
+    /// Workflow planner/generator/reducer task agent.
+    Workflow {
+        /// Owning request id.
+        request_id: RequestId,
+        /// Existing workflow task id until workflow row creation moves fully into agent-run.
+        task_id: TaskId,
+        /// Owning workflow coordinates.
+        workflow: WorkflowCoordinates,
+        /// Workflow task role.
+        role: WorkflowTaskRole,
+    },
+    /// Parent-launched subagent run.
+    Subagent {
+        /// Parent run anchor.
+        parent: ParentAgentRunAnchor,
+    },
+    /// Parent-launched advisor run.
+    Advisor {
+        /// Parent run anchor.
+        parent: ParentAgentRunAnchor,
+    },
+}
+
+impl SpawnAgentTarget {
+    /// Owning request id.
+    #[must_use]
+    pub const fn request_id(&self) -> &RequestId {
+        match self {
+            Self::Root { request_id, .. } | Self::Workflow { request_id, .. } => request_id,
+            Self::Subagent { parent } | Self::Advisor { parent } => &parent.request_id,
+        }
+    }
+
+    /// Current run task id when the transitional caller still supplies one.
+    #[must_use]
+    pub const fn current_task_id(&self) -> Option<&TaskId> {
+        match self {
+            Self::Root { task_id, .. } | Self::Workflow { task_id, .. } => Some(task_id),
+            Self::Subagent { .. } | Self::Advisor { .. } => None,
+        }
+    }
+
+    /// Workflow coordinates for workflow task-agent-runs.
+    #[must_use]
+    pub const fn workflow(&self) -> Option<&WorkflowCoordinates> {
+        match self {
+            Self::Workflow { workflow, .. } => Some(workflow),
+            Self::Root { .. } | Self::Subagent { .. } | Self::Advisor { .. } => None,
+        }
+    }
+
+    /// Convert the spawn target into the current task-agent-run classification.
+    #[must_use]
+    pub fn task_agent_run_kind(&self) -> TaskAgentRunKind {
+        match self {
+            Self::Root { .. } => TaskAgentRunKind::Root,
+            Self::Workflow { workflow, role, .. } => TaskAgentRunKind::Workflow {
+                workflow: workflow.clone(),
+                role: *role,
+            },
+            Self::Subagent { parent } => TaskAgentRunKind::Parented {
+                parent_agent_run_id: parent.agent_run_id.clone(),
+                kind: ParentedAgentRunKind::Subagent,
+            },
+            Self::Advisor { parent } => TaskAgentRunKind::Parented {
+                parent_agent_run_id: parent.agent_run_id.clone(),
+                kind: ParentedAgentRunKind::Advisor,
+            },
+        }
+    }
+}
+
+/// Closed task-agent-run layout choice used to derive the current record path.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TaskAgentRunKind {
     /// Root request agent.
     Root,
     /// Delegated workflow planner/generator/reducer task agent.
-    WorkflowTask {
-        /// Owning workflow id.
-        workflow_id: WorkflowId,
-        /// Owning iteration id.
-        iteration_id: IterationId,
-        /// Owning attempt id.
-        attempt_id: AttemptId,
+    Workflow {
+        /// Owning workflow coordinates.
+        workflow: WorkflowCoordinates,
         /// Workflow task role.
         role: WorkflowTaskRole,
     },
-    /// Background subagent run under a parent agent.
-    Subagent {
+    /// Parent-launched task-agent-run under a parent agent.
+    Parented {
         /// Parent agent-run id.
         parent_agent_run_id: AgentRunId,
+        /// Parent-launched run kind.
+        kind: ParentedAgentRunKind,
     },
-    /// Advisor run under a parent agent.
-    Advisor {
-        /// Parent agent-run id.
-        parent_agent_run_id: AgentRunId,
-    },
-    /// Generic agent run when no narrower layout is known.
-    Agent,
 }
 
 /// Workflow task role used for task-agent-run path labels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum WorkflowTaskRole {
     /// Planner task.
     Planner,

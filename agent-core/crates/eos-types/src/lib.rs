@@ -13,6 +13,7 @@
 #![warn(missing_docs)]
 
 mod agent;
+pub mod agent_loop;
 mod config;
 mod contracts;
 mod error;
@@ -28,13 +29,19 @@ mod time;
 pub use agent::{
     AgentDefinition, AgentName, AgentNameError, AgentRegistry, AgentRegistryBuilder, AgentType,
 };
+pub use agent_loop::{
+    AgentLoopCancellation, AgentLoopCancellationHandle, AgentLoopLauncher, AgentLoopMessage,
+    AgentLoopOutcome, AgentLoopOutcomeFuture, AgentLoopOutcomeKind, StartAgentLoopRequest,
+    StartedAgentLoop,
+};
 pub use config::ConfigError;
 pub use contracts::{
     AgentCoreCancellationApi, AgentRunApi, AgentRunError, AgentRunOutcome, AgentRunStatus,
-    AgentState, CancelError, OutstandingWorkflow, PlanReducer, PlanTask, PlannerPlan,
-    SpawnAgentRequest, StartWorkflowRequest, StartedWorkflow, SubmissionAck, TaskAgentRunKind,
-    TerminalWorkflow, WorkflowApi, WorkflowApiError, WorkflowAttemptSubmissionApi,
-    WorkflowTaskRole, WorkflowTerminalStatus,
+    AgentState, CancelError, OutstandingWorkflow, ParentAgentRunAnchor, ParentedAgentRunKind,
+    PlanReducer, PlanTask, PlannerPlan, SpawnAgentRequest, SpawnAgentTarget, StartWorkflowRequest,
+    StartedWorkflow, SubmissionAck, TaskAgentRunKind, TerminalWorkflow, WorkflowApi,
+    WorkflowApiError, WorkflowAttemptSubmissionApi, WorkflowCoordinates, WorkflowTaskRole,
+    WorkflowTerminalStatus,
 };
 pub use error::CoreError;
 pub use frontmatter::parse_markdown_frontmatter;

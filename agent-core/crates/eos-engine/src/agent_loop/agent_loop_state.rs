@@ -14,8 +14,8 @@ use crate::notifications::{
 };
 
 use super::{
-    AgentLoopMessage, AgentLoopOutcome, AgentLoopOutcomeKind, AgentLoopToolRegistryBuildInput,
-    AgentLoopToolRegistryFactory, StartAgentLoopRequest,
+    tool_result_payload, AgentLoopMessage, AgentLoopOutcome, AgentLoopOutcomeKind,
+    AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory, StartAgentLoopRequest,
 };
 use crate::EngineError;
 
@@ -121,7 +121,9 @@ impl AgentLoopState {
 
     pub(crate) fn terminal_tool_submitted(self, outcome: ToolResult) -> AgentLoopOutcome {
         AgentLoopOutcome {
-            kind: AgentLoopOutcomeKind::TerminalToolSubmitted { outcome },
+            kind: AgentLoopOutcomeKind::TerminalToolSubmitted {
+                submission_payload: tool_result_payload(&outcome),
+            },
             final_conversation_messages: self.conversation_messages,
             total_token_count: self.total_token_count,
         }

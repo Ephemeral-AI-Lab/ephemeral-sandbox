@@ -183,11 +183,11 @@ pub(super) struct PluginServiceProcess {
 }
 
 impl PluginServiceProcess {
-    pub(crate) fn pid(&self) -> u32 {
+    pub(super) fn pid(&self) -> u32 {
         self.child.id()
     }
 
-    pub(crate) fn status_json(&mut self) -> Value {
+    pub(super) fn status_json(&mut self) -> Value {
         let exit_status = self.child.try_wait().ok().flatten();
         let running = exit_status.is_none();
         json!({
@@ -201,7 +201,7 @@ impl PluginServiceProcess {
         })
     }
 
-    pub(crate) fn teardown(&mut self) {
+    pub(super) fn teardown(&mut self) {
         if self.torn_down {
             return;
         }
@@ -397,7 +397,7 @@ fn accept_ppc_client(
 }
 
 #[cfg(test)]
-pub(crate) fn new_spec_for_test(
+fn new_spec_for_test(
     key: eos_plugin::PluginServiceKey,
     command: Vec<String>,
     ppc_protocol_version: u32,
@@ -407,7 +407,7 @@ pub(crate) fn new_spec_for_test(
 }
 
 #[cfg(test)]
-pub(crate) fn new_spec_with_socket_root(
+fn new_spec_with_socket_root(
     key: eos_plugin::PluginServiceKey,
     command: Vec<String>,
     ppc_protocol_version: u32,

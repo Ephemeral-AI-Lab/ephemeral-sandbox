@@ -1,10 +1,9 @@
 //! Shared identity newtypes for the sandbox wire vocabulary.
 //!
-//! These wrap the daemon-supplied identity strings so the workspace crates
-//! (`eos-ephemeral-workspace`, `eos-isolated-workspace`) share one definition
-//! instead of redeclaring divergent local newtypes. Each is a transparent
-//! single-field tuple struct, so serde encodes it as the bare inner string and
-//! the wire shape is identical to a plain `String`.
+//! These wrap the daemon-supplied identity strings so the workspace runtime
+//! modules share one definition instead of redeclaring divergent local newtypes.
+//! Each is a transparent single-field tuple struct, so serde encodes it as the
+//! bare inner string and the wire shape is identical to a plain `String`.
 
 use serde::{Deserialize, Serialize};
 

@@ -35,7 +35,7 @@ path = "tests/ephemeral_workspace/mod.rs"
 
 [[test]]
 name = "workspace-runtime-isolated"
-path = "tests/eos-isolated-workspace/mod.rs"
+path = "tests/workspace-runtime-isolated/mod.rs"
 
 [[test]]
 name = "eos-layerstack"
@@ -47,7 +47,7 @@ path = "tests/eos-occ/mod.rs"
 
 [[test]]
 name = "workspace-runtime-command-session"
-path = "tests/eos-command-session/mod.rs"
+path = "tests/workspace-runtime-command-session/mod.rs"
 
 [[test]]
 name = "pressure"

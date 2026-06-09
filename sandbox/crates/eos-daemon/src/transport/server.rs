@@ -36,17 +36,12 @@ use eos_config::configs::{
 };
 use eos_protocol::{decode_value, encode, Envelope, ErrorKind, Request};
 
-use super::framing::{read_request_line, signal_shutdown};
+use super::framing::{read_request_line, signal_shutdown, MAX_REQUEST_BYTES};
 use super::tool_call_events::{caller_id_from_args, emit_tool_call_event};
 use crate::audit::events::should_emit_tool_call_event;
 use crate::dispatcher::{DispatchContext, OpTable};
 use crate::error::DaemonError;
 use crate::invocation_registry::InFlightRegistry;
-
-// The definitions live in `super::framing`; re-export so the crate root's
-// `eos_daemon::{MAX_REQUEST_BYTES, REQUEST_READ_TIMEOUT_S}` surface is unchanged
-// and `MAX_REQUEST_BYTES` stays in scope for `handle_connection`.
-pub use super::framing::{MAX_REQUEST_BYTES, REQUEST_READ_TIMEOUT_S};
 
 /// Where the daemon binds + writes its pid, plus the optional TCP listener.
 #[derive(Debug, Clone)]

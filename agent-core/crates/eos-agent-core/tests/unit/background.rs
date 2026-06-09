@@ -14,7 +14,7 @@ mod command_session_delivery {
     use std::time::Duration;
 
     use async_trait::async_trait;
-    use eos_engine::{EngineError, EngineStream, EventSource, StreamEvent};
+    use eos_engine::{EngineError, EngineStream, ProviderStreamSource, StreamEvent};
     use eos_llm_client::{ContentBlock, LlmRequest};
     use eos_sandbox_port::{DaemonOp, SandboxPortError, SandboxTransport};
     use eos_types::{AgentRegistry, JsonObject, RequestId, SandboxId};
@@ -24,7 +24,7 @@ mod command_session_delivery {
     use super::run_request;
     use crate::entry::root_task_id_for;
     use crate::runtime::support::{FakeGateway, FakeProvisioner};
-    use crate::runtime::EventSourceFactory;
+    use crate::runtime::ProviderStreamSourceFactory;
     use crate::AgentCoreRuntime;
     use crate::RuntimeConfig;
     use eos_testkit::{agent_def, text_turn, tool_use_turn, ScriptedSource};
@@ -87,7 +87,7 @@ mod command_session_delivery {
     }
 
     #[async_trait]
-    impl EventSource for DeliveryProbeSource {
+    impl ProviderStreamSource for DeliveryProbeSource {
         async fn stream(&self, request: &LlmRequest) -> Result<EngineStream, EngineError> {
             let seen = request.messages.iter().any(|message| {
                 message.content.iter().any(|block| {
@@ -153,15 +153,16 @@ mod command_session_delivery {
             "submit_advisor_feedback",
             json!({"verdict": "approve", "summary": "background completion is real; approve"}),
         );
-        let factory: EventSourceFactory = Arc::new(move |_request, agent_state| {
+        let factory: ProviderStreamSourceFactory = Arc::new(move |_request, agent_state| {
             if agent_state.agent_name == "advisor" {
-                Arc::new(ScriptedSource::new(vec![advisor_turn.clone()])) as Arc<dyn EventSource>
+                Arc::new(ScriptedSource::new(vec![advisor_turn.clone()]))
+                    as Arc<dyn ProviderStreamSource>
             } else {
                 Arc::new(DeliveryProbeSource {
                     started: started_factory.clone(),
                     asked_advisor: asked_factory.clone(),
                     saw_notification: saw_factory.clone(),
-                }) as Arc<dyn EventSource>
+                }) as Arc<dyn ProviderStreamSource>
             }
         });
 
@@ -176,7 +177,7 @@ mod command_session_delivery {
                 Arc::new(FakeProvisioner::default()),
             )))
             .agent_registry(Arc::new(registry))
-            .event_source_factory(factory)
+            .provider_stream_source_factory(factory)
             .runtime_config(RuntimeConfig::new(20))
             .build()
             .await

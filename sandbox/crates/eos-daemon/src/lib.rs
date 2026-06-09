@@ -5,7 +5,7 @@
 //!
 //! This is the primary tokio control-plane crate. It runs the
 //! newline-delimited compact-JSON protocol-v1 RPC server on an `AF_UNIX` socket
-//! AND a 127.0.0.1 TCP listener ([`server`]), routes ops through the
+//! AND a 127.0.0.1 TCP listener ([`DaemonServer`]), routes ops through the
 //! [`dispatcher`] op table, tracks in-flight invocations with a TTL reaper
 //! ([`invocation_registry`]), houses the audit RING BUFFER plus the impure emit
 //! bridges ([`audit`]), and orchestrates background execution.
@@ -45,5 +45,4 @@ pub use error::DaemonError;
 pub use invocation_registry::{InFlightRegistry, DEFAULT_REAPER_INTERVAL_S, DEFAULT_TTL_S};
 pub use runtime::{config, error, invocation_registry};
 pub(crate) use runtime::{request_args, response_timings};
-pub use server::{DaemonServer, ServerConfig};
-pub use transport::server;
+pub use transport::server::{DaemonServer, ServerConfig};

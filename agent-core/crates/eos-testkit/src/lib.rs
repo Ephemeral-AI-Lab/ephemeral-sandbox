@@ -1,7 +1,7 @@
-//! Shared agent-core test doubles (the `EventSource` / Layer-A layer).
+//! Shared agent-core test doubles (the `ProviderStreamSource` / Layer-A layer).
 //!
 //! The single home for the doubles per-crate mock tests substitute at the LLM
-//! and daemon-RPC edges: the scripted [`EventSource`](eos_engine::EventSource)
+//! and daemon-RPC edges: the scripted [`ProviderStreamSource`](eos_engine::ProviderStreamSource)
 //! ([`ScriptedSource`] — the only definition in the workspace, `TESTING_SPEC` AC3),
 //! the fake [`SandboxTransport`](eos_sandbox_port::SandboxTransport)
 //! ([`FakeTransport`]), agent-definition builders, the `run_until` stream

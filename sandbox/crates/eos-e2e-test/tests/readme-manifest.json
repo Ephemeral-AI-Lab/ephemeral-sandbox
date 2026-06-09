@@ -27,11 +27,11 @@
       "page": "ephemeral_workspace/index.html"
     },
     {
-      "name": "eos-isolated-workspace",
-      "displayName": "eos-isolated-workspace",
+      "name": "workspace-runtime-isolated",
+      "displayName": "workspace-runtime-isolated",
       "cargoTestName": "workspace-runtime-isolated",
-      "path": "eos-isolated-workspace/readme.json",
-      "page": "eos-isolated-workspace/index.html"
+      "path": "workspace-runtime-isolated/readme.json",
+      "page": "workspace-runtime-isolated/index.html"
     },
     {
       "name": "eos-layerstack",
@@ -48,11 +48,11 @@
       "page": "eos-occ/index.html"
     },
     {
-      "name": "eos-command-session",
-      "displayName": "eos-command-session",
+      "name": "workspace-runtime-command-session",
+      "displayName": "workspace-runtime-command-session",
       "cargoTestName": "workspace-runtime-command-session",
-      "path": "eos-command-session/readme.json",
-      "page": "eos-command-session/index.html"
+      "path": "workspace-runtime-command-session/readme.json",
+      "page": "workspace-runtime-command-session/index.html"
     },
     {
       "name": "pressure",

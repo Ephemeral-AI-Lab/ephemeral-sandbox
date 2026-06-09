@@ -3,18 +3,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use workspace_guard::{read_to_string, Workspace};
 
 #[test]
-fn public_surface_matches_staged_or_final_allowlist() {
+fn public_surface_matches_target_allowlist() {
     let workspace = Workspace::load();
-    let expected = if workspace.is_final_crate_map() {
-        final_public_surface()
-    } else {
-        legacy_public_surface()
-    };
     let actual = public_surface(&workspace);
 
     assert_eq!(
         actual,
-        expected,
+        final_public_surface(),
         "public_surface rule violated: lib.rs public exports drifted; update the guard only with the owning phase spec"
     );
 }
@@ -51,139 +46,6 @@ fn trim_entry(rest: &str) -> String {
         .to_owned()
 }
 
-fn legacy_public_surface() -> BTreeMap<String, BTreeSet<String>> {
-    surface_map(&[
-        (
-            "eos-agent-run",
-            &[
-                "use:active_agent_runs",
-                "use:agent_run_records",
-                "use:agent_run_service",
-                "use:eos_engine",
-                "use:eos_types",
-            ],
-        ),
-        (
-            "eos-db",
-            &[
-                "use:config",
-                "use:database",
-                "use:error",
-                "use:model_registry",
-            ],
-        ),
-        (
-            "eos-engine",
-            &[
-                "mod:agent_loop",
-                "mod:background",
-                "mod:query",
-                "mod:records",
-                "mod:tool_call",
-                "use:agent_loop",
-                "use:background",
-                "use:notifications",
-                "use:query",
-                "use:support",
-                "use:telemetry",
-            ],
-        ),
-        (
-            "eos-llm-client",
-            &[
-                "use:auth",
-                "use:client",
-                "use:clients",
-                "use:config",
-                "use:error",
-                "use:events",
-                "use:message",
-                "use:types",
-            ],
-        ),
-        (
-            "eos-runtime",
-            &[
-                "mod:audit",
-                "mod:config",
-                "mod:observability",
-                "use:audit",
-                "use:cancel",
-                "use:config",
-                "use:entry",
-                "use:eos_sandbox_port",
-                "use:request_input",
-                "use:runtime_services",
-            ],
-        ),
-        (
-            "eos-sandbox-port",
-            &[
-                "use:command_service",
-                "use:error",
-                "use:gateway",
-                "use:models",
-                "use:ops",
-                "use:provision",
-                "use:timeouts",
-                "use:tool_dispatch",
-                "use:transport",
-            ],
-        ),
-        (
-            "eos-testkit",
-            &[
-                "use:agents",
-                "use:engine",
-                "use:llm",
-                "use:meta",
-                "use:sandbox",
-            ],
-        ),
-        (
-            "eos-tool",
-            &[
-                "use:error",
-                "use:hooks",
-                "use:model",
-                "use:registry",
-                "use:tools",
-            ],
-        ),
-        (
-            "eos-types",
-            &[
-                "use:agent",
-                "use:config",
-                "use:contracts",
-                "use:error",
-                "use:frontmatter",
-                "use:ids",
-                "use:json",
-                "use:llm",
-                "use:models",
-                "use:state",
-                "use:stores",
-                "use:time",
-            ],
-        ),
-        (
-            "eos-workflow",
-            &[
-                "use:attempt",
-                "use:config",
-                "use:context",
-                "use:error",
-                "use:ids",
-                "use:iteration",
-                "use:service",
-                "use:starter",
-                "use:submission",
-            ],
-        ),
-    ])
-}
-
 fn final_public_surface() -> BTreeMap<String, BTreeSet<String>> {
     surface_map(&[
         (
@@ -199,11 +61,11 @@ fn final_public_surface() -> BTreeMap<String, BTreeSet<String>> {
         (
             "eos-agent-run",
             &[
+                "mod:records",
                 "use:active_agent_runs",
-                "use:agent_run_records",
                 "use:agent_run_service",
-                "use:eos_engine",
                 "use:eos_types",
+                "use:records",
             ],
         ),
         (
@@ -221,10 +83,10 @@ fn final_public_surface() -> BTreeMap<String, BTreeSet<String>> {
                 "mod:agent_loop",
                 "mod:background",
                 "mod:query",
-                "mod:records",
                 "mod:tool_call",
                 "use:agent_loop",
                 "use:background",
+                "use:eos_types",
                 "use:notifications",
                 "use:query",
                 "use:support",
@@ -281,7 +143,9 @@ fn final_public_surface() -> BTreeMap<String, BTreeSet<String>> {
         (
             "eos-types",
             &[
+                "mod:agent_loop",
                 "use:agent",
+                "use:agent_loop",
                 "use:config",
                 "use:contracts",
                 "use:error",

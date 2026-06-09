@@ -153,24 +153,20 @@ async fn delegated_workflow_drives_to_succeeded_via_real_runner() {
 
     // Root delegates then blocks (stays running); the workflow agents run their
     // scripts; everyone else gets an empty (first-turn-erroring) source.
-    let factory: EventSourceFactory =
+    let factory: ProviderStreamSourceFactory =
         Arc::new(
             move |_request, agent_state| match agent_state.agent_name.as_str() {
                 "root" => Arc::new(ScriptedSource::new_blocking(vec![delegate_turn.clone()]))
-                    as Arc<dyn EventSource>,
-                "planner" => {
-                    Arc::new(ScriptedSource::new(planner_turns.clone())) as Arc<dyn EventSource>
-                }
-                "coder" => {
-                    Arc::new(ScriptedSource::new(coder_turns.clone())) as Arc<dyn EventSource>
-                }
-                "reducer" => {
-                    Arc::new(ScriptedSource::new(reducer_turns.clone())) as Arc<dyn EventSource>
-                }
-                "advisor" => {
-                    Arc::new(ScriptedSource::new(advisor_turns.clone())) as Arc<dyn EventSource>
-                }
-                _ => Arc::new(ScriptedSource::new(Vec::new())) as Arc<dyn EventSource>,
+                    as Arc<dyn ProviderStreamSource>,
+                "planner" => Arc::new(ScriptedSource::new(planner_turns.clone()))
+                    as Arc<dyn ProviderStreamSource>,
+                "coder" => Arc::new(ScriptedSource::new(coder_turns.clone()))
+                    as Arc<dyn ProviderStreamSource>,
+                "reducer" => Arc::new(ScriptedSource::new(reducer_turns.clone()))
+                    as Arc<dyn ProviderStreamSource>,
+                "advisor" => Arc::new(ScriptedSource::new(advisor_turns.clone()))
+                    as Arc<dyn ProviderStreamSource>,
+                _ => Arc::new(ScriptedSource::new(Vec::new())) as Arc<dyn ProviderStreamSource>,
             },
         );
 
@@ -320,7 +316,7 @@ impl DelegateThenTerminalRootSource {
 }
 
 #[async_trait::async_trait]
-impl EventSource for DelegateThenTerminalRootSource {
+impl ProviderStreamSource for DelegateThenTerminalRootSource {
     async fn stream(&self, request: &LlmRequest) -> Result<EngineStream, EngineError> {
         if Self::saw_workflow_succeeded(request) {
             self.saw_succeeded
@@ -383,7 +379,7 @@ async fn root_delegates_waits_and_submits_terminal() {
 
     let saw_succeeded = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let saw_succeeded_factory = saw_succeeded.clone();
-    let factory: EventSourceFactory =
+    let factory: ProviderStreamSourceFactory =
         Arc::new(
             move |_request, agent_state| match agent_state.agent_name.as_str() {
                 "root" => Arc::new(DelegateThenTerminalRootSource {
@@ -391,16 +387,17 @@ async fn root_delegates_waits_and_submits_terminal() {
                     asked_advisor: std::sync::atomic::AtomicBool::new(false),
                     saw_succeeded: saw_succeeded_factory.clone(),
                     checks: std::sync::atomic::AtomicUsize::new(0),
-                }) as Arc<dyn EventSource>,
+                }) as Arc<dyn ProviderStreamSource>,
                 "planner" => Arc::new(eos_testkit::ScriptedSource::new(planner_turns.clone()))
-                    as Arc<dyn EventSource>,
+                    as Arc<dyn ProviderStreamSource>,
                 "coder" => Arc::new(eos_testkit::ScriptedSource::new(coder_turns.clone()))
-                    as Arc<dyn EventSource>,
+                    as Arc<dyn ProviderStreamSource>,
                 "reducer" => Arc::new(eos_testkit::ScriptedSource::new(reducer_turns.clone()))
-                    as Arc<dyn EventSource>,
+                    as Arc<dyn ProviderStreamSource>,
                 "advisor" => Arc::new(eos_testkit::ScriptedSource::new(advisor_turns.clone()))
-                    as Arc<dyn EventSource>,
-                _ => Arc::new(eos_testkit::ScriptedSource::new(Vec::new())) as Arc<dyn EventSource>,
+                    as Arc<dyn ProviderStreamSource>,
+                _ => Arc::new(eos_testkit::ScriptedSource::new(Vec::new()))
+                    as Arc<dyn ProviderStreamSource>,
             },
         );
 

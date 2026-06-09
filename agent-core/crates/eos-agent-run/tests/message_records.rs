@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::path::Path;
 use std::str::FromStr;
 
-use eos_engine::records::{
+use eos_agent_run::records::{
     AgentMessageRecords, AgentRunRecordKind, AgentRunRecordStart, MessageRecordError,
     NodeFinishStatus, WorkflowTaskRole,
 };
@@ -534,32 +534,10 @@ async fn advisor_child_created_records_parent_payload_and_path() {
 }
 
 #[tokio::test]
-async fn generic_agent_and_missing_parent_children_use_stable_layouts() {
+async fn missing_parent_children_use_stable_layouts() {
     let dir = tempfile::tempdir().unwrap();
     let records = AgentMessageRecords::new(dir.path());
     let request_id: RequestId = id("req-layout");
-
-    let standalone_id: AgentRunId = id("standalone-run");
-    let standalone = records
-        .start_agent_run(AgentRunRecordStart {
-            request_id: &request_id,
-            task_id: None,
-            agent_run_id: &standalone_id,
-            agent_name: "agent",
-            kind: &AgentRunRecordKind::Agent,
-            system_prompt: "standalone system",
-            initial_messages: &[],
-        })
-        .await
-        .unwrap();
-    assert_eq!(
-        slash(standalone.node_dir().strip_prefix(dir.path()).unwrap()),
-        "requests/req-layout/agent-run-standalone-run"
-    );
-    assert_eq!(
-        records.read_events(&standalone_id, 0).await.unwrap()[0].payload["type"],
-        json!("agent")
-    );
 
     let missing_parent: AgentRunId = id("missing-parent");
     let orphan_id: AgentRunId = id("orphan-subagent");
@@ -582,11 +560,6 @@ async fn generic_agent_and_missing_parent_children_use_stable_layouts() {
         "requests/req-layout/parents-missing/missing-parent/subagents/subagent-run-orphan-subagent"
     );
     assert!(records.read_events(&orphan_id, 0).await.unwrap().len() >= 2);
-    assert!(records
-        .read_events(&standalone_id, 2)
-        .await
-        .unwrap()
-        .is_empty());
 }
 
 #[tokio::test]

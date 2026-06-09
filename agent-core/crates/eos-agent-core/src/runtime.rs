@@ -32,11 +32,11 @@ pub(crate) use message_records::MessageRecordService;
 pub(crate) use sandbox::SandboxService;
 pub use state_reader::StateReader;
 
-// The per-agent event-source factory and per-run stream-event callback are owned
+// The per-agent provider-stream factory and per-run stream-event callback are owned
 // by `eos-engine` (next to the loop they drive, so the engine-driven advisor run
 // can resolve a source without a runtime back-edge) and re-exported here for the
 // composition root and the `run_request` signature.
-pub use eos_engine::{EventCallback, EventSourceFactory};
+pub use eos_engine::{EngineEventSink, ProviderStreamSourceFactory};
 
 /// The runtime composition graph. Request/workspace data is supplied through
 /// request-scoped inputs, not stored here.

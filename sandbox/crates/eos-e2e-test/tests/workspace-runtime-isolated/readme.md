@@ -1,8 +1,8 @@
-# eos-isolated-workspace
+# workspace-runtime-isolated
 
 ## Overview
 
-This module owns the unified live E2E contract for isolated-session lifecycle, private upperdir routing, SetNs namespace teardown, network isolation, and file-tool routing while a caller is isolated. It exercises daemon ops `api.isolated_workspace.enter`, `api.isolated_workspace.status`, `api.isolated_workspace.exit`, `api.v1.read_file`, `api.v1.write_file`, `api.v1.edit_file`, `api.v1.exec_command`, and `api.v1.command.cancel`. Module config lives at `crates/eos-e2e-test/tests/eos-isolated-workspace/config/default.test.yml`.
+This module owns the unified live E2E contract for isolated-session lifecycle, private upperdir routing, SetNs namespace teardown, network isolation, and file-tool routing while a caller is isolated. It exercises daemon ops `api.isolated_workspace.enter`, `api.isolated_workspace.status`, `api.isolated_workspace.exit`, `api.v1.read_file`, `api.v1.write_file`, `api.v1.edit_file`, `api.v1.exec_command`, and `api.v1.command.cancel`. Module config lives at `crates/eos-e2e-test/tests/workspace-runtime-isolated/config/default.test.yml`.
 
 ## Checklist
 

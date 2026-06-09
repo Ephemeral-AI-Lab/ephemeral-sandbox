@@ -171,32 +171,29 @@ impl OpTable {
     pub fn dispatch_with_context(&self, request: &Request, context: DispatchContext<'_>) -> Value {
         let dispatch_start = Instant::now();
         let boot_to_dispatch_s = daemon_uptime_s();
-        if request.op.trim().is_empty() {
-            let mut response =
-                error_envelope(ErrorKind::InvalidEnvelope, "op is required", json!({}));
-            attach_runtime_timings(
-                &mut response,
+        let read_request_s = context.read_request_s.unwrap_or(0.0);
+        let finalize = |response| {
+            finalize_response(
+                request,
+                response,
                 boot_to_dispatch_s,
-                dispatch_start.elapsed().as_secs_f64(),
-                context.read_request_s.unwrap_or(0.0),
-            );
-            emit_dispatch_audit(request, &response, dispatch_start.elapsed().as_secs_f64());
-            return response;
+                dispatch_start,
+                read_request_s,
+            )
+        };
+        if request.op.trim().is_empty() {
+            return finalize(error_envelope(
+                ErrorKind::InvalidEnvelope,
+                "op is required",
+                json!({}),
+            ));
         }
         if !request.args.is_object() {
-            let mut response = error_envelope(
+            return finalize(error_envelope(
                 ErrorKind::InvalidEnvelope,
                 "args must be an object",
                 json!({}),
-            );
-            attach_runtime_timings(
-                &mut response,
-                boot_to_dispatch_s,
-                dispatch_start.elapsed().as_secs_f64(),
-                context.read_request_s.unwrap_or(0.0),
-            );
-            emit_dispatch_audit(request, &response, dispatch_start.elapsed().as_secs_f64());
-            return response;
+            ));
         }
         let Some(handler) = self.handlers.get(&request.op) else {
             if let Some(response) = plugins::dispatch_registered_op(
@@ -205,46 +202,43 @@ impl OpTable {
                 &request.args,
                 context,
             ) {
-                let mut response = match response {
+                return finalize(match response {
                     Ok(response) => response,
                     Err(err) => error_envelope(err.wire_kind(), &err.to_string(), json!({})),
-                };
-                attach_runtime_timings(
-                    &mut response,
-                    boot_to_dispatch_s,
-                    dispatch_start.elapsed().as_secs_f64(),
-                    context.read_request_s.unwrap_or(0.0),
-                );
-                emit_dispatch_audit(request, &response, dispatch_start.elapsed().as_secs_f64());
-                return response;
+                });
             }
-            let mut response = error_envelope(
+            return finalize(error_envelope(
                 ErrorKind::UnknownOp,
                 &format!("unknown op: {}", request.op),
                 json!({"op": request.op}),
-            );
-            attach_runtime_timings(
-                &mut response,
-                boot_to_dispatch_s,
-                dispatch_start.elapsed().as_secs_f64(),
-                context.read_request_s.unwrap_or(0.0),
-            );
-            emit_dispatch_audit(request, &response, dispatch_start.elapsed().as_secs_f64());
-            return response;
+            ));
         };
-        let mut response = match handler(&request.args, context) {
+        finalize(match handler(&request.args, context) {
             Ok(response) => response,
             Err(err) => error_envelope(err.wire_kind(), &err.to_string(), json!({})),
-        };
-        attach_runtime_timings(
-            &mut response,
-            boot_to_dispatch_s,
-            dispatch_start.elapsed().as_secs_f64(),
-            context.read_request_s.unwrap_or(0.0),
-        );
-        emit_dispatch_audit(request, &response, dispatch_start.elapsed().as_secs_f64());
-        response
+        })
     }
+}
+
+/// Attach the dispatch runtime timings to `response` and emit the dispatch
+/// audit event, then return the finalized response. Computes the dispatch
+/// elapsed once and shares it between the timings and the audit record.
+fn finalize_response(
+    request: &Request,
+    mut response: Value,
+    boot_to_dispatch_s: f64,
+    dispatch_start: Instant,
+    read_request_s: f64,
+) -> Value {
+    let dispatch_s = dispatch_start.elapsed().as_secs_f64();
+    attach_runtime_timings(
+        &mut response,
+        boot_to_dispatch_s,
+        dispatch_s,
+        read_request_s,
+    );
+    emit_dispatch_audit(request, &response, dispatch_s);
+    response
 }
 
 /// Build the structured wire error envelope.

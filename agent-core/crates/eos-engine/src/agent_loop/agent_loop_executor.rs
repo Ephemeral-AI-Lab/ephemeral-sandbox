@@ -8,13 +8,13 @@ use eos_types::{AgentRunApi, AgentRunId, AgentState, JsonObject, ToolUseId};
 use futures::StreamExt;
 
 use super::{
-    AgentExecutionMetadataService, AgentLoopBackgroundDependencies, AgentLoopCancelSignal,
-    AgentLoopEventSource, AgentLoopHookDependencies, AgentLoopHooks, AgentLoopMessage,
-    AgentLoopOutcome, AgentLoopOutcomeKind, AgentLoopRunServices, AgentLoopState,
-    AgentLoopToolRegistryFactory, ExecutionMetadataBuildInput, StartAgentLoopRequest,
+    AgentLoopCancelSignal, AgentLoopHooks, AgentLoopMessage, AgentLoopOutcome,
+    AgentLoopOutcomeKind, AgentLoopProviderStream, AgentLoopRunServices, AgentLoopState,
+    AgentLoopToolRegistryFactory, BackgroundSessionInputs, ExecutionMetadataBuildInput,
+    StartAgentLoopRequest, ToolCallHookStores, ToolExecutionMetadataReader,
 };
 use crate::notifications::EngineNotificationQueue;
-use crate::query::{provider_messages::build_provider_messages, EventSource};
+use crate::query::{provider_messages::build_provider_messages, ProviderStreamSource};
 use crate::tool_call::{
     execute_tool_once, lifecycle_batch_decision, reject_terminal_batch, DispatchCall,
 };
@@ -22,14 +22,14 @@ use crate::{stamp_identity, EngineError, StreamEvent};
 
 /// Executes a full agent loop from request to terminal outcome.
 pub(crate) struct AgentLoopExecutor {
-    event_source: AgentLoopEventSource,
+    provider_stream_source: AgentLoopProviderStream,
     loop_hooks: Arc<dyn AgentLoopHooks>,
     tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-    metadata_service: Arc<dyn AgentExecutionMetadataService>,
+    metadata_service: Arc<dyn ToolExecutionMetadataReader>,
     cancel_signal: AgentLoopCancelSignal,
-    background_dependencies: Option<AgentLoopBackgroundDependencies>,
-    hook_dependencies: Option<AgentLoopHookDependencies>,
-    event_callback: Option<crate::query::EventCallback>,
+    background_dependencies: Option<BackgroundSessionInputs>,
+    hook_dependencies: Option<ToolCallHookStores>,
+    event_sink: Option<crate::query::EngineEventSink>,
     agent_run_api: Arc<dyn AgentRunApi>,
 }
 
@@ -41,25 +41,25 @@ impl std::fmt::Debug for AgentLoopExecutor {
 
 impl AgentLoopExecutor {
     pub(crate) fn new(
-        event_source: AgentLoopEventSource,
+        provider_stream_source: AgentLoopProviderStream,
         loop_hooks: Arc<dyn AgentLoopHooks>,
         tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-        metadata_service: Arc<dyn AgentExecutionMetadataService>,
+        metadata_service: Arc<dyn ToolExecutionMetadataReader>,
         cancel_signal: AgentLoopCancelSignal,
-        background_dependencies: Option<AgentLoopBackgroundDependencies>,
-        hook_dependencies: Option<AgentLoopHookDependencies>,
-        event_callback: Option<crate::query::EventCallback>,
+        background_dependencies: Option<BackgroundSessionInputs>,
+        hook_dependencies: Option<ToolCallHookStores>,
+        event_sink: Option<crate::query::EngineEventSink>,
         agent_run_api: Arc<dyn AgentRunApi>,
     ) -> Self {
         Self {
-            event_source,
+            provider_stream_source,
             loop_hooks,
             tool_registry_factory,
             metadata_service,
             cancel_signal,
             background_dependencies,
             hook_dependencies,
-            event_callback,
+            event_sink,
             agent_run_api,
         }
     }
@@ -84,7 +84,7 @@ impl AgentLoopExecutor {
                 };
             }
         };
-        let event_source = self.resolve_event_source(&request, &event_identity);
+        let provider_stream_source = self.resolve_provider_stream_source(&request, &event_identity);
         let run_services = self.build_run_services(&request.agent_run_id);
         let mut state = match AgentLoopState::from_request(
             request,
@@ -128,7 +128,7 @@ impl AgentLoopExecutor {
             self.loop_hooks.on_step(&state).await;
             self.drain_notifications(&mut state, &event_identity).await;
             let turn_result = match self
-                .execute_assistant_turn(&event_source, &event_identity, &mut state)
+                .execute_assistant_turn(&provider_stream_source, &event_identity, &mut state)
                 .await
             {
                 Ok(turn_result) => turn_result,
@@ -158,12 +158,12 @@ impl AgentLoopExecutor {
 
     async fn execute_assistant_turn(
         &self,
-        event_source: &Arc<dyn EventSource>,
+        provider_stream_source: &Arc<dyn ProviderStreamSource>,
         event_identity: &AgentState,
         state: &mut AgentLoopState,
     ) -> Result<AssistantTurnResult, EngineError> {
         let request = build_loop_provider_request(state);
-        let mut stream = event_source.stream(&request).await?;
+        let mut stream = provider_stream_source.stream(&request).await?;
         let mut final_message: Option<Message> = None;
         let mut final_usage: Option<UsageSnapshot> = None;
 
@@ -356,14 +356,14 @@ impl AgentLoopExecutor {
         AgentLoopRunServices::from_background(&background, notifier)
     }
 
-    fn resolve_event_source(
+    fn resolve_provider_stream_source(
         &self,
         request: &StartAgentLoopRequest,
         agent_state: &AgentState,
-    ) -> Arc<dyn EventSource> {
-        match &self.event_source {
-            AgentLoopEventSource::Static(source) => Arc::clone(source),
-            AgentLoopEventSource::Factory(factory) => factory(request, agent_state),
+    ) -> Arc<dyn ProviderStreamSource> {
+        match &self.provider_stream_source {
+            AgentLoopProviderStream::Static(source) => Arc::clone(source),
+            AgentLoopProviderStream::Factory(factory) => factory(request, agent_state),
         }
     }
 
@@ -378,8 +378,8 @@ impl AgentLoopExecutor {
     }
 
     fn emit_event(&self, event: &StreamEvent) {
-        if let Some(callback) = &self.event_callback {
-            callback(event);
+        if let Some(sink) = &self.event_sink {
+            sink(event);
         }
     }
 }

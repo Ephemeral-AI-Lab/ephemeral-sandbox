@@ -23,7 +23,7 @@ use crate::error::DaemonError;
 use super::commands;
 
 /// Outcome of tearing down one caller's workspace runs.
-pub struct CallerCancel {
+pub(crate) struct CallerCancel {
     /// Command sessions that were live at entry (now cancelled + discarded).
     pub cancelled_sessions: usize,
     /// Isolated-workspace teardown result: the exit response if the caller was
@@ -35,7 +35,10 @@ pub struct CallerCancel {
 /// Cancel every workspace run owned by `caller_id`: discard its command
 /// session(s), then exit its isolated workspace if open. The order matters —
 /// sessions are cancelled before the isolated namespace/lease teardown.
-pub fn cancel_workspace_runs_by_caller_id(caller_id: &str, grace_s: Option<f64>) -> CallerCancel {
+pub(crate) fn cancel_workspace_runs_by_caller_id(
+    caller_id: &str,
+    grace_s: Option<f64>,
+) -> CallerCancel {
     let cancelled_sessions = commands::cleanup_command_sessions_for_caller(caller_id, grace_s);
     let isolated = isolated::exit_isolated(caller_id, grace_s);
     CallerCancel {
@@ -60,7 +63,7 @@ fn cancel_all_workspace_runs(grace_s: Option<f64>) -> (usize, usize) {
     clippy::unnecessary_wraps,
     reason = "dispatcher handlers share a fallible ABI"
 )]
-pub fn op_cancel_workspace_runs_by_caller_id(
+pub(crate) fn op_cancel_workspace_runs_by_caller_id(
     args: &Value,
     _context: DispatchContext<'_>,
 ) -> Result<Value, DaemonError> {
@@ -83,7 +86,7 @@ pub fn op_cancel_workspace_runs_by_caller_id(
     clippy::unnecessary_wraps,
     reason = "dispatcher handlers share a fallible ABI"
 )]
-pub fn op_cancel_workspace_runs(
+pub(crate) fn op_cancel_workspace_runs(
     args: &Value,
     _context: DispatchContext<'_>,
 ) -> Result<Value, DaemonError> {

@@ -1,3 +1,7 @@
+// On non-Linux hosts this module is compiled only for scaffold unit tests; the
+// real PTY-backed manager that uses these internals is Linux-only.
+#![cfg_attr(not(target_os = "linux"), allow(dead_code))]
+
 #[cfg(target_os = "linux")]
 use std::path::{Path, PathBuf};
 #[cfg(target_os = "linux")]
@@ -29,22 +33,22 @@ use crate::command_session::CommandSessionError;
 /// cancelled command never reaches the OCC merge.
 #[cfg(target_os = "linux")]
 #[derive(Debug, Clone)]
-pub struct ReapedCommand {
-    pub status: String,
-    pub exit_code: i64,
-    pub runner_result: Option<Value>,
-    pub stdout: String,
-    pub elapsed_s: f64,
+pub(crate) struct ReapedCommand {
+    pub(crate) status: String,
+    pub(crate) exit_code: i64,
+    pub(crate) runner_result: Option<Value>,
+    pub(crate) stdout: String,
+    pub(crate) elapsed_s: f64,
     /// Why the substrate killed this session, if it did. `None` is a natural
     /// exit; `Some(_)` means a kill (cancel or timeout) and the owning run
     /// DISCARDS rather than publishes.
-    pub kill: Option<KillReason>,
+    pub(crate) kill: Option<KillReason>,
 }
 
 /// PTY/process substrate for one command session. It owns the child process,
 /// the transcript, and the cancel flag — but **no** workspace policy: the run
 /// that owns this session decides publish-vs-discard.
-pub struct CommandSession {
+pub(crate) struct CommandSession {
     id: String,
     caller_id: String,
     command: String,
@@ -70,32 +74,32 @@ pub struct CommandSession {
     timeout: Option<Duration>,
 }
 
-pub struct CommandSessionSpec {
-    pub id: String,
-    pub caller_id: String,
-    pub command: String,
-    pub timeout_seconds: Option<f64>,
+pub(crate) struct CommandSessionSpec {
+    pub(crate) id: String,
+    pub(crate) caller_id: String,
+    pub(crate) command: String,
+    pub(crate) timeout_seconds: Option<f64>,
 }
 
 #[cfg(target_os = "linux")]
-pub struct RunningCommandSessionParts {
-    pub process: CommandSessionProcess,
-    pub output_path: PathBuf,
-    pub final_path: PathBuf,
-    pub transcript_path: PathBuf,
-    pub output_drain_grace_ms: u64,
+pub(crate) struct RunningCommandSessionParts {
+    pub(crate) process: CommandSessionProcess,
+    pub(crate) output_path: PathBuf,
+    pub(crate) final_path: PathBuf,
+    pub(crate) transcript_path: PathBuf,
+    pub(crate) output_drain_grace_ms: u64,
 }
 
 impl CommandSession {
     #[must_use]
     #[cfg(any(not(target_os = "linux"), test))]
-    pub fn new(spec: CommandSessionSpec) -> Self {
+    pub(crate) fn new(spec: CommandSessionSpec) -> Self {
         Self::new_scaffold(spec)
     }
 
     #[cfg(target_os = "linux")]
     #[must_use]
-    pub fn new_running(spec: CommandSessionSpec, parts: RunningCommandSessionParts) -> Self {
+    pub(crate) fn new_running(spec: CommandSessionSpec, parts: RunningCommandSessionParts) -> Self {
         Self::new_with_process(spec, parts)
     }
 
@@ -145,22 +149,22 @@ impl CommandSession {
     }
 
     #[must_use]
-    pub fn id(&self) -> &str {
+    pub(crate) fn id(&self) -> &str {
         &self.id
     }
 
     #[must_use]
-    pub fn caller_id(&self) -> &str {
+    pub(crate) fn caller_id(&self) -> &str {
         &self.caller_id
     }
 
     #[must_use]
-    pub fn command(&self) -> &str {
+    pub(crate) fn command(&self) -> &str {
         &self.command
     }
 
     #[cfg(target_os = "linux")]
-    pub fn write_process_stdin(&self, chars: &str) -> Result<(), CommandSessionError> {
+    pub(crate) fn write_process_stdin(&self, chars: &str) -> Result<(), CommandSessionError> {
         self.process.write_stdin(chars.as_bytes())?;
         Ok(())
     }
@@ -169,7 +173,7 @@ impl CommandSession {
     /// teardown): record the reason and kill the process group. A cancel always
     /// wins over a later timeout mark.
     #[cfg(target_os = "linux")]
-    pub fn cancel_process(&self) {
+    pub(crate) fn cancel_process(&self) {
         *lock(&self.kill) = Some(KillReason::Cancelled);
         self.process.terminate();
     }
@@ -178,7 +182,7 @@ impl CommandSession {
     /// `TimedOut` only if no kill reason is set yet, so a prior user cancel keeps
     /// its `Cancelled` label; either way the process group is killed.
     #[cfg(target_os = "linux")]
-    pub fn time_out_process(&self) {
+    pub(crate) fn time_out_process(&self) {
         {
             let mut kill = lock(&self.kill);
             if kill.is_none() {
@@ -189,46 +193,39 @@ impl CommandSession {
     }
 
     #[must_use]
-    pub fn read_recent_output(&self, last_n_lines: usize) -> String {
-        #[cfg(target_os = "linux")]
-        {
-            read_transcript_tail(&self.transcript_path, last_n_lines)
-        }
-        #[cfg(not(target_os = "linux"))]
-        {
-            let _ = last_n_lines;
-            String::new()
-        }
+    #[cfg(target_os = "linux")]
+    pub(crate) fn read_recent_output(&self, last_n_lines: usize) -> String {
+        read_transcript_tail(&self.transcript_path, last_n_lines)
     }
 
     #[must_use]
     #[cfg(target_os = "linux")]
-    pub fn read_output_since(&self, start_offset: u64) -> String {
+    pub(crate) fn read_output_since(&self, start_offset: u64) -> String {
         read_transcript_since(&self.transcript_path, start_offset)
     }
 
     #[must_use]
     #[cfg(target_os = "linux")]
-    pub fn transcript_len(&self) -> u64 {
+    pub(crate) fn transcript_len(&self) -> u64 {
         transcript_len(&self.transcript_path)
     }
 
     #[cfg(test)]
     #[must_use]
-    pub const fn started_at(&self) -> Instant {
+    pub(crate) const fn started_at(&self) -> Instant {
         self.started_at
     }
 
     #[cfg(any(not(target_os = "linux"), test))]
     #[must_use]
-    pub fn is_expired(&self, now: Instant) -> bool {
+    pub(crate) fn is_expired(&self, now: Instant) -> bool {
         self.timeout
             .is_some_and(|timeout| now.duration_since(self.started_at) >= timeout)
     }
 
     #[cfg(target_os = "linux")]
     #[must_use]
-    pub fn is_past_deadline(&self, now: Instant, max_session_s: u64) -> bool {
+    pub(crate) fn is_past_deadline(&self, now: Instant, max_session_s: u64) -> bool {
         let timeout = self
             .timeout
             .unwrap_or_else(|| Duration::from_secs(max_session_s));
@@ -240,7 +237,7 @@ impl CommandSession {
     /// only reaps the substrate — it does not publish or discard; the owning run
     /// decides that from `ReapedCommand::kill`.
     #[cfg(target_os = "linux")]
-    pub fn reap(&self) -> Option<ReapedCommand> {
+    pub(crate) fn reap(&self) -> Option<ReapedCommand> {
         let mut reaped = lock(&self.reaped);
         if *reaped {
             return None;
@@ -273,7 +270,7 @@ impl CommandSession {
     /// convenience, so a write failure does not undo the already-decided
     /// publish/discard or fail the operation.
     #[cfg(target_os = "linux")]
-    pub fn persist_final(&self, response: &CommandResponse) {
+    pub(crate) fn persist_final(&self, response: &CommandResponse) {
         let _ = write_final_response(&self.final_path, response);
         self.remove_transcript_file();
     }
@@ -360,89 +357,5 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn session_exposes_identity_and_expiry() {
-        let session = CommandSession::new(CommandSessionSpec {
-            id: "cmd_1".to_owned(),
-            caller_id: "caller".to_owned(),
-            command: "echo ok".to_owned(),
-            timeout_seconds: Some(0.001),
-        });
-
-        assert_eq!(session.id(), "cmd_1");
-        assert_eq!(session.caller_id(), "caller");
-        assert_eq!(session.command(), "echo ok");
-        assert!(session.is_expired(session.started_at() + Duration::from_millis(2)));
-    }
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn reap_reads_transcript_and_persist_removes_it() -> Result<(), Box<dyn std::error::Error>> {
-        let root = std::env::temp_dir().join(format!(
-            "eos-workspace-runtime-reap-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)?
-                .as_nanos()
-        ));
-        std::fs::create_dir_all(&root)?;
-        let transcript_path = root.join("transcript.log");
-        let final_path = root.join("final.json");
-        std::fs::write(&transcript_path, b"captured transcript output")?;
-
-        let writer = std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/dev/null")?;
-        let session = CommandSession::new_running(
-            CommandSessionSpec {
-                id: "cmd_1".to_owned(),
-                caller_id: "caller".to_owned(),
-                command: "echo ok".to_owned(),
-                timeout_seconds: None,
-            },
-            RunningCommandSessionParts {
-                process: crate::command_session::process::CommandSessionProcess::inactive(writer),
-                output_path: root.join("runner-result.json"),
-                final_path: final_path.clone(),
-                transcript_path: transcript_path.clone(),
-                output_drain_grace_ms: 0,
-            },
-        );
-
-        let reaped = session.reap().expect("inactive process reaps");
-        assert_eq!(reaped.stdout, "captured transcript output");
-        assert!(reaped.kill.is_none());
-        // Reaping is idempotent.
-        assert!(session.reap().is_none());
-
-        let response = CommandResponse {
-            status: "ok".to_owned(),
-            exit_code: Some(0),
-            stdout: reaped.stdout.clone(),
-            stderr: String::new(),
-            command_session_id: Some("cmd_1".to_owned()),
-            workspace_mode: Some(eos_workspace_contract::WorkspaceMode::default()),
-            metadata: serde_json::Value::Null,
-        };
-        session.persist_final(&response);
-
-        assert!(final_path.exists());
-        let final_response: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(&final_path)?)?;
-        assert_eq!(
-            final_response
-                .get("output")
-                .and_then(|output| output.get("stdout"))
-                .and_then(serde_json::Value::as_str),
-            Some("captured transcript output")
-        );
-        assert!(!transcript_path.exists());
-
-        let _ = std::fs::remove_dir_all(root);
-        Ok(())
-    }
-}
+#[path = "../../tests/command_session/session_unit.rs"]
+mod tests;

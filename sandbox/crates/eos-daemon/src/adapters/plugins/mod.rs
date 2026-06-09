@@ -61,7 +61,7 @@ use state::{
     route_values, setup_failure_key, setup_failure_values, LoadedPluginRuntime,
 };
 
-pub fn op_ensure(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
+pub(crate) fn op_ensure(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
     ensure_plugin_family_allowed(args)?;
 
     let parsed = ParsedEnsure::from_args(args, &ppc_socket_root(args))?;
@@ -169,7 +169,7 @@ pub fn op_ensure(args: &Value, _context: DispatchContext<'_>) -> Result<Value, D
     }))
 }
 
-pub fn op_status(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
+pub(crate) fn op_status(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
     ensure_plugin_family_allowed(args)?;
     let probe_services = args
         .get("probe_services")
@@ -209,7 +209,7 @@ pub fn op_status(args: &Value, _context: DispatchContext<'_>) -> Result<Value, D
     }))
 }
 
-pub fn dispatch_registered_op(
+pub(crate) fn dispatch_registered_op(
     op: &str,
     invocation_id: &str,
     args: &Value,

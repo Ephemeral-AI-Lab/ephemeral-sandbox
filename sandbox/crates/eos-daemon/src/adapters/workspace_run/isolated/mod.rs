@@ -2,7 +2,7 @@
 //!
 //! This module is the first Rust lifecycle slice behind
 //! `api.isolated_workspace.*`: it owns the dispatch entry points for one
-//! daemon-local `eos-isolated-workspace` session. State construction, structured
+//! daemon-local isolated runtime session. State construction, structured
 //! error payloads, and namespace runtime details live in child modules so this
 //! file stays a routing surface.
 
@@ -46,7 +46,7 @@ const TEST_HARNESS_ENV: &str = "EOS_ISOLATED_WORKSPACE_TEST_HARNESS";
     clippy::unnecessary_wraps,
     reason = "dispatcher handlers share a fallible ABI"
 )]
-pub fn op_enter(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
+pub(crate) fn op_enter(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
     let caller_id = match require_arg(args, "caller_id") {
         Ok(caller_id) => caller_id,
         Err(error) => return Ok(error),
@@ -77,7 +77,7 @@ pub fn op_enter(args: &Value, _context: DispatchContext<'_>) -> Result<Value, Da
     }
 }
 
-pub fn op_exit(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
+pub(crate) fn op_exit(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
     let caller_id = match require_arg(args, "caller_id") {
         Ok(caller_id) => caller_id,
         Err(error) => return Ok(error),
@@ -97,7 +97,7 @@ pub fn op_exit(args: &Value, _context: DispatchContext<'_>) -> Result<Value, Dae
     clippy::unnecessary_wraps,
     reason = "dispatcher handlers share a fallible ABI"
 )]
-pub fn op_status(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
+pub(crate) fn op_status(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
     let caller_id = match require_arg(args, "caller_id") {
         Ok(caller_id) => caller_id,
         Err(error) => return Ok(error),
@@ -123,7 +123,10 @@ pub fn op_status(args: &Value, _context: DispatchContext<'_>) -> Result<Value, D
     clippy::unnecessary_wraps,
     reason = "dispatcher handlers share a fallible ABI"
 )]
-pub fn op_list_open(_args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
+pub(crate) fn op_list_open(
+    _args: &Value,
+    _context: DispatchContext<'_>,
+) -> Result<Value, DaemonError> {
     match with_state(|state| Ok(state.session.list_open_callers())) {
         Ok(open_caller_ids) => Ok(json!({"success": true, "open_caller_ids": open_caller_ids})),
         Err(IsolatedError::FeatureDisabled) => Ok(json!({"success": true, "open_caller_ids": []})),
@@ -137,7 +140,10 @@ pub fn op_list_open(_args: &Value, _context: DispatchContext<'_>) -> Result<Valu
     clippy::unnecessary_wraps,
     reason = "dispatcher handlers share a fallible ABI"
 )]
-pub fn op_test_reset(_args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
+pub(crate) fn op_test_reset(
+    _args: &Value,
+    _context: DispatchContext<'_>,
+) -> Result<Value, DaemonError> {
     if !env_true(TEST_HARNESS_ENV) {
         return Ok(error_json(
             "forbidden",
@@ -165,7 +171,7 @@ pub fn op_test_reset(_args: &Value, _context: DispatchContext<'_>) -> Result<Val
 }
 
 #[cfg(target_os = "linux")]
-pub fn command_handle_for_args(args: &Value) -> Option<CommandHandle> {
+pub(crate) fn command_handle_for_args(args: &Value) -> Option<CommandHandle> {
     let caller_id = args
         .get("caller_id")
         .and_then(Value::as_str)
@@ -187,7 +193,7 @@ pub fn command_handle_for_args(args: &Value) -> Option<CommandHandle> {
     Some(command_handle_from(&layer_stack_root, handle))
 }
 
-pub fn caller_has_active_handle(caller_id: &str) -> bool {
+pub(crate) fn caller_has_active_handle(caller_id: &str) -> bool {
     let caller_id = caller_id.trim();
     if caller_id.is_empty() {
         return false;
@@ -204,13 +210,13 @@ pub fn caller_has_active_handle(caller_id: &str) -> bool {
 /// isolated-teardown primitive shared by `op_exit` and the workspace-run cancel
 /// surface. Returns `Err(IsolatedError::NotOpen)` when the caller is not
 /// isolated (the cancel surface treats that as a no-op).
-pub fn exit_isolated(caller_id: &str, grace_s: Option<f64>) -> Result<Value, IsolatedError> {
+pub(crate) fn exit_isolated(caller_id: &str, grace_s: Option<f64>) -> Result<Value, IsolatedError> {
     with_state(|state| state.session.exit(&CallerId(caller_id.to_owned()), grace_s))
 }
 
 /// Exit every open isolated workspace and reap orphaned resources (the
 /// whole-sandbox cancel sweep). Returns the number of callers exited.
-pub fn exit_all_and_reap(grace_s: Option<f64>) -> usize {
+pub(crate) fn exit_all_and_reap(grace_s: Option<f64>) -> usize {
     let mut guard = lock_state_cell();
     let Some(state) = guard.as_mut() else {
         return 0;
@@ -223,7 +229,7 @@ pub fn exit_all_and_reap(grace_s: Option<f64>) -> usize {
     callers.len()
 }
 
-pub fn ttl_sweep() -> usize {
+pub(crate) fn ttl_sweep() -> usize {
     let mut guard = lock_state_cell();
     let Some(state) = guard.as_mut() else {
         return 0;
@@ -241,7 +247,7 @@ pub fn ttl_sweep() -> usize {
 }
 
 #[cfg(target_os = "linux")]
-pub fn record_tool_call(caller_id: &str, payload: Value) {
+pub(crate) fn record_tool_call(caller_id: &str, payload: Value) {
     let mut guard = lock_state_cell();
     if let Some(state) = guard.as_mut() {
         state

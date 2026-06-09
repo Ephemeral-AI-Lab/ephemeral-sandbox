@@ -1,5 +1,5 @@
-//! Scripted LLM doubles: an [`EventSource`] that replays queued turns, the
-//! [`EventSourceFactory`] builders that dispatch scripts per agent, and the
+//! Scripted LLM doubles: a [`ProviderStreamSource`] that replays queued turns, the
+//! [`ProviderStreamSourceFactory`] builders that dispatch scripts per agent, and the
 //! `tool_use_turn` / `text_turn` helpers that fabricate one model turn.
 //!
 //! This is the single definition of `ScriptedSource` in the workspace
@@ -10,12 +10,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use eos_engine::{
-    AssistantMessageComplete, EngineError, EngineStream, EventSource, EventSourceFactory,
-    StreamEvent,
+    AssistantMessageComplete, EngineError, EngineStream, ProviderStreamSource,
+    ProviderStreamSourceFactory, StreamEvent,
 };
 use eos_llm_client::{ContentBlock, LlmRequest, Message, MessageRole, UsageSnapshot};
 
-/// A scripted event source: each `stream()` call replays the next queued turn.
+/// A scripted provider stream source: each `stream()` call replays the next queued turn.
 /// When `block_when_empty` is set, an exhausted source blocks forever instead of
 /// returning an empty turn (keeps the agent "running" for park-and-inspect
 /// tests).
@@ -46,7 +46,7 @@ impl ScriptedSource {
 }
 
 #[async_trait]
-impl EventSource for ScriptedSource {
+impl ProviderStreamSource for ScriptedSource {
     async fn stream(&self, _request: &LlmRequest) -> Result<EngineStream, EngineError> {
         let mut turns = self.turns.lock().await;
         if turns.is_empty() {
@@ -64,21 +64,22 @@ impl EventSource for ScriptedSource {
 
 /// A factory that always returns the given scripted turns.
 #[must_use]
-pub fn factory_from(turns: Vec<Vec<StreamEvent>>) -> EventSourceFactory {
+pub fn factory_from(turns: Vec<Vec<StreamEvent>>) -> ProviderStreamSourceFactory {
     Arc::new(move |_request, _agent_state| {
-        Arc::new(ScriptedSource::new(turns.clone())) as Arc<dyn EventSource>
+        Arc::new(ScriptedSource::new(turns.clone())) as Arc<dyn ProviderStreamSource>
     })
 }
 
 /// A factory where the `root` agent plays `root_turns` then blocks (stays
 /// running), and every other agent gets an empty (first-turn-erroring) source.
 #[must_use]
-pub fn factory_root_blocks_after(root_turns: Vec<Vec<StreamEvent>>) -> EventSourceFactory {
+pub fn factory_root_blocks_after(root_turns: Vec<Vec<StreamEvent>>) -> ProviderStreamSourceFactory {
     Arc::new(move |_request, agent_state| {
         if agent_state.agent_name == "root" {
-            Arc::new(ScriptedSource::new_blocking(root_turns.clone())) as Arc<dyn EventSource>
+            Arc::new(ScriptedSource::new_blocking(root_turns.clone()))
+                as Arc<dyn ProviderStreamSource>
         } else {
-            Arc::new(ScriptedSource::new(Vec::new())) as Arc<dyn EventSource>
+            Arc::new(ScriptedSource::new(Vec::new())) as Arc<dyn ProviderStreamSource>
         }
     })
 }
@@ -88,7 +89,7 @@ pub fn factory_root_blocks_after(root_turns: Vec<Vec<StreamEvent>>) -> EventSour
 #[must_use]
 pub fn factory_by_agent(
     by_agent: Vec<(&'static str, Vec<Vec<StreamEvent>>)>,
-) -> EventSourceFactory {
+) -> ProviderStreamSourceFactory {
     let scripts: HashMap<String, Vec<Vec<StreamEvent>>> = by_agent
         .into_iter()
         .map(|(name, turns)| (name.to_owned(), turns))
@@ -98,7 +99,7 @@ pub fn factory_by_agent(
             .get(&agent_state.agent_name)
             .cloned()
             .unwrap_or_default();
-        Arc::new(ScriptedSource::new(turns)) as Arc<dyn EventSource>
+        Arc::new(ScriptedSource::new(turns)) as Arc<dyn ProviderStreamSource>
     })
 }
 

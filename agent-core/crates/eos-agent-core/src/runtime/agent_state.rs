@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use eos_tool::{IsolatedWorkspaceModeControl, ToolError};
 use eos_types::{
     AgentRunError, AgentRunId, AttemptId, IterationId, RequestId, SandboxId, SpawnAgentRequest,
-    TaskAgentRunKind, TaskId, WorkflowId,
+    TaskId, WorkflowId,
 };
 
 #[derive(Clone, Debug, Default)]
@@ -87,27 +87,14 @@ impl IsolatedWorkspaceModeControl for RuntimeAgentStateService {
 
 impl From<&SpawnAgentRequest> for RuntimeAgentState {
     fn from(request: &SpawnAgentRequest) -> Self {
-        let (record_workflow_id, record_iteration_id, record_attempt_id) =
-            match &request.task_agent_run_kind {
-                TaskAgentRunKind::WorkflowTask {
-                    workflow_id,
-                    iteration_id,
-                    attempt_id,
-                    ..
-                } => (
-                    Some(workflow_id.clone()),
-                    Some(iteration_id.clone()),
-                    Some(attempt_id.clone()),
-                ),
-                _ => (None, None, None),
-            };
+        let workflow = request.target.workflow();
         Self {
             agent_name: request.agent_name.as_str().to_owned(),
-            request_id: request.request_id.clone(),
-            task_id: request.task_id.clone(),
-            workflow_id: request.workflow_id.clone().or(record_workflow_id),
-            iteration_id: record_iteration_id,
-            attempt_id: request.attempt_id.clone().or(record_attempt_id),
+            request_id: Some(request.target.request_id().clone()),
+            task_id: request.target.current_task_id().cloned(),
+            workflow_id: workflow.map(|coords| coords.workflow_id.clone()),
+            iteration_id: workflow.map(|coords| coords.iteration_id.clone()),
+            attempt_id: workflow.map(|coords| coords.attempt_id.clone()),
             sandbox_id: request.sandbox_id.clone(),
             workspace_root: request.workspace_root.clone(),
             is_isolated_workspace_mode: request.is_isolated_workspace_mode,

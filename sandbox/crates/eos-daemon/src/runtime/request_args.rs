@@ -18,6 +18,16 @@ pub(crate) fn require_string(args: &Value, key: &str) -> Result<String, DaemonEr
     Ok(value)
 }
 
+/// Read `key` as a trimmed owned string, defaulting to empty when absent or
+/// non-string. Unlike [`require_string`], an empty result is not an error.
+pub(crate) fn trimmed_string(args: &Value, key: &str) -> String {
+    args.get(key)
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_owned()
+}
+
 pub(crate) fn require_raw_string(args: &Value, key: &str) -> Result<String, DaemonError> {
     let Some(value) = args.get(key) else {
         return Err(DaemonError::InvalidEnvelope(format!("{key} is required")));
