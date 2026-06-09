@@ -23,9 +23,9 @@
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
   <div><b>38</b><span>modules</span></div>
-  <div><b>226</b><span>items</span></div>
+  <div><b>227</b><span>items</span></div>
   <div><b>186</b><span>fields</span></div>
-  <div><b>112</b><span>methods</span></div>
+  <div><b>114</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -56,7 +56,7 @@
       <span>0 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-RecordWriterRuntime-5" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RecordWriterRuntime pub(crate) pub(crate) struct RecordWriterRuntime crates/eos-agent-core/src/runtime/records.rs record_writer Option &lt; AgentRecordWriter &gt; ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-RecordWriterRuntime-5" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct RecordWriterRuntime pub(crate) pub(crate) struct RecordWriterRuntime crates/eos-agent-core/src/runtime/records.rs run_record_writer Option &lt; AgentRunRecordWriter &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>RecordWriterRuntime</h3>
@@ -65,7 +65,7 @@
   <code class="signature">pub(crate) struct <a class="symbol-link" href="eos-agent-core--src-runtime-records-rs.html#item-struct-RecordWriterRuntime-5">RecordWriterRuntime</a></code>
   <p class="docstring">Optional file-backed agent-node record writer.</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: Default</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>record_writer</td><td><code>Option &lt; AgentRecordWriter &gt;</code></td></tr></tbody></table>
+  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>run_record_writer</td><td><code>Option &lt; AgentRunRecordWriter &gt;</code></td></tr></tbody></table>
 
   <p class="source">crates/eos-agent-core/src/runtime/records.rs:5</p>
 </article></div>
@@ -78,12 +78,12 @@
   </div>
   <pre class="file-source"><code><span class="rs-comment">//! Runtime-owned agent record writer handle.</span>
 
-<span class="rs-kw">use</span> eos_engine::records::<span class="rs-type">AgentRecordWriter</span>;
+<span class="rs-kw">use</span> eos_engine::records::<span class="rs-type">AgentRunRecordWriter</span>;
 
 <span class="rs-comment">/// Optional file-backed agent-node record writer.</span>
 #[derive(<span class="rs-type">Clone</span>, <span class="rs-type">Debug</span>, <span class="rs-type">Default</span>)]
 <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-agent-core--src-runtime-records-rs.html#item-struct-RecordWriterRuntime-5">RecordWriterRuntime</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) record_writer: <span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRecordWriter</span>&gt;,
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) run_record_writer: <span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunRecordWriter</span>&gt;,
 }
 </code></pre>
 </section>

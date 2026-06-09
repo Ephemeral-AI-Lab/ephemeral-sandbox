@@ -348,7 +348,7 @@
         .fetch_all(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        rows.into_iter()
+        rows.iter()
             .map(row_to_running_request_agent_run)
             .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt;&gt;()
             .map_err(<span class="rs-type">Into</span>::into)
@@ -484,18 +484,18 @@
 </details>
 
   <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:408</p>
-</article><article id="item-fn-row-to-running-request-agent-run-422" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_running_request_agent_run private fn row_to_running_request_agent_run (row : RunningRequestAgentRunRow ,) -&gt; Result &lt; RunningRequestAgentRun , DbError &gt; crates/eos-db/src/repositories/task_agent_run.rs  ">
+</article><article id="item-fn-row-to-running-request-agent-run-422" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_running_request_agent_run private fn row_to_running_request_agent_run (row : &amp; RunningRequestAgentRunRow ,) -&gt; Result &lt; RunningRequestAgentRun , DbError &gt; crates/eos-db/src/repositories/task_agent_run.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>row_to_running_request_agent_run</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-row-to-running-request-agent-run-422">row_to_running_request_agent_run</a> (row : <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-RunningRequestAgentRunRow-400">RunningRequestAgentRunRow</a> ,) -&gt; Result &lt; RunningRequestAgentRun , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-row-to-running-request-agent-run-422">row_to_running_request_agent_run</a> (row : &amp; <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-RunningRequestAgentRunRow-400">RunningRequestAgentRunRow</a> ,) -&gt; Result &lt; RunningRequestAgentRun , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-row-to-running-request-agent-run-422">row_to_running_request_agent_run</a>(
-    row: <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-RunningRequestAgentRunRow-400">RunningRequestAgentRunRow</a>,
+    row: &amp;<a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-RunningRequestAgentRunRow-400">RunningRequestAgentRunRow</a>,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RunningRequestAgentRun</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
     <span class="rs-type">Ok</span>(<span class="rs-type">RunningRequestAgentRun</span> {
         request_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-122">parse_id</a>(&quot;running_request_agent_runs.request_id&quot;, &amp;row.request_id)?,
@@ -1219,7 +1219,7 @@
         .fetch_all(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        rows.into_iter()
+        rows.iter()
             .map(row_to_running_request_agent_run)
             .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt;&gt;()
             .map_err(<span class="rs-type">Into</span>::into)
@@ -1348,7 +1348,7 @@
 }
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-row-to-running-request-agent-run-422">row_to_running_request_agent_run</a>(
-    row: <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-RunningRequestAgentRunRow-400">RunningRequestAgentRunRow</a>,
+    row: &amp;<a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-RunningRequestAgentRunRow-400">RunningRequestAgentRunRow</a>,
 ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">RunningRequestAgentRun</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
     <span class="rs-type">Ok</span>(<span class="rs-type">RunningRequestAgentRun</span> {
         request_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-122">parse_id</a>(&quot;running_request_agent_runs.request_id&quot;, &amp;row.request_id)?,

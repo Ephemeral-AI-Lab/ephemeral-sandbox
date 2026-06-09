@@ -23,9 +23,9 @@
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
   <div><b>38</b><span>modules</span></div>
-  <div><b>226</b><span>items</span></div>
+  <div><b>227</b><span>items</span></div>
   <div><b>186</b><span>fields</span></div>
-  <div><b>112</b><span>methods</span></div>
+  <div><b>114</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -366,12 +366,12 @@
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-plugins-catalog-tool-specs-rs.html#item-fn-props-and-required-309">props_and_required</a>(schema: &amp;<span class="rs-type">RootSchema</span>) -&gt; (<span class="rs-type">BTreeSet</span>&lt;<span class="rs-type">String</span>&gt;, <span class="rs-type">BTreeSet</span>&lt;<span class="rs-type">String</span>&gt;) {
         <span class="rs-kw">let</span> value = serde_json::to_value(schema).expect(&quot;schema serializes to json&quot;);
         <span class="rs-kw">let</span> props = value
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;properties&quot;)
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;properties&quot;)
             .and_then(serde_json::<span class="rs-type">Value</span>::as_object)
             .map(|map| map.keys().cloned().collect())
             .unwrap_or_default();
         <span class="rs-kw">let</span> required = value
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;required&quot;)
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;required&quot;)
             .and_then(serde_json::<span class="rs-type">Value</span>::as_array)
             .map(|arr| {
                 arr.iter()
@@ -546,7 +546,7 @@
         <span class="rs-kw">let</span> line = &amp;hover[&quot;properties&quot;][&quot;line&quot;];
         assert_eq!(line[&quot;<span class="rs-kw">type</span>&quot;], serde_json::json!(&quot;integer&quot;));
         assert!(
-            line.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;minimum&quot;).is_some(),
+            line.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;minimum&quot;).is_some(),
             &quot;u32 emits a non-negative minimum&quot;
         );
 
@@ -894,12 +894,12 @@
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-plugins-catalog-tool-specs-rs.html#item-fn-props-and-required-309">props_and_required</a>(schema: &amp;<span class="rs-type">RootSchema</span>) -&gt; (<span class="rs-type">BTreeSet</span>&lt;<span class="rs-type">String</span>&gt;, <span class="rs-type">BTreeSet</span>&lt;<span class="rs-type">String</span>&gt;) {
         <span class="rs-kw">let</span> value = serde_json::to_value(schema).expect(&quot;schema serializes to json&quot;);
         <span class="rs-kw">let</span> props = value
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;properties&quot;)
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;properties&quot;)
             .and_then(serde_json::<span class="rs-type">Value</span>::as_object)
             .map(|map| map.keys().cloned().collect())
             .unwrap_or_default();
         <span class="rs-kw">let</span> required = value
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;required&quot;)
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;required&quot;)
             .and_then(serde_json::<span class="rs-type">Value</span>::as_array)
             .map(|arr| {
                 arr.iter()
@@ -1029,7 +1029,7 @@
         <span class="rs-kw">let</span> line = &amp;hover[&quot;properties&quot;][&quot;line&quot;];
         assert_eq!(line[&quot;<span class="rs-kw">type</span>&quot;], serde_json::json!(&quot;integer&quot;));
         assert!(
-            line.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;minimum&quot;).is_some(),
+            line.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;minimum&quot;).is_some(),
             &quot;u32 emits a non-negative minimum&quot;
         );
 

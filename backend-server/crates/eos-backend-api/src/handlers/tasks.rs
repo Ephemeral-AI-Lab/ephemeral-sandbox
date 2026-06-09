@@ -22,7 +22,10 @@ pub async fn request_tasks(
 ) -> Result<Json<Vec<TaskRun>>, ApiError> {
     let request_id = parse_id(&request_id, "request")?;
     Ok(Json(
-        state.agent_core.list_user_request_tasks(&request_id).await?,
+        state
+            .agent_core
+            .list_user_request_tasks(&request_id)
+            .await?,
     ))
 }
 

@@ -91,7 +91,9 @@ pub async fn list(
     for summary in page.items {
         let meta = state.run_meta.get(&summary.request_id).await?;
         let meta = match meta {
-            Some(meta) => Some(reconcile(&state, &summary.request_id, meta, Some(summary.status)).await?),
+            Some(meta) => {
+                Some(reconcile(&state, &summary.request_id, meta, Some(summary.status)).await?)
+            }
             None => None,
         };
         items.push(run_record_from_summary(summary, meta));

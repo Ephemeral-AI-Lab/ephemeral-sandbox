@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eos-agent-run · src/cancellation.rs</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+</head>
+<body>
+  <header>
+    <a class="central-link" href="/" title="Return to all class inventories">&larr; All inventories</a>
+    <div class="header-row">
+      <div>
+        <p class="eyebrow">Generated Rust source inventory · file-owned OOP map</p>
+        <h1>eos-agent-run File Inventory</h1>
+      </div>
+      <div class="refresh-control">
+        <button id="refresh-inventory" type="button" title="Regenerate this inventory from the local Rust sources" data-refresh-command="cd /Users/yifanxu/machine_learning/LoVC/EphemeralOS/agent-core &amp;&amp; cargo run --manifest-path scripts/class-inventory/Cargo.toml">Refresh</button>
+        <span id="refresh-status" role="status"></span>
+      </div>
+    </div>
+  </header>
+  <a class="back-link" href="../index.html">agent-core</a>
+<section class="summary">
+  <div><b>7</b><span>modules</span></div>
+  <div><b>62</b><span>items</span></div>
+  <div><b>26</b><span>fields</span></div>
+  <div><b>43</b><span>methods</span></div>
+</section>
+<section class="toolbar">
+  <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
+  <select id="kind-filter">
+    <option value="">All items</option>
+    <option value="type-model">Type model</option>
+    <option value="struct">Structs</option>
+    <option value="enum">Enums</option>
+    <option value="trait">Traits</option>
+    <option value="impl">Impls</option>
+    <option value="fn">Functions</option>
+    <option value="type">Aliases</option>
+  </select>
+</section>
+<main class="crate-layout">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>3/0</small></a></li><li><a class="file-link active" href="eos-agent-run--src-cancellation-rs.html"><span>cancellation.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-completion-rs.html"><span>completion.rs</span><small>0/8</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-persistence-rs.html"><span>persistence.rs</span><small>0/7</small></a></li><li><a class="file-link" href="eos-agent-run--src-service-rs.html"><span>service.rs</span><small>8/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-spawn-rs.html"><span>spawn.rs</span><small>0/6</small></a></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="cancellation crates/eos-agent-run/src/cancellation.rs cancel_agent_run cancelled_task_payload">
+  <div class="module-head">
+    <div>
+      <h2>src/cancellation.rs</h2>
+      <p class="path">module <code>cancellation</code></p>
+    </div>
+    <div class="module-stats">
+      <span>file owns</span>
+      <span>0 types</span>
+      <span>0 impls</span>
+      <span>2 fns</span>
+      <span>0 methods</span>
+    </div>
+  </div>
+  <div class="items"><div class="group-label">Standalone Functions</div><article id="item-fn-cancel-agent-run-10" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn cancel_agent_run pub(crate) pub(crate) async fn cancel_agent_run (service : &amp; AgentRunService , agent_run_id : &amp; AgentRunId , reason : &amp; str ,) -&gt; Result &lt; () , AgentRunError &gt; crates/eos-agent-run/src/cancellation.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>cancel_agent_run</h3>
+    <span class="visibility">pub(crate)</span>
+  </div>
+  <code class="signature">pub(crate) async fn <a class="symbol-link" href="eos-agent-run--src-cancellation-rs.html#item-fn-cancel-agent-run-10">cancel_agent_run</a> (service : &amp; <a class="symbol-link" href="eos-agent-run--src-service-rs.html#item-struct-AgentRunService-51">AgentRunService</a> , agent_run_id : &amp; AgentRunId , reason : &amp; str ,) -&gt; Result &lt; () , AgentRunError &gt;</code>
+  <div class="tags"><span>async</span></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-cancellation-rs.html#item-fn-cancel-agent-run-10">cancel_agent_run</a>(
+    service: &amp;<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-AgentRunService-51">AgentRunService</a>,
+    agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+    reason: &amp;str,
+) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
+    <span class="rs-kw">let</span> completion = service.active_agent_runs.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-take-52">take</a>(agent_run_id).<span class="rs-kw">await</span>;
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(completion) = &amp;completion {
+        debug_assert_eq!(completion.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-agent-run-id-95">agent_run_id</a>(), agent_run_id);
+        completion.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-cancel-99">cancel</a>(reason);
+    }
+
+    <span class="rs-kw">let</span> finish = <a class="symbol-link rs-fn" href="eos-agent-run--src-persistence-rs.html#item-fn-finish-cancelled-agent-run-43">finish_cancelled_agent_run</a>(&amp;*service.agent_run_store, agent_run_id, reason).<span class="rs-kw">await</span>;
+    <span class="rs-kw">let</span> payload = <a class="symbol-link rs-fn" href="eos-agent-run--src-cancellation-rs.html#item-fn-cancelled-task-payload-64">cancelled_task_payload</a>(reason);
+    <span class="rs-kw">let</span> finish_lineage = <a class="symbol-link rs-fn" href="eos-agent-run--src-persistence-rs.html#item-fn-finish-task-agent-run-56">finish_task_agent_run</a>(
+        &amp;*service.task_agent_run_store,
+        agent_run_id,
+        <span class="rs-type">TaskStatus</span>::<span class="rs-type">Cancelled</span>,
+        <span class="rs-type">Some</span>(&amp;payload),
+        0,
+        <span class="rs-type">Some</span>(reason),
+    )
+    .<span class="rs-kw">await</span>;
+    <span class="rs-kw">let</span> finalization_error = finish.and(finish_lineage).err();
+    <span class="rs-kw">let</span> outcome = <span class="rs-kw">match</span> &amp;finalization_error {
+        <span class="rs-type">Some</span>(err) =&gt; <span class="rs-type">AgentRunOutcome</span> {
+            agent_run_id: agent_run_id.clone(),
+            status: <span class="rs-type">AgentRunStatus</span>::<span class="rs-type">Failed</span>,
+            submission_payload: <span class="rs-type">None</span>,
+            message_history: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(),
+            token_count: <span class="rs-type">None</span>,
+            error: <span class="rs-type">Some</span>(err.to_string()),
+        },
+        <span class="rs-type">None</span> =&gt; <span class="rs-type">AgentRunOutcome</span> {
+            agent_run_id: agent_run_id.clone(),
+            status: <span class="rs-type">AgentRunStatus</span>::<span class="rs-type">Cancelled</span>,
+            submission_payload: <span class="rs-type">None</span>,
+            message_history: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(),
+            token_count: <span class="rs-type">None</span>,
+            error: <span class="rs-type">Some</span>(reason.to_owned()),
+        },
+    };
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(completion) = completion {
+        completion.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-publish-103">publish</a>(outcome);
+    }
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(runtime_state) = &amp;service.runtime_state {
+        runtime_state.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-remove-runtime-state-28">remove_runtime_state</a>(agent_run_id);
+    }
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(err) = finalization_error {
+        <span class="rs-type">Err</span>(err)
+    } <span class="rs-kw">else</span> {
+        <span class="rs-type">Ok</span>(())
+    }
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-agent-run/src/cancellation.rs:10</p>
+</article><article id="item-fn-cancelled-task-payload-64" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn cancelled_task_payload private fn cancelled_task_payload (reason : &amp; str) -&gt; JsonObject crates/eos-agent-run/src/cancellation.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>cancelled_task_payload</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-agent-run--src-cancellation-rs.html#item-fn-cancelled-task-payload-64">cancelled_task_payload</a> (reason : &amp; str) -&gt; JsonObject</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-cancellation-rs.html#item-fn-cancelled-task-payload-64">cancelled_task_payload</a>(reason: &amp;str) -&gt; <span class="rs-type">JsonObject</span> {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
+    payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(&quot;fail_reason&quot;.to_owned(), serde_json::json!(&quot;cancelled&quot;));
+    payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(&quot;reason&quot;.to_owned(), serde_json::json!(reason));
+    payload
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-agent-run/src/cancellation.rs:64</p>
+</article></div>
+</section></div>
+</main>
+<section class="file-source-section">
+  <div class="source-head">
+    <h2>Source File</h2>
+    <p class="path">crates/eos-agent-run/src/cancellation.rs</p>
+  </div>
+  <pre class="file-source"><code><span class="rs-comment">//! Agent-run cancellation orchestration.</span>
+
+<span class="rs-kw">use</span> eos_types::{
+    <span class="rs-type">AgentRunError</span>, <span class="rs-type">AgentRunId</span>, <span class="rs-type">AgentRunOutcome</span>, <span class="rs-type">AgentRunStatus</span>, <span class="rs-type">JsonObject</span>, <span class="rs-type">TaskStatus</span>,
+};
+
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::persistence::{finish_cancelled_agent_run, finish_task_agent_run};
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::service::<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-AgentRunService-51">AgentRunService</a>;
+
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-cancellation-rs.html#item-fn-cancel-agent-run-10">cancel_agent_run</a>(
+    service: &amp;<a class="symbol-link rs-type" href="eos-agent-run--src-service-rs.html#item-struct-AgentRunService-51">AgentRunService</a>,
+    agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+    reason: &amp;str,
+) -&gt; <span class="rs-type">Result</span>&lt;(), <span class="rs-type">AgentRunError</span>&gt; {
+    <span class="rs-kw">let</span> completion = service.active_agent_runs.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-take-52">take</a>(agent_run_id).<span class="rs-kw">await</span>;
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(completion) = &amp;completion {
+        debug_assert_eq!(completion.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-agent-run-id-95">agent_run_id</a>(), agent_run_id);
+        completion.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-cancel-99">cancel</a>(reason);
+    }
+
+    <span class="rs-kw">let</span> finish = <a class="symbol-link rs-fn" href="eos-agent-run--src-persistence-rs.html#item-fn-finish-cancelled-agent-run-43">finish_cancelled_agent_run</a>(&amp;*service.agent_run_store, agent_run_id, reason).<span class="rs-kw">await</span>;
+    <span class="rs-kw">let</span> payload = <a class="symbol-link rs-fn" href="eos-agent-run--src-cancellation-rs.html#item-fn-cancelled-task-payload-64">cancelled_task_payload</a>(reason);
+    <span class="rs-kw">let</span> finish_lineage = <a class="symbol-link rs-fn" href="eos-agent-run--src-persistence-rs.html#item-fn-finish-task-agent-run-56">finish_task_agent_run</a>(
+        &amp;*service.task_agent_run_store,
+        agent_run_id,
+        <span class="rs-type">TaskStatus</span>::<span class="rs-type">Cancelled</span>,
+        <span class="rs-type">Some</span>(&amp;payload),
+        0,
+        <span class="rs-type">Some</span>(reason),
+    )
+    .<span class="rs-kw">await</span>;
+    <span class="rs-kw">let</span> finalization_error = finish.and(finish_lineage).err();
+    <span class="rs-kw">let</span> outcome = <span class="rs-kw">match</span> &amp;finalization_error {
+        <span class="rs-type">Some</span>(err) =&gt; <span class="rs-type">AgentRunOutcome</span> {
+            agent_run_id: agent_run_id.clone(),
+            status: <span class="rs-type">AgentRunStatus</span>::<span class="rs-type">Failed</span>,
+            submission_payload: <span class="rs-type">None</span>,
+            message_history: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(),
+            token_count: <span class="rs-type">None</span>,
+            error: <span class="rs-type">Some</span>(err.to_string()),
+        },
+        <span class="rs-type">None</span> =&gt; <span class="rs-type">AgentRunOutcome</span> {
+            agent_run_id: agent_run_id.clone(),
+            status: <span class="rs-type">AgentRunStatus</span>::<span class="rs-type">Cancelled</span>,
+            submission_payload: <span class="rs-type">None</span>,
+            message_history: <span class="rs-type">Vec</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>(),
+            token_count: <span class="rs-type">None</span>,
+            error: <span class="rs-type">Some</span>(reason.to_owned()),
+        },
+    };
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(completion) = completion {
+        completion.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-publish-103">publish</a>(outcome);
+    }
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(runtime_state) = &amp;service.runtime_state {
+        runtime_state.<a class="symbol-link rs-fn" href="eos-agent-run--src-service-rs.html#method-remove-runtime-state-28">remove_runtime_state</a>(agent_run_id);
+    }
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(err) = finalization_error {
+        <span class="rs-type">Err</span>(err)
+    } <span class="rs-kw">else</span> {
+        <span class="rs-type">Ok</span>(())
+    }
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-cancellation-rs.html#item-fn-cancelled-task-payload-64">cancelled_task_payload</a>(reason: &amp;str) -&gt; <span class="rs-type">JsonObject</span> {
+    <span class="rs-kw">let</span> <span class="rs-kw">mut</span> payload = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-agent-run.html#method-new-30">new</a>();
+    payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(&quot;fail_reason&quot;.to_owned(), serde_json::json!(&quot;cancelled&quot;));
+    payload.<a class="symbol-link rs-fn" href="eos-agent-run.html#method-insert-36">insert</a>(&quot;reason&quot;.to_owned(), serde_json::json!(reason));
+    payload
+}
+</code></pre>
+</section>
+  <script src="../assets/inventory-data.js"></script>
+  <script src="../assets/inventory.js"></script>
+</body>
+</html>

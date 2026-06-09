@@ -291,7 +291,7 @@ impl TaskAgentRunStore for SqlTaskAgentRunStore {
         .fetch_all(&self.pool)
         .await
         .map_err(DbError::from)?;
-        rows.into_iter()
+        rows.iter()
             .map(row_to_running_request_agent_run)
             .collect::<Result<Vec<_>, DbError>>()
             .map_err(Into::into)
@@ -420,7 +420,7 @@ fn created_from_index(index: &AgentRunRecordIndex) -> CreatedTaskAgentRun {
 }
 
 fn row_to_running_request_agent_run(
-    row: RunningRequestAgentRunRow,
+    row: &RunningRequestAgentRunRow,
 ) -> Result<RunningRequestAgentRun, DbError> {
     Ok(RunningRequestAgentRun {
         request_id: parse_id("running_request_agent_runs.request_id", &row.request_id)?,

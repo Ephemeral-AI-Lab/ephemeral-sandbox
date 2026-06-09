@@ -13,12 +13,11 @@ use axum::http::{Request, StatusCode};
 use serde_json::json;
 use tower::ServiceExt;
 
-use eos_backend_runtime::CancelOutcome;
 use eos_backend_store::BackendStore;
 use eos_backend_types::{BackendRunStatus, EventRecord, RunMeta, EVENT_STREAM_GAP};
 use eos_types::{RequestId, UtcDateTime};
 
-use support::{fake_reads, router, test_store, FakeRunControl, FakeSandboxRegistry};
+use support::{fake_agent_core_state, router, test_store, FakeSandboxRegistry};
 
 async fn seed_run(store: &BackendStore, id: &RequestId) {
     store
@@ -56,9 +55,8 @@ async fn seed_events(store: &BackendStore, id: &RequestId, count: i64) {
 fn app(store: &BackendStore) -> axum::Router {
     router(
         store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     )
 }
 

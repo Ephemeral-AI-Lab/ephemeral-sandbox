@@ -12,16 +12,16 @@ use axum::http::{Request, StatusCode};
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
-use eos_engine::records::AgentRunRecordWriter as AgentMessageRecords;
-use eos_backend_runtime::{CancelOutcome, DeleteRejection, SandboxManagerError};
+use eos_backend_runtime::{DeleteRejection, SandboxManagerError};
 use eos_backend_store::BackendStore;
 use eos_backend_types::{BackendRunStatus, EventRecord, RunMeta, SandboxState};
+use eos_engine::records::AgentRunRecordWriter as AgentMessageRecords;
 use eos_types::RequestStatus;
 use eos_types::{AgentRunId, RequestId, SandboxId, TaskId, UtcDateTime};
 
 use support::{
-    fake_reads, make_agent_run, make_sandbox_view, make_task, router, router_with_message_records,
-    test_store, FakeRunControl, FakeSandboxRegistry,
+    fake_agent_core_state, make_agent_run, make_sandbox_view, make_task, router,
+    router_with_message_records, test_store, FakeSandboxRegistry,
 };
 
 /// Send a request through the router and return `(status, body bytes)`.
@@ -116,12 +116,10 @@ fn seed_agent_message_record(
 #[tokio::test]
 async fn post_create_returns_202_with_request_id() {
     let (store, _dir) = test_store().await;
-    let runs = Arc::new(FakeRunControl::new(CancelOutcome::Requested));
     let app = router(
         &store,
-        runs.clone(),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
 
     let (status, body) = send(
@@ -147,9 +145,8 @@ async fn post_rejects_unsupported_sandbox_override() {
     let (store, _dir) = test_store().await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
 
     // `image` is a v1-deferred override; `deny_unknown_fields` rejects it.
@@ -170,9 +167,8 @@ async fn post_accepts_sandbox_id_override() {
     let (store, _dir) = test_store().await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
 
     let (status, _) = send(
@@ -194,12 +190,15 @@ async fn cancel_requested_returns_202() {
     seed_run(&store, &id, BackendRunStatus::Running).await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
 
-    let (status, _) = send(&app, delete(&format!("/api/agent-core/requests/{}", id.as_str()))).await;
+    let (status, _) = send(
+        &app,
+        delete(&format!("/api/agent-core/requests/{}", id.as_str())),
+    )
+    .await;
     assert_eq!(status, StatusCode::ACCEPTED);
 }
 
@@ -208,9 +207,8 @@ async fn cancel_unknown_is_404() {
     let (store, _dir) = test_store().await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
     let (status, _) = send(&app, delete("/api/agent-core/requests/does-not-exist")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -223,11 +221,14 @@ async fn cancel_already_finished_is_409() {
     seed_run(&store, &id, BackendRunStatus::Done).await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::NotFound)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
-    let (status, _) = send(&app, delete(&format!("/api/agent-core/requests/{}", id.as_str()))).await;
+    let (status, _) = send(
+        &app,
+        delete(&format!("/api/agent-core/requests/{}", id.as_str())),
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT);
 }
 
@@ -240,9 +241,8 @@ async fn list_returns_page_of_run_records() {
     seed_run(&store, &RequestId::new_v4(), BackendRunStatus::Done).await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
 
     let (status, body) = send(&app, get("/api/agent-core/requests?limit=10")).await;
@@ -260,12 +260,15 @@ async fn detail_joins_and_persists_terminal_outcome() {
     seed_run(&store, &id, BackendRunStatus::Running).await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(Some(RequestStatus::Done), vec![], None),
+        fake_agent_core_state(Some(RequestStatus::Done), vec![], None),
     );
 
-    let (status, body) = send(&app, get(&format!("/api/agent-core/requests/{}", id.as_str()))).await;
+    let (status, body) = send(
+        &app,
+        get(&format!("/api/agent-core/requests/{}", id.as_str())),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json_of(&body)["status"], json!("done"));
 
@@ -283,12 +286,15 @@ async fn detail_failed_outcome_is_persisted() {
     seed_run(&store, &id, BackendRunStatus::Running).await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(Some(RequestStatus::Failed), vec![], None),
+        fake_agent_core_state(Some(RequestStatus::Failed), vec![], None),
     );
 
-    let (status, body) = send(&app, get(&format!("/api/agent-core/requests/{}", id.as_str()))).await;
+    let (status, body) = send(
+        &app,
+        get(&format!("/api/agent-core/requests/{}", id.as_str())),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json_of(&body)["status"], json!("failed"));
 
@@ -307,12 +313,15 @@ async fn detail_cancelled_is_not_clobbered_by_agent_terminal() {
     seed_run(&store, &id, BackendRunStatus::Cancelled).await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(Some(RequestStatus::Done), vec![], None),
+        fake_agent_core_state(Some(RequestStatus::Done), vec![], None),
     );
 
-    let (status, body) = send(&app, get(&format!("/api/agent-core/requests/{}", id.as_str()))).await;
+    let (status, body) = send(
+        &app,
+        get(&format!("/api/agent-core/requests/{}", id.as_str())),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json_of(&body)["status"], json!("cancelled"));
     assert_eq!(
@@ -332,9 +341,8 @@ async fn detail_unknown_is_404() {
     let (store, _dir) = test_store().await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
     let (status, _) = send(&app, get("/api/agent-core/requests/missing")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -360,9 +368,8 @@ async fn events_route_replays_persisted_milestones() {
     }
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
 
     // Full replay, in sequence order.
@@ -412,9 +419,8 @@ async fn agent_run_messages_route_returns_raw_jsonl_with_next_offset() {
         .len();
     let app = router_with_message_records(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
         AgentMessageRecords::new(message_records_dir.path()),
     );
 
@@ -465,9 +471,8 @@ async fn agent_run_events_route_replays_node_local_events() {
     seed_agent_message_record(message_records_dir.path(), &agent_run_id);
     let app = router_with_message_records(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
         AgentMessageRecords::new(message_records_dir.path()),
     );
 
@@ -496,15 +501,17 @@ async fn agent_run_sse_replays_from_last_event_id() {
     seed_agent_message_record(message_records_dir.path(), &agent_run_id);
     let app = router_with_message_records(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
         AgentMessageRecords::new(message_records_dir.path()),
     );
 
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/api/agent-core/agent-runs/{}/stream", agent_run_id.as_str()))
+        .uri(format!(
+            "/api/agent-core/agent-runs/{}/stream",
+            agent_run_id.as_str()
+        ))
         .header("last-event-id", "2")
         .body(Body::empty())
         .expect("request");
@@ -534,12 +541,11 @@ async fn sandbox_list_is_sanitized() {
     let sandbox_id: SandboxId = "sbx-1".parse().expect("id");
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![make_sandbox_view(
             &sandbox_id,
             SandboxState::Ready,
         )])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
 
     let (status, body) = send(&app, get("/api/sandboxes")).await;
@@ -561,12 +567,11 @@ async fn sandbox_detail_returns_sanitized_view() {
     let sandbox_id: SandboxId = "sbx-1".parse().expect("id");
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![make_sandbox_view(
             &sandbox_id,
             SandboxState::Ready,
         )])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
 
     let (status, body) = send(&app, get("/api/sandboxes/sbx-1")).await;
@@ -586,9 +591,8 @@ async fn sandbox_detail_unknown_is_404() {
     let (store, _dir) = test_store().await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
     let (status, _) = send(&app, get("/api/sandboxes/sbx-x")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -607,9 +611,8 @@ async fn sandbox_delete_conflict_when_active() {
     );
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(registry),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
     let (status, _) = send(&app, delete("/api/sandboxes/sbx-1")).await;
     assert_eq!(status, StatusCode::CONFLICT);
@@ -621,12 +624,11 @@ async fn sandbox_delete_ok_is_204() {
     let sandbox_id: SandboxId = "sbx-1".parse().expect("id");
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![make_sandbox_view(
             &sandbox_id,
             SandboxState::Ready,
         )])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
     let (status, _) = send(&app, delete("/api/sandboxes/sbx-1")).await;
     assert_eq!(status, StatusCode::NO_CONTENT);
@@ -643,9 +645,8 @@ async fn internal_error_is_not_leaked() {
     );
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(registry),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
     let (status, body) = send(&app, delete("/api/sandboxes/sbx-1")).await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
@@ -663,9 +664,8 @@ async fn stats_routes_serve_on_empty_store() {
     let (store, _dir) = test_store().await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
     for uri in [
         "/api/stats/performance",
@@ -688,13 +688,15 @@ async fn request_tasks_returns_tree() {
     let task = make_task(&TaskId::new_v4(), &request_id);
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![task], None),
+        fake_agent_core_state(None, vec![task], None),
     );
     let (status, body) = send(
         &app,
-        get(&format!("/api/agent-core/requests/{}/tasks", request_id.as_str())),
+        get(&format!(
+            "/api/agent-core/requests/{}/tasks",
+            request_id.as_str()
+        )),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -709,11 +711,14 @@ async fn task_detail_joins_run() {
     let run = make_agent_run(&task_id, vec![]);
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![task], Some(run)),
+        fake_agent_core_state(None, vec![task], Some(run)),
     );
-    let (status, body) = send(&app, get(&format!("/api/agent-core/tasks/{}", task_id.as_str()))).await;
+    let (status, body) = send(
+        &app,
+        get(&format!("/api/agent-core/tasks/{}", task_id.as_str())),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     let body = json_of(&body);
     assert_eq!(body["task"]["id"], json!(task_id.as_str()));
@@ -725,9 +730,8 @@ async fn task_detail_unknown_is_404() {
     let (store, _dir) = test_store().await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
     let (status, _) = send(&app, get("/api/agent-core/tasks/missing")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -741,13 +745,15 @@ async fn transcript_returns_messages() {
     let run = make_agent_run(&task_id, vec![]);
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![task], Some(run)),
+        fake_agent_core_state(None, vec![task], Some(run)),
     );
     let (status, body) = send(
         &app,
-        get(&format!("/api/agent-core/tasks/{}/transcript", task_id.as_str())),
+        get(&format!(
+            "/api/agent-core/tasks/{}/transcript",
+            task_id.as_str()
+        )),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -770,15 +776,17 @@ async fn transcript_prefers_agent_run_messages_jsonl() {
     run.id = agent_run_id;
     let app = router_with_message_records(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![task], Some(run)),
+        fake_agent_core_state(None, vec![task], Some(run)),
         AgentMessageRecords::new(message_records_dir.path()),
     );
 
     let (status, body) = send(
         &app,
-        get(&format!("/api/agent-core/tasks/{}/transcript", task_id.as_str())),
+        get(&format!(
+            "/api/agent-core/tasks/{}/transcript",
+            task_id.as_str()
+        )),
     )
     .await;
 
@@ -797,9 +805,8 @@ async fn legacy_equals_style_path_is_404() {
     let (store, _dir) = test_store().await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
     // Assemble the `=` from a fragment so this negative assertion does not itself
     // trip the AC4 legacy-path source grep (the path must not exist).
@@ -813,9 +820,8 @@ async fn openapi_pins_paths_and_schemas() {
     let (store, _dir) = test_store().await;
     let app = router(
         &store,
-        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
         Arc::new(FakeSandboxRegistry::new(vec![])),
-        fake_reads(None, vec![], None),
+        fake_agent_core_state(None, vec![], None),
     );
     let (status, body) = send(&app, get("/openapi.json")).await;
     assert_eq!(status, StatusCode::OK);

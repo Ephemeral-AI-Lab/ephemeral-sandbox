@@ -133,7 +133,10 @@ pub fn build_router(state: AppState) -> Router {
             "/api/agent-core/requests/{request_id}/tasks",
             get(handlers::tasks::request_tasks),
         )
-        .route("/api/agent-core/tasks/{task_id}", get(handlers::tasks::detail))
+        .route(
+            "/api/agent-core/tasks/{task_id}",
+            get(handlers::tasks::detail),
+        )
         .route(
             "/api/agent-core/tasks/{task_id}/transcript",
             get(handlers::tasks::transcript),

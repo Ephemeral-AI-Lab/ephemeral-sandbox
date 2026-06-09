@@ -23,9 +23,9 @@
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
   <div><b>38</b><span>modules</span></div>
-  <div><b>226</b><span>items</span></div>
+  <div><b>227</b><span>items</span></div>
   <div><b>186</b><span>fields</span></div>
-  <div><b>112</b><span>methods</span></div>
+  <div><b>114</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -91,24 +91,24 @@
         }
     }
 </code></pre>
-</details></td></tr><tr id="method-get-54"><td>method</td><td>get</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a> (&amp; self , request_id : &amp; RequestId) -&gt; Option &lt; Arc &lt; dyn AgentCoreCancellationApi &gt; &gt;</code><p class="docstring">The cancellation API for a live request, if one is running.</p><details class="function-source">
+</details></td></tr><tr id="method-get-54"><td>method</td><td>get</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a> (&amp; self , request_id : &amp; RequestId) -&gt; Option &lt; Arc &lt; dyn AgentCoreCancellationApi &gt; &gt;</code><p class="docstring">The cancellation API for a live request, if one is running.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The cancellation API for a live request, if one is running.</span>
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentCoreCancellationApi</span>&gt;&gt; {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentCoreCancellationApi</span>&gt;&gt; {
         <span class="rs-self">self</span>.inner
             .lock()
             .expect(&quot;cancel registry lock&quot;)
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(request_id)
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(request_id)
             .cloned()
     }
 </code></pre>
-</details></td></tr><tr id="method-remove-63"><td>method</td><td>remove</td><td><code>fn <a class="symbol-link" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-48">remove</a> (&amp; self , request_id : &amp; RequestId)</code><details class="function-source">
+</details></td></tr><tr id="method-remove-63"><td>method</td><td>remove</td><td><code>fn <a class="symbol-link" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-49">remove</a> (&amp; self , request_id : &amp; RequestId)</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-48">remove</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-49">remove</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) {
         <span class="rs-self">self</span>.inner
             .lock()
             .expect(&quot;cancel registry lock&quot;)
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-48">remove</a>(request_id);
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-49">remove</a>(request_id);
     }
 </code></pre>
 </details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-agent-core--src-runtime-cancel-registry-rs.html#item-struct-RequestCancelRegistry-16">RequestCancelRegistry</a></code></summary><table><tbody><tr id="method-fmt-23"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-agent-core.html#method-fmt-46">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
@@ -135,7 +135,7 @@
   <h4>Fields</h4><table><tbody><tr><td>private</td><td>registry</td><td><code><a class="symbol-link" href="eos-agent-core--src-runtime-cancel-registry-rs.html#item-struct-RequestCancelRegistry-16">RequestCancelRegistry</a></code></td></tr><tr><td>private</td><td>request_id</td><td><code>RequestId</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl Drop for <a class="symbol-link" href="eos-agent-core--src-runtime-cancel-registry-rs.html#item-struct-RequestCancelGuard-71">RequestCancelGuard</a></code></summary><table><tbody><tr id="method-drop-78"><td>method</td><td>drop</td><td><code>fn <a class="symbol-link" href="eos-agent-core--src-agents-loader-rs.html#method-drop-245">drop</a> (&amp; mut self)</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-agents-loader-rs.html#method-drop-245">drop</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
-        <span class="rs-self">self</span>.registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-48">remove</a>(&amp;<span class="rs-self">self</span>.request_id);
+        <span class="rs-self">self</span>.registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-49">remove</a>(&amp;<span class="rs-self">self</span>.request_id);
     }
 </code></pre>
 </details></td></tr></tbody></table></details></div>
@@ -203,19 +203,19 @@
     }
 
     <span class="rs-comment">/// The cancellation API for a live request, if one is running.</span>
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentCoreCancellationApi</span>&gt;&gt; {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) -&gt; <span class="rs-type">Option</span>&lt;<span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentCoreCancellationApi</span>&gt;&gt; {
         <span class="rs-self">self</span>.inner
             .lock()
             .expect(&quot;cancel registry lock&quot;)
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(request_id)
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(request_id)
             .cloned()
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-48">remove</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-49">remove</a>(&amp;<span class="rs-self">self</span>, request_id: &amp;<span class="rs-type">RequestId</span>) {
         <span class="rs-self">self</span>.inner
             .lock()
             .expect(&quot;cancel registry lock&quot;)
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-48">remove</a>(request_id);
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-49">remove</a>(request_id);
     }
 }
 
@@ -227,7 +227,7 @@
 
 <span class="rs-kw">impl</span> <span class="rs-type">Drop</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-agent-core--src-runtime-cancel-registry-rs.html#item-struct-RequestCancelGuard-71">RequestCancelGuard</a> {
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-agents-loader-rs.html#method-drop-245">drop</a>(&amp;<span class="rs-kw">mut</span> <span class="rs-self">self</span>) {
-        <span class="rs-self">self</span>.registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-48">remove</a>(&amp;<span class="rs-self">self</span>.request_id);
+        <span class="rs-self">self</span>.registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-remove-49">remove</a>(&amp;<span class="rs-self">self</span>.request_id);
     }
 }
 </code></pre>

@@ -20,9 +20,9 @@ use eos_agent_core_server::{
 use eos_agent_run::AgentRunService;
 use eos_backend_api::{AppState, SandboxRegistry};
 use eos_backend_audit::StatsReader;
-use eos_backend_runtime::{CancelOutcome, EventBus, SandboxManagerError};
+use eos_backend_runtime::{EventBus, SandboxManagerError};
 use eos_backend_store::{BackendStore, RunMetaRepo};
-use eos_backend_types::{BackendRunStatus, CreateUserRequest, SandboxState, SandboxView};
+use eos_backend_types::{BackendRunStatus, SandboxState, SandboxView};
 use eos_engine::records::AgentRunRecordWriter as AgentMessageRecords;
 use eos_sandbox_port::{
     DaemonOp, RequestProvisioner, RequestSandboxBinding, SandboxGateway, SandboxPortError,
@@ -37,8 +37,8 @@ use eos_types::{
     PageResult, ParentAgentRunAnchor, ParentedAgentRunKind, ParentedRun, Request, RequestId,
     RequestListFilter, RequestStatus, RunningRequestAgentRun, SandboxId, Sealed,
     StartAgentLoopRequest, StartedAgentLoop, Task, TaskAgentRunKind, TaskExecutionIndex, TaskId,
-    TaskRole, TaskRun, TaskStatus, ToolUseId, UtcDateTime, Workflow, WorkflowCoordinates, WorkflowId,
-    WorkflowNodeId, WorkflowStatus,
+    TaskRole, TaskRun, TaskStatus, ToolUseId, UtcDateTime, Workflow, WorkflowCoordinates,
+    WorkflowId, WorkflowNodeId, WorkflowStatus,
 };
 
 /// A temp-backed [`BackendStore`]; keep the [`TempDir`] alive for the test's life.
@@ -53,15 +53,13 @@ pub async fn test_store() -> (BackendStore, TempDir) {
 /// Build a router over real store state and the supplied fakes.
 pub fn router(
     store: &BackendStore,
-    runs: Arc<FakeRunControl>,
     sandboxes: Arc<dyn SandboxRegistry>,
-    reads: AgentCoreReads,
+    agent_core_state: AgentCoreTestState,
 ) -> Router {
     router_with_message_records(
         store,
-        runs,
         sandboxes,
-        reads,
+        agent_core_state,
         AgentMessageRecords::new(std::env::temp_dir().join(format!(
             "eos_backend_api_message_records_{}",
             std::process::id()
@@ -72,27 +70,26 @@ pub fn router(
 /// Build a router using an explicit message-record service.
 pub fn router_with_message_records(
     store: &BackendStore,
-    _runs: Arc<FakeRunControl>,
     sandboxes: Arc<dyn SandboxRegistry>,
-    reads: AgentCoreReads,
+    agent_core_state: AgentCoreTestState,
     records: AgentMessageRecords,
 ) -> Router {
     let event_bus = Arc::new(EventBus::new(store.event_log().clone()));
     let stats = StatsReader::new(store.obs_events().clone(), store.audit_cursors().clone());
     let request_store = Arc::new(FakeRequestStore::new(
-        reads.request_status,
+        agent_core_state.request_status,
         store.run_meta().clone(),
     ));
     let task_store = Arc::new(FakeTaskStore {
-        tasks: Mutex::new(reads.tasks.clone()),
+        tasks: Mutex::new(agent_core_state.tasks.clone()),
     });
     let agent_run_store = Arc::new(FakeAgentRunStore {
-        run: Mutex::new(reads.run.clone()),
+        run: Mutex::new(agent_core_state.run.clone()),
         created: Mutex::new(HashMap::new()),
     });
     let task_agent_run_store = Arc::new(FakeTaskAgentRunStore {
-        tasks: Mutex::new(reads.tasks),
-        run: Mutex::new(reads.run),
+        tasks: Mutex::new(agent_core_state.tasks),
+        run: Mutex::new(agent_core_state.run),
         indexes: Mutex::new(HashMap::new()),
     });
     let workflow_stores = Arc::new(FakeWorkflowStores);
@@ -133,19 +130,19 @@ pub fn router_with_message_records(
 
 /// Agent-core fake read state.
 #[derive(Debug, Clone)]
-pub struct AgentCoreReads {
+pub struct AgentCoreTestState {
     request_status: Option<RequestStatus>,
     tasks: Vec<Task>,
     run: Option<AgentRun>,
 }
 
-/// Agent-core reads backed by configurable fakes.
-pub fn fake_reads(
+/// Agent-core state backed by configurable fakes.
+pub fn fake_agent_core_state(
     request_status: Option<RequestStatus>,
     tasks: Vec<Task>,
     run: Option<AgentRun>,
-) -> AgentCoreReads {
-    AgentCoreReads {
+) -> AgentCoreTestState {
+    AgentCoreTestState {
         request_status,
         tasks,
         run,
@@ -215,27 +212,6 @@ pub fn make_sandbox_view(id: &SandboxId, state: SandboxState) -> SandboxView {
         created_at: now,
         last_used_at: now,
         destroy_on_finish: true,
-    }
-}
-
-// --- runtime-capability fakes ---------------------------------------------
-
-/// Compatibility fake retained for tests that still pass a run-control object to
-/// the support router.
-#[derive(Debug)]
-pub struct FakeRunControl {
-    pub launched: Mutex<Vec<CreateUserRequest>>,
-    pub cancel_outcome: CancelOutcome,
-    pub launch_id: RequestId,
-}
-
-impl FakeRunControl {
-    pub fn new(cancel_outcome: CancelOutcome) -> Self {
-        Self {
-            launched: Mutex::new(Vec::new()),
-            cancel_outcome,
-            launch_id: RequestId::new_v4(),
-        }
     }
 }
 
@@ -508,7 +484,10 @@ impl eos_types::TaskStore for FakeTaskStore {
     }
 
     async fn get(&self, id: &TaskId) -> Result<Option<Task>, CoreError> {
-        Ok(lock(&self.tasks).iter().find(|task| &task.id == id).cloned())
+        Ok(lock(&self.tasks)
+            .iter()
+            .find(|task| &task.id == id)
+            .cloned())
     }
 
     async fn set_task_status_if_current(
@@ -589,10 +568,12 @@ impl eos_types::AgentRunStore for FakeAgentRunStore {
     }
 
     async fn get(&self, agent_run_id: &AgentRunId) -> Result<Option<AgentRun>, CoreError> {
-        Ok(lock(&self.created)
-            .get(agent_run_id)
-            .cloned()
-            .or_else(|| lock(&self.run).as_ref().filter(|run| &run.id == agent_run_id).cloned()))
+        Ok(lock(&self.created).get(agent_run_id).cloned().or_else(|| {
+            lock(&self.run)
+                .as_ref()
+                .filter(|run| &run.id == agent_run_id)
+                .cloned()
+        }))
     }
 
     async fn get_for_task(&self, task_id: &TaskId) -> Result<Option<AgentRun>, CoreError> {
@@ -806,7 +787,10 @@ impl eos_types::WorkflowStore for FakeWorkflowStores {
         Err(CoreError::Store("workflow fake not implemented".to_owned()))
     }
 
-    async fn list_for_parent_task(&self, _parent_task_id: &TaskId) -> Result<Vec<Workflow>, CoreError> {
+    async fn list_for_parent_task(
+        &self,
+        _parent_task_id: &TaskId,
+    ) -> Result<Vec<Workflow>, CoreError> {
         Ok(Vec::new())
     }
 
@@ -836,7 +820,9 @@ impl eos_types::IterationStore for FakeWorkflowStores {
         _iteration_goal: &str,
         _attempt_budget: AttemptBudget,
     ) -> Result<Iteration, CoreError> {
-        Err(CoreError::Store("iteration fake not implemented".to_owned()))
+        Err(CoreError::Store(
+            "iteration fake not implemented".to_owned(),
+        ))
     }
 
     async fn get(&self, _id: &IterationId) -> Result<Option<Iteration>, CoreError> {
@@ -848,7 +834,9 @@ impl eos_types::IterationStore for FakeWorkflowStores {
         _id: &IterationId,
         _attempt_id: &AttemptId,
     ) -> Result<Iteration, CoreError> {
-        Err(CoreError::Store("iteration fake not implemented".to_owned()))
+        Err(CoreError::Store(
+            "iteration fake not implemented".to_owned(),
+        ))
     }
 
     async fn set_status(
@@ -858,7 +846,9 @@ impl eos_types::IterationStore for FakeWorkflowStores {
         _closed_at: Option<UtcDateTime>,
         _outcomes: Option<&str>,
     ) -> Result<Iteration, CoreError> {
-        Err(CoreError::Store("iteration fake not implemented".to_owned()))
+        Err(CoreError::Store(
+            "iteration fake not implemented".to_owned(),
+        ))
     }
 
     async fn set_deferred_goal_for_next_iteration(
@@ -866,7 +856,9 @@ impl eos_types::IterationStore for FakeWorkflowStores {
         _id: &IterationId,
         _deferred_goal_for_next_iteration: Option<&eos_types::DeferredGoal>,
     ) -> Result<Iteration, CoreError> {
-        Err(CoreError::Store("iteration fake not implemented".to_owned()))
+        Err(CoreError::Store(
+            "iteration fake not implemented".to_owned(),
+        ))
     }
 
     async fn close_succeeded(
@@ -875,10 +867,15 @@ impl eos_types::IterationStore for FakeWorkflowStores {
         _outcomes: &str,
         _closed_at: Option<UtcDateTime>,
     ) -> Result<Iteration, CoreError> {
-        Err(CoreError::Store("iteration fake not implemented".to_owned()))
+        Err(CoreError::Store(
+            "iteration fake not implemented".to_owned(),
+        ))
     }
 
-    async fn list_for_workflow(&self, _workflow_id: &WorkflowId) -> Result<Vec<Iteration>, CoreError> {
+    async fn list_for_workflow(
+        &self,
+        _workflow_id: &WorkflowId,
+    ) -> Result<Vec<Iteration>, CoreError> {
         Ok(Vec::new())
     }
 
@@ -926,7 +923,10 @@ impl eos_types::AttemptStore for FakeWorkflowStores {
         Err(CoreError::Store("attempt fake not implemented".to_owned()))
     }
 
-    async fn list_for_iteration(&self, _iteration_id: &IterationId) -> Result<Vec<Attempt>, CoreError> {
+    async fn list_for_iteration(
+        &self,
+        _iteration_id: &IterationId,
+    ) -> Result<Vec<Attempt>, CoreError> {
         Ok(Vec::new())
     }
 
@@ -969,7 +969,10 @@ fn task_run_from_task(task: &Task) -> TaskRun {
         error: None,
         created_at: UtcDateTime::now(),
         updated_at: UtcDateTime::now(),
-        finished_at: task.status.is_terminal_generator().then_some(UtcDateTime::now()),
+        finished_at: task
+            .status
+            .is_terminal_generator()
+            .then_some(UtcDateTime::now()),
     }
 }
 

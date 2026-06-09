@@ -23,9 +23,9 @@
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
   <div><b>38</b><span>modules</span></div>
-  <div><b>226</b><span>items</span></div>
+  <div><b>227</b><span>items</span></div>
   <div><b>186</b><span>fields</span></div>
-  <div><b>112</b><span>methods</span></div>
+  <div><b>114</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -96,7 +96,7 @@
     reason: &amp;str,
 ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-agent-core--src-cancel-rs.html#item-struct-CancelReport-16">CancelReport</a>&gt; {
     <span class="rs-kw">let</span> root_task_id = <a class="symbol-link rs-fn" href="eos-agent-core--src-entry-rs.html#item-fn-root-task-id-for-50">root_task_id_for</a>(request_id);
-    <span class="rs-kw">let</span> cancellation_api = services.cancel_registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(request_id);
+    <span class="rs-kw">let</span> cancellation_api = services.cancel_registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(request_id);
     <span class="rs-kw">let</span> had_live_run = cancellation_api.is_some();
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(cancellation_api) = cancellation_api {
         <span class="rs-comment">// Recurse: flips the root task to Cancelled and tears down the root run</span>
@@ -168,7 +168,7 @@
     reason: &amp;str,
 ) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-agent-core--src-cancel-rs.html#item-struct-CancelReport-16">CancelReport</a>&gt; {
     <span class="rs-kw">let</span> root_task_id = <a class="symbol-link rs-fn" href="eos-agent-core--src-entry-rs.html#item-fn-root-task-id-for-50">root_task_id_for</a>(request_id);
-    <span class="rs-kw">let</span> cancellation_api = services.cancel_registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(request_id);
+    <span class="rs-kw">let</span> cancellation_api = services.cancel_registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(request_id);
     <span class="rs-kw">let</span> had_live_run = cancellation_api.is_some();
     <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(cancellation_api) = cancellation_api {
         <span class="rs-comment">// Recurse: flips the root task to Cancelled and tears down the root run</span>

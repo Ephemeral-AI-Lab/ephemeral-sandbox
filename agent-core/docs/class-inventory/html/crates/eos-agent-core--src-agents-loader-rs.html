@@ -23,9 +23,9 @@
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
   <div><b>38</b><span>modules</span></div>
-  <div><b>226</b><span>items</span></div>
+  <div><b>227</b><span>items</span></div>
   <div><b>186</b><span>fields</span></div>
-  <div><b>112</b><span>methods</span></div>
+  <div><b>114</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -674,20 +674,20 @@
         ] {
             <span class="rs-kw">let</span> key = <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(name).expect(&quot;non-empty name&quot;);
             assert!(
-                registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&amp;key).is_some(),
+                registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&amp;key).is_some(),
                 &quot;missing bundled profile {name}&quot;
             );
         }
 
         <span class="rs-kw">let</span> executor = registry
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;executor&quot;).unwrap())
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;executor&quot;).unwrap())
             .expect(&quot;executor present&quot;);
         assert_eq!(executor.agent_type, <span class="rs-type">AgentType</span>::<span class="rs-type">Agent</span>);
         <span class="rs-kw">let</span> skill = executor.skill.as_ref().expect(&quot;executor skill resolved&quot;);
         assert!(skill.is_absolute());
 
         <span class="rs-kw">let</span> advisor = registry
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;advisor&quot;).unwrap())
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;advisor&quot;).unwrap())
             .expect(&quot;advisor present&quot;);
         assert_eq!(advisor.agent_type, <span class="rs-type">AgentType</span>::<span class="rs-type">Advisor</span>);
 
@@ -698,7 +698,7 @@
             .collect();
         assert_eq!(dispatchable, vec![&quot;subagent&quot;.to_owned()]);
 
-        <span class="rs-kw">let</span> root = registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;root&quot;).unwrap()).unwrap();
+        <span class="rs-kw">let</span> root = registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;root&quot;).unwrap()).unwrap();
         assert!(
             root.system_prompt
                 .as_deref()
@@ -1092,20 +1092,20 @@
         ] {
             <span class="rs-kw">let</span> key = <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(name).expect(&quot;non-empty name&quot;);
             assert!(
-                registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&amp;key).is_some(),
+                registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&amp;key).is_some(),
                 &quot;missing bundled profile {name}&quot;
             );
         }
 
         <span class="rs-kw">let</span> executor = registry
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;executor&quot;).unwrap())
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;executor&quot;).unwrap())
             .expect(&quot;executor present&quot;);
         assert_eq!(executor.agent_type, <span class="rs-type">AgentType</span>::<span class="rs-type">Agent</span>);
         <span class="rs-kw">let</span> skill = executor.skill.as_ref().expect(&quot;executor skill resolved&quot;);
         assert!(skill.is_absolute());
 
         <span class="rs-kw">let</span> advisor = registry
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;advisor&quot;).unwrap())
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;advisor&quot;).unwrap())
             .expect(&quot;advisor present&quot;);
         assert_eq!(advisor.agent_type, <span class="rs-type">AgentType</span>::<span class="rs-type">Advisor</span>);
 
@@ -1116,7 +1116,7 @@
             .collect();
         assert_eq!(dispatchable, vec![&quot;subagent&quot;.to_owned()]);
 
-        <span class="rs-kw">let</span> root = registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;root&quot;).unwrap()).unwrap();
+        <span class="rs-kw">let</span> root = registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&amp;<span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(&quot;root&quot;).unwrap()).unwrap();
         assert!(
             root.system_prompt
                 .as_deref()

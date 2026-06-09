@@ -23,9 +23,9 @@
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
   <div><b>38</b><span>modules</span></div>
-  <div><b>226</b><span>items</span></div>
+  <div><b>227</b><span>items</span></div>
   <div><b>186</b><span>fields</span></div>
-  <div><b>112</b><span>methods</span></div>
+  <div><b>114</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -346,9 +346,9 @@
                 shutdown: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(<span class="rs-type">StdMutex</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(audit_shutdown)),
             },
             records: <a class="symbol-link rs-type" href="eos-agent-core--src-runtime-records-rs.html#item-struct-RecordWriterRuntime-5">RecordWriterRuntime</a> {
-                record_writer: <span class="rs-self">self</span>.record_root.map(<span class="rs-type">AgentRecordWriter</span>::new),
+                run_record_writer: <span class="rs-self">self</span>.record_root.map(<span class="rs-type">AgentRunRecordWriter</span>::new),
             },
-            agent_state: <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-agent-core--src-runtime-agent-state-rs.html#item-struct-RuntimeAgentStateService-13">RuntimeAgentStateService</a>::default(),
+            agent_state: <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-agent-core--src-runtime-agent-state-rs.html#item-struct-RuntimeAgentStateService-14">RuntimeAgentStateService</a>::default(),
             cancel_registry: <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-agent-core--src-runtime-cancel-registry-rs.html#item-struct-RequestCancelRegistry-16">RequestCancelRegistry</a>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(),
         })
     }
@@ -699,7 +699,7 @@
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-builder-rs.html#item-fn-validate-agent-tools-526">validate_agent_tools</a>(agents: &amp;<span class="rs-type">AgentRegistry</span>, registry: &amp;<span class="rs-type">ToolRegistry</span>) -&gt; <span class="rs-type">Result</span>&lt;()&gt; {
     <span class="rs-kw">for</span> def <span class="rs-kw">in</span> agents.list() {
         <span class="rs-kw">for</span> tool <span class="rs-kw">in</span> def.allowed_tools.iter().chain(def.terminals.iter()) {
-            <span class="rs-kw">let</span> known = <span class="rs-type">ToolKey</span>::from_wire(tool).is_some_and(|name| registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(name).is_some());
+            <span class="rs-kw">let</span> known = <span class="rs-type">ToolKey</span>::from_wire(tool).is_some_and(|name| registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(name).is_some());
             <span class="rs-kw">if</span> !known {
                 anyhow::bail!(
                     &quot;agent profile {:?} names unknown tool {:?}&quot;,
@@ -842,7 +842,7 @@
 <span class="rs-kw">use</span> anyhow::{<span class="rs-type">Context</span>, <span class="rs-type">Result</span>};
 <span class="rs-kw">use</span> async_trait::async_trait;
 <span class="rs-kw">use</span> eos_db::{<span class="rs-type">Database</span>, <span class="rs-type">DatabaseConfig</span>, <span class="rs-type">DatabaseUrl</span>};
-<span class="rs-kw">use</span> eos_engine::records::<span class="rs-type">AgentRecordWriter</span>;
+<span class="rs-kw">use</span> eos_engine::records::<span class="rs-type">AgentRunRecordWriter</span>;
 <span class="rs-kw">use</span> eos_llm_client::{
     <span class="rs-type">Auth</span>, <span class="rs-type">ConfiguredLlmClient</span>, <span class="rs-type">LlmClient</span>, <span class="rs-type">LlmRequest</span>, <span class="rs-type">LlmRequestDefaults</span>, <span class="rs-type">LlmStream</span>, <span class="rs-type">ProviderError</span>,
     <span class="rs-type">ProviderKind</span>, <span class="rs-type">ProvidersConfig</span>, <span class="rs-type">SecretConfigValue</span>,
@@ -1205,9 +1205,9 @@
                 shutdown: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(<span class="rs-type">StdMutex</span>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(audit_shutdown)),
             },
             records: <a class="symbol-link rs-type" href="eos-agent-core--src-runtime-records-rs.html#item-struct-RecordWriterRuntime-5">RecordWriterRuntime</a> {
-                record_writer: <span class="rs-self">self</span>.record_root.map(<span class="rs-type">AgentRecordWriter</span>::new),
+                run_record_writer: <span class="rs-self">self</span>.record_root.map(<span class="rs-type">AgentRunRecordWriter</span>::new),
             },
-            agent_state: <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-agent-core--src-runtime-agent-state-rs.html#item-struct-RuntimeAgentStateService-13">RuntimeAgentStateService</a>::default(),
+            agent_state: <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-agent-core--src-runtime-agent-state-rs.html#item-struct-RuntimeAgentStateService-14">RuntimeAgentStateService</a>::default(),
             cancel_registry: <span class="rs-kw">super</span>::<a class="symbol-link rs-type" href="eos-agent-core--src-runtime-cancel-registry-rs.html#item-struct-RequestCancelRegistry-16">RequestCancelRegistry</a>::<a class="symbol-link rs-fn" href="eos-agent-core.html#method-new-52">new</a>(),
         })
     }
@@ -1361,7 +1361,7 @@
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-builder-rs.html#item-fn-validate-agent-tools-526">validate_agent_tools</a>(agents: &amp;<span class="rs-type">AgentRegistry</span>, registry: &amp;<span class="rs-type">ToolRegistry</span>) -&gt; <span class="rs-type">Result</span>&lt;()&gt; {
     <span class="rs-kw">for</span> def <span class="rs-kw">in</span> agents.list() {
         <span class="rs-kw">for</span> tool <span class="rs-kw">in</span> def.allowed_tools.iter().chain(def.terminals.iter()) {
-            <span class="rs-kw">let</span> known = <span class="rs-type">ToolKey</span>::from_wire(tool).is_some_and(|name| registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(name).is_some());
+            <span class="rs-kw">let</span> known = <span class="rs-type">ToolKey</span>::from_wire(tool).is_some_and(|name| registry.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(name).is_some());
             <span class="rs-kw">if</span> !known {
                 anyhow::bail!(
                     &quot;agent profile {:?} names unknown tool {:?}&quot;,

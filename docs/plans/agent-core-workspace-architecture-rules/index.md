@@ -1,6 +1,6 @@
 # Agent-Core Workspace Architecture Rules - Index
 
-Status: Phase 01 implemented; later implementation phases draft
+Status: Phase 05 implemented; Phase 04 closeout and Phase 06 draft remain tracked
 Date: 2026-06-09
 Owner: agent-core workspace
 
@@ -345,7 +345,7 @@ verification command or evidence used for that phase.
 | 3. `eos-tool` | Implemented | `eos-tool-ports` is gone; tool modules collapsed; hook execution is engine-owned |
 | 3B. Execution lineage/materialization | Implemented (bridge-compatible v1) | normalized `task_runs`/`parented_runs`, workflow launch lineage, request-rooted record dirs, and bounded execution-tree reader are active; verified with `cargo test -p eos-db`, `cargo test -p eos-agent-run`, `cargo test -p eos-workflow`, and `cargo test -p eos-agent-core` |
 | 4. `eos-engine` and `eos-agent-run` | In progress | records moved to `eos-engine::records`, loop contracts live in `eos-types`, engine exposes concrete launcher/event/provider/background surfaces, run lifecycle owns `ActiveAgentRunRegistry`; verified with `cargo test -p eos-engine --all-targets`, `cargo test -p eos-agent-run --all-targets`, `cargo test -p eos-agent-core root_run_writes_engine_owned_records --all-targets`, `cargo check -p eos-agent-core --all-targets`, changed-crate clippy, `cargo fmt --all --check`, and depth-1 `cargo tree` edge checks |
-| 5. Agent core/workflow/types | Not started | `eos-agent-core` owns request entry and hidden runtime wiring |
+| 5. Agent core/workflow/types | Implemented | `eos-agent-core-server` owns backend-facing request lifecycle orchestration, backend agent-core resources live under `/api/agent-core/*`, and request-scoped cancellation is store-owned; verified with `cargo check -p eos-agent-core-server --all-targets`, `cargo check -p eos-agent-run --all-targets`, `cargo check -p eos-types --all-targets`, `cargo check -p eos-db --all-targets`, `cargo check -p eos-workflow --all-targets`, `cargo check -p eos-backend-api --all-targets`, and `cargo test -p eos-backend-api` |
 | 6. Verification and budget | Not started | module count is 150-170 and full checks pass |
 
 ## Global Acceptance Criteria

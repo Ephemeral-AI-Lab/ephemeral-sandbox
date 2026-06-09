@@ -23,9 +23,9 @@
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
   <div><b>38</b><span>modules</span></div>
-  <div><b>226</b><span>items</span></div>
+  <div><b>227</b><span>items</span></div>
   <div><b>186</b><span>fields</span></div>
-  <div><b>112</b><span>methods</span></div>
+  <div><b>114</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -341,7 +341,7 @@
   <details class="function-source">
   <summary>code</summary>
   <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-plugins-rs.html#item-fn-plugin-result-166">plugin_result</a>(response: &amp;<a class="symbol-link rs-type" href="eos-agent-core--src-runtime-audit-obs-rs.html#item-type-JsonObject-22">JsonObject</a>) -&gt; <span class="rs-type">ToolResult</span> {
-    <span class="rs-kw">let</span> is_error = response.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;success&quot;) == <span class="rs-type">Some</span>(&amp;<span class="rs-type">Value</span>::<span class="rs-type">Bool</span>(<span class="rs-kw">false</span>));
+    <span class="rs-kw">let</span> is_error = response.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;success&quot;) == <span class="rs-type">Some</span>(&amp;<span class="rs-type">Value</span>::<span class="rs-type">Bool</span>(<span class="rs-kw">false</span>));
     <span class="rs-kw">let</span> output = serde_json::to_string(response)
         .unwrap_or_else(|err| format!(r#&quot;{{&quot;success&quot;:<span class="rs-kw">false</span>,&quot;error&quot;:&quot;{err}&quot;}}&quot;#));
     <span class="rs-kw">if</span> is_error {
@@ -413,26 +413,26 @@
         assert_eq!(calls[0].op, &quot;api.plugin.ensure&quot;);
         assert_eq!(calls[0].timeout_s, <span class="rs-type">PLUGIN_ENSURE_TIMEOUT_S</span>);
         assert_eq!(
-            calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;workspace_root&quot;),
+            calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;workspace_root&quot;),
             <span class="rs-type">Some</span>(&amp;json!(&quot;/repo&quot;))
         );
-        assert_eq!(calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;start_services&quot;), <span class="rs-type">Some</span>(&amp;json!(<span class="rs-kw">true</span>)));
-        assert_eq!(calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;invocation_id&quot;), <span class="rs-type">Some</span>(&amp;json!(&quot;inv-1&quot;)));
+        assert_eq!(calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;start_services&quot;), <span class="rs-type">Some</span>(&amp;json!(<span class="rs-kw">true</span>)));
+        assert_eq!(calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;invocation_id&quot;), <span class="rs-type">Some</span>(&amp;json!(&quot;inv-1&quot;)));
 
-        <span class="rs-kw">let</span> manifest = calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;manifest&quot;).expect(&quot;manifest&quot;);
+        <span class="rs-kw">let</span> manifest = calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;manifest&quot;).expect(&quot;manifest&quot;);
         assert_eq!(
-            manifest.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;plugin_id&quot;),
+            manifest.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;plugin_id&quot;),
             <span class="rs-type">Some</span>(&amp;json!(package.manifest.plugin_id))
         );
         assert_eq!(
-            manifest.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;plugin_digest&quot;),
+            manifest.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;plugin_digest&quot;),
             <span class="rs-type">Some</span>(&amp;json!(package.manifest.plugin_digest))
         );
         <span class="rs-kw">let</span> command = manifest
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;services&quot;)
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;services&quot;)
             .and_then(<span class="rs-type">Value</span>::as_array)
             .and_then(|services| services.first())
-            .and_then(|service| service.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;command&quot;))
+            .and_then(|service| service.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;command&quot;))
             .and_then(<span class="rs-type">Value</span>::as_array)
             .expect(&quot;service command&quot;);
         assert_eq!(command, &amp;vec![json!(&quot;./ppc_service.py&quot;)]);
@@ -440,7 +440,7 @@
             .iter()
             .all(|part| !part.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-plugins-catalog-tool-specs-rs.html#method-as-str-35">as_str</a>().unwrap_or_default().starts_with(&quot;/eos/&quot;)));
         <span class="rs-kw">let</span> operations = manifest
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;operations&quot;)
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;operations&quot;)
             .and_then(<span class="rs-type">Value</span>::as_array)
             .expect(&quot;operations&quot;);
         <span class="rs-kw">let</span> catalog_lsp_tool_count = <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-plugins-catalog-tool-specs-rs.html#item-fn-plugin-tool-specs-58">plugin_tool_specs</a>()
@@ -452,21 +452,21 @@
             .count();
         assert_eq!(operations.len(), catalog_lsp_tool_count);
         assert!(operations.iter().any(|operation| {
-            operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;op_name&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;rename&quot;))
-                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;intent&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;write_allowed&quot;))
-                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;service_id&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;pyright&quot;))
-                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;auto_workspace_overlay&quot;) == <span class="rs-type">Some</span>(&amp;json!(<span class="rs-kw">false</span>))
+            operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;op_name&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;rename&quot;))
+                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;intent&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;write_allowed&quot;))
+                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;service_id&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;pyright&quot;))
+                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;auto_workspace_overlay&quot;) == <span class="rs-type">Some</span>(&amp;json!(<span class="rs-kw">false</span>))
         }));
 
         assert_eq!(calls[1].op, &quot;plugin.lsp.hover&quot;);
         assert_eq!(calls[1].timeout_s, <span class="rs-type">PLUGIN_DISPATCH_TIMEOUT_S</span>);
         assert_eq!(
-            calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;file_path&quot;),
+            calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;file_path&quot;),
             <span class="rs-type">Some</span>(&amp;json!(&quot;src/main.py&quot;))
         );
-        assert_eq!(calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;intent&quot;), <span class="rs-type">Some</span>(&amp;json!(&quot;read_only&quot;)));
+        assert_eq!(calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;intent&quot;), <span class="rs-type">Some</span>(&amp;json!(&quot;read_only&quot;)));
         assert_eq!(
-            calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;workspace_root&quot;),
+            calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;workspace_root&quot;),
             <span class="rs-type">Some</span>(&amp;json!(&quot;/repo&quot;))
         );
     }
@@ -678,7 +678,7 @@
 }
 
 <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-plugins-rs.html#item-fn-plugin-result-166">plugin_result</a>(response: &amp;<a class="symbol-link rs-type" href="eos-agent-core--src-runtime-audit-obs-rs.html#item-type-JsonObject-22">JsonObject</a>) -&gt; <span class="rs-type">ToolResult</span> {
-    <span class="rs-kw">let</span> is_error = response.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;success&quot;) == <span class="rs-type">Some</span>(&amp;<span class="rs-type">Value</span>::<span class="rs-type">Bool</span>(<span class="rs-kw">false</span>));
+    <span class="rs-kw">let</span> is_error = response.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;success&quot;) == <span class="rs-type">Some</span>(&amp;<span class="rs-type">Value</span>::<span class="rs-type">Bool</span>(<span class="rs-kw">false</span>));
     <span class="rs-kw">let</span> output = serde_json::to_string(response)
         .unwrap_or_else(|err| format!(r#&quot;{{&quot;success&quot;:<span class="rs-kw">false</span>,&quot;error&quot;:&quot;{err}&quot;}}&quot;#));
     <span class="rs-kw">if</span> is_error {
@@ -733,26 +733,26 @@
         assert_eq!(calls[0].op, &quot;api.plugin.ensure&quot;);
         assert_eq!(calls[0].timeout_s, <span class="rs-type">PLUGIN_ENSURE_TIMEOUT_S</span>);
         assert_eq!(
-            calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;workspace_root&quot;),
+            calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;workspace_root&quot;),
             <span class="rs-type">Some</span>(&amp;json!(&quot;/repo&quot;))
         );
-        assert_eq!(calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;start_services&quot;), <span class="rs-type">Some</span>(&amp;json!(<span class="rs-kw">true</span>)));
-        assert_eq!(calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;invocation_id&quot;), <span class="rs-type">Some</span>(&amp;json!(&quot;inv-1&quot;)));
+        assert_eq!(calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;start_services&quot;), <span class="rs-type">Some</span>(&amp;json!(<span class="rs-kw">true</span>)));
+        assert_eq!(calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;invocation_id&quot;), <span class="rs-type">Some</span>(&amp;json!(&quot;inv-1&quot;)));
 
-        <span class="rs-kw">let</span> manifest = calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;manifest&quot;).expect(&quot;manifest&quot;);
+        <span class="rs-kw">let</span> manifest = calls[0].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;manifest&quot;).expect(&quot;manifest&quot;);
         assert_eq!(
-            manifest.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;plugin_id&quot;),
+            manifest.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;plugin_id&quot;),
             <span class="rs-type">Some</span>(&amp;json!(package.manifest.plugin_id))
         );
         assert_eq!(
-            manifest.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;plugin_digest&quot;),
+            manifest.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;plugin_digest&quot;),
             <span class="rs-type">Some</span>(&amp;json!(package.manifest.plugin_digest))
         );
         <span class="rs-kw">let</span> command = manifest
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;services&quot;)
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;services&quot;)
             .and_then(<span class="rs-type">Value</span>::as_array)
             .and_then(|services| services.first())
-            .and_then(|service| service.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;command&quot;))
+            .and_then(|service| service.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;command&quot;))
             .and_then(<span class="rs-type">Value</span>::as_array)
             .expect(&quot;service command&quot;);
         assert_eq!(command, &amp;vec![json!(&quot;./ppc_service.py&quot;)]);
@@ -760,7 +760,7 @@
             .iter()
             .all(|part| !part.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-plugins-catalog-tool-specs-rs.html#method-as-str-35">as_str</a>().unwrap_or_default().starts_with(&quot;/eos/&quot;)));
         <span class="rs-kw">let</span> operations = manifest
-            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;operations&quot;)
+            .<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;operations&quot;)
             .and_then(<span class="rs-type">Value</span>::as_array)
             .expect(&quot;operations&quot;);
         <span class="rs-kw">let</span> catalog_lsp_tool_count = <a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-plugins-catalog-tool-specs-rs.html#item-fn-plugin-tool-specs-58">plugin_tool_specs</a>()
@@ -772,21 +772,21 @@
             .count();
         assert_eq!(operations.len(), catalog_lsp_tool_count);
         assert!(operations.iter().any(|operation| {
-            operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;op_name&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;rename&quot;))
-                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;intent&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;write_allowed&quot;))
-                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;service_id&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;pyright&quot;))
-                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;auto_workspace_overlay&quot;) == <span class="rs-type">Some</span>(&amp;json!(<span class="rs-kw">false</span>))
+            operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;op_name&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;rename&quot;))
+                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;intent&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;write_allowed&quot;))
+                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;service_id&quot;) == <span class="rs-type">Some</span>(&amp;json!(&quot;pyright&quot;))
+                &amp;&amp; operation.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;auto_workspace_overlay&quot;) == <span class="rs-type">Some</span>(&amp;json!(<span class="rs-kw">false</span>))
         }));
 
         assert_eq!(calls[1].op, &quot;plugin.lsp.hover&quot;);
         assert_eq!(calls[1].timeout_s, <span class="rs-type">PLUGIN_DISPATCH_TIMEOUT_S</span>);
         assert_eq!(
-            calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;file_path&quot;),
+            calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;file_path&quot;),
             <span class="rs-type">Some</span>(&amp;json!(&quot;src/main.py&quot;))
         );
-        assert_eq!(calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;intent&quot;), <span class="rs-type">Some</span>(&amp;json!(&quot;read_only&quot;)));
+        assert_eq!(calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;intent&quot;), <span class="rs-type">Some</span>(&amp;json!(&quot;read_only&quot;)));
         assert_eq!(
-            calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-54">get</a>(&quot;workspace_root&quot;),
+            calls[1].payload.<a class="symbol-link rs-fn" href="eos-agent-core--src-runtime-agent-state-rs.html#method-get-55">get</a>(&quot;workspace_root&quot;),
             <span class="rs-type">Some</span>(&amp;json!(&quot;/repo&quot;))
         );
     }
