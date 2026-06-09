@@ -6,8 +6,8 @@ use eos_types::{ContentBlock, Message};
 use serde_json::{json, Value};
 
 use super::error::Result;
-use super::io::{append_event, append_initial_message_rows, append_message_rows};
-use super::record::MessageAppendRange;
+use super::io::{append_event, append_initial_message_rows, append_message_rows, read_bytes_after, read_events_after};
+use super::record::{MessageAppendRange, NodeEvent, RecordBytes};
 
 /// A started agent-run message-record node.
 #[derive(Debug, Clone)]
@@ -48,6 +48,24 @@ impl AgentRunRecordHandle {
             self.append_event("messages_appended", payload).await?;
         }
         Ok(range)
+    }
+
+    /// Read raw `messages.jsonl` bytes after `after_byte`.
+    ///
+    /// # Errors
+    /// Returns [`super::MessageRecordError`] if the message file is missing or
+    /// the byte offset is out of range.
+    pub async fn read_messages(&self, after_byte: u64) -> Result<RecordBytes> {
+        read_bytes_after(&self.messages_path, after_byte).await
+    }
+
+    /// Replay node-local events with `seq > after_seq`.
+    ///
+    /// # Errors
+    /// Returns [`super::MessageRecordError`] if the event file is missing or an
+    /// event row cannot be decoded.
+    pub async fn read_events(&self, after_seq: u64) -> Result<Vec<NodeEvent>> {
+        read_events_after(&self.events_path, after_seq).await
     }
 
     /// Append the terminal node event.

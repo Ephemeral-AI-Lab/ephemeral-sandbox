@@ -80,9 +80,9 @@
             .finish_non_exhaustive()
     }
 </code></pre>
-</details></td></tr></tbody></table></details><details><summary><code>impl crate :: query :: <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-23">ProviderStreamSource</a> for <a class="symbol-link" href="eos-engine--src-query-provider-source-rs.html#item-struct-LlmProviderStreamSource-13">LlmProviderStreamSource</a></code></summary><table><tbody><tr id="method-stream-78"><td>method</td><td>stream</td><td><code>async fn <a class="symbol-link" href="eos-engine--src-query-context-rs.html#method-stream-27">stream</a> (&amp; self , request : &amp; LlmRequest) -&gt; Result &lt; <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a> , <a class="symbol-link" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a> &gt;</code><details class="function-source">
+</details></td></tr></tbody></table></details><details><summary><code>impl crate :: query :: <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-26">ProviderStreamSource</a> for <a class="symbol-link" href="eos-engine--src-query-provider-source-rs.html#item-struct-LlmProviderStreamSource-13">LlmProviderStreamSource</a></code></summary><table><tbody><tr id="method-stream-78"><td>method</td><td>stream</td><td><code>async fn <a class="symbol-link" href="eos-engine--src-query-context-rs.html#method-stream-30">stream</a> (&amp; self , request : &amp; LlmRequest) -&gt; Result &lt; <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a> , <a class="symbol-link" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a> &gt;</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-27">stream</a>(&amp;<span class="rs-self">self</span>, request: &amp;<span class="rs-type">LlmRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt; {
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-30">stream</a>(&amp;<span class="rs-self">self</span>, request: &amp;<span class="rs-type">LlmRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt; {
         <span class="rs-kw">let</span> stream = <span class="rs-self">self</span>.client.<a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#method-stream-message-110">stream_message</a>(request.clone()).<span class="rs-kw">await</span>?;
         <span class="rs-type">Ok</span>(<span class="rs-type">Box</span>::pin(stream.map(|item| <span class="rs-kw">match</span> item {
             <span class="rs-type">Ok</span>(event) =&gt; <a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-adapt-event-34">adapt_event</a>(event),
@@ -227,7 +227,7 @@
             ],
         }));
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stream = source.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-27">stream</a>(&amp;<a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-request-115">request</a>()).<span class="rs-kw">await</span>.expect(&quot;stream&quot;);
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stream = source.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-30">stream</a>(&amp;<a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-request-115">request</a>()).<span class="rs-kw">await</span>.expect(&quot;stream&quot;);
         assert!(matches!(
             stream.next().<span class="rs-kw">await</span>.expect(&quot;text&quot;).expect(&quot;ok&quot;),
             <a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">AssistantTextDelta</span> { text, .. } <span class="rs-kw">if</span> text == &quot;hello&quot;
@@ -270,7 +270,7 @@
             stream: vec![<span class="rs-type">Err</span>(<span class="rs-type">ProviderError</span>::transport(&quot;connection reset&quot;))],
         }));
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stream = source.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-27">stream</a>(&amp;<a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-request-115">request</a>()).<span class="rs-kw">await</span>.expect(&quot;stream&quot;);
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stream = source.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-30">stream</a>(&amp;<a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-request-115">request</a>()).<span class="rs-kw">await</span>.expect(&quot;stream&quot;);
         <span class="rs-kw">let</span> err = stream
             .next()
             .<span class="rs-kw">await</span>
@@ -368,8 +368,8 @@
 }
 
 #[async_trait]
-<span class="rs-kw">impl</span> <span class="rs-kw">crate</span>::query::<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-23">ProviderStreamSource</a> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-LlmProviderStreamSource-13">LlmProviderStreamSource</a> {
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-27">stream</a>(&amp;<span class="rs-self">self</span>, request: &amp;<span class="rs-type">LlmRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt; {
+<span class="rs-kw">impl</span> <span class="rs-kw">crate</span>::query::<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-26">ProviderStreamSource</a> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-query-provider-source-rs.html#item-struct-LlmProviderStreamSource-13">LlmProviderStreamSource</a> {
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-30">stream</a>(&amp;<span class="rs-self">self</span>, request: &amp;<span class="rs-type">LlmRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt; {
         <span class="rs-kw">let</span> stream = <span class="rs-self">self</span>.client.<a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#method-stream-message-110">stream_message</a>(request.clone()).<span class="rs-kw">await</span>?;
         <span class="rs-type">Ok</span>(<span class="rs-type">Box</span>::pin(stream.map(|item| <span class="rs-kw">match</span> item {
             <span class="rs-type">Ok</span>(event) =&gt; <a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-adapt-event-34">adapt_event</a>(event),
@@ -390,7 +390,7 @@
     <span class="rs-kw">use</span> futures::<span class="rs-type">StreamExt</span>;
     <span class="rs-kw">use</span> serde_json::json;
 
-    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::query::<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-23">ProviderStreamSource</a>;
+    <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::query::<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-26">ProviderStreamSource</a>;
 
     <span class="rs-kw">use</span> <span class="rs-kw">super</span>::*;
 
@@ -445,7 +445,7 @@
             ],
         }));
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stream = source.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-27">stream</a>(&amp;<a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-request-115">request</a>()).<span class="rs-kw">await</span>.expect(&quot;stream&quot;);
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stream = source.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-30">stream</a>(&amp;<a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-request-115">request</a>()).<span class="rs-kw">await</span>.expect(&quot;stream&quot;);
         assert!(matches!(
             stream.next().<span class="rs-kw">await</span>.expect(&quot;text&quot;).expect(&quot;ok&quot;),
             <a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>::<span class="rs-type">AssistantTextDelta</span> { text, .. } <span class="rs-kw">if</span> text == &quot;hello&quot;
@@ -475,7 +475,7 @@
             stream: vec![<span class="rs-type">Err</span>(<span class="rs-type">ProviderError</span>::transport(&quot;connection reset&quot;))],
         }));
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stream = source.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-27">stream</a>(&amp;<a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-request-115">request</a>()).<span class="rs-kw">await</span>.expect(&quot;stream&quot;);
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> stream = source.<a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-30">stream</a>(&amp;<a class="symbol-link rs-fn" href="eos-engine--src-query-provider-source-rs.html#item-fn-request-115">request</a>()).<span class="rs-kw">await</span>.expect(&quot;stream&quot;);
         <span class="rs-kw">let</span> err = stream
             .next()
             .<span class="rs-kw">await</span>

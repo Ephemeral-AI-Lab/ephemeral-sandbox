@@ -477,8 +477,16 @@ async fn root_run_writes_runner_owned_message_records() {
         .await
         .unwrap()
         .expect("root agent run row exists");
+    let record_index = state
+        .db
+        .task_agent_run_store
+        .record_index_for_agent_run(&agent_run.id)
+        .await
+        .unwrap()
+        .expect("root task-agent-run row exists");
+    let record_dir = format_record_dir(&record_index);
     let records = state.message_records().expect("message records configured");
-    let events = records.read_events(&agent_run.id, 0).await.unwrap();
+    let events = records.read_events_at(&record_dir, 0).await.unwrap();
     let event_kinds: Vec<_> = events.iter().map(|event| event.kind.as_str()).collect();
     assert_eq!(event_kinds.first(), Some(&"node_started"));
     assert_eq!(event_kinds.get(1), Some(&"messages_initialized"));
@@ -504,7 +512,7 @@ async fn root_run_writes_runner_owned_message_records() {
         Some("completed")
     );
 
-    let bytes = records.read_messages(&agent_run.id, 0).await.unwrap();
+    let bytes = records.read_messages_at(&record_dir, 0).await.unwrap();
     let raw = String::from_utf8(bytes.bytes).unwrap();
     let rows: Vec<serde_json::Value> = raw
         .lines()

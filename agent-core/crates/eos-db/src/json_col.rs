@@ -32,9 +32,9 @@ pub(crate) fn decode_default<T: DeserializeOwned + Default>(
     }
 }
 
-/// Null-preserving decode for the nullable `agent_run` columns
-/// (`initial_messages`, `message_history`, `terminal_tool_result`): NULL/empty
-/// stays `None` — `agent_run_store` does not coerce to `[]`.
+/// Null-preserving decode for nullable JSON columns such as
+/// `agent_runs.terminal_payload`: NULL/empty stays `None` — these columns do not
+/// coerce to `[]`.
 ///
 /// # Errors
 /// Returns [`DbError::JsonDecode`] if a non-empty cell is malformed JSON.

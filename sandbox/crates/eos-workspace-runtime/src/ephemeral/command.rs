@@ -18,14 +18,14 @@ use serde_json::{json, Value};
 
 use crate::ephemeral::{
     finalize_publishable_workspace, CallerId, EphemeralDirAllocator, EphemeralRunDirs,
-    EphemeralSnapshot, EphemeralWorkspace, EphemeralWorkspaceError, FinalizeRequest, InvocationId,
+    SnapshotLease, EphemeralWorkspace, EphemeralWorkspaceError, FinalizeRequest, InvocationId,
     PathChange, PathChangeKind, PublishOutcome, TreeResourceStats, WorkspacePublisherPort,
     WorkspaceRoot,
 };
 
 /// Daemon-supplied facts needed to prepare a publishable command workspace.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct EphemeralCommandPrepareContext {
+pub struct EphemeralCommandPrepareContext {
     pub layer_stack_root: PathBuf,
     pub workspace_root: PathBuf,
     pub writable_root: PathBuf,
@@ -36,7 +36,7 @@ pub(crate) struct EphemeralCommandPrepareContext {
 /// A prepared ephemeral command workspace: the runner-facing handles plus the
 /// owned overlay state (snapshot lease + run dirs) the daemon run keeps until the
 /// command settles.
-pub(crate) struct PreparedEphemeralCommand {
+pub struct PreparedEphemeralCommand {
     pub prepared: PreparedCommandWorkspace,
     pub workspace: EphemeralWorkspace,
 }
@@ -52,9 +52,9 @@ pub(crate) struct PreparedEphemeralCommand {
 ///
 /// Returns [`WorkspaceApiError`] when the session dir, metadata, or run dirs
 /// cannot be created.
-pub(crate) fn prepare_ephemeral_command(
+pub fn prepare_ephemeral_command(
     context: EphemeralCommandPrepareContext,
-    snapshot: EphemeralSnapshot,
+    snapshot: SnapshotLease,
     request: PrepareCommandRequest,
 ) -> Result<PreparedEphemeralCommand, WorkspaceApiError> {
     let PrepareCommandRequest {
@@ -212,7 +212,7 @@ pub fn finalize_ephemeral_command(
 /// Discard a prepared overlay WITHOUT publishing: remove the run dirs. The
 /// snapshot lease is released by the daemon run (it owns the LayerStack handle).
 /// Best-effort — a stale dir is reclaimed by the orphan reaper.
-pub(crate) fn discard_ephemeral_command(dirs: &EphemeralRunDirs) {
+pub fn discard_ephemeral_command(dirs: &EphemeralRunDirs) {
     let _ = std::fs::remove_dir_all(&dirs.run_dir);
 }
 

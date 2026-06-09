@@ -21,7 +21,7 @@ use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 
 use eos_workspace_runtime::isolated::{CallerId, IsolatedError};
 #[cfg(target_os = "linux")]
-pub(crate) use eos_workspace_runtime::CommandHandle;
+pub(crate) use eos_workspace_runtime::IsolatedCommandHandle;
 use serde_json::{json, Value};
 
 use crate::adapters::workspace_run;
@@ -171,7 +171,7 @@ pub(crate) fn op_test_reset(
 }
 
 #[cfg(target_os = "linux")]
-pub(crate) fn command_handle_for_args(args: &Value) -> Option<CommandHandle> {
+pub(crate) fn command_handle_for_args(args: &Value) -> Option<IsolatedCommandHandle> {
     let caller_id = args
         .get("caller_id")
         .and_then(Value::as_str)

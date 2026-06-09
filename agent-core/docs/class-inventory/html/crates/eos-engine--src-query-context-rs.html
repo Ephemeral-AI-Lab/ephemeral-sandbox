@@ -56,26 +56,26 @@
       <span>1 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-trait-ProviderStreamSource-23" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait ProviderStreamSource pub pub trait ProviderStreamSource crates/eos-engine/src/query/context.rs  stream async fn stream (&amp; self , request : &amp; LlmRequest) -&gt; Result &lt; EngineStream , EngineError &gt;">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-trait-ProviderStreamSource-26" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait ProviderStreamSource pub pub trait ProviderStreamSource crates/eos-engine/src/query/context.rs  stream async fn stream (&amp; self , request : &amp; LlmRequest) -&gt; Result &lt; EngineStream , EngineError &gt;">
   <div class="item-head">
     <span class="kind">trait</span>
     <h3>ProviderStreamSource</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub trait <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-23">ProviderStreamSource</a></code>
+  <code class="signature">pub trait <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-26">ProviderStreamSource</a></code>
   <p class="docstring">A per-agent stream source. Production adapts an `LlmClient`; tests can replay<br>scripted engine events while still exercising the real loop.</p>
   <div class="tags"><span>async_trait</span></div>
-  <h4>Methods</h4><table><tbody><tr id="method-stream-27"><td>required</td><td>stream</td><td><code>async fn <a class="symbol-link" href="eos-engine--src-query-context-rs.html#method-stream-27">stream</a> (&amp; self , request : &amp; LlmRequest) -&gt; Result &lt; <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a> , <a class="symbol-link" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a> &gt;</code><p class="docstring">Open one model turn for `request`.<br># Errors<br>Returns [`EngineError`] for request construction or stream setup faults.</p><details class="function-source">
+  <h4>Methods</h4><table><tbody><tr id="method-stream-30"><td>required</td><td>stream</td><td><code>async fn <a class="symbol-link" href="eos-engine--src-query-context-rs.html#method-stream-30">stream</a> (&amp; self , request : &amp; LlmRequest) -&gt; Result &lt; <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a> , <a class="symbol-link" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a> &gt;</code><p class="docstring">Open one model turn for `request`.<br># Errors<br>Returns [`EngineError`] for request construction or stream setup faults.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Open one model turn for `request`.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// Returns [`EngineError`] for request construction or stream setup faults.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-27">stream</a>(&amp;<span class="rs-self">self</span>, request: &amp;<span class="rs-type">LlmRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-30">stream</a>(&amp;<span class="rs-self">self</span>, request: &amp;<span class="rs-type">LlmRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-engine/src/query/context.rs:23</p>
+  <p class="source">crates/eos-engine/src/query/context.rs:26</p>
 </article><div class="group-label">Aliases</div><article id="item-type-EngineStream-13" class="item-card" data-kind="type" data-kind-list="type" data-filter-text="type EngineStream pub pub type EngineStream = Pin &lt; Box &lt; dyn Stream &lt; Item = Result &lt; StreamEvent , EngineError &gt; &gt; + Send &gt; &gt; crates/eos-engine/src/query/context.rs  ">
   <div class="item-head">
     <span class="kind">type</span>
@@ -87,28 +87,28 @@
   <div class="tags"></div>
 
   <p class="source">crates/eos-engine/src/query/context.rs:13</p>
-</article><article id="item-type-ProviderStreamSourceFactory-16" class="item-card" data-kind="type" data-kind-list="type" data-filter-text="type ProviderStreamSourceFactory pub pub type ProviderStreamSourceFactory = Arc &lt; dyn Fn (&amp; StartAgentLoopRequest , &amp; AgentState) -&gt; Arc &lt; dyn ProviderStreamSource &gt; + Send + Sync &gt; crates/eos-engine/src/query/context.rs  ">
+</article><article id="item-type-ProviderStreamSourceFactory-16" class="item-card" data-kind="type" data-kind-list="type" data-filter-text="type ProviderStreamSourceFactory pub pub type ProviderStreamSourceFactory = Arc &lt; dyn Fn (&amp; StartAgentLoopRequest , &amp; AgentRunRuntimeSnapshot) -&gt; Arc &lt; dyn ProviderStreamSource &gt; + Send + Sync , &gt; crates/eos-engine/src/query/context.rs  ">
   <div class="item-head">
     <span class="kind">type</span>
     <h3>ProviderStreamSourceFactory</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub type <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-type-ProviderStreamSourceFactory-16">ProviderStreamSourceFactory</a> = Arc &lt; dyn Fn (&amp; StartAgentLoopRequest , &amp; AgentState) -&gt; Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-23">ProviderStreamSource</a> &gt; + Send + Sync &gt;</code>
+  <code class="signature">pub type <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-type-ProviderStreamSourceFactory-16">ProviderStreamSourceFactory</a> = Arc &lt; dyn Fn (&amp; StartAgentLoopRequest , &amp; AgentRunRuntimeSnapshot) -&gt; Arc &lt; dyn <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-26">ProviderStreamSource</a> &gt; + Send + Sync , &gt;</code>
   <p class="docstring">Per-loop provider stream source factory.</p>
   <div class="tags"></div>
 
   <p class="source">crates/eos-engine/src/query/context.rs:16</p>
-</article><article id="item-type-EngineEventSink-20" class="item-card" data-kind="type" data-kind-list="type" data-filter-text="type EngineEventSink pub pub type EngineEventSink = Arc &lt; dyn Fn (&amp; StreamEvent) + Send + Sync &gt; crates/eos-engine/src/query/context.rs  ">
+</article><article id="item-type-EngineEventSink-23" class="item-card" data-kind="type" data-kind-list="type" data-filter-text="type EngineEventSink pub pub type EngineEventSink = Arc &lt; dyn Fn (&amp; StreamEvent) + Send + Sync &gt; crates/eos-engine/src/query/context.rs  ">
   <div class="item-head">
     <span class="kind">type</span>
     <h3>EngineEventSink</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub type <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-type-EngineEventSink-20">EngineEventSink</a> = Arc &lt; dyn Fn (&amp; <a class="symbol-link" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>) + Send + Sync &gt;</code>
+  <code class="signature">pub type <a class="symbol-link" href="eos-engine--src-query-context-rs.html#item-type-EngineEventSink-23">EngineEventSink</a> = Arc &lt; dyn Fn (&amp; <a class="symbol-link" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>) + Send + Sync &gt;</code>
   <p class="docstring">Per-run stream-event sink.</p>
   <div class="tags"></div>
 
-  <p class="source">crates/eos-engine/src/query/context.rs:20</p>
+  <p class="source">crates/eos-engine/src/query/context.rs:23</p>
 </article></div>
 </section></div>
 </main>
@@ -124,7 +124,7 @@
 
 <span class="rs-kw">use</span> async_trait::async_trait;
 <span class="rs-kw">use</span> eos_llm_client::<span class="rs-type">LlmRequest</span>;
-<span class="rs-kw">use</span> eos_types::<span class="rs-type">AgentState</span>;
+<span class="rs-kw">use</span> eos_types::<span class="rs-type">AgentRunRuntimeSnapshot</span>;
 <span class="rs-kw">use</span> futures::<span class="rs-type">Stream</span>;
 
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::{<a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>, <span class="rs-type">StartAgentLoopRequest</span>, <a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>};
@@ -133,21 +133,24 @@
 <span class="rs-kw">pub</span> <span class="rs-kw">type</span> <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a> = <span class="rs-type">Pin</span>&lt;<span class="rs-type">Box</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">Stream</span>&lt;<span class="rs-type">Item</span> = <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;&gt; + <span class="rs-type">Send</span>&gt;&gt;;
 
 <span class="rs-comment">/// Per-loop provider stream source factory.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">type</span> <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-ProviderStreamSourceFactory-16">ProviderStreamSourceFactory</a> =
-    <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">Fn</span>(&amp;<span class="rs-type">StartAgentLoopRequest</span>, &amp;<span class="rs-type">AgentState</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-23">ProviderStreamSource</a>&gt; + <span class="rs-type">Send</span> + <span class="rs-type">Sync</span>&gt;;
+<span class="rs-kw">pub</span> <span class="rs-kw">type</span> <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-ProviderStreamSourceFactory-16">ProviderStreamSourceFactory</a> = <span class="rs-type">Arc</span>&lt;
+    <span class="rs-kw">dyn</span> <span class="rs-type">Fn</span>(&amp;<span class="rs-type">StartAgentLoopRequest</span>, &amp;<span class="rs-type">AgentRunRuntimeSnapshot</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-26">ProviderStreamSource</a>&gt;
+        + <span class="rs-type">Send</span>
+        + <span class="rs-type">Sync</span>,
+&gt;;
 
 <span class="rs-comment">/// Per-run stream-event sink.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">type</span> <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-EngineEventSink-20">EngineEventSink</a> = <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">Fn</span>(&amp;<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>) + <span class="rs-type">Send</span> + <span class="rs-type">Sync</span>&gt;;
+<span class="rs-kw">pub</span> <span class="rs-kw">type</span> <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-EngineEventSink-23">EngineEventSink</a> = <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">Fn</span>(&amp;<a class="symbol-link rs-type" href="eos-engine--src-telemetry-events-rs.html#item-enum-StreamEvent-19">StreamEvent</a>) + <span class="rs-type">Send</span> + <span class="rs-type">Sync</span>&gt;;
 
 <span class="rs-comment">/// A per-agent stream source. Production adapts an `LlmClient`; tests can replay</span>
 <span class="rs-comment">/// scripted engine events while still exercising the real loop.</span>
 #[async_trait]
-<span class="rs-kw">pub</span> <span class="rs-kw">trait</span> <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-23">ProviderStreamSource</a>: <span class="rs-type">Send</span> + <span class="rs-type">Sync</span> {
+<span class="rs-kw">pub</span> <span class="rs-kw">trait</span> <a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-trait-ProviderStreamSource-26">ProviderStreamSource</a>: <span class="rs-type">Send</span> + <span class="rs-type">Sync</span> {
     <span class="rs-comment">/// Open one model turn for `request`.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// Returns [`EngineError`] for request construction or stream setup faults.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-27">stream</a>(&amp;<span class="rs-self">self</span>, request: &amp;<span class="rs-type">LlmRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-query-context-rs.html#method-stream-30">stream</a>(&amp;<span class="rs-self">self</span>, request: &amp;<span class="rs-type">LlmRequest</span>) -&gt; <span class="rs-type">Result</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-query-context-rs.html#item-type-EngineStream-13">EngineStream</a>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
 }
 </code></pre>
 </section>

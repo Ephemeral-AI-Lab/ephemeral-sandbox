@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
-  <div><b>14</b><span>modules</span></div>
-  <div><b>98</b><span>items</span></div>
-  <div><b>121</b><span>fields</span></div>
-  <div><b>63</b><span>methods</span></div>
+  <div><b>15</b><span>modules</span></div>
+  <div><b>116</b><span>items</span></div>
+  <div><b>156</b><span>fields</span></div>
+  <div><b>74</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-db.html"><span>config.rs</span><small>2/2</small></a></li><li><a class="file-link" href="eos-db--src-database-rs.html"><span>database.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-json-col-rs.html"><span>json_col.rs</span><small>0/7</small></a></li><li><a class="file-link" href="eos-db--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-model-registry-rs.html"><span>model_registry.rs</span><small>3/14</small></a></li><li><a class="file-link" href="eos-db--src-pool-rs.html"><span>pool.rs</span><small>0/3</small></a></li><li><span class="folder">repositories</span><ul class="file-tree"><li><a class="file-link" href="eos-db--src-repositories-agent-run-rs.html"><span>agent_run.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-attempt-rs.html"><span>attempt.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-iteration-rs.html"><span>iteration.rs</span><small>1/0</small></a></li><li><a class="file-link active" href="eos-db--src-repositories-request-task-rs.html"><span>request_task.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-workflow-rs.html"><span>workflow.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-db--src-repositories-rs.html"><span>repositories.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-rows-rs.html"><span>rows.rs</span><small>7/28</small></a></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-db.html"><span>config.rs</span><small>2/2</small></a></li><li><a class="file-link" href="eos-db--src-database-rs.html"><span>database.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-json-col-rs.html"><span>json_col.rs</span><small>0/7</small></a></li><li><a class="file-link" href="eos-db--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-model-registry-rs.html"><span>model_registry.rs</span><small>3/14</small></a></li><li><a class="file-link" href="eos-db--src-pool-rs.html"><span>pool.rs</span><small>0/3</small></a></li><li><span class="folder">repositories</span><ul class="file-tree"><li><a class="file-link" href="eos-db--src-repositories-agent-run-rs.html"><span>agent_run.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-attempt-rs.html"><span>attempt.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-iteration-rs.html"><span>iteration.rs</span><small>1/0</small></a></li><li><a class="file-link active" href="eos-db--src-repositories-request-task-rs.html"><span>request_task.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-task-agent-run-rs.html"><span>task_agent_run.rs</span><small>4/11</small></a></li><li><a class="file-link" href="eos-db--src-repositories-workflow-rs.html"><span>workflow.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-db--src-repositories-rs.html"><span>repositories.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-rows-rs.html"><span>rows.rs</span><small>7/28</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="repositories::request_task crates/eos-db/src/repositories/request_task.rs SqlRequestTaskStore impl SqlRequestTaskStore impl Sealed for SqlRequestTaskStore impl RequestStore for SqlRequestTaskStore impl TaskStore for SqlRequestTaskStore">
   <div class="module-head">
     <div>
@@ -90,7 +90,7 @@
         .bind(cwd)
         .bind(sandbox_id.map(<span class="rs-type">SandboxId</span>::as_str))
         .bind(request_prompt)
-        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;<span class="rs-type">RequestStatus</span>::<span class="rs-type">Running</span>))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">RequestStatus</span>::<span class="rs-type">Running</span>))
         .bind(now)
         .bind(now)
         .execute(&amp;<span class="rs-self">self</span>.pool)
@@ -131,7 +131,7 @@
             table: &quot;requests&quot;,
             id: id.to_string(),
         })?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-254">row_to_request</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-252">row_to_request</a>(row)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-finish-request-96"><td>method</td><td>finish_request</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-request-task-rs.html#method-finish-request-96">finish_request</a> (&amp; self , id : &amp; RequestId , status : RequestStatus ,) -&gt; Result &lt; Option &lt; Request &gt; , CoreError &gt;</code><details class="function-source">
@@ -152,13 +152,13 @@
         };
         <span class="rs-comment">// Idempotent on a terminal request: return it unchanged (task_store.py:142).</span>
         <span class="rs-kw">if</span> parse_enum::&lt;<span class="rs-type">RequestStatus</span>&gt;(&quot;requests.status&quot;, &amp;row.status)?.is_terminal() {
-            <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-254">row_to_request</a>(row)?));
+            <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-252">row_to_request</a>(row)?));
         }
         <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
         <span class="rs-kw">let</span> updated = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-RequestRow-24">RequestRow</a>&gt;(
             &quot;<span class="rs-type">UPDATE</span> requests <span class="rs-type">SET</span> status = ?, finished_at = ?, updated_at = ? <span class="rs-type">WHERE</span> id = ? <span class="rs-type">RETURNING</span> *&quot;,
         )
-        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;status))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;status))
         .bind(now)
         .bind(now)
         .bind(id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
@@ -166,7 +166,7 @@
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
         tx.commit().<span class="rs-kw">await</span>.map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-254">row_to_request</a>(updated)?))
+        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-252">row_to_request</a>(updated)?))
     }
 </code></pre>
 </details></td></tr><tr id="method-list-129"><td>method</td><td>list</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-request-task-rs.html#method-list-129">list</a> (&amp; self , filter : RequestListFilter , page : Page ,) -&gt; Result &lt; PageResult &lt; Request &gt; , CoreError &gt;</code><details class="function-source">
@@ -179,7 +179,7 @@
         <span class="rs-comment">// Bind the optional status string twice so `(? IS NULL OR status = ?)`</span>
         <span class="rs-comment">// degrades to "no filter" when absent without numbered placeholders.</span>
         <span class="rs-kw">let</span> <span class="rs-type">RequestListFilter</span> { status } = filter;
-        <span class="rs-kw">let</span> status = status.map(|s| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;s));
+        <span class="rs-kw">let</span> status = status.map(|s| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;s));
         <span class="rs-kw">let</span> total: i64 =
             sqlx::query_scalar(&quot;<span class="rs-type">SELECT</span> <span class="rs-type">COUNT</span>(*) <span class="rs-type">FROM</span> requests <span class="rs-type">WHERE</span> (? <span class="rs-type">IS</span> <span class="rs-type">NULL</span> <span class="rs-type">OR</span> status = ?)&quot;)
                 .bind(status.as_deref())
@@ -220,9 +220,9 @@
         )
         .bind(task.id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
         .bind(task.request_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
-        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;task.role))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;task.role))
         .bind(&amp;task.instruction)
-        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;task.status))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;task.status))
         .bind(task.workflow_id.as_ref().map(<span class="rs-type">WorkflowId</span>::as_str))
         .bind(task.iteration_id.as_ref().map(<span class="rs-type">IterationId</span>::as_str))
         .bind(task.attempt_id.as_ref().map(<span class="rs-type">AttemptId</span>::as_str))
@@ -268,12 +268,12 @@
         <span class="rs-kw">let</span> outcomes_json = outcomes.map(json_col::encode).transpose()?;
         <span class="rs-kw">let</span> ttr_json = terminal_tool_result.map(json_col::encode).transpose()?;
         <span class="rs-kw">let</span> updated = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-TaskRow-37">TaskRow</a>&gt;(<span class="rs-type">UPDATE_TASK_STATUS_IF_CURRENT_SQL</span>)
-            .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;status))
+            .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;status))
             .bind(outcomes_json)
             .bind(ttr_json)
             .bind(now)
             .bind(id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
-            .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;expected))
+            .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;expected))
             .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
             .<span class="rs-kw">await</span>
             .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
@@ -292,7 +292,7 @@
             }
             .into());
         };
-        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-task-268">row_to_task</a>(updated)?))
+        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-task-266">row_to_task</a>(updated)?))
     }
 </code></pre>
 </details></td></tr><tr id="method-latch-attempt-tasks-cancelled-250"><td>method</td><td>latch_attempt_tasks_cancelled</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-request-task-rs.html#method-latch-attempt-tasks-cancelled-250">latch_attempt_tasks_cancelled</a> (&amp; self , attempt_id : &amp; AttemptId , ids : &amp; [TaskId] ,) -&gt; Result &lt; () , CoreError &gt;</code><details class="function-source">
@@ -306,7 +306,7 @@
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(());
         }
         <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
-        <span class="rs-kw">let</span> cancelled = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;<span class="rs-type">TaskStatus</span>::<span class="rs-type">Cancelled</span>);
+        <span class="rs-kw">let</span> cancelled = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">TaskStatus</span>::<span class="rs-type">Cancelled</span>);
         <span class="rs-kw">let</span> terminal = json_col::<a class="symbol-link rs-fn" href="eos-db--src-json-col-rs.html#item-fn-encode-12">encode</a>(&amp;serde_json::json!({ &quot;fail_reason&quot;: &quot;cancelled&quot; }))?;
         <span class="rs-kw">let</span> placeholders = std::iter::repeat_n(&quot;?&quot;, ids.len())
             .collect::&lt;<span class="rs-type">Vec</span>&lt;_&gt;&gt;()
@@ -412,7 +412,7 @@
         .bind(cwd)
         .bind(sandbox_id.map(<span class="rs-type">SandboxId</span>::as_str))
         .bind(request_prompt)
-        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;<span class="rs-type">RequestStatus</span>::<span class="rs-type">Running</span>))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">RequestStatus</span>::<span class="rs-type">Running</span>))
         .bind(now)
         .bind(now)
         .execute(&amp;<span class="rs-self">self</span>.pool)
@@ -449,7 +449,7 @@
             table: &quot;requests&quot;,
             id: id.to_string(),
         })?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-254">row_to_request</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-252">row_to_request</a>(row)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-finish-request-96">finish_request</a>(
@@ -468,13 +468,13 @@
         };
         <span class="rs-comment">// Idempotent on a terminal request: return it unchanged (task_store.py:142).</span>
         <span class="rs-kw">if</span> parse_enum::&lt;<span class="rs-type">RequestStatus</span>&gt;(&quot;requests.status&quot;, &amp;row.status)?.is_terminal() {
-            <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-254">row_to_request</a>(row)?));
+            <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-252">row_to_request</a>(row)?));
         }
         <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
         <span class="rs-kw">let</span> updated = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-RequestRow-24">RequestRow</a>&gt;(
             &quot;<span class="rs-type">UPDATE</span> requests <span class="rs-type">SET</span> status = ?, finished_at = ?, updated_at = ? <span class="rs-type">WHERE</span> id = ? <span class="rs-type">RETURNING</span> *&quot;,
         )
-        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;status))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;status))
         .bind(now)
         .bind(now)
         .bind(id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
@@ -482,7 +482,7 @@
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
         tx.commit().<span class="rs-kw">await</span>.map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-254">row_to_request</a>(updated)?))
+        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-request-252">row_to_request</a>(updated)?))
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-list-129">list</a>(
@@ -493,7 +493,7 @@
         <span class="rs-comment">// Bind the optional status string twice so `(? IS NULL OR status = ?)`</span>
         <span class="rs-comment">// degrades to "no filter" when absent without numbered placeholders.</span>
         <span class="rs-kw">let</span> <span class="rs-type">RequestListFilter</span> { status } = filter;
-        <span class="rs-kw">let</span> status = status.map(|s| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;s));
+        <span class="rs-kw">let</span> status = status.map(|s| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;s));
         <span class="rs-kw">let</span> total: i64 =
             sqlx::query_scalar(&quot;<span class="rs-type">SELECT</span> <span class="rs-type">COUNT</span>(*) <span class="rs-type">FROM</span> requests <span class="rs-type">WHERE</span> (? <span class="rs-type">IS</span> <span class="rs-type">NULL</span> <span class="rs-type">OR</span> status = ?)&quot;)
                 .bind(status.as_deref())
@@ -535,9 +535,9 @@
         )
         .bind(task.id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
         .bind(task.request_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
-        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;task.role))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;task.role))
         .bind(&amp;task.instruction)
-        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;task.status))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;task.status))
         .bind(task.workflow_id.as_ref().map(<span class="rs-type">WorkflowId</span>::as_str))
         .bind(task.iteration_id.as_ref().map(<span class="rs-type">IterationId</span>::as_str))
         .bind(task.attempt_id.as_ref().map(<span class="rs-type">AttemptId</span>::as_str))
@@ -579,12 +579,12 @@
         <span class="rs-kw">let</span> outcomes_json = outcomes.map(json_col::encode).transpose()?;
         <span class="rs-kw">let</span> ttr_json = terminal_tool_result.map(json_col::encode).transpose()?;
         <span class="rs-kw">let</span> updated = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-rows-rs.html#item-struct-TaskRow-37">TaskRow</a>&gt;(<span class="rs-type">UPDATE_TASK_STATUS_IF_CURRENT_SQL</span>)
-            .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;status))
+            .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;status))
             .bind(outcomes_json)
             .bind(ttr_json)
             .bind(now)
             .bind(id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
-            .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;expected))
+            .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;expected))
             .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
             .<span class="rs-kw">await</span>
             .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
@@ -603,7 +603,7 @@
             }
             .into());
         };
-        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-task-268">row_to_task</a>(updated)?))
+        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-task-266">row_to_task</a>(updated)?))
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-request-task-rs.html#method-latch-attempt-tasks-cancelled-250">latch_attempt_tasks_cancelled</a>(
@@ -615,7 +615,7 @@
             <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(());
         }
         <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
-        <span class="rs-kw">let</span> cancelled = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;<span class="rs-type">TaskStatus</span>::<span class="rs-type">Cancelled</span>);
+        <span class="rs-kw">let</span> cancelled = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">TaskStatus</span>::<span class="rs-type">Cancelled</span>);
         <span class="rs-kw">let</span> terminal = json_col::<a class="symbol-link rs-fn" href="eos-db--src-json-col-rs.html#item-fn-encode-12">encode</a>(&amp;serde_json::json!({ &quot;fail_reason&quot;: &quot;cancelled&quot; }))?;
         <span class="rs-kw">let</span> placeholders = std::iter::repeat_n(&quot;?&quot;, ids.len())
             .collect::&lt;<span class="rs-type">Vec</span>&lt;_&gt;&gt;()

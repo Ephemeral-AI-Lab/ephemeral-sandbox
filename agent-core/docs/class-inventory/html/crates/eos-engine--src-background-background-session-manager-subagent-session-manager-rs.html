@@ -483,7 +483,7 @@
     run: &amp;<span class="rs-type">AgentRun</span>,
 ) -&gt; <span class="rs-type">Option</span>&lt;(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-rs.html#item-enum-BackgroundSessionStatus-28">BackgroundSessionStatus</a>, <span class="rs-type">ToolResult</span>, i64)&gt; {
     run.finished_at?;
-    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(terminal) = &amp;run.terminal_tool_result {
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(terminal) = &amp;run.terminal_payload {
         <span class="rs-kw">let</span> result = <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-tool-result-from-payload-419">tool_result_from_payload</a>(terminal);
         <span class="rs-kw">let</span> exit_code = i64::from(result.is_error);
         <span class="rs-kw">return</span> <span class="rs-type">Some</span>((<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-rs.html#item-enum-BackgroundSessionStatus-28">BackgroundSessionStatus</a>::<span class="rs-type">Completed</span>, result, exit_code));
@@ -692,24 +692,22 @@
 </details>
 
   <p class="source">crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs:495</p>
-</article><article id="item-fn-finished-run-503" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn finished_run private fn finished_run (terminal_tool_result : Option &lt; JsonObject &gt; , error : Option &lt; &amp; str &gt;) -&gt; AgentRun crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs  ">
+</article><article id="item-fn-finished-run-503" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn finished_run private fn finished_run (terminal_payload : Option &lt; JsonObject &gt; , error : Option &lt; &amp; str &gt;) -&gt; AgentRun crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>finished_run</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-finished-run-503">finished_run</a> (terminal_tool_result : Option &lt; JsonObject &gt; , error : Option &lt; &amp; str &gt;) -&gt; AgentRun</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-finished-run-503">finished_run</a> (terminal_payload : Option &lt; JsonObject &gt; , error : Option &lt; &amp; str &gt;) -&gt; AgentRun</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-finished-run-503">finished_run</a>(terminal_tool_result: <span class="rs-type">Option</span>&lt;<span class="rs-type">JsonObject</span>&gt;, error: <span class="rs-type">Option</span>&lt;&amp;str&gt;) -&gt; <span class="rs-type">AgentRun</span> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-finished-run-503">finished_run</a>(terminal_payload: <span class="rs-type">Option</span>&lt;<span class="rs-type">JsonObject</span>&gt;, error: <span class="rs-type">Option</span>&lt;&amp;str&gt;) -&gt; <span class="rs-type">AgentRun</span> {
         <span class="rs-type">AgentRun</span> {
             id: &quot;run-sub-finished&quot;.parse().expect(&quot;agent run id&quot;),
             task_id: <span class="rs-type">None</span>,
-            initial_messages: <span class="rs-type">None</span>,
             agent_name: &quot;subagent&quot;.to_owned(),
-            message_history: <span class="rs-type">None</span>,
-            terminal_tool_result,
+            terminal_payload,
             token_count: 0,
             error: error.map(str::to_owned),
             created_at: <span class="rs-type">UtcDateTime</span>::now(),
@@ -720,18 +718,18 @@
 </details>
 
   <p class="source">crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs:503</p>
-</article><article id="item-fn-submission-payload-settles-completed-and-finished-518" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn submission_payload_settles_completed_and_finished private fn submission_payload_settles_completed_and_finished () crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs  ">
+</article><article id="item-fn-submission-payload-settles-completed-and-finished-516" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn submission_payload_settles_completed_and_finished private fn submission_payload_settles_completed_and_finished () crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>submission_payload_settles_completed_and_finished</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-submission-payload-settles-completed-and-finished-518">submission_payload_settles_completed_and_finished</a> ()</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-submission-payload-settles-completed-and-finished-516">submission_payload_settles_completed_and_finished</a> ()</code>
   <div class="tags"><span>test</span></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code>    #[test]
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-submission-payload-settles-completed-and-finished-518">submission_payload_settles_completed_and_finished</a>() {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-submission-payload-settles-completed-and-finished-516">submission_payload_settles_completed_and_finished</a>() {
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> terminal = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-new-43">new</a>();
         terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-rs.html#method-insert-68">insert</a>(&quot;output&quot;.to_owned(), json!(&quot;partial but delivered&quot;));
         terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-rs.html#method-insert-68">insert</a>(&quot;is_error&quot;.to_owned(), json!(<span class="rs-kw">true</span>));
@@ -748,19 +746,19 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs:518</p>
-</article><article id="item-fn-no-terminal-settles-failed-534" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn no_terminal_settles_failed private fn no_terminal_settles_failed () crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs  ">
+  <p class="source">crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs:516</p>
+</article><article id="item-fn-no-terminal-settles-failed-532" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn no_terminal_settles_failed private fn no_terminal_settles_failed () crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>no_terminal_settles_failed</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-no-terminal-settles-failed-534">no_terminal_settles_failed</a> ()</code>
+  <code class="signature">fn <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-no-terminal-settles-failed-532">no_terminal_settles_failed</a> ()</code>
   <div class="tags"><span>test</span></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code>    #[test]
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-no-terminal-settles-failed-534">no_terminal_settles_failed</a>() {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-no-terminal-settles-failed-532">no_terminal_settles_failed</a>() {
         <span class="rs-kw">let</span> (status, result, _) =
             <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-completion-from-agent-run-397">completion_from_agent_run</a>(&amp;<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-finished-run-503">finished_run</a>(<span class="rs-type">None</span>, <span class="rs-type">None</span>)).expect(&quot;completion&quot;);
         assert_eq!(status, <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-rs.html#item-enum-BackgroundSessionStatus-28">BackgroundSessionStatus</a>::<span class="rs-type">Failed</span>);
@@ -769,19 +767,19 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs:534</p>
-</article><article id="item-fn-count-cancel-and-completion-notification-are-manager-owned-542" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn count_cancel_and_completion_notification_are_manager_owned private async fn count_cancel_and_completion_notification_are_manager_owned () crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs  ">
+  <p class="source">crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs:532</p>
+</article><article id="item-fn-count-cancel-and-completion-notification-are-manager-owned-540" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn count_cancel_and_completion_notification_are_manager_owned private async fn count_cancel_and_completion_notification_are_manager_owned () crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>count_cancel_and_completion_notification_are_manager_owned</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">async fn <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-count-cancel-and-completion-notification-are-manager-owned-542">count_cancel_and_completion_notification_are_manager_owned</a> ()</code>
+  <code class="signature">async fn <a class="symbol-link" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-count-cancel-and-completion-notification-are-manager-owned-540">count_cancel_and_completion_notification_are_manager_owned</a> ()</code>
   <div class="tags"><span>async</span><span>tokio::test</span></div>
   <details class="function-source">
   <summary>code</summary>
   <pre><code>    #[tokio::test]
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-count-cancel-and-completion-notification-are-manager-owned-542">count_cancel_and_completion_notification_are_manager_owned</a>() {
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-count-cancel-and-completion-notification-are-manager-owned-540">count_cancel_and_completion_notification_are_manager_owned</a>() {
         <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-EngineNotificationQueue-130">EngineNotificationQueue</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-new-43">new</a>();
         <span class="rs-kw">let</span> manager = <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-fn-manager-380">manager</a>(&amp;notifier);
         <span class="rs-kw">let</span> running_id: <span class="rs-type">AgentRunId</span> = &quot;run-sub-1&quot;.parse().expect(&quot;agent run id&quot;);
@@ -817,7 +815,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs:542</p>
+  <p class="source">crates/eos-engine/src/background/background_session_manager/subagent_session_manager.rs:540</p>
 </article></div>
 </section></div>
 </main>
@@ -1227,7 +1225,7 @@
     run: &amp;<span class="rs-type">AgentRun</span>,
 ) -&gt; <span class="rs-type">Option</span>&lt;(<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-rs.html#item-enum-BackgroundSessionStatus-28">BackgroundSessionStatus</a>, <span class="rs-type">ToolResult</span>, i64)&gt; {
     run.finished_at?;
-    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(terminal) = &amp;run.terminal_tool_result {
+    <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(terminal) = &amp;run.terminal_payload {
         <span class="rs-kw">let</span> result = <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-tool-result-from-payload-419">tool_result_from_payload</a>(terminal);
         <span class="rs-kw">let</span> exit_code = i64::from(result.is_error);
         <span class="rs-kw">return</span> <span class="rs-type">Some</span>((<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-rs.html#item-enum-BackgroundSessionStatus-28">BackgroundSessionStatus</a>::<span class="rs-type">Completed</span>, result, exit_code));
@@ -1328,14 +1326,12 @@
         )
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-finished-run-503">finished_run</a>(terminal_tool_result: <span class="rs-type">Option</span>&lt;<span class="rs-type">JsonObject</span>&gt;, error: <span class="rs-type">Option</span>&lt;&amp;str&gt;) -&gt; <span class="rs-type">AgentRun</span> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-finished-run-503">finished_run</a>(terminal_payload: <span class="rs-type">Option</span>&lt;<span class="rs-type">JsonObject</span>&gt;, error: <span class="rs-type">Option</span>&lt;&amp;str&gt;) -&gt; <span class="rs-type">AgentRun</span> {
         <span class="rs-type">AgentRun</span> {
             id: &quot;run-sub-finished&quot;.parse().expect(&quot;agent run id&quot;),
             task_id: <span class="rs-type">None</span>,
-            initial_messages: <span class="rs-type">None</span>,
             agent_name: &quot;subagent&quot;.to_owned(),
-            message_history: <span class="rs-type">None</span>,
-            terminal_tool_result,
+            terminal_payload,
             token_count: 0,
             error: error.map(str::to_owned),
             created_at: <span class="rs-type">UtcDateTime</span>::now(),
@@ -1344,7 +1340,7 @@
     }
 
     #[test]
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-submission-payload-settles-completed-and-finished-518">submission_payload_settles_completed_and_finished</a>() {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-submission-payload-settles-completed-and-finished-516">submission_payload_settles_completed_and_finished</a>() {
         <span class="rs-kw">let</span> <span class="rs-kw">mut</span> terminal = <span class="rs-type">JsonObject</span>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-new-43">new</a>();
         terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-rs.html#method-insert-68">insert</a>(&quot;output&quot;.to_owned(), json!(&quot;partial but delivered&quot;));
         terminal.<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-rs.html#method-insert-68">insert</a>(&quot;is_error&quot;.to_owned(), json!(<span class="rs-kw">true</span>));
@@ -1360,7 +1356,7 @@
     }
 
     #[test]
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-no-terminal-settles-failed-534">no_terminal_settles_failed</a>() {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-no-terminal-settles-failed-532">no_terminal_settles_failed</a>() {
         <span class="rs-kw">let</span> (status, result, _) =
             <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-completion-from-agent-run-397">completion_from_agent_run</a>(&amp;<a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-finished-run-503">finished_run</a>(<span class="rs-type">None</span>, <span class="rs-type">None</span>)).expect(&quot;completion&quot;);
         assert_eq!(status, <a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-rs.html#item-enum-BackgroundSessionStatus-28">BackgroundSessionStatus</a>::<span class="rs-type">Failed</span>);
@@ -1368,7 +1364,7 @@
     }
 
     #[tokio::test]
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-count-cancel-and-completion-notification-are-manager-owned-542">count_cancel_and_completion_notification_are_manager_owned</a>() {
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-subagent-session-manager-rs.html#item-fn-count-cancel-and-completion-notification-are-manager-owned-540">count_cancel_and_completion_notification_are_manager_owned</a>() {
         <span class="rs-kw">let</span> notifier = <a class="symbol-link rs-type" href="eos-engine--src-notifications-rs.html#item-struct-EngineNotificationQueue-130">EngineNotificationQueue</a>::<a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-new-43">new</a>();
         <span class="rs-kw">let</span> manager = <a class="symbol-link rs-fn" href="eos-engine--src-background-background-session-manager-command-session-manager-rs.html#item-fn-manager-380">manager</a>(&amp;notifier);
         <span class="rs-kw">let</span> running_id: <span class="rs-type">AgentRunId</span> = &quot;run-sub-1&quot;.parse().expect(&quot;agent run id&quot;);

@@ -178,13 +178,13 @@ fn changeset_outcome(
 #[cfg(target_os = "linux")]
 #[derive(Debug, Clone)]
 pub(crate) struct IsolatedFilePorts {
-    handle: crate::adapters::workspace_run::isolated::CommandHandle,
+    handle: crate::adapters::workspace_run::isolated::IsolatedCommandHandle,
     started_at: Instant,
 }
 
 #[cfg(target_os = "linux")]
 impl IsolatedFilePorts {
-    pub(crate) fn new(handle: crate::adapters::workspace_run::isolated::CommandHandle) -> Self {
+    pub(crate) fn new(handle: crate::adapters::workspace_run::isolated::IsolatedCommandHandle) -> Self {
         Self {
             handle,
             started_at: Instant::now(),
@@ -271,7 +271,7 @@ impl WorkspaceMutationSink for IsolatedFilePorts {
 
 #[cfg(target_os = "linux")]
 fn isolated_upper_path(
-    handle: &crate::adapters::workspace_run::isolated::CommandHandle,
+    handle: &crate::adapters::workspace_run::isolated::IsolatedCommandHandle,
     layer_path: &LayerPath,
 ) -> PathBuf {
     handle.upperdir.join(layer_path.as_str())
@@ -279,7 +279,7 @@ fn isolated_upper_path(
 
 #[cfg(target_os = "linux")]
 fn read_isolated_current(
-    handle: &crate::adapters::workspace_run::isolated::CommandHandle,
+    handle: &crate::adapters::workspace_run::isolated::IsolatedCommandHandle,
     layer_path: &LayerPath,
 ) -> Result<(Option<Vec<u8>>, bool), WorkspaceApiError> {
     let upper_path = isolated_upper_path(handle, layer_path);
@@ -310,7 +310,7 @@ fn read_isolated_current(
 
 #[cfg(target_os = "linux")]
 fn write_isolated_upper(
-    handle: &crate::adapters::workspace_run::isolated::CommandHandle,
+    handle: &crate::adapters::workspace_run::isolated::IsolatedCommandHandle,
     layer_path: &LayerPath,
     content: &[u8],
 ) -> Result<(), WorkspaceApiError> {
@@ -322,7 +322,7 @@ fn write_isolated_upper(
 }
 
 #[cfg(target_os = "linux")]
-fn isolated_manifest(handle: &crate::adapters::workspace_run::isolated::CommandHandle) -> Manifest {
+fn isolated_manifest(handle: &crate::adapters::workspace_run::isolated::IsolatedCommandHandle) -> Manifest {
     Manifest {
         version: handle.manifest_version,
         schema_version: 1,
@@ -340,7 +340,7 @@ fn isolated_manifest(handle: &crate::adapters::workspace_run::isolated::CommandH
 
 #[cfg(target_os = "linux")]
 fn isolated_manifest_layer_path(
-    handle: &crate::adapters::workspace_run::isolated::CommandHandle,
+    handle: &crate::adapters::workspace_run::isolated::IsolatedCommandHandle,
     path: &Path,
 ) -> String {
     path.strip_prefix(&handle.layer_stack_root)
@@ -359,7 +359,7 @@ fn isolated_timings(changed_path_count: usize) -> WorkspaceTimings {
 
 #[cfg(target_os = "linux")]
 fn record_isolated_tool_call(
-    handle: &crate::adapters::workspace_run::isolated::CommandHandle,
+    handle: &crate::adapters::workspace_run::isolated::IsolatedCommandHandle,
     tool_name: &str,
     status: &str,
     changed_paths: &[String],

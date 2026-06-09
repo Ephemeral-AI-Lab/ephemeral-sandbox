@@ -12,7 +12,7 @@ impl WorkspacePublisherPort for FakePublisher {
     fn publish_upperdir_changes(
         &self,
         _root: &WorkspaceRoot,
-        _snapshot: &EphemeralSnapshot,
+        _snapshot: &SnapshotLease,
         changes: &[LayerChange],
         _path_kinds: &[PathChange],
     ) -> Result<PublishOutcome, EphemeralWorkspaceError> {
@@ -48,7 +48,7 @@ fn workspace_with_upperdir(root: &std::path::Path) -> EphemeralWorkspace {
         workspace_root: PathBuf::from("/workspace"),
         caller_id: CallerId("caller-1".to_owned()),
         invocation_id: InvocationId("cmd-1".to_owned()),
-        snapshot: EphemeralSnapshot {
+        snapshot: SnapshotLease {
             lease_id: "lease-1".to_owned(),
             manifest_version: 7,
             manifest_root_hash: "hash".to_owned(),
@@ -85,7 +85,7 @@ fn prepare_builds_fresh_runner_request_and_session_metadata(
             session_dir: session_dir.clone(),
             final_path: session_dir.join("final.json"),
         },
-        EphemeralSnapshot {
+        SnapshotLease {
             lease_id: "lease-1".to_owned(),
             manifest_version: 7,
             manifest_root_hash: "hash".to_owned(),

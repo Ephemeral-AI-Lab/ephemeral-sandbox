@@ -1,5 +1,7 @@
-use eos_types::Message;
-use eos_types::{AgentRunId, AttemptId, IterationId, JsonObject, RequestId, TaskId, WorkflowId};
+use eos_types::{
+    AgentRunId, AttemptId, IterationId, JsonObject, Message, RequestId, TaskId, WorkflowId,
+    WorkflowTaskRole,
+};
 use serde_json::json;
 
 /// Input for starting an agent-run message-record node.
@@ -53,7 +55,7 @@ impl AgentRunRecordKind {
     pub(crate) fn node_type(&self) -> &'static str {
         match self {
             Self::Root => "root_agent",
-            Self::WorkflowTask { role, .. } => role.node_type(),
+            Self::WorkflowTask { role, .. } => workflow_node_type(*role),
             Self::Subagent { .. } => "subagent",
             Self::Advisor { .. } => "advisor",
         }
@@ -88,31 +90,10 @@ impl AgentRunRecordKind {
     }
 }
 
-/// Workflow task role used for message-record path labels.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WorkflowTaskRole {
-    /// Planner task.
-    Planner,
-    /// Generator task.
-    Generator,
-    /// Reducer task.
-    Reducer,
-}
-
-impl WorkflowTaskRole {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::Planner => "planner",
-            Self::Generator => "generator",
-            Self::Reducer => "reducer",
-        }
-    }
-
-    fn node_type(self) -> &'static str {
-        match self {
-            Self::Planner => "workflow_planner",
-            Self::Generator => "workflow_generator",
-            Self::Reducer => "workflow_reducer",
-        }
+fn workflow_node_type(role: WorkflowTaskRole) -> &'static str {
+    match role {
+        WorkflowTaskRole::Planner => "workflow_planner",
+        WorkflowTaskRole::Generator => "workflow_generator",
+        WorkflowTaskRole::Reducer => "workflow_reducer",
     }
 }

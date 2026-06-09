@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use eos_types::{AgentRunId, JsonObject};
+use eos_types::{AgentRunRecordDir, JsonObject};
 use serde_json::json;
 
 use super::error::Result;
@@ -63,31 +63,33 @@ impl AgentMessageRecords {
         Ok(handle)
     }
 
-    /// Read raw `messages.jsonl` bytes for an agent run after `after_byte`.
+    /// Read raw `messages.jsonl` bytes for a resolved record directory after
+    /// `after_byte`.
     ///
     /// # Errors
-    /// Returns [`super::MessageRecordError::NotFound`] if the agent-run node or
-    /// message file does not exist.
-    pub async fn read_messages(
+    /// Returns [`super::MessageRecordError::NotFound`] if the node or message
+    /// file does not exist.
+    pub async fn read_messages_at(
         &self,
-        agent_run_id: &AgentRunId,
+        record_dir: &AgentRunRecordDir,
         after_byte: u64,
     ) -> Result<RecordBytes> {
-        let node_dir = layout::resolve_agent_run(&self.root, agent_run_id).await?;
+        let node_dir = layout::record_dir(&self.root, record_dir)?;
         read_bytes_after(&node_dir.join("messages.jsonl"), after_byte).await
     }
 
-    /// Replay node-local events with `seq > after_seq`.
+    /// Replay node-local events for a resolved record directory with
+    /// `seq > after_seq`.
     ///
     /// # Errors
-    /// Returns [`super::MessageRecordError::NotFound`] if the agent-run node or
-    /// event file does not exist.
-    pub async fn read_events(
+    /// Returns [`super::MessageRecordError::NotFound`] if the node or event file
+    /// does not exist.
+    pub async fn read_events_at(
         &self,
-        agent_run_id: &AgentRunId,
+        record_dir: &AgentRunRecordDir,
         after_seq: u64,
     ) -> Result<Vec<NodeEvent>> {
-        let node_dir = layout::resolve_agent_run(&self.root, agent_run_id).await?;
+        let node_dir = layout::record_dir(&self.root, record_dir)?;
         read_events_after(&node_dir.join("events.jsonl"), after_seq).await
     }
 }

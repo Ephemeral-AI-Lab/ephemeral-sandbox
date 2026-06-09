@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 
 /// Daemon-supplied facts needed to prepare an isolated command workspace.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct IsolatedCommandPrepareContext {
+pub struct IsolatedCommandPrepareContext {
     pub workspace_handle_id: String,
     pub workspace_root: PathBuf,
     pub scratch_dir: PathBuf,
@@ -33,7 +33,7 @@ pub(crate) struct IsolatedCommandPrepareContext {
 
 /// Daemon-supplied facts needed to finalize an isolated command workspace.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct IsolatedCommandFinalizeContext {
+pub struct IsolatedCommandFinalizeContext {
     pub caller_id: String,
     pub workspace_handle_id: String,
     pub manifest_version: i64,
@@ -49,7 +49,7 @@ pub(crate) struct IsolatedCommandFinalizeContext {
 ///
 /// Returns [`WorkspaceApiError`] when the session dir or metadata cannot be
 /// created.
-pub(crate) fn prepare_isolated_command(
+pub fn prepare_isolated_command(
     context: IsolatedCommandPrepareContext,
     request: PrepareCommandRequest,
 ) -> Result<PreparedCommandWorkspace, WorkspaceApiError> {
@@ -130,7 +130,7 @@ pub(crate) fn prepare_isolated_command(
 /// # Errors
 ///
 /// Returns [`WorkspaceApiError`] when capturing the upperdir fails.
-pub(crate) fn finalize_isolated_command(
+pub fn finalize_isolated_command(
     context: IsolatedCommandFinalizeContext,
     request: FinalizeCommandRequest,
 ) -> Result<WorkspaceCommandOutcome, WorkspaceApiError> {
@@ -218,7 +218,7 @@ pub(crate) fn finalize_isolated_command(
 /// folding the captured `changed_paths` into it. Returns the audit payload the
 /// daemon records, leaving `outcome.metadata` without the `audit` key.
 #[must_use]
-pub(crate) fn take_isolated_audit(outcome: &mut WorkspaceCommandOutcome) -> Value {
+pub fn take_isolated_audit(outcome: &mut WorkspaceCommandOutcome) -> Value {
     let audit = outcome
         .metadata
         .get("audit")

@@ -12,9 +12,8 @@ pub struct WorkspaceRoot(pub PathBuf);
 
 /// Snapshot lease material needed to mount a fresh overlay.
 ///
-/// Shared value object owned by `eos-workspace`; kept under the
-/// `EphemeralSnapshot` name during the workspace-run migration.
-pub use eos_workspace_contract::SnapshotLease as EphemeralSnapshot;
+/// Shared value object owned by `eos-workspace-contract`.
+pub use eos_workspace_contract::SnapshotLease;
 
 /// Fresh writable paths allocated for one operation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,7 +34,7 @@ pub struct EphemeralWorkspace {
     pub workspace_root: PathBuf,
     pub caller_id: CallerId,
     pub invocation_id: InvocationId,
-    pub snapshot: EphemeralSnapshot,
+    pub snapshot: SnapshotLease,
     pub dirs: EphemeralRunDirs,
 }
 

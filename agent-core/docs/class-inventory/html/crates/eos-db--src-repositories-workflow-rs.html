@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
-  <div><b>14</b><span>modules</span></div>
-  <div><b>98</b><span>items</span></div>
-  <div><b>121</b><span>fields</span></div>
-  <div><b>63</b><span>methods</span></div>
+  <div><b>15</b><span>modules</span></div>
+  <div><b>116</b><span>items</span></div>
+  <div><b>156</b><span>fields</span></div>
+  <div><b>74</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-db.html"><span>config.rs</span><small>2/2</small></a></li><li><a class="file-link" href="eos-db--src-database-rs.html"><span>database.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-json-col-rs.html"><span>json_col.rs</span><small>0/7</small></a></li><li><a class="file-link" href="eos-db--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-model-registry-rs.html"><span>model_registry.rs</span><small>3/14</small></a></li><li><a class="file-link" href="eos-db--src-pool-rs.html"><span>pool.rs</span><small>0/3</small></a></li><li><span class="folder">repositories</span><ul class="file-tree"><li><a class="file-link" href="eos-db--src-repositories-agent-run-rs.html"><span>agent_run.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-attempt-rs.html"><span>attempt.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-iteration-rs.html"><span>iteration.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-request-task-rs.html"><span>request_task.rs</span><small>1/0</small></a></li><li><a class="file-link active" href="eos-db--src-repositories-workflow-rs.html"><span>workflow.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-db--src-repositories-rs.html"><span>repositories.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-rows-rs.html"><span>rows.rs</span><small>7/28</small></a></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-db.html"><span>config.rs</span><small>2/2</small></a></li><li><a class="file-link" href="eos-db--src-database-rs.html"><span>database.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-json-col-rs.html"><span>json_col.rs</span><small>0/7</small></a></li><li><a class="file-link" href="eos-db--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-model-registry-rs.html"><span>model_registry.rs</span><small>3/14</small></a></li><li><a class="file-link" href="eos-db--src-pool-rs.html"><span>pool.rs</span><small>0/3</small></a></li><li><span class="folder">repositories</span><ul class="file-tree"><li><a class="file-link" href="eos-db--src-repositories-agent-run-rs.html"><span>agent_run.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-attempt-rs.html"><span>attempt.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-iteration-rs.html"><span>iteration.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-request-task-rs.html"><span>request_task.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-task-agent-run-rs.html"><span>task_agent_run.rs</span><small>4/11</small></a></li><li><a class="file-link active" href="eos-db--src-repositories-workflow-rs.html"><span>workflow.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-db--src-repositories-rs.html"><span>repositories.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-rows-rs.html"><span>rows.rs</span><small>7/28</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="repositories::workflow crates/eos-db/src/repositories/workflow.rs SqlWorkflowStore impl SqlWorkflowStore impl Sealed for SqlWorkflowStore impl WorkflowStore for SqlWorkflowStore">
   <div class="module-head">
     <div>
@@ -99,7 +99,7 @@
         .fetch_one(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-287">row_to_workflow</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-285">row_to_workflow</a>(row)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-get-60"><td>method</td><td>get</td><td><code>async fn <a class="symbol-link" href="eos-db--src-model-registry-rs.html#method-get-209">get</a> (&amp; self , id : &amp; WorkflowId) -&gt; Result &lt; Option &lt; Workflow &gt; , CoreError &gt;</code><details class="function-source">
@@ -136,7 +136,7 @@
             table: &quot;workflows&quot;,
             id: id.to_string(),
         })?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-287">row_to_workflow</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-285">row_to_workflow</a>(row)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-set-status-93"><td>method</td><td>set_status</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-iteration-rs.html#method-set-status-93">set_status</a> (&amp; self , id : &amp; WorkflowId , status : WorkflowStatus , closed_at : Option &lt; UtcDateTime &gt; , outcomes : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Workflow , CoreError &gt;</code><details class="function-source">
@@ -155,7 +155,7 @@
                outcomes = <span class="rs-type">COALESCE</span>(?, outcomes), \
                updated_at = ? <span class="rs-type">WHERE</span> id = ? <span class="rs-type">RETURNING</span> *&quot;,
         )
-        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;status))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;status))
         .bind(closed_at.map(<span class="rs-type">UtcDateTime</span>::into_inner))
         .bind(outcomes)
         .bind(now)
@@ -167,7 +167,7 @@
             table: &quot;workflows&quot;,
             id: id.to_string(),
         })?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-287">row_to_workflow</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-285">row_to_workflow</a>(row)?)
     }
 </code></pre>
 </details></td></tr><tr id="method-list-for-parent-task-122"><td>method</td><td>list_for_parent_task</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-workflow-rs.html#method-list-for-parent-task-122">list_for_parent_task</a> (&amp; self , parent_task_id : &amp; TaskId ,) -&gt; Result &lt; Vec &lt; Workflow &gt; , CoreError &gt;</code><details class="function-source">
@@ -275,7 +275,7 @@
         .fetch_one(&amp;<span class="rs-self">self</span>.pool)
         .<span class="rs-kw">await</span>
         .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-287">row_to_workflow</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-285">row_to_workflow</a>(row)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-get-209">get</a>(&amp;<span class="rs-self">self</span>, id: &amp;<span class="rs-type">WorkflowId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">Workflow</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
@@ -308,7 +308,7 @@
             table: &quot;workflows&quot;,
             id: id.to_string(),
         })?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-287">row_to_workflow</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-285">row_to_workflow</a>(row)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-iteration-rs.html#method-set-status-93">set_status</a>(
@@ -325,7 +325,7 @@
                outcomes = <span class="rs-type">COALESCE</span>(?, outcomes), \
                updated_at = ? <span class="rs-type">WHERE</span> id = ? <span class="rs-type">RETURNING</span> *&quot;,
         )
-        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-150">enum_to_db</a>(&amp;status))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;status))
         .bind(closed_at.map(<span class="rs-type">UtcDateTime</span>::into_inner))
         .bind(outcomes)
         .bind(now)
@@ -337,7 +337,7 @@
             table: &quot;workflows&quot;,
             id: id.to_string(),
         })?;
-        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-287">row_to_workflow</a>(row)?)
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-row-to-workflow-285">row_to_workflow</a>(row)?)
     }
 
     <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-workflow-rs.html#method-list-for-parent-task-122">list_for_parent_task</a>(

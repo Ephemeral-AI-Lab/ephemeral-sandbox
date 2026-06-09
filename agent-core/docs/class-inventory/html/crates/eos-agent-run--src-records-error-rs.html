@@ -23,9 +23,9 @@
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
   <div><b>14</b><span>modules</span></div>
-  <div><b>74</b><span>items</span></div>
+  <div><b>65</b><span>items</span></div>
   <div><b>56</b><span>fields</span></div>
-  <div><b>39</b><span>methods</span></div>
+  <div><b>40</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>4/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-loop-request-rs.html"><span>agent_loop_request.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-persistence-rs.html"><span>agent_run_persistence.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-records-rs.html"><span>agent_run_records.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-service-rs.html"><span>agent_run_service.rs</span><small>1/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><span class="folder">records</span><ul class="file-tree"><li><a class="file-link active" href="eos-agent-run--src-records-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-handle-rs.html"><span>handle.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-io-rs.html"><span>io.rs</span><small>2/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-kind-rs.html"><span>kind.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-layout-rs.html"><span>layout.rs</span><small>0/12</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-record-rs.html"><span>record.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-service-rs.html"><span>service.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-agent-run--src-records-rs.html"><span>records.rs</span><small>0/0</small></a></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-agent-run.html"><span>active_agent_runs.rs</span><small>4/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-loop-request-rs.html"><span>agent_loop_request.rs</span><small>0/2</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-persistence-rs.html"><span>agent_run_persistence.rs</span><small>0/6</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-records-rs.html"><span>agent_run_records.rs</span><small>0/1</small></a></li><li><a class="file-link" href="eos-agent-run--src-agent-run-service-rs.html"><span>agent_run_service.rs</span><small>1/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><span class="folder">records</span><ul class="file-tree"><li><a class="file-link active" href="eos-agent-run--src-records-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-handle-rs.html"><span>handle.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-io-rs.html"><span>io.rs</span><small>2/9</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-kind-rs.html"><span>kind.rs</span><small>2/1</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-layout-rs.html"><span>layout.rs</span><small>0/5</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-record-rs.html"><span>record.rs</span><small>3/0</small></a></li><li><a class="file-link" href="eos-agent-run--src-records-service-rs.html"><span>service.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-agent-run--src-records-rs.html"><span>records.rs</span><small>0/0</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="records::error crates/eos-agent-run/src/records/error.rs Result MessageRecordError impl MessageRecordError">
   <div class="module-head">
     <div>
@@ -65,15 +65,15 @@
   <code class="signature">pub enum <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#item-enum-MessageRecordError-4">MessageRecordError</a></code>
   <p class="docstring">File-backed message-record service failures.</p>
   <div class="tags"><span>derive: Debug</span><span>derive: thiserror::Error</span><span>error</span><span>non_exhaustive</span></div>
-  <h4>Variants</h4><table><tbody><tr><td>UnsafeSegment</td><td><code>field: &amp; &#x27;static str, value: String</code></td></tr><tr><td>NotFound</td><td><code>0: String</code></td></tr><tr><td>OffsetOutOfRange</td><td><code>offset: u64, len: u64</code></td></tr><tr><td>Io</td><td><code>0: std :: io :: Error</code></td></tr><tr><td>Json</td><td><code>0: serde_json :: Error</code></td></tr><tr><td>Join</td><td><code>0: tokio :: task :: JoinError</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-missing-path-39"><td>associated-fn</td><td>missing_path</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#method-missing-path-39">missing_path</a> (path : &amp; std :: path :: Path) -&gt; Self</code><details class="function-source">
+  <h4>Variants</h4><table><tbody><tr><td>UnsafeSegment</td><td><code>field: &amp; &#x27;static str, value: String</code></td></tr><tr><td>NotFound</td><td><code>0: String</code></td></tr><tr><td>OffsetOutOfRange</td><td><code>offset: u64, len: u64</code></td></tr><tr><td>Io</td><td><code>0: std :: io :: Error</code></td></tr><tr><td>Json</td><td><code>0: serde_json :: Error</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-missing-path-36"><td>associated-fn</td><td>missing_path</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#method-missing-path-36">missing_path</a> (path : &amp; std :: path :: Path) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-error-rs.html#method-missing-path-39">missing_path</a>(path: &amp;std::path::<span class="rs-type">Path</span>) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-error-rs.html#method-missing-path-36">missing_path</a>(path: &amp;std::path::<span class="rs-type">Path</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(path.display().to_string())
     }
 </code></pre>
-</details></td></tr><tr id="method-unsafe-segment-43"><td>associated-fn</td><td>unsafe_segment</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#method-unsafe-segment-43">unsafe_segment</a> (field : &amp; &#x27;static str , value : impl Into &lt; String &gt;) -&gt; Self</code><details class="function-source">
+</details></td></tr><tr id="method-unsafe-segment-40"><td>associated-fn</td><td>unsafe_segment</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-agent-run--src-records-error-rs.html#method-unsafe-segment-40">unsafe_segment</a> (field : &amp; &#x27;static str , value : impl Into &lt; String &gt;) -&gt; Self</code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-error-rs.html#method-unsafe-segment-43">unsafe_segment</a>(field: &amp;&#x27;<span class="rs-kw">static</span> str, value: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-error-rs.html#method-unsafe-segment-40">unsafe_segment</a>(field: &amp;&#x27;<span class="rs-kw">static</span> str, value: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<span class="rs-type">UnsafeSegment</span> {
             field,
             value: value.into(),
@@ -134,17 +134,14 @@
     <span class="rs-comment">/// JSON encoding or decoding failed.</span>
     #[error(&quot;message-record json error: {0}&quot;)]
     <span class="rs-type">Json</span>(#[from] serde_json::<span class="rs-type">Error</span>),
-    <span class="rs-comment">/// A blocking filesystem scan panicked or was cancelled.</span>
-    #[error(&quot;message-record scan task failed: {0}&quot;)]
-    <span class="rs-type">Join</span>(#[from] tokio::task::<span class="rs-type">JoinError</span>),
 }
 
 <span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-agent-run--src-records-error-rs.html#item-enum-MessageRecordError-4">MessageRecordError</a> {
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-error-rs.html#method-missing-path-39">missing_path</a>(path: &amp;std::path::<span class="rs-type">Path</span>) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-error-rs.html#method-missing-path-36">missing_path</a>(path: &amp;std::path::<span class="rs-type">Path</span>) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<span class="rs-type">NotFound</span>(path.display().to_string())
     }
 
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-error-rs.html#method-unsafe-segment-43">unsafe_segment</a>(field: &amp;&#x27;<span class="rs-kw">static</span> str, value: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-agent-run--src-records-error-rs.html#method-unsafe-segment-40">unsafe_segment</a>(field: &amp;&#x27;<span class="rs-kw">static</span> str, value: <span class="rs-kw">impl</span> <span class="rs-type">Into</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-self">Self</span> {
         <span class="rs-self">Self</span>::<span class="rs-type">UnsafeSegment</span> {
             field,
             value: value.into(),

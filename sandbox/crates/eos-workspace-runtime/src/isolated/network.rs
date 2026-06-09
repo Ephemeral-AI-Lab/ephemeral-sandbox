@@ -33,19 +33,19 @@ use netfilter::install_static_rules;
 use rtnl::{ensure_bridge, ignore_not_found, install_veth_pair, link_index, run_netlink};
 
 /// Shared bridge interface name.
-pub(crate) const BRIDGE_NAME: &str = "eos-shared0";
+pub const BRIDGE_NAME: &str = "eos-shared0";
 /// Shared bridge CIDR.
 pub(crate) const BRIDGE_CIDR: &str = "10.244.0.0/24";
 /// Bridge gateway address.
 pub const GATEWAY: &str = "10.244.0.1";
 /// nftables NAT table name.
-pub(crate) const NFT_NAT_TABLE: &str = "eos_iws_nat";
+pub const NFT_NAT_TABLE: &str = "eos_iws_nat";
 /// nftables filter table name.
-pub(crate) const NFT_FILTER_TABLE: &str = "eos_iws_filter";
+pub const NFT_FILTER_TABLE: &str = "eos_iws_filter";
 /// Cloud IMDS address dropped on the forward chain.
-pub(crate) const IMDS_ADDR: &str = "169.254.169.254";
+pub const IMDS_ADDR: &str = "169.254.169.254";
 /// RFC1918 private networks (for the opt-in deny rule).
-pub(crate) const RFC1918_NETS: [&str; 3] = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"];
+pub const RFC1918_NETS: [&str; 3] = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"];
 /// Per-workspace veth name prefix — the SAME literal as [`HANDLE_PREFIX`].
 pub(crate) const VETH_PREFIX: &str = HANDLE_PREFIX;
 
@@ -58,7 +58,7 @@ pub(crate) const POOL_LAST_HOST: u8 = 254;
 
 /// One veth `/32` allocation for a workspace.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct VethAllocation {
+pub struct VethAllocation {
     /// Host-side veth name (attached to the bridge).
     pub host_name: String,
     /// Namespace-side veth name (moved into the holder netns).

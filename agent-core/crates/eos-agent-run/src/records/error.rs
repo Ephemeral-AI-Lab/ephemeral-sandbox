@@ -30,9 +30,6 @@ pub enum MessageRecordError {
     /// JSON encoding or decoding failed.
     #[error("message-record json error: {0}")]
     Json(#[from] serde_json::Error),
-    /// A blocking filesystem scan panicked or was cancelled.
-    #[error("message-record scan task failed: {0}")]
-    Join(#[from] tokio::task::JoinError),
 }
 
 impl MessageRecordError {

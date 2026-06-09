@@ -1,0 +1,1311 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eos-db · src/repositories/task_agent_run.rs</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+</head>
+<body>
+  <header>
+    <a class="central-link" href="/" title="Return to all class inventories">&larr; All inventories</a>
+    <div class="header-row">
+      <div>
+        <p class="eyebrow">Generated Rust source inventory · file-owned OOP map</p>
+        <h1>eos-db File Inventory</h1>
+      </div>
+      <div class="refresh-control">
+        <button id="refresh-inventory" type="button" title="Regenerate this inventory from the local Rust sources" data-refresh-command="cd /Users/yifanxu/machine_learning/LoVC/EphemeralOS/agent-core &amp;&amp; cargo run --manifest-path scripts/class-inventory/Cargo.toml">Refresh</button>
+        <span id="refresh-status" role="status"></span>
+      </div>
+    </div>
+  </header>
+  <a class="back-link" href="../index.html">agent-core</a>
+<section class="summary">
+  <div><b>15</b><span>modules</span></div>
+  <div><b>116</b><span>items</span></div>
+  <div><b>156</b><span>fields</span></div>
+  <div><b>74</b><span>methods</span></div>
+</section>
+<section class="toolbar">
+  <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
+  <select id="kind-filter">
+    <option value="">All items</option>
+    <option value="type-model">Type model</option>
+    <option value="struct">Structs</option>
+    <option value="enum">Enums</option>
+    <option value="trait">Traits</option>
+    <option value="impl">Impls</option>
+    <option value="fn">Functions</option>
+    <option value="type">Aliases</option>
+  </select>
+</section>
+<main class="crate-layout">
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-db.html"><span>config.rs</span><small>2/2</small></a></li><li><a class="file-link" href="eos-db--src-database-rs.html"><span>database.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-json-col-rs.html"><span>json_col.rs</span><small>0/7</small></a></li><li><a class="file-link" href="eos-db--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-model-registry-rs.html"><span>model_registry.rs</span><small>3/14</small></a></li><li><a class="file-link" href="eos-db--src-pool-rs.html"><span>pool.rs</span><small>0/3</small></a></li><li><span class="folder">repositories</span><ul class="file-tree"><li><a class="file-link" href="eos-db--src-repositories-agent-run-rs.html"><span>agent_run.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-attempt-rs.html"><span>attempt.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-iteration-rs.html"><span>iteration.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-request-task-rs.html"><span>request_task.rs</span><small>1/0</small></a></li><li><a class="file-link active" href="eos-db--src-repositories-task-agent-run-rs.html"><span>task_agent_run.rs</span><small>4/11</small></a></li><li><a class="file-link" href="eos-db--src-repositories-workflow-rs.html"><span>workflow.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-db--src-repositories-rs.html"><span>repositories.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-rows-rs.html"><span>rows.rs</span><small>7/28</small></a></li></ul></li></ul></nav>
+  <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="repositories::task_agent_run crates/eos-db/src/repositories/task_agent_run.rs SqlTaskAgentRunStore impl SqlTaskAgentRunStore impl Sealed for SqlTaskAgentRunStore impl TaskAgentRunStore for SqlTaskAgentRunStore TaskRunRow ParentedRunRecordIndexRow ParentedRunRow created_from_index row_to_task_run row_to_parented_run task_run_record_index parented_run_record_index parse_required_id task_role_from_workflow_role workflow_role_from_task_role parse_parented_kind id_list parented_ids">
+  <div class="module-head">
+    <div>
+      <h2>src/repositories/task_agent_run.rs</h2>
+      <p class="path">module <code>repositories::task_agent_run</code></p>
+    </div>
+    <div class="module-stats">
+      <span>file owns</span>
+      <span>4 types</span>
+      <span>3 impls</span>
+      <span>11 fns</span>
+      <span>10 methods</span>
+    </div>
+  </div>
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-SqlTaskAgentRunStore-19" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct SqlTaskAgentRunStore pub pub struct SqlTaskAgentRunStore crates/eos-db/src/repositories/task_agent_run.rs pool SqlitePool ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>SqlTaskAgentRunStore</h3>
+    <span class="visibility">pub</span>
+  </div>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a></code>
+  <p class="docstring">`SQLite` repository for task-agent-run lineage rows.</p>
+  <div class="tags"><span>derive: Debug</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>pool</td><td><code>SqlitePool</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-26"><td>constructor</td><td>new</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-db--src-model-registry-rs.html#method-new-65">new</a> (pool : SqlitePool) -&gt; Self</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool: <span class="rs-type">SqlitePool</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span> { pool }
+    }
+</code></pre>
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl Sealed for <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a></code></summary><table><tbody></tbody></table></details><details><summary><code>impl TaskAgentRunStore for <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a></code></summary><table><tbody><tr id="method-create-root-task-agent-run-35"><td>method</td><td>create_root_task_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#method-create-root-task-agent-run-35">create_root_task_agent_run</a> (&amp; self , request_id : &amp; RequestId , task_id : &amp; TaskId , agent_run_id : &amp; AgentRunId , agent_name : &amp; AgentName ,) -&gt; Result &lt; CreatedTaskAgentRun , CoreError &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-create-root-task-agent-run-35">create_root_task_agent_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        request_id: &amp;<span class="rs-type">RequestId</span>,
+        task_id: &amp;<span class="rs-type">TaskId</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        agent_name: &amp;<span class="rs-type">AgentName</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CreatedTaskAgentRun</span>, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tx = <span class="rs-self">self</span>.pool.begin().<span class="rs-kw">await</span>.map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        sqlx::query(
+            &quot;<span class="rs-type">INSERT</span> <span class="rs-type">INTO</span> task_runs \
+             (task_id, agent_run_id, request_id, role, status, workflow_id, iteration_id, \
+              attempt_id, agent_name, terminal_payload, token_count, error, created_at, \
+              updated_at, finished_at) \
+             <span class="rs-type">VALUES</span> (?, ?, ?, ?, ?, <span class="rs-type">NULL</span>, <span class="rs-type">NULL</span>, <span class="rs-type">NULL</span>, ?, <span class="rs-type">NULL</span>, 0, <span class="rs-type">NULL</span>, ?, ?, <span class="rs-type">NULL</span>)&quot;,
+        )
+        .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(request_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span>))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span>))
+        .bind(agent_name.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(now)
+        .bind(now)
+        .execute(&amp;<span class="rs-kw">mut</span> *tx)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        <span class="rs-kw">let</span> updated =
+            sqlx::query(&quot;<span class="rs-type">UPDATE</span> requests <span class="rs-type">SET</span> root_task_id = ?, updated_at = ? <span class="rs-type">WHERE</span> id = ?&quot;)
+                .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+                .bind(now)
+                .bind(request_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+                .execute(&amp;<span class="rs-kw">mut</span> *tx)
+                .<span class="rs-kw">await</span>
+                .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        <span class="rs-kw">if</span> updated.rows_affected() == 0 {
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">NotFound</span> {
+                table: &quot;requests&quot;,
+                id: request_id.to_string(),
+            }
+            .into());
+        }
+        tx.commit().<span class="rs-kw">await</span>.map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-created-from-index-362">created_from_index</a>(<span class="rs-type">AgentRunRecordIndex</span> {
+            request_id: request_id.clone(),
+            agent_run_id: agent_run_id.clone(),
+            task_id: task_id.clone(),
+            kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span>,
+        }))
+    }
+</code></pre>
+</details></td></tr><tr id="method-create-workflow-task-agent-run-86"><td>method</td><td>create_workflow_task_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#method-create-workflow-task-agent-run-86">create_workflow_task_agent_run</a> (&amp; self , request_id : &amp; RequestId , task_id : &amp; TaskId , agent_run_id : &amp; AgentRunId , workflow : &amp; WorkflowCoordinates , role : WorkflowTaskRole , agent_name : &amp; AgentName ,) -&gt; Result &lt; CreatedTaskAgentRun , CoreError &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-create-workflow-task-agent-run-86">create_workflow_task_agent_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        request_id: &amp;<span class="rs-type">RequestId</span>,
+        task_id: &amp;<span class="rs-type">TaskId</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        workflow: &amp;<span class="rs-type">WorkflowCoordinates</span>,
+        role: <span class="rs-type">WorkflowTaskRole</span>,
+        agent_name: &amp;<span class="rs-type">AgentName</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CreatedTaskAgentRun</span>, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
+        <span class="rs-kw">let</span> task_role = <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-task-role-from-workflow-role-495">task_role_from_workflow_role</a>(role);
+        sqlx::query(
+            &quot;<span class="rs-type">INSERT</span> <span class="rs-type">INTO</span> task_runs \
+             (task_id, agent_run_id, request_id, role, status, workflow_id, iteration_id, \
+              attempt_id, agent_name, terminal_payload, token_count, error, created_at, \
+              updated_at, finished_at) \
+             <span class="rs-type">VALUES</span> (?, ?, ?, ?, ?, ?, ?, ?, ?, <span class="rs-type">NULL</span>, 0, <span class="rs-type">NULL</span>, ?, ?, <span class="rs-type">NULL</span>)&quot;,
+        )
+        .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(request_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;task_role))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span>))
+        .bind(workflow.workflow_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(workflow.iteration_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(workflow.attempt_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(agent_name.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(now)
+        .bind(now)
+        .execute(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-created-from-index-362">created_from_index</a>(<span class="rs-type">AgentRunRecordIndex</span> {
+            request_id: request_id.clone(),
+            agent_run_id: agent_run_id.clone(),
+            task_id: task_id.clone(),
+            kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> {
+                workflow: workflow.clone(),
+                role,
+            },
+        }))
+    }
+</code></pre>
+</details></td></tr><tr id="method-create-parented-task-agent-run-129"><td>method</td><td>create_parented_task_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#method-create-parented-task-agent-run-129">create_parented_task_agent_run</a> (&amp; self , agent_run_id : &amp; AgentRunId , parent : &amp; ParentAgentRunAnchor , kind : ParentedAgentRunKind , tool_use_id : Option &lt; &amp; ToolUseId &gt; , agent_name : &amp; AgentName ,) -&gt; Result &lt; CreatedTaskAgentRun , CoreError &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-create-parented-task-agent-run-129">create_parented_task_agent_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        parent: &amp;<span class="rs-type">ParentAgentRunAnchor</span>,
+        kind: <span class="rs-type">ParentedAgentRunKind</span>,
+        tool_use_id: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">ToolUseId</span>&gt;,
+        agent_name: &amp;<span class="rs-type">AgentName</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CreatedTaskAgentRun</span>, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> task_id = parented_task_id(&amp;parent.agent_run_id, kind, tool_use_id)?;
+        <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
+        sqlx::query(
+            &quot;<span class="rs-type">INSERT</span> <span class="rs-type">INTO</span> parented_runs \
+             (task_id, agent_run_id, request_id, status, parent_agent_run_id, parent_task_id, \
+              kind, tool_use_id, agent_name, terminal_payload, token_count, error, created_at, \
+              updated_at, finished_at) \
+             <span class="rs-type">VALUES</span> (?, ?, ?, ?, ?, ?, ?, ?, ?, <span class="rs-type">NULL</span>, 0, <span class="rs-type">NULL</span>, ?, ?, <span class="rs-type">NULL</span>)&quot;,
+        )
+        .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(parent.request_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span>))
+        .bind(parent.agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(parent.parent_task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(kind.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(tool_use_id.map(<span class="rs-type">ToolUseId</span>::as_str))
+        .bind(agent_name.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(now)
+        .bind(now)
+        .execute(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-created-from-index-362">created_from_index</a>(<span class="rs-type">AgentRunRecordIndex</span> {
+            request_id: parent.request_id.clone(),
+            agent_run_id: agent_run_id.clone(),
+            task_id,
+            kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
+                parent_agent_run_id: parent.agent_run_id.clone(),
+                kind,
+            },
+        }))
+    }
+</code></pre>
+</details></td></tr><tr id="method-finish-task-run-171"><td>method</td><td>finish_task_run</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#method-finish-task-run-171">finish_task_run</a> (&amp; self , agent_run_id : &amp; AgentRunId , status : TaskStatus , terminal_payload : Option &lt; &amp; eos_types :: JsonObject &gt; , token_count : i64 , error : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Option &lt; TaskRun &gt; , CoreError &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-finish-task-run-171">finish_task_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        status: <span class="rs-type">TaskStatus</span>,
+        terminal_payload: <span class="rs-type">Option</span>&lt;&amp;eos_types::<span class="rs-type">JsonObject</span>&gt;,
+        token_count: i64,
+        error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
+        <span class="rs-kw">let</span> terminal = terminal_payload.map(json_col::encode).transpose()?;
+        <span class="rs-kw">let</span> row = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>&gt;(
+            &quot;<span class="rs-type">UPDATE</span> task_runs <span class="rs-type">SET</span> status = ?, terminal_payload = <span class="rs-type">COALESCE</span>(?, terminal_payload), \
+             token_count = ?, error = ?, updated_at = ?, finished_at = ? \
+             <span class="rs-type">WHERE</span> agent_run_id = ? <span class="rs-type">RETURNING</span> *&quot;,
+        )
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;status))
+        .bind(terminal)
+        .bind(token_count)
+        .bind(error)
+        .bind(now)
+        .bind(now)
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        row.map(row_to_task_run).transpose().map_err(<span class="rs-type">Into</span>::into)
+    }
+</code></pre>
+</details></td></tr><tr id="method-finish-parented-run-199"><td>method</td><td>finish_parented_run</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#method-finish-parented-run-199">finish_parented_run</a> (&amp; self , agent_run_id : &amp; AgentRunId , status : TaskStatus , terminal_payload : Option &lt; &amp; eos_types :: JsonObject &gt; , token_count : i64 , error : Option &lt; &amp; str &gt; ,) -&gt; Result &lt; Option &lt; ParentedRun &gt; , CoreError &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-finish-parented-run-199">finish_parented_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        status: <span class="rs-type">TaskStatus</span>,
+        terminal_payload: <span class="rs-type">Option</span>&lt;&amp;eos_types::<span class="rs-type">JsonObject</span>&gt;,
+        token_count: i64,
+        error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">ParentedRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
+        <span class="rs-kw">let</span> terminal = terminal_payload.map(json_col::encode).transpose()?;
+        <span class="rs-kw">let</span> row = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRow-343">ParentedRunRow</a>&gt;(
+            &quot;<span class="rs-type">UPDATE</span> parented_runs <span class="rs-type">SET</span> status = ?, terminal_payload = <span class="rs-type">COALESCE</span>(?, terminal_payload), \
+             token_count = ?, error = ?, updated_at = ?, finished_at = ? \
+             <span class="rs-type">WHERE</span> agent_run_id = ? <span class="rs-type">RETURNING</span> *&quot;,
+        )
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;status))
+        .bind(terminal)
+        .bind(token_count)
+        .bind(error)
+        .bind(now)
+        .bind(now)
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        row.map(row_to_parented_run).transpose().map_err(<span class="rs-type">Into</span>::into)
+    }
+</code></pre>
+</details></td></tr><tr id="method-record-index-for-agent-run-227"><td>method</td><td>record_index_for_agent_run</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#method-record-index-for-agent-run-227">record_index_for_agent_run</a> (&amp; self , agent_run_id : &amp; AgentRunId ,) -&gt; Result &lt; Option &lt; AgentRunRecordIndex &gt; , CoreError &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-record-index-for-agent-run-227">record_index_for_agent_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunRecordIndex</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(row) =
+            sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>&gt;(&quot;<span class="rs-type">SELECT</span> * <span class="rs-type">FROM</span> task_runs <span class="rs-type">WHERE</span> agent_run_id = ?&quot;)
+                .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+                .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+                .<span class="rs-kw">await</span>
+                .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?
+        {
+            <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-task-run-record-index-440">task_run_record_index</a>(row)?));
+        }
+        <span class="rs-kw">let</span> row = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRecordIndexRow-334">ParentedRunRecordIndexRow</a>&gt;(
+            &quot;<span class="rs-type">SELECT</span> task_id, agent_run_id, request_id, parent_agent_run_id, kind \
+             <span class="rs-type">FROM</span> parented_runs <span class="rs-type">WHERE</span> agent_run_id = ?&quot;,
+        )
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        row.map(parented_run_record_index)
+            .transpose()
+            .map_err(<span class="rs-type">Into</span>::into)
+    }
+</code></pre>
+</details></td></tr><tr id="method-get-task-run-253"><td>method</td><td>get_task_run</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#method-get-task-run-253">get_task_run</a> (&amp; self , task_id : &amp; TaskId) -&gt; Result &lt; Option &lt; TaskRun &gt; , CoreError &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-get-task-run-253">get_task_run</a>(&amp;<span class="rs-self">self</span>, task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> row = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>&gt;(&quot;<span class="rs-type">SELECT</span> * <span class="rs-type">FROM</span> task_runs <span class="rs-type">WHERE</span> task_id = ?&quot;)
+            .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+            .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+            .<span class="rs-kw">await</span>
+            .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        row.map(row_to_task_run).transpose().map_err(<span class="rs-type">Into</span>::into)
+    }
+</code></pre>
+</details></td></tr><tr id="method-list-parented-runs-for-parent-task-262"><td>method</td><td>list_parented_runs_for_parent_task</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#method-list-parented-runs-for-parent-task-262">list_parented_runs_for_parent_task</a> (&amp; self , parent_task_id : &amp; TaskId , kind : ParentedAgentRunKind ,) -&gt; Result &lt; Vec &lt; ParentedRun &gt; , CoreError &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-list-parented-runs-for-parent-task-262">list_parented_runs_for_parent_task</a>(
+        &amp;<span class="rs-self">self</span>,
+        parent_task_id: &amp;<span class="rs-type">TaskId</span>,
+        kind: <span class="rs-type">ParentedAgentRunKind</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">ParentedRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> rows = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRow-343">ParentedRunRow</a>&gt;(
+            &quot;<span class="rs-type">SELECT</span> * <span class="rs-type">FROM</span> parented_runs <span class="rs-type">WHERE</span> parent_task_id = ? <span class="rs-type">AND</span> kind = ? \
+             <span class="rs-type">ORDER</span> <span class="rs-type">BY</span> created_at <span class="rs-type">ASC</span>, agent_run_id <span class="rs-type">ASC</span>&quot;,
+        )
+        .bind(parent_task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(kind.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_all(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        rows.into_iter()
+            .map(row_to_parented_run)
+            .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt;&gt;()
+            .map_err(<span class="rs-type">Into</span>::into)
+    }
+</code></pre>
+</details></td></tr><tr id="method-task-execution-index-282"><td>method</td><td>task_execution_index</td><td><code>async fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#method-task-execution-index-282">task_execution_index</a> (&amp; self , task_id : &amp; TaskId ,) -&gt; Result &lt; Option &lt; TaskExecutionIndex &gt; , CoreError &gt;</code><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-task-execution-index-282">task_execution_index</a>(
+        &amp;<span class="rs-self">self</span>,
+        task_id: &amp;<span class="rs-type">TaskId</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskExecutionIndex</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent_run_id) = sqlx::query_scalar::&lt;<span class="rs-type">Sqlite</span>, <span class="rs-type">String</span>&gt;(
+            &quot;<span class="rs-type">SELECT</span> agent_run_id <span class="rs-type">FROM</span> task_runs <span class="rs-type">WHERE</span> task_id = ?&quot;,
+        )
+        .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?
+        <span class="rs-kw">else</span> {
+            <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>);
+        };
+        <span class="rs-kw">let</span> workflow_ids = <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-id-list-523">id_list</a>(
+            &amp;<span class="rs-self">self</span>.pool,
+            &quot;<span class="rs-type">SELECT</span> id <span class="rs-type">FROM</span> workflows <span class="rs-type">WHERE</span> parent_task_id = ? <span class="rs-type">ORDER</span> <span class="rs-type">BY</span> created_at <span class="rs-type">ASC</span>, id <span class="rs-type">ASC</span>&quot;,
+            task_id,
+        )
+        .<span class="rs-kw">await</span>?;
+        <span class="rs-kw">let</span> subagent_ids =
+            <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parented-ids-537">parented_ids</a>(&amp;<span class="rs-self">self</span>.pool, task_id, <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span>).<span class="rs-kw">await</span>?;
+        <span class="rs-kw">let</span> advisor_ids = <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parented-ids-537">parented_ids</a>(&amp;<span class="rs-self">self</span>.pool, task_id, <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Advisor</span>).<span class="rs-kw">await</span>?;
+        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<span class="rs-type">TaskExecutionIndex</span> {
+            task_id: task_id.clone(),
+            agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.agent_run_id&quot;, &amp;agent_run_id)?,
+            workflow_ids,
+            subagent_ids,
+            advisor_ids,
+        }))
+    }
+</code></pre>
+</details></td></tr></tbody></table></details></div>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:19</p>
+</article><article id="item-struct-TaskRunRow-315" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct TaskRunRow private struct TaskRunRow crates/eos-db/src/repositories/task_agent_run.rs task_id String agent_run_id String request_id String role String status String workflow_id Option &lt; String &gt; iteration_id Option &lt; String &gt; attempt_id Option &lt; String &gt; agent_name String terminal_payload Option &lt; String &gt; token_count i64 error Option &lt; String &gt; created_at OffsetDateTime updated_at OffsetDateTime finished_at Option &lt; OffsetDateTime &gt; ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>TaskRunRow</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">struct <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a></code>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: sqlx::FromRow</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>task_id</td><td><code>String</code></td></tr><tr><td>private</td><td>agent_run_id</td><td><code>String</code></td></tr><tr><td>private</td><td>request_id</td><td><code>String</code></td></tr><tr><td>private</td><td>role</td><td><code>String</code></td></tr><tr><td>private</td><td>status</td><td><code>String</code></td></tr><tr><td>private</td><td>workflow_id</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>private</td><td>iteration_id</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>private</td><td>attempt_id</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>private</td><td>agent_name</td><td><code>String</code></td></tr><tr><td>private</td><td>terminal_payload</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>private</td><td>token_count</td><td><code>i64</code></td></tr><tr><td>private</td><td>error</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>private</td><td>created_at</td><td><code>OffsetDateTime</code></td></tr><tr><td>private</td><td>updated_at</td><td><code>OffsetDateTime</code></td></tr><tr><td>private</td><td>finished_at</td><td><code>Option &lt; OffsetDateTime &gt;</code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:315</p>
+</article><article id="item-struct-ParentedRunRecordIndexRow-334" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct ParentedRunRecordIndexRow private struct ParentedRunRecordIndexRow crates/eos-db/src/repositories/task_agent_run.rs task_id String agent_run_id String request_id String parent_agent_run_id String kind String ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>ParentedRunRecordIndexRow</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">struct <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRecordIndexRow-334">ParentedRunRecordIndexRow</a></code>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: sqlx::FromRow</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>task_id</td><td><code>String</code></td></tr><tr><td>private</td><td>agent_run_id</td><td><code>String</code></td></tr><tr><td>private</td><td>request_id</td><td><code>String</code></td></tr><tr><td>private</td><td>parent_agent_run_id</td><td><code>String</code></td></tr><tr><td>private</td><td>kind</td><td><code>String</code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:334</p>
+</article><article id="item-struct-ParentedRunRow-343" class="type-card" data-kind="struct" data-kind-list="field struct type-model" data-filter-text="struct ParentedRunRow private struct ParentedRunRow crates/eos-db/src/repositories/task_agent_run.rs task_id String agent_run_id String request_id String status String parent_agent_run_id String parent_task_id String kind String tool_use_id Option &lt; String &gt; agent_name String terminal_payload Option &lt; String &gt; token_count i64 error Option &lt; String &gt; created_at OffsetDateTime updated_at OffsetDateTime finished_at Option &lt; OffsetDateTime &gt; ">
+  <div class="item-head">
+    <span class="kind">struct</span>
+    <h3>ParentedRunRow</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">struct <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRow-343">ParentedRunRow</a></code>
+  <div class="tags"><span>derive: Clone</span><span>derive: Debug</span><span>derive: sqlx::FromRow</span></div>
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>task_id</td><td><code>String</code></td></tr><tr><td>private</td><td>agent_run_id</td><td><code>String</code></td></tr><tr><td>private</td><td>request_id</td><td><code>String</code></td></tr><tr><td>private</td><td>status</td><td><code>String</code></td></tr><tr><td>private</td><td>parent_agent_run_id</td><td><code>String</code></td></tr><tr><td>private</td><td>parent_task_id</td><td><code>String</code></td></tr><tr><td>private</td><td>kind</td><td><code>String</code></td></tr><tr><td>private</td><td>tool_use_id</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>private</td><td>agent_name</td><td><code>String</code></td></tr><tr><td>private</td><td>terminal_payload</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>private</td><td>token_count</td><td><code>i64</code></td></tr><tr><td>private</td><td>error</td><td><code>Option &lt; String &gt;</code></td></tr><tr><td>private</td><td>created_at</td><td><code>OffsetDateTime</code></td></tr><tr><td>private</td><td>updated_at</td><td><code>OffsetDateTime</code></td></tr><tr><td>private</td><td>finished_at</td><td><code>Option &lt; OffsetDateTime &gt;</code></td></tr></tbody></table>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:343</p>
+</article><div class="group-label">Standalone Functions</div><article id="item-fn-created-from-index-362" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn created_from_index private fn created_from_index (index : AgentRunRecordIndex) -&gt; CreatedTaskAgentRun crates/eos-db/src/repositories/task_agent_run.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>created_from_index</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-created-from-index-362">created_from_index</a> (index : AgentRunRecordIndex) -&gt; CreatedTaskAgentRun</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-created-from-index-362">created_from_index</a>(index: <span class="rs-type">AgentRunRecordIndex</span>) -&gt; <span class="rs-type">CreatedTaskAgentRun</span> {
+    <span class="rs-type">CreatedTaskAgentRun</span> {
+        agent_run_id: index.agent_run_id.clone(),
+        task_id: index.task_id.clone(),
+        record_target: <span class="rs-type">AgentRunRecordTarget</span> {
+            request_id: index.request_id.clone(),
+            agent_run_id: index.agent_run_id.clone(),
+            task_id: index.task_id.clone(),
+            record_dir: format_record_dir(&amp;index),
+        },
+    }
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:362</p>
+</article><article id="item-fn-row-to-task-run-375" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_task_run private fn row_to_task_run (row : TaskRunRow) -&gt; Result &lt; TaskRun , DbError &gt; crates/eos-db/src/repositories/task_agent_run.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>row_to_task_run</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-row-to-task-run-375">row_to_task_run</a> (row : <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>) -&gt; Result &lt; TaskRun , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-row-to-task-run-375">row_to_task_run</a>(row: <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">TaskRun</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-type">Ok</span>(<span class="rs-type">TaskRun</span> {
+        task_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.task_id&quot;, &amp;row.task_id)?,
+        agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.agent_run_id&quot;, &amp;row.agent_run_id)?,
+        request_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.request_id&quot;, &amp;row.request_id)?,
+        role: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-enum-138">parse_enum</a>(&quot;task_runs.role&quot;, &amp;row.role)?,
+        status: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-enum-138">parse_enum</a>(&quot;task_runs.status&quot;, &amp;row.status)?,
+        workflow_id: row
+            .workflow_id
+            .as_deref()
+            .map(|id| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.workflow_id&quot;, id))
+            .transpose()?,
+        iteration_id: row
+            .iteration_id
+            .as_deref()
+            .map(|id| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.iteration_id&quot;, id))
+            .transpose()?,
+        attempt_id: row
+            .attempt_id
+            .as_deref()
+            .map(|id| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.attempt_id&quot;, id))
+            .transpose()?,
+        agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(&amp;row.agent_name).map_err(|_| <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
+            field: &quot;task_runs.agent_name&quot;,
+            value: row.agent_name.clone(),
+        })?,
+        terminal_payload: json_col::<a class="symbol-link rs-fn" href="eos-db--src-json-col-rs.html#item-fn-decode-opt-35">decode_opt</a>(row.terminal_payload.as_deref())?,
+        token_count: row.token_count,
+        error: row.error,
+        created_at: eos_types::<span class="rs-type">UtcDateTime</span>::from_offset(row.created_at),
+        updated_at: eos_types::<span class="rs-type">UtcDateTime</span>::from_offset(row.updated_at),
+        finished_at: row.finished_at.map(eos_types::<span class="rs-type">UtcDateTime</span>::from_offset),
+    })
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:375</p>
+</article><article id="item-fn-row-to-parented-run-410" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn row_to_parented_run private fn row_to_parented_run (row : ParentedRunRow) -&gt; Result &lt; ParentedRun , DbError &gt; crates/eos-db/src/repositories/task_agent_run.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>row_to_parented_run</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-row-to-parented-run-410">row_to_parented_run</a> (row : <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRow-343">ParentedRunRow</a>) -&gt; Result &lt; ParentedRun , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-row-to-parented-run-410">row_to_parented_run</a>(row: <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRow-343">ParentedRunRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ParentedRun</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-type">Ok</span>(<span class="rs-type">ParentedRun</span> {
+        task_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.task_id&quot;, &amp;row.task_id)?,
+        agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.agent_run_id&quot;, &amp;row.agent_run_id)?,
+        request_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.request_id&quot;, &amp;row.request_id)?,
+        status: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-enum-138">parse_enum</a>(&quot;parented_runs.status&quot;, &amp;row.status)?,
+        parent_agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(
+            &quot;parented_runs.parent_agent_run_id&quot;,
+            &amp;row.parent_agent_run_id,
+        )?,
+        parent_task_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.parent_task_id&quot;, &amp;row.parent_task_id)?,
+        kind: <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-parented-kind-512">parse_parented_kind</a>(&amp;row.kind)?,
+        tool_use_id: row
+            .tool_use_id
+            .as_deref()
+            .map(|id| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.tool_use_id&quot;, id))
+            .transpose()?,
+        agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(&amp;row.agent_name).map_err(|_| <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
+            field: &quot;parented_runs.agent_name&quot;,
+            value: row.agent_name.clone(),
+        })?,
+        terminal_payload: json_col::<a class="symbol-link rs-fn" href="eos-db--src-json-col-rs.html#item-fn-decode-opt-35">decode_opt</a>(row.terminal_payload.as_deref())?,
+        token_count: row.token_count,
+        error: row.error,
+        created_at: eos_types::<span class="rs-type">UtcDateTime</span>::from_offset(row.created_at),
+        updated_at: eos_types::<span class="rs-type">UtcDateTime</span>::from_offset(row.updated_at),
+        finished_at: row.finished_at.map(eos_types::<span class="rs-type">UtcDateTime</span>::from_offset),
+    })
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:410</p>
+</article><article id="item-fn-task-run-record-index-440" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn task_run_record_index private fn task_run_record_index (row : TaskRunRow) -&gt; Result &lt; AgentRunRecordIndex , DbError &gt; crates/eos-db/src/repositories/task_agent_run.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>task_run_record_index</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-task-run-record-index-440">task_run_record_index</a> (row : <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>) -&gt; Result &lt; AgentRunRecordIndex , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-task-run-record-index-440">task_run_record_index</a>(row: <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRunRecordIndex</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-kw">let</span> task_id = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.task_id&quot;, &amp;row.task_id)?;
+    <span class="rs-kw">let</span> request_id = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.request_id&quot;, &amp;row.request_id)?;
+    <span class="rs-kw">let</span> agent_run_id = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.agent_run_id&quot;, &amp;row.agent_run_id)?;
+    <span class="rs-kw">let</span> role = parse_enum::&lt;<span class="rs-type">TaskRole</span>&gt;(&quot;task_runs.role&quot;, &amp;row.role)?;
+    <span class="rs-kw">let</span> kind = <span class="rs-kw">match</span> role {
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span> =&gt; <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span>,
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Planner</span> | <span class="rs-type">TaskRole</span>::<span class="rs-type">Generator</span> | <span class="rs-type">TaskRole</span>::<span class="rs-type">Reducer</span> =&gt; <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> {
+            workflow: <span class="rs-type">WorkflowCoordinates</span> {
+                workflow_id: <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-required-id-482">parse_required_id</a>(&quot;task_runs.workflow_id&quot;, row.workflow_id)?,
+                iteration_id: <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-required-id-482">parse_required_id</a>(&quot;task_runs.iteration_id&quot;, row.iteration_id)?,
+                attempt_id: <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-required-id-482">parse_required_id</a>(&quot;task_runs.attempt_id&quot;, row.attempt_id)?,
+            },
+            role: <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-workflow-role-from-task-role-503">workflow_role_from_task_role</a>(role),
+        },
+    };
+    <span class="rs-type">Ok</span>(<span class="rs-type">AgentRunRecordIndex</span> {
+        request_id,
+        agent_run_id,
+        task_id,
+        kind,
+    })
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:440</p>
+</article><article id="item-fn-parented-run-record-index-464" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn parented_run_record_index private fn parented_run_record_index (row : ParentedRunRecordIndexRow ,) -&gt; Result &lt; AgentRunRecordIndex , DbError &gt; crates/eos-db/src/repositories/task_agent_run.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>parented_run_record_index</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parented-run-record-index-464">parented_run_record_index</a> (row : <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRecordIndexRow-334">ParentedRunRecordIndexRow</a> ,) -&gt; Result &lt; AgentRunRecordIndex , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parented-run-record-index-464">parented_run_record_index</a>(
+    row: <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRecordIndexRow-334">ParentedRunRecordIndexRow</a>,
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRunRecordIndex</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-kw">let</span> kind = <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-parented-kind-512">parse_parented_kind</a>(&amp;row.kind)?;
+    <span class="rs-type">Ok</span>(<span class="rs-type">AgentRunRecordIndex</span> {
+        request_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.request_id&quot;, &amp;row.request_id)?,
+        agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.agent_run_id&quot;, &amp;row.agent_run_id)?,
+        task_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.task_id&quot;, &amp;row.task_id)?,
+        kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
+            parent_agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(
+                &quot;parented_runs.parent_agent_run_id&quot;,
+                &amp;row.parent_agent_run_id,
+            )?,
+            kind,
+        },
+    })
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:464</p>
+</article><article id="item-fn-parse-required-id-482" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn parse_required_id private fn parse_required_id &lt; T &gt; (field : &amp; 'static str , value : Option &lt; String &gt;) -&gt; Result &lt; T , DbError &gt; where T : std :: str :: FromStr &lt; Err = CoreError &gt; , crates/eos-db/src/repositories/task_agent_run.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>parse_required_id</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-required-id-482">parse_required_id</a> &lt; T &gt; (field : &amp; &#x27;static str , value : Option &lt; String &gt;) -&gt; Result &lt; T , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt; where T : std :: str :: FromStr &lt; Err = CoreError &gt; ,</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> parse_required_id&lt;<span class="rs-type">T</span>&gt;(field: &amp;&#x27;<span class="rs-kw">static</span> str, value: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">T</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt;
+<span class="rs-kw">where</span>
+    <span class="rs-type">T</span>: std::str::<span class="rs-type">FromStr</span>&lt;<span class="rs-type">Err</span> = <span class="rs-type">CoreError</span>&gt;,
+{
+    <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(
+        field,
+        value.as_deref().ok_or_else(|| <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
+            field,
+            value: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(),
+        })?,
+    )
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:482</p>
+</article><article id="item-fn-task-role-from-workflow-role-495" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn task_role_from_workflow_role private fn task_role_from_workflow_role (role : WorkflowTaskRole) -&gt; TaskRole crates/eos-db/src/repositories/task_agent_run.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>task_role_from_workflow_role</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-task-role-from-workflow-role-495">task_role_from_workflow_role</a> (role : WorkflowTaskRole) -&gt; TaskRole</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-task-role-from-workflow-role-495">task_role_from_workflow_role</a>(role: <span class="rs-type">WorkflowTaskRole</span>) -&gt; <span class="rs-type">TaskRole</span> {
+    <span class="rs-kw">match</span> role {
+        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Planner</span> =&gt; <span class="rs-type">TaskRole</span>::<span class="rs-type">Planner</span>,
+        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span> =&gt; <span class="rs-type">TaskRole</span>::<span class="rs-type">Generator</span>,
+        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Reducer</span> =&gt; <span class="rs-type">TaskRole</span>::<span class="rs-type">Reducer</span>,
+    }
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:495</p>
+</article><article id="item-fn-workflow-role-from-task-role-503" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn workflow_role_from_task_role private fn workflow_role_from_task_role (role : TaskRole) -&gt; WorkflowTaskRole crates/eos-db/src/repositories/task_agent_run.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>workflow_role_from_task_role</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-workflow-role-from-task-role-503">workflow_role_from_task_role</a> (role : TaskRole) -&gt; WorkflowTaskRole</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-workflow-role-from-task-role-503">workflow_role_from_task_role</a>(role: <span class="rs-type">TaskRole</span>) -&gt; <span class="rs-type">WorkflowTaskRole</span> {
+    <span class="rs-kw">match</span> role {
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Planner</span> =&gt; <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Planner</span>,
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Generator</span> =&gt; <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span>,
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Reducer</span> =&gt; <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Reducer</span>,
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span> =&gt; unreachable!(&quot;root task has no workflow role&quot;),
+    }
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:503</p>
+</article><article id="item-fn-parse-parented-kind-512" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn parse_parented_kind private fn parse_parented_kind (raw : &amp; str) -&gt; Result &lt; ParentedAgentRunKind , DbError &gt; crates/eos-db/src/repositories/task_agent_run.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>parse_parented_kind</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-parented-kind-512">parse_parented_kind</a> (raw : &amp; str) -&gt; Result &lt; ParentedAgentRunKind , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <div class="tags"></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-parented-kind-512">parse_parented_kind</a>(raw: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ParentedAgentRunKind</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-kw">match</span> raw {
+        &quot;subagent&quot; =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span>),
+        &quot;advisor&quot; =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Advisor</span>),
+        other =&gt; <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
+            field: &quot;parented_runs.kind&quot;,
+            value: other.to_owned(),
+        }),
+    }
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:512</p>
+</article><article id="item-fn-id-list-523" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn id_list private async fn id_list &lt; T &gt; (pool : &amp; SqlitePool , sql : &amp; str , task_id : &amp; TaskId) -&gt; Result &lt; Vec &lt; T &gt; , DbError &gt; where T : std :: str :: FromStr &lt; Err = CoreError &gt; , crates/eos-db/src/repositories/task_agent_run.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>id_list</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">async fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-id-list-523">id_list</a> &lt; T &gt; (pool : &amp; SqlitePool , sql : &amp; str , task_id : &amp; TaskId) -&gt; Result &lt; Vec &lt; T &gt; , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt; where T : std :: str :: FromStr &lt; Err = CoreError &gt; ,</code>
+  <div class="tags"><span>async</span></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">async</span> <span class="rs-kw">fn</span> id_list&lt;<span class="rs-type">T</span>&gt;(pool: &amp;<span class="rs-type">SqlitePool</span>, sql: &amp;str, task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">T</span>&gt;, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt;
+<span class="rs-kw">where</span>
+    <span class="rs-type">T</span>: std::str::<span class="rs-type">FromStr</span>&lt;<span class="rs-type">Err</span> = <span class="rs-type">CoreError</span>&gt;,
+{
+    <span class="rs-kw">let</span> rows = sqlx::query_scalar::&lt;<span class="rs-type">Sqlite</span>, <span class="rs-type">String</span>&gt;(sql)
+        .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_all(pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+    rows.into_iter()
+        .map(|raw| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;lineage.id&quot;, &amp;raw))
+        .collect()
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:523</p>
+</article><article id="item-fn-parented-ids-537" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn parented_ids private async fn parented_ids (pool : &amp; SqlitePool , task_id : &amp; TaskId , kind : ParentedAgentRunKind ,) -&gt; Result &lt; Vec &lt; AgentRunId &gt; , DbError &gt; crates/eos-db/src/repositories/task_agent_run.rs  ">
+  <div class="item-head">
+    <span class="kind">fn</span>
+    <h3>parented_ids</h3>
+    <span class="visibility">private</span>
+  </div>
+  <code class="signature">async fn <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parented-ids-537">parented_ids</a> (pool : &amp; SqlitePool , task_id : &amp; TaskId , kind : ParentedAgentRunKind ,) -&gt; Result &lt; Vec &lt; AgentRunId &gt; , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code>
+  <div class="tags"><span>async</span></div>
+  <details class="function-source">
+  <summary>code</summary>
+  <pre><code><span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parented-ids-537">parented_ids</a>(
+    pool: &amp;<span class="rs-type">SqlitePool</span>,
+    task_id: &amp;<span class="rs-type">TaskId</span>,
+    kind: <span class="rs-type">ParentedAgentRunKind</span>,
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">AgentRunId</span>&gt;, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-kw">let</span> rows = sqlx::query_scalar::&lt;<span class="rs-type">Sqlite</span>, <span class="rs-type">String</span>&gt;(
+        &quot;<span class="rs-type">SELECT</span> agent_run_id <span class="rs-type">FROM</span> parented_runs \
+         <span class="rs-type">WHERE</span> parent_task_id = ? <span class="rs-type">AND</span> kind = ? <span class="rs-type">ORDER</span> <span class="rs-type">BY</span> created_at <span class="rs-type">ASC</span>, agent_run_id <span class="rs-type">ASC</span>&quot;,
+    )
+    .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+    .bind(kind.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+    .fetch_all(pool)
+    .<span class="rs-kw">await</span>
+    .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+    rows.into_iter()
+        .map(|raw| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.agent_run_id&quot;, &amp;raw))
+        .collect()
+}
+</code></pre>
+</details>
+
+  <p class="source">crates/eos-db/src/repositories/task_agent_run.rs:537</p>
+</article></div>
+</section></div>
+</main>
+<section class="file-source-section">
+  <div class="source-head">
+    <h2>Source File</h2>
+    <p class="path">crates/eos-db/src/repositories/task_agent_run.rs</p>
+  </div>
+  <pre class="file-source"><code><span class="rs-comment">//! `SqlTaskAgentRunStore` — task-agent-run lineage repository.</span>
+
+<span class="rs-kw">use</span> async_trait::async_trait;
+<span class="rs-kw">use</span> sqlx::{<span class="rs-type">Sqlite</span>, <span class="rs-type">SqlitePool</span>};
+<span class="rs-kw">use</span> time::<span class="rs-type">OffsetDateTime</span>;
+
+<span class="rs-kw">use</span> eos_types::{
+    format_record_dir, parented_task_id, <span class="rs-type">AgentName</span>, <span class="rs-type">AgentRunId</span>, <span class="rs-type">AgentRunRecordIndex</span>,
+    <span class="rs-type">AgentRunRecordTarget</span>, <span class="rs-type">CoreError</span>, <span class="rs-type">CreatedTaskAgentRun</span>, <span class="rs-type">ParentAgentRunAnchor</span>,
+    <span class="rs-type">ParentedAgentRunKind</span>, <span class="rs-type">ParentedRun</span>, <span class="rs-type">RequestId</span>, <span class="rs-type">Sealed</span>, <span class="rs-type">TaskAgentRunKind</span>, <span class="rs-type">TaskAgentRunStore</span>,
+    <span class="rs-type">TaskExecutionIndex</span>, <span class="rs-type">TaskId</span>, <span class="rs-type">TaskRole</span>, <span class="rs-type">TaskRun</span>, <span class="rs-type">TaskStatus</span>, <span class="rs-type">ToolUseId</span>, <span class="rs-type">WorkflowCoordinates</span>,
+    <span class="rs-type">WorkflowTaskRole</span>,
+};
+
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::error::<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>;
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::json_col;
+<span class="rs-kw">use</span> <span class="rs-kw">crate</span>::rows::{enum_to_db, parse_enum, parse_id};
+
+<span class="rs-comment">/// `SQLite` repository for task-agent-run lineage rows.</span>
+#[derive(<span class="rs-type">Debug</span>)]
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a> {
+    pool: <span class="rs-type">SqlitePool</span>,
+}
+
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a> {
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool: <span class="rs-type">SqlitePool</span>) -&gt; <span class="rs-self">Self</span> {
+        <span class="rs-self">Self</span> { pool }
+    }
+}
+
+<span class="rs-kw">impl</span> <span class="rs-type">Sealed</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a> {}
+
+#[async_trait]
+<span class="rs-kw">impl</span> <span class="rs-type">TaskAgentRunStore</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a> {
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-create-root-task-agent-run-35">create_root_task_agent_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        request_id: &amp;<span class="rs-type">RequestId</span>,
+        task_id: &amp;<span class="rs-type">TaskId</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        agent_name: &amp;<span class="rs-type">AgentName</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CreatedTaskAgentRun</span>, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> tx = <span class="rs-self">self</span>.pool.begin().<span class="rs-kw">await</span>.map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        sqlx::query(
+            &quot;<span class="rs-type">INSERT</span> <span class="rs-type">INTO</span> task_runs \
+             (task_id, agent_run_id, request_id, role, status, workflow_id, iteration_id, \
+              attempt_id, agent_name, terminal_payload, token_count, error, created_at, \
+              updated_at, finished_at) \
+             <span class="rs-type">VALUES</span> (?, ?, ?, ?, ?, <span class="rs-type">NULL</span>, <span class="rs-type">NULL</span>, <span class="rs-type">NULL</span>, ?, <span class="rs-type">NULL</span>, 0, <span class="rs-type">NULL</span>, ?, ?, <span class="rs-type">NULL</span>)&quot;,
+        )
+        .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(request_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span>))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span>))
+        .bind(agent_name.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(now)
+        .bind(now)
+        .execute(&amp;<span class="rs-kw">mut</span> *tx)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        <span class="rs-kw">let</span> updated =
+            sqlx::query(&quot;<span class="rs-type">UPDATE</span> requests <span class="rs-type">SET</span> root_task_id = ?, updated_at = ? <span class="rs-type">WHERE</span> id = ?&quot;)
+                .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+                .bind(now)
+                .bind(request_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+                .execute(&amp;<span class="rs-kw">mut</span> *tx)
+                .<span class="rs-kw">await</span>
+                .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        <span class="rs-kw">if</span> updated.rows_affected() == 0 {
+            <span class="rs-kw">return</span> <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">NotFound</span> {
+                table: &quot;requests&quot;,
+                id: request_id.to_string(),
+            }
+            .into());
+        }
+        tx.commit().<span class="rs-kw">await</span>.map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-created-from-index-362">created_from_index</a>(<span class="rs-type">AgentRunRecordIndex</span> {
+            request_id: request_id.clone(),
+            agent_run_id: agent_run_id.clone(),
+            task_id: task_id.clone(),
+            kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span>,
+        }))
+    }
+
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-create-workflow-task-agent-run-86">create_workflow_task_agent_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        request_id: &amp;<span class="rs-type">RequestId</span>,
+        task_id: &amp;<span class="rs-type">TaskId</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        workflow: &amp;<span class="rs-type">WorkflowCoordinates</span>,
+        role: <span class="rs-type">WorkflowTaskRole</span>,
+        agent_name: &amp;<span class="rs-type">AgentName</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CreatedTaskAgentRun</span>, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
+        <span class="rs-kw">let</span> task_role = <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-task-role-from-workflow-role-495">task_role_from_workflow_role</a>(role);
+        sqlx::query(
+            &quot;<span class="rs-type">INSERT</span> <span class="rs-type">INTO</span> task_runs \
+             (task_id, agent_run_id, request_id, role, status, workflow_id, iteration_id, \
+              attempt_id, agent_name, terminal_payload, token_count, error, created_at, \
+              updated_at, finished_at) \
+             <span class="rs-type">VALUES</span> (?, ?, ?, ?, ?, ?, ?, ?, ?, <span class="rs-type">NULL</span>, 0, <span class="rs-type">NULL</span>, ?, ?, <span class="rs-type">NULL</span>)&quot;,
+        )
+        .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(request_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;task_role))
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span>))
+        .bind(workflow.workflow_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(workflow.iteration_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(workflow.attempt_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(agent_name.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(now)
+        .bind(now)
+        .execute(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-created-from-index-362">created_from_index</a>(<span class="rs-type">AgentRunRecordIndex</span> {
+            request_id: request_id.clone(),
+            agent_run_id: agent_run_id.clone(),
+            task_id: task_id.clone(),
+            kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> {
+                workflow: workflow.clone(),
+                role,
+            },
+        }))
+    }
+
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-create-parented-task-agent-run-129">create_parented_task_agent_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        parent: &amp;<span class="rs-type">ParentAgentRunAnchor</span>,
+        kind: <span class="rs-type">ParentedAgentRunKind</span>,
+        tool_use_id: <span class="rs-type">Option</span>&lt;&amp;<span class="rs-type">ToolUseId</span>&gt;,
+        agent_name: &amp;<span class="rs-type">AgentName</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">CreatedTaskAgentRun</span>, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> task_id = parented_task_id(&amp;parent.agent_run_id, kind, tool_use_id)?;
+        <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
+        sqlx::query(
+            &quot;<span class="rs-type">INSERT</span> <span class="rs-type">INTO</span> parented_runs \
+             (task_id, agent_run_id, request_id, status, parent_agent_run_id, parent_task_id, \
+              kind, tool_use_id, agent_name, terminal_payload, token_count, error, created_at, \
+              updated_at, finished_at) \
+             <span class="rs-type">VALUES</span> (?, ?, ?, ?, ?, ?, ?, ?, ?, <span class="rs-type">NULL</span>, 0, <span class="rs-type">NULL</span>, ?, ?, <span class="rs-type">NULL</span>)&quot;,
+        )
+        .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(parent.request_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;<span class="rs-type">TaskStatus</span>::<span class="rs-type">Running</span>))
+        .bind(parent.agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(parent.parent_task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(kind.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(tool_use_id.map(<span class="rs-type">ToolUseId</span>::as_str))
+        .bind(agent_name.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(now)
+        .bind(now)
+        .execute(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-created-from-index-362">created_from_index</a>(<span class="rs-type">AgentRunRecordIndex</span> {
+            request_id: parent.request_id.clone(),
+            agent_run_id: agent_run_id.clone(),
+            task_id,
+            kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
+                parent_agent_run_id: parent.agent_run_id.clone(),
+                kind,
+            },
+        }))
+    }
+
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-finish-task-run-171">finish_task_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        status: <span class="rs-type">TaskStatus</span>,
+        terminal_payload: <span class="rs-type">Option</span>&lt;&amp;eos_types::<span class="rs-type">JsonObject</span>&gt;,
+        token_count: i64,
+        error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
+        <span class="rs-kw">let</span> terminal = terminal_payload.map(json_col::encode).transpose()?;
+        <span class="rs-kw">let</span> row = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>&gt;(
+            &quot;<span class="rs-type">UPDATE</span> task_runs <span class="rs-type">SET</span> status = ?, terminal_payload = <span class="rs-type">COALESCE</span>(?, terminal_payload), \
+             token_count = ?, error = ?, updated_at = ?, finished_at = ? \
+             <span class="rs-type">WHERE</span> agent_run_id = ? <span class="rs-type">RETURNING</span> *&quot;,
+        )
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;status))
+        .bind(terminal)
+        .bind(token_count)
+        .bind(error)
+        .bind(now)
+        .bind(now)
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        row.map(row_to_task_run).transpose().map_err(<span class="rs-type">Into</span>::into)
+    }
+
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-finish-parented-run-199">finish_parented_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+        status: <span class="rs-type">TaskStatus</span>,
+        terminal_payload: <span class="rs-type">Option</span>&lt;&amp;eos_types::<span class="rs-type">JsonObject</span>&gt;,
+        token_count: i64,
+        error: <span class="rs-type">Option</span>&lt;&amp;str&gt;,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">ParentedRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> now = <span class="rs-type">OffsetDateTime</span>::now_utc();
+        <span class="rs-kw">let</span> terminal = terminal_payload.map(json_col::encode).transpose()?;
+        <span class="rs-kw">let</span> row = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRow-343">ParentedRunRow</a>&gt;(
+            &quot;<span class="rs-type">UPDATE</span> parented_runs <span class="rs-type">SET</span> status = ?, terminal_payload = <span class="rs-type">COALESCE</span>(?, terminal_payload), \
+             token_count = ?, error = ?, updated_at = ?, finished_at = ? \
+             <span class="rs-type">WHERE</span> agent_run_id = ? <span class="rs-type">RETURNING</span> *&quot;,
+        )
+        .bind(<a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-enum-to-db-148">enum_to_db</a>(&amp;status))
+        .bind(terminal)
+        .bind(token_count)
+        .bind(error)
+        .bind(now)
+        .bind(now)
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        row.map(row_to_parented_run).transpose().map_err(<span class="rs-type">Into</span>::into)
+    }
+
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-record-index-for-agent-run-227">record_index_for_agent_run</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">AgentRunRecordIndex</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">if</span> <span class="rs-kw">let</span> <span class="rs-type">Some</span>(row) =
+            sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>&gt;(&quot;<span class="rs-type">SELECT</span> * <span class="rs-type">FROM</span> task_runs <span class="rs-type">WHERE</span> agent_run_id = ?&quot;)
+                .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+                .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+                .<span class="rs-kw">await</span>
+                .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?
+        {
+            <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-task-run-record-index-440">task_run_record_index</a>(row)?));
+        }
+        <span class="rs-kw">let</span> row = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRecordIndexRow-334">ParentedRunRecordIndexRow</a>&gt;(
+            &quot;<span class="rs-type">SELECT</span> task_id, agent_run_id, request_id, parent_agent_run_id, kind \
+             <span class="rs-type">FROM</span> parented_runs <span class="rs-type">WHERE</span> agent_run_id = ?&quot;,
+        )
+        .bind(agent_run_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        row.map(parented_run_record_index)
+            .transpose()
+            .map_err(<span class="rs-type">Into</span>::into)
+    }
+
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-get-task-run-253">get_task_run</a>(&amp;<span class="rs-self">self</span>, task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> row = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>&gt;(&quot;<span class="rs-type">SELECT</span> * <span class="rs-type">FROM</span> task_runs <span class="rs-type">WHERE</span> task_id = ?&quot;)
+            .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+            .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+            .<span class="rs-kw">await</span>
+            .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        row.map(row_to_task_run).transpose().map_err(<span class="rs-type">Into</span>::into)
+    }
+
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-list-parented-runs-for-parent-task-262">list_parented_runs_for_parent_task</a>(
+        &amp;<span class="rs-self">self</span>,
+        parent_task_id: &amp;<span class="rs-type">TaskId</span>,
+        kind: <span class="rs-type">ParentedAgentRunKind</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">ParentedRun</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> rows = sqlx::query_as::&lt;<span class="rs-type">Sqlite</span>, <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRow-343">ParentedRunRow</a>&gt;(
+            &quot;<span class="rs-type">SELECT</span> * <span class="rs-type">FROM</span> parented_runs <span class="rs-type">WHERE</span> parent_task_id = ? <span class="rs-type">AND</span> kind = ? \
+             <span class="rs-type">ORDER</span> <span class="rs-type">BY</span> created_at <span class="rs-type">ASC</span>, agent_run_id <span class="rs-type">ASC</span>&quot;,
+        )
+        .bind(parent_task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .bind(kind.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_all(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+        rows.into_iter()
+            .map(row_to_parented_run)
+            .collect::&lt;<span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;_&gt;, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt;&gt;()
+            .map_err(<span class="rs-type">Into</span>::into)
+    }
+
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#method-task-execution-index-282">task_execution_index</a>(
+        &amp;<span class="rs-self">self</span>,
+        task_id: &amp;<span class="rs-type">TaskId</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Option</span>&lt;<span class="rs-type">TaskExecutionIndex</span>&gt;, <span class="rs-type">CoreError</span>&gt; {
+        <span class="rs-kw">let</span> <span class="rs-type">Some</span>(agent_run_id) = sqlx::query_scalar::&lt;<span class="rs-type">Sqlite</span>, <span class="rs-type">String</span>&gt;(
+            &quot;<span class="rs-type">SELECT</span> agent_run_id <span class="rs-type">FROM</span> task_runs <span class="rs-type">WHERE</span> task_id = ?&quot;,
+        )
+        .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_optional(&amp;<span class="rs-self">self</span>.pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?
+        <span class="rs-kw">else</span> {
+            <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<span class="rs-type">None</span>);
+        };
+        <span class="rs-kw">let</span> workflow_ids = <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-id-list-523">id_list</a>(
+            &amp;<span class="rs-self">self</span>.pool,
+            &quot;<span class="rs-type">SELECT</span> id <span class="rs-type">FROM</span> workflows <span class="rs-type">WHERE</span> parent_task_id = ? <span class="rs-type">ORDER</span> <span class="rs-type">BY</span> created_at <span class="rs-type">ASC</span>, id <span class="rs-type">ASC</span>&quot;,
+            task_id,
+        )
+        .<span class="rs-kw">await</span>?;
+        <span class="rs-kw">let</span> subagent_ids =
+            <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parented-ids-537">parented_ids</a>(&amp;<span class="rs-self">self</span>.pool, task_id, <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span>).<span class="rs-kw">await</span>?;
+        <span class="rs-kw">let</span> advisor_ids = <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parented-ids-537">parented_ids</a>(&amp;<span class="rs-self">self</span>.pool, task_id, <span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Advisor</span>).<span class="rs-kw">await</span>?;
+        <span class="rs-type">Ok</span>(<span class="rs-type">Some</span>(<span class="rs-type">TaskExecutionIndex</span> {
+            task_id: task_id.clone(),
+            agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.agent_run_id&quot;, &amp;agent_run_id)?,
+            workflow_ids,
+            subagent_ids,
+            advisor_ids,
+        }))
+    }
+}
+
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, sqlx::<span class="rs-type">FromRow</span>)]
+<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a> {
+    task_id: <span class="rs-type">String</span>,
+    agent_run_id: <span class="rs-type">String</span>,
+    request_id: <span class="rs-type">String</span>,
+    role: <span class="rs-type">String</span>,
+    status: <span class="rs-type">String</span>,
+    workflow_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    iteration_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    attempt_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    agent_name: <span class="rs-type">String</span>,
+    terminal_payload: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    token_count: i64,
+    error: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    created_at: <span class="rs-type">OffsetDateTime</span>,
+    updated_at: <span class="rs-type">OffsetDateTime</span>,
+    finished_at: <span class="rs-type">Option</span>&lt;<span class="rs-type">OffsetDateTime</span>&gt;,
+}
+
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, sqlx::<span class="rs-type">FromRow</span>)]
+<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRecordIndexRow-334">ParentedRunRecordIndexRow</a> {
+    task_id: <span class="rs-type">String</span>,
+    agent_run_id: <span class="rs-type">String</span>,
+    request_id: <span class="rs-type">String</span>,
+    parent_agent_run_id: <span class="rs-type">String</span>,
+    kind: <span class="rs-type">String</span>,
+}
+
+#[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>, sqlx::<span class="rs-type">FromRow</span>)]
+<span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRow-343">ParentedRunRow</a> {
+    task_id: <span class="rs-type">String</span>,
+    agent_run_id: <span class="rs-type">String</span>,
+    request_id: <span class="rs-type">String</span>,
+    status: <span class="rs-type">String</span>,
+    parent_agent_run_id: <span class="rs-type">String</span>,
+    parent_task_id: <span class="rs-type">String</span>,
+    kind: <span class="rs-type">String</span>,
+    tool_use_id: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    agent_name: <span class="rs-type">String</span>,
+    terminal_payload: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    token_count: i64,
+    error: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;,
+    created_at: <span class="rs-type">OffsetDateTime</span>,
+    updated_at: <span class="rs-type">OffsetDateTime</span>,
+    finished_at: <span class="rs-type">Option</span>&lt;<span class="rs-type">OffsetDateTime</span>&gt;,
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-created-from-index-362">created_from_index</a>(index: <span class="rs-type">AgentRunRecordIndex</span>) -&gt; <span class="rs-type">CreatedTaskAgentRun</span> {
+    <span class="rs-type">CreatedTaskAgentRun</span> {
+        agent_run_id: index.agent_run_id.clone(),
+        task_id: index.task_id.clone(),
+        record_target: <span class="rs-type">AgentRunRecordTarget</span> {
+            request_id: index.request_id.clone(),
+            agent_run_id: index.agent_run_id.clone(),
+            task_id: index.task_id.clone(),
+            record_dir: format_record_dir(&amp;index),
+        },
+    }
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-row-to-task-run-375">row_to_task_run</a>(row: <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">TaskRun</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-type">Ok</span>(<span class="rs-type">TaskRun</span> {
+        task_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.task_id&quot;, &amp;row.task_id)?,
+        agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.agent_run_id&quot;, &amp;row.agent_run_id)?,
+        request_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.request_id&quot;, &amp;row.request_id)?,
+        role: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-enum-138">parse_enum</a>(&quot;task_runs.role&quot;, &amp;row.role)?,
+        status: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-enum-138">parse_enum</a>(&quot;task_runs.status&quot;, &amp;row.status)?,
+        workflow_id: row
+            .workflow_id
+            .as_deref()
+            .map(|id| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.workflow_id&quot;, id))
+            .transpose()?,
+        iteration_id: row
+            .iteration_id
+            .as_deref()
+            .map(|id| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.iteration_id&quot;, id))
+            .transpose()?,
+        attempt_id: row
+            .attempt_id
+            .as_deref()
+            .map(|id| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.attempt_id&quot;, id))
+            .transpose()?,
+        agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(&amp;row.agent_name).map_err(|_| <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
+            field: &quot;task_runs.agent_name&quot;,
+            value: row.agent_name.clone(),
+        })?,
+        terminal_payload: json_col::<a class="symbol-link rs-fn" href="eos-db--src-json-col-rs.html#item-fn-decode-opt-35">decode_opt</a>(row.terminal_payload.as_deref())?,
+        token_count: row.token_count,
+        error: row.error,
+        created_at: eos_types::<span class="rs-type">UtcDateTime</span>::from_offset(row.created_at),
+        updated_at: eos_types::<span class="rs-type">UtcDateTime</span>::from_offset(row.updated_at),
+        finished_at: row.finished_at.map(eos_types::<span class="rs-type">UtcDateTime</span>::from_offset),
+    })
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-row-to-parented-run-410">row_to_parented_run</a>(row: <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRow-343">ParentedRunRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ParentedRun</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-type">Ok</span>(<span class="rs-type">ParentedRun</span> {
+        task_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.task_id&quot;, &amp;row.task_id)?,
+        agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.agent_run_id&quot;, &amp;row.agent_run_id)?,
+        request_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.request_id&quot;, &amp;row.request_id)?,
+        status: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-enum-138">parse_enum</a>(&quot;parented_runs.status&quot;, &amp;row.status)?,
+        parent_agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(
+            &quot;parented_runs.parent_agent_run_id&quot;,
+            &amp;row.parent_agent_run_id,
+        )?,
+        parent_task_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.parent_task_id&quot;, &amp;row.parent_task_id)?,
+        kind: <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-parented-kind-512">parse_parented_kind</a>(&amp;row.kind)?,
+        tool_use_id: row
+            .tool_use_id
+            .as_deref()
+            .map(|id| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.tool_use_id&quot;, id))
+            .transpose()?,
+        agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(&amp;row.agent_name).map_err(|_| <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
+            field: &quot;parented_runs.agent_name&quot;,
+            value: row.agent_name.clone(),
+        })?,
+        terminal_payload: json_col::<a class="symbol-link rs-fn" href="eos-db--src-json-col-rs.html#item-fn-decode-opt-35">decode_opt</a>(row.terminal_payload.as_deref())?,
+        token_count: row.token_count,
+        error: row.error,
+        created_at: eos_types::<span class="rs-type">UtcDateTime</span>::from_offset(row.created_at),
+        updated_at: eos_types::<span class="rs-type">UtcDateTime</span>::from_offset(row.updated_at),
+        finished_at: row.finished_at.map(eos_types::<span class="rs-type">UtcDateTime</span>::from_offset),
+    })
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-task-run-record-index-440">task_run_record_index</a>(row: <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-TaskRunRow-315">TaskRunRow</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRunRecordIndex</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-kw">let</span> task_id = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.task_id&quot;, &amp;row.task_id)?;
+    <span class="rs-kw">let</span> request_id = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.request_id&quot;, &amp;row.request_id)?;
+    <span class="rs-kw">let</span> agent_run_id = <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;task_runs.agent_run_id&quot;, &amp;row.agent_run_id)?;
+    <span class="rs-kw">let</span> role = parse_enum::&lt;<span class="rs-type">TaskRole</span>&gt;(&quot;task_runs.role&quot;, &amp;row.role)?;
+    <span class="rs-kw">let</span> kind = <span class="rs-kw">match</span> role {
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span> =&gt; <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Root</span>,
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Planner</span> | <span class="rs-type">TaskRole</span>::<span class="rs-type">Generator</span> | <span class="rs-type">TaskRole</span>::<span class="rs-type">Reducer</span> =&gt; <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Workflow</span> {
+            workflow: <span class="rs-type">WorkflowCoordinates</span> {
+                workflow_id: <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-required-id-482">parse_required_id</a>(&quot;task_runs.workflow_id&quot;, row.workflow_id)?,
+                iteration_id: <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-required-id-482">parse_required_id</a>(&quot;task_runs.iteration_id&quot;, row.iteration_id)?,
+                attempt_id: <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-required-id-482">parse_required_id</a>(&quot;task_runs.attempt_id&quot;, row.attempt_id)?,
+            },
+            role: <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-workflow-role-from-task-role-503">workflow_role_from_task_role</a>(role),
+        },
+    };
+    <span class="rs-type">Ok</span>(<span class="rs-type">AgentRunRecordIndex</span> {
+        request_id,
+        agent_run_id,
+        task_id,
+        kind,
+    })
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parented-run-record-index-464">parented_run_record_index</a>(
+    row: <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-ParentedRunRecordIndexRow-334">ParentedRunRecordIndexRow</a>,
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRunRecordIndex</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-kw">let</span> kind = <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-parented-kind-512">parse_parented_kind</a>(&amp;row.kind)?;
+    <span class="rs-type">Ok</span>(<span class="rs-type">AgentRunRecordIndex</span> {
+        request_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.request_id&quot;, &amp;row.request_id)?,
+        agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.agent_run_id&quot;, &amp;row.agent_run_id)?,
+        task_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.task_id&quot;, &amp;row.task_id)?,
+        kind: <span class="rs-type">TaskAgentRunKind</span>::<span class="rs-type">Parented</span> {
+            parent_agent_run_id: <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(
+                &quot;parented_runs.parent_agent_run_id&quot;,
+                &amp;row.parent_agent_run_id,
+            )?,
+            kind,
+        },
+    })
+}
+
+<span class="rs-kw">fn</span> parse_required_id&lt;<span class="rs-type">T</span>&gt;(field: &amp;&#x27;<span class="rs-kw">static</span> str, value: <span class="rs-type">Option</span>&lt;<span class="rs-type">String</span>&gt;) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">T</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt;
+<span class="rs-kw">where</span>
+    <span class="rs-type">T</span>: std::str::<span class="rs-type">FromStr</span>&lt;<span class="rs-type">Err</span> = <span class="rs-type">CoreError</span>&gt;,
+{
+    <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(
+        field,
+        value.as_deref().ok_or_else(|| <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
+            field,
+            value: <span class="rs-type">String</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(),
+        })?,
+    )
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-task-role-from-workflow-role-495">task_role_from_workflow_role</a>(role: <span class="rs-type">WorkflowTaskRole</span>) -&gt; <span class="rs-type">TaskRole</span> {
+    <span class="rs-kw">match</span> role {
+        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Planner</span> =&gt; <span class="rs-type">TaskRole</span>::<span class="rs-type">Planner</span>,
+        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span> =&gt; <span class="rs-type">TaskRole</span>::<span class="rs-type">Generator</span>,
+        <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Reducer</span> =&gt; <span class="rs-type">TaskRole</span>::<span class="rs-type">Reducer</span>,
+    }
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-workflow-role-from-task-role-503">workflow_role_from_task_role</a>(role: <span class="rs-type">TaskRole</span>) -&gt; <span class="rs-type">WorkflowTaskRole</span> {
+    <span class="rs-kw">match</span> role {
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Planner</span> =&gt; <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Planner</span>,
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Generator</span> =&gt; <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Generator</span>,
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Reducer</span> =&gt; <span class="rs-type">WorkflowTaskRole</span>::<span class="rs-type">Reducer</span>,
+        <span class="rs-type">TaskRole</span>::<span class="rs-type">Root</span> =&gt; unreachable!(&quot;root task has no workflow role&quot;),
+    }
+}
+
+<span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parse-parented-kind-512">parse_parented_kind</a>(raw: &amp;str) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ParentedAgentRunKind</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-kw">match</span> raw {
+        &quot;subagent&quot; =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Subagent</span>),
+        &quot;advisor&quot; =&gt; <span class="rs-type">Ok</span>(<span class="rs-type">ParentedAgentRunKind</span>::<span class="rs-type">Advisor</span>),
+        other =&gt; <span class="rs-type">Err</span>(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::<span class="rs-type">InvalidEnum</span> {
+            field: &quot;parented_runs.kind&quot;,
+            value: other.to_owned(),
+        }),
+    }
+}
+
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> id_list&lt;<span class="rs-type">T</span>&gt;(pool: &amp;<span class="rs-type">SqlitePool</span>, sql: &amp;str, task_id: &amp;<span class="rs-type">TaskId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">T</span>&gt;, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt;
+<span class="rs-kw">where</span>
+    <span class="rs-type">T</span>: std::str::<span class="rs-type">FromStr</span>&lt;<span class="rs-type">Err</span> = <span class="rs-type">CoreError</span>&gt;,
+{
+    <span class="rs-kw">let</span> rows = sqlx::query_scalar::&lt;<span class="rs-type">Sqlite</span>, <span class="rs-type">String</span>&gt;(sql)
+        .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+        .fetch_all(pool)
+        .<span class="rs-kw">await</span>
+        .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+    rows.into_iter()
+        .map(|raw| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;lineage.id&quot;, &amp;raw))
+        .collect()
+}
+
+<span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-repositories-task-agent-run-rs.html#item-fn-parented-ids-537">parented_ids</a>(
+    pool: &amp;<span class="rs-type">SqlitePool</span>,
+    task_id: &amp;<span class="rs-type">TaskId</span>,
+    kind: <span class="rs-type">ParentedAgentRunKind</span>,
+) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">Vec</span>&lt;<span class="rs-type">AgentRunId</span>&gt;, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-kw">let</span> rows = sqlx::query_scalar::&lt;<span class="rs-type">Sqlite</span>, <span class="rs-type">String</span>&gt;(
+        &quot;<span class="rs-type">SELECT</span> agent_run_id <span class="rs-type">FROM</span> parented_runs \
+         <span class="rs-type">WHERE</span> parent_task_id = ? <span class="rs-type">AND</span> kind = ? <span class="rs-type">ORDER</span> <span class="rs-type">BY</span> created_at <span class="rs-type">ASC</span>, agent_run_id <span class="rs-type">ASC</span>&quot;,
+    )
+    .bind(task_id.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+    .bind(kind.<a class="symbol-link rs-fn" href="eos-db.html#method-as-str-49">as_str</a>())
+    .fetch_all(pool)
+    .<span class="rs-kw">await</span>
+    .map_err(<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>::from)?;
+    rows.into_iter()
+        .map(|raw| <a class="symbol-link rs-fn" href="eos-db--src-rows-rs.html#item-fn-parse-id-121">parse_id</a>(&quot;parented_runs.agent_run_id&quot;, &amp;raw))
+        .collect()
+}
+</code></pre>
+</section>
+  <script src="../assets/inventory-data.js"></script>
+  <script src="../assets/inventory.js"></script>
+</body>
+</html>

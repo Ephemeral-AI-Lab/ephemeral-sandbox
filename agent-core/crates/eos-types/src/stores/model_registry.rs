@@ -1,4 +1,4 @@
-//! Model-registry persistence ports.
+//! Model-registry persistence contracts.
 
 use async_trait::async_trait;
 

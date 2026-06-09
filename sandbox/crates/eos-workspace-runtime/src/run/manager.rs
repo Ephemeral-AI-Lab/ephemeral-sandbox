@@ -28,7 +28,7 @@ use crate::command_session::{
 };
 use crate::ephemeral::{
     discard_ephemeral_command, prepare_ephemeral_command, EphemeralCommandPrepareContext,
-    EphemeralSnapshot, PreparedEphemeralCommand,
+    SnapshotLease, PreparedEphemeralCommand,
 };
 use crate::isolated::{
     finalize_isolated_command, prepare_isolated_command, take_isolated_audit,
@@ -132,7 +132,7 @@ impl WorkspaceRunManager {
             .and_then(|stack| stack.acquire_snapshot(&request_id))
             .map_err(layerstack_error)?;
         let lease_id = lease.lease_id.clone();
-        let snapshot = EphemeralSnapshot {
+        let snapshot = SnapshotLease {
             lease_id: lease.lease_id,
             manifest_version: lease.manifest_version,
             manifest_root_hash: lease.root_hash,

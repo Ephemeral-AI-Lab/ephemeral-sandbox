@@ -19,7 +19,7 @@ use eos_workspace_runtime::isolated::{
     IsolatedError, LayerStackSnapshotPort, NamespaceRuntimePort, SnapshotLease, WorkspaceHandle,
 };
 #[cfg(target_os = "linux")]
-use eos_workspace_runtime::CommandHandle;
+use super::IsolatedCommandHandle;
 #[cfg(target_os = "linux")]
 use nix::fcntl::OFlag;
 #[cfg(target_os = "linux")]
@@ -321,8 +321,8 @@ impl NamespaceRuntimePort for DaemonNamespaceRuntime {
 pub(super) fn command_handle_from(
     layer_stack_root: &std::path::Path,
     handle: WorkspaceHandle,
-) -> CommandHandle {
-    CommandHandle {
+) -> IsolatedCommandHandle {
+    IsolatedCommandHandle {
         caller_id: handle.caller_id.0,
         workspace_handle_id: handle.workspace_handle_id.0,
         layer_stack_root: layer_stack_root.to_path_buf(),

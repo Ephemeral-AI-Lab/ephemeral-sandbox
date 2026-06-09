@@ -5,12 +5,12 @@ use std::path::Path;
 use std::str::FromStr;
 
 use eos_agent_run::records::{
-    AgentMessageRecords, AgentRunRecordKind, AgentRunRecordStart, MessageRecordError,
+    AgentMessageRecords, AgentRunRecordHandle, AgentRunRecordKind, AgentRunRecordStart, MessageRecordError,
     NodeFinishStatus, WorkflowTaskRole,
 };
 use eos_types::{
-    AgentRunId, AttemptId, ContentBlock, IterationId, Message, MessageRole, RequestId, TaskId,
-    ToolUseId, WorkflowId,
+    AgentRunId, AgentRunRecordDir, AttemptId, ContentBlock, IterationId, Message, MessageRole,
+    RequestId, TaskId, ToolUseId, WorkflowId,
 };
 use serde_json::{json, Value};
 
@@ -42,7 +42,7 @@ async fn start_root(
     request_id: &RequestId,
     task_id: &TaskId,
     agent_run_id: &AgentRunId,
-) {
+) -> AgentRunRecordHandle {
     records
         .start_agent_run(AgentRunRecordStart {
             request_id,
@@ -54,7 +54,7 @@ async fn start_root(
             initial_messages: &[],
         })
         .await
-        .expect("start root");
+        .expect("start root")
 }
 
 fn assert_unsafe_segment<T>(
@@ -106,7 +106,7 @@ async fn root_start_writes_initial_messages_and_events() {
     assert!(rows[0].get("turn").is_none());
     assert!(rows[0].get("initial_index").is_none());
 
-    let events = records.read_events(&agent_run_id, 0).await.unwrap();
+    let events = handle.read_events(0).await.unwrap();
     assert_eq!(events.len(), 2);
     assert_eq!(events[0].seq, 1);
     assert_eq!(events[0].kind, "node_started");
@@ -122,7 +122,7 @@ async fn workflow_task_records_use_role_layout_and_payload() {
     let request_id: RequestId = id("req-workflow");
     let root_task_id: TaskId = id("task-root");
     let root_run_id: AgentRunId = id("run-root");
-    start_root(&records, &request_id, &root_task_id, &root_run_id).await;
+    let root_handle = start_root(&records, &request_id, &root_task_id, &root_run_id).await;
 
     let workflow_id: WorkflowId = id("wf-1");
     let iteration_id: IterationId = id("it-1");
@@ -190,7 +190,7 @@ async fn workflow_task_records_use_role_layout_and_payload() {
             )
         );
 
-        let events = records.read_events(&agent_run_id, 0).await.unwrap();
+        let events = handle.read_events(0).await.unwrap();
         assert_eq!(events[0].kind, "node_started");
         assert_eq!(events[0].payload["type"], json!(node_type));
         assert_eq!(events[0].payload["agent_run_id"], json!(run_value));
@@ -201,7 +201,7 @@ async fn workflow_task_records_use_role_layout_and_payload() {
         assert_eq!(events[0].payload["role"], json!(role_label));
     }
 
-    let root_events = records.read_events(&root_run_id, 2).await.unwrap();
+    let root_events = root_handle.read_events(2).await.unwrap();
     assert!(root_events
         .iter()
         .all(|event| event.kind != "child_created"));
@@ -237,7 +237,7 @@ async fn later_messages_append_byte_ranges_without_event_content() {
     assert_eq!(range.count, 1);
     assert!(range.end_byte > range.start_byte);
 
-    let events = records.read_events(&agent_run_id, 2).await.unwrap();
+    let events = handle.read_events(2).await.unwrap();
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].kind, "messages_appended");
     assert_eq!(
@@ -246,10 +246,7 @@ async fn later_messages_append_byte_ranges_without_event_content() {
     );
     assert!(events[0].payload.get("content").is_none());
 
-    let tail = records
-        .read_messages(&agent_run_id, range.start_byte)
-        .await
-        .unwrap();
+    let tail = handle.read_messages(range.start_byte).await.unwrap();
     let text = String::from_utf8(tail.bytes).unwrap();
     assert!(text.contains("system_notification"));
     assert_eq!(tail.next_byte_offset, range.end_byte);
@@ -276,11 +273,7 @@ async fn appended_messages_record_all_content_types_and_empty_append_is_silent()
     let empty = handle.append_messages(&[]).await.unwrap();
     assert_eq!(empty.count, 0);
     assert_eq!(empty.start_byte, empty.end_byte);
-    assert!(records
-        .read_events(&agent_run_id, 2)
-        .await
-        .unwrap()
-        .is_empty());
+    assert!(handle.read_events(2).await.unwrap().is_empty());
 
     let range = handle
         .append_messages(&[
@@ -323,7 +316,7 @@ async fn appended_messages_record_all_content_types_and_empty_append_is_silent()
         .unwrap();
     assert_eq!(range.count, 2);
 
-    let events = records.read_events(&agent_run_id, 2).await.unwrap();
+    let events = handle.read_events(2).await.unwrap();
     assert_eq!(events.len(), 1);
     assert_eq!(
         events[0].payload["message_types"],
@@ -336,10 +329,7 @@ async fn appended_messages_record_all_content_types_and_empty_append_is_silent()
         ])
     );
 
-    let tail = records
-        .read_messages(&agent_run_id, range.start_byte)
-        .await
-        .unwrap();
+    let tail = handle.read_messages(range.start_byte).await.unwrap();
     let rows: Vec<Value> = String::from_utf8(tail.bytes)
         .unwrap()
         .lines()
@@ -378,7 +368,7 @@ async fn finish_appends_terminal_status_events_in_sequence() {
     handle.finish(NodeFinishStatus::Completed).await.unwrap();
     handle.finish(NodeFinishStatus::Failed).await.unwrap();
 
-    let events = records.read_events(&agent_run_id, 2).await.unwrap();
+    let events = handle.read_events(2).await.unwrap();
     assert_eq!(events.len(), 2);
     assert_eq!(events[0].seq, 3);
     assert_eq!(events[0].kind, "node_finished");
@@ -405,20 +395,17 @@ async fn read_messages_and_events_honor_tail_offsets() {
         })
         .await
         .unwrap();
-    let initialized = records.read_events(&agent_run_id, 0).await.unwrap();
+    let initialized = handle.read_events(0).await.unwrap();
     let messages_end = initialized[1].payload["messages_end_byte"]
         .as_u64()
         .unwrap();
 
-    let eof = records
-        .read_messages(&agent_run_id, messages_end)
-        .await
-        .unwrap();
+    let eof = handle.read_messages(messages_end).await.unwrap();
     assert!(eof.bytes.is_empty());
     assert_eq!(eof.next_byte_offset, messages_end);
 
     assert!(matches!(
-        records.read_messages(&agent_run_id, messages_end + 1).await,
+        handle.read_messages(messages_end + 1).await,
         Err(MessageRecordError::OffsetOutOfRange {
             offset,
             len
@@ -426,14 +413,10 @@ async fn read_messages_and_events_honor_tail_offsets() {
     ));
 
     handle.finish(NodeFinishStatus::Completed).await.unwrap();
-    let after_init = records.read_events(&agent_run_id, 2).await.unwrap();
+    let after_init = handle.read_events(2).await.unwrap();
     assert_eq!(after_init.len(), 1);
     assert_eq!(after_init[0].seq, 3);
-    assert!(records
-        .read_events(&agent_run_id, 3)
-        .await
-        .unwrap()
-        .is_empty());
+    assert!(handle.read_events(3).await.unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -441,7 +424,7 @@ async fn subagent_records_use_request_rooted_layout_without_parent_scan() {
     let dir = tempfile::tempdir().unwrap();
     let records = AgentMessageRecords::new(dir.path());
     let (request_id, task_id, parent_id) = ids();
-    records
+    let parent = records
         .start_agent_run(AgentRunRecordStart {
             request_id: &request_id,
             task_id: Some(&task_id),
@@ -475,7 +458,7 @@ async fn subagent_records_use_request_rooted_layout_without_parent_scan() {
         slash(child.node_dir().strip_prefix(dir.path()).unwrap()),
         "requests/req-1/subagents/subagent-run-child-run"
     );
-    let parent_events = records.read_events(&parent_id, 0).await.unwrap();
+    let parent_events = parent.read_events(0).await.unwrap();
     assert!(parent_events
         .iter()
         .all(|event| event.kind != "child_created"));
@@ -486,11 +469,11 @@ async fn advisor_child_created_records_parent_payload_and_path() {
     let dir = tempfile::tempdir().unwrap();
     let records = AgentMessageRecords::new(dir.path());
     let (request_id, task_id, parent_id) = ids();
-    start_root(&records, &request_id, &task_id, &parent_id).await;
+    let parent = start_root(&records, &request_id, &task_id, &parent_id).await;
 
     let advisor_id: AgentRunId = id("advisor-child");
     let advisor_task_id: TaskId = id("advisor-task");
-    records
+    let advisor = records
         .start_agent_run(AgentRunRecordStart {
             request_id: &request_id,
             task_id: Some(&advisor_task_id),
@@ -505,10 +488,10 @@ async fn advisor_child_created_records_parent_payload_and_path() {
         .await
         .unwrap();
 
-    let parent_events = records.read_events(&parent_id, 2).await.unwrap();
+    let parent_events = parent.read_events(2).await.unwrap();
     assert!(parent_events.is_empty());
-    assert!(records
-        .read_events(&advisor_id, 0)
+    assert!(advisor
+        .read_events(0)
         .await
         .unwrap()
         .iter()
@@ -542,15 +525,15 @@ async fn parented_runs_do_not_use_parents_missing_layouts() {
         slash(orphan.node_dir().strip_prefix(dir.path()).unwrap()),
         "requests/req-layout/subagents/subagent-run-orphan-subagent"
     );
-    assert!(records.read_events(&orphan_id, 0).await.unwrap().len() >= 2);
+    assert!(orphan.read_events(0).await.unwrap().len() >= 2);
 }
 
 #[tokio::test]
-async fn subagent_and_advisor_records_resolve_by_agent_run_id() {
+async fn subagent_and_advisor_records_read_from_handles() {
     let dir = tempfile::tempdir().unwrap();
     let records = AgentMessageRecords::new(dir.path());
     let (request_id, task_id, parent_id) = ids();
-    records
+    let subagent = records
         .start_agent_run(AgentRunRecordStart {
             request_id: &request_id,
             task_id: Some(&task_id),
@@ -579,16 +562,11 @@ async fn subagent_and_advisor_records_resolve_by_agent_run_id() {
         })
         .await
         .unwrap();
-    assert!(!records
-        .read_messages(&subagent_id, 0)
-        .await
-        .unwrap()
-        .bytes
-        .is_empty());
+    assert!(!subagent.read_messages(0).await.unwrap().bytes.is_empty());
 
     let advisor_id: AgentRunId = "advisor-1".parse().unwrap();
     let advisor_task_id: TaskId = "advisor-task-1".parse().unwrap();
-    records
+    let advisor = records
         .start_agent_run(AgentRunRecordStart {
             request_id: &request_id,
             task_id: Some(&advisor_task_id),
@@ -602,21 +580,17 @@ async fn subagent_and_advisor_records_resolve_by_agent_run_id() {
         })
         .await
         .unwrap();
-    assert!(!records
-        .read_events(&advisor_id, 0)
-        .await
-        .unwrap()
-        .is_empty());
+    assert!(!advisor.read_events(0).await.unwrap().is_empty());
 }
 
 #[tokio::test]
 async fn unknown_agent_run_is_not_found() {
     let dir = tempfile::tempdir().unwrap();
     let records = AgentMessageRecords::new(dir.path());
-    let missing: AgentRunId = "missing-run".parse().unwrap();
+    let missing = AgentRunRecordDir::new("requests/req-missing/root-task-task/agent-run-missing");
 
     assert!(matches!(
-        records.read_events(&missing, 0).await,
+        records.read_events_at(&missing, 0).await,
         Err(MessageRecordError::NotFound(_))
     ));
 }

@@ -17,12 +17,10 @@ pub mod ports;
 pub mod timings;
 pub mod types;
 
-pub(crate) use capture::capture_for_publish;
 pub use capture::CapturedUpperdir;
-pub use command::finalize_ephemeral_command;
-pub(crate) use command::{
-    discard_ephemeral_command, prepare_ephemeral_command, EphemeralCommandPrepareContext,
-    PreparedEphemeralCommand,
+pub use command::{
+    discard_ephemeral_command, finalize_ephemeral_command, prepare_ephemeral_command,
+    EphemeralCommandPrepareContext, PreparedEphemeralCommand,
 };
 pub use dirs::{EphemeralDirAllocator, RunDirCleanup};
 pub use error::EphemeralWorkspaceError;
@@ -31,6 +29,6 @@ pub use ops::EphemeralWorkspaceOps;
 pub use ports::WorkspacePublisherPort;
 pub use timings::{PublishTiming, TreeResourceStats};
 pub use types::{
-    CallerId, EphemeralRunDirs, EphemeralSnapshot, EphemeralWorkspace, InvocationId, PathChange,
+    CallerId, EphemeralRunDirs, SnapshotLease, EphemeralWorkspace, InvocationId, PathChange,
     PathChangeKind, PublishOutcome, PublishStatus, WorkspaceRoot,
 };

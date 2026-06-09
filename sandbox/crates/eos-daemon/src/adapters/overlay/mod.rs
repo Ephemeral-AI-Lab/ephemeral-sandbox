@@ -12,7 +12,7 @@ use eos_overlay::overlay_writable_root;
 use eos_protocol::LayerChange;
 use eos_runner::{RunRequest, RunResult};
 use eos_workspace_runtime::ephemeral::{
-    EphemeralDirAllocator, EphemeralRunDirs, EphemeralSnapshot, EphemeralWorkspaceError,
+    EphemeralDirAllocator, EphemeralRunDirs, SnapshotLease, EphemeralWorkspaceError,
     InvocationId, PathChange, PublishOutcome, WorkspacePublisherPort, WorkspaceRoot,
 };
 
@@ -51,7 +51,7 @@ impl WorkspacePublisherPort for DaemonPublisherPort<'_> {
     fn publish_upperdir_changes(
         &self,
         _root: &WorkspaceRoot,
-        snapshot: &EphemeralSnapshot,
+        snapshot: &SnapshotLease,
         changes: &[LayerChange],
         _path_kinds: &[PathChange],
     ) -> Result<PublishOutcome, EphemeralWorkspaceError> {

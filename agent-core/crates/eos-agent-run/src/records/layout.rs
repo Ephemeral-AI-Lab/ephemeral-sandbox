@@ -1,20 +1,12 @@
 use std::path::{Path, PathBuf};
 
 use eos_types::{
-    format_record_dir, AgentRunId, AgentRunRecordIndex, ParentedAgentRunKind, TaskAgentRunKind,
-    WorkflowCoordinates, WorkflowTaskRole as SharedWorkflowTaskRole,
+    format_record_dir, AgentRunRecordDir, AgentRunRecordIndex, ParentedAgentRunKind,
+    TaskAgentRunKind, WorkflowCoordinates,
 };
 
 use super::error::{MessageRecordError, Result};
 use super::kind::{AgentRunRecordKind, AgentRunRecordStart};
-
-pub(crate) async fn resolve_agent_run(root: &Path, agent_run_id: &AgentRunId) -> Result<PathBuf> {
-    safe_segment("agent_run_id", agent_run_id.as_str())?;
-    let root = root.to_path_buf();
-    let id = agent_run_id.clone();
-    let found = tokio::task::spawn_blocking(move || find_agent_run_dir_in(&root, &id)).await??;
-    found.ok_or_else(|| MessageRecordError::NotFound(agent_run_id.as_str().to_owned()))
-}
 
 pub(crate) fn node_dir(root: &Path, input: &AgentRunRecordStart<'_>) -> Result<PathBuf> {
     validate_start_segments(input)?;
@@ -35,7 +27,7 @@ pub(crate) fn node_dir(root: &Path, input: &AgentRunRecordStart<'_>) -> Result<P
                 iteration_id: iteration_id.clone(),
                 attempt_id: attempt_id.clone(),
             },
-            role: shared_workflow_role(*role),
+            role: *role,
         },
         AgentRunRecordKind::Subagent {
             parent_agent_run_id,
@@ -56,11 +48,11 @@ pub(crate) fn node_dir(root: &Path, input: &AgentRunRecordStart<'_>) -> Result<P
         task_id,
         kind,
     });
-    let mut node = root.to_path_buf();
-    for segment in record_dir.as_str().split('/') {
-        node.push(safe_segment("record_dir", segment)?);
-    }
-    Ok(node)
+    record_dir_path(root, record_dir.as_str())
+}
+
+pub(crate) fn record_dir(root: &Path, record_dir: &AgentRunRecordDir) -> Result<PathBuf> {
+    record_dir_path(root, record_dir.as_str())
 }
 
 fn validate_start_segments(input: &AgentRunRecordStart<'_>) -> Result<()> {
@@ -93,50 +85,12 @@ fn validate_start_segments(input: &AgentRunRecordStart<'_>) -> Result<()> {
     Ok(())
 }
 
-fn find_agent_run_dir_in(root: &Path, agent_run_id: &AgentRunId) -> Result<Option<PathBuf>> {
-    safe_segment("agent_run_id", agent_run_id.as_str())?;
-    let needles = [
-        safe_prefixed_segment("agent-run", agent_run_id.as_str())?,
-        safe_prefixed_segment("subagent-run", agent_run_id.as_str())?,
-        safe_prefixed_segment("advisor-run", agent_run_id.as_str())?,
-    ];
-    find_dir_named(root, &needles)
-}
-
-fn find_dir_named(root: &Path, needles: &[String]) -> Result<Option<PathBuf>> {
-    let Ok(entries) = std::fs::read_dir(root) else {
-        return Ok(None);
-    };
-    for entry in entries {
-        let entry = entry?;
-        let file_type = entry.file_type()?;
-        if !file_type.is_dir() {
-            continue;
-        }
-        let name = entry.file_name();
-        if name
-            .to_str()
-            .is_some_and(|value| needles.iter().any(|needle| needle == value))
-        {
-            return Ok(Some(entry.path()));
-        }
-        if let Some(found) = find_dir_named(&entry.path(), needles)? {
-            return Ok(Some(found));
-        }
+fn record_dir_path(root: &Path, record_dir: &str) -> Result<PathBuf> {
+    let mut node = root.to_path_buf();
+    for segment in record_dir.split('/') {
+        node.push(safe_segment("record_dir", segment)?);
     }
-    Ok(None)
-}
-
-fn safe_prefixed_segment(prefix: &'static str, id: &str) -> Result<String> {
-    Ok(format!("{prefix}-{}", safe_segment(prefix, id)?))
-}
-
-fn shared_workflow_role(role: super::kind::WorkflowTaskRole) -> SharedWorkflowTaskRole {
-    match role {
-        super::kind::WorkflowTaskRole::Planner => SharedWorkflowTaskRole::Planner,
-        super::kind::WorkflowTaskRole::Generator => SharedWorkflowTaskRole::Generator,
-        super::kind::WorkflowTaskRole::Reducer => SharedWorkflowTaskRole::Reducer,
-    }
+    Ok(node)
 }
 
 fn safe_segment<'a>(field: &'static str, value: &'a str) -> Result<&'a str> {

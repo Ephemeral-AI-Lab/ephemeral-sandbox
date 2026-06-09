@@ -6,7 +6,7 @@ use crate::support::{
     as_bool, as_i64, live_pool_or_skip, reset_isolated_workspaces, wait_for_active_leases,
 };
 
-/// A daemon restart runs `reap_startup_orphans`
+/// A daemon restart runs `reap_persisted_orphans`
 /// (`sandbox/crates/eos-workspace-runtime/src/isolated/session/gc.rs`): it clears
 /// in-memory handles, releases each persisted snapshot lease, kills holders, and
 /// removes veth/cgroup/scratch before serving enters. No e2e exercised that

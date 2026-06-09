@@ -68,19 +68,19 @@
   <h4>Fields</h4><table><tbody><tr><td>pub</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>pub</td><td>tool_name</td><td><code>ToolName</code></td></tr><tr><td>pub</td><td>tool_use_id</td><td><code>ToolUseId</code></td></tr><tr><td>pub</td><td>conversation</td><td><code>Arc &lt; [Message] &gt;</code></td></tr></tbody></table>
 
   <p class="source">crates/eos-engine/src/agent_loop/contracts.rs:30</p>
-</article><article id="item-struct-AgentLoopToolRegistryBuildInput-56" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AgentLoopToolRegistryBuildInput pub pub struct AgentLoopToolRegistryBuildInput crates/eos-engine/src/agent_loop/contracts.rs agent_run_id AgentRunId agent_run_api Arc &lt; dyn AgentRunApi &gt; background Option &lt; BackgroundManagers &gt; ">
+</article><article id="item-struct-AgentLoopToolRegistryBuildInput-59" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct AgentLoopToolRegistryBuildInput pub pub struct AgentLoopToolRegistryBuildInput crates/eos-engine/src/agent_loop/contracts.rs agent_run_id AgentRunId agent_run_api Arc &lt; dyn AgentRunApi &gt; background Option &lt; BackgroundManagers &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>AgentLoopToolRegistryBuildInput</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-56">AgentLoopToolRegistryBuildInput</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-59">AgentLoopToolRegistryBuildInput</a></code>
   <p class="docstring">Factory input for building one loop's concrete tool registry.</p>
   <div class="tags"><span>derive: Clone</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>pub</td><td>agent_run_api</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr><tr><td>pub</td><td>background</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-rs.html#item-struct-BackgroundManagers-157">BackgroundManagers</a> &gt;</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-56">AgentLoopToolRegistryBuildInput</a></code></summary><table><tbody><tr id="method-fmt-68"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>pub</td><td>agent_run_id</td><td><code>AgentRunId</code></td></tr><tr><td>pub</td><td>agent_run_api</td><td><code>Arc &lt; dyn AgentRunApi &gt;</code></td></tr><tr><td>pub</td><td>background</td><td><code>Option &lt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-rs.html#item-struct-BackgroundManagers-157">BackgroundManagers</a> &gt;</code></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-59">AgentLoopToolRegistryBuildInput</a></code></summary><table><tbody><tr id="method-fmt-71"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
-        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-56">AgentLoopToolRegistryBuildInput</a>&quot;)
+        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-59">AgentLoopToolRegistryBuildInput</a>&quot;)
             .field(&quot;agent_run_id&quot;, &amp;<span class="rs-self">self</span>.agent_run_id)
             .field(&quot;background&quot;, &amp;<span class="rs-self">self</span>.background)
             .finish_non_exhaustive()
@@ -88,17 +88,17 @@
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-engine/src/agent_loop/contracts.rs:56</p>
-</article><article id="item-struct-ToolCallHookStores-85" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct ToolCallHookStores pub pub struct ToolCallHookStores crates/eos-engine/src/agent_loop/contracts.rs task_store Arc &lt; dyn TaskStore &gt; agent_run_store Arc &lt; dyn AgentRunStore &gt; workflow_store Arc &lt; dyn WorkflowStore &gt; ">
+  <p class="source">crates/eos-engine/src/agent_loop/contracts.rs:59</p>
+</article><article id="item-struct-ToolCallHookStores-88" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct ToolCallHookStores pub pub struct ToolCallHookStores crates/eos-engine/src/agent_loop/contracts.rs task_store Arc &lt; dyn TaskStore &gt; agent_run_store Arc &lt; dyn AgentRunStore &gt; workflow_store Arc &lt; dyn WorkflowStore &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>ToolCallHookStores</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-85">ToolCallHookStores</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-88">ToolCallHookStores</a></code>
   <p class="docstring">Runtime-supplied stores used by engine-owned tool-call hooks.</p>
   <div class="tags"><span>derive: Clone</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>task_store</td><td><code>Arc &lt; dyn TaskStore &gt;</code></td></tr><tr><td>pub(crate)</td><td>agent_run_store</td><td><code>Arc &lt; dyn AgentRunStore &gt;</code></td></tr><tr><td>pub(crate)</td><td>workflow_store</td><td><code>Arc &lt; dyn WorkflowStore &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-103"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-new-43">new</a> (task_store : Arc &lt; dyn TaskStore &gt; , agent_run_store : Arc &lt; dyn AgentRunStore &gt; , workflow_store : Arc &lt; dyn WorkflowStore &gt; ,) -&gt; Self</code><p class="docstring">Build hook dependencies from runtime-owned stores.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>pub(crate)</td><td>task_store</td><td><code>Arc &lt; dyn TaskStore &gt;</code></td></tr><tr><td>pub(crate)</td><td>agent_run_store</td><td><code>Arc &lt; dyn AgentRunStore &gt;</code></td></tr><tr><td>pub(crate)</td><td>workflow_store</td><td><code>Arc &lt; dyn WorkflowStore &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-106"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-new-43">new</a> (task_store : Arc &lt; dyn TaskStore &gt; , agent_run_store : Arc &lt; dyn AgentRunStore &gt; , workflow_store : Arc &lt; dyn WorkflowStore &gt; ,) -&gt; Self</code><p class="docstring">Build hook dependencies from runtime-owned stores.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Build hook dependencies from runtime-owned stores.</span>
     #[must_use]
@@ -114,25 +114,25 @@
         }
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-85">ToolCallHookStores</a></code></summary><table><tbody><tr id="method-fmt-97"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-88">ToolCallHookStores</a></code></summary><table><tbody><tr id="method-fmt-100"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
-        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-85">ToolCallHookStores</a>&quot;).finish_non_exhaustive()
+        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-88">ToolCallHookStores</a>&quot;).finish_non_exhaustive()
     }
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-engine/src/agent_loop/contracts.rs:85</p>
-</article><article id="item-struct-BackgroundSessionInputs-118" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct BackgroundSessionInputs pub pub struct BackgroundSessionInputs crates/eos-engine/src/agent_loop/contracts.rs command_service Arc &lt; dyn SandboxCommandApi &gt; completion_poll_interval Duration workflow_service Arc &lt; dyn WorkflowApi &gt; ">
+  <p class="source">crates/eos-engine/src/agent_loop/contracts.rs:88</p>
+</article><article id="item-struct-BackgroundSessionInputs-121" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct BackgroundSessionInputs pub pub struct BackgroundSessionInputs crates/eos-engine/src/agent_loop/contracts.rs command_service Arc &lt; dyn SandboxCommandApi &gt; completion_poll_interval Duration workflow_service Arc &lt; dyn WorkflowApi &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>BackgroundSessionInputs</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-118">BackgroundSessionInputs</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-121">BackgroundSessionInputs</a></code>
   <p class="docstring">Runtime-supplied ports needed by engine-owned background managers.</p>
   <div class="tags"><span>derive: Clone</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>command_service</td><td><code>Arc &lt; dyn SandboxCommandApi &gt;</code></td></tr><tr><td>private</td><td>completion_poll_interval</td><td><code>Duration</code></td></tr><tr><td>private</td><td>workflow_service</td><td><code>Arc &lt; dyn WorkflowApi &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-135"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-new-43">new</a> (command_service : Arc &lt; dyn SandboxCommandApi &gt; , completion_poll_interval : Duration , workflow_service : Arc &lt; dyn WorkflowApi &gt; ,) -&gt; Self</code><p class="docstring">Build concrete background dependencies from runtime-owned ports.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>command_service</td><td><code>Arc &lt; dyn SandboxCommandApi &gt;</code></td></tr><tr><td>private</td><td>completion_poll_interval</td><td><code>Duration</code></td></tr><tr><td>private</td><td>workflow_service</td><td><code>Arc &lt; dyn WorkflowApi &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-new-138"><td>constructor</td><td>new</td><td><code>pub fn <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-new-43">new</a> (command_service : Arc &lt; dyn SandboxCommandApi &gt; , completion_poll_interval : Duration , workflow_service : Arc &lt; dyn WorkflowApi &gt; ,) -&gt; Self</code><p class="docstring">Build concrete background dependencies from runtime-owned ports.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Build concrete background dependencies from runtime-owned ports.</span>
     #[must_use]
@@ -148,9 +148,9 @@
         }
     }
 </code></pre>
-</details></td></tr><tr id="method-build-managers-149"><td>method</td><td>build_managers</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-managers-149">build_managers</a> (&amp; self , agent_run_id : AgentRunId , agent_run_api : Arc &lt; dyn AgentRunApi &gt; , notifications : <a class="symbol-link" href="eos-engine--src-notifications-rs.html#item-struct-EngineNotificationQueue-130">EngineNotificationQueue</a> ,) -&gt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-rs.html#item-struct-BackgroundManagers-157">BackgroundManagers</a></code><details class="function-source">
+</details></td></tr><tr id="method-build-managers-152"><td>method</td><td>build_managers</td><td><code>pub(crate) fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-managers-152">build_managers</a> (&amp; self , agent_run_id : AgentRunId , agent_run_api : Arc &lt; dyn AgentRunApi &gt; , notifications : <a class="symbol-link" href="eos-engine--src-notifications-rs.html#item-struct-EngineNotificationQueue-130">EngineNotificationQueue</a> ,) -&gt; <a class="symbol-link" href="eos-engine--src-background-background-session-manager-rs.html#item-struct-BackgroundManagers-157">BackgroundManagers</a></code><details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-managers-149">build_managers</a>(
+  <pre><code>    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-managers-152">build_managers</a>(
         &amp;<span class="rs-self">self</span>,
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         agent_run_api: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,
@@ -166,18 +166,18 @@
         )
     }
 </code></pre>
-</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-118">BackgroundSessionInputs</a></code></summary><table><tbody><tr id="method-fmt-127"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
+</details></td></tr></tbody></table><h4>Trait Implementations For This Type</h4><div class="impl-list"><details><summary><code>impl std :: fmt :: Debug for <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-121">BackgroundSessionInputs</a></code></summary><table><tbody><tr id="method-fmt-130"><td>method</td><td>fmt</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a> (&amp; self , f : &amp; mut std :: fmt :: Formatter &lt; &#x27;_ &gt;) -&gt; std :: fmt :: Result</code><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
-        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-118">BackgroundSessionInputs</a>&quot;)
+        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-121">BackgroundSessionInputs</a>&quot;)
             .field(&quot;completion_poll_interval&quot;, &amp;<span class="rs-self">self</span>.completion_poll_interval)
             .finish_non_exhaustive()
     }
 </code></pre>
 </details></td></tr></tbody></table></details></div>
 
-  <p class="source">crates/eos-engine/src/agent_loop/contracts.rs:118</p>
-</article><article id="item-trait-ToolExecutionMetadataReader-43" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait ToolExecutionMetadataReader pub pub trait ToolExecutionMetadataReader crates/eos-engine/src/agent_loop/contracts.rs  agent_state async fn agent_state (&amp; self , agent_run_id : &amp; AgentRunId) -&gt; Result &lt; AgentState , EngineError &gt; build_execution_metadata async fn build_execution_metadata (&amp; self , input : ExecutionMetadataBuildInput ,) -&gt; Result &lt; ExecutionMetadata , EngineError &gt;">
+  <p class="source">crates/eos-engine/src/agent_loop/contracts.rs:121</p>
+</article><article id="item-trait-ToolExecutionMetadataReader-43" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait ToolExecutionMetadataReader pub pub trait ToolExecutionMetadataReader crates/eos-engine/src/agent_loop/contracts.rs  agent_state async fn agent_state (&amp; self , agent_run_id : &amp; AgentRunId ,) -&gt; Result &lt; AgentRunRuntimeSnapshot , EngineError &gt; build_execution_metadata async fn build_execution_metadata (&amp; self , input : ExecutionMetadataBuildInput ,) -&gt; Result &lt; ExecutionMetadata , EngineError &gt;">
   <div class="item-head">
     <span class="kind">trait</span>
     <h3>ToolExecutionMetadataReader</h3>
@@ -186,15 +186,18 @@
   <code class="signature">pub trait <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-43">ToolExecutionMetadataReader</a></code>
   <p class="docstring">Read-only service for current agent-run facts and per-call metadata.</p>
   <div class="tags"><span>async_trait</span></div>
-  <h4>Methods</h4><table><tbody><tr id="method-agent-state-46"><td>required</td><td>agent_state</td><td><code>async fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-agent-state-46">agent_state</a> (&amp; self , agent_run_id : &amp; AgentRunId) -&gt; Result &lt; AgentState , <a class="symbol-link" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a> &gt;</code><p class="docstring">Load the current runtime snapshot for one agent run.</p><details class="function-source">
+  <h4>Methods</h4><table><tbody><tr id="method-agent-state-46"><td>required</td><td>agent_state</td><td><code>async fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-agent-state-46">agent_state</a> (&amp; self , agent_run_id : &amp; AgentRunId ,) -&gt; Result &lt; AgentRunRuntimeSnapshot , <a class="symbol-link" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a> &gt;</code><p class="docstring">Load the current runtime snapshot for one agent run.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Load the current runtime snapshot for one agent run.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-agent-state-46">agent_state</a>(&amp;<span class="rs-self">self</span>, agent_run_id: &amp;<span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentState</span>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-agent-state-46">agent_state</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRunRuntimeSnapshot</span>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
 </code></pre>
-</details></td></tr><tr id="method-build-execution-metadata-49"><td>required</td><td>build_execution_metadata</td><td><code>async fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-execution-metadata-49">build_execution_metadata</a> (&amp; self , input : <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ExecutionMetadataBuildInput-30">ExecutionMetadataBuildInput</a> ,) -&gt; Result &lt; ExecutionMetadata , <a class="symbol-link" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a> &gt;</code><p class="docstring">Render per-tool-call execution metadata from the current agent state.</p><details class="function-source">
+</details></td></tr><tr id="method-build-execution-metadata-52"><td>required</td><td>build_execution_metadata</td><td><code>async fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-execution-metadata-52">build_execution_metadata</a> (&amp; self , input : <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ExecutionMetadataBuildInput-30">ExecutionMetadataBuildInput</a> ,) -&gt; Result &lt; ExecutionMetadata , <a class="symbol-link" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a> &gt;</code><p class="docstring">Render per-tool-call execution metadata from the current agent state.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Render per-tool-call execution metadata from the current agent state.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-execution-metadata-49">build_execution_metadata</a>(
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-execution-metadata-52">build_execution_metadata</a>(
         &amp;<span class="rs-self">self</span>,
         input: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ExecutionMetadataBuildInput-30">ExecutionMetadataBuildInput</a>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ExecutionMetadata</span>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
@@ -202,26 +205,26 @@
 </details></td></tr></tbody></table>
 
   <p class="source">crates/eos-engine/src/agent_loop/contracts.rs:43</p>
-</article><article id="item-trait-AgentLoopToolRegistryFactory-76" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait AgentLoopToolRegistryFactory pub pub trait AgentLoopToolRegistryFactory crates/eos-engine/src/agent_loop/contracts.rs  build_tool_registry fn build_tool_registry (&amp; self , input : AgentLoopToolRegistryBuildInput ,) -&gt; Result &lt; ToolRegistry , EngineError &gt;">
+</article><article id="item-trait-AgentLoopToolRegistryFactory-79" class="type-card" data-kind="trait" data-kind-list="method trait type-model" data-filter-text="trait AgentLoopToolRegistryFactory pub pub trait AgentLoopToolRegistryFactory crates/eos-engine/src/agent_loop/contracts.rs  build_tool_registry fn build_tool_registry (&amp; self , input : AgentLoopToolRegistryBuildInput ,) -&gt; Result &lt; ToolRegistry , EngineError &gt;">
   <div class="item-head">
     <span class="kind">trait</span>
     <h3>AgentLoopToolRegistryFactory</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub trait <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-76">AgentLoopToolRegistryFactory</a></code>
+  <code class="signature">pub trait <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-79">AgentLoopToolRegistryFactory</a></code>
   <p class="docstring">Runtime-provided factory for concrete tool registries.</p>
   <div class="tags"></div>
-  <h4>Methods</h4><table><tbody><tr id="method-build-tool-registry-78"><td>required</td><td>build_tool_registry</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-tool-registry-78">build_tool_registry</a> (&amp; self , input : <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-56">AgentLoopToolRegistryBuildInput</a> ,) -&gt; Result &lt; ToolRegistry , <a class="symbol-link" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a> &gt;</code><p class="docstring">Build a concrete tool registry for one loop.</p><details class="function-source">
+  <h4>Methods</h4><table><tbody><tr id="method-build-tool-registry-81"><td>required</td><td>build_tool_registry</td><td><code>fn <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-tool-registry-81">build_tool_registry</a> (&amp; self , input : <a class="symbol-link" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-59">AgentLoopToolRegistryBuildInput</a> ,) -&gt; Result &lt; ToolRegistry , <a class="symbol-link" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a> &gt;</code><p class="docstring">Build a concrete tool registry for one loop.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Build a concrete tool registry for one loop.</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-tool-registry-78">build_tool_registry</a>(
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-tool-registry-81">build_tool_registry</a>(
         &amp;<span class="rs-self">self</span>,
-        input: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-56">AgentLoopToolRegistryBuildInput</a>,
+        input: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-59">AgentLoopToolRegistryBuildInput</a>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ToolRegistry</span>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-engine/src/agent_loop/contracts.rs:76</p>
+  <p class="source">crates/eos-engine/src/agent_loop/contracts.rs:79</p>
 </article><div class="group-label">Standalone Functions</div><article id="item-fn-tool-result-payload-19" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn tool_result_payload pub(crate) pub(crate) fn tool_result_payload (result : &amp; ToolResult) -&gt; JsonObject crates/eos-engine/src/agent_loop/contracts.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
@@ -264,8 +267,8 @@
 <span class="rs-kw">use</span> eos_sandbox_port::<span class="rs-type">SandboxCommandApi</span>;
 <span class="rs-kw">use</span> eos_tool::{<span class="rs-type">ExecutionMetadata</span>, <span class="rs-type">ToolName</span>, <span class="rs-type">ToolRegistry</span>, <span class="rs-type">ToolResult</span>};
 <span class="rs-kw">use</span> eos_types::{
-    <span class="rs-type">AgentRunApi</span>, <span class="rs-type">AgentRunId</span>, <span class="rs-type">AgentRunStore</span>, <span class="rs-type">AgentState</span>, <span class="rs-type">JsonObject</span>, <span class="rs-type">Message</span>, <span class="rs-type">TaskStore</span>, <span class="rs-type">ToolUseId</span>,
-    <span class="rs-type">WorkflowApi</span>, <span class="rs-type">WorkflowStore</span>,
+    <span class="rs-type">AgentRunApi</span>, <span class="rs-type">AgentRunId</span>, <span class="rs-type">AgentRunRuntimeSnapshot</span>, <span class="rs-type">AgentRunStore</span>, <span class="rs-type">JsonObject</span>, <span class="rs-type">Message</span>,
+    <span class="rs-type">TaskStore</span>, <span class="rs-type">ToolUseId</span>, <span class="rs-type">WorkflowApi</span>, <span class="rs-type">WorkflowStore</span>,
 };
 <span class="rs-kw">use</span> serde_json::json;
 
@@ -301,10 +304,13 @@
 #[async_trait]
 <span class="rs-kw">pub</span> <span class="rs-kw">trait</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-ToolExecutionMetadataReader-43">ToolExecutionMetadataReader</a>: <span class="rs-type">Send</span> + <span class="rs-type">Sync</span> {
     <span class="rs-comment">/// Load the current runtime snapshot for one agent run.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-agent-state-46">agent_state</a>(&amp;<span class="rs-self">self</span>, agent_run_id: &amp;<span class="rs-type">AgentRunId</span>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentState</span>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-agent-state-46">agent_state</a>(
+        &amp;<span class="rs-self">self</span>,
+        agent_run_id: &amp;<span class="rs-type">AgentRunId</span>,
+    ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">AgentRunRuntimeSnapshot</span>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
 
     <span class="rs-comment">/// Render per-tool-call execution metadata from the current agent state.</span>
-    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-execution-metadata-49">build_execution_metadata</a>(
+    <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-execution-metadata-52">build_execution_metadata</a>(
         &amp;<span class="rs-self">self</span>,
         input: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ExecutionMetadataBuildInput-30">ExecutionMetadataBuildInput</a>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ExecutionMetadata</span>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
@@ -312,7 +318,7 @@
 
 <span class="rs-comment">/// Factory input for building one loop's concrete tool registry.</span>
 #[derive(<span class="rs-type">Clone</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-56">AgentLoopToolRegistryBuildInput</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-59">AgentLoopToolRegistryBuildInput</a> {
     <span class="rs-comment">/// Agent-run id.</span>
     <span class="rs-kw">pub</span> agent_run_id: <span class="rs-type">AgentRunId</span>,
     <span class="rs-comment">/// Agent-run lifecycle API for nested launches from this loop.</span>
@@ -321,9 +327,9 @@
     <span class="rs-kw">pub</span> background: <span class="rs-type">Option</span>&lt;<a class="symbol-link rs-type" href="eos-engine--src-background-background-session-manager-rs.html#item-struct-BackgroundManagers-157">BackgroundManagers</a>&gt;,
 }
 
-<span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-56">AgentLoopToolRegistryBuildInput</a> {
+<span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-59">AgentLoopToolRegistryBuildInput</a> {
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
-        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-56">AgentLoopToolRegistryBuildInput</a>&quot;)
+        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-59">AgentLoopToolRegistryBuildInput</a>&quot;)
             .field(&quot;agent_run_id&quot;, &amp;<span class="rs-self">self</span>.agent_run_id)
             .field(&quot;background&quot;, &amp;<span class="rs-self">self</span>.background)
             .finish_non_exhaustive()
@@ -331,17 +337,17 @@
 }
 
 <span class="rs-comment">/// Runtime-provided factory for concrete tool registries.</span>
-<span class="rs-kw">pub</span> <span class="rs-kw">trait</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-76">AgentLoopToolRegistryFactory</a>: <span class="rs-type">Send</span> + <span class="rs-type">Sync</span> {
+<span class="rs-kw">pub</span> <span class="rs-kw">trait</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-trait-AgentLoopToolRegistryFactory-79">AgentLoopToolRegistryFactory</a>: <span class="rs-type">Send</span> + <span class="rs-type">Sync</span> {
     <span class="rs-comment">/// Build a concrete tool registry for one loop.</span>
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-tool-registry-78">build_tool_registry</a>(
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-tool-registry-81">build_tool_registry</a>(
         &amp;<span class="rs-self">self</span>,
-        input: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-56">AgentLoopToolRegistryBuildInput</a>,
+        input: <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-AgentLoopToolRegistryBuildInput-59">AgentLoopToolRegistryBuildInput</a>,
     ) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-type">ToolRegistry</span>, <a class="symbol-link rs-type" href="eos-engine--src-support-error-rs.html#item-enum-EngineError-7">EngineError</a>&gt;;
 }
 
 <span class="rs-comment">/// Runtime-supplied stores used by engine-owned tool-call hooks.</span>
 #[derive(<span class="rs-type">Clone</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-85">ToolCallHookStores</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-88">ToolCallHookStores</a> {
     <span class="rs-comment">/// Task rows used for workflow ancestry checks.</span>
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) task_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt;,
     <span class="rs-comment">/// Agent-run rows used to resolve a task when call metadata is incomplete.</span>
@@ -350,13 +356,13 @@
     <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) workflow_store: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">WorkflowStore</span>&gt;,
 }
 
-<span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-85">ToolCallHookStores</a> {
+<span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-88">ToolCallHookStores</a> {
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
-        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-85">ToolCallHookStores</a>&quot;).finish_non_exhaustive()
+        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-88">ToolCallHookStores</a>&quot;).finish_non_exhaustive()
     }
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-85">ToolCallHookStores</a> {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-ToolCallHookStores-88">ToolCallHookStores</a> {
     <span class="rs-comment">/// Build hook dependencies from runtime-owned stores.</span>
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-new-43">new</a>(
@@ -374,21 +380,21 @@
 
 <span class="rs-comment">/// Runtime-supplied ports needed by engine-owned background managers.</span>
 #[derive(<span class="rs-type">Clone</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-118">BackgroundSessionInputs</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-121">BackgroundSessionInputs</a> {
     command_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">SandboxCommandApi</span>&gt;,
     completion_poll_interval: <span class="rs-type">Duration</span>,
     workflow_service: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">WorkflowApi</span>&gt;,
 }
 
-<span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-118">BackgroundSessionInputs</a> {
+<span class="rs-kw">impl</span> std::fmt::<span class="rs-type">Debug</span> <span class="rs-kw">for</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-121">BackgroundSessionInputs</a> {
     <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-fmt-37">fmt</a>(&amp;<span class="rs-self">self</span>, f: &amp;<span class="rs-kw">mut</span> std::fmt::<span class="rs-type">Formatter</span>&lt;&#x27;_&gt;) -&gt; std::fmt::<span class="rs-type">Result</span> {
-        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-118">BackgroundSessionInputs</a>&quot;)
+        f.debug_struct(&quot;<a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-121">BackgroundSessionInputs</a>&quot;)
             .field(&quot;completion_poll_interval&quot;, &amp;<span class="rs-self">self</span>.completion_poll_interval)
             .finish_non_exhaustive()
     }
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-118">BackgroundSessionInputs</a> {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-engine--src-agent-loop-contracts-rs.html#item-struct-BackgroundSessionInputs-121">BackgroundSessionInputs</a> {
     <span class="rs-comment">/// Build concrete background dependencies from runtime-owned ports.</span>
     #[must_use]
     <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-agent-loop-executor-rs.html#method-new-43">new</a>(
@@ -403,7 +409,7 @@
         }
     }
 
-    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-managers-149">build_managers</a>(
+    <span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-engine--src-agent-loop-contracts-rs.html#method-build-managers-152">build_managers</a>(
         &amp;<span class="rs-self">self</span>,
         agent_run_id: <span class="rs-type">AgentRunId</span>,
         agent_run_api: <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunApi</span>&gt;,

@@ -22,10 +22,10 @@
   </header>
   <a class="back-link" href="../index.html">agent-core</a>
 <section class="summary">
-  <div><b>14</b><span>modules</span></div>
-  <div><b>98</b><span>items</span></div>
-  <div><b>121</b><span>fields</span></div>
-  <div><b>63</b><span>methods</span></div>
+  <div><b>15</b><span>modules</span></div>
+  <div><b>116</b><span>items</span></div>
+  <div><b>156</b><span>fields</span></div>
+  <div><b>74</b><span>methods</span></div>
 </section>
 <section class="toolbar">
   <input id="filter" type="search" placeholder="Filter this file by item, field, method, or signature" autofocus>
@@ -41,7 +41,7 @@
   </select>
 </section>
 <main class="crate-layout">
-  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-db.html"><span>config.rs</span><small>2/2</small></a></li><li><a class="file-link active" href="eos-db--src-database-rs.html"><span>database.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-json-col-rs.html"><span>json_col.rs</span><small>0/7</small></a></li><li><a class="file-link" href="eos-db--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-model-registry-rs.html"><span>model_registry.rs</span><small>3/14</small></a></li><li><a class="file-link" href="eos-db--src-pool-rs.html"><span>pool.rs</span><small>0/3</small></a></li><li><span class="folder">repositories</span><ul class="file-tree"><li><a class="file-link" href="eos-db--src-repositories-agent-run-rs.html"><span>agent_run.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-attempt-rs.html"><span>attempt.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-iteration-rs.html"><span>iteration.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-request-task-rs.html"><span>request_task.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-workflow-rs.html"><span>workflow.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-db--src-repositories-rs.html"><span>repositories.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-rows-rs.html"><span>rows.rs</span><small>7/28</small></a></li></ul></li></ul></nav>
+  <nav class="module-nav"><ul class="file-tree"><li><span class="folder">src</span><ul class="file-tree"><li><a class="file-link" href="eos-db.html"><span>config.rs</span><small>2/2</small></a></li><li><a class="file-link active" href="eos-db--src-database-rs.html"><span>database.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-error-rs.html"><span>error.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-json-col-rs.html"><span>json_col.rs</span><small>0/7</small></a></li><li><a class="file-link" href="eos-db--src-lib-rs.html"><span>lib.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-model-registry-rs.html"><span>model_registry.rs</span><small>3/14</small></a></li><li><a class="file-link" href="eos-db--src-pool-rs.html"><span>pool.rs</span><small>0/3</small></a></li><li><span class="folder">repositories</span><ul class="file-tree"><li><a class="file-link" href="eos-db--src-repositories-agent-run-rs.html"><span>agent_run.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-attempt-rs.html"><span>attempt.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-iteration-rs.html"><span>iteration.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-request-task-rs.html"><span>request_task.rs</span><small>1/0</small></a></li><li><a class="file-link" href="eos-db--src-repositories-task-agent-run-rs.html"><span>task_agent_run.rs</span><small>4/11</small></a></li><li><a class="file-link" href="eos-db--src-repositories-workflow-rs.html"><span>workflow.rs</span><small>1/0</small></a></li></ul></li><li><a class="file-link" href="eos-db--src-repositories-rs.html"><span>repositories.rs</span><small>0/0</small></a></li><li><a class="file-link" href="eos-db--src-rows-rs.html"><span>rows.rs</span><small>7/28</small></a></li></ul></li></ul></nav>
   <div class="module-list" id="filter-root"><section class="module-section" data-filter-text="database crates/eos-db/src/database.rs Database impl Database">
   <div class="module-head">
     <div>
@@ -53,92 +53,100 @@
       <span>1 types</span>
       <span>1 impls</span>
       <span>0 fns</span>
-      <span>10 methods</span>
+      <span>11 methods</span>
     </div>
   </div>
-  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-Database-19" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct Database pub pub struct Database crates/eos-db/src/database.rs pool SqlitePool request_tasks Arc &lt; SqlRequestTaskStore &gt; workflows Arc &lt; SqlWorkflowStore &gt; iterations Arc &lt; SqlIterationStore &gt; attempts Arc &lt; SqlAttemptStore &gt; agent_runs Arc &lt; SqlAgentRunStore &gt; models Arc &lt; ModelRegistry &gt; ">
+  <div class="items"><div class="group-label">File-Owned Types</div><article id="item-struct-Database-21" class="type-card" data-kind="struct" data-kind-list="field impl method struct type-model" data-filter-text="struct Database pub pub struct Database crates/eos-db/src/database.rs pool SqlitePool request_tasks Arc &lt; SqlRequestTaskStore &gt; workflows Arc &lt; SqlWorkflowStore &gt; iterations Arc &lt; SqlIterationStore &gt; attempts Arc &lt; SqlAttemptStore &gt; agent_runs Arc &lt; SqlAgentRunStore &gt; task_agent_runs Arc &lt; SqlTaskAgentRunStore &gt; models Arc &lt; ModelRegistry &gt; ">
   <div class="item-head">
     <span class="kind">struct</span>
     <h3>Database</h3>
     <span class="visibility">pub</span>
   </div>
-  <code class="signature">pub struct <a class="symbol-link" href="eos-db--src-database-rs.html#item-struct-Database-19">Database</a></code>
+  <code class="signature">pub struct <a class="symbol-link" href="eos-db--src-database-rs.html#item-struct-Database-21">Database</a></code>
   <p class="docstring">Owns the pool and one instance of each store, handed out as `Arc&lt;dyn …Store&gt;`<br>for DIP at the seam. Cloning is cheap (every field is `Arc`-backed).</p>
   <div class="tags"><span>derive: Clone</span><span>derive: Debug</span></div>
-  <h4>Fields</h4><table><tbody><tr><td>private</td><td>pool</td><td><code>SqlitePool</code></td></tr><tr><td>private</td><td>request_tasks</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-repositories-request-task-rs.html#item-struct-SqlRequestTaskStore-23">SqlRequestTaskStore</a> &gt;</code></td></tr><tr><td>private</td><td>workflows</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-repositories-workflow-rs.html#item-struct-SqlWorkflowStore-15">SqlWorkflowStore</a> &gt;</code></td></tr><tr><td>private</td><td>iterations</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-repositories-iteration-rs.html#item-struct-SqlIterationStore-15">SqlIterationStore</a> &gt;</code></td></tr><tr><td>private</td><td>attempts</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-repositories-attempt-rs.html#item-struct-SqlAttemptStore-16">SqlAttemptStore</a> &gt;</code></td></tr><tr><td>private</td><td>agent_runs</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-repositories-agent-run-rs.html#item-struct-SqlAgentRunStore-16">SqlAgentRunStore</a> &gt;</code></td></tr><tr><td>private</td><td>models</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-requests-52"><td>method</td><td>requests</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-requests-52">requests</a> (&amp; self) -&gt; Arc &lt; dyn RequestStore &gt;</code><p class="docstring">The request store.</p><details class="function-source">
+  <h4>Fields</h4><table><tbody><tr><td>private</td><td>pool</td><td><code>SqlitePool</code></td></tr><tr><td>private</td><td>request_tasks</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-repositories-request-task-rs.html#item-struct-SqlRequestTaskStore-23">SqlRequestTaskStore</a> &gt;</code></td></tr><tr><td>private</td><td>workflows</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-repositories-workflow-rs.html#item-struct-SqlWorkflowStore-15">SqlWorkflowStore</a> &gt;</code></td></tr><tr><td>private</td><td>iterations</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-repositories-iteration-rs.html#item-struct-SqlIterationStore-15">SqlIterationStore</a> &gt;</code></td></tr><tr><td>private</td><td>attempts</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-repositories-attempt-rs.html#item-struct-SqlAttemptStore-16">SqlAttemptStore</a> &gt;</code></td></tr><tr><td>private</td><td>agent_runs</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-repositories-agent-run-rs.html#item-struct-SqlAgentRunStore-15">SqlAgentRunStore</a> &gt;</code></td></tr><tr><td>private</td><td>task_agent_runs</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a> &gt;</code></td></tr><tr><td>private</td><td>models</td><td><code>Arc &lt; <a class="symbol-link" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a> &gt;</code></td></tr></tbody></table><h4>Methods Implemented For This Type</h4><table><tbody><tr id="method-requests-56"><td>method</td><td>requests</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-requests-56">requests</a> (&amp; self) -&gt; Arc &lt; dyn RequestStore &gt;</code><p class="docstring">The request store.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The request store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-requests-52">requests</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">RequestStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-requests-56">requests</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">RequestStore</span>&gt; {
         <span class="rs-self">self</span>.request_tasks.clone()
     }
 </code></pre>
-</details></td></tr><tr id="method-tasks-58"><td>method</td><td>tasks</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-tasks-58">tasks</a> (&amp; self) -&gt; Arc &lt; dyn TaskStore &gt;</code><p class="docstring">The task store.</p><details class="function-source">
+</details></td></tr><tr id="method-tasks-62"><td>method</td><td>tasks</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-tasks-62">tasks</a> (&amp; self) -&gt; Arc &lt; dyn TaskStore &gt;</code><p class="docstring">The task store.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The task store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-tasks-58">tasks</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-tasks-62">tasks</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt; {
         <span class="rs-self">self</span>.request_tasks.clone()
     }
 </code></pre>
-</details></td></tr><tr id="method-workflows-64"><td>method</td><td>workflows</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-workflows-64">workflows</a> (&amp; self) -&gt; Arc &lt; dyn WorkflowStore &gt;</code><p class="docstring">The workflow store.</p><details class="function-source">
+</details></td></tr><tr id="method-workflows-68"><td>method</td><td>workflows</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-workflows-68">workflows</a> (&amp; self) -&gt; Arc &lt; dyn WorkflowStore &gt;</code><p class="docstring">The workflow store.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The workflow store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-workflows-64">workflows</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">WorkflowStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-workflows-68">workflows</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">WorkflowStore</span>&gt; {
         <span class="rs-self">self</span>.workflows.clone()
     }
 </code></pre>
-</details></td></tr><tr id="method-iterations-70"><td>method</td><td>iterations</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-iterations-70">iterations</a> (&amp; self) -&gt; Arc &lt; dyn IterationStore &gt;</code><p class="docstring">The iteration store.</p><details class="function-source">
+</details></td></tr><tr id="method-iterations-74"><td>method</td><td>iterations</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-iterations-74">iterations</a> (&amp; self) -&gt; Arc &lt; dyn IterationStore &gt;</code><p class="docstring">The iteration store.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The iteration store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-iterations-70">iterations</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">IterationStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-iterations-74">iterations</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">IterationStore</span>&gt; {
         <span class="rs-self">self</span>.iterations.clone()
     }
 </code></pre>
-</details></td></tr><tr id="method-attempts-76"><td>method</td><td>attempts</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-attempts-76">attempts</a> (&amp; self) -&gt; Arc &lt; dyn AttemptStore &gt;</code><p class="docstring">The attempt store.</p><details class="function-source">
+</details></td></tr><tr id="method-attempts-80"><td>method</td><td>attempts</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-attempts-80">attempts</a> (&amp; self) -&gt; Arc &lt; dyn AttemptStore &gt;</code><p class="docstring">The attempt store.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The attempt store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-attempts-76">attempts</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AttemptStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-attempts-80">attempts</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AttemptStore</span>&gt; {
         <span class="rs-self">self</span>.attempts.clone()
     }
 </code></pre>
-</details></td></tr><tr id="method-agent-runs-82"><td>method</td><td>agent_runs</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-agent-runs-82">agent_runs</a> (&amp; self) -&gt; Arc &lt; dyn AgentRunStore &gt;</code><p class="docstring">The agent-run store.</p><details class="function-source">
+</details></td></tr><tr id="method-agent-runs-86"><td>method</td><td>agent_runs</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-agent-runs-86">agent_runs</a> (&amp; self) -&gt; Arc &lt; dyn AgentRunStore &gt;</code><p class="docstring">The agent-run store.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The agent-run store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-agent-runs-82">agent_runs</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-agent-runs-86">agent_runs</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunStore</span>&gt; {
         <span class="rs-self">self</span>.agent_runs.clone()
     }
 </code></pre>
-</details></td></tr><tr id="method-models-88"><td>method</td><td>models</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-models-88">models</a> (&amp; self) -&gt; Arc &lt; dyn ModelStore &gt;</code><p class="docstring">The model store (trait surface).</p><details class="function-source">
+</details></td></tr><tr id="method-task-agent-runs-92"><td>method</td><td>task_agent_runs</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-task-agent-runs-92">task_agent_runs</a> (&amp; self) -&gt; Arc &lt; dyn TaskAgentRunStore &gt;</code><p class="docstring">The task-agent-run lineage store.</p><details class="function-source">
+  <summary>code</summary>
+  <pre><code>    <span class="rs-comment">/// The task-agent-run lineage store.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-task-agent-runs-92">task_agent_runs</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskAgentRunStore</span>&gt; {
+        <span class="rs-self">self</span>.task_agent_runs.clone()
+    }
+</code></pre>
+</details></td></tr><tr id="method-models-98"><td>method</td><td>models</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-models-98">models</a> (&amp; self) -&gt; Arc &lt; dyn ModelStore &gt;</code><p class="docstring">The model store (trait surface).</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The model store (trait surface).</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-models-88">models</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">ModelStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-models-98">models</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">ModelStore</span>&gt; {
         <span class="rs-self">self</span>.models.clone()
     }
 </code></pre>
-</details></td></tr><tr id="method-model-registry-94"><td>method</td><td>model_registry</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-model-registry-94">model_registry</a> (&amp; self) -&gt; Arc &lt; <a class="symbol-link" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a> &gt;</code><p class="docstring">The concrete model registry (for `active_resolved` / `sync_from_config`,<br>which are not part of the `ModelStore` trait).</p><details class="function-source">
+</details></td></tr><tr id="method-model-registry-104"><td>method</td><td>model_registry</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-model-registry-104">model_registry</a> (&amp; self) -&gt; Arc &lt; <a class="symbol-link" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a> &gt;</code><p class="docstring">The concrete model registry (for `active_resolved` / `sync_from_config`,<br>which are not part of the `ModelStore` trait).</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The concrete model registry (for `active_resolved` / `sync_from_config`,</span>
     <span class="rs-comment">/// which are not part of the `ModelStore` trait).</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-model-registry-94">model_registry</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-model-registry-104">model_registry</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a>&gt; {
         <span class="rs-self">self</span>.models.clone()
     }
 </code></pre>
-</details></td></tr><tr id="method-pool-101"><td>method</td><td>pool</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-pool-101">pool</a> (&amp; self) -&gt; &amp; SqlitePool</code><p class="docstring">The underlying connection pool (migration / introspection use).</p><details class="function-source">
+</details></td></tr><tr id="method-pool-111"><td>method</td><td>pool</td><td><code>pub fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-pool-111">pool</a> (&amp; self) -&gt; &amp; SqlitePool</code><p class="docstring">The underlying connection pool (migration / introspection use).</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// The underlying connection pool (migration / introspection use).</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-pool-101">pool</a>(&amp;<span class="rs-self">self</span>) -&gt; &amp;<span class="rs-type">SqlitePool</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-pool-111">pool</a>(&amp;<span class="rs-self">self</span>) -&gt; &amp;<span class="rs-type">SqlitePool</span> {
         &amp;<span class="rs-self">self</span>.pool
     }
 </code></pre>
-</details></td></tr><tr id="method-open-33"><td>associated-fn</td><td>open</td><td><code>pub async fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-open-33">open</a> (config : &amp; <a class="symbol-link" href="eos-db.html#item-struct-DatabaseConfig-62">DatabaseConfig</a>) -&gt; Result &lt; Self , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code><p class="docstring">Open the `SQLite` file, reject Postgres, apply PRAGMAs, run migrations, and<br>construct every store.<br># Errors<br>Returns [`DbError`] for a non-`SQLite` url, a connection/filesystem failure,<br>or a migration failure.</p><details class="function-source">
+</details></td></tr><tr id="method-open-36"><td>associated-fn</td><td>open</td><td><code>pub async fn <a class="symbol-link" href="eos-db--src-database-rs.html#method-open-36">open</a> (config : &amp; <a class="symbol-link" href="eos-db.html#item-struct-DatabaseConfig-62">DatabaseConfig</a>) -&gt; Result &lt; Self , <a class="symbol-link" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a> &gt;</code><p class="docstring">Open the `SQLite` file, reject Postgres, apply PRAGMAs, run migrations, and<br>construct every store.<br># Errors<br>Returns [`DbError`] for a non-`SQLite` url, a connection/filesystem failure,<br>or a migration failure.</p><details class="function-source">
   <summary>code</summary>
   <pre><code>    <span class="rs-comment">/// Open the `SQLite` file, reject Postgres, apply PRAGMAs, run migrations, and</span>
     <span class="rs-comment">/// construct every store.</span>
@@ -146,14 +154,15 @@
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// Returns [`DbError`] for a non-`SQLite` url, a connection/filesystem failure,</span>
     <span class="rs-comment">/// or a migration failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-open-33">open</a>(config: &amp;<a class="symbol-link rs-type" href="eos-db.html#item-struct-DatabaseConfig-62">DatabaseConfig</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-open-36">open</a>(config: &amp;<a class="symbol-link rs-type" href="eos-db.html#item-struct-DatabaseConfig-62">DatabaseConfig</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
         <span class="rs-kw">let</span> pool = pool::<a class="symbol-link rs-fn" href="eos-db--src-pool-rs.html#item-fn-open-pool-28">open_pool</a>(config).<span class="rs-kw">await</span>?;
         <span class="rs-type">Ok</span>(<span class="rs-self">Self</span> {
             request_tasks: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-request-task-rs.html#item-struct-SqlRequestTaskStore-23">SqlRequestTaskStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
             workflows: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-workflow-rs.html#item-struct-SqlWorkflowStore-15">SqlWorkflowStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
             iterations: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-iteration-rs.html#item-struct-SqlIterationStore-15">SqlIterationStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
             attempts: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-attempt-rs.html#item-struct-SqlAttemptStore-16">SqlAttemptStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
-            agent_runs: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-agent-run-rs.html#item-struct-SqlAgentRunStore-16">SqlAgentRunStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
+            agent_runs: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-agent-run-rs.html#item-struct-SqlAgentRunStore-15">SqlAgentRunStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
+            task_agent_runs: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
             models: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
             pool,
         })
@@ -161,7 +170,7 @@
 </code></pre>
 </details></td></tr></tbody></table>
 
-  <p class="source">crates/eos-db/src/database.rs:19</p>
+  <p class="source">crates/eos-db/src/database.rs:21</p>
 </article></div>
 </section></div>
 </main>
@@ -177,45 +186,49 @@
 <span class="rs-kw">use</span> sqlx::<span class="rs-type">SqlitePool</span>;
 
 <span class="rs-kw">use</span> eos_types::{
-    <span class="rs-type">AgentRunStore</span>, <span class="rs-type">AttemptStore</span>, <span class="rs-type">IterationStore</span>, <span class="rs-type">ModelStore</span>, <span class="rs-type">RequestStore</span>, <span class="rs-type">TaskStore</span>, <span class="rs-type">WorkflowStore</span>,
+    <span class="rs-type">AgentRunStore</span>, <span class="rs-type">AttemptStore</span>, <span class="rs-type">IterationStore</span>, <span class="rs-type">ModelStore</span>, <span class="rs-type">RequestStore</span>, <span class="rs-type">TaskAgentRunStore</span>,
+    <span class="rs-type">TaskStore</span>, <span class="rs-type">WorkflowStore</span>,
 };
 
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::error::<a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::model_registry::<a class="symbol-link rs-type" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a>;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::pool;
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::repositories::{
-    <a class="symbol-link rs-type" href="eos-db--src-repositories-agent-run-rs.html#item-struct-SqlAgentRunStore-16">SqlAgentRunStore</a>, <a class="symbol-link rs-type" href="eos-db--src-repositories-attempt-rs.html#item-struct-SqlAttemptStore-16">SqlAttemptStore</a>, <a class="symbol-link rs-type" href="eos-db--src-repositories-iteration-rs.html#item-struct-SqlIterationStore-15">SqlIterationStore</a>, <a class="symbol-link rs-type" href="eos-db--src-repositories-request-task-rs.html#item-struct-SqlRequestTaskStore-23">SqlRequestTaskStore</a>, <a class="symbol-link rs-type" href="eos-db--src-repositories-workflow-rs.html#item-struct-SqlWorkflowStore-15">SqlWorkflowStore</a>,
+    <a class="symbol-link rs-type" href="eos-db--src-repositories-agent-run-rs.html#item-struct-SqlAgentRunStore-15">SqlAgentRunStore</a>, <a class="symbol-link rs-type" href="eos-db--src-repositories-attempt-rs.html#item-struct-SqlAttemptStore-16">SqlAttemptStore</a>, <a class="symbol-link rs-type" href="eos-db--src-repositories-iteration-rs.html#item-struct-SqlIterationStore-15">SqlIterationStore</a>, <a class="symbol-link rs-type" href="eos-db--src-repositories-request-task-rs.html#item-struct-SqlRequestTaskStore-23">SqlRequestTaskStore</a>,
+    <a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a>, <a class="symbol-link rs-type" href="eos-db--src-repositories-workflow-rs.html#item-struct-SqlWorkflowStore-15">SqlWorkflowStore</a>,
 };
 <span class="rs-kw">use</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-db.html#item-struct-DatabaseConfig-62">DatabaseConfig</a>;
 
 <span class="rs-comment">/// Owns the pool and one instance of each store, handed out as `Arc&lt;dyn …Store&gt;`</span>
 <span class="rs-comment">/// for DIP at the seam. Cloning is cheap (every field is `Arc`-backed).</span>
 #[derive(<span class="rs-type">Debug</span>, <span class="rs-type">Clone</span>)]
-<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-db--src-database-rs.html#item-struct-Database-19">Database</a> {
+<span class="rs-kw">pub</span> <span class="rs-kw">struct</span> <a class="symbol-link rs-type" href="eos-db--src-database-rs.html#item-struct-Database-21">Database</a> {
     pool: <span class="rs-type">SqlitePool</span>,
     request_tasks: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-repositories-request-task-rs.html#item-struct-SqlRequestTaskStore-23">SqlRequestTaskStore</a>&gt;,
     workflows: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-repositories-workflow-rs.html#item-struct-SqlWorkflowStore-15">SqlWorkflowStore</a>&gt;,
     iterations: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-repositories-iteration-rs.html#item-struct-SqlIterationStore-15">SqlIterationStore</a>&gt;,
     attempts: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-repositories-attempt-rs.html#item-struct-SqlAttemptStore-16">SqlAttemptStore</a>&gt;,
-    agent_runs: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-repositories-agent-run-rs.html#item-struct-SqlAgentRunStore-16">SqlAgentRunStore</a>&gt;,
+    agent_runs: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-repositories-agent-run-rs.html#item-struct-SqlAgentRunStore-15">SqlAgentRunStore</a>&gt;,
+    task_agent_runs: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a>&gt;,
     models: <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a>&gt;,
 }
 
-<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-db--src-database-rs.html#item-struct-Database-19">Database</a> {
+<span class="rs-kw">impl</span> <a class="symbol-link rs-type" href="eos-db--src-database-rs.html#item-struct-Database-21">Database</a> {
     <span class="rs-comment">/// Open the `SQLite` file, reject Postgres, apply PRAGMAs, run migrations, and</span>
     <span class="rs-comment">/// construct every store.</span>
     <span class="rs-comment">///</span>
     <span class="rs-comment">/// # Errors</span>
     <span class="rs-comment">/// Returns [`DbError`] for a non-`SQLite` url, a connection/filesystem failure,</span>
     <span class="rs-comment">/// or a migration failure.</span>
-    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-open-33">open</a>(config: &amp;<a class="symbol-link rs-type" href="eos-db.html#item-struct-DatabaseConfig-62">DatabaseConfig</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">async</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-open-36">open</a>(config: &amp;<a class="symbol-link rs-type" href="eos-db.html#item-struct-DatabaseConfig-62">DatabaseConfig</a>) -&gt; <span class="rs-type">Result</span>&lt;<span class="rs-self">Self</span>, <a class="symbol-link rs-type" href="eos-db--src-error-rs.html#item-enum-DbError-5">DbError</a>&gt; {
         <span class="rs-kw">let</span> pool = pool::<a class="symbol-link rs-fn" href="eos-db--src-pool-rs.html#item-fn-open-pool-28">open_pool</a>(config).<span class="rs-kw">await</span>?;
         <span class="rs-type">Ok</span>(<span class="rs-self">Self</span> {
             request_tasks: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-request-task-rs.html#item-struct-SqlRequestTaskStore-23">SqlRequestTaskStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
             workflows: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-workflow-rs.html#item-struct-SqlWorkflowStore-15">SqlWorkflowStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
             iterations: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-iteration-rs.html#item-struct-SqlIterationStore-15">SqlIterationStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
             attempts: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-attempt-rs.html#item-struct-SqlAttemptStore-16">SqlAttemptStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
-            agent_runs: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-agent-run-rs.html#item-struct-SqlAgentRunStore-16">SqlAgentRunStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
+            agent_runs: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-agent-run-rs.html#item-struct-SqlAgentRunStore-15">SqlAgentRunStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
+            task_agent_runs: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-repositories-task-agent-run-rs.html#item-struct-SqlTaskAgentRunStore-19">SqlTaskAgentRunStore</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
             models: <span class="rs-type">Arc</span>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(<a class="symbol-link rs-type" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a>::<a class="symbol-link rs-fn" href="eos-db--src-model-registry-rs.html#method-new-65">new</a>(pool.clone())),
             pool,
         })
@@ -223,56 +236,62 @@
 
     <span class="rs-comment">/// The request store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-requests-52">requests</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">RequestStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-requests-56">requests</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">RequestStore</span>&gt; {
         <span class="rs-self">self</span>.request_tasks.clone()
     }
 
     <span class="rs-comment">/// The task store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-tasks-58">tasks</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-tasks-62">tasks</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskStore</span>&gt; {
         <span class="rs-self">self</span>.request_tasks.clone()
     }
 
     <span class="rs-comment">/// The workflow store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-workflows-64">workflows</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">WorkflowStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-workflows-68">workflows</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">WorkflowStore</span>&gt; {
         <span class="rs-self">self</span>.workflows.clone()
     }
 
     <span class="rs-comment">/// The iteration store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-iterations-70">iterations</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">IterationStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-iterations-74">iterations</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">IterationStore</span>&gt; {
         <span class="rs-self">self</span>.iterations.clone()
     }
 
     <span class="rs-comment">/// The attempt store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-attempts-76">attempts</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AttemptStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-attempts-80">attempts</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AttemptStore</span>&gt; {
         <span class="rs-self">self</span>.attempts.clone()
     }
 
     <span class="rs-comment">/// The agent-run store.</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-agent-runs-82">agent_runs</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-agent-runs-86">agent_runs</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">AgentRunStore</span>&gt; {
         <span class="rs-self">self</span>.agent_runs.clone()
+    }
+
+    <span class="rs-comment">/// The task-agent-run lineage store.</span>
+    #[must_use]
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-task-agent-runs-92">task_agent_runs</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">TaskAgentRunStore</span>&gt; {
+        <span class="rs-self">self</span>.task_agent_runs.clone()
     }
 
     <span class="rs-comment">/// The model store (trait surface).</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-models-88">models</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">ModelStore</span>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-models-98">models</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<span class="rs-kw">dyn</span> <span class="rs-type">ModelStore</span>&gt; {
         <span class="rs-self">self</span>.models.clone()
     }
 
     <span class="rs-comment">/// The concrete model registry (for `active_resolved` / `sync_from_config`,</span>
     <span class="rs-comment">/// which are not part of the `ModelStore` trait).</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-model-registry-94">model_registry</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a>&gt; {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-model-registry-104">model_registry</a>(&amp;<span class="rs-self">self</span>) -&gt; <span class="rs-type">Arc</span>&lt;<a class="symbol-link rs-type" href="eos-db--src-model-registry-rs.html#item-struct-ModelRegistry-56">ModelRegistry</a>&gt; {
         <span class="rs-self">self</span>.models.clone()
     }
 
     <span class="rs-comment">/// The underlying connection pool (migration / introspection use).</span>
     #[must_use]
-    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-pool-101">pool</a>(&amp;<span class="rs-self">self</span>) -&gt; &amp;<span class="rs-type">SqlitePool</span> {
+    <span class="rs-kw">pub</span> <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-db--src-database-rs.html#method-pool-111">pool</a>(&amp;<span class="rs-self">self</span>) -&gt; &amp;<span class="rs-type">SqlitePool</span> {
         &amp;<span class="rs-self">self</span>.pool
     }
 }

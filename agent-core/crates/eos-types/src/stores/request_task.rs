@@ -1,4 +1,4 @@
-//! Runtime-facing request and task persistence ports.
+//! Runtime-facing request and task persistence contracts.
 
 use async_trait::async_trait;
 

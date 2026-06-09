@@ -103,7 +103,6 @@
             <span class="rs-kw">let</span> advisor_run_id = <span class="rs-kw">match</span> agent_run_service
                 .spawn_agent(<span class="rs-type">SpawnAgentRequest</span> {
                     agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(&quot;advisor&quot;).expect(&quot;advisor agent name is valid&quot;),
-                    agent_run_id: <span class="rs-type">None</span>,
                     initial_messages: <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-build-advisor-messages-54">build_advisor_messages</a>(
                         ctx,
                         &amp;parsed.tool_name,
@@ -120,19 +119,18 @@
                     sandbox_id: ctx.sandbox_id.clone(),
                     workspace_root: ctx.workspace_root.clone(),
                     is_isolated_workspace_mode: <span class="rs-kw">false</span>,
-                    persist: <span class="rs-kw">true</span>,
                 })
                 .<span class="rs-kw">await</span>
             {
                 <span class="rs-type">Ok</span>(agent_run_id) =&gt; agent_run_id,
-                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-spawn-error-349">advisor_spawn_error</a>(&amp;err)),
+                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-spawn-error-347">advisor_spawn_error</a>(&amp;err)),
             };
 
             <span class="rs-kw">let</span> advisor_result = <span class="rs-kw">match</span> agent_run_service
                 .wait_for_agent_outcome(&amp;advisor_run_id)
                 .<span class="rs-kw">await</span>
             {
-                <span class="rs-type">Ok</span>(outcome) =&gt; <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-outcome-to-tool-result-358">advisor_outcome_to_tool_result</a>(outcome),
+                <span class="rs-type">Ok</span>(outcome) =&gt; <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-outcome-to-tool-result-356">advisor_outcome_to_tool_result</a>(outcome),
                 <span class="rs-type">Err</span>(err) =&gt; {
                     <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(format!(
                         &quot;ask_advisor: advisor crashed: {err}&quot;
@@ -170,7 +168,7 @@
 </details>
 
   <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:54</p>
-</article><article id="item-fn-register-393" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , agent_run_service : Arc &lt; dyn AgentRunApi &gt; ,) crates/eos-tool/src/tools/ask_advisor.rs  ">
+</article><article id="item-fn-register-391" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(super) pub(super) fn register (registry : &amp; mut ToolRegistry , config : &amp; ToolConfigSet , agent_run_service : Arc &lt; dyn AgentRunApi &gt; ,) crates/eos-tool/src/tools/ask_advisor.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register</h3>
@@ -202,8 +200,8 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:393</p>
-</article><article id="item-fn-register-414" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(crate) pub(crate) fn register (registry : &amp; mut crate :: ToolRegistry , config : &amp; crate :: registry :: ToolConfigSet , launcher : std :: sync :: Arc &lt; dyn eos_types :: AgentRunApi &gt; ,) crates/eos-tool/src/tools/ask_advisor.rs  ">
+  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:391</p>
+</article><article id="item-fn-register-412" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register pub(crate) pub(crate) fn register (registry : &amp; mut crate :: ToolRegistry , config : &amp; crate :: registry :: ToolConfigSet , launcher : std :: sync :: Arc &lt; dyn eos_types :: AgentRunApi &gt; ,) crates/eos-tool/src/tools/ask_advisor.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register</h3>
@@ -223,18 +221,18 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:414</p>
-</article><article id="item-fn-register-schema-422" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register_schema pub(crate) pub(crate) fn register_schema (registry : &amp; mut crate :: ToolRegistry , config : &amp; crate :: registry :: ToolConfigSet ,) crates/eos-tool/src/tools/ask_advisor.rs  ">
+  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:412</p>
+</article><article id="item-fn-register-schema-420" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn register_schema pub(crate) pub(crate) fn register_schema (registry : &amp; mut crate :: ToolRegistry , config : &amp; crate :: registry :: ToolConfigSet ,) crates/eos-tool/src/tools/ask_advisor.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>register_schema</h3>
     <span class="visibility">pub(crate)</span>
   </div>
-  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-422">register_schema</a> (registry : &amp; mut crate :: <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a> , config : &amp; crate :: registry :: <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a> ,)</code>
+  <code class="signature">pub(crate) fn <a class="symbol-link" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-420">register_schema</a> (registry : &amp; mut crate :: <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a> , config : &amp; crate :: registry :: <a class="symbol-link" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a> ,)</code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-422">register_schema</a>(
+  <pre><code><span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-420">register_schema</a>(
     registry: &amp;<span class="rs-kw">mut</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a>,
     config: &amp;<span class="rs-kw">crate</span>::registry::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a>,
 ) {
@@ -258,7 +256,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:422</p>
+  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:420</p>
 </article><article id="item-fn-build-advisor-user-msg-1-65" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn build_advisor_user_msg_1 private fn build_advisor_user_msg_1 (ctx : &amp; ExecutionMetadata) -&gt; String crates/eos-tool/src/tools/ask_advisor.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
@@ -586,17 +584,17 @@
 </details>
 
   <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:231</p>
-</article><article id="item-fn-advisor-spawn-error-349" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn advisor_spawn_error private fn advisor_spawn_error (err : &amp; AgentRunError) -&gt; ToolResult crates/eos-tool/src/tools/ask_advisor.rs  ">
+</article><article id="item-fn-advisor-spawn-error-347" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn advisor_spawn_error private fn advisor_spawn_error (err : &amp; AgentRunError) -&gt; ToolResult crates/eos-tool/src/tools/ask_advisor.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>advisor_spawn_error</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-spawn-error-349">advisor_spawn_error</a> (err : &amp; AgentRunError) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-spawn-error-347">advisor_spawn_error</a> (err : &amp; AgentRunError) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-spawn-error-349">advisor_spawn_error</a>(err: &amp;<span class="rs-type">AgentRunError</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-spawn-error-347">advisor_spawn_error</a>(err: &amp;<span class="rs-type">AgentRunError</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">match</span> err {
             <span class="rs-type">AgentRunError</span>::<span class="rs-type">AgentNotRegistered</span>(_) =&gt; {
                 <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;ask_advisor: agent definition &#x27;advisor&#x27; not registered.&quot;)
@@ -607,43 +605,43 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:349</p>
-</article><article id="item-fn-advisor-outcome-to-tool-result-358" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn advisor_outcome_to_tool_result private fn advisor_outcome_to_tool_result (outcome : AgentRunOutcome) -&gt; ToolResult crates/eos-tool/src/tools/ask_advisor.rs  ">
+  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:347</p>
+</article><article id="item-fn-advisor-outcome-to-tool-result-356" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn advisor_outcome_to_tool_result private fn advisor_outcome_to_tool_result (outcome : AgentRunOutcome) -&gt; ToolResult crates/eos-tool/src/tools/ask_advisor.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>advisor_outcome_to_tool_result</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-outcome-to-tool-result-358">advisor_outcome_to_tool_result</a> (outcome : AgentRunOutcome) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-outcome-to-tool-result-356">advisor_outcome_to_tool_result</a> (outcome : AgentRunOutcome) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-outcome-to-tool-result-358">advisor_outcome_to_tool_result</a>(outcome: <span class="rs-type">AgentRunOutcome</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-outcome-to-tool-result-356">advisor_outcome_to_tool_result</a>(outcome: <span class="rs-type">AgentRunOutcome</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">let</span> <span class="rs-type">Some</span>(payload) = outcome.submission_payload.as_ref() <span class="rs-kw">else</span> {
             <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(outcome.error.unwrap_or_else(|| {
                 &quot;ask_advisor: advisor exited without terminal output&quot;.to_owned()
             }));
         };
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> result = <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-tool-result-from-payload-370">tool_result_from_payload</a>(payload);
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> result = <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-tool-result-from-payload-368">tool_result_from_payload</a>(payload);
         result.is_terminal = <span class="rs-kw">false</span>;
         result
     }
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:358</p>
-</article><article id="item-fn-tool-result-from-payload-370" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn tool_result_from_payload private fn tool_result_from_payload (payload : &amp; JsonObject) -&gt; ToolResult crates/eos-tool/src/tools/ask_advisor.rs  ">
+  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:356</p>
+</article><article id="item-fn-tool-result-from-payload-368" class="item-card" data-kind="fn" data-kind-list="fn" data-filter-text="fn tool_result_from_payload private fn tool_result_from_payload (payload : &amp; JsonObject) -&gt; ToolResult crates/eos-tool/src/tools/ask_advisor.rs  ">
   <div class="item-head">
     <span class="kind">fn</span>
     <h3>tool_result_from_payload</h3>
     <span class="visibility">private</span>
   </div>
-  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-tool-result-from-payload-370">tool_result_from_payload</a> (payload : &amp; JsonObject) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
+  <code class="signature">fn <a class="symbol-link" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-tool-result-from-payload-368">tool_result_from_payload</a> (payload : &amp; JsonObject) -&gt; <a class="symbol-link" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a></code>
   <div class="tags"></div>
   <details class="function-source">
   <summary>code</summary>
-  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-tool-result-from-payload-370">tool_result_from_payload</a>(payload: &amp;<span class="rs-type">JsonObject</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+  <pre><code>    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-tool-result-from-payload-368">tool_result_from_payload</a>(payload: &amp;<span class="rs-type">JsonObject</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">let</span> output = payload
             .<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(&quot;output&quot;)
             .and_then(<span class="rs-type">Value</span>::as_str)
@@ -668,7 +666,7 @@
 </code></pre>
 </details>
 
-  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:370</p>
+  <p class="source">crates/eos-tool/src/tools/ask_advisor.rs:368</p>
 </article></div>
 </section></div>
 </main>
@@ -984,7 +982,6 @@ supporting analysis backing the payload, and residual risks.&quot;;
             <span class="rs-kw">let</span> advisor_run_id = <span class="rs-kw">match</span> agent_run_service
                 .spawn_agent(<span class="rs-type">SpawnAgentRequest</span> {
                     agent_name: <span class="rs-type">AgentName</span>::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-new-83">new</a>(&quot;advisor&quot;).expect(&quot;advisor agent name is valid&quot;),
-                    agent_run_id: <span class="rs-type">None</span>,
                     initial_messages: <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-build-advisor-messages-54">build_advisor_messages</a>(
                         ctx,
                         &amp;parsed.tool_name,
@@ -1001,19 +998,18 @@ supporting analysis backing the payload, and residual risks.&quot;;
                     sandbox_id: ctx.sandbox_id.clone(),
                     workspace_root: ctx.workspace_root.clone(),
                     is_isolated_workspace_mode: <span class="rs-kw">false</span>,
-                    persist: <span class="rs-kw">true</span>,
                 })
                 .<span class="rs-kw">await</span>
             {
                 <span class="rs-type">Ok</span>(agent_run_id) =&gt; agent_run_id,
-                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-spawn-error-349">advisor_spawn_error</a>(&amp;err)),
+                <span class="rs-type">Err</span>(err) =&gt; <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-spawn-error-347">advisor_spawn_error</a>(&amp;err)),
             };
 
             <span class="rs-kw">let</span> advisor_result = <span class="rs-kw">match</span> agent_run_service
                 .wait_for_agent_outcome(&amp;advisor_run_id)
                 .<span class="rs-kw">await</span>
             {
-                <span class="rs-type">Ok</span>(outcome) =&gt; <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-outcome-to-tool-result-358">advisor_outcome_to_tool_result</a>(outcome),
+                <span class="rs-type">Ok</span>(outcome) =&gt; <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-outcome-to-tool-result-356">advisor_outcome_to_tool_result</a>(outcome),
                 <span class="rs-type">Err</span>(err) =&gt; {
                     <span class="rs-kw">return</span> <span class="rs-type">Ok</span>(<a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(format!(
                         &quot;ask_advisor: advisor crashed: {err}&quot;
@@ -1025,7 +1021,7 @@ supporting analysis backing the payload, and residual risks.&quot;;
         }
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-spawn-error-349">advisor_spawn_error</a>(err: &amp;<span class="rs-type">AgentRunError</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-spawn-error-347">advisor_spawn_error</a>(err: &amp;<span class="rs-type">AgentRunError</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">match</span> err {
             <span class="rs-type">AgentRunError</span>::<span class="rs-type">AgentNotRegistered</span>(_) =&gt; {
                 <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(&quot;ask_advisor: agent definition &#x27;advisor&#x27; not registered.&quot;)
@@ -1034,19 +1030,19 @@ supporting analysis backing the payload, and residual risks.&quot;;
         }
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-outcome-to-tool-result-358">advisor_outcome_to_tool_result</a>(outcome: <span class="rs-type">AgentRunOutcome</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-advisor-outcome-to-tool-result-356">advisor_outcome_to_tool_result</a>(outcome: <span class="rs-type">AgentRunOutcome</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">let</span> <span class="rs-type">Some</span>(payload) = outcome.submission_payload.as_ref() <span class="rs-kw">else</span> {
             <span class="rs-kw">return</span> <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a>::<a class="symbol-link rs-fn" href="eos-tool--src-model-rs.html#method-error-556">error</a>(outcome.error.unwrap_or_else(|| {
                 &quot;ask_advisor: advisor exited without terminal output&quot;.to_owned()
             }));
         };
 
-        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> result = <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-tool-result-from-payload-370">tool_result_from_payload</a>(payload);
+        <span class="rs-kw">let</span> <span class="rs-kw">mut</span> result = <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-tool-result-from-payload-368">tool_result_from_payload</a>(payload);
         result.is_terminal = <span class="rs-kw">false</span>;
         result
     }
 
-    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-tool-result-from-payload-370">tool_result_from_payload</a>(payload: &amp;<span class="rs-type">JsonObject</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
+    <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-tool-result-from-payload-368">tool_result_from_payload</a>(payload: &amp;<span class="rs-type">JsonObject</span>) -&gt; <a class="symbol-link rs-type" href="eos-tool--src-model-rs.html#item-struct-ToolResult-530">ToolResult</a> {
         <span class="rs-kw">let</span> output = payload
             .<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-get-168">get</a>(&quot;output&quot;)
             .and_then(<span class="rs-type">Value</span>::as_str)
@@ -1098,7 +1094,7 @@ supporting analysis backing the payload, and residual risks.&quot;;
     ask_advisor::<a class="symbol-link rs-fn" href="eos-tool--src-registry-rs.html#method-register-156">register</a>(registry, config, launcher);
 }
 
-<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-422">register_schema</a>(
+<span class="rs-kw">pub</span>(<span class="rs-kw">crate</span>) <span class="rs-kw">fn</span> <a class="symbol-link rs-fn" href="eos-tool--src-tools-ask-advisor-rs.html#item-fn-register-schema-420">register_schema</a>(
     registry: &amp;<span class="rs-kw">mut</span> <span class="rs-kw">crate</span>::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolRegistry-142">ToolRegistry</a>,
     config: &amp;<span class="rs-kw">crate</span>::registry::<a class="symbol-link rs-type" href="eos-tool--src-registry-rs.html#item-struct-ToolConfigSet-272">ToolConfigSet</a>,
 ) {

@@ -1,4 +1,4 @@
-//! Workflow-facing persistence ports.
+//! Workflow-facing persistence contracts.
 
 use async_trait::async_trait;
 

@@ -13,8 +13,9 @@ mod layout;
 mod record;
 mod service;
 
+pub use eos_types::WorkflowTaskRole;
 pub use error::{MessageRecordError, Result};
 pub use handle::{AgentRunRecordHandle, NodeFinishStatus};
-pub use kind::{AgentRunRecordKind, AgentRunRecordStart, WorkflowTaskRole};
+pub use kind::{AgentRunRecordKind, AgentRunRecordStart};
 pub use record::{MessageAppendRange, NodeEvent, RecordBytes};
 pub use service::AgentMessageRecords;

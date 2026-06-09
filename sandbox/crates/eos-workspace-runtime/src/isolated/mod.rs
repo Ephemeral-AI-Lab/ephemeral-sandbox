@@ -37,7 +37,7 @@ pub mod session;
 
 pub use audit::JsonlAuditSink;
 pub use caps::{ResourceCaps, Rfc1918Egress, CGROUP_ROOT, HANDLE_PREFIX};
-pub(crate) use command::{
+pub use command::{
     finalize_isolated_command, prepare_isolated_command, take_isolated_audit,
     IsolatedCommandFinalizeContext, IsolatedCommandPrepareContext,
 };

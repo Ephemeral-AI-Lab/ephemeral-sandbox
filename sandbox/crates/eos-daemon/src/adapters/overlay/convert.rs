@@ -5,7 +5,7 @@ use std::path::Path;
 use eos_occ::{ChangesetResult, FileResult, OccStatus};
 use eos_protocol::{LayerPath, LayerRef, Manifest, MANIFEST_SCHEMA_VERSION};
 use eos_workspace_runtime::ephemeral::{
-    EphemeralSnapshot, EphemeralWorkspaceError, PathChange, PathChangeKind, PublishOutcome,
+    SnapshotLease, EphemeralWorkspaceError, PathChange, PathChangeKind, PublishOutcome,
     PublishStatus,
 };
 use serde_json::{json, Value};
@@ -14,7 +14,7 @@ use crate::error::DaemonError;
 
 pub(super) fn manifest_from_snapshot(
     root: &Path,
-    snapshot: &EphemeralSnapshot,
+    snapshot: &SnapshotLease,
 ) -> Result<Manifest, EphemeralWorkspaceError> {
     let layers = snapshot
         .layer_paths
