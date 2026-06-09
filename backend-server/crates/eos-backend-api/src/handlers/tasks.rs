@@ -6,7 +6,7 @@ use axum::extract::{Path, State};
 use axum::Json;
 use serde::Serialize;
 
-use eos_engine::records::MessageRecordError;
+use eos_engine::records::AgentRunRecordError;
 use eos_types::{format_record_dir, AgentRun, Task, TaskRun};
 use eos_types::{AgentRunId, TaskId};
 
@@ -82,7 +82,7 @@ pub async fn transcript(
                 .ok_or(ApiError::NotFound("agent run"))?;
             let messages = match state.message_records.read_messages_at(&record_dir, 0).await {
                 Ok(bytes) => parse_jsonl_messages(&bytes.bytes)?,
-                Err(MessageRecordError::NotFound(_)) => Vec::new(),
+                Err(AgentRunRecordError::NotFound(_)) => Vec::new(),
                 Err(err) => return Err(ApiError::from(err)),
             };
             (Some(run.id), messages)

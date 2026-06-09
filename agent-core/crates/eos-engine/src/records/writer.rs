@@ -12,11 +12,11 @@ use super::record::{NodeEvent, RecordBytes, RecordIdentity};
 
 /// File-backed writer for one resolved agent-run record tree.
 #[derive(Debug, Clone)]
-pub struct AgentRecordWriter {
+pub struct AgentRunRecordWriter {
     root: PathBuf,
 }
 
-impl AgentRecordWriter {
+impl AgentRunRecordWriter {
     /// Create a service rooted at `root`.
     #[must_use]
     pub fn new(root: impl Into<PathBuf>) -> Self {
@@ -27,7 +27,7 @@ impl AgentRecordWriter {
     /// initial node-local events.
     ///
     /// # Errors
-    /// Returns [`super::MessageRecordError`] if path validation, directory
+    /// Returns [`super::AgentRunRecordError`] if path validation, directory
     /// creation, JSON encoding, or file append fails.
     pub async fn start_agent_run(
         &self,
@@ -40,7 +40,7 @@ impl AgentRecordWriter {
     /// Create one agent-run node at a pre-resolved record directory.
     ///
     /// # Errors
-    /// Returns [`super::MessageRecordError`] if path validation, directory
+    /// Returns [`super::AgentRunRecordError`] if path validation, directory
     /// creation, JSON encoding, or file append fails.
     pub async fn start_agent_run_at(
         &self,
@@ -91,7 +91,7 @@ impl AgentRecordWriter {
     /// `after_byte`.
     ///
     /// # Errors
-    /// Returns [`super::MessageRecordError::NotFound`] if the node or message
+    /// Returns [`super::AgentRunRecordError::NotFound`] if the node or message
     /// file does not exist.
     pub async fn read_messages_at(
         &self,
@@ -106,7 +106,7 @@ impl AgentRecordWriter {
     /// `seq > after_seq`.
     ///
     /// # Errors
-    /// Returns [`super::MessageRecordError::NotFound`] if the node or event file
+    /// Returns [`super::AgentRunRecordError::NotFound`] if the node or event file
     /// does not exist.
     pub async fn read_events_at(
         &self,
@@ -121,7 +121,7 @@ impl AgentRecordWriter {
 fn record_identity(input: &AgentRunRecordStart<'_>) -> Result<RecordIdentity> {
     let task_id = input
         .task_id
-        .ok_or_else(|| super::MessageRecordError::unsafe_segment("task_id", ""))?;
+        .ok_or_else(|| super::AgentRunRecordError::unsafe_segment("task_id", ""))?;
     Ok(RecordIdentity {
         request_id: input.request_id.to_string(),
         task_id: task_id.to_string(),

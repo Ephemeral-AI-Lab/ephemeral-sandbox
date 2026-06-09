@@ -5,7 +5,7 @@ use eos_types::{JsonObject, UtcDateTime};
 use serde::Serialize;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-use super::error::{MessageRecordError, Result};
+use super::error::{AgentRunRecordError, Result};
 use super::record::{MessageAppendRange, NodeEvent, RecordBytes, RecordIdentity};
 
 #[derive(Serialize)]
@@ -160,14 +160,14 @@ async fn next_event_seq(path: &Path) -> Result<u64> {
 pub(crate) async fn read_bytes_after(path: &Path, after_byte: u64) -> Result<RecordBytes> {
     let mut file = tokio::fs::File::open(path).await.map_err(|err| {
         if err.kind() == std::io::ErrorKind::NotFound {
-            MessageRecordError::missing_path(path)
+            AgentRunRecordError::missing_path(path)
         } else {
-            MessageRecordError::Io(err)
+            AgentRunRecordError::Io(err)
         }
     })?;
     let len = file.metadata().await?.len();
     if after_byte > len {
-        return Err(MessageRecordError::OffsetOutOfRange {
+        return Err(AgentRunRecordError::OffsetOutOfRange {
             offset: after_byte,
             len,
         });
@@ -184,9 +184,9 @@ pub(crate) async fn read_bytes_after(path: &Path, after_byte: u64) -> Result<Rec
 pub(crate) async fn read_events_after(path: &Path, after_seq: u64) -> Result<Vec<NodeEvent>> {
     let raw = tokio::fs::read_to_string(path).await.map_err(|err| {
         if err.kind() == std::io::ErrorKind::NotFound {
-            MessageRecordError::missing_path(path)
+            AgentRunRecordError::missing_path(path)
         } else {
-            MessageRecordError::Io(err)
+            AgentRunRecordError::Io(err)
         }
     })?;
     raw.lines()
@@ -195,7 +195,7 @@ pub(crate) async fn read_events_after(path: &Path, after_seq: u64) -> Result<Vec
         .filter_map(|result| match result {
             Ok(event) if event.seq > after_seq => Some(Ok(event)),
             Ok(_) => None,
-            Err(err) => Some(Err(MessageRecordError::Json(err))),
+            Err(err) => Some(Err(AgentRunRecordError::Json(err))),
         })
         .collect()
 }

@@ -40,7 +40,11 @@ pub(crate) async fn poll_agent_run_outcome(
     service: &AgentRunService,
     agent_run_id: &AgentRunId,
 ) -> Result<Option<AgentRunOutcome>, AgentRunError> {
-    if let Some(outcome) = service.active_agent_runs.current_outcome(agent_run_id).await {
+    if let Some(outcome) = service
+        .active_agent_runs
+        .current_outcome(agent_run_id)
+        .await
+    {
         return Ok(Some(outcome));
     }
     let Some(run) = service
@@ -63,8 +67,9 @@ async fn forward_agent_loop_outcome(
     let Some(completion) = service.active_agent_runs.take(&agent_run_id).await else {
         return;
     };
-    let outcome = finalize_agent_run_from_agent_loop_outcome(&service, agent_run_id.clone(), loop_outcome)
-        .await;
+    let outcome =
+        finalize_agent_run_from_agent_loop_outcome(&service, agent_run_id.clone(), loop_outcome)
+            .await;
     completion.publish(outcome);
     if let Some(runtime_state) = &service.runtime_state {
         runtime_state.remove_runtime_state(&agent_run_id);

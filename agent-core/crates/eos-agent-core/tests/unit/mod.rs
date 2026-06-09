@@ -23,7 +23,7 @@ use eos_workflow::WorkflowConfig;
 use serde_json::json;
 
 use crate::entry::root_task_id_for;
-use crate::runtime::support::{build_test_state, build_test_state_with_record_writer};
+use crate::runtime::support::{build_test_state, build_test_state_with_run_record_writer};
 use crate::runtime::{EngineEventSink, ProviderStreamSourceFactory};
 use crate::{AgentCoreRuntime, RequestOutcome, RequestRunInput};
 use eos_testkit::{

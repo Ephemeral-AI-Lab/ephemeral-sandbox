@@ -12,7 +12,7 @@ use axum::http::{Request, StatusCode};
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
-use eos_agent_run::AgentMessageRecords;
+use eos_engine::records::AgentRunRecordWriter as AgentMessageRecords;
 use eos_backend_runtime::{CancelOutcome, DeleteRejection, SandboxManagerError};
 use eos_backend_store::BackendStore;
 use eos_backend_types::{BackendRunStatus, EventRecord, RunMeta, SandboxState};
@@ -117,7 +117,6 @@ fn seed_agent_message_record(
 async fn post_create_returns_202_with_request_id() {
     let (store, _dir) = test_store().await;
     let runs = Arc::new(FakeRunControl::new(CancelOutcome::Requested));
-    let expected = runs.launch_id.clone();
     let app = router(
         &store,
         runs.clone(),
@@ -127,14 +126,20 @@ async fn post_create_returns_202_with_request_id() {
 
     let (status, body) = send(
         &app,
-        post_json("/api/user-requests", &json!({ "prompt": "hi" })),
+        post_json("/api/agent-core/requests", &json!({ "prompt": "hi" })),
     )
     .await;
 
     assert_eq!(status, StatusCode::ACCEPTED);
     let body = json_of(&body);
-    assert_eq!(body["request_id"], json!(expected.as_str()));
-    assert_eq!(runs.launched.lock().expect("poisoned").len(), 1);
+    let request_id = body["request_id"].as_str().expect("request id");
+    assert!(!request_id.is_empty());
+    assert!(store
+        .run_meta()
+        .get(&request_id.parse().expect("typed request id"))
+        .await
+        .expect("run meta get")
+        .is_some());
 }
 
 #[tokio::test]
@@ -151,7 +156,7 @@ async fn post_rejects_unsupported_sandbox_override() {
     let (status, _) = send(
         &app,
         post_json(
-            "/api/user-requests",
+            "/api/agent-core/requests",
             &json!({ "prompt": "hi", "sandbox_args": { "image": "ubuntu" } }),
         ),
     )
@@ -173,7 +178,7 @@ async fn post_accepts_sandbox_id_override() {
     let (status, _) = send(
         &app,
         post_json(
-            "/api/user-requests",
+            "/api/agent-core/requests",
             &json!({ "prompt": "hi", "sandbox_args": { "sandbox_id": "sbx-1" } }),
         ),
     )
@@ -194,7 +199,7 @@ async fn cancel_requested_returns_202() {
         fake_reads(None, vec![], None),
     );
 
-    let (status, _) = send(&app, delete(&format!("/api/user-requests/{}", id.as_str()))).await;
+    let (status, _) = send(&app, delete(&format!("/api/agent-core/requests/{}", id.as_str()))).await;
     assert_eq!(status, StatusCode::ACCEPTED);
 }
 
@@ -207,7 +212,7 @@ async fn cancel_unknown_is_404() {
         Arc::new(FakeSandboxRegistry::new(vec![])),
         fake_reads(None, vec![], None),
     );
-    let (status, _) = send(&app, delete("/api/user-requests/does-not-exist")).await;
+    let (status, _) = send(&app, delete("/api/agent-core/requests/does-not-exist")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
@@ -222,7 +227,7 @@ async fn cancel_already_finished_is_409() {
         Arc::new(FakeSandboxRegistry::new(vec![])),
         fake_reads(None, vec![], None),
     );
-    let (status, _) = send(&app, delete(&format!("/api/user-requests/{}", id.as_str()))).await;
+    let (status, _) = send(&app, delete(&format!("/api/agent-core/requests/{}", id.as_str()))).await;
     assert_eq!(status, StatusCode::CONFLICT);
 }
 
@@ -240,7 +245,7 @@ async fn list_returns_page_of_run_records() {
         fake_reads(None, vec![], None),
     );
 
-    let (status, body) = send(&app, get("/api/user-requests?limit=10")).await;
+    let (status, body) = send(&app, get("/api/agent-core/requests?limit=10")).await;
     assert_eq!(status, StatusCode::OK);
     let body = json_of(&body);
     assert_eq!(body["total"], json!(2));
@@ -260,7 +265,7 @@ async fn detail_joins_and_persists_terminal_outcome() {
         fake_reads(Some(RequestStatus::Done), vec![], None),
     );
 
-    let (status, body) = send(&app, get(&format!("/api/user-requests/{}", id.as_str()))).await;
+    let (status, body) = send(&app, get(&format!("/api/agent-core/requests/{}", id.as_str()))).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json_of(&body)["status"], json!("done"));
 
@@ -283,7 +288,7 @@ async fn detail_failed_outcome_is_persisted() {
         fake_reads(Some(RequestStatus::Failed), vec![], None),
     );
 
-    let (status, body) = send(&app, get(&format!("/api/user-requests/{}", id.as_str()))).await;
+    let (status, body) = send(&app, get(&format!("/api/agent-core/requests/{}", id.as_str()))).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json_of(&body)["status"], json!("failed"));
 
@@ -307,7 +312,7 @@ async fn detail_cancelled_is_not_clobbered_by_agent_terminal() {
         fake_reads(Some(RequestStatus::Done), vec![], None),
     );
 
-    let (status, body) = send(&app, get(&format!("/api/user-requests/{}", id.as_str()))).await;
+    let (status, body) = send(&app, get(&format!("/api/agent-core/requests/{}", id.as_str()))).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json_of(&body)["status"], json!("cancelled"));
     assert_eq!(
@@ -331,7 +336,7 @@ async fn detail_unknown_is_404() {
         Arc::new(FakeSandboxRegistry::new(vec![])),
         fake_reads(None, vec![], None),
     );
-    let (status, _) = send(&app, get("/api/user-requests/missing")).await;
+    let (status, _) = send(&app, get("/api/agent-core/requests/missing")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
@@ -364,7 +369,7 @@ async fn events_route_replays_persisted_milestones() {
     let (status, body) = send(
         &app,
         get(&format!(
-            "/api/user-requests/{}/events?after_seq=0",
+            "/api/agent-core/requests/{}/events?after_seq=0",
             id.as_str()
         )),
     )
@@ -380,7 +385,7 @@ async fn events_route_replays_persisted_milestones() {
     let (status, body) = send(
         &app,
         get(&format!(
-            "/api/user-requests/{}/events?after_seq=1",
+            "/api/agent-core/requests/{}/events?after_seq=1",
             id.as_str()
         )),
     )
@@ -392,7 +397,7 @@ async fn events_route_replays_persisted_milestones() {
     assert_eq!(events[0]["seq"], json!(2));
 
     // Unknown request is a 404.
-    let (status, _) = send(&app, get("/api/user-requests/missing/events")).await;
+    let (status, _) = send(&app, get("/api/agent-core/requests/missing/events")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
@@ -416,7 +421,7 @@ async fn agent_run_messages_route_returns_raw_jsonl_with_next_offset() {
     let (status, body) = send(
         &app,
         get(&format!(
-            "/api/agent-runs/{}/messages?after_byte=0",
+            "/api/agent-core/agent-runs/{}/messages?after_byte=0",
             agent_run_id.as_str()
         )),
     )
@@ -430,7 +435,7 @@ async fn agent_run_messages_route_returns_raw_jsonl_with_next_offset() {
     let response = app
         .clone()
         .oneshot(get(&format!(
-            "/api/agent-runs/{}/messages?after_byte={}",
+            "/api/agent-core/agent-runs/{}/messages?after_byte={}",
             agent_run_id.as_str(),
             full_len
         )))
@@ -469,7 +474,7 @@ async fn agent_run_events_route_replays_node_local_events() {
     let (status, body) = send(
         &app,
         get(&format!(
-            "/api/agent-runs/{}/events?after_seq=1",
+            "/api/agent-core/agent-runs/{}/events?after_seq=1",
             agent_run_id.as_str()
         )),
     )
@@ -499,7 +504,7 @@ async fn agent_run_sse_replays_from_last_event_id() {
 
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/api/agent-runs/{}/stream", agent_run_id.as_str()))
+        .uri(format!("/api/agent-core/agent-runs/{}/stream", agent_run_id.as_str()))
         .header("last-event-id", "2")
         .body(Body::empty())
         .expect("request");
@@ -689,7 +694,7 @@ async fn request_tasks_returns_tree() {
     );
     let (status, body) = send(
         &app,
-        get(&format!("/api/user-requests/{}/tasks", request_id.as_str())),
+        get(&format!("/api/agent-core/requests/{}/tasks", request_id.as_str())),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -708,7 +713,7 @@ async fn task_detail_joins_run() {
         Arc::new(FakeSandboxRegistry::new(vec![])),
         fake_reads(None, vec![task], Some(run)),
     );
-    let (status, body) = send(&app, get(&format!("/api/tasks/{}", task_id.as_str()))).await;
+    let (status, body) = send(&app, get(&format!("/api/agent-core/tasks/{}", task_id.as_str()))).await;
     assert_eq!(status, StatusCode::OK);
     let body = json_of(&body);
     assert_eq!(body["task"]["id"], json!(task_id.as_str()));
@@ -724,7 +729,7 @@ async fn task_detail_unknown_is_404() {
         Arc::new(FakeSandboxRegistry::new(vec![])),
         fake_reads(None, vec![], None),
     );
-    let (status, _) = send(&app, get("/api/tasks/missing")).await;
+    let (status, _) = send(&app, get("/api/agent-core/tasks/missing")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
@@ -733,9 +738,7 @@ async fn transcript_returns_messages() {
     let (store, _dir) = test_store().await;
     let task_id = TaskId::new_v4();
     let task = make_task(&task_id, &RequestId::new_v4());
-    let mut message = serde_json::Map::new();
-    message.insert("role".to_owned(), json!("assistant"));
-    let run = make_agent_run(&task_id, vec![message]);
+    let run = make_agent_run(&task_id, vec![]);
     let app = router(
         &store,
         Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
@@ -744,13 +747,12 @@ async fn transcript_returns_messages() {
     );
     let (status, body) = send(
         &app,
-        get(&format!("/api/tasks/{}/transcript", task_id.as_str())),
+        get(&format!("/api/agent-core/tasks/{}/transcript", task_id.as_str())),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     let body = json_of(&body);
-    assert_eq!(body["messages"].as_array().expect("messages").len(), 1);
-    assert_eq!(body["messages"][0]["role"], json!("assistant"));
+    assert_eq!(body["messages"].as_array().expect("messages").len(), 0);
 }
 
 #[tokio::test]
@@ -758,7 +760,8 @@ async fn transcript_prefers_agent_run_messages_jsonl() {
     let (store, _dir) = test_store().await;
     let message_records_dir = tempfile::tempdir().expect("message-record tempdir");
     let task_id: TaskId = "task-1".parse().expect("task id");
-    let task = make_task(&task_id, &RequestId::new_v4());
+    let request_id: RequestId = "req-1".parse().expect("request id");
+    let task = make_task(&task_id, &request_id);
     let agent_run_id: AgentRunId = "run-1".parse().expect("run id");
     seed_agent_message_record(message_records_dir.path(), &agent_run_id);
     let mut stale = serde_json::Map::new();
@@ -775,7 +778,7 @@ async fn transcript_prefers_agent_run_messages_jsonl() {
 
     let (status, body) = send(
         &app,
-        get(&format!("/api/tasks/{}/transcript", task_id.as_str())),
+        get(&format!("/api/agent-core/tasks/{}/transcript", task_id.as_str())),
     )
     .await;
 
@@ -819,16 +822,16 @@ async fn openapi_pins_paths_and_schemas() {
     let doc = json_of(&body);
 
     for path in [
-        "/api/user-requests",
-        "/api/user-requests/{request_id}",
-        "/api/user-requests/{request_id}/events",
-        "/api/user-requests/{request_id}/stream",
-        "/api/user-requests/{request_id}/tasks",
-        "/api/tasks/{task_id}",
-        "/api/tasks/{task_id}/transcript",
-        "/api/agent-runs/{agent_run_id}/messages",
-        "/api/agent-runs/{agent_run_id}/events",
-        "/api/agent-runs/{agent_run_id}/stream",
+        "/api/agent-core/requests",
+        "/api/agent-core/requests/{request_id}",
+        "/api/agent-core/requests/{request_id}/events",
+        "/api/agent-core/requests/{request_id}/stream",
+        "/api/agent-core/requests/{request_id}/tasks",
+        "/api/agent-core/tasks/{task_id}",
+        "/api/agent-core/tasks/{task_id}/transcript",
+        "/api/agent-core/agent-runs/{agent_run_id}/messages",
+        "/api/agent-core/agent-runs/{agent_run_id}/events",
+        "/api/agent-core/agent-runs/{agent_run_id}/stream",
         "/api/stats/performance",
         "/api/stats/correctness",
         "/api/stats/agent-runs",

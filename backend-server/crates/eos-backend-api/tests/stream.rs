@@ -72,7 +72,7 @@ async fn sse_replays_persisted_events_in_order() {
 
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/api/user-requests/{}/stream", id.as_str()))
+        .uri(format!("/api/agent-core/requests/{}/stream", id.as_str()))
         .body(Body::empty())
         .expect("request");
     let response = app.oneshot(request).await.expect("response");
@@ -100,7 +100,7 @@ async fn sse_replay_resumes_after_last_seq() {
     let request = Request::builder()
         .method("GET")
         .uri(format!(
-            "/api/user-requests/{}/stream?last_seq=2",
+            "/api/agent-core/requests/{}/stream?last_seq=2",
             id.as_str()
         ))
         .body(Body::empty())
@@ -128,7 +128,7 @@ async fn stream_unknown_request_is_404() {
     let app = app(&store);
     let request = Request::builder()
         .method("GET")
-        .uri("/api/user-requests/missing/stream")
+        .uri("/api/agent-core/requests/missing/stream")
         .body(Body::empty())
         .expect("request");
     let response = app.oneshot(request).await.expect("response");
@@ -161,7 +161,7 @@ async fn sse_replays_event_stream_gap_marker() {
 
     let request = Request::builder()
         .method("GET")
-        .uri(format!("/api/user-requests/{}/stream", id.as_str()))
+        .uri(format!("/api/agent-core/requests/{}/stream", id.as_str()))
         .body(Body::empty())
         .expect("request");
     let response = app.oneshot(request).await.expect("response");

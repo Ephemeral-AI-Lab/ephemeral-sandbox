@@ -32,7 +32,7 @@ impl AgentRunRecordHandle {
     /// `events.jsonl`.
     ///
     /// # Errors
-    /// Returns [`super::MessageRecordError`] if message or event append fails.
+    /// Returns [`super::AgentRunRecordError`] if message or event append fails.
     pub async fn append_messages(&self, messages: &[Message]) -> Result<MessageAppendRange> {
         let range =
             append_message_rows(&self.messages_path, &self.identity, "message", messages).await?;
@@ -58,7 +58,7 @@ impl AgentRunRecordHandle {
     /// Read raw `messages.jsonl` bytes after `after_byte`.
     ///
     /// # Errors
-    /// Returns [`super::MessageRecordError`] if the message file is missing or
+    /// Returns [`super::AgentRunRecordError`] if the message file is missing or
     /// the byte offset is out of range.
     pub async fn read_messages(&self, after_byte: u64) -> Result<RecordBytes> {
         read_bytes_after(&self.messages_path, after_byte).await
@@ -67,7 +67,7 @@ impl AgentRunRecordHandle {
     /// Replay node-local events with `seq > after_seq`.
     ///
     /// # Errors
-    /// Returns [`super::MessageRecordError`] if the event file is missing or an
+    /// Returns [`super::AgentRunRecordError`] if the event file is missing or an
     /// event row cannot be decoded.
     pub async fn read_events(&self, after_seq: u64) -> Result<Vec<NodeEvent>> {
         read_events_after(&self.events_path, after_seq).await
@@ -76,7 +76,7 @@ impl AgentRunRecordHandle {
     /// Append the terminal node event.
     ///
     /// # Errors
-    /// Returns [`super::MessageRecordError`] if event append fails.
+    /// Returns [`super::AgentRunRecordError`] if event append fails.
     pub async fn finish(&self, status: NodeFinishStatus) -> Result<()> {
         let mut payload = JsonObject::new();
         payload.insert("status".to_owned(), json!(status.as_str()));

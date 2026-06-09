@@ -11,7 +11,7 @@ use crate::llm::Message;
 
 /// Awaitable terminal completion returned after an agent loop is launched.
 pub struct AgentLoopCompletion {
-    inner: Pin<Box<dyn Future<Output = Option<AgentLoopOutcome>> + Send + 'static>>,
+    terminal_outcome: Pin<Box<dyn Future<Output = AgentLoopOutcome> + Send + 'static>>,
 }
 
 impl AgentLoopCompletion {
@@ -19,16 +19,16 @@ impl AgentLoopCompletion {
     #[must_use]
     pub fn new<F>(completion: F) -> Self
     where
-        F: Future<Output = Option<AgentLoopOutcome>> + Send + 'static,
+        F: Future<Output = AgentLoopOutcome> + Send + 'static,
     {
         Self {
-            inner: Box::pin(completion),
+            terminal_outcome: Box::pin(completion),
         }
     }
 
     /// Wait for the loop to publish its terminal outcome.
-    pub async fn wait(self) -> Option<AgentLoopOutcome> {
-        self.inner.await
+    pub async fn wait(self) -> AgentLoopOutcome {
+        self.terminal_outcome.await
     }
 }
 

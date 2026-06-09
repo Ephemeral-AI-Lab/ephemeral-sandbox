@@ -13,7 +13,7 @@ use axum::Json;
 use serde::Serialize;
 
 use eos_agent_core_server::AgentCoreServerError;
-use eos_engine::records::MessageRecordError;
+use eos_engine::records::AgentRunRecordError;
 use eos_backend_runtime::{DeleteRejection, SandboxManagerError};
 use eos_backend_store::StoreError;
 use eos_types::CoreError;
@@ -112,12 +112,12 @@ impl From<AgentCoreServerError> for ApiError {
 
 /// Message-record read failures are sanitized like store failures, except the
 /// client-controllable lookup/range cases stay specific.
-impl From<MessageRecordError> for ApiError {
-    fn from(err: MessageRecordError) -> Self {
+impl From<AgentRunRecordError> for ApiError {
+    fn from(err: AgentRunRecordError) -> Self {
         match err {
-            MessageRecordError::NotFound(_) => Self::NotFound("agent run message record"),
-            MessageRecordError::OffsetOutOfRange { .. }
-            | MessageRecordError::UnsafeSegment { .. } => Self::BadRequest(err.to_string()),
+            AgentRunRecordError::NotFound(_) => Self::NotFound("agent run message record"),
+            AgentRunRecordError::OffsetOutOfRange { .. }
+            | AgentRunRecordError::UnsafeSegment { .. } => Self::BadRequest(err.to_string()),
             other => {
                 tracing::error!(error = %other, "agent message-record error");
                 Self::Internal

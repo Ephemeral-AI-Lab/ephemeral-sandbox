@@ -214,19 +214,7 @@ pub async fn run_request(
                     services.db.agent_run_store.clone(),
                     services.db.task_agent_run_store.clone(),
                 )
-                .with_runtime_state_hooks(
-                    {
-                        let agent_state = services.agent_state.clone();
-                        move |request: &eos_types::SpawnAgentRequest,
-                              created_run: &eos_types::CreatedTaskAgentRun| {
-                            agent_state.record_spawn_request(request, created_run)
-                        }
-                    },
-                    {
-                        let agent_state = services.agent_state.clone();
-                        move |agent_run_id| agent_state.remove(agent_run_id)
-                    },
-                ),
+                .with_runtime_state(Arc::new(services.agent_state.clone())),
             );
             let agent_run_api: Arc<dyn AgentRunApi> = agent_runs.clone();
             let _ = agent_run_api_cell.set(agent_run_api);

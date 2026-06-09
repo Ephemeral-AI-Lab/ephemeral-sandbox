@@ -13,7 +13,7 @@ mod telemetry;
 pub mod tool_call;
 
 pub use agent_loop::{
-    AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory, BackgroundSessionInputs,
+    AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory, BackgroundSessionRuntimeFactory,
     ExecutionMetadataBuildInput, TokioAgentLoopLauncher, ToolCallHookStores,
     ToolExecutionMetadataReader,
 };
@@ -22,7 +22,8 @@ pub use background::{
     BackgroundSessionStatus, BackgroundSessionTeardown,
 };
 pub use event::{
-    stamp_identity, AssistantMessageComplete, EngineEventPrinter, EngineEventSink, StreamEvent,
+    stamp_identity, AssistantMessageComplete, EngineEventOutputs, EngineEventPrinter,
+    EngineEventSink, StreamEvent,
 };
 pub use notifications::{
     make_default_notification_rules, EngineNotificationQueue, NotificationRule,

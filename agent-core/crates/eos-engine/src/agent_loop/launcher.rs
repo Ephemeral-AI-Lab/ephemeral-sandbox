@@ -4,17 +4,16 @@ use std::sync::Arc;
 
 use eos_types::{
     AgentLoopCancellation, AgentLoopCancellationHandle, AgentLoopCompletion, AgentLoopLauncher,
-    AgentRunApi, StartAgentLoopRequest, StartedAgentLoop,
+    AgentLoopOutcome, AgentLoopOutcomeKind, AgentRunApi, StartAgentLoopRequest, StartedAgentLoop,
 };
 use tokio::sync::{oneshot, watch};
 
 use super::{
     AgentLoopExecutor, AgentLoopExecutorInput, AgentLoopToolRegistryFactory,
-    BackgroundSessionInputs, ToolCallHookStores, ToolExecutionMetadataReader,
+    BackgroundSessionRuntimeFactory, ToolCallHookStores, ToolExecutionMetadataReader,
 };
-use crate::event::EngineEventSink;
+use crate::event::EngineEventOutputs;
 use crate::provider_stream::{ProviderStreamSource, ProviderStreamSourceFactory};
-use crate::records::AgentRecordWriter;
 
 #[derive(Clone, Debug)]
 struct WatchAgentLoopCancellation {
@@ -69,11 +68,10 @@ pub(crate) enum AgentLoopProviderStream {
 pub struct TokioAgentLoopLauncher {
     provider_stream_source: AgentLoopProviderStream,
     tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-    metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
-    background_inputs: Option<BackgroundSessionInputs>,
+    execution_metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
+    background_sessions: Option<BackgroundSessionRuntimeFactory>,
     hook_stores: Option<ToolCallHookStores>,
-    event_sink: Option<EngineEventSink>,
-    record_writer: Option<AgentRecordWriter>,
+    event_outputs: EngineEventOutputs,
 }
 
 impl std::fmt::Debug for TokioAgentLoopLauncher {
@@ -89,12 +87,12 @@ impl TokioAgentLoopLauncher {
     pub fn new(
         provider_stream_source: Arc<dyn ProviderStreamSource>,
         tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-        metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
+        execution_metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
     ) -> Self {
         Self::new_with_provider_stream(
             AgentLoopProviderStream::Static(provider_stream_source),
             tool_registry_factory,
-            metadata_reader,
+            execution_metadata_reader,
         )
     }
 
@@ -103,12 +101,12 @@ impl TokioAgentLoopLauncher {
     pub fn with_provider_stream_source_factory(
         provider_stream_source_factory: ProviderStreamSourceFactory,
         tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-        metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
+        execution_metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
     ) -> Self {
         Self::new_with_provider_stream(
             AgentLoopProviderStream::Factory(provider_stream_source_factory),
             tool_registry_factory,
-            metadata_reader,
+            execution_metadata_reader,
         )
     }
 
@@ -116,23 +114,22 @@ impl TokioAgentLoopLauncher {
     fn new_with_provider_stream(
         provider_stream_source: AgentLoopProviderStream,
         tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-        metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
+        execution_metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
     ) -> Self {
         Self {
             provider_stream_source,
             tool_registry_factory,
-            metadata_reader,
-            background_inputs: None,
+            execution_metadata_reader,
+            background_sessions: None,
             hook_stores: None,
-            event_sink: None,
-            record_writer: None,
+            event_outputs: EngineEventOutputs::new(),
         }
     }
 
     /// Attach runtime contracts for engine-owned background managers.
     #[must_use]
-    pub fn with_background_inputs(mut self, inputs: BackgroundSessionInputs) -> Self {
-        self.background_inputs = Some(inputs);
+    pub fn with_background_sessions(mut self, inputs: BackgroundSessionRuntimeFactory) -> Self {
+        self.background_sessions = Some(inputs);
         self
     }
 
@@ -143,17 +140,10 @@ impl TokioAgentLoopLauncher {
         self
     }
 
-    /// Attach an optional stream-event sink invoked by each run.
+    /// Attach event output fan-out for each run.
     #[must_use]
-    pub fn with_event_sink(mut self, sink: Option<EngineEventSink>) -> Self {
-        self.event_sink = sink;
-        self
-    }
-
-    /// Attach the optional engine-owned record writer.
-    #[must_use]
-    pub fn with_record_writer(mut self, record_writer: Option<AgentRecordWriter>) -> Self {
-        self.record_writer = record_writer;
+    pub fn with_event_outputs(mut self, event_outputs: EngineEventOutputs) -> Self {
+        self.event_outputs = event_outputs;
         self
     }
 }
@@ -169,12 +159,11 @@ impl AgentLoopLauncher for TokioAgentLoopLauncher {
         let loop_executor = AgentLoopExecutor::new(AgentLoopExecutorInput {
             provider_stream_source: self.provider_stream_source.clone(),
             tool_registry_factory: Arc::clone(&self.tool_registry_factory),
-            metadata_reader: Arc::clone(&self.metadata_reader),
+            execution_metadata_reader: Arc::clone(&self.execution_metadata_reader),
             cancel_signal,
-            background_inputs: self.background_inputs.clone(),
+            background_sessions: self.background_sessions.clone(),
             hook_stores: self.hook_stores.clone(),
-            event_sink: self.event_sink.clone(),
-            record_writer: self.record_writer.clone(),
+            event_outputs: self.event_outputs.clone(),
             agent_run_api,
         });
 
@@ -184,7 +173,15 @@ impl AgentLoopLauncher for TokioAgentLoopLauncher {
         });
 
         StartedAgentLoop {
-            completion: AgentLoopCompletion::new(async move { completion_wait.await.ok() }),
+            completion: AgentLoopCompletion::new(async move {
+                completion_wait.await.unwrap_or_else(|_| AgentLoopOutcome {
+                    kind: AgentLoopOutcomeKind::LoopFailed {
+                        error_summary: "agent loop outcome sender dropped".to_owned(),
+                    },
+                    final_conversation_messages: Vec::new(),
+                    total_token_count: None,
+                })
+            }),
             cancellation: cancel_handle,
         }
     }

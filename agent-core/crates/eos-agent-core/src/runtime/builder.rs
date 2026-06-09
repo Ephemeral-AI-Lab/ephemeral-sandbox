@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex as StdMutex};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use eos_db::{Database, DatabaseConfig, DatabaseUrl};
-use eos_engine::records::AgentRecordWriter;
+use eos_engine::records::AgentRunRecordWriter;
 use eos_llm_client::{
     Auth, ConfiguredLlmClient, LlmClient, LlmRequest, LlmRequestDefaults, LlmStream, ProviderError,
     ProviderKind, ProvidersConfig, SecretConfigValue,
@@ -372,7 +372,7 @@ impl AgentCoreRuntimeBuilder {
                 shutdown: Arc::new(StdMutex::new(audit_shutdown)),
             },
             records: RecordWriterRuntime {
-                record_writer: self.record_root.map(AgentRecordWriter::new),
+                run_record_writer: self.record_root.map(AgentRunRecordWriter::new),
             },
             agent_state: super::RuntimeAgentStateService::default(),
             cancel_registry: super::RequestCancelRegistry::new(),

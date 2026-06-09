@@ -5,7 +5,7 @@ use eos_types::{
     TaskAgentRunKind, WorkflowCoordinates,
 };
 
-use super::error::{MessageRecordError, Result};
+use super::error::{AgentRunRecordError, Result};
 use super::kind::{AgentRunRecordKind, AgentRunRecordStart};
 
 pub(crate) fn node_dir(root: &Path, input: &AgentRunRecordStart<'_>) -> Result<PathBuf> {
@@ -13,7 +13,7 @@ pub(crate) fn node_dir(root: &Path, input: &AgentRunRecordStart<'_>) -> Result<P
     let task_id = input
         .task_id
         .cloned()
-        .ok_or_else(|| MessageRecordError::unsafe_segment("task_id", ""))?;
+        .ok_or_else(|| AgentRunRecordError::unsafe_segment("task_id", ""))?;
     let kind = match input.kind {
         AgentRunRecordKind::Root => TaskAgentRunKind::Root,
         AgentRunRecordKind::WorkflowTask {
@@ -102,7 +102,7 @@ fn safe_segment<'a>(field: &'static str, value: &'a str) -> Result<&'a str> {
         || value.contains('\\')
         || value.contains(std::path::MAIN_SEPARATOR)
     {
-        return Err(MessageRecordError::unsafe_segment(field, value));
+        return Err(AgentRunRecordError::unsafe_segment(field, value));
     }
     Ok(value)
 }

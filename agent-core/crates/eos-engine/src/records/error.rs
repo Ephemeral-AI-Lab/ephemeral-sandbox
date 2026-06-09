@@ -1,10 +1,10 @@
 /// Result alias for message-record operations.
-pub type Result<T> = std::result::Result<T, MessageRecordError>;
+pub type Result<T> = std::result::Result<T, AgentRunRecordError>;
 
 /// File-backed message-record service failures.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
-pub enum MessageRecordError {
+pub enum AgentRunRecordError {
     /// A path segment would escape the message-record root or create ambiguous layout.
     #[error("unsafe message-record path segment for {field}: {value:?}")]
     UnsafeSegment {
@@ -32,7 +32,7 @@ pub enum MessageRecordError {
     Json(#[from] serde_json::Error),
 }
 
-impl MessageRecordError {
+impl AgentRunRecordError {
     pub(crate) fn missing_path(path: &std::path::Path) -> Self {
         Self::NotFound(path.display().to_string())
     }

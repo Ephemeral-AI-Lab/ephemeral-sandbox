@@ -13,7 +13,7 @@ use axum::Json;
 use futures::stream;
 use serde::Deserialize;
 
-use eos_engine::records::{AgentRecordWriter as AgentMessageRecords, NodeEvent};
+use eos_engine::records::{AgentRunRecordWriter as AgentMessageRecords, NodeEvent};
 use eos_types::{format_record_dir, AgentRunId, AgentRunRecordDir};
 
 use super::parse_id;

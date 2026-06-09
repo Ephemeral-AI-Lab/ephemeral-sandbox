@@ -17,7 +17,7 @@ use eos_backend_audit::StatsReader;
 use eos_backend_runtime::{EventBus, SandboxManager, SandboxManagerError};
 use eos_backend_store::{EventLogRepo, RunMetaRepo};
 use eos_backend_types::SandboxView;
-use eos_engine::records::AgentRecordWriter as AgentMessageRecords;
+use eos_engine::records::AgentRunRecordWriter as AgentMessageRecords;
 use eos_types::{AgentRunStore, SandboxId, TaskAgentRunStore, TaskStore};
 
 use crate::handlers;

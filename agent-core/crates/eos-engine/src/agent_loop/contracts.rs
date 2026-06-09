@@ -120,21 +120,21 @@ impl ToolCallHookStores {
 
 /// Runtime-supplied contracts needed by engine-owned background managers.
 #[derive(Clone)]
-pub struct BackgroundSessionInputs {
+pub struct BackgroundSessionRuntimeFactory {
     command_service: Arc<dyn SandboxCommandApi>,
     completion_poll_interval: Duration,
     workflow_service: Arc<dyn WorkflowApi>,
 }
 
-impl std::fmt::Debug for BackgroundSessionInputs {
+impl std::fmt::Debug for BackgroundSessionRuntimeFactory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BackgroundSessionInputs")
+        f.debug_struct("BackgroundSessionRuntimeFactory")
             .field("completion_poll_interval", &self.completion_poll_interval)
             .finish_non_exhaustive()
     }
 }
 
-impl BackgroundSessionInputs {
+impl BackgroundSessionRuntimeFactory {
     /// Build concrete background dependencies from runtime-owned contracts.
     #[must_use]
     pub fn new(
@@ -149,7 +149,7 @@ impl BackgroundSessionInputs {
         }
     }
 
-    pub(crate) fn build_managers(
+    pub(crate) fn build_runtime(
         &self,
         agent_run_id: AgentRunId,
         agent_run_api: &Arc<dyn AgentRunApi>,

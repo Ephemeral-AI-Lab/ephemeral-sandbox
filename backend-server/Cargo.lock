@@ -468,6 +468,7 @@ dependencies = [
  "eos-backend-store",
  "eos-backend-types",
  "eos-engine",
+ "eos-sandbox-port",
  "eos-types",
  "futures",
  "schemars 0.8.22",

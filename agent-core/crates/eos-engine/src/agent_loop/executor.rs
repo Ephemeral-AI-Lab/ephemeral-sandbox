@@ -10,14 +10,14 @@ use futures::{stream, StreamExt};
 use super::{
     AgentLoopCancelSignal, AgentLoopMessage, AgentLoopOutcome, AgentLoopOutcomeKind,
     AgentLoopProviderStream, AgentLoopRunServices, AgentLoopState, AgentLoopToolRegistryFactory,
-    BackgroundSessionInputs, ExecutionMetadataBuildInput, StartAgentLoopRequest,
+    BackgroundSessionRuntimeFactory, ExecutionMetadataBuildInput, StartAgentLoopRequest,
     ToolCallHookStores, ToolExecutionMetadataReader,
 };
+use crate::event::EngineEventOutputs;
 use crate::notifications::EngineNotificationQueue;
 use crate::provider_stream::{messages::build_provider_messages, ProviderStreamSource};
 use crate::records::{
-    AgentRecordWriter, AgentRunRecordHandle, AgentRunRecordKind, AgentRunRecordStart,
-    NodeFinishStatus,
+    AgentRunRecordHandle, AgentRunRecordKind, AgentRunRecordStart, NodeFinishStatus,
 };
 use crate::tool_call::{
     execute_tool_once, lifecycle_batch_decision, reject_terminal_batch, DispatchCall,
@@ -30,12 +30,11 @@ const MAX_FOREGROUND_TOOL_CONCURRENCY: usize = 8;
 pub(crate) struct AgentLoopExecutor {
     provider_stream_source: AgentLoopProviderStream,
     tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-    metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
+    execution_metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
     cancel_signal: AgentLoopCancelSignal,
-    background_inputs: Option<BackgroundSessionInputs>,
+    background_sessions: Option<BackgroundSessionRuntimeFactory>,
     hook_stores: Option<ToolCallHookStores>,
-    event_sink: Option<crate::event::EngineEventSink>,
-    record_writer: Option<AgentRecordWriter>,
+    event_outputs: EngineEventOutputs,
     agent_run_api: Arc<dyn AgentRunApi>,
 }
 
@@ -43,12 +42,11 @@ pub(crate) struct AgentLoopExecutor {
 pub(crate) struct AgentLoopExecutorInput {
     pub(crate) provider_stream_source: AgentLoopProviderStream,
     pub(crate) tool_registry_factory: Arc<dyn AgentLoopToolRegistryFactory>,
-    pub(crate) metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
+    pub(crate) execution_metadata_reader: Arc<dyn ToolExecutionMetadataReader>,
     pub(crate) cancel_signal: AgentLoopCancelSignal,
-    pub(crate) background_inputs: Option<BackgroundSessionInputs>,
+    pub(crate) background_sessions: Option<BackgroundSessionRuntimeFactory>,
     pub(crate) hook_stores: Option<ToolCallHookStores>,
-    pub(crate) event_sink: Option<crate::event::EngineEventSink>,
-    pub(crate) record_writer: Option<AgentRecordWriter>,
+    pub(crate) event_outputs: EngineEventOutputs,
     pub(crate) agent_run_api: Arc<dyn AgentRunApi>,
 }
 
@@ -63,12 +61,11 @@ impl AgentLoopExecutor {
         Self {
             provider_stream_source: input.provider_stream_source,
             tool_registry_factory: input.tool_registry_factory,
-            metadata_reader: input.metadata_reader,
+            execution_metadata_reader: input.execution_metadata_reader,
             cancel_signal: input.cancel_signal,
-            background_inputs: input.background_inputs,
+            background_sessions: input.background_sessions,
             hook_stores: input.hook_stores,
-            event_sink: input.event_sink,
-            record_writer: input.record_writer,
+            event_outputs: input.event_outputs,
             agent_run_api: input.agent_run_api,
         }
     }
@@ -78,7 +75,7 @@ impl AgentLoopExecutor {
         request: StartAgentLoopRequest,
     ) -> AgentLoopOutcome {
         let event_identity = match self
-            .metadata_reader
+            .execution_metadata_reader
             .agent_run_snapshot(&request.record_target.agent_run_id)
             .await
         {
@@ -177,7 +174,7 @@ impl AgentLoopExecutor {
         request: &StartAgentLoopRequest,
         event_identity: &AgentRunRuntimeSnapshot,
     ) -> Result<Option<LoopRecordHandle>, EngineError> {
-        let Some(record_writer) = &self.record_writer else {
+        let Some(run_record_writer) = self.event_outputs.run_record_writer() else {
             return Ok(None);
         };
         let record_kind = AgentRunRecordKind::from_task_agent_run_kind(
@@ -185,7 +182,7 @@ impl AgentLoopExecutor {
         );
         let (system_prompt, initial_messages) =
             split_record_initial_messages(&request.initial_messages);
-        let handle = record_writer
+        let handle = run_record_writer
             .start_agent_run_at(
                 &request.record_target.record_dir,
                 AgentRunRecordStart {
@@ -407,7 +404,7 @@ impl AgentLoopExecutor {
         let tool_name = ToolName::from_wire(&call.name)
             .ok_or_else(|| EngineError::UnknownTool(call.name.clone()))?;
         let metadata = self
-            .metadata_reader
+            .execution_metadata_reader
             .build_execution_metadata(ExecutionMetadataBuildInput {
                 agent_run_id: state.agent_run_id.clone(),
                 tool_name,
@@ -443,12 +440,12 @@ impl AgentLoopExecutor {
     }
 
     fn build_run_services(&self, agent_run_id: &AgentRunId) -> AgentLoopRunServices {
-        let Some(inputs) = &self.background_inputs else {
+        let Some(inputs) = &self.background_sessions else {
             return AgentLoopRunServices::inert();
         };
         let notifier = EngineNotificationQueue::new();
         let background =
-            inputs.build_managers(agent_run_id.clone(), &self.agent_run_api, notifier.clone());
+            inputs.build_runtime(agent_run_id.clone(), &self.agent_run_api, notifier.clone());
         AgentLoopRunServices::from_background(&background, notifier)
     }
 
@@ -478,9 +475,7 @@ impl AgentLoopExecutor {
     }
 
     fn emit_event(&self, event: &StreamEvent) {
-        if let Some(sink) = &self.event_sink {
-            sink(event);
-        }
+        self.event_outputs.observe(event);
     }
 }
 
@@ -699,12 +694,11 @@ mod tests {
         AgentLoopExecutor {
             provider_stream_source: AgentLoopProviderStream::Static(Arc::new(EmptyStreamSource)),
             tool_registry_factory: Arc::new(UnusedRegistryFactory),
-            metadata_reader: Arc::new(TestMetadataReader),
+            execution_metadata_reader: Arc::new(TestMetadataReader),
             cancel_signal: AgentLoopCancelSignal::for_test(),
-            background_inputs: None,
+            background_sessions: None,
             hook_stores: None,
-            event_sink: None,
-            record_writer: None,
+            event_outputs: EngineEventOutputs::new(),
             agent_run_api: Arc::new(UnusedAgentRunApi),
         }
     }

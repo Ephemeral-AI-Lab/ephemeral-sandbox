@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
+use eos_agent_run::AgentRuntimeStateStore;
 use eos_tool::{IsolatedWorkspaceModeControl, ToolError};
 use eos_types::{
     AgentRunError, AgentRunId, AttemptId, CreatedTaskAgentRun, IterationId, RequestId, SandboxId,
@@ -74,6 +75,20 @@ impl RuntimeAgentStateService {
         };
         state.is_isolated_workspace_mode = is_isolated;
         Ok(())
+    }
+}
+
+impl AgentRuntimeStateStore for RuntimeAgentStateService {
+    fn record_spawn_request(
+        &self,
+        request: &SpawnAgentRequest,
+        created_run: &CreatedTaskAgentRun,
+    ) -> Result<(), AgentRunError> {
+        self.record_spawn_request(request, created_run)
+    }
+
+    fn remove_runtime_state(&self, agent_run_id: &AgentRunId) {
+        self.remove(agent_run_id);
     }
 }
 

@@ -5,8 +5,8 @@ use std::path::Path;
 use std::str::FromStr;
 
 use eos_engine::records::{
-    AgentRecordWriter, AgentRunRecordHandle, AgentRunRecordKind, AgentRunRecordStart,
-    MessageRecordError, NodeFinishStatus, WorkflowTaskRole,
+    AgentRunRecordError, AgentRunRecordHandle, AgentRunRecordKind, AgentRunRecordStart,
+    AgentRunRecordWriter, NodeFinishStatus, WorkflowTaskRole,
 };
 use eos_types::{
     AgentRunId, AgentRunRecordDir, AttemptId, ContentBlock, IterationId, Message, MessageRole,
@@ -38,7 +38,7 @@ fn slash(path: &Path) -> String {
 }
 
 async fn start_root(
-    records: &AgentRecordWriter,
+    records: &AgentRunRecordWriter,
     request_id: &RequestId,
     task_id: &TaskId,
     agent_run_id: &AgentRunId,
@@ -58,14 +58,14 @@ async fn start_root(
 }
 
 fn assert_unsafe_segment<T>(
-    result: std::result::Result<T, MessageRecordError>,
+    result: std::result::Result<T, AgentRunRecordError>,
     expected_field: &str,
     expected_value: &str,
 ) where
     T: Debug,
 {
     match result {
-        Err(MessageRecordError::UnsafeSegment { field, value }) => {
+        Err(AgentRunRecordError::UnsafeSegment { field, value }) => {
             assert_eq!(field, expected_field);
             assert_eq!(value, expected_value);
         }
@@ -76,7 +76,7 @@ fn assert_unsafe_segment<T>(
 #[tokio::test]
 async fn root_start_writes_initial_messages_and_events() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let (request_id, task_id, agent_run_id) = ids();
     let handle = records
         .start_agent_run(AgentRunRecordStart {
@@ -130,7 +130,7 @@ async fn root_start_writes_initial_messages_and_events() {
 #[tokio::test]
 async fn workflow_task_records_use_role_layout_and_payload() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let request_id: RequestId = id("req-workflow");
     let root_task_id: TaskId = id("task-root");
     let root_run_id: AgentRunId = id("run-root");
@@ -222,7 +222,7 @@ async fn workflow_task_records_use_role_layout_and_payload() {
 #[tokio::test]
 async fn later_messages_append_byte_ranges_without_event_content() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let (request_id, task_id, agent_run_id) = ids();
     let handle = records
         .start_agent_run(AgentRunRecordStart {
@@ -267,7 +267,7 @@ async fn later_messages_append_byte_ranges_without_event_content() {
 #[tokio::test]
 async fn appended_messages_record_all_content_types_and_empty_append_is_silent() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let (request_id, task_id, agent_run_id) = ids();
     let handle = records
         .start_agent_run(AgentRunRecordStart {
@@ -362,7 +362,7 @@ async fn appended_messages_record_all_content_types_and_empty_append_is_silent()
 #[tokio::test]
 async fn finish_appends_terminal_status_events_in_sequence() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let (request_id, task_id, agent_run_id) = ids();
     let handle = records
         .start_agent_run(AgentRunRecordStart {
@@ -393,7 +393,7 @@ async fn finish_appends_terminal_status_events_in_sequence() {
 #[tokio::test]
 async fn read_messages_and_events_honor_tail_offsets() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let (request_id, task_id, agent_run_id) = ids();
     let handle = records
         .start_agent_run(AgentRunRecordStart {
@@ -418,7 +418,7 @@ async fn read_messages_and_events_honor_tail_offsets() {
 
     assert!(matches!(
         handle.read_messages(messages_end + 1).await,
-        Err(MessageRecordError::OffsetOutOfRange {
+        Err(AgentRunRecordError::OffsetOutOfRange {
             offset,
             len
         }) if offset == messages_end + 1 && len == messages_end
@@ -434,7 +434,7 @@ async fn read_messages_and_events_honor_tail_offsets() {
 #[tokio::test]
 async fn subagent_records_use_request_rooted_layout_without_parent_scan() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let (request_id, task_id, parent_id) = ids();
     let parent = records
         .start_agent_run(AgentRunRecordStart {
@@ -479,7 +479,7 @@ async fn subagent_records_use_request_rooted_layout_without_parent_scan() {
 #[tokio::test]
 async fn parented_records_can_start_at_resolved_parent_layout() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let (request_id, task_id, parent_id) = ids();
     let parent = start_root(&records, &request_id, &task_id, &parent_id).await;
     let parent_record_dir =
@@ -523,7 +523,7 @@ async fn parented_records_can_start_at_resolved_parent_layout() {
 #[tokio::test]
 async fn advisor_child_created_records_parent_payload_and_path() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let (request_id, task_id, parent_id) = ids();
     let parent = start_root(&records, &request_id, &task_id, &parent_id).await;
 
@@ -557,7 +557,7 @@ async fn advisor_child_created_records_parent_payload_and_path() {
 #[tokio::test]
 async fn parented_runs_do_not_use_parents_missing_layouts() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let request_id: RequestId = id("req-layout");
 
     let missing_parent: AgentRunId = id("missing-parent");
@@ -587,7 +587,7 @@ async fn parented_runs_do_not_use_parents_missing_layouts() {
 #[tokio::test]
 async fn subagent_and_advisor_records_read_from_handles() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let (request_id, task_id, parent_id) = ids();
     let subagent = records
         .start_agent_run(AgentRunRecordStart {
@@ -642,19 +642,19 @@ async fn subagent_and_advisor_records_read_from_handles() {
 #[tokio::test]
 async fn unknown_agent_run_is_not_found() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let missing = AgentRunRecordDir::new("requests/req-missing/root-task-task/agent-run-missing");
 
     assert!(matches!(
         records.read_events_at(&missing, 0).await,
-        Err(MessageRecordError::NotFound(_))
+        Err(AgentRunRecordError::NotFound(_))
     ));
 }
 
 #[tokio::test]
 async fn unsafe_path_segments_and_missing_task_ids_are_rejected() {
     let dir = tempfile::tempdir().unwrap();
-    let records = AgentRecordWriter::new(dir.path());
+    let records = AgentRunRecordWriter::new(dir.path());
     let request_id: RequestId = id("req-safe");
     let task_id: TaskId = id("task-safe");
     let agent_run_id: AgentRunId = id("run-safe");

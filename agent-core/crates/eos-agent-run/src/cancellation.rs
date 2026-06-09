@@ -1,6 +1,8 @@
 //! Agent-run cancellation orchestration.
 
-use eos_types::{AgentRunError, AgentRunId, AgentRunOutcome, AgentRunStatus, JsonObject, TaskStatus};
+use eos_types::{
+    AgentRunError, AgentRunId, AgentRunOutcome, AgentRunStatus, JsonObject, TaskStatus,
+};
 
 use crate::persistence::{finish_cancelled_agent_run, finish_task_agent_run};
 use crate::service::AgentRunService;
@@ -12,6 +14,7 @@ pub(crate) async fn cancel_agent_run(
 ) -> Result<(), AgentRunError> {
     let completion = service.active_agent_runs.take(agent_run_id).await;
     if let Some(completion) = &completion {
+        debug_assert_eq!(completion.agent_run_id(), agent_run_id);
         completion.cancel(reason);
     }
 
@@ -46,7 +49,6 @@ pub(crate) async fn cancel_agent_run(
         },
     };
     if let Some(completion) = completion {
-        debug_assert_eq!(completion.agent_run_id(), agent_run_id);
         completion.publish(outcome);
     }
     if let Some(runtime_state) = &service.runtime_state {

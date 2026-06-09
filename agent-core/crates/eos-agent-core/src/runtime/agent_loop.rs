@@ -4,9 +4,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use eos_engine::{
-    AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory, BackgroundSessionInputs,
-    EngineError, EngineEventSink, ExecutionMetadataBuildInput, LlmProviderStreamSource,
-    TokioAgentLoopLauncher, ToolCallHookStores, ToolExecutionMetadataReader,
+    AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory, BackgroundSessionRuntimeFactory,
+    EngineError, EngineEventOutputs, EngineEventSink, ExecutionMetadataBuildInput,
+    LlmProviderStreamSource, TokioAgentLoopLauncher, ToolCallHookStores,
+    ToolExecutionMetadataReader,
 };
 use eos_sandbox_port::SandboxCommandService;
 use eos_tool::{
@@ -25,15 +26,16 @@ pub(crate) fn build_agent_loop_launcher(
     services: &AgentCoreRuntime,
     attempt_submission: Arc<dyn WorkflowAttemptSubmissionApi>,
     workflow_service: Arc<dyn WorkflowApi>,
-    event_sink: Option<EngineEventSink>,
+    live_event_sink: Option<EngineEventSink>,
 ) -> Arc<dyn AgentLoopLauncher> {
-    let metadata_reader = Arc::new(RuntimeToolExecutionMetadataReader::new(services.clone()));
+    let execution_metadata_reader =
+        Arc::new(RuntimeToolExecutionMetadataReader::new(services.clone()));
     let registry_factory = Arc::new(RuntimeToolRegistryFactory {
         services: services.clone(),
         attempt_submission,
         workflow_service,
     });
-    let background_inputs = BackgroundSessionInputs::new(
+    let background_sessions = BackgroundSessionRuntimeFactory::new(
         Arc::new(SandboxCommandService::new(
             services.sandbox.transport.clone(),
         )),
@@ -49,20 +51,23 @@ pub(crate) fn build_agent_loop_launcher(
         Some(factory) => TokioAgentLoopLauncher::with_provider_stream_source_factory(
             factory,
             registry_factory.clone(),
-            metadata_reader.clone(),
+            execution_metadata_reader.clone(),
         ),
         None => TokioAgentLoopLauncher::new(
             Arc::new(LlmProviderStreamSource::new(
                 services.engine.llm_client.clone(),
             )),
             registry_factory,
-            metadata_reader,
+            execution_metadata_reader,
         ),
     }
-    .with_background_inputs(background_inputs)
+    .with_background_sessions(background_sessions)
     .with_tool_call_hook_stores(hook_stores)
-    .with_event_sink(event_sink)
-    .with_record_writer(services.records.record_writer.clone());
+    .with_event_outputs(
+        EngineEventOutputs::new()
+            .with_live_event_sink(live_event_sink)
+            .with_run_record_writer(services.records.run_record_writer.clone()),
+    );
     Arc::new(launcher_impl)
 }
 

@@ -13,8 +13,8 @@ mod record;
 mod writer;
 
 pub use eos_types::WorkflowTaskRole;
-pub use error::{MessageRecordError, Result};
+pub use error::{AgentRunRecordError, Result};
 pub use handle::{AgentRunRecordHandle, NodeFinishStatus};
 pub use kind::{AgentRunRecordKind, AgentRunRecordStart};
 pub use record::{MessageAppendRange, NodeEvent, RecordBytes};
-pub use writer::AgentRecordWriter;
+pub use writer::AgentRunRecordWriter;

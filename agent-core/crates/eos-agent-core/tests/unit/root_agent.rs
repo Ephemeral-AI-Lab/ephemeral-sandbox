@@ -450,7 +450,7 @@ async fn root_run_writes_engine_owned_records() {
         ),
     ]);
     let (state, _dir) =
-        build_test_state_with_record_writer(Some(factory), vec![root_agent(), advisor_agent()])
+        build_test_state_with_run_record_writer(Some(factory), vec![root_agent(), advisor_agent()])
             .await;
     let request_id = RequestId::new_v4();
     let root_task_id = root_task_id_for(&request_id);
@@ -474,7 +474,7 @@ async fn root_run_writes_engine_owned_records() {
         .unwrap()
         .expect("root task-agent-run row exists");
     let record_dir = format_record_dir(&record_index);
-    let records = state.record_writer().expect("record writer configured");
+    let records = state.run_record_writer().expect("record writer configured");
     let events = records.read_events_at(&record_dir, 0).await.unwrap();
     let event_kinds: Vec<_> = events.iter().map(|event| event.kind.as_str()).collect();
     assert_eq!(event_kinds.first(), Some(&"node_started"));

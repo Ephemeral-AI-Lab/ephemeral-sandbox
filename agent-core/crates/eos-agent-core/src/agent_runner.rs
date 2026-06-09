@@ -39,7 +39,7 @@ pub(crate) struct RuntimeAgentRunner {
     /// task agent can start.
     workflow_service: Arc<OnceLock<Arc<dyn WorkflowApi>>>,
     /// Optional stream-event callback shared with the root request.
-    event_sink: Option<EngineEventSink>,
+    live_event_sink: Option<EngineEventSink>,
 }
 
 impl std::fmt::Debug for RuntimeAgentRunner {
@@ -54,14 +54,14 @@ impl RuntimeAgentRunner {
         workspace_root: impl Into<String>,
         attempt_submission: Arc<dyn WorkflowAttemptSubmissionApi>,
         workflow_service: Arc<OnceLock<Arc<dyn WorkflowApi>>>,
-        event_sink: Option<EngineEventSink>,
+        live_event_sink: Option<EngineEventSink>,
     ) -> Self {
         Self {
             services,
             workspace_root: workspace_root.into(),
             attempt_submission,
             workflow_service,
-            event_sink,
+            live_event_sink,
         }
     }
 }
@@ -88,7 +88,7 @@ impl AgentRunner for RuntimeAgentRunner {
             &self.services,
             self.attempt_submission.clone(),
             workflow_service,
-            self.event_sink.clone(),
+            self.live_event_sink.clone(),
         );
         let agent_runs = Arc::new(
             RunnerAgentRunService::new(
@@ -97,19 +97,7 @@ impl AgentRunner for RuntimeAgentRunner {
                 self.services.db.agent_run_store.clone(),
                 self.services.db.task_agent_run_store.clone(),
             )
-            .with_runtime_state_hooks(
-                {
-                    let agent_state = self.services.agent_state.clone();
-                    move |request: &eos_types::SpawnAgentRequest,
-                          created_run: &eos_types::CreatedTaskAgentRun| {
-                        agent_state.record_spawn_request(request, created_run)
-                    }
-                },
-                {
-                    let agent_state = self.services.agent_state.clone();
-                    move |agent_run_id| agent_state.remove(agent_run_id)
-                },
-            ),
+            .with_runtime_state(Arc::new(self.services.agent_state.clone())),
         );
         let failure_summary = match agent_runs
             .spawn_agent(SpawnAgentRequest {

@@ -9,7 +9,7 @@ use tokio::sync::{watch, Mutex};
 /// Registry of active in-process agent runs.
 #[derive(Clone, Default)]
 pub struct ActiveAgentRunRegistry {
-    inner: Arc<Mutex<HashMap<AgentRunId, ActiveAgentRunHandle>>>,
+    active_runs: Arc<Mutex<HashMap<AgentRunId, ActiveAgentRunHandle>>>,
 }
 
 impl std::fmt::Debug for ActiveAgentRunRegistry {
@@ -39,7 +39,7 @@ impl ActiveAgentRunRegistry {
         loop_cancellation: AgentLoopCancellationHandle,
     ) {
         let (completion_tx, _) = watch::channel(None);
-        self.inner.lock().await.insert(
+        self.active_runs.lock().await.insert(
             agent_run_id.clone(),
             ActiveAgentRunHandle {
                 agent_run_id,
@@ -50,7 +50,7 @@ impl ActiveAgentRunRegistry {
     }
 
     pub(crate) async fn take(&self, agent_run_id: &AgentRunId) -> Option<ActiveAgentRunCompletion> {
-        self.inner
+        self.active_runs
             .lock()
             .await
             .remove(agent_run_id)
@@ -65,7 +65,7 @@ impl ActiveAgentRunRegistry {
         &self,
         agent_run_id: &AgentRunId,
     ) -> Option<AgentRunOutcome> {
-        self.inner
+        self.active_runs
             .lock()
             .await
             .get(agent_run_id)
@@ -76,7 +76,7 @@ impl ActiveAgentRunRegistry {
         &self,
         agent_run_id: &AgentRunId,
     ) -> Result<watch::Receiver<Option<AgentRunOutcome>>, AgentRunError> {
-        self.inner
+        self.active_runs
             .lock()
             .await
             .get(agent_run_id)

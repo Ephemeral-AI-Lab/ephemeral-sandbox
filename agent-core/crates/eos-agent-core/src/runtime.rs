@@ -16,7 +16,7 @@ mod records;
 mod sandbox;
 mod state_reader;
 
-use eos_engine::records::AgentRecordWriter;
+use eos_engine::records::AgentRunRecordWriter;
 
 pub(crate) use agent_core_registry::AgentCoreRegistryService;
 pub(crate) use agent_loop::build_agent_loop_launcher;
@@ -76,8 +76,8 @@ impl AgentCoreRuntime {
 
     /// File-backed agent-node record reader/writer, when configured.
     #[must_use]
-    pub fn record_writer(&self) -> Option<AgentRecordWriter> {
-        self.records.record_writer.clone()
+    pub fn run_record_writer(&self) -> Option<AgentRunRecordWriter> {
+        self.records.run_record_writer.clone()
     }
 
     /// Flush and join the buffered audit writer thread, if any.

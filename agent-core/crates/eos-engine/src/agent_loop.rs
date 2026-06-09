@@ -6,7 +6,7 @@ mod launcher;
 mod state;
 
 pub use contracts::{
-    AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory, BackgroundSessionInputs,
+    AgentLoopToolRegistryBuildInput, AgentLoopToolRegistryFactory, BackgroundSessionRuntimeFactory,
     ExecutionMetadataBuildInput, ToolCallHookStores, ToolExecutionMetadataReader,
 };
 pub(crate) use eos_types::{

@@ -70,7 +70,7 @@ fn json_body(schema_name: &str) -> Value {
 /// `/collection/{id}` form (no `/collection={id}`).
 fn paths() -> Value {
     json!({
-        "/api/user-requests": {
+        "/api/agent-core/requests": {
             "post": {
                 "summary": "Accept a prompt and launch an agent-core run",
                 "requestBody": json_body("CreateUserRequest"),
@@ -81,7 +81,7 @@ fn paths() -> Value {
                 "responses": { "200": { "description": "page of run records" } },
             },
         },
-        "/api/user-requests/{request_id}": {
+        "/api/agent-core/requests/{request_id}": {
             "get": {
                 "summary": "Backend lifecycle joined with the agent-core outcome",
                 "responses": { "200": json_body("UserRequestDetail") },
@@ -95,49 +95,49 @@ fn paths() -> Value {
                 },
             },
         },
-        "/api/user-requests/{request_id}/events": {
+        "/api/agent-core/requests/{request_id}/events": {
             "get": {
                 "summary": "Replay persisted milestone events",
                 "responses": { "200": { "description": "milestone event records" } },
             },
         },
-        "/api/user-requests/{request_id}/stream": {
+        "/api/agent-core/requests/{request_id}/stream": {
             "get": {
                 "summary": "SSE-only milestone stream with replay from last_seq",
                 "responses": { "200": { "description": "server-sent event stream" } },
             },
         },
-        "/api/user-requests/{request_id}/tasks": {
+        "/api/agent-core/requests/{request_id}/tasks": {
             "get": {
                 "summary": "The request task tree from agent-core state",
                 "responses": { "200": { "description": "tasks" } },
             },
         },
-        "/api/tasks/{task_id}": {
+        "/api/agent-core/tasks/{task_id}": {
             "get": {
                 "summary": "Task detail and related agent run",
                 "responses": { "200": { "description": "task detail" } },
             },
         },
-        "/api/tasks/{task_id}/transcript": {
+        "/api/agent-core/tasks/{task_id}/transcript": {
             "get": {
                 "summary": "Model/tool transcript for a task",
                 "responses": { "200": { "description": "transcript" } },
             },
         },
-        "/api/agent-runs/{agent_run_id}/messages": {
+        "/api/agent-core/agent-runs/{agent_run_id}/messages": {
             "get": {
                 "summary": "Raw node-local messages.jsonl bytes for an agent run",
                 "responses": { "200": { "description": "application/x-ndjson messages" } },
             },
         },
-        "/api/agent-runs/{agent_run_id}/events": {
+        "/api/agent-core/agent-runs/{agent_run_id}/events": {
             "get": {
                 "summary": "Replay node-local events.jsonl rows for an agent run",
                 "responses": { "200": { "description": "agent-run node events" } },
             },
         },
-        "/api/agent-runs/{agent_run_id}/stream": {
+        "/api/agent-core/agent-runs/{agent_run_id}/stream": {
             "get": {
                 "summary": "SSE-only node-local event stream with replay from last_seq",
                 "responses": { "200": { "description": "server-sent event stream" } },
