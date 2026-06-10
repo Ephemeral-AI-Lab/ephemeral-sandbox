@@ -209,6 +209,26 @@ omissions:
     supervisor. No `WorkflowService` object crosses into `@eos/tool`, and
     the dependency graph stays acyclic with the runtime as the only
     package that holds both sides.
+19. **Every projection is a revision-stamped snapshot.** `workflows`
+    carries a monotonic `revision`, incremented in every mutation
+    transaction. Every rendered projection - launch evidence and
+    `query_workflow` output alike - opens with a stamp line
+    (`Context: workflow <id> @ revision <n>`), so an agent holding
+    launch-time context can tell it is reading a snapshot and compare it
+    against a live `query_workflow` read. Staleness stays possible (the
+    dependency semantics make it safe - `needs` are terminal before
+    launch); ambiguity about which view the model holds does not. The
+    stamp is an aggregate field, so renderers stay pure.
+20. **Only the current iteration renders rollups in the workflow brief.**
+    Retries multiply content: failed attempts x `max_attempts` x
+    iterations would otherwise all roll up into every planner launch.
+    Prior (terminal) iterations therefore collapse to their status line
+    plus terminal reference; only the current iteration renders in full -
+    which is exactly the working set: a retry planner needs the failed
+    attempts of its own iteration (kept), and a deferred-goal planner
+    needs to know prior iterations closed, not how. Prior-iteration
+    detail stays one `query_workflow` read away. This amends the
+    companion's content-plus-reference rule at those positions (§3).
 
 ## 3. Companion Spec Amendments
 
@@ -228,6 +248,8 @@ not listed here is implemented as written there.
 | §4 `Iteration.max_try` default 3 | `max_attempts` default 2 (Rust `AttemptBudget` parity); `delegate_workflow` may override | §6 |
 | §6 per-entity `render_spec()/render_brief()` methods | same contract as pure functions + combinators | §2.13, §2.15 |
 | §11 `read_workflow_context` / `search_workflow_context` | `query_workflow` (decision-14 naming); search deferred | §2.17, §11 |
+| §8 terminal briefs always render local content before their reference | prior (non-current) iterations inside `workflow/brief.md` collapse to status + reference only; their own files still render in full | §2.20 |
+| (no stamping) | every rendered projection opens with a workflow revision stamp | §2.19 |
 
 ## 4. Scope
 
@@ -284,7 +306,7 @@ const WorkflowEntityRunStatusSchema = z.enum([
   "NotStarted", "Running", "Success", "Failed", "Cancelled",
 ]);
 
-// Branded IDs with mint*/​*From factories:
+// Branded IDs with mint* / *From factories:
 // WorkflowId, IterationId, AttemptId, PlanId, WorkItemId
 
 const PlannerOutcomePayloadSchema = z.object({
@@ -319,7 +341,8 @@ Store (`packages/db/`): a `createDatabase(path | ":memory:")` factory
 migration, and a `WorkflowStore` owning every workflow query:
 
 ```text
-workflows    id PK, parent_run_id, goal, status, created_at, updated_at, closed_at
+workflows    id PK, parent_run_id, goal, status, revision, created_at,
+             updated_at, closed_at
 iterations   id PK, workflow_id, sequence, origin ('initial'|'deferred_goal'),
              goal, max_attempts, status, timestamps
 attempts     id PK, workflow_id, iteration_id, sequence, status, fail_reason,
@@ -333,7 +356,9 @@ launch_queue id PK, workflow_id, kind ('plan'|'work_item'), entity_id,
              state ('queued'|'claimed'), created_at
 ```
 
-Back-references are denormalized exactly as the companion's §4 table.
+Back-references are denormalized exactly as the companion's §4 table;
+`revision` increments in every mutation transaction and feeds the §2.19
+projection stamp.
 `WorkflowStore` exposes `transaction(fn)`, the per-entity mutations the
 orchestrator needs, `claimLaunchable(trx, workflowId)` (queued rows whose
 entity is launchable -> entity `Running` + row `claimed`, returned to the
@@ -373,9 +398,11 @@ following the companion §8 templates: parents call children with
 (companion invariant 6); `attemptSpec` inlines the full plan spec plus all
 work-item briefs, `attemptBrief` the plan brief plus leaf work-item briefs
 only (`leafWorkItems`: items no other item `needs`); workflow and
-iteration briefs render rollups without goals. `folder_path` values follow
-the companion §5 layout and are computed from the aggregate, never stored
-derivable-state-free in rendering.
+iteration briefs render rollups without goals, and the workflow brief
+collapses prior iterations to status + reference (§2.20). Every rendered
+projection opens with the §2.19 revision stamp. `folder_path` values
+follow the companion §5 layout and are computed from the aggregate, not
+stored - folder paths are presentation-only (§2.4).
 
 `context.ts` is the launch-context policy (§2.14), producing ordered user
 messages:
@@ -383,13 +410,19 @@ messages:
 ```text
 planner launch:
   1. workflow brief + current iteration brief        (evidence)
-  2. directive: iteration goal, max_attempts, prior-attempt failure
-     summaries when retrying, "submit via submit_planner_outcome"
+  2. directive: iteration goal, max_attempts; on retry, the failed
+     attempt's spec path with an explicit instruction to read it via
+     query_workflow before planning; "submit via submit_planner_outcome"
 
 worker launch:
   1. current attempt brief + dependency work-item briefs   (evidence)
   2. directive: own work_item_spec, "submit via submit_worker_outcome"
 ```
+
+The retry read instruction is deliberate, not advisory boilerplate: the
+brief compresses a failed attempt to one-line summaries, models
+under-escalate when injected context looks complete, and the failure
+detail is exactly what the next plan depends on.
 
 `query_workflow` resolves a companion-§5 relative path
 (`iteration_<id>/attempt_<id>/plan_<id>/spec.md`, default root
@@ -583,7 +616,11 @@ profile listing them in a runtime configured without `workflowDb` fails at
 ordinary Phase 04.5 profiles (`agent_kind: planner|worker`,
 `terminal_tool: submit_planner_outcome|submit_worker_outcome`,
 `allowed_tools` typically including `query_workflow`); the scheduler
-launches them by the `agent_name` recorded on the entity.
+launches them by the `agent_name` recorded on the entity. Rollup quality
+is profile policy, not framework: every ancestor brief is built from
+planner/worker `summary` fields, so shipped profiles should keep the
+Phase 04.5 worker pattern of routing `ask_advisor` at the exact terminal
+payload - summary fidelity included - before submission.
 
 Disposal needs no new wiring: the caller's engine-triggered
 `supervisor.dispose` reaches the workflow `SessionHandle.cancel`, which is
@@ -601,7 +638,8 @@ use the fixed reason `workflow_cancelled`; child transcripts record it as
 | Workflow context search | `query_workflow` is the single read entry; search is a second tool over the same aggregate |
 | Progress notifications (per-iteration transitions) | `inbox.publish` with `key = "workflow:<id>"` collapses stale progress by design; publishing site would be the reconcile job |
 | Workflow depth budget for sub-delegation | `parent_run_id` chains exist on `workflows`; a depth count is one recursive query in `delegate` |
-| Brief decay (older terminal iterations render status + reference only) and summary length caps | decay is a branch in `workflowBrief`/`iterationBrief`; caps are `max()` refinements on the payload schemas |
+| Summary length caps | `max()` refinements on the payload schema `summary` fields |
+| Unstructured per-entity notes (worker insight that fits no schema field; today it gets crammed into `outcome`) | one optional payload field + one column + one renderer heading - submission-gated and typed, never a writable context file |
 | Worker/planner steering mid-run | `LaunchedAgent` could expose `steer`; nothing consumes it yet |
 
 ## 12. Workspace Changes
@@ -680,11 +718,11 @@ only one that drives real `startRun` loops, over `MockLlmClient` scripts.
 | --- | --- | --- |
 | 1 | Contracts | payload schemas accept the documented shapes; reject empty work-item lists, dangling `needs` references handled at tool layer (case 11); IDs brand and mint |
 | 2 | Store round-trip | migration applies; `delegate` rows persist; `loadAggregate` returns the frozen ordered aggregate; `claimLaunchable` flips entity status and claims rows inside the transaction |
-| 3 | Renderers | the companion §12 rendering criteria as case tables: `NotStarted` briefs render only the status line; `Running` briefs render content without references; `Success`/`Failed`/`Cancelled` briefs append their own inline reference; attempt spec = plan spec + all item briefs; attempt brief = plan brief + leaf item briefs; workflow/iteration briefs omit goals; references never collect into a tail section; depth nesting emits correct heading levels with no rewriting |
+| 3 | Renderers | the companion §12 rendering criteria as case tables: `NotStarted` briefs render only the status line; `Running` briefs render content without references; `Success`/`Failed`/`Cancelled` briefs append their own inline reference; attempt spec = plan spec + all item briefs; attempt brief = plan brief + leaf item briefs; workflow/iteration briefs omit goals; references never collect into a tail section; depth nesting emits correct heading levels with no rewriting; prior iterations collapse to status + reference in the workflow brief; every projection opens with the workflow revision stamp |
 | 4 | Delegation launches the planner | `delegate` creates workflow/iteration/attempt/plan, commits, then launches: the scripted port records launch-after-commit ordering; the plan is `Running` with `agent_run_id` stamped; no manual launch step exists |
 | 5 | Planner materialization | a scripted planner settlement with a valid payload creates `NotStarted` work items, launches every root whose `needs` are empty, leaves dependents unlaunched; goals appear in the directive message, not the briefs |
 | 6 | Worker success cascade | a dependent becomes ready when its `needs` succeed and is launched automatically; all-success closes attempt and iteration; no deferred goal closes the workflow `Success`; a deferred goal creates the next iteration + attempt + plan and launches that planner |
-| 7 | Failure and retry | a failed worker closes the attempt `Failed` and creates a retry attempt + plan while `attempts < max_attempts` (default 2); exhaustion closes iteration and workflow `Failed` with `fail_reason` recorded |
+| 7 | Failure and retry | a failed worker closes the attempt `Failed` and creates a retry attempt + plan while `attempts < max_attempts` (default 2); exhaustion closes iteration and workflow `Failed` with `fail_reason` recorded; the retry planner's directive names the failed attempt's spec path |
 | 8 | Death synthesis | a planner settlement of `failed`, `cancelled`, or `completed`-without-submission synthesizes a failed submission through the same retry path; no entity stays `Running` |
 | 9 | Reconcile serialization | two worker settlements enqueued in the same tick reconcile strictly serially (instrumented store sees no interleaved transactions); the terminal resolves exactly once, after the closing commit |
 | 10 | Cancel cascade | `cancel` interrupts live child runs, awaits them, marks all non-terminal entities `Cancelled`, resolves the terminal `Cancelled`; a late natural settlement after cancel is a no-op (idempotent transitions) |
@@ -728,9 +766,10 @@ Phase 05 is accepted when:
   ready-work-item launch on materialization and on unblocking successes,
   retry attempts within `max_attempts`, deferred-goal iterations, terminal
   closes - all under the per-workflow serial reconcile queue,
-- rendering satisfies the companion §12 criteria (as amended) from pure
-  depth-parametric renderers, with `query_workflow` and launch context as
-  the two consumers and no projected files written,
+- rendering satisfies the companion §12 criteria (as amended, including
+  the §2.19 revision stamp and the §2.20 current-iteration-only workflow
+  rollup) from pure depth-parametric renderers, with `query_workflow` and
+  launch context as the two consumers and no projected files written,
 - a delegated workflow is exactly one supervisor session of the delegating
   run: settlement notification, auto-wait, the submission guard, model
   cancellation, and the caller disposal cascade all work through the one
