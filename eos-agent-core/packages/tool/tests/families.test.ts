@@ -42,7 +42,7 @@ const register = (
   describe?: string,
 ): ReturnType<typeof scriptedSessionHandle> => {
   const session = scriptedSessionHandle(describe);
-  supervisor.register({ type, id }, toolUseIdFrom(`tu_${id}`), session.handle);
+  supervisor.register({ type, id }, session.handle);
   return session;
 };
 

@@ -154,7 +154,6 @@ describe("agent loop", () => {
     const session = sessionHandle();
     supervisor.register(
       { type: "command", id: "c1" },
-      toolUseIdFrom("tu_bg"),
       session.handle,
     );
     const tools = scriptedExecutor(["submit", submitHandler(SUBMISSION)]);
@@ -193,7 +192,6 @@ describe("agent loop", () => {
     const session = sessionHandle();
     supervisor.register(
       { type: "command", id: "c9" },
-      toolUseIdFrom("tu_bg"),
       session.handle,
     );
     const tools = scriptedExecutor(["submit", submitHandler(SUBMISSION)]);
@@ -671,7 +669,6 @@ describe("agent loop", () => {
     const session = sessionHandle();
     supervisor.register(
       { type: "command", id: "c1" },
-      toolUseIdFrom("tu_bg"),
       session.handle,
     );
     const tools = scriptedExecutor(["submit", submitHandler(SUBMISSION)]);
@@ -713,12 +710,10 @@ describe("agent loop", () => {
     const second = sessionHandle({ cancelMode: "hang" });
     supervisor.register(
       { type: "command", id: "c1" },
-      toolUseIdFrom("tu_a"),
       first.handle,
     );
     supervisor.register(
       { type: "subagent", id: "r2" },
-      toolUseIdFrom("tu_b"),
       second.handle,
     );
     const { client, handle } = startMockRun(
@@ -737,7 +732,6 @@ describe("agent loop", () => {
     const late = sessionHandle();
     supervisor.register(
       { type: "command", id: "late" },
-      toolUseIdFrom("tu_c"),
       late.handle,
     );
     expect(late.cancelled, "the dispose latch cancels late registrations").toEqual([

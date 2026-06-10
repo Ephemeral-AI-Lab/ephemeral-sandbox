@@ -1,7 +1,7 @@
 //! The caller-workspace feature: file ops, command-session runs, the isolated
 //! lifecycle, and the cross-substrate cancel surface.
 //!
-//! A workspace run composes the `eos-workspace-runtime` substrate with the
+//! A workspace run composes the `eos-command-ops` tier with the
 //! daemon-resident seams (OCC publish, resource telemetry, isolated-audit
 //! sink). Each family submodule owns its dispatcher handlers; [`cancel`] is
 //! the coordinator that tears down a caller's command sessions and isolated

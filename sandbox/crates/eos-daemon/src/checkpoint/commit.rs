@@ -11,7 +11,7 @@ use eos_overlay::{
     allocate_overlay_writable_dirs, mount_overlay, overlay_writable_root, OverlayError,
     OverlayHandle, OverlayMount,
 };
-use eos_workspace_runtime::contract::usize_to_f64_saturating;
+use crate::response_timings::usize_to_f64_saturating;
 
 use super::{CheckpointError, CommitOutcome, CommitRequest};
 

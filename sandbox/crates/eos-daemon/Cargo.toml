@@ -9,12 +9,12 @@ license.workspace = true
 eos-command-session.workspace = true
 eos-command-ops.workspace = true
 eos-ephemeral-workspace.workspace = true
+eos-file-ops.workspace = true
 eos-isolated-workspace.workspace = true
 eos-namespace.workspace = true
 eos-config.workspace = true
 eos-layerstack.workspace = true
 eos-overlay.workspace = true
-eos-workspace-runtime.workspace = true
 eos-plugin.workspace = true
 # preserve_order is contract-load-bearing: request `args` keys must cross
 # the wire in insertion order for byte-stable envelope round-trips.

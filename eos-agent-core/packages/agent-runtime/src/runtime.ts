@@ -214,7 +214,7 @@ function createRuntime(ctx: RuntimeContext): AgentRuntime {
       ...terminalDefinitions,
     ];
     const definitions = selectProfileDefinitions(profile, availableDefinitions);
-    validateAdvisorySelection(profile, definitions);
+    validateAdvisoryToolAccess(profile, definitions);
 
     // No inbox parameter (decision 11): hook context rides result metadata
     // and the engine publishes it; tools and the executor never see the inbox.
@@ -290,11 +290,10 @@ function advisorPromptLookup(
   return prompts;
 }
 
-function validateAdvisorySelection(
-  profile: { name: string; agent_kind: string },
+function validateAdvisoryToolAccess(
+  profile: { name: string },
   definitions: readonly ToolDefinition[],
 ): void {
-  if (profile.agent_kind === "advisor") return;
   const requiresAdvisory = definitions.some(
     (definition) => definition.isAdvisoryRequired,
   );

@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { toolUseIdFrom } from "@eos/contracts";
-
 import { BackgroundSupervisor } from "../src/background/supervisor.js";
 import {
   NotificationInbox,
@@ -10,7 +8,6 @@ import {
 import { must, sessionHandle, tick } from "./support.js";
 
 const REF = { type: "command", id: "c1" };
-const SPAWNED_BY = toolUseIdFrom("tu_spawn");
 
 function setup(): { inbox: NotificationInbox; supervisor: BackgroundSupervisor } {
   const inbox = new NotificationInbox();
@@ -21,7 +18,7 @@ describe("BackgroundSupervisor", () => {
   it("publishes one settlement, marks delivered on drain, then evicts (§15.6)", async () => {
     const { inbox, supervisor } = setup();
     const session = sessionHandle({ describe: "npm test" });
-    supervisor.register(REF, SPAWNED_BY, session.handle);
+    supervisor.register(REF, session.handle);
     expect(supervisor.liveCount(), "running counts live").toBe(1);
     expect(supervisor.openCount(), "running counts open").toBe(1);
     const runningRow = must(supervisor.list().at(0));
@@ -59,7 +56,7 @@ describe("BackgroundSupervisor", () => {
   it("maps a rejected settled promise to failed with the error as summary (§15.6)", async () => {
     const { inbox, supervisor } = setup();
     const session = sessionHandle();
-    supervisor.register(REF, SPAWNED_BY, session.handle);
+    supervisor.register(REF, session.handle);
     session.fail(new Error("child run exploded"));
     await tick();
     expect(must(supervisor.list().at(0))).toMatchObject({
@@ -79,7 +76,7 @@ describe("BackgroundSupervisor", () => {
   it("publishes cancelled and ignores the late natural settle (§15.7)", async () => {
     const { inbox, supervisor } = setup();
     const session = sessionHandle();
-    supervisor.register(REF, SPAWNED_BY, session.handle);
+    supervisor.register(REF, session.handle);
     expect(await supervisor.cancel(REF, "user asked")).toBe(true);
     expect(session.cancelled, "teardown invoked with the reason").toEqual([
       "user asked",
@@ -104,7 +101,7 @@ describe("BackgroundSupervisor", () => {
     const { supervisor } = setup();
     expect(await supervisor.cancel({ type: "command", id: "ghost" }, "x")).toBe(false);
     const session = sessionHandle();
-    supervisor.register(REF, SPAWNED_BY, session.handle);
+    supervisor.register(REF, session.handle);
     session.settle({ status: "completed", summary: "done" });
     await tick();
     expect(await supervisor.cancel(REF, "x"), "settled is not cancellable").toBe(false);
@@ -115,8 +112,8 @@ describe("BackgroundSupervisor", () => {
     const { inbox, supervisor } = setup();
     const first = sessionHandle();
     const second = sessionHandle();
-    supervisor.register(REF, SPAWNED_BY, first.handle);
-    supervisor.register({ type: "subagent", id: "r2" }, SPAWNED_BY, second.handle);
+    supervisor.register(REF, first.handle);
+    supervisor.register({ type: "subagent", id: "r2" }, second.handle);
     await supervisor.dispose("run finished");
     expect(first.cancelled).toEqual(["run finished"]);
     expect(second.cancelled).toEqual(["run finished"]);
@@ -124,7 +121,7 @@ describe("BackgroundSupervisor", () => {
     expect(inbox.drain(), "dispose publishes nothing").toEqual([]);
 
     const late = sessionHandle();
-    supervisor.register({ type: "command", id: "late" }, SPAWNED_BY, late.handle);
+    supervisor.register({ type: "command", id: "late" }, late.handle);
     expect(late.cancelled, "late registration cancelled by the latch").toEqual([
       "run finished",
     ]);

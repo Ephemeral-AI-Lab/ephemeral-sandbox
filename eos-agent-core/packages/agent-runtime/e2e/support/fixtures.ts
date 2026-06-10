@@ -43,6 +43,12 @@ const TERMINAL_SUBMISSION_TOOL_NAMES = [
   "submit_subagent_outcome",
 ] as const;
 
+const ADVISORY_REQUIRED_SUBMISSION_TOOL_NAMES = new Set<string>([
+  "submit_main_outcome",
+  "submit_planner_outcome",
+  "submit_worker_outcome",
+]);
+
 export function noOpenBackgroundSessionsHookPath(): string {
   return join(
     dirname(fileURLToPath(import.meta.url)),
@@ -82,6 +88,14 @@ export const HELPER_BODY = [
   "Immediately call submit_subagent_outcome exactly once with summary set to",
   'exactly "helper finished". Do not call any other tool.',
 ].join(" ");
+
+export function advisoryReadyProfile(spec: ProfileSpec): ProfileSpec {
+  const terminal = spec.terminal ?? `submit_${spec.kind}_outcome`;
+  if (!ADVISORY_REQUIRED_SUBMISSION_TOOL_NAMES.has(terminal)) return spec;
+  const allowed = spec.allowed ?? [];
+  if (allowed.includes("ask_advisor")) return spec;
+  return { ...spec, allowed: [...allowed, "ask_advisor"] };
+}
 
 // --- mocked tools ------------------------------------------------------------
 
@@ -234,7 +248,9 @@ export function runtimeFixture(options: RuntimeFixtureOptions): RuntimeFixture {
   const root = tempDir("eos-agent-runtime-e2e-");
   const profilesDir = join(root, "profiles");
   mkdirSync(profilesDir, { recursive: true });
-  for (const spec of options.profiles) writeProfile(profilesDir, spec);
+  for (const spec of options.profiles) {
+    writeProfile(profilesDir, advisoryReadyProfile(spec));
+  }
   const hookConfigPath = join(root, "hooks.json");
   if (options.hookEntries !== undefined) {
     writeFileSync(hookConfigPath, JSON.stringify(options.hookEntries));

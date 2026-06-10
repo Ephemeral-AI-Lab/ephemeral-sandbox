@@ -3,19 +3,15 @@
 use std::path::PathBuf;
 
 use eos_config::configs::daemon::{MAX_FILE_BYTES, MAX_READ_BYTES};
-use eos_workspace_runtime::contract::{
-    EditFileOutcome, EditFileRequest, ReadFileOutcome, ReadFileRequest, SearchReplaceEdit,
-    WorkspaceApiError, WorkspaceConflict, WorkspaceFileOps, WorkspaceMode, WriteFileOutcome,
-    WriteFileRequest,
+use eos_file_ops::{
+    edit_file, read_file, write_file, DirectBackend, EditFileOutcome, EditFileRequest,
+    FileOpsError, ReadFileOutcome, ReadFileRequest, SearchReplaceEdit, WorkspaceConflict,
+    WorkspaceMode, WriteFileOutcome, WriteFileRequest,
 };
-use eos_workspace_runtime::ephemeral::EphemeralWorkspaceOps;
 #[cfg(target_os = "linux")]
-use eos_workspace_runtime::isolated::IsolatedWorkspaceOps;
+use eos_file_ops::IsolatedBackend;
 use serde_json::{json, Value};
 
-use super::ports::EphemeralFilePorts;
-#[cfg(target_os = "linux")]
-use super::ports::IsolatedFilePorts;
 use crate::dispatcher::DispatchContext;
 use crate::error::DaemonError;
 use crate::request_args::{require_raw_string, require_string};
@@ -27,18 +23,13 @@ pub(crate) fn op_read_file(
 ) -> Result<Value, DaemonError> {
     let request = read_request(args, context)?;
     #[cfg(target_os = "linux")]
-    if let Some(handle) = crate::workspace::isolated::command_handle_for_args(args) {
-        let ports = IsolatedFilePorts::new(handle);
-        let outcome = IsolatedWorkspaceOps::new(ports.clone())
-            .read_file(request)
-            .map_err(workspace_error)?;
-        ports.record_read_file();
+    if let Some(binding) = crate::workspace::isolated::command_handle_for_args(args) {
+        let outcome = read_file(&isolated_backend(&binding), request).map_err(workspace_error)?;
+        crate::workspace::isolated::touch_isolated(&binding.caller_id);
         return Ok(read_response(outcome));
     }
     let root = PathBuf::from(require_string(args, "layer_stack_root")?);
-    let outcome = EphemeralWorkspaceOps::new(EphemeralFilePorts::new(root))
-        .read_file(request)
-        .map_err(workspace_error)?;
+    let outcome = read_file(&DirectBackend::new(root), request).map_err(workspace_error)?;
     Ok(read_response(outcome))
 }
 
@@ -49,16 +40,13 @@ pub(crate) fn op_write_file(
 ) -> Result<Value, DaemonError> {
     let request = write_request(args, context)?;
     #[cfg(target_os = "linux")]
-    if let Some(handle) = crate::workspace::isolated::command_handle_for_args(args) {
-        let outcome = IsolatedWorkspaceOps::new(IsolatedFilePorts::new(handle))
-            .write_file(request)
-            .map_err(workspace_error)?;
+    if let Some(binding) = crate::workspace::isolated::command_handle_for_args(args) {
+        let outcome = write_file(&isolated_backend(&binding), request).map_err(workspace_error)?;
+        crate::workspace::isolated::touch_isolated(&binding.caller_id);
         return Ok(write_response(outcome));
     }
     let root = PathBuf::from(require_string(args, "layer_stack_root")?);
-    let outcome = EphemeralWorkspaceOps::new(EphemeralFilePorts::new(root))
-        .write_file(request)
-        .map_err(workspace_error)?;
+    let outcome = write_file(&DirectBackend::new(root), request).map_err(workspace_error)?;
     Ok(write_response(outcome))
 }
 
@@ -69,16 +57,13 @@ pub(crate) fn op_edit_file(
 ) -> Result<Value, DaemonError> {
     let request = edit_request(args)?;
     #[cfg(target_os = "linux")]
-    if let Some(handle) = crate::workspace::isolated::command_handle_for_args(args) {
-        let outcome = IsolatedWorkspaceOps::new(IsolatedFilePorts::new(handle))
-            .edit_file(request)
-            .map_err(workspace_error)?;
+    if let Some(binding) = crate::workspace::isolated::command_handle_for_args(args) {
+        let outcome = edit_file(&isolated_backend(&binding), request).map_err(workspace_error)?;
+        crate::workspace::isolated::touch_isolated(&binding.caller_id);
         return Ok(edit_response(outcome));
     }
     let root = PathBuf::from(require_string(args, "layer_stack_root")?);
-    let outcome = EphemeralWorkspaceOps::new(EphemeralFilePorts::new(root))
-        .edit_file(request)
-        .map_err(workspace_error)?;
+    let outcome = edit_file(&DirectBackend::new(root), request).map_err(workspace_error)?;
     Ok(edit_response(outcome))
 }
 
@@ -189,7 +174,7 @@ struct GuardedWireResponse {
     changed_paths: Vec<String>,
     changed_path_kinds: std::collections::BTreeMap<String, String>,
     mutation_source: String,
-    timings: eos_workspace_runtime::contract::WorkspaceTimings,
+    timings: eos_file_ops::WorkspaceTimings,
     applied_edits: Option<i64>,
 }
 
@@ -228,6 +213,21 @@ fn mode(mode: WorkspaceMode) -> &'static str {
     mode.as_str()
 }
 
-fn workspace_error(error: WorkspaceApiError) -> DaemonError {
+fn workspace_error(error: FileOpsError) -> DaemonError {
     DaemonError::InvalidEnvelope(error.to_string())
+}
+
+/// Build the isolated file backend from the caller's open binding.
+#[cfg(target_os = "linux")]
+fn isolated_backend(
+    binding: &crate::workspace::isolated::IsolatedCommandHandle,
+) -> IsolatedBackend {
+    IsolatedBackend {
+        layer_stack_root: binding.layer_stack_root.clone(),
+        workspace_root: binding.workspace_root.clone(),
+        upperdir: binding.upperdir.clone(),
+        layer_paths: binding.layer_paths.clone(),
+        manifest_version: binding.manifest_version,
+        manifest_root_hash: binding.manifest_root_hash.clone(),
+    }
 }

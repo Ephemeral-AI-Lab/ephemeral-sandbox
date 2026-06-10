@@ -22,7 +22,7 @@ fn session_exposes_identity_and_expiry() {
 #[test]
 fn reap_reads_transcript_and_persist_removes_it() -> Result<(), Box<dyn std::error::Error>> {
     let root = std::env::temp_dir().join(format!(
-        "eos-workspace-runtime-reap-{}-{}",
+        "eos-command-session-reap-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?

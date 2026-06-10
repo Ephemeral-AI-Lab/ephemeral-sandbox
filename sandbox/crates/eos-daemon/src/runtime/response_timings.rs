@@ -6,9 +6,14 @@ use std::time::Instant;
 use eos_layerstack::Manifest;
 use eos_namespace::protocol::RunResult;
 use eos_layerstack::ChangesetResult;
-use eos_workspace_runtime::contract::{
-    u64_to_f64_saturating, usize_to_f64_saturating, WorkspaceTimings,
-};
+
+pub(crate) fn u64_to_f64_saturating(value: u64) -> f64 {
+    u32::try_from(value).map_or_else(|_| f64::from(u32::MAX), f64::from)
+}
+
+pub(crate) fn usize_to_f64_saturating(value: usize) -> f64 {
+    u32::try_from(value).map_or_else(|_| f64::from(u32::MAX), f64::from)
+}
 use serde_json::{json, Value};
 
 #[derive(Clone, Copy, Debug)]
@@ -80,10 +85,6 @@ pub(crate) fn merge_runner_timings(
             .entry("command_exec.run_command_s".to_owned())
             .or_insert(value);
     }
-}
-
-pub(crate) fn timing_map(timings: serde_json::Map<String, Value>) -> WorkspaceTimings {
-    timings.into_iter().collect()
 }
 
 pub(crate) fn guarded_changeset_response(

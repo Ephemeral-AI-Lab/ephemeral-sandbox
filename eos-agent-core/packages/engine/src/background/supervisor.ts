@@ -1,5 +1,3 @@
-import type { ToolUseId } from "@eos/contracts";
-
 import {
   systemNotificationMessage,
   type NotificationInbox,
@@ -59,11 +57,8 @@ export class BackgroundSupervisor {
    * unhandled. After `dispose()` the supervisor is latched: a late
    * registration (an abandoned `execute()` continuation finishing after an
    * abort) is immediately cancelled and nothing is registered or published.
-   *
-   * `spawnedBy` is part of the registration contract; its reader is the
-   * transcript/observability layer, so nothing here consumes it yet.
    */
-  register(ref: SessionRef, spawnedBy: ToolUseId, handle: SessionHandle): void {
+  register(ref: SessionRef, handle: SessionHandle): void {
     if (this.#disposedReason !== undefined) {
       handle.settled.catch(() => undefined);
       void handle.cancel(this.#disposedReason).catch(() => undefined);

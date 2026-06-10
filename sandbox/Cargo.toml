@@ -7,8 +7,8 @@ members = [
     "crates/eosd",
     "crates/eos-daemon",
     "crates/eos-ephemeral-workspace",
+    "crates/eos-file-ops",
     "crates/eos-isolated-workspace",
-    "crates/eos-workspace-runtime",
     "crates/eos-namespace",
     "crates/eos-layerstack",
     "crates/eos-overlay",
@@ -56,10 +56,10 @@ eos-command-ops = { path = "crates/eos-command-ops" }
 eos-command-session = { path = "crates/eos-command-session" }
 eos-config = { path = "crates/eos-config" }
 eos-ephemeral-workspace = { path = "crates/eos-ephemeral-workspace" }
+eos-file-ops = { path = "crates/eos-file-ops" }
 eos-isolated-workspace = { path = "crates/eos-isolated-workspace" }
 eos-layerstack = { path = "crates/eos-layerstack" }
 eos-overlay = { path = "crates/eos-overlay" }
-eos-workspace-runtime = { path = "crates/eos-workspace-runtime" }
 eos-plugin = { path = "crates/eos-plugin" }
 eos-namespace = { path = "crates/eos-namespace" }
 eos-daemon = { path = "crates/eos-daemon" }

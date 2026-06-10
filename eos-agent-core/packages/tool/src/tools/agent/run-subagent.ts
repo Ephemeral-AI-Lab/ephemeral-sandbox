@@ -29,7 +29,7 @@ export function runSubagentTool(
     description:
       "Start the named agent as a detached background run on the given prompt. Returns its run_id immediately; the outcome arrives later as a session_settled notification.",
     input: RunSubagentInputSchema,
-    execute: (input, ctx) => {
+    execute: (input) => {
       // Deliberately NO signal: a detached run gets a fresh abort root and
       // never dies with the caller's turn. Cancellation reaches it only
       // through the §8 disposal cascade or cancel_background_session.
@@ -39,7 +39,6 @@ export function runSubagentTool(
       });
       supervisor.register(
         { type: "subagent", id: subagent.runId },
-        ctx.meta.tool_use_id,
         {
           settled: subagent.handle.outcome.then(mapSubagentOutcome),
           cancel: async (reason) => {

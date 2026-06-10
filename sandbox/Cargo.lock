@@ -206,12 +206,12 @@ dependencies = [
  "eos-command-session",
  "eos-config",
  "eos-ephemeral-workspace",
+ "eos-file-ops",
  "eos-isolated-workspace",
  "eos-layerstack",
  "eos-namespace",
  "eos-overlay",
  "eos-plugin",
- "eos-workspace-runtime",
  "nix 0.29.0",
  "proptest",
  "serde",
@@ -240,6 +240,16 @@ version = "0.1.0"
 dependencies = [
  "eos-overlay",
  "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "eos-file-ops"
+version = "0.1.0"
+dependencies = [
+ "eos-layerstack",
+ "serde",
+ "serde_json",
  "thiserror 2.0.18",
 ]
 
@@ -318,27 +328,6 @@ dependencies = [
  "anyhow",
  "serde_json",
  "thiserror 2.0.18",
-]
-
-[[package]]
-name = "eos-workspace-runtime"
-version = "0.1.0"
-dependencies = [
- "eos-command-session",
- "eos-config",
- "eos-namespace",
- "eos-overlay",
- "futures-util",
- "libc",
- "netlink-sys",
- "nix 0.29.0",
- "rtnetlink",
- "rustix 0.38.44",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "time",
- "tokio",
 ]
 
 [[package]]

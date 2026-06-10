@@ -25,6 +25,7 @@ import {
 import {
   SLEEPER_BODY,
   TERSE_BODY,
+  advisoryReadyProfile,
   noOpenBackgroundSessionsHookEntries,
   submissionOf,
   toolResultsIn,
@@ -41,7 +42,9 @@ function runtimeFixture(options: FixtureOptions): AgentRuntime {
   const root = tempDir("eos-submission-prehook-e2e-");
   const profilesDir = join(root, "profiles");
   mkdirSync(profilesDir, { recursive: true });
-  for (const profile of options.profiles) writeProfile(profilesDir, profile);
+  for (const profile of options.profiles) {
+    writeProfile(profilesDir, advisoryReadyProfile(profile));
+  }
   const hookConfigPath = join(root, "hooks.json");
   writeFileSync(
     hookConfigPath,

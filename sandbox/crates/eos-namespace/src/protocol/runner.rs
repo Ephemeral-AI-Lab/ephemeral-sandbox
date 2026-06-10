@@ -5,8 +5,8 @@
 //! payload, the fresh-ns request file, and the setns stdin payload. The verb-specific `args`
 //! stay an opaque [`serde_json::Value`] here (the runner forwards them verbatim
 //! to the in-namespace tool primitive); the typed per-verb args/results are the
-//! daemon's concern (decoded into `eos-workspace-runtime` contract and
-//! runtime types), not modeled here.
+//! daemon's concern (decoded into the command/file tool-crate types), not
+//! modeled here.
 //!
 //! The crate that executes the protocol owns it: the tokio daemon (and the
 //! command-ops tier) build requests and parse results by depending on this
