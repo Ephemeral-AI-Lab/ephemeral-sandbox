@@ -68,21 +68,20 @@ live; nothing under `agent-core/` changes.
    server-phase concern.
 6. **Subagent and advisor execution are just `startRun`.** `startRun` is
    `agent_name` driven, not a separate spawn helper and not
-   `AgentType`-parameterized. `run_subagent` passes its requested
+   `AgentKind`-parameterized. `run_subagent` passes its requested
    `agent_name` to `startRun(...)`, registers `handle.outcome.then(...)`
    with the background supervisor, and returns immediately. `ask_advisor`
    calls `startRun(...)` with `agent_name: "advisor"`, awaits
    `handle.outcome`, and returns the advisor submission as the tool
    result. No second execution path exists.
-7. **The public runtime vocabulary is agent name.** `AgentType` stays as
-   profile data (`agent_type: main | planner | worker | subagent |
+7. **The public runtime vocabulary is agent name.** `AgentKind` stays as
+   profile data (`agent_kind: main | planner | worker | subagent |
    advisor`) and as a derived run fact, but callers do not pass it to
-   `startRun`. If earlier TypeScript phases still expose `AgentKind`, align
-   that contract name before implementing this phase.
+   `startRun`.
 8. **Profiles resolve before engine start.** `startRun` loads the
    named agent profile from the runtime's `AgentProfileRegistry` before
-   constructing the engine input. Profile data contributes the agent type,
-   LLM client id, system prompt, max turns, allowed tools, and derived
+   constructing the engine input. Profile data contributes the agent kind,
+   LLM client id, system prompt, max turns, allowed tools, and explicit
    terminal tool. The runtime resolves `llm_client_id` through
    `.eos-agents/llm_clients.json` to get the configured client, auth
    source, model id, and reasoning effort. Tool selection is assembled by
@@ -181,15 +180,14 @@ profile with Zod, rejects duplicate `name` values, and exposes lookup by
 `agent_name` only:
 
 ```ts
-type AgentType = "main" | "planner" | "worker" | "subagent" | "advisor";
-
 interface AgentProfile {
   name: AgentName;
   description: string;
   llm_client_id: string;
   max_turns: number;
-  agent_type: AgentType;
+  agent_kind: AgentKind;
   allowed_tools: readonly ToolName[];
+  terminal_tool: ToolName;
   systemPrompt: string;                    // Markdown body after frontmatter
   source_path: string;                     // diagnostics only, never API input
 }
@@ -208,14 +206,19 @@ name: worker
 description: Worker
 llm_client_id: codex_coding_plan
 max_turns: 100
-agent_type: worker
+agent_kind: worker
 allowed_tools:
-  - read_file
-  - write_file
-  - edit_file
+  - read
+  - multi_read
+  - write
+  - edit
   - exec_command
-  - write_stdin
+  - command_stdin
+  - read_command_transcript
+  - list_background_sessions
+  - cancel_background_session
   - ask_advisor
+terminal_tool: submit_worker_outcome
 ---
 
 You are the worker for one assigned work item.
@@ -230,13 +233,16 @@ Before terminal submission, call `ask_advisor` with
 send.
 ```
 
-`allowed_tools` names ordinary non-terminal tools to expose. The runtime
-derives exactly one terminal submission tool from `agent_type`
-(`submit_<agent_type>_outcome`) and adds it after allowlist validation; the
-model never chooses the terminal through a separate profile field. The
-loader does not infer ordinary tools from prose: if the profile body tells
-the agent to call `ask_advisor`, `allowed_tools` must include
-`ask_advisor`.
+`allowed_tools` names ordinary non-terminal tools to expose. `terminal_tool`
+names exactly one terminal tool to expose, separate from the allowlist. The
+runtime validates that every `allowed_tools` entry resolves to a non-terminal
+definition, `terminal_tool` resolves to exactly one terminal definition, and
+the terminal name is not also listed under `allowed_tools`. The loader does
+not infer ordinary tools from prose: if the profile body tells the agent to
+call `ask_advisor`, `allowed_tools` must include `ask_advisor`.
+`terminalToolDefinitions(supervisor)` is a name-keyed inventory of terminal
+definitions; it is not keyed by `AgentKind`, and the profile selects the
+terminal by `terminal_tool`.
 
 `llm-client-registry.ts` loads `.eos-agents/llm_clients.json`, validates it
 with Zod, and exposes lookup by `llm_client_id`:
@@ -294,7 +300,7 @@ interface StartRunContext {
 function startRun(params: StartRunParams, context: StartRunContext = {}): StartedRun {
   const profile = agent_profile_registry.require(params.agent_name);
   const llm = llm_client_registry.require(profile.llm_client_id);
-  if (profile.agent_type === "main" && context.caller_run_id !== undefined) {
+  if (profile.agent_kind === "main" && context.caller_run_id !== undefined) {
     throw new TypeError("main profiles can only be started externally");
   }
 
@@ -305,14 +311,14 @@ function startRun(params: StartRunParams, context: StartRunContext = {}): Starte
 
   const runState = createAgentRunState({
     run_id,
-    agentType: profile.agent_type,
+    kind: profile.agent_kind,
     caller_run_id: context.caller_run_id,
     agent_name: profile.name,
     transcript_path,
   });
   registry.add(runState);
 
-  const definitions = [
+  const availableDefinitions = [
     ...(dependencies.baseTools ?? []),
     ...agentTools(
       {
@@ -323,8 +329,9 @@ function startRun(params: StartRunParams, context: StartRunContext = {}): Starte
       supervisor,
     ),
     ...backgroundTools(supervisor),
-    submissionTool(profile.agent_type, supervisor),
+    ...terminalToolDefinitions(supervisor),
   ];
+  const definitions = selectProfileDefinitions(profile, availableDefinitions);
 
   const tools = buildToolExecutor({
     runState,
@@ -374,16 +381,17 @@ function startRun(params: StartRunParams, context: StartRunContext = {}): Starte
                                                  // subscribes for delivery
 6. transcript_path = runs/<run_id>/transcript.jsonl
 7. runState = createAgentRunState({ run_id,
-     agentType: profile.agent_type,
+     kind: profile.agent_kind,
      caller_run_id: internal caller_run_id,
      agent_name: profile.name, transcript_path }) // Phase 04 §2.19
    registry.add(runState)                        // facts stored once
-8. definitions = [
+8. availableDefinitions = [
      ...(dependencies.baseTools ?? []),
      ...agentTools({ startRun, resolveTranscriptPath, readTranscriptFile }, supervisor),
      ...backgroundTools(supervisor),
-     submissionTool(profile.agent_type, supervisor),
+     ...terminalToolDefinitions(supervisor),
    ]
+   definitions = selectProfileDefinitions(profile, availableDefinitions)
    tools = buildToolExecutor({ runState, definitions, inbox, hookEngine })
 9. handle = startAgentRun({ llmClient: llm.client, tools, notifications: inbox,
      background: supervisor, systemPrompt: profile.systemPrompt,
@@ -525,7 +533,7 @@ function createAgentRuntime(dependencies: AgentRuntimeDependencies): AgentRuntim
 interface AgentRuntime {
   startRun(params: StartRunParams): StartedRun;
   getRun(runId: AgentRunId): StartedRun | undefined;
-  listRuns(): ReadonlyArray<{ run_id, agentType, agent_name, status, caller_run_id? }>;
+  listRuns(): ReadonlyArray<{ run_id, agent_kind, agent_name, status, caller_run_id? }>;
 }
 ```
 
@@ -608,7 +616,7 @@ network, real files only under a temp `dataDir`.
 
 | # | Case | Asserts |
 | --- | --- | --- |
-| 1 | Profile loader / registry | the worker-format Markdown profile loads by `agent_name`; duplicate `name`, missing `llm_client_id`, invalid `max_turns`, and unknown tool names fail before any run starts |
+| 1 | Profile loader / registry | the worker-format Markdown profile loads by `agent_name`; duplicate `name`, missing `llm_client_id`, invalid `max_turns`, unknown `allowed_tools`, unknown/non-terminal `terminal_tool`, and `terminal_tool` duplicated under `allowed_tools` fail before any run starts |
 | 2 | LLM client registry | `llm_clients.json` loads the Codex coding-plan entry, reads the configured Codex auth file without persisting the token, and rejects missing client ids referenced by profiles |
 | 3 | Wiring order | a `startRun` smoke run produces transcript lines, drains a notification, and observes the engine-triggered dispose on finish (spy ordering matches §4) |
 | 4 | Submission end-to-end | scripted main run calls `submit_main_outcome`; `outcome.submission` carries the payload; transcript `run_finished` line matches |
