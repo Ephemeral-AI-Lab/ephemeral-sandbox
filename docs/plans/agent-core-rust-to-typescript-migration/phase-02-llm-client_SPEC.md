@@ -1,6 +1,6 @@
 # EOS Agent Core Rust to TypeScript Migration - Phase 02 LLM Client
 
-Status: Proposed
+Status: Completed
 Date: 2026-06-10
 Owner: eos-agent-core
 Migration direction: Rust -> TypeScript
@@ -498,10 +498,10 @@ Phase 02 is accepted when:
 
 | Step | Status | Required proof |
 | --- | --- | --- |
-| Contracts minimum DTOs + schemas | Pending | Round-trip + rejection tests green; cut fields absent |
-| Errors, types, events, secret, config | Pending | Mapping + redaction + default tests green |
-| Retry gate (signal- and retry-after-aware) | Pending | Six ported + two new retry cases green |
-| Anthropic provider + fixtures | Pending | Golden decode parity via injected fetch; §5 encode tests green |
-| OpenAI provider + fixtures | Pending | Same battery for the OpenAI column green |
-| Workspace wiring + exports | Pending | `pnpm run check` green from `eos-agent-core/` |
-| Index updated | Pending | Phase 02 row present in `index.md` |
+| Contracts minimum DTOs + schemas | Completed | `packages/contracts/tests/contracts.test.ts`: round-trip + `system`/`thinking`/`system_notification` rejection tests green; cut `tool_result` fields stripped |
+| Errors, types, events, secret, config | Completed | `packages/llm-client/tests/errors.test.ts` + `secret-config.test.ts`: status/sdk-error mapping (incl. `retry_after_s` capture), `[redacted]` rendering, config defaults and negative rejection green |
+| Retry gate (signal- and retry-after-aware) | Completed | `packages/llm-client/tests/retry.test.ts`: six ported `retry.rs` cases plus abort-during-backoff and retry-after-override (capped by `max_delay_s`) green |
+| Anthropic provider + fixtures | Completed | `packages/llm-client/tests/anthropic.test.ts`: golden decode of byte-identical copied fixtures through the real sdk parser via injected fetch; §5 encode column, truncated-stream, idle-timeout, and `maxRetries: 0` tests green |
+| OpenAI provider + fixtures | Completed | `packages/llm-client/tests/openai.test.ts`: same battery incl. stop-reason derivation, cached-token usage mapping, and variant substitutability with the Anthropic path |
+| Workspace wiring + exports | Completed | `pnpm run check` (typecheck + eslint + vitest, 71 tests) green from `eos-agent-core/`; `git diff --stat -- agent-core` empty |
+| Index updated | Completed | Phase 02 row in `index.md` marked Completed |

@@ -133,16 +133,22 @@ export function toProviderError(
     error instanceof AnthropicAPIError ||
     error instanceof OpenAiAPIError
   ) {
-    const headers = error.headers ?? undefined;
+    // instanceof narrows the generic sdk class to <any> type arguments;
+    // restate the declared field shapes.
+    const { status, headers, message } = error as {
+      status?: number;
+      headers?: Headers;
+      message: string;
+    };
     const requestId = requestIdOf(headers) ?? requestIdFallback;
-    if (typeof error.status === "number") {
-      return ProviderError.fromStatus(error.status, error.message, {
+    if (typeof status === "number") {
+      return ProviderError.fromStatus(status, message, {
         request_id: requestId,
         retry_after_s: retryAfterSeconds(headers),
       });
     }
     // A status-less api error is an in-stream provider error payload.
-    return new ProviderError("decode", error.message, {
+    return new ProviderError("decode", message, {
       request_id: requestId,
     });
   }

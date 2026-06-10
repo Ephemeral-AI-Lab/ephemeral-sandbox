@@ -33,6 +33,31 @@ not as a reason to stop.
 - Push back on unnecessary complexity. Prefer the direct implementation that
   solves the stated problem.
 
+## TypeScript Workspace
+
+- Treat `eos-agent-core/` as the active TypeScript workspace. Use TypeScript,
+  Node, package, and module language for that tree. Do not apply guidance from
+  the previous implementation language unless the task explicitly asks about
+  migration notes outside the TypeScript workspace.
+- Run package-manager commands from `eos-agent-core/` unless a task names a
+  narrower package. The workspace uses `pnpm`; do not introduce npm, yarn, or
+  bun lockfiles.
+- Keep package boundaries explicit under `packages/`: shared schemas and typed
+  contracts belong in `@eos/contracts`, provider/model API details belong in the
+  owning client package, test-only helpers belong in `@eos/testkit` or package
+  `tests/`, and runtime, db, and observability code should not depend on test
+  helpers.
+- Follow the current strict ESM TypeScript setup: `module` and
+  `moduleResolution` are `NodeNext`, relative source imports use `.js`
+  specifiers, type-only imports/exports stay type-only, and `any` or unsafe
+  casts need a concrete boundary reason.
+- Prefer Zod schemas, typed IDs, discriminated unions, explicit async state, and
+  narrow DTOs for cross-package contracts. Keep SDK-specific response shapes at
+  the provider/client edge instead of leaking them through shared contracts.
+- Tests use Vitest. Add or adjust focused package tests for behavior changes,
+  keep fixtures small, and avoid broad snapshot tests when a typed assertion is
+  clearer.
+
 ## Implementation Style
 
 - Make the touched file's final implementation as small as the request allows.
@@ -95,6 +120,9 @@ not as a reason to stop.
 - Use the narrowest convincing verification from the owning workspace or package
   first. Broaden checks only when the change crosses package, runtime, or
   dependency boundaries.
+- For `eos-agent-core/`, prefer `pnpm run typecheck`, `pnpm run lint`, and
+  `pnpm run test` as the standard verification ladder. Use `pnpm run check`
+  when the change is broad enough to justify the full local gate.
 - Report pre-existing verification noise instead of hiding it with broad lint,
   test, or type-check suppressions.
 - For multi-step tasks, keep a short plan with a verification step for each

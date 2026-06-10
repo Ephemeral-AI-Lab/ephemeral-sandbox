@@ -84,12 +84,14 @@ export async function* retryStream(
       return;
     } catch (error) {
       if (signal?.aborted) throw error;
-      const retryable =
-        !emittedVisible &&
-        attemptIndex < cfg.max_retries &&
-        error instanceof ProviderError &&
-        isRetryable(cfg, error);
-      if (!retryable) throw error;
+      if (
+        emittedVisible ||
+        attemptIndex >= cfg.max_retries ||
+        !(error instanceof ProviderError) ||
+        !isRetryable(cfg, error)
+      ) {
+        throw error;
+      }
       await backoff(cfg, error, attemptIndex, signal);
     }
   }
