@@ -44,10 +44,10 @@ distributed-worker, UI-state, workflow-orchestration, or database-backend reason
 
 ## Spec Index
 
-| Spec | Status | Purpose |
-| --- | --- | --- |
-| `phase-00-migration-declaration_SPEC.md` | Proposed | Establish the migration identity, scope, target stack, non-goals, and initial acceptance criteria. |
-| `phase-01-project-setup_SPEC.md` | Proposed | Define the TypeScript workspace setup and package installation phase for `eos-agent-core` without introducing runtime implementation. |
+| Spec | Status | Boundary | Verification |
+| --- | --- | --- | --- |
+| `phase-00-migration-declaration_SPEC.md` | Proposed | Planning declaration only; no live implementation boundary changes. | Spec records the migration identity, target stack, non-goals, and initial acceptance criteria. |
+| `phase-01-project-setup_SPEC.md` | Completed | Setup-only TypeScript metadata under `eos-agent-core/`; Rust `agent-core/` remains behaviorally unchanged. | `CI=true pnpm install --frozen-lockfile`, `pnpm list --depth 0`, `pnpm exec tsc --showConfig`, `pnpm exec vitest --version`, and repo `git diff --check` hygiene. |
 
 ## Knowledge Base
 

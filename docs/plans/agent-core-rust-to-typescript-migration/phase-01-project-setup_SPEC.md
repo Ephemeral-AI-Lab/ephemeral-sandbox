@@ -1,6 +1,6 @@
 # EOS Agent Core Rust to TypeScript Migration - Phase 01 Project Setup
 
-Status: Proposed
+Status: Completed
 Date: 2026-06-10
 Owner: eos-agent-core
 Migration direction: Rust -> TypeScript
@@ -47,14 +47,18 @@ The TypeScript project root is:
 /Users/yifanxu/machine_learning/LoVC/EphemeralOS/eos-agent-core
 ```
 
-The initial setup may create only project scaffolding and package metadata:
+The initial setup may create only project scaffolding, package metadata, and
+setup-only configuration:
 
 ```text
 eos-agent-core/
+  .gitignore
   package.json
   pnpm-workspace.yaml
   pnpm-lock.yaml
   tsconfig.base.json
+  tsconfig.json
+  vitest.config.ts
   packages/
     contracts/package.json
     db/package.json
@@ -65,7 +69,8 @@ eos-agent-core/
 
 The package directories above are ownership placeholders for later phases. Phase
 01 may add package manifests for them, but it must not add implementation files
-under `src/`.
+under `src/`. Root `tsconfig.json` and `vitest.config.ts` are allowed only as
+verification configuration; they must not expose public APIs or runtime behavior.
 
 ## 4. Package Installation Plan
 
@@ -203,8 +208,8 @@ Phase 01 is accepted when:
 
 | Step | Status | Required proof |
 | --- | --- | --- |
-| Define Phase 01 setup scope | Proposed | This spec exists and is listed in `index.md`. |
-| Create TypeScript project metadata | Pending | `package.json`, `pnpm-workspace.yaml`, and `tsconfig.base.json` exist under `eos-agent-core/`. |
-| Install baseline packages | Pending | `pnpm-lock.yaml` records the approved runtime and dev dependencies. |
-| Verify setup only | Pending | `pnpm install --frozen-lockfile`, `pnpm list --depth 0`, `pnpm exec tsc --showConfig`, and `pnpm exec vitest --version` pass or are documented. |
-| Confirm no implementation landed | Pending | No `src/` runtime implementation, DB migrations, routes, provider clients, or agent-loop files were added. |
+| Define Phase 01 setup scope | Completed | This spec exists and is listed in `index.md` as completed. |
+| Create TypeScript project metadata | Completed | `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `tsconfig.json`, `vitest.config.ts`, `.gitignore`, and package placeholder manifests exist under `eos-agent-core/`. |
+| Install baseline packages | Completed | `package.json` and `pnpm-lock.yaml` record the approved runtime and dev dependencies; optional Phase 00 dependencies remain absent. |
+| Verify setup only | Completed | `CI=true pnpm install --frozen-lockfile`, `pnpm list --depth 0`, `pnpm exec tsc --showConfig`, `pnpm exec vitest --version`, and `pnpm run check` passed with `pnpm@10.23.0` on Node `v22.22.0`. |
+| Confirm no implementation landed | Completed | No `src/` runtime implementation, DB migrations, routes, provider clients, or agent-loop files were added under `eos-agent-core/`. |
