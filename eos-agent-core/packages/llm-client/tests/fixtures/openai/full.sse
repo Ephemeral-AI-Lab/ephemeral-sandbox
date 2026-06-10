@@ -1,0 +1,13 @@
+data: {"type": "response.created", "response": {"id": "resp_9"}}
+
+data: {"type": "response.output_text.delta", "delta": "Hi"}
+
+data: {"type": "response.output_item.added", "item": {"id": "item_1", "type": "function_call", "call_id": "call_9", "name": "read_file"}}
+
+data: {"type": "response.function_call_arguments.delta", "item_id": "item_1", "delta": "{\"path\":"}
+
+data: {"type": "response.function_call_arguments.delta", "item_id": "item_1", "delta": " \"foo.txt\"}"}
+
+data: {"type": "response.function_call_arguments.done", "item_id": "item_1"}
+
+data: {"type": "response.completed", "response": {"id": "resp_9", "usage": {"input_tokens": 5, "output_tokens": 4}, "stop_reason": "tool_use"}}

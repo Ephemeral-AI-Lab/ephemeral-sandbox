@@ -1,0 +1,8 @@
+event: message_start
+data: {"type":"message_start","message":{"role":"assistant","usage":{"input_tokens":3,"output_tokens":1}}}
+
+event: content_block_delta
+data: {"type":"content_block_delta" BROKEN "secret":"SUPERSECRET-sk-do-not-log"}
+
+event: message_stop
+data: {"type":"message_stop"}

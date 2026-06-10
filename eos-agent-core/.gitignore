@@ -1,7 +1,24 @@
+# Dependencies
 node_modules/
-coverage/
+
+# Build output
 dist/
 build/
+*.tsbuildinfo
+
+# Tooling caches
+coverage/
 .turbo/
 .cache/
-*.tsbuildinfo
+.vitest-cache/
+
+# Local SQLite databases (better-sqlite3)
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+
+# Secrets / local env
+.env
+.env.*

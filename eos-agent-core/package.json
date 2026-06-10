@@ -6,8 +6,9 @@
   "packageManager": "pnpm@10.23.0",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "test": "vitest run",
-    "check": "pnpm run typecheck && pnpm run test"
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
@@ -22,10 +23,13 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.2",
+    "eslint": "^10.4.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.0",
     "vitest": "^4.1.8"
   },
   "pnpm": {

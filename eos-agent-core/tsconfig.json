@@ -1,7 +1,5 @@
 {
   "extends": "./tsconfig.base.json",
-  "files": [
-    "./package.json",
-    "./vitest.config.ts"
-  ]
+  "include": ["packages/**/*.ts", "vitest.config.ts"],
+  "exclude": ["**/node_modules"]
 }
