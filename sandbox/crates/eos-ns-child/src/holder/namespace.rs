@@ -17,7 +17,7 @@ use rustix::mount::{mount_change, MountPropagationFlags};
 #[cfg(target_os = "linux")]
 use rustix::thread::{set_thread_gid, set_thread_uid, unshare, UnshareFlags};
 
-use crate::NsHolderError;
+use super::NsHolderError;
 
 /// The namespace FDs the holder pins open for its whole lifetime.
 ///

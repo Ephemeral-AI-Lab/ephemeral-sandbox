@@ -1,12 +1,12 @@
 use std::os::fd::RawFd;
 
-use crate::namespace::HeldNamespaces;
-use crate::namespace::{rbind_proc, unshare_namespace_stack};
-use crate::network::{
+use super::namespace::HeldNamespaces;
+use super::namespace::{rbind_proc, unshare_namespace_stack};
+use super::network::{
     bring_loopback_up, configure_namespace_veth, disable_ipv6_ra, flush_ipv6_default_route,
     parse_network_config, NetworkConfig,
 };
-use crate::{NsHolderError, NET_READY, NS_UP, READY, TEST_HOLDER_CRASH_ENV};
+use super::{NsHolderError, NET_READY, NS_UP, READY, TEST_HOLDER_CRASH_ENV};
 
 /// Where the handshake driver currently is.
 ///
@@ -222,8 +222,8 @@ mod tests {
     use std::os::fd::AsRawFd;
 
     use super::{Handshake, HandshakeState};
-    use crate::namespace::HeldNamespaces;
-    use crate::{NsHolderError, NS_UP, READY};
+    use crate::holder::namespace::HeldNamespaces;
+    use crate::holder::{NsHolderError, NS_UP, READY};
 
     type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 

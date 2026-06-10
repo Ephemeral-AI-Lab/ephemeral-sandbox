@@ -14,9 +14,9 @@ use std::time::{Duration, Instant};
 use super::IsolatedCommandHandle;
 #[cfg(target_os = "linux")]
 use eos_cas::Intent;
-use eos_layerstack::LayerStack;
 #[cfg(target_os = "linux")]
-use eos_runner::{RunMode, RunRequest, ToolCall, WorkspaceRoot};
+use eos_cas::{RunMode, RunRequest, ToolCall, WorkspaceRoot};
+use eos_layerstack::LayerStack;
 use eos_workspace_runtime::contract::SnapshotLease;
 use eos_workspace_runtime::isolated::{
     IsolatedError, LayerStackSnapshotPort, NamespaceRuntimePort, WorkspaceHandle,

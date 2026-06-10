@@ -10,10 +10,10 @@ name = "eosd"
 path = "src/main.rs"
 
 [dependencies]
+eos-cas.workspace = true
 eos-config.workspace = true
 eos-daemon.workspace = true
-eos-runner.workspace = true
-eos-ns-holder.workspace = true
+eos-ns-child.workspace = true
 eos-overlay.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true

@@ -36,10 +36,10 @@ use rustix::thread::{set_thread_gid, set_thread_uid, unshare, UnshareFlags};
 #[cfg(target_os = "linux")]
 use eos_overlay::OverlayHandle;
 
-use crate::error::RunnerError;
+use super::error::RunnerError;
 #[cfg(target_os = "linux")]
-use crate::request::RunnerVerb;
-use crate::request::{RunRequest, RunResult};
+use eos_cas::RunnerVerb;
+use eos_cas::{RunRequest, RunResult};
 
 #[cfg(target_os = "linux")]
 mod child;
@@ -66,7 +66,7 @@ use command::*;
 #[cfg(target_os = "linux")]
 pub(crate) fn run_fresh_ns(
     request: &RunRequest,
-    config: &crate::config::RunnerConfig,
+    config: &super::config::RunnerConfig,
 ) -> Result<RunResult, RunnerError> {
     //   sequence: unshare(CLONE_NEWUSER|CLONE_NEWNS) on this single-threaded child,
     //   write /proc/self/{uid_map,setgroups,gid_map}, mount overlay at
@@ -107,7 +107,7 @@ pub(crate) fn run_fresh_ns(
 /// namespace syscalls do not exist.
 pub(crate) fn run_fresh_ns(
     _request: &RunRequest,
-    _config: &crate::config::RunnerConfig,
+    _config: &super::config::RunnerConfig,
 ) -> Result<RunResult, RunnerError> {
     Err(RunnerError::Unsupported)
 }
@@ -195,7 +195,7 @@ fn execute_plugin_service(
         Err(RunnerError::TimedOut) => (124, true),
         Err(err) => return Err(err),
     };
-    if timed_out || !matches!(request.mode, crate::request::RunMode::SetNs) {
+    if timed_out || !matches!(request.mode, eos_cas::RunMode::SetNs) {
         let _ = kill_process_group(child_pid, Signal::Kill);
     }
     let status = if timed_out {
@@ -238,7 +238,7 @@ fn execute_shell(
     )
     .ok();
     if let Some(hidden_paths) = hidden_paths {
-        crate::mount_mask::mask_model_shell_paths(hidden_paths)?;
+        super::mount_mask::mask_model_shell_paths(hidden_paths)?;
     }
     let mut command = Command::new(&argv[0]);
     command

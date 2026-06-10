@@ -7,8 +7,7 @@ members = [
     "crates/eos-daemon",
     "crates/eos-occ-layerstack",
     "crates/eos-workspace-runtime",
-    "crates/eos-runner",
-    "crates/eos-ns-holder",
+    "crates/eos-ns-child",
     "crates/eos-layerstack",
     "crates/eos-overlay",
     "crates/eos-occ",
@@ -59,8 +58,7 @@ eos-overlay = { path = "crates/eos-overlay" }
 eos-occ = { path = "crates/eos-occ" }
 eos-workspace-runtime = { path = "crates/eos-workspace-runtime" }
 eos-plugin = { path = "crates/eos-plugin" }
-eos-runner = { path = "crates/eos-runner" }
-eos-ns-holder = { path = "crates/eos-ns-holder" }
+eos-ns-child = { path = "crates/eos-ns-child" }
 eos-daemon = { path = "crates/eos-daemon" }
 eos-occ-layerstack = { path = "crates/eos-occ-layerstack" }
 eosd = { path = "crates/eosd" }

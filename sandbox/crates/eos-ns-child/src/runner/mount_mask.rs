@@ -8,7 +8,7 @@ use std::ffi::CString;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
-use crate::RunnerError;
+use super::RunnerError;
 
 pub(crate) fn mask_model_shell_paths(hidden_paths: &[PathBuf]) -> Result<(), RunnerError> {
     for path in hidden_paths {

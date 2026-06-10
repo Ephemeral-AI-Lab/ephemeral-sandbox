@@ -9,8 +9,8 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 use eos_cas::LayerChange;
+use eos_cas::{RunRequest, RunResult};
 use eos_overlay::overlay_writable_root;
-use eos_runner::{RunRequest, RunResult};
 use eos_workspace_runtime::contract::SnapshotLease;
 use eos_workspace_runtime::ephemeral::{
     EphemeralDirAllocator, EphemeralRunDirs, EphemeralWorkspaceError, InvocationId, LayerStackRoot,

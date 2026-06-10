@@ -1,11 +1,15 @@
 [package]
-name = "eos-ns-holder"
+name = "eos-ns-child"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+eos-cas.workspace = true
+eos-config.workspace = true
+eos-overlay.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 libc.workspace = true
 

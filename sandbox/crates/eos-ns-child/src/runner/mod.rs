@@ -1,16 +1,14 @@
 //! Namespace runner: the syscalls the kernel forces into a single-threaded caller.
 //!
-//! # Invariant this crate owns
-//!
-//! `eos-runner` is **single-threaded and syscall-only — NO tokio**, and that is a
-//! *kernel requirement, not a style choice*: `unshare(CLONE_NEWUSER|…)` (fresh-ns
-//! mode) and `setns()` into a user namespace (setns mode) both require the calling
-//! process/thread to be the only thread in the process, or the syscall fails with
-//! `EINVAL`. Spawning this work inline in the multithreaded tokio daemon would
-//! break it; instead the daemon execs a dedicated single-threaded child whose body
-//! lives here. The R10 import discipline of the Rust helpers — never pull
-//! `logging` / `asyncio` / `subprocess` before the syscall — maps in Rust to *not
-//! depending on tokio*: this crate's `Cargo.toml` deliberately omits it.
+//! The runner is the per-tool-call namespace child (`eosd ns-runner`). It relies
+//! on the crate-level invariant — single-threaded, syscall-only, NO tokio —
+//! because `unshare(CLONE_NEWUSER|…)` (fresh-ns mode) and `setns()` into a user
+//! namespace (setns mode) both require the calling process/thread to be the only
+//! thread in the process, or the syscall fails with `EINVAL`. Spawning this work
+//! inline in the multithreaded tokio daemon would break it; instead the daemon
+//! execs a dedicated single-threaded child whose body lives here. The R10 import
+//! discipline of the Rust helpers — never pull `logging` / `asyncio` /
+//! `subprocess` before the syscall — maps in Rust to *not depending on tokio*.
 //!
 //! # Two modes
 //!
@@ -35,9 +33,11 @@
 //! on the macOS dev host. Raw syscall sites carry focused `// SAFETY:` notes, and
 //! `#![deny(unsafe_op_in_unsafe_fn)]` keeps that annotation discipline enforced.
 //!
-//! Internal deps: `eos-protocol` (verb [`Intent`](eos_cas::Intent)); `eos-overlay`
+//! Internal deps: `eos-cas` (the daemon↔runner wire DTOs [`RunRequest`] /
+//! [`RunResult`] and the verb [`Intent`](eos_cas::Intent)); `eos-overlay`
 //! (kernel overlay mount and upper-dir capture primitives).
-#![deny(unsafe_op_in_unsafe_fn)]
+
+use eos_cas::{RunMode, RunRequest, RunResult};
 
 pub mod error;
 mod fresh_ns;
@@ -45,7 +45,6 @@ mod fresh_ns;
 mod mount_mask;
 #[cfg(target_os = "linux")]
 mod path;
-pub mod request;
 pub mod setns;
 
 pub mod config {
@@ -53,11 +52,10 @@ pub mod config {
 }
 
 pub use error::RunnerError;
-pub use request::{Fd, NsFds, RunMode, RunRequest, RunResult, RunnerVerb, ToolCall, WorkspaceRoot};
 
 /// Execute one tool call through the runner, dispatching on [`RunRequest::mode`].
 ///
-/// This is the crate's single entry point: the daemon hands a fully-resolved
+/// This is the runner's single entry point: the daemon hands a fully-resolved
 /// [`RunRequest`] (already knowing whether it wants a fresh namespace or a setns
 /// into an existing one) and the runner performs the syscalls on this
 /// single-threaded caller.

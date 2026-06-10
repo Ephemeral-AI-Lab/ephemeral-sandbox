@@ -14,7 +14,7 @@
 //! port replaces those binaries with `rtnetlink` (`RTM_DELROUTE` for the IPv6
 //! default route, `RTM_NEWLINK` to bring `lo` up) and direct
 //! `/proc/sys/net/ipv6/conf/<iface>/accept_ra` writes — NO `ip`/`sysctl`
-//! binaries. This work executes inside the namespace via `eos-ns-holder`
+//! binaries. This work executes inside the namespace via `eos-ns-child::holder`
 //! (see `host_runtime`), not in this daemon-scope module.
 
 use std::net::Ipv4Addr;

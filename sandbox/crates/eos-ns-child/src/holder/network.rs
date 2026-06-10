@@ -4,7 +4,7 @@ use std::fs;
 use std::net::Ipv4Addr;
 use std::path::Path;
 
-use crate::{FALLBACK_IPV6_CONF_INTERFACES, IPV6_CONF_ROOT};
+use super::{FALLBACK_IPV6_CONF_INTERFACES, IPV6_CONF_ROOT};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NetworkConfig {

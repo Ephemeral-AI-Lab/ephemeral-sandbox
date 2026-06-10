@@ -193,7 +193,6 @@ dependencies = [
  "eos-occ-layerstack",
  "eos-overlay",
  "eos-plugin",
- "eos-runner",
  "eos-workspace-runtime",
  "nix 0.29.0",
  "proptest",
@@ -232,12 +231,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "eos-ns-holder"
+name = "eos-ns-child"
 version = "0.1.0"
 dependencies = [
+ "eos-cas",
+ "eos-config",
+ "eos-overlay",
  "libc",
  "nix 0.29.0",
  "rustix 0.38.44",
+ "serde_json",
  "thiserror 2.0.18",
 ]
 
@@ -286,20 +289,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eos-runner"
-version = "0.1.0"
-dependencies = [
- "eos-cas",
- "eos-config",
- "eos-overlay",
- "libc",
- "rustix 0.38.44",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "eos-sandbox-host"
 version = "0.1.0"
 dependencies = [
@@ -334,11 +323,11 @@ name = "eosd"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "eos-cas",
  "eos-config",
  "eos-daemon",
- "eos-ns-holder",
+ "eos-ns-child",
  "eos-overlay",
- "eos-runner",
  "serde_json",
  "tokio",
 ]

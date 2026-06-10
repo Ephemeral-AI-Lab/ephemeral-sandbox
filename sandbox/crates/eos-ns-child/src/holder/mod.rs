@@ -17,11 +17,11 @@
 //!
 //! # Build-time guarantee
 //!
-//! This is a true near-leaf: the handshake tokens are owned here as inline byte
-//! literals, and it deliberately pulls in NO tokio. The single-threaded
-//! `unshare(CLONE_NEWUSER)` requirement is a kernel constraint, not a style
-//! choice. Linux-only at runtime; non-Linux hosts still compile the crate because
-//! Linux syscall bodies are gated by `cfg(target_os = "linux")`.
+//! The handshake tokens are owned here as inline byte literals, and the module
+//! imports nothing internal — the crate-level NO-tokio invariant (see the crate
+//! root) is what makes the single-threaded `unshare(CLONE_NEWUSER)` legal.
+//! Linux-only at runtime; non-Linux hosts still compile because Linux syscall
+//! bodies are gated by `cfg(target_os = "linux")`.
 //!
 //! # Handshake
 //!
@@ -34,9 +34,8 @@
 //!    (`"ready\n"`) to the readiness FD.
 //! 4. `pause()` until `SIGTERM`, then exit 0.
 //!
-//! Syscall crate — `unsafe` is permitted here for raw libc gaps, and every
+//! Syscall module — `unsafe` is permitted here for raw libc gaps, and every
 //! `unsafe` block carries a focused `// SAFETY:` note.
-#![deny(unsafe_op_in_unsafe_fn)]
 
 mod handshake;
 mod namespace;

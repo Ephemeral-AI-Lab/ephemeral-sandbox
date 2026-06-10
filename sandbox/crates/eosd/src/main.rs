@@ -6,8 +6,8 @@
 //! subcommand adapters, and maps their typed errors to process exit codes:
 //!
 //! - `eosd daemon`     -> the async RPC server in `eos-daemon`.
-//! - `eosd ns-runner`  -> the single-threaded namespace runner in `eos-runner`.
-//! - `eosd ns-holder`  -> the single-threaded namespace holder in `eos-ns-holder`.
+//! - `eosd ns-runner`  -> the single-threaded namespace runner in `eos-ns-child::runner`.
+//! - `eosd ns-holder`  -> the single-threaded namespace holder in `eos-ns-child::holder`.
 //!
 //! Three real processes, one static binary. This is the launcher chain:
 //! `daemon` owns the RPC server, `ns-runner` owns fresh/setns tool execution,
@@ -24,7 +24,7 @@
 //! silently drop the contract. The dispatcher therefore maps known codes via
 //! [`std::process::exit`]:
 //! - ns-holder: `1` (control pipe closed), `2` (unexpected token), `7` (test
-//!   crash knob) — `eos_ns_holder::NsHolderError::{CONTROL_CLOSED_EXIT,
+//!   crash knob) — `eos_ns_child::holder::NsHolderError::{CONTROL_CLOSED_EXIT,
 //!   UNEXPECTED_TOKEN_EXIT, TEST_CRASH_EXIT}`.
 //! - thin-client / daemon connect path: `97` (`CONNECT_FAILED`), `98`
 //!   (`IO_FAILED`) — `eos_daemon::wire::{CONNECT_FAILED, IO_FAILED}`.
@@ -68,7 +68,7 @@ fn main() -> Result<()> {
 /// child that creates and pins the isolated workspace's namespace stack and
 /// runs the readiness handshake, then `pause()`s until `SIGTERM`.
 ///
-/// Real thin call: `eos-ns-holder` already exposes `run(readiness_fd,
+/// Real thin call: `eos-ns-child::holder` already exposes `run(readiness_fd,
 /// control_fd)`, and its lib doc sanctions keeping the argv -> FD parsing here.
 /// We parse the two positional FD ints and dispatch; the holder's typed errors
 /// carry exit codes (`1` / `2` / `7`) that we map onto the process status so the
@@ -77,18 +77,18 @@ fn run_ns_holder(mut args: std::env::Args) -> Result<()> {
     let readiness_fd = parse_fd(args.next(), "readiness_fd")?;
     let control_fd = parse_fd(args.next(), "control_fd")?;
 
-    match eos_ns_holder::run(readiness_fd, control_fd) {
+    match eos_ns_child::holder::run(readiness_fd, control_fd) {
         Ok(()) => Ok(()),
         Err(err) => {
             let code = match &err {
-                eos_ns_holder::NsHolderError::ControlPipeClosed => {
-                    eos_ns_holder::NsHolderError::CONTROL_CLOSED_EXIT
+                eos_ns_child::holder::NsHolderError::ControlPipeClosed => {
+                    eos_ns_child::holder::NsHolderError::CONTROL_CLOSED_EXIT
                 }
-                eos_ns_holder::NsHolderError::UnexpectedToken => {
-                    eos_ns_holder::NsHolderError::UNEXPECTED_TOKEN_EXIT
+                eos_ns_child::holder::NsHolderError::UnexpectedToken => {
+                    eos_ns_child::holder::NsHolderError::UNEXPECTED_TOKEN_EXIT
                 }
-                eos_ns_holder::NsHolderError::TestCrash => {
-                    eos_ns_holder::NsHolderError::TEST_CRASH_EXIT
+                eos_ns_child::holder::NsHolderError::TestCrash => {
+                    eos_ns_child::holder::NsHolderError::TEST_CRASH_EXIT
                 }
                 // Unshare / pipe-i/o failures have no dedicated Rust exit code;
                 // surface the message and fall through to the generic status.

@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 use rustix::process::{getpgrp, kill_process_group, Pid, Signal};
 
 #[cfg(target_os = "linux")]
-use crate::error::RunnerError;
+use crate::runner::error::RunnerError;
 
 #[cfg(target_os = "linux")]
 const CHILD_WAIT_POLL: Duration = Duration::from_millis(5);

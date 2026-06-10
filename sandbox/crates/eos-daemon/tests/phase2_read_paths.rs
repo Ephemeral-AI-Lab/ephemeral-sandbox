@@ -12,7 +12,6 @@ use eos_layerstack as _;
 use eos_occ as _;
 use eos_overlay as _;
 use eos_plugin as _;
-use eos_runner as _;
 use eos_workspace_runtime as _;
 use serde as _;
 use serde_json::{json, Value};

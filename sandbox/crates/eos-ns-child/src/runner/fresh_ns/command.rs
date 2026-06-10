@@ -8,11 +8,11 @@ use std::fs;
 use std::path::PathBuf;
 
 #[cfg(target_os = "linux")]
-use crate::error::RunnerError;
+use crate::runner::error::RunnerError;
 #[cfg(target_os = "linux")]
-use crate::path::normalize_lexical;
+use crate::runner::path::normalize_lexical;
 #[cfg(target_os = "linux")]
-use crate::request::RunRequest;
+use eos_cas::RunRequest;
 
 #[cfg(target_os = "linux")]
 pub(super) fn plugin_service_argv(request: &RunRequest) -> Result<Vec<String>, RunnerError> {
@@ -163,9 +163,9 @@ pub(super) fn command_environment(args: &serde_json::Value) -> BTreeMap<String, 
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::{plugin_service_argv, shell_argv};
-    use crate::path::normalize_lexical;
-    use crate::request::{RunMode, RunRequest, RunnerVerb, ToolCall, WorkspaceRoot};
+    use crate::runner::path::normalize_lexical;
     use eos_cas::Intent;
+    use eos_cas::{RunMode, RunRequest, RunnerVerb, ToolCall, WorkspaceRoot};
     use std::path::Path;
 
     type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;

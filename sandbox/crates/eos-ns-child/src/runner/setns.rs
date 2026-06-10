@@ -28,10 +28,10 @@ use std::time::Instant;
 #[cfg(target_os = "linux")]
 use eos_overlay::OverlayHandle;
 
-use crate::error::RunnerError;
+use super::error::RunnerError;
 #[cfg(any(test, target_os = "linux"))]
-use crate::request::NsFds;
-use crate::request::{RunRequest, RunResult};
+use eos_cas::NsFds;
+use eos_cas::{RunRequest, RunResult};
 
 #[cfg(target_os = "linux")]
 const RESOLV_CONF: &str = "/etc/resolv.conf";
@@ -56,7 +56,7 @@ pub(crate) fn run_setns(request: &RunRequest) -> Result<RunResult, RunnerError> 
     let ns_fds = require_ns_fds(request)?;
     join_cgroup(request)?;
     join_namespaces(&ns_fds)?;
-    crate::fresh_ns::execute_tool(request, 0.0, Instant::now(), None)
+    super::fresh_ns::execute_tool(request, 0.0, Instant::now(), None)
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -87,7 +87,7 @@ pub(crate) fn run_setns(_request: &RunRequest) -> Result<RunResult, RunnerError>
 #[cfg(target_os = "linux")]
 pub fn setns_overlay_mount(
     request: &RunRequest,
-    config: &crate::config::RunnerConfig,
+    config: &super::config::RunnerConfig,
 ) -> Result<(), RunnerError> {
     //   setns(ns_fds.user, CLONE_NEWUSER); setns(ns_fds.mnt, CLONE_NEWNS); then build
     //   OverlayHandle (newest-first lowerdirs + upper/work) and mount the overlay.
@@ -112,7 +112,7 @@ pub fn setns_overlay_mount(
         workdir: workdir.clone(),
     };
     let guard = eos_overlay::mount_overlay(&request.workspace_root.0, &handle)?;
-    crate::mount_mask::mask_model_shell_paths(&config.mount_mask.hidden_paths)?;
+    super::mount_mask::mask_model_shell_paths(&config.mount_mask.hidden_paths)?;
     // The setns mount helper is a one-shot process. The mounted overlay must
     // outlive this helper and remain pinned by the target mount namespace until
     // isolated teardown, matching the Rust helper that exits after mounting.
@@ -129,7 +129,7 @@ pub fn setns_overlay_mount(
 /// is unavailable.
 pub fn setns_overlay_mount(
     _request: &RunRequest,
-    _config: &crate::config::RunnerConfig,
+    _config: &super::config::RunnerConfig,
 ) -> Result<(), RunnerError> {
     Err(RunnerError::Unsupported)
 }
@@ -352,8 +352,8 @@ mod tests {
         first_nameserver, namespace_fd_order, needs_fallback_dns, overlay_layer_paths,
         require_ns_fds,
     };
-    use crate::request::{Fd, NsFds, RunMode, RunRequest, RunnerVerb, ToolCall, WorkspaceRoot};
     use eos_cas::Intent;
+    use eos_cas::{Fd, NsFds, RunMode, RunRequest, RunnerVerb, ToolCall, WorkspaceRoot};
     use std::path::Path;
 
     #[test]

@@ -9,9 +9,9 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use eos_cas::Intent;
+use eos_cas::{RunMode, RunRequest, RunResult, ToolCall, WorkspaceRoot};
 use eos_layerstack::{require_workspace_binding, LayerStack, Lease, WorkspaceBinding};
 use eos_plugin::ServiceMode;
-use eos_runner::{RunMode, RunRequest, RunResult, ToolCall, WorkspaceRoot};
 use eos_workspace_runtime::contract::{u64_to_f64_saturating, SnapshotLease};
 use eos_workspace_runtime::ephemeral::{
     finalize_publishable_workspace, path_changes_to_wire, CallerId, EphemeralRunDirs,

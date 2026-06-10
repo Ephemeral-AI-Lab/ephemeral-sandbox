@@ -257,11 +257,13 @@ sandbox/
 │   ├── eos-daemon/
 │   │   ├── src/wire/               absorbed: envelope, ops catalog (+aliases), errors, version
 │   │   └── tests/contract.rs
-│   ├── eos-cas/                    renamed rump of eos-protocol: cas.rs, models.rs
+│   ├── eos-cas/                    renamed rump of eos-protocol: cas.rs, models.rs,
+│   │                               runner.rs (daemon↔ns-runner wire DTOs)
 │   ├── eos-plugin/                 + framing.rs (own PPC framing)
 │   ├── eos-workspace-runtime/      src/contract/ + ids.rs (absorbed typed IDs)
 │   ├── eos-layerstack/ eos-occ/ eos-overlay/ eos-occ-layerstack/
-│   │   eos-runner/                 dep: eos-protocol → eos-cas
+│   │   eos-ns-child/               absorbed eos-runner + eos-ns-holder
+│   │                               (holder + runner modules; DTOs → eos-cas)
 │   ├── eos-e2e-test/               shrinks; imports eos-sandbox-host
 │   └── eos-protocol/               DELETED (final step)
 ├── docs/

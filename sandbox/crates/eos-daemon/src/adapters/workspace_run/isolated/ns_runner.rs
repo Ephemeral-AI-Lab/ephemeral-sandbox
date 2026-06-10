@@ -12,7 +12,7 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use eos_runner::{Fd, NsFds, RunRequest, RunResult};
+use eos_cas::{Fd, NsFds, RunRequest, RunResult};
 use eos_workspace_runtime::isolated::IsolatedError;
 use nix::errno::Errno;
 use nix::fcntl::{fcntl, FcntlArg, FdFlag, OFlag};

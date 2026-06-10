@@ -7,11 +7,16 @@
 //! to the in-namespace tool primitive); the typed per-verb args/results are the
 //! daemon's concern (decoded into `eos-workspace-runtime` contract and
 //! runtime types), not modeled here.
+//!
+//! These DTOs live in `eos-cas` (the shared in-box model crate) so the tokio
+//! daemon, which builds requests and parses results, and the single-threaded
+//! `eos-ns-child` runner, which executes them, share one contract without the
+//! daemon depending on the syscall crate.
 
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
 
-use eos_cas::Intent;
+use crate::Intent;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
