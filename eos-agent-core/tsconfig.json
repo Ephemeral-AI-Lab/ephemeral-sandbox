@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.base.json",
+  "files": [
+    "./package.json",
+    "./vitest.config.ts"
+  ]
+}
