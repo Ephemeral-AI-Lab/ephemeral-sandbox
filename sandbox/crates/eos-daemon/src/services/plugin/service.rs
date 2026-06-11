@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use eos_layerstack::{manifest_root_hash, LayerStack, Lease};
 use eos_plugin::{PluginError, PluginServiceKey, PluginServiceState, PluginServiceStatus};
-use serde_json::Value;
 
 use crate::error::DaemonError;
 #[cfg(not(test))]
@@ -229,26 +228,28 @@ pub(super) fn stop_services_for_layer_stack_root(
     stopped_count
 }
 
-pub(super) fn running_process_values(state: &mut DaemonPluginState) -> Vec<Value> {
+pub(super) fn running_process_statuses(
+    state: &mut DaemonPluginState,
+) -> Vec<super::process::ServiceProcessStatus> {
     let mut closed = Vec::new();
-    let mut values = Vec::new();
+    let mut statuses = Vec::new();
     for (service_instance_id, process) in &mut state.service_processes {
-        let status = process.status_json();
-        if status["running"] != true {
+        let status = process.status();
+        if !status.running {
             closed.push(service_instance_id.clone());
         }
-        values.push(status);
+        statuses.push(status);
     }
     remove_service_instances(state, &closed);
-    values
+    statuses
 }
 
 /// Reap service processes whose child has exited — the teardown half of
-/// [`running_process_values`], for callers that only need the side effect.
+/// [`running_process_statuses`], for callers that only need the side effect.
 pub(super) fn reap_exited_processes(state: &mut DaemonPluginState) {
     let mut closed = Vec::new();
     for (service_instance_id, process) in &mut state.service_processes {
-        if process.status_json()["running"] != true {
+        if !process.is_running() {
             closed.push(service_instance_id.clone());
         }
     }

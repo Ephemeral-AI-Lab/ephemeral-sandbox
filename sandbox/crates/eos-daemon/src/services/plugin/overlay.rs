@@ -18,10 +18,7 @@ use eos_plugin::ServiceMode;
 use serde_json::{json, Value};
 
 use crate::error::DaemonError;
-use crate::response::{
-    attach_runner_shell_fields, guarded_changeset_response, insert_tree_resource_timings,
-    merge_runner_timings, resource_timings, u64_to_f64_saturating, TreeResourceStats,
-};
+use crate::response::{u64_to_f64_saturating, TreeResourceStats};
 use crate::runtime::ns_runner::run_ns_runner_child;
 
 use eos_plugin_runtime::route::PluginOperationRoute;
@@ -38,11 +35,11 @@ struct PluginOverlayCommand {
     timeout_seconds: Option<f64>,
 }
 
-pub(super) fn dispatch_oneshot_overlay_route(
+pub(crate) fn dispatch_oneshot_overlay_route(
     route: &PluginOperationRoute,
     invocation_id: &str,
     args: &Value,
-) -> Result<Option<Value>, DaemonError> {
+) -> Result<Option<PluginOverlayOutcome>, DaemonError> {
     if route.service_mode != Some(ServiceMode::OneshotOverlay) {
         return Ok(None);
     }
@@ -100,28 +97,27 @@ pub(super) fn dispatch_oneshot_overlay_route(
         env,
         timeout_seconds,
     };
-    Ok(Some(run_plugin_overlay_command(
-        &overlay_command,
-        args,
-        Instant::now(),
-    )?))
+    Ok(Some(run_plugin_overlay_command(&overlay_command, args)?))
 }
 
-struct PluginOverlayRunOutcome {
-    runner: RunResult,
-    changeset: eos_layerstack::ChangesetResult,
-    plugin_result: Option<Value>,
-    path_kinds: Vec<(String, String)>,
-    capture_s: f64,
-    occ_s: f64,
-    upperdir_stats: TreeResourceStats,
+/// Typed result of one oneshot plugin overlay run; the `ops::plugin` adapter
+/// shapes the wire response and splices daemon resource telemetry.
+pub(crate) struct PluginOverlayOutcome {
+    pub(crate) layer_stack_root: PathBuf,
+    pub(crate) runner: RunResult,
+    pub(crate) changeset: eos_layerstack::ChangesetResult,
+    pub(crate) plugin_result: Option<Value>,
+    pub(crate) path_kinds: Vec<(String, String)>,
+    pub(crate) lease_acquire_s: f64,
+    pub(crate) capture_s: f64,
+    pub(crate) occ_s: f64,
+    pub(crate) upperdir_stats: TreeResourceStats,
 }
 
 fn run_plugin_overlay_command(
     spec: &PluginOverlayCommand,
     args: &Value,
-    total_start: Instant,
-) -> Result<Value, DaemonError> {
+) -> Result<PluginOverlayOutcome, DaemonError> {
     if spec.command.is_empty() || spec.command[0].trim().is_empty() {
         return Err(DaemonError::InvalidEnvelope(
             "plugin overlay command must not be empty".to_owned(),
@@ -135,15 +131,9 @@ fn run_plugin_overlay_command(
         spec.caller_id, spec.invocation_id
     ))?;
     let lease_acquire_s = acquire_start.elapsed().as_secs_f64();
-    let run_result = run_plugin_overlay_once(spec, args, &binding, &lease);
+    let run_result = run_plugin_overlay_once(spec, args, &binding, &lease, lease_acquire_s);
     let _ = stack.release_lease(&lease.lease_id);
-    let outcome = run_result?;
-    plugin_overlay_response(
-        &spec.layer_stack_root,
-        outcome,
-        total_start,
-        lease_acquire_s,
-    )
+    run_result
 }
 
 fn run_plugin_overlay_once(
@@ -151,7 +141,8 @@ fn run_plugin_overlay_once(
     args: &Value,
     binding: &WorkspaceBinding,
     lease: &Lease,
-) -> Result<PluginOverlayRunOutcome, DaemonError> {
+    lease_acquire_s: f64,
+) -> Result<PluginOverlayOutcome, DaemonError> {
     let dirs = plugin_overlay_dirs(&spec.invocation_id)?;
     let _cleanup = OverlayDirsGuard::new(dirs.run_dir.clone());
     let request_path = dirs.run_dir.join("plugin-overlay-request.json");
@@ -181,109 +172,17 @@ fn run_plugin_overlay_once(
         .get("occ.commit.total_s")
         .copied()
         .unwrap_or(publish_s);
-    Ok(PluginOverlayRunOutcome {
+    Ok(PluginOverlayOutcome {
+        layer_stack_root: spec.layer_stack_root.clone(),
         runner,
         changeset,
         plugin_result,
         path_kinds,
+        lease_acquire_s,
         capture_s,
         occ_s,
         upperdir_stats,
     })
-}
-
-fn plugin_overlay_response(
-    root: &Path,
-    outcome: PluginOverlayRunOutcome,
-    total_start: Instant,
-    lease_acquire_s: f64,
-) -> Result<Value, DaemonError> {
-    let manifest = LayerStack::open(root.to_path_buf())?.read_active_manifest()?;
-    let mut timings = resource_timings(&manifest, outcome.changeset.published_file_count());
-    merge_runner_timings(&mut timings, &outcome.runner);
-    insert_tree_resource_timings(
-        &mut timings,
-        "resource.command_exec.upperdir",
-        &outcome.upperdir_stats,
-    );
-    timings.insert(
-        "layer_stack.acquire_snapshot.total_s".to_owned(),
-        json!(lease_acquire_s),
-    );
-    timings.insert(
-        "command_exec.capture_upperdir_s".to_owned(),
-        json!(outcome.capture_s),
-    );
-    timings.insert("command_exec.occ_apply_s".to_owned(), json!(outcome.occ_s));
-    timings.insert(
-        "command_exec.total_s".to_owned(),
-        json!(total_start.elapsed().as_secs_f64()),
-    );
-    let mut response = guarded_changeset_response(
-        "plugin_overlay",
-        &outcome.changeset,
-        timings,
-        total_start,
-        None,
-    );
-    attach_runner_shell_fields(&mut response, &outcome.runner);
-    response["changed_path_kinds"] = Value::Object(
-        outcome
-            .path_kinds
-            .iter()
-            .map(|(path, kind)| (path.clone(), json!(kind)))
-            .collect(),
-    );
-    let worker_success = outcome
-        .plugin_result
-        .as_ref()
-        .and_then(|result| result.get("success"))
-        .and_then(Value::as_bool);
-    response["plugin_result"] = outcome.plugin_result.unwrap_or_else(|| json!({}));
-    response["plugin_overlay"] = json!({
-        "changed_paths": outcome
-            .path_kinds
-            .iter()
-            .map(|(path, _kind)| path.clone())
-            .collect::<Vec<_>>(),
-        "published_manifest_version": outcome.changeset.published_manifest_version,
-        "worker_exit_code": outcome.runner.exit_code,
-    });
-    apply_plugin_overlay_status(
-        &mut response,
-        outcome.runner.exit_code,
-        outcome.changeset.success(),
-        worker_success,
-    );
-    Ok(response)
-}
-
-fn apply_plugin_overlay_status(
-    response: &mut Value,
-    worker_exit_code: i32,
-    changeset_success: bool,
-    worker_success: Option<bool>,
-) {
-    if worker_exit_code != 0 {
-        response["success"] = json!(false);
-        response["status"] = json!("failed");
-        response["error"] = json!({
-            "kind": "plugin_overlay_worker_failed",
-            "message": "plugin overlay worker exited with a non-zero status",
-        });
-    } else if changeset_success && response["conflict"].is_null() {
-        if worker_success == Some(false) {
-            response["success"] = json!(false);
-            response["status"] = json!("failed");
-            response["error"] = json!({
-                "kind": "plugin_overlay_worker_failed",
-                "message": "plugin overlay worker reported failure",
-            });
-        } else {
-            response["success"] = json!(true);
-            response["status"] = json!("committed");
-        }
-    }
 }
 
 fn plugin_overlay_dirs(invocation_id: &str) -> Result<OverlayDirs, DaemonError> {

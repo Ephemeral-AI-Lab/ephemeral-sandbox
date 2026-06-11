@@ -90,17 +90,14 @@ fn spawned_process_reports_running_then_tears_down() -> TestResult {
     )?;
     let mut process = spawn(&spec)?;
 
-    let status = process.status_json();
-    assert_eq!(status["service_id"], "indexer");
-    assert_eq!(status["running"], true);
-    let pid = status["pid"]
-        .as_u64()
-        .ok_or_else(|| std::io::Error::new(ErrorKind::InvalidData, "missing process pid"))?;
-    assert!(pid > 0);
+    let status = process.status();
+    assert_eq!(status.service_id, "indexer");
+    assert!(status.running);
+    assert!(status.pid > 0);
 
     process.teardown();
-    let status = process.status_json();
-    assert_eq!(status["running"], false);
+    let status = process.status();
+    assert!(!status.running);
     Ok(())
 }
 

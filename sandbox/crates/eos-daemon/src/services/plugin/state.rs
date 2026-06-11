@@ -2,55 +2,35 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use eos_config::configs::daemon::PluginRuntimeConfig;
-use eos_plugin_runtime::ensure::ParsedEnsure;
-use eos_plugin_runtime::route::{PluginOperationRoute, PluginProcessSpec};
 use eos_plugin::PluginServiceStatus;
-use serde_json::{json, Value};
+use eos_plugin_runtime::ensure::ParsedEnsure;
+use serde::Serialize;
 
-use super::{
-    process::{process_spec_to_json, PluginServiceProcess},
-    service::PluginServiceSnapshot,
-};
+use super::{process::PluginServiceProcess, service::PluginServiceSnapshot};
 use crate::error::DaemonError;
 
 pub(super) type SharedPpcClient = Arc<eos_plugin_runtime::PpcClient>;
 
-#[derive(Debug, Clone)]
-pub(super) struct LoadedPluginRuntime {
+/// One recorded plugin setup failure (the wire view is produced by
+/// serialization at the adapter).
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct SetupFailure {
+    pub(super) plugin: String,
     pub(super) digest: String,
-    pub(super) registered_ops: Vec<String>,
-    pub(super) operation_routes: BTreeMap<String, PluginOperationRoute>,
-    pub(super) services: Vec<PluginServiceStatus>,
-    pub(super) service_processes: Vec<PluginProcessSpec>,
-    pub(super) runtime_loaded: bool,
+    pub(super) error: String,
 }
 
-/// Wire-shape one resolved route. Daemon-owned (the route data lives host-side).
-fn route_to_json(route: &PluginOperationRoute) -> Value {
-    json!({
-        "plugin": route.plugin_id,
-        "op_name": route.op_name,
-        "public_op": route.public_op,
-        "layer_stack_root": route.layer_stack_root,
-        "intent": route.intent,
-        "auto_workspace_overlay": route.auto_workspace_overlay,
-        "service_id": route.service_id,
-        "service_instance_id": route.service_instance_id,
-        "service_mode": route.service_mode,
-        "service_command": route.service_command,
-        "timeout_ms": route.timeout_ms,
-        "dispatch_mode": route.dispatch_mode(),
-    })
-}
-
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub(super) struct DaemonPluginState {
-    pub(super) loaded: BTreeMap<String, LoadedPluginRuntime>,
+    /// Live plugin registrations, keyed by plugin id; the stored
+    /// [`ParsedEnsure`] is the spec of record and its `services` statuses are
+    /// mutated in place as processes start/stop/refresh.
+    pub(super) loaded: BTreeMap<String, ParsedEnsure>,
     pub(super) service_ppc_clients: BTreeMap<String, SharedPpcClient>,
     pub(super) service_processes: BTreeMap<String, PluginServiceProcess>,
     pub(super) service_snapshots: BTreeMap<String, PluginServiceSnapshot>,
     pub(super) service_refresh_locks: BTreeMap<String, Arc<Mutex<()>>>,
-    pub(super) setup_failures: BTreeMap<String, Value>,
+    pub(super) setup_failures: BTreeMap<String, SetupFailure>,
 }
 
 /// Instance-owned plugin service runtime: the typed config plus the registry
@@ -73,14 +53,6 @@ impl PluginRuntime {
             .lock()
             .map_err(|_| DaemonError::StateLockPoisoned("plugin registry"))
     }
-}
-
-pub(super) fn route_values(routes: &BTreeMap<String, PluginOperationRoute>) -> Vec<Value> {
-    routes.values().map(route_to_json).collect()
-}
-
-pub(super) fn process_values(processes: &[PluginProcessSpec]) -> Vec<Value> {
-    processes.iter().map(process_spec_to_json).collect()
 }
 
 pub(super) fn connected_ppc_routes(state: &DaemonPluginState) -> Vec<String> {
@@ -119,33 +91,11 @@ pub(super) fn setup_failure_key(plugin_id: &str, plugin_digest: &str) -> String 
     format!("{plugin_id}:{plugin_digest}")
 }
 
-pub(super) fn setup_failure_values(state: &DaemonPluginState) -> Vec<Value> {
-    state.setup_failures.values().cloned().collect()
-}
-
-pub(super) fn loaded_plugin_values(state: &DaemonPluginState) -> Vec<Value> {
-    state
-        .loaded
-        .iter()
-        .map(|(name, loaded)| {
-            json!({
-                "name": name,
-                "digest": loaded.digest,
-                "ops": loaded.registered_ops,
-                "operation_routes": route_values(&loaded.operation_routes),
-                "services": loaded.services,
-                "service_processes": process_values(&loaded.service_processes),
-                "runtime_loaded": loaded.runtime_loaded,
-            })
-        })
-        .collect()
-}
-
-/// Whether the live runtime already matches a freshly parsed ensure — lets
-/// `op_ensure` skip re-registering. Compares the daemon's `LoadedPluginRuntime`
-/// against the host-parsed [`ParsedEnsure`].
-pub(super) fn loaded_matches_parsed(loaded: &LoadedPluginRuntime, parsed: &ParsedEnsure) -> bool {
-    loaded.digest == parsed.plugin_digest
+/// Whether the live registration already matches a freshly parsed ensure —
+/// lets `ensure` skip re-registering. Compares only the immutable spec fields;
+/// the stored `services` statuses mutate at runtime and never participate.
+pub(super) fn loaded_matches_parsed(loaded: &ParsedEnsure, parsed: &ParsedEnsure) -> bool {
+    loaded.plugin_digest == parsed.plugin_digest
         && loaded.registered_ops == parsed.registered_ops
         && loaded.operation_routes == parsed.operation_routes
         && loaded.service_processes == parsed.service_processes

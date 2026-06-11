@@ -7,7 +7,6 @@ use eos_plugin::{
     PluginError, PluginServiceKey, PluginServiceState, PpcDirection, PpcEnvelope, RefreshAck,
     RefreshRequest, RefreshStrategy, ServiceMode,
 };
-use serde_json::{json, Value};
 
 use super::{
     process,
@@ -24,6 +23,11 @@ use eos_plugin_runtime::route::PluginOperationRoute;
 
 pub(super) const WORKSPACE_SNAPSHOT_REFRESH_OP: &str = "daemon.workspace_snapshot_refresh";
 
+struct ServiceView {
+    client: Option<SharedPpcClient>,
+    started_before: bool,
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct ServiceHealthProbeTarget {
     plugin_id: String,
@@ -31,6 +35,19 @@ pub(super) struct ServiceHealthProbeTarget {
     service_instance_id: String,
     manifest_key: String,
     client: SharedPpcClient,
+}
+
+/// One service health probe result (the wire view is shaped at the adapter:
+/// the success branch carries `accepted`, the failure branch the errors).
+pub(crate) struct ServiceHealthReport {
+    pub(crate) success: bool,
+    pub(crate) plugin: String,
+    pub(crate) service_id: String,
+    pub(crate) service_instance_id: String,
+    pub(crate) manifest_key: String,
+    pub(crate) accepted: Option<bool>,
+    pub(crate) error: Option<String>,
+    pub(crate) teardown_error: Option<String>,
 }
 
 pub(super) fn service_health_probe_targets(
@@ -60,31 +77,41 @@ impl PluginRuntime {
         &self,
         targets: Vec<ServiceHealthProbeTarget>,
         timeout: Duration,
-    ) -> Vec<Value> {
+    ) -> Vec<ServiceHealthReport> {
         targets
             .into_iter()
             .enumerate()
-            .map(
-                |(index, target)| match probe_connected_service_health(&target, index, timeout) {
-                    Ok(health) => health,
+            .map(|(index, target)| {
+                match probe_connected_service_health(&target, index, timeout) {
+                    Ok(accepted) => ServiceHealthReport {
+                        success: true,
+                        plugin: target.plugin_id,
+                        service_id: target.service_id,
+                        service_instance_id: target.service_instance_id,
+                        manifest_key: target.manifest_key,
+                        accepted: Some(accepted),
+                        error: None,
+                        teardown_error: None,
+                    },
                     Err(err) => {
                         let error = err.to_string();
                         let teardown_error = self
                             .teardown_failed_connected_service(&target.service_instance_id, &error)
                             .err()
                             .map(|err| err.to_string());
-                        json!({
-                            "success": false,
-                            "plugin": target.plugin_id,
-                            "service_id": target.service_id,
-                            "service_instance_id": target.service_instance_id,
-                            "manifest_key": target.manifest_key,
-                            "error": error,
-                            "teardown_error": teardown_error,
-                        })
+                        ServiceHealthReport {
+                            success: false,
+                            plugin: target.plugin_id,
+                            service_id: target.service_id,
+                            service_instance_id: target.service_instance_id,
+                            manifest_key: target.manifest_key,
+                            accepted: None,
+                            error: Some(error),
+                            teardown_error,
+                        }
                     }
-                },
-            )
+                }
+            })
             .collect()
     }
 
@@ -98,18 +125,19 @@ impl PluginRuntime {
         };
         self.ensure_tracked_service_process_running(service_instance_id)?;
         let Some(service_key) = route.service_key.as_ref() else {
-            return self.ppc_client_for_service(service_instance_id);
+            return Ok(self.service_view(service_instance_id)?.client);
         };
         if route.service_mode != Some(ServiceMode::WorkspaceSnapshotRefresh) {
-            return self.ppc_client_for_service(service_instance_id);
+            return Ok(self.service_view(service_instance_id)?.client);
         }
 
-        if let Some(client) = self.ppc_client_for_service(service_instance_id)? {
+        let view = self.service_view(service_instance_id)?;
+        if let Some(client) = view.client {
             let target_manifest_key = active_manifest_key(&service_key.layer_stack_root)?;
             if self.service_is_ready_on_manifest(service_instance_id, &target_manifest_key)? {
                 return Ok(Some(client));
             }
-        } else if !self.service_was_started_before(service_instance_id)? {
+        } else if !view.started_before {
             return Ok(None);
         }
 
@@ -118,8 +146,9 @@ impl PluginRuntime {
             .lock()
             .map_err(|_| DaemonError::StateLockPoisoned("plugin service refresh"))?;
         self.ensure_tracked_service_process_running(service_instance_id)?;
-        let Some(client) = self.ppc_client_for_service(service_instance_id)? else {
-            if self.service_was_started_before(service_instance_id)? {
+        let view = self.service_view(service_instance_id)?;
+        let Some(client) = view.client else {
+            if view.started_before {
                 return self.restart_read_only_service(service_instance_id);
             }
             return Ok(None);
@@ -154,10 +183,15 @@ impl PluginRuntime {
             .clone())
     }
 
-    fn service_was_started_before(&self, service_instance_id: &str) -> Result<bool, DaemonError> {
+    /// One locked read of the facts the freshness flow branches on: the
+    /// connected PPC client and whether the service was ever started.
+    fn service_view(&self, service_instance_id: &str) -> Result<ServiceView, DaemonError> {
         let state = self.lock_state()?;
-        Ok(find_service_status(&state, service_instance_id)
-            .is_some_and(|status| status.manifest_key.is_some()))
+        Ok(ServiceView {
+            client: state.service_ppc_clients.get(service_instance_id).cloned(),
+            started_before: find_service_status(&state, service_instance_id)
+                .is_some_and(|status| status.manifest_key.is_some()),
+        })
     }
 
     fn service_is_ready_on_manifest(
@@ -302,7 +336,7 @@ impl PluginRuntime {
                         "service {service_instance_id} process is not running for workspace remount"
                     )))
                 })?;
-            if process.status_json()["running"] != true {
+            if !process.is_running() {
                 return Err(DaemonError::Plugin(PluginError::Ensure(format!(
                     "service {service_instance_id} process exited before workspace remount"
                 ))));
@@ -343,17 +377,6 @@ impl PluginRuntime {
         Ok(state.service_ppc_clients.get(service_instance_id).cloned())
     }
 
-    pub(super) fn ppc_client_for_service(
-        &self,
-        service_instance_id: &str,
-    ) -> Result<Option<SharedPpcClient>, DaemonError> {
-        Ok(self
-            .lock_state()?
-            .service_ppc_clients
-            .get(service_instance_id)
-            .cloned())
-    }
-
     fn ensure_tracked_service_process_running(
         &self,
         service_instance_id: &str,
@@ -363,7 +386,7 @@ impl PluginRuntime {
             let Some(process) = state.service_processes.get_mut(service_instance_id) else {
                 return Ok(());
             };
-            if process.status_json()["running"] == true {
+            if process.is_running() {
                 return Ok(());
             }
             state.service_processes.remove(service_instance_id);
@@ -412,7 +435,7 @@ fn probe_connected_service_health(
     target: &ServiceHealthProbeTarget,
     index: usize,
     timeout: Duration,
-) -> Result<Value, DaemonError> {
+) -> Result<bool, DaemonError> {
     let request = RefreshRequest::Health {
         manifest_key: target.manifest_key.clone(),
     };
@@ -426,14 +449,7 @@ fn probe_connected_service_health(
     let ack: RefreshAck =
         serde_json::from_str(&reply.body).map_err(|err| PluginError::Ppc(err.to_string()))?;
     ack.require_manifest(&target.manifest_key)?;
-    Ok(json!({
-        "success": true,
-        "plugin": target.plugin_id,
-        "service_id": target.service_id,
-        "service_instance_id": target.service_instance_id,
-        "manifest_key": target.manifest_key,
-        "accepted": ack.accepted,
-    }))
+    Ok(ack.accepted)
 }
 
 fn send_refresh_request(

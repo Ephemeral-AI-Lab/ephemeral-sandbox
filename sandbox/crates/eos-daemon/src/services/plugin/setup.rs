@@ -1,13 +1,11 @@
 //! Plugin setup/config helpers for the daemon facade.
 
-use eos_plugin_runtime::PackageEnsureReport;
 use eos_plugin::PluginManifest;
-use serde_json::{json, Value};
 
 use crate::error::DaemonError;
 
 use super::service::stop_services_for_layer_stack_root as stop_services_for_layer_stack_root_in_state;
-use super::state::{setup_failure_key, PluginRuntime};
+use super::state::{setup_failure_key, PluginRuntime, SetupFailure};
 
 impl PluginRuntime {
     /// PPC socket root for `ParsedEnsure` spec construction, from the typed
@@ -27,11 +25,11 @@ impl PluginRuntime {
         if let Ok(mut state) = self.lock_state() {
             state.setup_failures.insert(
                 setup_failure_key(&manifest.plugin_id, &manifest.plugin_digest),
-                json!({
-                    "plugin": manifest.plugin_id,
-                    "digest": manifest.plugin_digest,
-                    "error": err.to_string(),
-                }),
+                SetupFailure {
+                    plugin: manifest.plugin_id.clone(),
+                    digest: manifest.plugin_digest.clone(),
+                    error: err.to_string(),
+                },
             );
         }
     }
@@ -48,17 +46,4 @@ impl PluginRuntime {
             layer_stack_root,
         ))
     }
-}
-
-pub(super) fn package_report_value(report: &PackageEnsureReport) -> Value {
-    if !report.active {
-        return Value::Null;
-    }
-    json!({
-        "needs_upload": report.needs_upload,
-        "package_root": report.package_root.as_ref().map(|path| path.to_string_lossy().into_owned()),
-        "dependency_root": report.dependency_root.as_ref().map(|path| path.to_string_lossy().into_owned()),
-        "package_published": report.package_published,
-        "setup_ran": report.setup_ran,
-    })
 }

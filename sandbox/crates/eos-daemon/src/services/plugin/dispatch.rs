@@ -7,9 +7,18 @@
 use eos_namespace::protocol::Intent;
 use serde_json::{json, Value};
 
-use super::{overlay::dispatch_oneshot_overlay_route, state::PluginRuntime};
+use super::overlay::{dispatch_oneshot_overlay_route, PluginOverlayOutcome};
+use super::state::PluginRuntime;
 use crate::error::DaemonError;
 use eos_plugin_runtime::route::PluginOperationRoute;
+
+/// Result of dispatching one registered plugin op. Connected routes carry the
+/// plugin's reply payload through unchanged; oneshot overlay runs come back
+/// typed so the adapter can shape the wire response and splice telemetry.
+pub(crate) enum PluginDispatchOutcome {
+    Response(Value),
+    OneshotOverlay(Box<PluginOverlayOutcome>),
+}
 
 impl PluginRuntime {
     /// Dispatch a dynamically registered `plugin.*` op, or `None` when no
@@ -19,7 +28,7 @@ impl PluginRuntime {
         op: &str,
         invocation_id: &str,
         args: &Value,
-    ) -> Option<Result<Value, DaemonError>> {
+    ) -> Option<Result<PluginDispatchOutcome, DaemonError>> {
         let route = match self.route_for_op(op) {
             Ok(Some(route)) => route,
             Ok(None) => return None,
@@ -44,17 +53,17 @@ impl PluginRuntime {
         route: &PluginOperationRoute,
         invocation_id: &str,
         args: &Value,
-    ) -> Result<Value, DaemonError> {
+    ) -> Result<PluginDispatchOutcome, DaemonError> {
         if route.intent == Intent::ReadOnly && route.service_id.is_some() {
             if let Some(response) =
                 self.dispatch_connected_read_only_route(route, invocation_id, args)?
             {
-                return Ok(response);
+                return Ok(PluginDispatchOutcome::Response(response));
             }
         }
         if route.intent == Intent::WriteAllowed && route.auto_workspace_overlay {
-            if let Some(response) = dispatch_oneshot_overlay_route(route, invocation_id, args)? {
-                return Ok(response);
+            if let Some(outcome) = dispatch_oneshot_overlay_route(route, invocation_id, args)? {
+                return Ok(PluginDispatchOutcome::OneshotOverlay(Box::new(outcome)));
             }
         }
         if route.intent == Intent::WriteAllowed
@@ -64,15 +73,17 @@ impl PluginRuntime {
             if let Some(response) =
                 self.dispatch_connected_self_managed_route(route, invocation_id, args)?
             {
-                return Ok(response);
+                return Ok(PluginDispatchOutcome::Response(response));
             }
         }
-        dispatch_deferred_route(route)
+        Ok(PluginDispatchOutcome::Response(dispatch_deferred_route(
+            route,
+        )))
     }
 }
 
-fn dispatch_deferred_route(route: &PluginOperationRoute) -> Result<Value, DaemonError> {
-    Ok(json!({
+fn dispatch_deferred_route(route: &PluginOperationRoute) -> Value {
+    json!({
         "success": false,
         "status": "deferred",
         "op": route.public_op,
@@ -90,5 +101,5 @@ fn dispatch_deferred_route(route: &PluginOperationRoute) -> Result<Value, Daemon
                 "dispatch_mode": route.dispatch_mode(),
             },
         },
-    }))
+    })
 }

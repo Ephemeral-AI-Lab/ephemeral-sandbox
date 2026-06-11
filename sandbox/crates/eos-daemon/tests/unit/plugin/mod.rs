@@ -13,6 +13,7 @@ use eos_config::configs::daemon::PluginRuntimeConfig;
 use eos_layerstack::LayerStack;
 use eos_plugin_runtime::ensure::{validate_plugin_caller_fields, MAX_PLUGIN_CALLER_FIELD_CHARS};
 use eos_plugin::{PpcDirection, PpcEnvelope};
+use serde_json::{json, Value};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -22,7 +23,7 @@ use std::time::{Duration, Instant};
 #[test]
 fn ensure_records_manifest_services_and_status_lists_them() -> TestResult {
     let daemon = TestDaemon::new();
-    let response = daemon.plugin().op_ensure(&json!({
+    let response = daemon.op_ensure(&json!({
         "manifest": generic_service_manifest("digest-a", "hover"),
         "layer_stack_root": "/eos/plugin/layer-stack",
         "workspace_root": "/eos/plugin/workspace"
@@ -41,7 +42,7 @@ fn ensure_records_manifest_services_and_status_lists_them() -> TestResult {
     )?
     .starts_with("/eos/plugin/ppc/"));
 
-    let status = daemon.plugin().op_status(&json!({}))?;
+    let status = daemon.op_status(&json!({}))?;
     assert_eq!(status["loaded_plugins"][0]["name"], "generic");
     Ok(())
 }
@@ -49,7 +50,7 @@ fn ensure_records_manifest_services_and_status_lists_them() -> TestResult {
 #[test]
 fn ensure_exposes_package_roots_to_service_process_specs() -> TestResult {
     let daemon = TestDaemon::new();
-    let response = daemon.plugin().op_ensure(&json!({
+    let response = daemon.op_ensure(&json!({
         "manifest": generic_service_manifest("digest-a", "hover"),
         "layer_stack_root": "/eos/plugin/layer-stack",
         "workspace_root": "/eos/plugin/workspace"
@@ -84,7 +85,7 @@ fn ensure_resolves_service_relative_command_under_package_working_dir() -> TestR
     let mut manifest =
         generic_service_manifest_with_command("digest-a", "hover", vec!["./server.py"]);
     manifest["services"][0]["working_dir"] = json!("runtime");
-    let response = daemon.plugin().op_ensure(&json!({
+    let response = daemon.op_ensure(&json!({
         "manifest": manifest,
         "layer_stack_root": "/eos/plugin/layer-stack",
         "workspace_root": "/eos/plugin/workspace"
@@ -105,12 +106,8 @@ fn ensure_resolves_service_relative_command_under_package_working_dir() -> TestR
 #[test]
 fn ensure_is_idempotent_for_same_digest() -> TestResult {
     let daemon = TestDaemon::new();
-    let first = daemon
-        .plugin()
-        .op_ensure(&json!({"plugin": "demo", "digest": "a"}))?;
-    let second = daemon
-        .plugin()
-        .op_ensure(&json!({"plugin": "demo", "digest": "a"}))?;
+    let first = daemon.op_ensure(&json!({"plugin": "demo", "digest": "a"}))?;
+    let second = daemon.op_ensure(&json!({"plugin": "demo", "digest": "a"}))?;
     assert_eq!(first["already_loaded"], false);
     assert_eq!(second["already_loaded"], true);
     Ok(())
@@ -120,7 +117,7 @@ fn ensure_is_idempotent_for_same_digest() -> TestResult {
 fn package_warm_missing_returns_needs_upload() -> TestResult {
     let daemon = TestDaemon::new();
     let roots = PackageTestRoots::new("warm-missing")?;
-    let response = daemon.plugin().op_ensure(&roots.args(
+    let response = daemon.op_ensure(&roots.args(
         package_manifest("digest-a", "setup-a", vec!["./setup.sh"]),
         None,
     ))?;
@@ -150,9 +147,7 @@ printf tmp > "$TMPDIR/setup.tmp"
     )?;
     let manifest = package_manifest("digest-a", "setup-a", vec!["./setup.sh"]);
 
-    let cold = daemon
-        .plugin()
-        .op_ensure(&roots.args(manifest.clone(), Some(&staged)))?;
+    let cold = daemon.op_ensure(&roots.args(manifest.clone(), Some(&staged)))?;
     assert_eq!(cold["success"], true);
     assert_eq!(cold["package"]["package_published"], true);
     assert_eq!(cold["package"]["setup_ran"], true);
@@ -170,7 +165,7 @@ printf tmp > "$TMPDIR/setup.tmp"
     );
     assert!(roots.setup_root("digest-a").join("tmp/setup.tmp").is_file());
 
-    let warm = daemon.plugin().op_ensure(&roots.args(manifest, None))?;
+    let warm = daemon.op_ensure(&roots.args(manifest, None))?;
     assert_eq!(warm["success"], true);
     assert_eq!(warm["package"]["needs_upload"], false);
     assert_eq!(warm["package"]["setup_ran"], false);
@@ -193,14 +188,14 @@ printf setup > "$EOS_PLUGIN_DEPENDENCY_ROOT/cache/setup-ran"
 "#;
 
     let staged_a = roots.stage_package("digest-a", setup_script)?;
-    let cold_a = daemon.plugin().op_ensure(&roots.args(
+    let cold_a = daemon.op_ensure(&roots.args(
         package_manifest("digest-a", "setup-a", vec!["./setup.sh"]),
         Some(&staged_a),
     ))?;
     assert_eq!(cold_a["package"]["setup_ran"], true);
 
     let staged_b = roots.stage_package("digest-b", setup_script)?;
-    let cold_b = daemon.plugin().op_ensure(&roots.args(
+    let cold_b = daemon.op_ensure(&roots.args(
         package_manifest("digest-b", "setup-b", vec!["./setup.sh"]),
         Some(&staged_b),
     ))?;
@@ -225,7 +220,6 @@ fn package_rejects_staging_outside_digest_upload_root() -> TestResult {
     let outside = roots.root.join("outside/package");
     std::fs::create_dir_all(&outside)?;
     let err = daemon
-        .plugin()
         .op_ensure(&roots.args(
             package_manifest("digest-a", "setup-a", vec!["./setup.sh"]),
             Some(&outside),
@@ -244,7 +238,6 @@ fn package_setup_failure_is_visible_in_status_and_prevents_service_start() -> Te
     let roots = PackageTestRoots::new("setup-failure")?;
     let staged = roots.stage_package("digest-a", "#!/bin/sh\nexit 7\n")?;
     let err = daemon
-        .plugin()
         .op_ensure(&roots.args(
             package_manifest("digest-a", "setup-a", vec!["./setup.sh"]),
             Some(&staged),
@@ -252,7 +245,7 @@ fn package_setup_failure_is_visible_in_status_and_prevents_service_start() -> Te
         .expect_err("setup failure must reject package ensure");
     assert!(err.to_string().contains("plugin setup failed"));
 
-    let status = daemon.plugin().op_status(&json!({}))?;
+    let status = daemon.op_status(&json!({}))?;
     assert_eq!(status["setup_failures"][0]["plugin"], "generic");
     assert_eq!(status["running_service_processes"], json!([]));
     roots.cleanup();
@@ -271,7 +264,6 @@ touch /root/plugin
 "#,
     )?;
     let err = daemon
-        .plugin()
         .op_ensure(&roots.args(
             package_manifest("digest-a", "setup-a", vec!["./setup.sh"]),
             Some(&staged),
@@ -285,12 +277,12 @@ touch /root/plugin
 #[test]
 fn ensure_reloads_same_digest_when_workspace_root_changes() -> TestResult {
     let daemon = TestDaemon::new();
-    let first = daemon.plugin().op_ensure(&json!({
+    let first = daemon.op_ensure(&json!({
         "manifest": generic_service_manifest("digest-a", "hover"),
         "layer_stack_root": "/eos/plugin/layer-stack",
         "workspace_root": "/testbed"
     }))?;
-    let second = daemon.plugin().op_ensure(&json!({
+    let second = daemon.op_ensure(&json!({
         "manifest": generic_service_manifest("digest-a", "hover"),
         "layer_stack_root": "/eos/plugin/layer-stack",
         "workspace_root": "/ephemeral-os"
@@ -576,10 +568,10 @@ fn exited_service_process_fails_closed_before_dispatch() -> TestResult {
     let service_instance_id = spec.service_instance_id();
     let mut process = super::process::spawn(&spec)?;
     let deadline = Instant::now() + Duration::from_secs(1);
-    while process.status_json()["running"].as_bool().unwrap_or(true) && Instant::now() < deadline {
+    while process.is_running() && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(10));
     }
-    assert_eq!(process.status_json()["running"], false);
+    assert!(!process.is_running());
     {
         let mut state = daemon.plugin().lock_state()?;
         state.service_processes.insert(service_instance_id, process);
@@ -616,7 +608,7 @@ fn exited_service_process_fails_closed_before_dispatch() -> TestResult {
 #[test]
 fn ensure_records_oneshot_overlay_route_without_starting_process() -> TestResult {
     let daemon = TestDaemon::new();
-    let response = daemon.plugin().op_ensure(&json!({
+    let response = daemon.op_ensure(&json!({
         "manifest": oneshot_overlay_manifest("digest-a", "write"),
         "layer_stack_root": "/eos/plugin/layer-stack",
         "workspace_root": "/eos/plugin/workspace",
@@ -1239,7 +1231,7 @@ fn ensure_can_start_and_status_reports_service_process() -> TestResult {
         "-c",
         "test \"$EOS_PLUGIN_SERVICE_ID\" = worker && sleep 30",
     ];
-    let response = daemon.plugin().op_ensure(&json!({
+    let response = daemon.op_ensure(&json!({
         "manifest": generic_service_manifest_with_command("digest-a", "hover", command),
         "layer_stack_root": layer_stack_root.to_string_lossy().into_owned(),
         "workspace_root": workspace_root.to_string_lossy().into_owned(),
@@ -1254,7 +1246,7 @@ fn ensure_can_start_and_status_reports_service_process() -> TestResult {
     );
     assert_eq!(response["running_service_processes"][0]["running"], true);
 
-    let status = daemon.plugin().op_status(&json!({}))?;
+    let status = daemon.op_status(&json!({}))?;
     assert_eq!(
         status["running_service_processes"][0]["service_id"],
         "worker"

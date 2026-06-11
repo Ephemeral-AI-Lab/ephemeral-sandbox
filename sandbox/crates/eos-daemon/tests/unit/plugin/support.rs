@@ -67,6 +67,17 @@ impl TestDaemon {
         &self.services.plugin
     }
 
+    /// `api.plugin.ensure` through the adapter (arg parsing + response shaping
+    /// + caller gate), without the dispatcher envelope decoration.
+    pub(super) fn op_ensure(&self, args: &Value) -> Result<Value, crate::error::DaemonError> {
+        crate::ops::plugin::op_ensure(args, self.context())
+    }
+
+    /// `api.plugin.status` through the adapter.
+    pub(super) fn op_status(&self, args: &Value) -> Result<Value, crate::error::DaemonError> {
+        crate::ops::plugin::op_status(args, self.context())
+    }
+
     pub(super) fn context(&self) -> DispatchContext<'_> {
         DispatchContext::with_services(&self.services)
     }

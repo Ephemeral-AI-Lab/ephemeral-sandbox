@@ -20,9 +20,11 @@ use eos_namespace::protocol::{RunMode, RunRequest, ToolCall, WorkspaceRoot};
 use eos_plugin_runtime::route::PluginProcessSpec;
 #[cfg(not(test))]
 use eos_plugin_runtime::route::ENV_PLUGIN_WORKSPACE_MOUNTED;
-use eos_plugin_runtime::PpcClient;
 use eos_plugin::PluginError;
-use serde_json::{json, Value};
+use eos_plugin_runtime::PpcClient;
+use serde::Serialize;
+#[cfg(not(test))]
+use serde_json::json;
 
 use crate::error::DaemonError;
 use crate::invocation_registry::terminate_process_group;
@@ -159,19 +161,17 @@ fn overlay_run_request(spec: &PluginProcessSpec, overlay: &PluginServiceOverlay)
     }
 }
 
-pub(super) fn process_spec_to_json(spec: &PluginProcessSpec) -> Value {
-    json!({
-        "service_id": spec.key.service_id,
-        "service_instance_id": spec.key.service_instance_id(),
-        "command": spec.command,
-        "package_root": spec.package_root,
-        "dependency_root": spec.dependency_root,
-        "working_dir": spec.working_dir,
-        "socket_path": spec.socket_path,
-        "env": spec.environment(),
-        "ppc_protocol_version": spec.ppc_protocol_version,
-        "process_started": false,
-    })
+/// One tracked service process's status snapshot. Field order is the wire
+/// order; the adapter serializes this directly into responses.
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct ServiceProcessStatus {
+    pub(crate) service_id: String,
+    pub(crate) service_instance_id: String,
+    pub(crate) pid: u32,
+    pub(crate) process_group_id: Option<i32>,
+    pub(crate) running: bool,
+    pub(crate) exit_status: Option<i32>,
+    pub(crate) socket_path: PathBuf,
 }
 
 #[derive(Debug)]
@@ -187,18 +187,22 @@ impl PluginServiceProcess {
         self.child.id()
     }
 
-    pub(super) fn status_json(&mut self) -> Value {
+    /// Whether the child is still running (reaps a finished child's status).
+    pub(super) fn is_running(&mut self) -> bool {
+        self.child.try_wait().ok().flatten().is_none()
+    }
+
+    pub(super) fn status(&mut self) -> ServiceProcessStatus {
         let exit_status = self.child.try_wait().ok().flatten();
-        let running = exit_status.is_none();
-        json!({
-            "service_id": self.spec.key.service_id,
-            "service_instance_id": self.spec.service_instance_id(),
-            "pid": self.child.id(),
-            "process_group_id": self.process_group_id,
-            "running": running,
-            "exit_status": exit_status.and_then(|status| status.code()),
-            "socket_path": self.spec.socket_path,
-        })
+        ServiceProcessStatus {
+            service_id: self.spec.key.service_id.clone(),
+            service_instance_id: self.spec.service_instance_id(),
+            pid: self.child.id(),
+            process_group_id: self.process_group_id,
+            running: exit_status.is_none(),
+            exit_status: exit_status.and_then(|status| status.code()),
+            socket_path: self.spec.socket_path.clone(),
+        }
     }
 
     pub(super) fn teardown(&mut self) {
