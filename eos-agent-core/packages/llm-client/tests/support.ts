@@ -76,10 +76,10 @@ export function fetchStub(
 }
 
 /**
- * A complete SSE response with the given body and headers. The rust fixtures
- * end without the final blank-line frame terminator (the rust splitter
- * flushed trailing frames at eof); a live provider always terminates frames,
- * so the missing terminator is restored at the transport double.
+ * A complete SSE response with the given body and headers. The recorded
+ * fixtures end without the final blank-line frame terminator; a live
+ * provider always terminates frames, so the missing terminator is restored
+ * at the transport double.
  */
 export function sseResponse(
   body: string,

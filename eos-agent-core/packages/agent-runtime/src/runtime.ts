@@ -7,6 +7,7 @@ import {
 } from "@eos/contracts";
 import {
   startAgentRun,
+  type AgentRunHandle,
 } from "@eos/engine";
 import { BackgroundSessionSupervisor } from "@eos/background";
 import {
@@ -41,7 +42,6 @@ import {
   loadLlmClientRegistry,
   type LlmClientRegistry,
 } from "./llm-client-registry.js";
-import type { AgentRunHandle } from "./agent-run-handle.js";
 import { loadNotificationRules } from "./notification-rules-config.js";
 import { RunRegistry, type RunSummary } from "./run-registry.js";
 import {

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { toolUseIdFrom, type ToolCallResult } from "@eos/contracts";
 import { ProviderError } from "@eos/llm-client";
-import { RunHandle } from "@eos/agent-runtime/agent-run-handle";
+import { RunHandle } from "../src/agent-runtime-handle.js";
 import { BackgroundSessionSupervisor } from "@eos/background";
 
 import {

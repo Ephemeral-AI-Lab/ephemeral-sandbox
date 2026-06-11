@@ -2,7 +2,7 @@ import type { ContentBlock, Message } from "@eos/contracts";
 import type {
   DisplayedMessage,
   PartialReason,
-} from "@eos/agent-runtime/agent-run-handle";
+} from "./agent-runtime-handle.js";
 
 /** A `tool_result` content block, the unit `appendToolResults` wraps. */
 export type ToolResultBlock = Extract<ContentBlock, { type: "tool_result" }>;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AgentEvent } from "@eos/agent-runtime/agent-run-handle";
+import type { AgentEvent } from "../src/agent-runtime-handle.js";
 import { ProviderError, type UsageSnapshot } from "@eos/llm-client";
 
 import { Conversation } from "../src/conversation.js";

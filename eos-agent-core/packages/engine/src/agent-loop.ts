@@ -9,7 +9,7 @@ import type {
   AgentRunFailure,
   AgentRunStatus,
   RunHandle,
-} from "@eos/agent-runtime/agent-run-handle";
+} from "./agent-runtime-handle.js";
 import type { BackgroundSessionSupervisor } from "@eos/background";
 
 import type { Conversation, ToolResultBlock } from "./conversation.js";

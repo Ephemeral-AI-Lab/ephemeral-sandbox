@@ -14,8 +14,8 @@ export function toolUseIdFrom(raw: string): ToolUseId {
 }
 
 /**
- * Identifier for one agent run. Minted by whoever starts the run; the dashed
- * UUIDv4 shape matches the Rust `AgentRunId::new_v4` mint.
+ * Identifier for one agent run. Minted by whoever starts the run as a
+ * dashed UUIDv4.
  */
 export const AgentRunIdSchema = z.string().min(1).brand<"AgentRunId">();
 

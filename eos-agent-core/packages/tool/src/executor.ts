@@ -9,7 +9,6 @@ import type { AgentEvent, ToolExecutor, ToolUseBlock } from "@eos/engine";
 import { projectContent, type BoundTool } from "./pipeline.js";
 import { snapshotRunState, type AgentRunState } from "./run-state.js";
 
-/** Parity with the Rust `MAX_FOREGROUND_TOOL_CONCURRENCY`. */
 const MAX_TOOL_CONCURRENCY = 8;
 
 export interface ToolBatchExecutorInput {
@@ -97,10 +96,8 @@ export function toolBatchExecutor(input: ToolBatchExecutorInput): ToolExecutor {
 }
 
 /**
- * Batch-execution-forbidden policy (generalizes the Rust
- * `reject_terminal_batch` terminal-solo rule): a batch with a flagged call
- * plus any sibling rejects every call; a solo flagged call dispatches
- * normally.
+ * Batch-execution-forbidden policy: a batch with a flagged call plus any
+ * sibling rejects every call; a solo flagged call dispatches normally.
  */
 function forbiddenBatchRejection(
   calls: ToolUseBlock[],

@@ -7,10 +7,6 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
-    },
-    "./agent-run-handle": {
-      "types": "./src/agent-run-handle.ts",
-      "default": "./src/agent-run-handle.ts"
     }
   },
   "dependencies": {

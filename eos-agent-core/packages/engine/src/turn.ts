@@ -10,7 +10,7 @@ import {
 import type {
   AgentEvent,
   PartialReason,
-} from "@eos/agent-runtime/agent-run-handle";
+} from "./agent-runtime-handle.js";
 
 import type { Conversation } from "./conversation.js";
 

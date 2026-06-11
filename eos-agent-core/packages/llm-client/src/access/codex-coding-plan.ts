@@ -24,13 +24,13 @@ export interface CodexAccessClaims {
 }
 
 /**
- * Port of the Rust `auth.rs::codex_access_token_from_jwt` claim parsing: the
- * payload is the second `.`-separated segment, base64url without padding,
- * json, carrying a non-blank account id under the namespaced auth claim.
+ * Claim parsing for a Codex access token: the payload is the second
+ * `.`-separated segment, base64url without padding, json, carrying a
+ * non-blank account id under the namespaced auth claim.
  *
- * Failures throw `ProviderError` kind `request` with the Rust crate's
- * lowercase messages. This function reads only the token value supplied by
- * the caller; it never loads a credential cache file.
+ * Failures throw `ProviderError` kind `request` with lowercase messages.
+ * This function reads only the token value supplied by the caller; it
+ * never loads a credential cache file.
  */
 export function codexAccessClaimsFromJwt(token: string): CodexAccessClaims {
   const payload = token.split(".").at(1);

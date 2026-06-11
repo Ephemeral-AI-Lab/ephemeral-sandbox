@@ -10,9 +10,8 @@ import type {
   ToolCallResult,
   ToolUseId,
 } from "@eos/contracts";
+import type { AgentEvent, AgentRunOutcome } from "@eos/engine";
 import { cacheHitRate, type ReasoningEffort, type UsageSnapshot } from "@eos/llm-client";
-
-import type { AgentEvent, AgentRunOutcome } from "./agent-run-handle.js";
 
 /** Where one run's transcript lives under the runtime's data dir. */
 export function runTranscriptPath(dataDir: string, runId: string): string {

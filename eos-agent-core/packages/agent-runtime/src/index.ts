@@ -11,7 +11,7 @@ export type {
   AgentRunOutcome,
   DisplayedMessage,
   PartialReason,
-} from "./agent-run-handle.js";
+} from "@eos/engine";
 export type {
   LlmClientBinding,
   LlmClientRegistry,

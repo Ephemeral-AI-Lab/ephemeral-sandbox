@@ -1,7 +1,6 @@
 import type { AgentKind, AgentRunId } from "@eos/contracts";
+import type { AgentRunHandle } from "@eos/engine";
 import type { AgentRunState } from "@eos/tool";
-
-import type { AgentRunHandle } from "./agent-run-handle.js";
 
 /** §9 public run row; snake_case: serialized for transports later. */
 export interface RunSummary {

@@ -22,7 +22,7 @@ import type {
   BackgroundSessionSupervisor,
 } from "@eos/background";
 
-import type { AgentEvent } from "@eos/agent-runtime/agent-run-handle";
+import type { AgentEvent } from "../src/agent-runtime-handle.js";
 import type {
   LoopObserver,
   NotificationInbox,

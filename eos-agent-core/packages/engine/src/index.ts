@@ -1,7 +1,7 @@
 import { DEFAULT_MAX_TOKENS, type Message } from "@eos/contracts";
 import type { LlmClient, ReasoningEffort } from "@eos/llm-client";
 import type { LoopObserver, NotificationInbox } from "@eos/notification";
-import { RunHandle, type AgentRunHandle } from "@eos/agent-runtime/agent-run-handle";
+import { RunHandle, type AgentRunHandle } from "./agent-runtime-handle.js";
 import type { BackgroundSessionSupervisor } from "@eos/background";
 
 import { runAgentLoop } from "./agent-loop.js";
@@ -16,7 +16,7 @@ export type {
   AgentRunOutcome,
   DisplayedMessage,
   PartialReason,
-} from "@eos/agent-runtime/agent-run-handle";
+} from "./agent-runtime-handle.js";
 export type { ToolExecutor, ToolUseBlock } from "./tool-executor.js";
 
 /** Loop-turn budget when the caller does not pass `maxTurns`. */

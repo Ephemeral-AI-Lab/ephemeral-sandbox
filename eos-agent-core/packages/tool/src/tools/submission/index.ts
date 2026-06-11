@@ -1,5 +1,3 @@
-import type { AgentKind } from "@eos/contracts";
-
 import type { ToolDefinition } from "../../contract.js";
 import { submitAdvisorOutcomeTool } from "./submit_advisor_outcome.js";
 import { submitMainOutcomeTool } from "./submit_main_outcome.js";
@@ -34,23 +32,4 @@ export function terminalToolDefinitions(): ToolDefinition[] {
     submitAdvisorOutcomeTool(),
     submitSubagentOutcomeTool(),
   ];
-}
-
-/**
- * The terminal tool for one agent kind. Background-session submission policy
- * is configured as a PreToolUse hook, not baked into terminal tools.
- */
-export function submissionTool(kind: AgentKind): ToolDefinition {
-  switch (kind) {
-    case "main":
-      return submitMainOutcomeTool();
-    case "planner":
-      return submitPlannerOutcomeTool();
-    case "worker":
-      return submitWorkerOutcomeTool();
-    case "advisor":
-      return submitAdvisorOutcomeTool();
-    case "subagent":
-      return submitSubagentOutcomeTool();
-  }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { EventStream, type AgentEvent } from "../src/agent-run-handle.js";
+import { EventStream, type AgentEvent } from "../src/agent-runtime-handle.js";
 
 const tick = (): Promise<void> => Promise.resolve();
 

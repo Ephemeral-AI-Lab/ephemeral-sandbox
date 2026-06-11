@@ -12,7 +12,13 @@ import {
 } from "../src/contract.js";
 import { snapshotRunState } from "../src/run-state.js";
 import { backgroundTools } from "../src/index.js";
-import { submissionTool } from "../src/tools/submission/index.js";
+import {
+  submitAdvisorOutcomeTool,
+  submitMainOutcomeTool,
+  submitPlannerOutcomeTool,
+  submitSubagentOutcomeTool,
+  submitWorkerOutcomeTool,
+} from "../src/tools/submission/index.js";
 import { live, must, tick } from "./support.js";
 
 function setup(): {
@@ -106,36 +112,40 @@ describe("background tool family", () => {
 
 describe("submission tool family", () => {
   it("is terminal by construction, one definition per kind", () => {
-    const tool = submissionTool("worker");
+    const tool = submitWorkerOutcomeTool();
     expect(tool.name).toBe("submit_worker_outcome");
     expect(tool.isTerminal).toBe(true);
     expect(tool.availableInIsolatedWorkspace).toBe(false);
   });
 
   it("marks only planner, worker, and main submissions as advisory-required", () => {
-    for (const kind of ["main", "planner", "worker"] as const) {
-      const tool = submissionTool(kind);
+    const advisoryGated = {
+      main: submitMainOutcomeTool(),
+      planner: submitPlannerOutcomeTool(),
+      worker: submitWorkerOutcomeTool(),
+    };
+    for (const [kind, tool] of Object.entries(advisoryGated)) {
       expect(tool.isAdvisoryRequired, kind).toBe(true);
       expect(typeof tool.advisorPrompt, kind).toBe("string");
       expect(tool.advisorPrompt?.length, kind).toBeGreaterThan(0);
     }
-    expect(submissionTool("advisor")).toMatchObject({
+    expect(submitAdvisorOutcomeTool()).toMatchObject({
       isAdvisoryRequired: false,
     });
-    expect(submissionTool("subagent")).toMatchObject({
+    expect(submitSubagentOutcomeTool()).toMatchObject({
       isAdvisoryRequired: false,
     });
   });
 
   it("returns the parsed outcome object as the terminal content", async () => {
-    const submit = submissionTool("planner");
+    const submit = submitPlannerOutcomeTool();
     const outcome = await submit.execute({ summary: "plan ready" }, ctx());
     expect(outcome.content).toEqual({ summary: "plan ready" });
   });
 
   it("does not own background-session submission policy", async () => {
     const { inbox, supervisor } = setup();
-    const submit = submissionTool("main");
+    const submit = submitMainOutcomeTool();
     const session = register(supervisor, "command", "c1");
 
     const whileRunning = await submit.execute({ summary: "all done" }, ctx());
