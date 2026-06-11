@@ -8,9 +8,9 @@
 
 use eos_config::configs::daemon::PluginRuntimeConfig;
 use eos_config::configs::isolated_workspace::IsolatedWorkspaceConfig;
+use eos_workspace_runtime::WorkspaceRuntime;
 
 use crate::services::plugin::PluginRuntime;
-use crate::services::workspace::WorkspaceRuntime;
 
 /// Per-server daemon services used by dispatch handlers.
 pub struct Services {

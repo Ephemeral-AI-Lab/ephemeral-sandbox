@@ -250,28 +250,42 @@ DB-derived render.
     token and `Running` status before stamping `agent_run_id` and calling
     `AgentLaunchPort.launch`. A cancel or settlement that wins the race changes
     the row first; the guarded launcher skips instead of starting stale work.
-22. **One `reconcile*` transition per entity; submission drives a fixed
-    bottom-up pipeline.** Each entity's `transitions.ts` exports one status
-    mutation - `reconcilePlan` / `reconcileWorkItem` (the two leaf entries,
-    carrying the submission payload), `reconcileAttempt`,
-    `reconcileIteration`, `reconcileWorkflow` - that re-derives its
-    entity's status from its children's rows and returns a decision:
-    success and failure are return values of one function, never separate
-    functions, so death and compose synthesis (§2.14, §2.19) reuse the
-    identical path with a synthesized failed payload. The transitions
-    never call each other and never create entities: `binding.submit`
-    sequences them bottom-up in one transaction, interleaving the
-    `creation.ts` descends on the two continue decisions (attempt `Failed`
-    with budget left → `createAttempt`; iteration `Success` with a
-    deferral → `createIteration`) before the next level reconciles -
-    "retry stops at attempt" and "deferral stops at iteration" are
-    therefore no-op decisions over fresh rows, not conditional call
-    topology - and ends with one `claimLaunchable` sweep. Each reconcile
-    mutates only its own entity's rows and reads children through `trx`
-    (in-transaction reads see the pipeline's earlier writes; the loaded
-    `WorkflowTree` provides immutable context only). The cancel cascade
-    stays outside this family: top-down imposition, not bottom-up
-    derivation.
+22. **`transitions.ts` owns every entity mutation; both cascades nest
+    through the entity modules.** There is no creation or driver module.
+    Each entity's `transitions.ts` exports its full mutation set over
+    `(trx, workflowTree)`: `create<Entity>` inserts its own row and calls
+    the child's `create*` (`createWorkflow → createIteration →
+    createAttempt → createPlan → enqueueLaunch`; `delegate` enters at the
+    head, promotion re-enters at `createIteration`, retry at
+    `createAttempt`), `reconcile<Entity>` re-derives its own status from
+    child rows and acts, and `cancel<Entity>` cancels its own non-terminal
+    row and calls the children's `cancel*` - the top-down cancel cascade
+    (`cancelWorkflow → cancelIteration → cancelAttempt → cancelPlan +
+    cancelWorkItem`). `WorkflowService.cancel` - reached by the
+    background-session handle (`cancel_background_session`, caller
+    disposal) - aborts the workflow signal, enters the cascade at
+    `cancelWorkflow` in one transaction, then mirrors and resolves the
+    terminal `Cancelled`; terminal rows no-op, which keeps late
+    settlements and cancel races harmless.
+    `binding.submit` validates, calls the leaf reconcile for its kind -
+    `reconcilePlan` for a planner payload, `reconcileWorkItem` for a
+    worker payload; death and compose synthesis (§2.14, §2.19) reuse the
+    same leaves with a synthesized failed payload - and finishes with one
+    `claimLaunchable` sweep. Success and failure are branches inside one
+    `reconcile*` per entity, never separate functions. Each reconcile
+    escalates by calling its parent's reconcile (work-item and plan →
+    attempt → iteration → workflow) unless a continue decision descends
+    instead: `reconcileAttempt` on `Failed` with budget left calls
+    `createAttempt`; `reconcileIteration` on `Success` with a deferral
+    calls `createIteration`; a failing `reconcileWorkItem` cancels its
+    sibling rows through its own `cancelWorkItem` before escalating
+    (§2.20). Transition imports are adjacency-only (the parent's
+    `reconcile*` upward, the child's `create*`/`cancel*` downward, plan →
+    work-item for minting); the resulting adjacent-module cycles are
+    call-time only. Every transition
+    is idempotent by terminal guard and reads children through `trx`, so
+    the cascade sees its own writes; the loaded `WorkflowTree` provides
+    immutable context only.
 
 ## 3. Phase 05 Amendments
 
@@ -298,7 +312,7 @@ everything not listed is implemented as written there.
 | §2.16/§8 `AgentLaunchPort.launch(agentName, initialMessages)` | becomes `launch(agentName, initialMessages, options?)`, where `options` carries `SubmissionBinding` and the workflow cancellation signal | §2.19, §2.21 |
 | §2.17/§9 tool family: `delegate_workflow` + `read_workflow_context` + `query_workflow_context` | the family is `delegate_workflow` alone; cancel rides `cancel_background_session`; the read/query tool surface is deferred to a later discussion | §2.18 |
 | §2.8-§2.9 `WorkflowCell`, `liveRuns`, and per-workflow promise queue | removed; DB rows carry claims, launch tokens, terminal guards, and cancellation generations; `WorkflowService` keeps only active terminal resolvers and workflow abort controllers | §2.21 |
-| §2.15 orchestration functions (`delegateWorkflow`, `materializeWorkItems`, `recordWorkerOutcome`, `reconcileAttempt`) | one uniform `reconcile*` transition per entity (§14), sequenced bottom-up by the `binding.submit` pipeline with `creation.ts` descends and one `claimLaunchable` sweep; the idempotent terminal-guard rule survives unchanged | §2.22 |
+| §2.15 orchestration functions (`delegateWorkflow`, `materializeWorkItems`, `recordWorkerOutcome`, `reconcileAttempt`) | per-entity `create*`/`reconcile*` transitions (§14): a nested bottom-up reconcile cascade entered at the leaf by `binding.submit`, create descends for retry/promotion, one `claimLaunchable` sweep; the idempotent terminal-guard rule survives unchanged | §2.22 |
 
 Unchanged and re-affirmed: §2.3 status enum, §2.4 minted IDs, §2.8-2.12
 session machinery, §2.18 bound functions. §2.7 (settlement consumption),
@@ -329,7 +343,7 @@ Phase 05):
   listing (replacing `render/`), the §2.17 disk mirror, launch context
   builders + default composition policy (replacing `context.ts`), the composer seam on
   the launcher, materialization-time declaration rules, the §2.22
-  per-entity `reconcile*` transitions and submission pipeline, the §14
+  per-entity `create*`/`reconcile*` transition cascades, the §14
   entity-oriented module layout,
 - `@eos/tool`: `tools/workflow/delegate-workflow.ts` (tool name
   `delegate_workflow`; the family's only
@@ -954,7 +968,7 @@ process.stdin.on("end", () => {
 
 Against Phase 05 §8; everything not named is unchanged. The submission
 tools drive every mid-workflow transition through the §2.19 bound seam
-and the §2.22 reconcile pipeline; settlement callbacks contribute only
+and the §2.22 reconcile cascade; settlement callbacks contribute only
 death synthesis, and cancellation is the background-session handle
 calling `WorkflowService.cancel`.
 
@@ -970,33 +984,43 @@ delegate_workflow(goal)                              caller's run
   register the supervisor session (§12); return workflow_id
   commit → mirror → guarded stamp → launch planner with workflow signal
 
-submit_planner_outcome(payload)                      planner run (§2.19)
+submit_planner_outcome(payload)                      planner run (§2.19, §2.22)
   validate shape / structure / materialization       → error result,
                                                        correct in-run (§2.15)
-  one transaction: Plan → Success (summary; declared pair when
-                   `iteration_focus` is present, superseding prior
-                   attempts §2.4/§2.8)
-                   mint WorkItems (NotStarted), rewrite `needs`
-                   claim ready items (`needs` empty or Success)
-                     → Running + launch_token
+  one transaction:
+    reconcilePlan      Plan → Success (summary; declared pair when
+                       `iteration_focus` is present, superseding prior
+                       attempts §2.4/§2.8); createWorkItem per item
+                       (NotStarted), rewrite `needs` - nothing above
+                       the plan changes status
+    claimLaunchable    ready items (`needs` empty or Success)
+                       → Running + launch_token
   commit → mirror → launch claimed workers → ok → planner terminates
 
-submit_worker_outcome({ is_pass, … })                worker run (§2.19)
-  is_pass true:  WorkItem → Success
-                 claim newly-ready dependents → launch
-                 all items Success → Attempt → Success → Iteration → Success
-                   deferred_goal declared → next Iteration + Attempt + Plan,
-                     launch planner (current_goal advances by derivation)
-                   none declared → Workflow → Success → resolve terminal
-                     → caller's session settles
-  is_pass false: WorkItem → Failed; Attempt → Failed
-                cancel sibling work items + advance abort generation (§2.20)
-                 attempts < max_attempts → retry Attempt + Plan → launch
-                 else Iteration → Failed → Workflow → Failed → terminal
+submit_worker_outcome({ is_pass, … })                worker run (§2.19, §2.22)
+  one transaction - reconcileWorkItem cascades upward:
+    reconcileWorkItem  is_pass → WorkItem Success | Failed
+                       Failed: cancel sibling work items + advance abort
+                       generation (§2.20), then escalate ↑
+    reconcileAttempt   all items Success → Attempt → Success ↑
+                       any item Failed → Attempt → Failed:
+                         budget left → createAttempt (retry Attempt + Plan)
+                         exhausted → escalate ↑
+    reconcileIteration closing attempt Success → Iteration → Success:
+                         deferred_goal declared → createIteration (next
+                           Iteration + Attempt + Plan; current_goal
+                           advances by derivation)
+                         none declared → escalate ↑
+                       budget exhausted → Iteration → Failed ↑
+    reconcileWorkflow  Iteration Success without deferral → Workflow →
+                         Success → resolve terminal → caller settles
+                       Iteration Failed → Workflow → Failed → terminal
+    claimLaunchable    newly-ready dependents | retry plan | promoted plan
+  commit → mirror → launch claimed
 
 onSettlement(entity, settlement)
   entity still Running → synthesized failed submission (death, compose
-    failure §2.14, interruption) → the same failure path as is_pass false
+    failure §2.14, interruption) → the §2.22 leaf cascade, as is_pass false
   entity already terminal → no-op (idempotent guards)
 ```
 
@@ -1035,7 +1059,9 @@ Deltas retained from the focus model:
 - Compose failures synthesize failed settlements with
   `fail_reason: "context_script_error: …"` (§2.14).
 - Cancel cascade, guarded launch serialization, terminal resolution:
-  unchanged except for the removed cell/queue/live-run registry (§2.21).
+  unchanged except for the removed cell/queue/live-run registry (§2.21);
+  the one-transaction `Cancelled` marking runs as the §2.22 top-down
+  `cancelWorkflow` cascade.
 
 ## 12. Tool Family, Session, and Bound Submissions (`@eos/tool`)
 
@@ -1093,7 +1119,8 @@ settlement, and `supervisor.dispose` on caller finish cancels through the
 handle. `cancel_background_session`'s `type` union gains `"workflow"` -
 cancelling the session IS cancelling the workflow: the handle's `cancel`
 runs the Phase 05 §8 cascade (abort the workflow signal, mark all
-non-terminal entities `Cancelled` in one transaction, resolve the terminal
+non-terminal entities `Cancelled` in one transaction - the §2.22 top-down
+`cancelWorkflow` cascade - resolve the terminal
 `Cancelled`) and resolves after that durable teardown. The existing supervisor
 status machine may publish the session's `cancelled` notification before the
 handle finishes teardown; the model-facing cancel tool response is the durable
@@ -1157,32 +1184,41 @@ Delta to the Phase 05 §12 layout:
 
 ```text
 packages/workflow/src/
-├─ creation.ts        createWorkflow → createIteration → createAttempt →
-│                    createPlan cascade; package-internal only
 ├─ workflow-tree.ts    loadWorkflowTree: DB rows → derived graph (§8)
 ├─ workflow-context.ts loadWorkflowContext: §9 path universe / resolver /
 │                      listing over WorkflowTree; never reads the disk mirror
 ├─ workflow/
 │  ├─ state.ts         root workflow state; goal-chain derivation (§8)
 │  ├─ context.ts       original_goal.md / current_goal.md / outcome.md
-│  └─ transitions.ts   terminal close (Success / Failed / Cancelled)
+│  └─ transitions.ts   createWorkflow (heads the delegate cascade);
+│                      reconcileWorkflow: terminal close (§2.22);
+│                      cancelWorkflow (heads the cancel cascade)
 ├─ iteration/
 │  ├─ state.ts         ordered declarations; focus / deferred views (§8)
 │  ├─ context.ts       focus.md / deferred_goal.md / outcome.md
-│  └─ transitions.ts   close; deferred-goal promotion (next iteration)
+│  └─ transitions.ts   createIteration (→ createAttempt);
+│                      reconcileIteration: close, deferred-goal promotion
+│                      via createIteration; cancelIteration (→ cancelAttempt)
 ├─ attempt/
 │  ├─ state.ts         is_consistent_with_iteration_focus predicate (§6 invariant 5)
 │  ├─ context.ts       fail_reason.md
-│  └─ transitions.ts   creation; fail/close; retry within max_attempts
+│  └─ transitions.ts   createAttempt (→ createPlan); reconcileAttempt:
+│                      close/fail, retry within max_attempts via
+│                      createAttempt; cancelAttempt (→ cancelPlan +
+│                      cancelWorkItem)
 ├─ plan/
 │  ├─ state.ts         declaration record state
 │  ├─ context.ts       summary.md
-│  └─ transitions.ts   materialization: §11 declaration rules + work-item
-│                      creation
+│  └─ transitions.ts   createPlan (→ enqueueLaunch); reconcilePlan, the
+│                      planner leaf: §11 declaration rules + createWorkItem
+│                      minting; cancelPlan
 ├─ work-item/
 │  ├─ state.ts         readiness (`needs` all Success)
 │  ├─ context.ts       description.md / spec.md / summary.md / outcome.md
-│  └─ transitions.ts   worker-outcome recording (is_pass → status)
+│  └─ transitions.ts   createWorkItem (minted by reconcilePlan);
+│                      reconcileWorkItem, the worker leaf (is_pass →
+│                      status); cancelWorkItem (cancel cascade + §2.20
+│                      sibling cancel)
 ├─ archive/            pure addressing only - membership facts (attempt
 │                      consistency, goal chain) live on the entity state
 │                      modules; no archive table, mutation, or event exists
@@ -1198,7 +1234,9 @@ packages/workflow/src/
 │                      paths, temp-file + atomic-rename writes, prune of
 │                      departed paths
 ├─ launcher.ts         claimLaunchable, launch-token guard, post-commit
-│                      compose → mirror → launch; declares AgentLaunchPort /
+│                      compose → mirror → launch; builds the §2.19
+│                      binding.submit bodies (validate → leaf reconcile →
+│                      claimLaunchable sweep); declares AgentLaunchPort /
 │                      LaunchedAgent / LaunchSettlement / SubmissionBinding
 │                      (Phase 05 §2.16 contract + the §2.19/§2.21 seams)
 ├─ service.ts          delegate / cancel, active terminal resolver map, active
@@ -1207,18 +1245,37 @@ packages/workflow/src/
 └─ index.ts            the only public package surface: service and port types
 ```
 
-Each entity module owns its slice through one shape - `state.ts` (types +
-§8 derivations), `context.ts` (its §9 field files: verbatim field text
-plus the derived outcome compositions), `transitions.ts` (local status
-mutations over `(trx, workflowTree)`). `creation.ts` sequences the creation
-cascade in the direction of ownership:
+Each entity module owns its slice through one shape - `state.ts` (pure
+types + §8 derivations), `context.ts` (its §9 field files: verbatim field
+text plus the derived outcome compositions), `transitions.ts` (every
+mutation of its own rows over `(trx, workflowTree)`: `create*`,
+`reconcile*`, `cancel*` - §2.22). There is no creation, cancellation, or
+driver module; all three cascades nest through the transition modules
+themselves, with adjacency-only imports (the child's `create*` and
+`cancel*` downward, the parent's `reconcile*` upward, plan → work-item
+for minting):
 
 ```text
-createWorkflow
-  → createIteration
-    → createAttempt
-      → createPlan
-        → enqueueLaunch(kind='plan')
+creation (ownership, nested downward):
+  createWorkflow → createIteration → createAttempt → createPlan
+    → enqueueLaunch(kind='plan')
+  delegate enters at createWorkflow; promotion re-enters at
+  createIteration; retry re-enters at createAttempt
+
+reconciliation (§2.22, nested upward; binding.submit enters at the leaf):
+  reconcilePlan | reconcileWorkItem
+    ↑ reconcileAttempt      Failed with budget left → createAttempt
+      ↑ reconcileIteration  Success with deferral → createIteration
+        ↑ reconcileWorkflow  terminal close
+  then one claimLaunchable sweep: newly-ready dependents, the retry
+  plan, or the promoted plan
+
+cancellation (§2.22, nested downward; WorkflowService.cancel enters at
+the head - background-session cancel and caller dispose both land there):
+  cancelWorkflow → cancelIteration → cancelAttempt
+    → cancelPlan + cancelWorkItem
+  abort the workflow signal → one cascade transaction → mirror →
+  resolve the terminal Cancelled; terminal subtrees no-op
 ```
 
 The cascade functions are package-internal. `iteration/state.ts`,
@@ -1227,8 +1284,9 @@ for sibling workflow modules through relative imports, but `index.ts` must
 not re-export them, and `packages/workflow/package.json` must expose only
 `.` like the adjacent packages. Outside packages can construct workflows
 only through `WorkflowService` and the exported port/DTO types; they cannot
-call `createIteration`, `createAttempt`, `is_consistent_with_iteration_focus`
-predicates, or derived state helpers directly.
+call the `create*` / `reconcile*` transitions,
+`is_consistent_with_iteration_focus` predicates, or derived state helpers
+directly.
 
 `@eos/contracts` adds the §7 DTOs; `@eos/db` reshapes the migration and
 row queries consumed by `loadWorkflowTree`; `@eos/agent-runtime` adds
@@ -1247,7 +1305,7 @@ under the Phase 05 step list with these substitutions.
 | 1 | Contracts: flattened planner payload, context-script IO DTOs | §16 case 1 | Planned |
 | 2 | `@eos/db` + `@eos/workflow`: reshaped schema, `loadWorkflowTree` derived graph, `loadWorkflowContext` path universe | §16 cases 2-3 on `:memory:` | Planned |
 | 3 | Projection: field renders, listings, archives, disk mirror | §16 cases 3 + 13 | Planned |
-| 4 | Lifecycle + launcher: declaration rules, composer seam, compose-failure synthesis | §16 cases 4-9, engine-free | Planned |
+| 4 | Lifecycle + launcher: §2.22 transition cascades, declaration rules, composer seam, compose-failure synthesis | §16 cases 4-9, engine-free | Planned |
 | 5 | Service delegate/cancel + the `DelegatedWorkflow` handle | §16 cases 10-11 | Planned |
 | 6 | `@eos/tool`: `delegate_workflow` family + bound submissions | §16 case 11 | Planned |
 | 7 | Runtime: profile `workflow_context_script` loading + composer adapter, end-to-end | §16 case 12 | Planned |
@@ -1269,12 +1327,12 @@ context script fixture.
 | 6 | Keep vs refocus | keep: focus view unchanged, prior attempts keep `is_consistent_with_iteration_focus = true`, paths stable; refocus: both fields reset, prior attempts relocate whole under `archived/` at the next render, the resolver errors on the old live path naming `archived/` among valid children, the retry directive carries only attempts with `is_consistent_with_iteration_focus` true and omits the standing `deferred_goal` |
 | 7 | Success cascade | unchanged Phase 05 case 6, plus: the next planner's `current_goal` is the promoted deferral; the closing iteration's goal appears under `archived/iteration_<id>/`; no deferral → workflow `Success` with `current_goal.md` still live |
 | 8 | Failure and retry | unchanged Phase 05 case 7, with the budget spanning refocuses; exhaustion mid-refocus closes iteration and workflow `Failed`; a failing work item cancels its non-terminal siblings in the same transaction, advances the workflow abort generation (`attempt_failed`, §2.20), and their late settlements no-op with no `Running` rows left |
-| 9 | Death + compose synthesis | unchanged Phase 05 case 8, plus: a composer that throws/times out/returns garbage synthesizes a failed settlement with `context_script_error` recorded; synthesis keys off the entity still being `Running` - a run whose in-run submission already landed settles as a no-op; no entity stays `Running` |
-| 10 | DB guards + cancel | Phase 05 cases 9-10 re-run against the new model; competing tool submissions, settlements, guarded launch stamps, and cancel requests reload fresh state and use terminal/launch-token guards so the instrumented store sees at most one accepted mutation per entity transition and stale launches are skipped |
+| 9 | Death + compose synthesis | unchanged Phase 05 case 8, plus: a composer that throws/times out/returns garbage synthesizes a failed settlement with `context_script_error` recorded; synthesis keys off the entity still being `Running` - a run whose in-run submission already landed settles as a no-op; no entity stays `Running`; synthesis enters the same §2.22 leaf cascade as a live failed submission |
+| 10 | DB guards + cancel | Phase 05 cases 9-10 re-run against the new model; competing tool submissions, settlements, guarded launch stamps, and cancel requests reload fresh state and use terminal/launch-token guards so the instrumented store sees at most one accepted mutation per entity transition and stale launches are skipped; cancellation runs the §2.22 top-down `cancel*` cascade and no-ops over already-terminal subtrees |
 | 11 | Tools | `delegate_workflow` registers the session before returning, rejects a second open delegation, and returns the workflow id; submission tools: shape, structure, and materialization error tables each correctable in-run; unbound planner/worker runs keep service-free submissions; `cancel_background_session` accepts `type: "workflow"` and its tool call awaits the workflow handle cascade, while the existing supervisor may publish the `cancelled` notification at the cancel transition |
 | 12 | Runtime end-to-end | Phase 05 case 12 amended: the caller delegates, auto-waits, drains `session_settled`, and submits; planner and worker profiles name separate `workflow_context_script` files; fixture `workflow/scripts/planner.cjs` and `worker.cjs` each load `variable_reference_map.cjs`, then compose complete initial messages from `create_variable_reference_map(ctx)` → their own `get_initial_messages(vars)` only (proven by transcript inspection - nothing merged around them, worker includes `work_item_description`, `work_item_spec`, and dependency outcomes); missing/escaping/unreadable profile script paths fail startup; a broken or timed-out fixture script drives the case-9 synthesis path live; `cancel_background_session` mid-workflow cascades `workflow_cancelled` into child transcripts and settles the session `cancelled` |
 | 13 | Disk mirror | after each scripted lifecycle step the on-disk tree under the context root equals the rendered universe byte-for-byte; a refocus prunes the old live attempt folder and writes the archived one; a write failure (read-only root) leaves DB state and the run unaffected and the next mutation heals the mirror; package-side resolver/listing output is identical with the mirror deleted |
-| 14 | Package boundary | `@eos/workflow` exports only `WorkflowService` and port/DTO types from `index.ts`; no `state.ts`, `transitions.ts`, or `creation.ts` helper is re-exported; a repo scan finds no outside-package import of `@eos/workflow/*/state`, `@eos/workflow/creation`, or `packages/workflow/src/**` internals |
+| 14 | Package boundary | `@eos/workflow` exports only `WorkflowService` and port/DTO types from `index.ts`; no `state.ts` or `transitions.ts` helper is re-exported; a repo scan finds no outside-package import of `@eos/workflow/*/state`, `@eos/workflow/*/transitions`, or `packages/workflow/src/**` internals; inside the package, transition-module imports are adjacency-only - the child's `create*`/`cancel*` downward, the parent's `reconcile*` upward, plan → work-item minting - with no level-skipping transition import |
 
 Commands (unchanged):
 
@@ -1325,11 +1383,13 @@ Phase 05.1 is accepted when, in the combined Phase 05 + 05.1 implementation:
   `delegate_workflow` (the family's only tool) registers before returning,
   the one-open guard holds, the terminal maps onto the session outcome,
   and cancellation rides `cancel_background_session` and the caller
-  disposal cascade - no `cancel_workflow` exists, and the read/query tools
+  disposal cascade into the §2.22 top-down `cancelWorkflow` cascade - no
+  `cancel_workflow` exists, and the read/query tools
   are deferred (§2.18),
 - planner and worker submissions validate and mutate in-run through the
-  entity-bound seam using DB-guarded transitions, settlements reduce to
-  death synthesis against still-`Running` entities, guarded launch tokens
+  entity-bound seam, entering the §2.22 nested reconcile cascade at the
+  kind's leaf under DB-guarded transitions; settlements reduce to death
+  synthesis against still-`Running` entities, guarded launch tokens
   prevent stale post-commit launches, and attempt failure cancels the
   attempt's remaining work (§2.20),
 - `@eos/workflow` has no public entity-state surface: `index.ts` re-exports

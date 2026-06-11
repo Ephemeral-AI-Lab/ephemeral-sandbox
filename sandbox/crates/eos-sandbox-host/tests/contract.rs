@@ -1,14 +1,13 @@
 //! Host-side conformance (SPEC §9.3): `eos-sandbox-host` encodes requests
 //! that reproduce the frozen request fixtures byte-for-byte, with NO compiled
 //! code shared with the box side — this is the drift defense for the
-//! deliberately duplicated wire vocabulary in `eos_sandbox_host::wire`.
+//! deliberately duplicated wire vocabulary in `eos_sandbox_host::protocol`.
 
 use serde_json::json;
 
-use eos_sandbox_host::client::{raw_envelope_bytes, stamped_envelope_bytes};
-use eos_sandbox_host::wire::{
-    CONNECT_RETRY_DELAYS_S, DAEMON_AUTH_FIELD, DAEMON_PROTOCOL_FIELD, DAEMON_PROTOCOL_VERSION,
-    MAX_REQUEST_BYTES,
+use eos_sandbox_host::protocol::{
+    raw_envelope_bytes, stamped_envelope_bytes, CONNECT_RETRY_DELAYS_S, DAEMON_AUTH_FIELD,
+    DAEMON_PROTOCOL_FIELD, DAEMON_PROTOCOL_VERSION, MAX_REQUEST_BYTES,
 };
 
 const READ_FILE_FIXTURE: &[u8] =

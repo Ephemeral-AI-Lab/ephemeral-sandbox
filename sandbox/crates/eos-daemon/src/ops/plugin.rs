@@ -57,9 +57,7 @@ fn ensure_plugin_family_allowed(services: &Services, args: &Value) -> Result<(),
         .and_then(Value::as_str)
         .unwrap_or_default()
         .trim();
-    if !caller_id.is_empty()
-        && crate::ops::isolation::caller_has_active_handle(&services.workspace, caller_id)
-    {
+    if !caller_id.is_empty() && services.workspace.caller_has_active_handle(caller_id) {
         return Err(DaemonError::Plugin(
             PluginError::ForbiddenInIsolatedWorkspace,
         ));

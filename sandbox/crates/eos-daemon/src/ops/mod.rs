@@ -28,20 +28,23 @@ pub(crate) fn error_json(kind: &str, message: impl Into<String>, details: Value)
 }
 
 /// Read `key` as a trimmed non-empty string, encoding a miss as a structured
-/// `invalid_argument` error payload.
+/// `invalid_argument` error payload (the workspace-family arg convention).
 pub(crate) fn require_arg(args: &Value, key: &str) -> Result<String, Value> {
-    let value = args
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .trim()
-        .to_owned();
-    if value.is_empty() {
-        return Err(error_json(
+    crate::request_args::require_string(args, key).map_err(|_| {
+        error_json(
             "invalid_argument",
             format!("{key} is required"),
             json!({"key": key}),
-        ));
-    }
-    Ok(value)
+        )
+    })
+}
+
+/// The wire caller id used for isolated-workspace routing: `caller_id`
+/// trimmed, defaulting to `"default"` when absent.
+pub(crate) fn caller_id_or_default(args: &Value) -> String {
+    args.get("caller_id")
+        .and_then(Value::as_str)
+        .unwrap_or("default")
+        .trim()
+        .to_owned()
 }

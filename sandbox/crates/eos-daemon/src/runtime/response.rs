@@ -88,6 +88,48 @@ pub(crate) fn merge_runner_timings(
     }
 }
 
+/// The one guarded-write wire shape shared by the direct file ops and the
+/// changeset (command/plugin overlay) paths. Field presence differences are
+/// parameterized; key insertion order is contract-stable.
+pub(crate) struct GuardedResponse {
+    pub(crate) success: bool,
+    /// Direct file ops carry an explicit `published` flag; changeset paths
+    /// omit the key entirely.
+    pub(crate) published: Option<bool>,
+    pub(crate) workspace: String,
+    pub(crate) changed_paths: Value,
+    pub(crate) changed_path_kinds: Value,
+    pub(crate) mutation_source: String,
+    pub(crate) status: String,
+    pub(crate) conflict: Option<Value>,
+    pub(crate) conflict_reason: Option<String>,
+    pub(crate) timings: Value,
+    pub(crate) applied_edits: Option<i64>,
+}
+
+impl GuardedResponse {
+    pub(crate) fn into_json(self) -> Value {
+        let mut response = serde_json::Map::new();
+        response.insert("success".to_owned(), json!(self.success));
+        if let Some(published) = self.published {
+            response.insert("published".to_owned(), json!(published));
+        }
+        response.insert("workspace".to_owned(), json!(self.workspace));
+        response.insert("changed_paths".to_owned(), self.changed_paths);
+        response.insert("changed_path_kinds".to_owned(), self.changed_path_kinds);
+        response.insert("mutation_source".to_owned(), json!(self.mutation_source));
+        response.insert("status".to_owned(), json!(self.status));
+        response.insert("conflict".to_owned(), self.conflict.unwrap_or(Value::Null));
+        response.insert("conflict_reason".to_owned(), json!(self.conflict_reason));
+        response.insert("error".to_owned(), Value::Null);
+        response.insert("timings".to_owned(), self.timings);
+        if let Some(applied_edits) = self.applied_edits {
+            response.insert("applied_edits".to_owned(), json!(applied_edits));
+        }
+        Value::Object(response)
+    }
+}
+
 pub(crate) fn guarded_changeset_response(
     verb: &str,
     result: &ChangesetResult,
@@ -108,30 +150,31 @@ pub(crate) fn guarded_changeset_response(
         changed_path_kinds.insert(path.to_owned(), json!("write"));
     }
     let conflict = result.first_conflict();
-    let mut response = json!({
-        "success": result.success(),
-        "workspace": "ephemeral",
-        "changed_paths": changed_paths,
-        "changed_path_kinds": Value::Object(changed_path_kinds),
-        "mutation_source": mutation_source(verb),
-        "status": conflict
+    GuardedResponse {
+        success: result.success(),
+        published: None,
+        workspace: "ephemeral".to_owned(),
+        changed_paths: json!(changed_paths),
+        changed_path_kinds: Value::Object(changed_path_kinds),
+        mutation_source: mutation_source(verb).to_owned(),
+        status: conflict
             .as_ref()
-            .map_or("committed", |file| file.status.wire_str()),
-        "conflict": conflict.as_ref().map(|file| json!({
-            "reason": file.status.wire_str(),
-            "conflict_file": file.path.as_str(),
-            "message": file.conflict_message(file.status.wire_str()),
-        })),
-        "conflict_reason": conflict.as_ref().map(|file| {
-            file.conflict_message(file.status.wire_str())
+            .map_or("committed", |file| file.status.wire_str())
+            .to_owned(),
+        conflict: conflict.as_ref().map(|file| {
+            json!({
+                "reason": file.status.wire_str(),
+                "conflict_file": file.path.as_str(),
+                "message": file.conflict_message(file.status.wire_str()),
+            })
         }),
-        "error": null,
-        "timings": Value::Object(timings),
-    });
-    if let Some(count) = applied_edits {
-        response["applied_edits"] = json!(count);
+        conflict_reason: conflict
+            .as_ref()
+            .map(|file| file.conflict_message(file.status.wire_str()).to_owned()),
+        timings: Value::Object(timings),
+        applied_edits,
     }
-    response
+    .into_json()
 }
 
 pub(crate) fn resource_timings(

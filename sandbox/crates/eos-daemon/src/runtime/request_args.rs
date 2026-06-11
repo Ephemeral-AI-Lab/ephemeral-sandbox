@@ -40,6 +40,37 @@ pub(crate) fn require_raw_string(args: &Value, key: &str) -> Result<String, Daem
     Ok(value.to_owned())
 }
 
+/// Read `key` as a present, non-blank string, preserving its exact bytes
+/// (shell commands keep leading/trailing whitespace). A missing or non-string
+/// value reads as "required"; a blank value as "must be non-empty".
+pub(crate) fn require_command_string(args: &Value, key: &str) -> Result<String, DaemonError> {
+    let value = args
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| DaemonError::InvalidEnvelope(format!("{key} is required")))?;
+    if value.trim().is_empty() {
+        return Err(DaemonError::InvalidEnvelope(format!(
+            "{key} must be non-empty"
+        )));
+    }
+    Ok(value.to_owned())
+}
+
+/// Like [`require_command_string`] but only rejects the empty string, so
+/// whitespace-only payloads (e.g. stdin chars) stay valid.
+pub(crate) fn require_nonempty_string(args: &Value, key: &str) -> Result<String, DaemonError> {
+    let value = args
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| DaemonError::InvalidEnvelope(format!("{key} is required")))?;
+    if value.is_empty() {
+        return Err(DaemonError::InvalidEnvelope(format!(
+            "{key} must be non-empty"
+        )));
+    }
+    Ok(value.to_owned())
+}
+
 pub(crate) fn binding_to_value(binding: &WorkspaceBinding) -> Result<Value, DaemonError> {
     serde_json::to_value(binding).map_err(|err| DaemonError::InvalidEnvelope(err.to_string()))
 }

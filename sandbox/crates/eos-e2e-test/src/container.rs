@@ -1,4 +1,4 @@
-//! E2E adapter over [`eos_sandbox_host::container`]: maps the harness config
+//! E2E adapter over [`eos_sandbox_host::e2e_support`]: maps the harness config
 //! onto container/daemon specs, owns the e2e label vocabulary, and implements
 //! warm-pool adoption keyed by a config+binary digest.
 
@@ -6,10 +6,11 @@ use anyhow::{Context, Result};
 use eos_config::ConfigPath;
 use sha2::{Digest, Sha256};
 
-pub use eos_sandbox_host::container::DaemonContainer;
-use eos_sandbox_host::container::{ContainerLifetime, ContainerSpec, DaemonSpec};
-pub use eos_sandbox_host::docker::docker_available;
-use eos_sandbox_host::docker::{container_label, remove_labeled_containers, running_container_ids};
+use eos_sandbox_host::e2e_support::{
+    container_label, remove_labeled_containers, running_container_ids, ContainerLifetime,
+    ContainerSpec, DaemonSpec,
+};
+pub use eos_sandbox_host::e2e_support::{docker_available, DaemonContainer};
 
 use crate::config::{Config, NodeMode};
 use crate::unique_suffix;

@@ -1,0 +1,18 @@
+[package]
+name = "eos-workspace-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+eos-command-ops.workspace = true
+eos-config.workspace = true
+eos-isolated-workspace.workspace = true
+eos-layerstack.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

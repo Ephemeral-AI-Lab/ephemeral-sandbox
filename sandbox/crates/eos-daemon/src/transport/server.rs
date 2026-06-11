@@ -166,7 +166,7 @@ impl DaemonServer {
                         () = tokio::time::sleep(Duration::from_millis(sweep_interval_ms)) => {
                             let services = Arc::clone(&services);
                             let _ = tokio::task::spawn_blocking(move || {
-                                crate::ops::isolation::ttl_sweep(&services.workspace)
+                                services.workspace.ttl_sweep()
                             })
                             .await;
                         }

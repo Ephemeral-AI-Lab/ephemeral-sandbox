@@ -17,7 +17,7 @@ agent-core/crates/                    # Agent control plane
   eos-workflow                        # Delegated workflow lifecycle, attempts, context packets, plan DAG
   eos-tools                           # Model-facing tools (sandbox, skills, subagent, submissions)
   eos-state / eos-db                  # Persisted request/task/workflow state DTOs and SQL stores
-  eos-sandbox-api / eos-sandbox-host  # Host-side sandbox protocol, provisioning, and lifecycle
+  eos-api / eos-sandbox-host          # Host-side sandbox entry point, protocol, and lifecycle
   eos-agent-def / eos-skills / eos-plugin-catalog  # Agent profiles, skills, and the plugin catalog
   eos-llm-client                      # Provider client and streaming
   eos-config / eos-types              # Configuration and shared id/timestamp/json/error primitives

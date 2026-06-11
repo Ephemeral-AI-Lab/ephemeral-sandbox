@@ -15,7 +15,7 @@ boundary, and `cargo run -p xtask -- check-contract` is the drift gate.
 - Pinned in three places that the conformance suites hold in lockstep:
   - `contract/ops.json` (`protocol_version`) — the reviewed artifact;
   - `crates/eos-daemon/src/wire/version.rs` — the box side;
-  - `crates/eos-sandbox-host/src/wire.rs` — the host side's deliberate copy
+  - `crates/eos-sandbox-host/src/protocol.rs` — the host side's deliberate copy
     (no shared crate; drift is caught by the fixture conformance tests, not
     the compiler).
 

@@ -7,7 +7,7 @@ use std::time::Duration;
 use serde_json::{json, Map, Value};
 
 /// Maximum bytes in one request frame (mirrors the box hop).
-pub const MAX_REQUEST_BYTES: usize = eos_sandbox_host::wire::MAX_REQUEST_BYTES;
+pub const MAX_REQUEST_BYTES: usize = eos_sandbox_host::MAX_REQUEST_BYTES;
 
 /// Per-request read timeout in seconds (mirrors the box hop).
 pub const REQUEST_READ_TIMEOUT: Duration = Duration::from_secs(30);

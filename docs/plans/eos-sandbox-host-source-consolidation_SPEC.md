@@ -1,6 +1,6 @@
 # eos-sandbox-host Source Consolidation SPEC
 
-Status: Proposed
+Status: Implemented
 Date: 2026-06-11
 Owner: sandbox/crates
 Scope: `sandbox/crates/eos-sandbox-host/src`,
@@ -22,6 +22,18 @@ The selected target intentionally keeps `protocol.rs` separate from the host
 engine implementation. The protocol client and duplicated wire constants are a
 real boundary: they are the host-side copy of the daemon envelope contract and
 are tested against frozen contract fixtures.
+
+Implemented result:
+
+- `sandbox/crates/eos-sandbox-host/src` now contains exactly `lib.rs`,
+  `protocol.rs`, `host.rs`, and `runtime.rs`.
+- Source LOC is 1,597, below the 1,745 hard cap and 1,650 stretch target.
+- Old public module paths were removed from live Rust and maintained sandbox
+  docs; the old-path references below are retained as baseline/migration
+  history.
+- `eos-sandbox-host` and `eos-api` narrow checks pass. `eos-e2e-test`
+  verification is currently blocked before this boundary by unrelated
+  `eos-plugin::host` and macOS `rustix::pty` workspace failures.
 
 ## 2. Baseline
 

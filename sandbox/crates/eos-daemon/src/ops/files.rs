@@ -13,6 +13,7 @@ use serde_json::{json, Value};
 
 use crate::error::DaemonError;
 use crate::request_args::{require_raw_string, require_string};
+use crate::response::GuardedResponse;
 use crate::runtime::context::DispatchContext;
 
 /// `api.v1.read_file` — shared public read op, routed by active workspace mode.
@@ -23,7 +24,7 @@ pub(crate) fn op_read_file(
     let request = read_request(args, context)?;
     if let Some((workspace, binding)) = isolated_route(args, context) {
         let outcome = read_file(&isolated_backend(&binding), request).map_err(workspace_error)?;
-        crate::ops::isolation::touch_isolated(workspace, &binding.caller_id);
+        workspace.touch(&binding.caller_id);
         return Ok(read_response(outcome));
     }
     let root = PathBuf::from(require_string(args, "layer_stack_root")?);
@@ -41,7 +42,7 @@ pub(crate) fn op_write_file(
     let request = write_request(args, context)?;
     if let Some((workspace, binding)) = isolated_route(args, context) {
         let outcome = write_file(&isolated_backend(&binding), request).map_err(workspace_error)?;
-        crate::ops::isolation::touch_isolated(workspace, &binding.caller_id);
+        workspace.touch(&binding.caller_id);
         return Ok(write_response(outcome));
     }
     let root = PathBuf::from(require_string(args, "layer_stack_root")?);
@@ -59,7 +60,7 @@ pub(crate) fn op_edit_file(
     let request = edit_request(args)?;
     if let Some((workspace, binding)) = isolated_route(args, context) {
         let outcome = edit_file(&isolated_backend(&binding), request).map_err(workspace_error)?;
-        crate::ops::isolation::touch_isolated(workspace, &binding.caller_id);
+        workspace.touch(&binding.caller_id);
         return Ok(edit_response(outcome));
     }
     let root = PathBuf::from(require_string(args, "layer_stack_root")?);
@@ -75,11 +76,11 @@ fn isolated_route<'ctx>(
     args: &Value,
     context: DispatchContext<'ctx>,
 ) -> Option<(
-    &'ctx crate::services::workspace::WorkspaceRuntime,
+    &'ctx eos_workspace_runtime::WorkspaceRuntime,
     eos_command_ops::CommandBinding,
 )> {
     let workspace = &context.services()?.workspace;
-    let binding = crate::ops::isolation::command_handle_for_args(workspace, args)?;
+    let binding = workspace.command_binding_for(&super::caller_id_or_default(args))?;
     Some((workspace, binding))
 }
 
@@ -146,73 +147,37 @@ fn read_response(outcome: ReadFileOutcome) -> Value {
 }
 
 fn write_response(outcome: WriteFileOutcome) -> Value {
-    GuardedWireResponse {
-        workspace_kind: outcome.workspace_kind,
+    GuardedResponse {
         success: outcome.success,
-        published: outcome.published,
-        status: outcome.status,
-        conflict: outcome.conflict,
-        conflict_reason: outcome.conflict_reason,
-        changed_paths: outcome.changed_paths,
-        changed_path_kinds: outcome.changed_path_kinds,
+        published: Some(outcome.published),
+        workspace: outcome.workspace_kind,
+        changed_paths: json!(outcome.changed_paths),
+        changed_path_kinds: json!(outcome.changed_path_kinds),
         mutation_source: outcome.mutation_source,
-        timings: outcome.timings,
+        status: outcome.status,
+        conflict: outcome.conflict.map(conflict_value),
+        conflict_reason: outcome.conflict_reason,
+        timings: json!(outcome.timings),
         applied_edits: None,
     }
     .into_json()
 }
 
 fn edit_response(outcome: EditFileOutcome) -> Value {
-    GuardedWireResponse {
-        workspace_kind: outcome.workspace_kind,
+    GuardedResponse {
         success: outcome.success,
-        published: outcome.published,
-        status: outcome.status,
-        conflict: outcome.conflict,
-        conflict_reason: outcome.conflict_reason,
-        changed_paths: outcome.changed_paths,
-        changed_path_kinds: outcome.changed_path_kinds,
+        published: Some(outcome.published),
+        workspace: outcome.workspace_kind,
+        changed_paths: json!(outcome.changed_paths),
+        changed_path_kinds: json!(outcome.changed_path_kinds),
         mutation_source: outcome.mutation_source,
-        timings: outcome.timings,
+        status: outcome.status,
+        conflict: outcome.conflict.map(conflict_value),
+        conflict_reason: outcome.conflict_reason,
+        timings: json!(outcome.timings),
         applied_edits: Some(outcome.applied_edits),
     }
     .into_json()
-}
-
-struct GuardedWireResponse {
-    workspace_kind: String,
-    success: bool,
-    published: bool,
-    status: String,
-    conflict: Option<WorkspaceConflict>,
-    conflict_reason: Option<String>,
-    changed_paths: Vec<String>,
-    changed_path_kinds: std::collections::BTreeMap<String, String>,
-    mutation_source: String,
-    timings: eos_file_ops::WorkspaceTimings,
-    applied_edits: Option<i64>,
-}
-
-impl GuardedWireResponse {
-    fn into_json(self) -> Value {
-        let mut response = json!({
-            "success": self.success,
-            "published": self.published,
-            "workspace": self.workspace_kind,
-            "changed_paths": self.changed_paths,
-            "changed_path_kinds": self.changed_path_kinds,
-            "mutation_source": self.mutation_source,
-            "status": self.status,
-            "conflict": self.conflict.map(conflict_value),
-            "conflict_reason": self.conflict_reason,
-            "error": null,
-            "timings": self.timings,
-        });
-        if let Some(applied_edits) = self.applied_edits {
-            response["applied_edits"] = json!(applied_edits);
-        }
-        response
-    }
 }
 
 fn conflict_value(conflict: WorkspaceConflict) -> Value {

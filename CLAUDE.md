@@ -101,6 +101,22 @@ not as a reason to stop.
 - Match the existing code's style and ownership boundaries even when you would
   design greenfield code differently.
 
+## Rust File and Folder Naming
+
+- Use Rust module naming for files and folders under `src/`: lowercase
+  `snake_case` names that match the declared module path, such as
+  `agent_loop.rs`, `workspace_ops/`, or `runtime/request_args.rs`.
+- Cargo package directories may keep Cargo-style kebab-case crate names, such as
+  `eos-daemon`, but do not use kebab-case inside Rust module paths.
+- Choose folder names from the actual ownership boundary or domain vocabulary
+  already present in the crate, such as `runtime`, `transport`, `ops`, or
+  `services`. Avoid vague buckets like `utils`, `helpers`, or `common` unless
+  the surrounding crate already owns that convention.
+- Keep `lib.rs`, `main.rs`, and `mod.rs` as thin entry or facade files. Do not
+  rename `foo.rs` plus `foo/` child modules into `foo/mod.rs`, or the reverse,
+  only for aesthetics; first verify the live module tree and keep the shape that
+  best preserves ownership and public API boundaries.
+
 ## Surgical Scope
 
 - Touch only the files and lines needed for the user's request.

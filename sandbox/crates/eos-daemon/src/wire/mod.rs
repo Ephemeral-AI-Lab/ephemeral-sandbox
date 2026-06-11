@@ -2,7 +2,7 @@
 //! names), frozen protocol constants, and response canonicalization.
 //!
 //! This is in-box code. The host side carries its own copy of the vocabulary
-//! (`eos-sandbox-host::wire`); the shared artifact between them is
+//! (`eos-sandbox-host::protocol`); the shared artifact between them is
 //! `contract/` (data + prose), and drift is caught by the conformance suites
 //! run by `cargo xtask check-contract`.
 

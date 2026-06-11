@@ -1,4 +1,4 @@
-//! `ProtocolClient` — the ONLY egress to a live `eosd`.
+//! Host-side daemon protocol client and duplicated wire vocabulary.
 //!
 //! Speaks the raw daemon wire: one compact JSON object per line with a single
 //! trailing `\n`. TCP transport with the top-level `_eos_daemon_auth_token`
@@ -12,7 +12,36 @@ use std::time::Duration;
 
 use serde_json::{json, Map, Value};
 
-use crate::wire::{DAEMON_AUTH_FIELD, DAEMON_PROTOCOL_FIELD, DAEMON_PROTOCOL_VERSION};
+/// Top-level envelope key carrying the TCP auth token; popped by the daemon
+/// before dispatch.
+pub const DAEMON_AUTH_FIELD: &str = "_eos_daemon_auth_token";
+
+/// Args key carrying the protocol version (currently inert daemon-side).
+pub const DAEMON_PROTOCOL_FIELD: &str = "_eos_daemon_protocol_version";
+
+/// Protocol version stamped into `args` by the host.
+pub const DAEMON_PROTOCOL_VERSION: i64 = 1;
+
+/// Maximum bytes in one request frame, both hops.
+pub const MAX_REQUEST_BYTES: usize = 16 * 1024 * 1024;
+
+/// Backoff between connect retries after a failure, then one final attempt
+/// (inherited from the frozen host behavior).
+pub const CONNECT_RETRY_DELAYS_S: [f64; 4] = [0.25, 0.5, 1.0, 2.0];
+
+/// The liveness op. The bring-up ready gate polls it until the daemon answers
+/// with success: `sandbox.runtime.ready` cannot gate provisioning because its
+/// `control_plane` probe only turns `ready: true` once a workspace base
+/// exists, and provisioning seeds none.
+pub const HEARTBEAT_OP: &str = "sandbox.call.heartbeat";
+
+/// The readiness probe op. Requires a `layer_stack_root` arg; used for status
+/// embedding and recovery diagnostics, not the provision gate.
+pub const READY_OP: &str = "sandbox.runtime.ready";
+
+/// The conventional in-box layer-stack root the host stamps when a request
+/// carries none (and the root the status readiness probe reports against).
+pub const DEFAULT_LAYER_STACK_ROOT: &str = "/eos/layer-stack";
 
 /// A transport-level client failure. Daemon error envelopes are NOT errors —
 /// they come back as decoded success values.

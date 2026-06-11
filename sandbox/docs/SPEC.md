@@ -29,8 +29,8 @@ caller (out of scope)
 eos-api            (bin, host)   receive → gate → route → return. No fleet logic.
    │ in-process calls
    ▼
-eos-sandbox-host   (lib, host)   owns and reaches sandboxes: registry, lifecycle,
-   │                             docker, endpoint, forward, recovery.
+eos-sandbox-host   (lib, host)   owns and reaches sandboxes: host engine,
+   │                             protocol, runtime.
    │  loopback TCP (docker-published port) + auth token; `docker exec` fallback
    ▼
 eosd / eos-daemon  (bin+lib, in-container)   executes in-box ops: files (layer
@@ -41,7 +41,7 @@ eosd / eos-daemon  (bin+lib, in-container)   executes in-box ops: files (layer
 | Component | Kind | Job | Must never |
 |---|---|---|---|
 | `eos-api` | bin | decode envelope, enforce visibility, route by catalog, return response | contain fleet logic or per-op branches |
-| `eos-sandbox-host` | lib | container lifecycle, registry, endpoint resolution, forwarding, recovery | parse op semantics beyond catalog metadata |
+| `eos-sandbox-host` | lib | host engine, duplicated protocol client, Docker runtime | parse op semantics beyond catalog metadata |
 | `eosd` / `eos-daemon` | bin+lib | dispatch and execute the in-box op catalog | know about Docker, sandbox_ids, or the fleet |
 | `contract/` | data | the protocol: op catalog, fixtures, prose | contain code |
 | `eos-layerstack` | lib (in-box) | the two frozen content hashes + manifest/layer types, storage, leases, checkpoint squashing | be depended on by host-side crates |
@@ -247,8 +247,7 @@ sandbox/
 ├── crates/
 │   ├── eos-api/                    bin: main, server, wire, public, router, admin
 │   │   └── tests/contract.rs
-│   ├── eos-sandbox-host/           lib: registry, lifecycle, docker, endpoint,
-│   │   │                           forward, recovery
+│   ├── eos-sandbox-host/           lib: host, protocol, runtime
 │   │   └── tests/
 │   ├── eosd/                       + dump-ops subcommand
 │   ├── eos-daemon/

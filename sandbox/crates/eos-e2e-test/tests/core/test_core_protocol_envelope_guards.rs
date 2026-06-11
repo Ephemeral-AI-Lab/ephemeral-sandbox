@@ -7,7 +7,7 @@
 use anyhow::{Context, Result};
 use eos_daemon::wire::ops;
 use eos_e2e_test::client::error_kind;
-use eos_sandbox_host::wire::MAX_REQUEST_BYTES;
+use eos_sandbox_host::MAX_REQUEST_BYTES;
 use serde_json::json;
 
 use crate::support::live_pool_or_skip;

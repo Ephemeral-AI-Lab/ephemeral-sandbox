@@ -14,6 +14,7 @@ use eos_layerstack::require_workspace_binding;
 use serde_json::{json, Value};
 
 use crate::error::DaemonError;
+use crate::request_args::{require_command_string, require_nonempty_string};
 use crate::response::u64_to_f64_saturating;
 use crate::runtime::context::DispatchContext;
 
@@ -28,7 +29,9 @@ pub(crate) fn op_exec_command(
     let yield_time_ms =
         optional_u64(args, "yield_time_ms").unwrap_or(command_config.default_yield_time_ms);
     let isolated_binding = context.services().and_then(|services| {
-        crate::ops::isolation::command_handle_for_args(&services.workspace, args)
+        services
+            .workspace
+            .command_binding_for(&super::caller_id_or_default(args))
     });
     if let Some(binding) = isolated_binding {
         return start_manager_command_session(
@@ -192,32 +195,6 @@ fn command_session_response_to_wire(
         Err(CommandSessionError::NotFound(_)) => Ok(command_session_not_found()),
         Err(error) => Err(command_session_error(error)),
     }
-}
-
-fn require_command_string(args: &Value, key: &str) -> Result<String, DaemonError> {
-    let value = args
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| DaemonError::InvalidEnvelope(format!("{key} is required")))?;
-    if value.trim().is_empty() {
-        return Err(DaemonError::InvalidEnvelope(format!(
-            "{key} must be non-empty"
-        )));
-    }
-    Ok(value.to_owned())
-}
-
-fn require_nonempty_string(args: &Value, key: &str) -> Result<String, DaemonError> {
-    let value = args
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| DaemonError::InvalidEnvelope(format!("{key} is required")))?;
-    if value.is_empty() {
-        return Err(DaemonError::InvalidEnvelope(format!(
-            "{key} must be non-empty"
-        )));
-    }
-    Ok(value.to_owned())
 }
 
 fn caller_id_arg(args: &Value) -> &str {

@@ -209,6 +209,7 @@ dependencies = [
  "eos-namespace",
  "eos-overlay",
  "eos-plugin",
+ "eos-workspace-runtime",
  "nix 0.29.0",
  "proptest",
  "serde",
@@ -324,6 +325,17 @@ dependencies = [
  "anyhow",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "eos-workspace-runtime"
+version = "0.1.0"
+dependencies = [
+ "eos-command-ops",
+ "eos-config",
+ "eos-isolated-workspace",
+ "eos-layerstack",
+ "serde_json",
 ]
 
 [[package]]

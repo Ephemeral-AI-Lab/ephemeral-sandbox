@@ -14,6 +14,7 @@ members = [
     "crates/eos-overlay",
     "crates/eos-plugin",
     "crates/eos-sandbox-host",
+    "crates/eos-workspace-runtime",
     "crates/eos-api",
     "crates/eos-e2e-test",
     "xtask",
@@ -62,6 +63,7 @@ eos-layerstack = { path = "crates/eos-layerstack" }
 eos-overlay = { path = "crates/eos-overlay" }
 eos-plugin = { path = "crates/eos-plugin" }
 eos-namespace = { path = "crates/eos-namespace" }
+eos-workspace-runtime = { path = "crates/eos-workspace-runtime" }
 eos-daemon = { path = "crates/eos-daemon" }
 eosd = { path = "crates/eosd" }
 eos-sandbox-host = { path = "crates/eos-sandbox-host" }
