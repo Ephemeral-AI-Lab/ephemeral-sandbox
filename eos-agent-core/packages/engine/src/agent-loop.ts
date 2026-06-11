@@ -3,6 +3,7 @@ import { ProviderError, type UsageSnapshot } from "@eos/llm-client";
 
 import type { BackgroundSupervisor } from "./background/supervisor.js";
 import type { Conversation, ToolResultBlock } from "./conversation.js";
+import type { LoopObserver } from "./loop-observer.js";
 import {
   systemNotificationMessage,
   type NotificationInbox,
@@ -29,6 +30,8 @@ export interface AgentLoopContext {
   notifications?: NotificationInbox;
   /** Auto-wait gate and dispose-on-finish; sessions are loop lifecycle. */
   background?: BackgroundSupervisor;
+  /** Loop-lifecycle announcements (Phase 04.9); never throws or rejects. */
+  observer?: LoopObserver;
 }
 
 /**
@@ -39,7 +42,8 @@ export interface AgentLoopContext {
  *
  * Run completion is exclusively a terminal tool result; bare text never
  * terminates (`maxTurns` backstops spin), and the engine appends no
- * reminder on a text turn — that nudge is a future notification rule.
+ * reminder on a text turn — that nudge is a notification trigger rule
+ * behind the `LoopObserver` port (Phase 04.9).
  */
 export async function runAgentLoop(ctx: AgentLoopContext): Promise<void> {
   const { handle, conversation } = ctx;
@@ -76,13 +80,25 @@ export async function runAgentLoop(ctx: AgentLoopContext): Promise<void> {
       turns += 1;
       usage = addUsage(usage, turn.usage);
       const calls = toolUses(turn.message);
+      await ctx.observer?.turnCompleted({
+        turn: turns,
+        maxTurns: ctx.maxTurns,
+        toolCalls: calls.length,
+        liveSessions: ctx.background?.liveCount() ?? 0,
+        hasPendingSteers: handle.hasPendingSteers(),
+      });
       if (calls.length === 0) {
         // Auto-wait: a no-tool-use turn with live sessions parks on the
         // next notification OR steer instead of burning provider calls.
         // Waiting consumes no turn; an abort wakes the race and the
         // loop-top check classifies it.
         if (!handle.hasPendingSteers() && (ctx.background?.liveCount() ?? 0) > 0) {
-          await waitForWake(ctx);
+          ctx.observer?.idleStarted();
+          try {
+            await waitForWake(ctx);
+          } finally {
+            ctx.observer?.idleEnded();
+          }
         }
         continue;
       }

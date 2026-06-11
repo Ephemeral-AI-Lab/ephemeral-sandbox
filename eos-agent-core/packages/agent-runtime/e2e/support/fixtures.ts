@@ -5,7 +5,12 @@ import { fileURLToPath } from "node:url";
 import { assistantText, type JsonObject, type Message } from "@eos/contracts";
 import type { AgentRunOutcome } from "@eos/engine";
 import { scriptedTool } from "@eos/testkit";
-import { defineTool, type HookConfigEntry, type ToolDefinition } from "@eos/tool";
+import {
+  defineTool,
+  type HookConfigEntry,
+  type ToolDefinition,
+  type TriggerRuleEntry,
+} from "@eos/tool";
 import { z } from "zod";
 
 import { loadHookConfig } from "../../src/hook-config.js";
@@ -275,8 +280,8 @@ export interface RuntimeFixtureOptions {
   llmClientsPath: string;
   profiles: readonly ProfileSpec[];
   baseTools?: ToolDefinition[];
-  /** Extra hooks appended to the repo `.eos-agents/hooks.json` baseline. */
-  hookEntries?: readonly HookConfigEntry[];
+  /** Extra hook or trigger entries appended to the repo `.eos-agents/hooks.json` baseline. */
+  hookEntries?: readonly (HookConfigEntry | TriggerRuleEntry)[];
 }
 
 export interface RuntimeFixture {
@@ -320,14 +325,14 @@ function profilesWithAdvisor(profiles: readonly ProfileSpec[]): readonly Profile
   if (!needsAdvisor || profiles.some((profile) => profile.name === "advisor")) {
     return profiles;
   }
-  const llmClientId = profiles[0]?.llmClientId;
-  if (llmClientId === undefined) return profiles;
+  const first = profiles.at(0);
+  if (first === undefined) return profiles;
   return [
     ...profiles,
     {
       name: "advisor",
       kind: "advisor",
-      llmClientId,
+      llmClientId: first.llmClientId,
       allowed: [],
       maxTurns: 3,
       body: ADVISOR_BODY,

@@ -29,6 +29,7 @@ import {
   hangingTurn,
   must,
   reasoningDelta,
+  recordingObserver,
   scriptedExecutor,
   scriptedTurn,
   sessionHandle,
@@ -749,5 +750,189 @@ describe("agent loop", () => {
         initialMessages: [],
       }),
     ).toThrow(TypeError);
+  });
+});
+
+describe("agent loop observer announcements (04.9 §4)", () => {
+  it("awaits turnCompleted after every committed turn — text, single call, and batch — with exact facts", async () => {
+    const tools = scriptedExecutor(
+      ["echo", () => Promise.resolve({ content: "ok" })],
+      ["submit", submitHandler(SUBMISSION)],
+    );
+    const { observer, calls } = recordingObserver();
+    const { handle } = startMockRun(
+      [
+        scriptedTurn([complete(assistantMessage(textBlock("thinking")))]),
+        scriptedTurn([
+          complete(assistantMessage(toolUseBlock("tu_1", "echo")), "tool_use"),
+        ]),
+        scriptedTurn([
+          complete(
+            assistantMessage(toolUseBlock("tu_2", "echo"), toolUseBlock("tu_s", "submit")),
+            "tool_use",
+          ),
+        ]),
+      ],
+      { tools, observer, maxTurns: 5 },
+    );
+    const outcome = asCompleted(await handle.outcome);
+    expect(outcome.turns).toBe(3);
+    expect(calls, "every turn shape announces, including the submitting batch").toEqual([
+      {
+        kind: "turnCompleted",
+        facts: { turn: 1, maxTurns: 5, toolCalls: 0, liveSessions: 0, hasPendingSteers: false },
+      },
+      {
+        kind: "turnCompleted",
+        facts: { turn: 2, maxTurns: 5, toolCalls: 1, liveSessions: 0, hasPendingSteers: false },
+      },
+      {
+        kind: "turnCompleted",
+        facts: { turn: 3, maxTurns: 5, toolCalls: 2, liveSessions: 0, hasPendingSteers: false },
+      },
+    ]);
+  });
+
+  it("holds the next provider call until turnCompleted resolves — awaited, not fire-and-forget", async () => {
+    const release = deferred();
+    const { observer } = recordingObserver((facts) =>
+      facts.turn === 1 ? release.promise : undefined,
+    );
+    const tools = scriptedExecutor(["submit", submitHandler(SUBMISSION)]);
+    const { client, handle } = startMockRun(
+      [
+        scriptedTurn([complete(assistantMessage(textBlock("first")))]),
+        scriptedTurn([
+          complete(assistantMessage(toolUseBlock("tu_s", "submit")), "tool_use"),
+        ]),
+      ],
+      { tools, observer },
+    );
+    await tick();
+    await tick();
+    expect(
+      client.requests,
+      "the loop is parked inside the awaited turnCompleted",
+    ).toHaveLength(1);
+    release.resolve();
+    const outcome = asCompleted(await handle.outcome);
+    expect(outcome.turns).toBe(2);
+  });
+
+  it("drains a reminder published during turnCompleted before the next provider call (the spin case)", async () => {
+    const inbox = new NotificationInbox();
+    const reminder = systemNotificationMessage({
+      type: "reminder",
+      source: "TurnCompleted",
+      text: "call your terminal tool",
+    });
+    const { observer } = recordingObserver((facts) => {
+      if (facts.toolCalls === 0) inbox.publish(reminder);
+    });
+    const tools = scriptedExecutor(["submit", submitHandler(SUBMISSION)]);
+    const { client, handle } = startMockRun(
+      [
+        scriptedTurn([complete(assistantMessage(textBlock("drifting")))]),
+        scriptedTurn([
+          complete(assistantMessage(toolUseBlock("tu_s", "submit")), "tool_use"),
+        ]),
+      ],
+      { tools, notifications: inbox, observer },
+    );
+    const outcome = asCompleted(await handle.outcome);
+    expect(
+      must(client.requests.at(1)).messages,
+      "the reminder is in the very next provider call",
+    ).toEqual([userText("hi"), assistantMessage(textBlock("drifting")), reminder]);
+    expectProviderValid(outcome.llm);
+  });
+
+  it("brackets the park with idleStarted/idleEnded and reports live sessions in the facts", async () => {
+    const inbox = new NotificationInbox();
+    const supervisor = new BackgroundSupervisor(inbox);
+    const session = sessionHandle();
+    supervisor.register({ type: "command", id: "c1" }, session.handle);
+    const tools = scriptedExecutor(["submit", submitHandler(SUBMISSION)]);
+    const { observer, calls } = recordingObserver();
+    const { handle } = startMockRun(
+      [
+        scriptedTurn([complete(assistantMessage(textBlock("waiting")))]),
+        scriptedTurn([
+          complete(assistantMessage(toolUseBlock("tu_s", "submit")), "tool_use"),
+        ]),
+      ],
+      { tools, notifications: inbox, background: supervisor, observer, maxTurns: 4 },
+    );
+    await tick();
+    await tick();
+    expect(calls, "parked: announced and idle, not yet ended").toEqual([
+      {
+        kind: "turnCompleted",
+        facts: { turn: 1, maxTurns: 4, toolCalls: 0, liveSessions: 1, hasPendingSteers: false },
+      },
+      { kind: "idleStarted" },
+    ]);
+    session.settle({ status: "completed", summary: "done" });
+    asCompleted(await handle.outcome);
+    expect(
+      calls.map((call) => call.kind),
+      "the settlement wake ends the idle bracket before the next turn",
+    ).toEqual(["turnCompleted", "idleStarted", "idleEnded", "turnCompleted"]);
+  });
+
+  it("calls idleEnded when an abort wakes the park", async () => {
+    const inbox = new NotificationInbox();
+    const supervisor = new BackgroundSupervisor(inbox);
+    const session = sessionHandle();
+    supervisor.register({ type: "command", id: "c1" }, session.handle);
+    const { observer, calls } = recordingObserver();
+    const { handle } = startMockRun(
+      [scriptedTurn([complete(assistantMessage(textBlock("waiting")))])],
+      { notifications: inbox, background: supervisor, observer },
+    );
+    await tick();
+    await tick();
+    handle.interrupt("user stop");
+    const outcome = asCancelled(await handle.outcome);
+    expect(outcome.reason).toBe("user stop");
+    expect(calls.map((call) => call.kind)).toEqual([
+      "turnCompleted",
+      "idleStarted",
+      "idleEnded",
+    ]);
+  });
+
+  it("skips the idle bracket when a steer is already pending at the boundary", async () => {
+    const inbox = new NotificationInbox();
+    const supervisor = new BackgroundSupervisor(inbox);
+    const session = sessionHandle();
+    supervisor.register({ type: "command", id: "c1" }, session.handle);
+    const started = deferred();
+    const release = deferred();
+    const tools = scriptedExecutor(["submit", submitHandler(SUBMISSION)]);
+    const { observer, calls } = recordingObserver();
+    const { handle } = startMockRun(
+      [
+        gatedTurn(started, release.promise, [
+          complete(assistantMessage(textBlock("busy"))),
+        ]),
+        scriptedTurn([
+          complete(assistantMessage(toolUseBlock("tu_s", "submit")), "tool_use"),
+        ]),
+      ],
+      { tools, notifications: inbox, background: supervisor, observer },
+    );
+    await started.promise;
+    expect(handle.steer(userText("redirect"))).toBe(true);
+    release.resolve();
+    asCompleted(await handle.outcome);
+    expect(must(calls.at(0))).toMatchObject({
+      kind: "turnCompleted",
+      facts: { toolCalls: 0, liveSessions: 1, hasPendingSteers: true },
+    });
+    expect(
+      calls.map((call) => call.kind),
+      "no park, so no idle announcements",
+    ).toEqual(["turnCompleted", "turnCompleted"]);
   });
 });

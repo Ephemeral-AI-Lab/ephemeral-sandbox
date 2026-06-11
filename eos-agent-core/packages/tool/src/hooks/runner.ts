@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import type { z } from "zod";
 
 import {
@@ -10,8 +9,7 @@ import {
   type HookOutput,
   type HookPayload,
 } from "./protocol.js";
-
-const DEFAULT_HOOK_TIMEOUT_MS = 60_000;
+import { spawnJsonCommand } from "./spawn.js";
 
 /** One hook's settled run: a structured output, or passthrough + warning. */
 interface HookRunResult {
@@ -86,82 +84,49 @@ async function runHook(
 }
 
 /**
- * The JS-script pluggability: spawn with `shell: true`, payload JSON +
- * newline on stdin, per-hook timeout derived from the call's signal (a
- * cancelled run kills its hooks). Exit 0 stdout parses as `HookOutput`
- * (mismatch = passthrough + warning); exit 2 denies with stderr as the
- * model-visible reason; anything else is passthrough + warning.
+ * The JS-script pluggability over the shared spawn core: per-hook timeout
+ * derived from the call's signal (a cancelled run kills its hooks). Exit 0
+ * stdout parses as `HookOutput` (mismatch = passthrough + warning); exit 2
+ * denies with stderr as the model-visible reason; anything else is
+ * passthrough + warning.
  */
-function runCommandHook(
+async function runCommandHook(
   command: Extract<HookCommand, { type: "command" }>,
   payload: HookPayload,
   signal: AbortSignal,
 ): Promise<HookRunResult> {
-  const hookSignal = AbortSignal.any([
-    signal,
-    AbortSignal.timeout(command.timeout_ms ?? DEFAULT_HOOK_TIMEOUT_MS),
-  ]);
-  return new Promise((resolve) => {
-    const child = spawn(command.command, {
-      shell: true,
-      signal: hookSignal,
-      ...(command.cwd !== undefined && { cwd: command.cwd }),
-    });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => (stdout += chunk));
-    child.stderr.on("data", (chunk: string) => (stderr += chunk));
-    child.on("error", (error) => {
-      resolve(passthrough(`hook command failed to spawn: ${error.message}`));
-    });
-    child.on("close", (code) => {
-      if (hookSignal.aborted) {
-        resolve(passthrough("hook command aborted (timeout or run abort)"));
-        return;
-      }
-      if (code === 2) {
-        resolve({
-          output: {
-            decision: "deny",
-            reason: stderr.trim() || "hook command exited 2",
-          },
-        });
-        return;
-      }
-      if (code !== 0) {
-        resolve(
-          passthrough(
-            `hook command exited ${String(code)}: ${stderr.trim() || "(no stderr)"}`,
-          ),
-        );
-        return;
-      }
-      const trimmed = stdout.trim();
-      if (!trimmed) {
-        resolve(passthrough());
-        return;
-      }
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(trimmed);
-      } catch {
-        resolve(passthrough(`hook stdout was not JSON: ${trimmed.slice(0, 200)}`));
-        return;
-      }
-      const checked = HookOutputSchema.safeParse(parsed);
-      resolve(
-        checked.success
-          ? { output: checked.data }
-          : invalidHookOutput("hook stdout", checked.error),
-      );
-    });
-    // EPIPE from a hook that exits without reading stdin is not an error.
-    child.stdin.on("error", () => undefined);
-    child.stdin.write(`${JSON.stringify(payload)}\n`);
-    child.stdin.end();
-  });
+  const settled = await spawnJsonCommand(command, payload, signal);
+  if (settled.kind === "spawn_error") {
+    return passthrough(`hook command failed to spawn: ${settled.message}`);
+  }
+  if (settled.kind === "aborted") {
+    return passthrough("hook command aborted (timeout or run abort)");
+  }
+  if (settled.code === 2) {
+    return {
+      output: {
+        decision: "deny",
+        reason: settled.stderr.trim() || "hook command exited 2",
+      },
+    };
+  }
+  if (settled.code !== 0) {
+    return passthrough(
+      `hook command exited ${String(settled.code)}: ${settled.stderr.trim() || "(no stderr)"}`,
+    );
+  }
+  const trimmed = settled.stdout.trim();
+  if (!trimmed) return passthrough();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return passthrough(`hook stdout was not JSON: ${trimmed.slice(0, 200)}`);
+  }
+  const checked = HookOutputSchema.safeParse(parsed);
+  return checked.success
+    ? { output: checked.data }
+    : invalidHookOutput("hook stdout", checked.error);
 }
 
 function validateHookOutput(output: unknown, source: string): HookRunResult {

@@ -25,7 +25,20 @@ export {
   type HookPayload,
 } from "./hooks/protocol.js";
 export { HookEngine } from "./hooks/runner.js";
-export { type AgentRunState } from "./run-state.js";
+export {
+  TriggerOutputSchema,
+  TriggerRuleEntrySchema,
+  runTriggerCommand,
+  type IdleTimeoutFacts,
+  type TriggerCommand,
+  type TriggerCommandRun,
+  type TriggerCommandRunner,
+  type TriggerOutput,
+  type TriggerPayload,
+  type TriggerRuleEntry,
+  type TurnCompletedFacts,
+} from "./hooks/triggers.js";
+export { snapshotRunState, type AgentRunState } from "./run-state.js";
 export { buildToolExecutor, type BuildToolExecutorInput } from "./toolset.js";
 export {
   ADVISOR_AGENT_NAME,

@@ -4,7 +4,8 @@
     "packages/**/*.ts",
     "scripts/**/*.ts",
     "vitest.config.ts",
-    "vitest.e2e.config.ts"
+    "vitest.e2e.config.ts",
+    "vitest.e2e.cache.config.ts"
   ],
   "exclude": ["**/node_modules"]
 }

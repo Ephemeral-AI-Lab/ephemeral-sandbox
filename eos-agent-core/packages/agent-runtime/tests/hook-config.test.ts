@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { loadHookConfig } from "../src/hook-config.js";
+import { loadHookConfig, splitHookConfig } from "../src/hook-config.js";
 import { tempDir } from "./support.js";
 
 describe("hook config loading", () => {
@@ -69,5 +69,53 @@ describe("hook config loading", () => {
     const path = join(tempDir("eos-hooks-"), "hooks.json");
     writeFileSync(path, JSON.stringify({ hooks: [] }));
     expect(() => loadHookConfig(path)).toThrow(/is invalid/);
+  });
+
+  it("loads trigger rules beside tool hooks and splits them by event family (04.9 §5)", () => {
+    const path = join(tempDir("eos-hooks-"), "hooks.json");
+    const entries = [
+      {
+        event: "TurnCompleted",
+        hooks: [{ type: "command", command: "node remind.cjs" }],
+      },
+      {
+        event: "IdleParked",
+        timeout_ms: 60_000,
+        hooks: [{ type: "command", command: "node idle-wake.cjs" }],
+      },
+      {
+        event: "PreToolUse",
+        matcher: "write_file",
+        hooks: [{ type: "command", command: "node gate.cjs" }],
+      },
+    ];
+    writeFileSync(path, JSON.stringify(entries));
+    const loaded = loadHookConfig(path);
+    expect(loaded, "cwd defaulting applies to trigger rules too").toEqual(
+      entries.map((entry) => ({
+        ...entry,
+        hooks: entry.hooks.map((hook) => ({ ...hook, cwd: dirname(path) })),
+      })),
+    );
+    const { hooks, triggers } = splitHookConfig(loaded);
+    expect(hooks.map((entry) => entry.event)).toEqual(["PreToolUse"]);
+    expect(triggers.map((entry) => entry.event)).toEqual(["TurnCompleted", "IdleParked"]);
+  });
+
+  it("rejects an IdleParked rule without timeout_ms (04.9 §5)", () => {
+    const path = join(tempDir("eos-hooks-"), "hooks.json");
+    writeFileSync(
+      path,
+      JSON.stringify([
+        { event: "IdleParked", hooks: [{ type: "command", command: "node x.cjs" }] },
+      ]),
+    );
+    expect(() => loadHookConfig(path)).toThrow(/is invalid: .*timeout_ms/);
+  });
+
+  it("rejects a trigger rule with an empty hooks list (04.9 §5)", () => {
+    const path = join(tempDir("eos-hooks-"), "hooks.json");
+    writeFileSync(path, JSON.stringify([{ event: "TurnCompleted", hooks: [] }]));
+    expect(() => loadHookConfig(path)).toThrow(/is invalid: .*hooks/);
   });
 });

@@ -4,6 +4,7 @@ import type { LlmClient, ReasoningEffort } from "@eos/llm-client";
 import { runAgentLoop } from "./agent-loop.js";
 import type { BackgroundSupervisor } from "./background/supervisor.js";
 import { Conversation } from "./conversation.js";
+import type { LoopObserver } from "./loop-observer.js";
 import type { NotificationInbox } from "./notification-inbox.js";
 import { RunHandle, type AgentRunHandle } from "./run-handle.js";
 import type { ToolExecutor } from "./tool-executor.js";
@@ -22,6 +23,7 @@ export type {
   PartialReason,
 } from "./conversation.js";
 export type { AgentEvent } from "./events.js";
+export type { LoopObserver, TurnFacts } from "./loop-observer.js";
 export {
   NotificationInbox,
   systemNotificationMessage,
@@ -66,6 +68,12 @@ export interface StartAgentRunInput {
    * publishes settlements there).
    */
   background?: BackgroundSupervisor;
+  /**
+   * Loop-lifecycle announcement port (Phase 04.9): awaited after every
+   * committed assistant turn; `idleStarted`/`idleEnded` bracket each
+   * auto-wait park. Absent means today's behavior exactly.
+   */
+  observer?: LoopObserver;
 }
 
 /**
@@ -85,6 +93,7 @@ export function startAgentRun(input: StartAgentRunInput): AgentRunHandle {
     maxTurns: input.maxTurns ?? DEFAULT_MAX_TURNS,
     notifications: input.notifications,
     background: input.background,
+    observer: input.observer,
     turnConfig: {
       client: input.llmClient,
       model: input.model,

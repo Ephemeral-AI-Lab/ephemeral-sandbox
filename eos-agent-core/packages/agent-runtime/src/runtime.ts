@@ -18,11 +18,13 @@ import {
   agentTools,
   backgroundTools,
   buildToolExecutor,
+  runTriggerCommand,
+  snapshotRunState,
   terminalToolDefinitions,
   type AgentRunState,
   type ToolDefinition,
+  type TriggerRuleEntry,
 } from "@eos/tool";
-import type { HookBackgroundSession } from "@eos/tool";
 
 import {
   loadAgentProfileRegistry,
@@ -30,11 +32,15 @@ import {
   type AgentProfileRegistry,
   type KnownToolNames,
 } from "./agent-profile-registry.js";
-import { loadHookConfig } from "./hook-config.js";
+import { loadHookConfig, splitHookConfig } from "./hook-config.js";
 import {
   loadLlmClientRegistry,
   type LlmClientRegistry,
 } from "./llm-client-registry.js";
+import {
+  NotificationTriggerEngine,
+  backgroundSessionForHook,
+} from "./notification-trigger-engine.js";
 import { RunRegistry, type RunSummary } from "./run-registry.js";
 import {
   RunLog,
@@ -101,13 +107,16 @@ export function createAgentRuntime(dependencies: AgentRuntimeDependencies): Agen
   // Profiles resolve before engine start (§2.8); a dangling llm_client_id
   // reference is a startup error, never a mid-run one.
   for (const profile of agentProfiles.list()) llmClients.require(profile.llm_client_id);
-  const hookEngine = new HookEngine(loadHookConfig(dependencies.hookConfigPath));
+  // One file, two event families (04.9 §5): tool events feed the hook
+  // engine, trigger events the per-run notification trigger engine.
+  const { hooks, triggers } = splitHookConfig(loadHookConfig(dependencies.hookConfigPath));
   return createRuntime({
     dataDir: dependencies.dataDir,
     baseTools: dependencies.baseTools ?? [],
     agentProfiles,
     llmClients,
-    hookEngine,
+    hookEngine: new HookEngine(hooks),
+    triggerRules: triggers,
   });
 }
 
@@ -140,6 +149,8 @@ interface RuntimeContext {
   llmClients: LlmClientRegistry;
   /** One engine per runtime: hook commands are stateless processes (§7). */
   hookEngine: HookEngine;
+  /** Shared rule list; the trigger engine itself is per run (04.9 §7). */
+  triggerRules: readonly TriggerRuleEntry[];
 }
 
 interface StartRunContext {
@@ -227,11 +238,21 @@ function createRuntime(ctx: RuntimeContext): AgentRuntime {
       }),
     });
 
+    const observer = new NotificationTriggerEngine({
+      rules: ctx.triggerRules,
+      runCommand: runTriggerCommand,
+      inbox,
+      supervisor,
+      runSnapshot: () => snapshotRunState(runState),
+      terminalTool: profile.terminal_tool,
+    });
+
     const handle = startAgentRun({
       llmClient: llm.client,
       tools,
       notifications: inbox,
       background: supervisor,
+      observer,
       model: llm.model_id,
       reasoningEffort: llm.reasoning_effort,
       systemPrompt: profile.system_prompt,
@@ -302,23 +323,4 @@ function validateAdvisoryToolAccess(
   throw new Error(
     `profile "${profile.name}" selects advisory-required tools but cannot call ask_advisor`,
   );
-}
-
-function backgroundSessionForHook(row: {
-  type: string;
-  id: string;
-  status: HookBackgroundSession["status"];
-  started_at: string;
-  summary?: string;
-  description?: string;
-}): HookBackgroundSession {
-  const session: HookBackgroundSession = {
-    type: row.type,
-    id: row.id,
-    status: row.status,
-    started_at: row.started_at,
-  };
-  if (row.summary !== undefined) session.summary = row.summary;
-  if (row.description !== undefined) session.description = row.description;
-  return session;
 }

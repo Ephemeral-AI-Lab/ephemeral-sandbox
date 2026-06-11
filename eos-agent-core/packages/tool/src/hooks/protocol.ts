@@ -84,18 +84,19 @@ export interface HookConfigEntry {
   hooks: HookCommand[];
 }
 
+/** The serializable command-hook shape shared by tool hooks and trigger rules. */
+export const CommandHookSchema = z.object({
+  type: z.literal("command"),
+  command: z.string().min(1),
+  cwd: z.string().min(1).optional(),
+  timeout_ms: z.number().int().positive().optional(),
+});
+
 /** The serializable subset a hooks.json file may hold (loading is Phase 04.5). */
 export const HookConfigEntrySchema = z.object({
   event: HookEventSchema,
   matcher: z.string().min(1).optional(),
-  hooks: z.array(
-    z.object({
-      type: z.literal("command"),
-      command: z.string().min(1),
-      cwd: z.string().min(1).optional(),
-      timeout_ms: z.number().int().positive().optional(),
-    }),
-  ),
+  hooks: z.array(CommandHookSchema),
 });
 
 /** One event's hook outputs folded by the precedence kernel. */

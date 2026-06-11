@@ -26,7 +26,9 @@ import {
   startAgentRun,
   type AgentRunHandle,
   type AgentRunOutcome,
+  type LoopObserver,
   type ToolExecutor,
+  type TurnFacts,
 } from "../src/index.js";
 
 // --- scripted provider client ----------------------------------------------
@@ -371,6 +373,38 @@ export function tick(): Promise<void> {
   });
 }
 
+// --- loop observer recorder -----------------------------------------------------
+
+export type ObserverCall =
+  | { kind: "turnCompleted"; facts: TurnFacts }
+  | { kind: "idleStarted" }
+  | { kind: "idleEnded" };
+
+/**
+ * A recording `LoopObserver`. `onTurnCompleted` lets a test gate the loop
+ * (return an unresolved promise) or publish a notification mid-call.
+ */
+export function recordingObserver(
+  onTurnCompleted?: (facts: TurnFacts) => Promise<void> | void,
+): { observer: LoopObserver; calls: ObserverCall[] } {
+  const calls: ObserverCall[] = [];
+  return {
+    calls,
+    observer: {
+      async turnCompleted(facts) {
+        calls.push({ kind: "turnCompleted", facts });
+        await onTurnCompleted?.(facts);
+      },
+      idleStarted() {
+        calls.push({ kind: "idleStarted" });
+      },
+      idleEnded() {
+        calls.push({ kind: "idleEnded" });
+      },
+    },
+  };
+}
+
 // --- run orchestration ---------------------------------------------------------
 
 export interface StartMockRunOptions {
@@ -379,6 +413,7 @@ export interface StartMockRunOptions {
   signal?: AbortSignal;
   notifications?: NotificationInbox;
   background?: BackgroundSupervisor;
+  observer?: LoopObserver;
 }
 
 /** Start a run over scripted turns with small defaults. */
@@ -397,6 +432,7 @@ export function startMockRun(
     signal: options.signal,
     notifications: options.notifications,
     background: options.background,
+    observer: options.observer,
   });
   return { client, handle };
 }
