@@ -1,10 +1,5 @@
-//! Workspace checkpoint services: LayerStack base/binding/metrics plus the
-//! commit seams.
-//!
-//! `commit_to_git` is a thin seam over [`eos_checkpoint`]: this module owns
-//! only the request-envelope parsing and the response/error re-mapping; the
-//! pathspec policy, worktree preparation, and git pipeline live in that crate
-//! so the daemon does not fuse the glue into the control plane.
+//! Workspace checkpoint adapters: LayerStack base/binding/metrics plus the
+//! `eos_checkpoint` commit seam.
 
 use std::path::PathBuf;
 use std::time::Instant;
@@ -19,7 +14,7 @@ use serde_json::{json, Value};
 
 use crate::error::DaemonError;
 use crate::request_args::{binding_to_value, require_string, timings_to_value_map};
-use crate::runtime::context::DispatchContext;
+use crate::DispatchContext;
 use eos_layerstack::service::cache_snapshot;
 
 pub(crate) fn layer_metrics(

@@ -1,23 +1,7 @@
-use super::{decode_mountinfo_path, normalize_mount_path, OverlayHandle, ValidatedMountInputs};
-use std::path::{Path, PathBuf};
+use super::{OverlayHandle, ValidatedMountInputs};
+use std::path::PathBuf;
 
 type TestResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
-
-#[test]
-fn decodes_mountinfo_octal_escapes() {
-    assert_eq!(
-        decode_mountinfo_path("/tmp/has\\040space"),
-        Path::new("/tmp/has space")
-    );
-}
-
-#[test]
-fn normalizes_paths_lexically() {
-    assert_eq!(
-        normalize_mount_path(Path::new("/tmp/./a/../b")),
-        Path::new("/tmp/b")
-    );
-}
 
 #[test]
 fn mount_inputs_pin_only_lowerdirs_with_fd_paths() -> TestResult {

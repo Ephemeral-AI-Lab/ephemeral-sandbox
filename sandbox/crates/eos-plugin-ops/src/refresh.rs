@@ -249,7 +249,7 @@ impl PluginRuntime {
 
     fn send_refresh_sequence(
         &self,
-        client: &crate::transport::PpcClient,
+        client: &super::transport::PpcClient,
         service_key: &PluginServiceKey,
         service_instance_id: &str,
         invocation_id: &str,
@@ -454,7 +454,7 @@ fn probe_connected_service_health(
 }
 
 fn send_refresh_request(
-    client: &crate::transport::PpcClient,
+    client: &super::transport::PpcClient,
     invocation_id: &str,
     index: usize,
     request: &RefreshRequest,

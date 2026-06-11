@@ -1,16 +1,3 @@
-//! The file tool family: read / write / edit semantics over one backend.
-//!
-//! The semantics (size caps, create-only conflicts, exact search/replace with
-//! occurrence checks, base-content pinning) live here once; a [`FileBackend`]
-//! decides what a read resolves against and what an apply means durably:
-//!
-//! - [`DirectBackend`] — the fast path: reads resolve against the latest
-//!   merged state of the layer stack, applies commit through the per-root
-//!   single writer gated by the base hash the read observed. No overlay is
-//!   involved at any point.
-//! - [`IsolatedBackend`] — reads resolve upperdir-first then through the
-//!   frozen snapshot layers; applies write into the workspace's private
-//!   upperdir and never publish.
 #![forbid(unsafe_code)]
 
 use std::time::Instant;
@@ -28,13 +15,10 @@ pub use isolated::IsolatedBackend;
 
 use std::collections::BTreeMap;
 
-/// Timing/telemetry map keyed by stable wire strings.
 pub type WorkspaceTimings = BTreeMap<String, Value>;
 
-/// `path -> kind` map for changed paths (wire-stable kind strings).
 pub type ChangedPathKinds = BTreeMap<String, String>;
 
-/// A per-path conflict surfaced on the response envelope.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspaceConflict {
     pub reason: String,
@@ -54,21 +38,14 @@ impl WorkspaceConflict {
     }
 }
 
-/// File-tier API error carrying a stable wire kind.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
-#[error("{message}")]
-pub struct FileOpsError {
-    pub kind: String,
-    pub message: String,
-}
+#[error("{0}")]
+pub struct FileOpsError(String);
 
 impl FileOpsError {
     #[must_use]
-    pub fn new(kind: &str, message: String) -> Self {
-        Self {
-            kind: kind.to_owned(),
-            message,
-        }
+    pub fn new(_kind: &str, message: String) -> Self {
+        Self(message)
     }
 
     #[must_use]
@@ -77,7 +54,6 @@ impl FileOpsError {
     }
 }
 
-/// A workspace-relative path after backend-specific root resolution.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResolvedWorkspacePath {
     pub path: String,
@@ -90,7 +66,6 @@ impl ResolvedWorkspacePath {
     }
 }
 
-/// Bytes read from the backend's view.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReadBytes {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -102,7 +77,6 @@ pub struct ReadBytes {
     pub timings: WorkspaceTimings,
 }
 
-/// Mutation kind produced by a file operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MutationKind {
@@ -120,7 +94,6 @@ impl MutationKind {
     }
 }
 
-/// Mutation passed to the backend's apply.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Mutation {
     pub kind: MutationKind,
@@ -129,12 +102,10 @@ pub struct Mutation {
     pub base: ReadBytes,
 }
 
-/// Normalized mutation outcome before daemon JSON conversion.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct MutationOutcome {
     pub workspace_kind: String,
     pub success: bool,
-    /// True only when the mutation reached shared workspace truth.
     pub published: bool,
     pub status: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -149,50 +120,28 @@ pub struct MutationOutcome {
     pub mutation_source: String,
     #[serde(default)]
     pub timings: WorkspaceTimings,
+    #[serde(default, skip_serializing_if = "is_zero_i64")]
+    pub applied_edits: i64,
 }
 
-/// What a read resolves against and what an apply means durably.
-///
-/// The two real implementations are [`DirectBackend`] (latest merged state +
-/// gated single-writer commit) and [`IsolatedBackend`] (upperdir-first reads,
-/// private upperdir writes, never published).
 pub trait FileBackend {
     fn workspace_kind(&self) -> &'static str;
 
-    /// Stable `mutation_source` string for outcomes of `kind`.
     fn mutation_source(&self, kind: MutationKind) -> &'static str;
 
-    /// Normalize a request path into the backend's workspace-relative form.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`FileOpsError`] when the path is invalid for the workspace.
     fn resolve_path(&self, request_path: &str) -> Result<ResolvedWorkspacePath, FileOpsError>;
 
-    /// Read the path's current bytes in the backend's view.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`FileOpsError`] when the view cannot be read.
     fn read_bytes(&self, path: &ResolvedWorkspacePath) -> Result<ReadBytes, FileOpsError>;
 
-    /// Make `mutation` durable per the backend's policy.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`FileOpsError`] when the apply fails (a publish conflict is an
-    /// `Ok` outcome carrying `conflict`, not an error).
     fn apply(&self, mutation: Mutation) -> Result<MutationOutcome, FileOpsError>;
 }
 
-/// Read one text file from a workspace.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReadFileRequest {
     pub path: String,
     pub max_read_bytes: usize,
 }
 
-/// Write one file into a workspace.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WriteFileRequest {
     pub path: String,
@@ -201,7 +150,6 @@ pub struct WriteFileRequest {
     pub max_file_bytes: usize,
 }
 
-/// One exact-match replacement for edit_file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SearchReplaceEdit {
     pub old_text: String,
@@ -210,7 +158,6 @@ pub struct SearchReplaceEdit {
     pub replace_all: bool,
 }
 
-/// Apply search/replace edits to one file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EditFileRequest {
     pub path: String,
@@ -228,89 +175,9 @@ pub struct ReadFileOutcome {
     pub timings: WorkspaceTimings,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WriteFileOutcome {
-    pub workspace_kind: String,
-    pub success: bool,
-    pub published: bool,
-    pub status: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub conflict: Option<WorkspaceConflict>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub conflict_reason: Option<String>,
-    #[serde(default)]
-    pub changed_paths: Vec<String>,
-    #[serde(default)]
-    pub changed_path_kinds: ChangedPathKinds,
-    #[serde(default)]
-    pub mutation_source: String,
-    #[serde(default)]
-    pub timings: WorkspaceTimings,
-}
+pub type WriteFileOutcome = MutationOutcome;
+pub type EditFileOutcome = MutationOutcome;
 
-impl From<MutationOutcome> for WriteFileOutcome {
-    fn from(outcome: MutationOutcome) -> Self {
-        Self {
-            workspace_kind: outcome.workspace_kind,
-            success: outcome.success,
-            published: outcome.published,
-            status: outcome.status,
-            conflict: outcome.conflict,
-            conflict_reason: outcome.conflict_reason,
-            changed_paths: outcome.changed_paths,
-            changed_path_kinds: outcome.changed_path_kinds,
-            mutation_source: outcome.mutation_source,
-            timings: outcome.timings,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct EditFileOutcome {
-    pub workspace_kind: String,
-    pub success: bool,
-    pub published: bool,
-    pub status: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub conflict: Option<WorkspaceConflict>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub conflict_reason: Option<String>,
-    #[serde(default)]
-    pub changed_paths: Vec<String>,
-    #[serde(default)]
-    pub changed_path_kinds: ChangedPathKinds,
-    #[serde(default)]
-    pub mutation_source: String,
-    #[serde(default)]
-    pub timings: WorkspaceTimings,
-    pub applied_edits: i64,
-}
-
-impl EditFileOutcome {
-    #[must_use]
-    pub fn from_mutation(outcome: MutationOutcome, applied_edits: i64) -> Self {
-        Self {
-            workspace_kind: outcome.workspace_kind,
-            success: outcome.success,
-            published: outcome.published,
-            status: outcome.status,
-            conflict: outcome.conflict,
-            conflict_reason: outcome.conflict_reason,
-            changed_paths: outcome.changed_paths,
-            changed_path_kinds: outcome.changed_path_kinds,
-            mutation_source: outcome.mutation_source,
-            timings: outcome.timings,
-            applied_edits,
-        }
-    }
-}
-
-/// Read one text file through a backend.
-///
-/// # Errors
-///
-/// Returns [`FileOpsError`] when the path cannot be resolved, the file cannot
-/// be read, or the read exceeds `max_read_bytes`.
 pub fn read_file<B: FileBackend>(
     backend: &B,
     request: ReadFileRequest,
@@ -343,12 +210,6 @@ pub fn read_file<B: FileBackend>(
     })
 }
 
-/// Write one file through a backend.
-///
-/// # Errors
-///
-/// Returns [`FileOpsError`] when the path cannot be resolved, the base cannot
-/// be read, the request is too large, or the apply fails.
 pub fn write_file<B: FileBackend>(
     backend: &B,
     request: WriteFileRequest,
@@ -366,8 +227,9 @@ pub fn write_file<B: FileBackend>(
     if !request.overwrite && base.exists {
         let mut timings = base.timings;
         insert_total(&mut timings, "write", total_start);
-        return Ok(write_conflict(
+        return Ok(conflict_outcome(
             backend,
+            MutationKind::Write,
             &path.path,
             "rejected",
             "create_only_existing",
@@ -382,15 +244,9 @@ pub fn write_file<B: FileBackend>(
         base,
     })?;
     insert_total(&mut outcome.timings, "write", total_start);
-    Ok(outcome.into())
+    Ok(outcome)
 }
 
-/// Apply exact search/replace edits through a backend.
-///
-/// # Errors
-///
-/// Returns [`FileOpsError`] when the path cannot be resolved, the base cannot
-/// be read, the file is not UTF-8, or the apply fails.
 pub fn edit_file<B: FileBackend>(
     backend: &B,
     request: EditFileRequest,
@@ -401,8 +257,9 @@ pub fn edit_file<B: FileBackend>(
     if !base.exists {
         let mut timings = base.timings;
         insert_total(&mut timings, "edit", total_start);
-        return Ok(edit_conflict(
+        return Ok(conflict_outcome(
             backend,
+            MutationKind::Edit,
             &path.path,
             "aborted_version",
             "aborted_version",
@@ -424,8 +281,9 @@ pub fn edit_file<B: FileBackend>(
             Err(err) => {
                 let mut timings = base.timings;
                 insert_total(&mut timings, "edit", total_start);
-                return Ok(edit_conflict(
+                return Ok(conflict_outcome(
                     backend,
+                    MutationKind::Edit,
                     &path.path,
                     "aborted_overlap",
                     "aborted_overlap",
@@ -442,21 +300,20 @@ pub fn edit_file<B: FileBackend>(
         base,
     })?;
     insert_total(&mut outcome.timings, "edit", total_start);
-    Ok(EditFileOutcome::from_mutation(
-        outcome,
-        i64::try_from(request.edits.len()).unwrap_or(i64::MAX),
-    ))
+    outcome.applied_edits = i64::try_from(request.edits.len()).unwrap_or(i64::MAX);
+    Ok(outcome)
 }
 
-fn write_conflict<B: FileBackend>(
+fn conflict_outcome<B: FileBackend>(
     backend: &B,
+    kind: MutationKind,
     path: &str,
     status: &str,
     reason: &str,
     message: &str,
     timings: WorkspaceTimings,
-) -> WriteFileOutcome {
-    WriteFileOutcome {
+) -> MutationOutcome {
+    MutationOutcome {
         workspace_kind: backend.workspace_kind().to_owned(),
         success: false,
         published: false,
@@ -465,32 +322,14 @@ fn write_conflict<B: FileBackend>(
         conflict_reason: Some(reason.to_owned()),
         changed_paths: Vec::new(),
         changed_path_kinds: ChangedPathKinds::new(),
-        mutation_source: backend.mutation_source(MutationKind::Write).to_owned(),
+        mutation_source: backend.mutation_source(kind).to_owned(),
         timings,
+        ..MutationOutcome::default()
     }
 }
 
-fn edit_conflict<B: FileBackend>(
-    backend: &B,
-    path: &str,
-    status: &str,
-    reason: &str,
-    message: &str,
-    timings: WorkspaceTimings,
-) -> EditFileOutcome {
-    EditFileOutcome {
-        workspace_kind: backend.workspace_kind().to_owned(),
-        success: false,
-        published: false,
-        status: status.to_owned(),
-        conflict: Some(WorkspaceConflict::path(reason, path, message)),
-        conflict_reason: Some(reason.to_owned()),
-        changed_paths: Vec::new(),
-        changed_path_kinds: ChangedPathKinds::new(),
-        mutation_source: backend.mutation_source(MutationKind::Edit).to_owned(),
-        timings,
-        applied_edits: 0,
-    }
+const fn is_zero_i64(value: &i64) -> bool {
+    *value == 0
 }
 
 fn insert_total(timings: &mut WorkspaceTimings, verb: &str, start: Instant) {
@@ -500,8 +339,6 @@ fn insert_total(timings: &mut WorkspaceTimings, verb: &str, start: Instant) {
     );
 }
 
-/// Search/replace failure. Message strings are part of the public conflict
-/// contract.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 enum SearchReplaceError {
     #[error("anchor not found")]
@@ -517,8 +354,6 @@ const fn search_replace_message(err: &SearchReplaceError) -> &'static str {
     }
 }
 
-/// Apply one search/replace edit with Rust `str.count` semantics. The anchor is
-/// non-empty: `edit_file` rejects empty anchors before calling this.
 fn apply_search_replace(
     text: &str,
     old: &str,

@@ -262,6 +262,7 @@ sandbox/
 │   ├── eos-isolated-workspace/     isolated session lifecycle + network setup
 │   ├── eos-file-ops/               file operation semantics
 │   ├── eos-plugin/                 plugin contracts and PPC protocol
+│   ├── eos-plugin-ops/             plugin package/process/dispatch runtime
 │   └── eos-e2e-test/               live protocol tests
 ├── docs/
 │   ├── README.md                   index

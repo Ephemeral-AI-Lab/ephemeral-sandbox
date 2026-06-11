@@ -1,9 +1,3 @@
-//! One prepare path for both targets: session dir + metadata + runner request.
-//!
-//! The mode never appears in a function name — it is the [`RunMode`] arm the
-//! workspace binding dictates: a fresh ephemeral overlay mounts via
-//! `FreshNs`, an open isolated handle re-enters via `SetNs`.
-
 use std::path::{Path, PathBuf};
 
 use eos_ephemeral_workspace::MountPlan;
@@ -12,10 +6,9 @@ use eos_namespace::protocol::{
 };
 use serde_json::{json, Value};
 
-use crate::binding::CommandBinding;
 use crate::outcome::WorkspaceApiError;
+use crate::CommandBinding;
 
-/// Everything the PTY substrate needs to spawn the runner child.
 pub(crate) struct PreparedCommand {
     pub(crate) run_request: Value,
     pub(crate) request_path: PathBuf,
@@ -34,8 +27,6 @@ pub(crate) struct PrepareInputs<'a> {
     pub(crate) workspace_label: &'a str,
 }
 
-/// Lay out the session dir + metadata and build the runner request for a fresh
-/// ephemeral overlay (`FreshNs`: the runner child mounts the plan).
 pub(crate) fn prepare_ephemeral(
     inputs: PrepareInputs<'_>,
     plan: MountPlan<'_>,
@@ -61,9 +52,6 @@ pub(crate) fn prepare_ephemeral(
     )
 }
 
-/// Build the runner request for a command inside an open isolated handle
-/// (`SetNs` into the holder's namespace FDs; `FreshNs` only when the handle has
-/// no FDs, i.e. the stubbed harness).
 pub(crate) fn prepare_isolated(
     inputs: PrepareInputs<'_>,
     binding: &CommandBinding,

@@ -1,32 +1,23 @@
-//! Settle: turn a reaped command + its bound workspace into the typed outcome.
-//!
-//! Ephemeral completion captures the overlay delta and publishes it through
-//! the per-root single writer; the publish result is the typed
-//! [`ChangesetResult`] — no JSON round-trips. Isolated completion shapes
-//! response metadata only (the workspace is retained untouched). Cancel never
-//! reaches either: the caller routes it to the discard branch.
-
 use std::path::Path;
 
+use eos_command_session::CommandResponse;
 use eos_ephemeral_workspace::{path_changes_to_wire, EphemeralWorkspace, TreeResourceStats};
 use eos_layerstack::service::Snapshot;
 use eos_layerstack::{service, FileResult};
 use serde_json::{json, Value};
 
-use crate::binding::CommandBinding;
 use crate::outcome::{
-    ChangedPathKinds, FinalizeCommandRequest, WorkspaceApiError, WorkspaceCommandOutcome,
-    WorkspaceConflict, WorkspaceTimings,
+    ChangedPathKinds, FinalizeCommandRequest, WorkspaceApiError, WorkspaceConflict,
+    WorkspaceTimings,
 };
+use crate::CommandBinding;
 
-/// Capture the run's upperdir, publish it against its snapshot, and shape the
-/// command outcome. COMPLETE branch only.
 pub(crate) fn settle_ephemeral(
     root: &Path,
     snapshot: &Snapshot,
     workspace: &EphemeralWorkspace,
     request: FinalizeCommandRequest,
-) -> Result<WorkspaceCommandOutcome, WorkspaceApiError> {
+) -> Result<CommandResponse, WorkspaceApiError> {
     let mut timings = base_timings(root)?;
     let captured = workspace.capture().map_err(finalize_error)?;
     let publish_start = std::time::Instant::now();
@@ -45,10 +36,6 @@ pub(crate) fn settle_ephemeral(
     let command_success = request.command_succeeded();
     let publish_success = changeset.success();
 
-    timings.insert(
-        "resource.command_exec.changed_path_count".to_owned(),
-        json!(usize_to_f64_saturating(changed_path_kinds.len())),
-    );
     insert_tree_resource_timings(
         &mut timings,
         "resource.command_exec.upperdir",
@@ -67,44 +54,33 @@ pub(crate) fn settle_ephemeral(
         .get("occ.commit.total_s")
         .copied()
         .unwrap_or(publish_s);
-    timings.insert(
-        "command_exec.capture_upperdir_s".to_owned(),
-        json!(captured.capture_s),
-    );
-    timings.insert("command_exec.occ_apply_s".to_owned(), json!(occ_s));
-    timings.insert(
-        "command_exec.total_s".to_owned(),
-        json!(request.command_elapsed_s),
-    );
-    timings.insert(
-        "api.exec_command.dispatch_total_s".to_owned(),
-        json!(request.command_elapsed_s),
+    insert_command_timings(
+        &mut timings,
+        changed_path_kinds.len(),
+        captured.capture_s,
+        occ_s,
+        request.command_elapsed_s,
+        false,
     );
 
-    Ok(WorkspaceCommandOutcome {
-        workspace_kind: "ephemeral".to_owned(),
-        success: command_success && publish_success,
-        status: request.status,
-        exit_code: request.exit_code,
-        stdout: request.stdout,
-        stderr: request.stderr,
-        command_session_id: request.command_session_id,
-        changed_paths: changeset.published_paths(),
+    Ok(command_response(
+        "ephemeral",
+        request,
+        command_success && publish_success,
+        changeset.published_paths(),
         changed_path_kinds,
-        mutation_source: "overlay_capture".to_owned(),
-        conflict: first_conflict.map(conflict_from_file),
-        conflict_reason: first_conflict.map(|file| conflict_message(file).to_owned()),
+        "overlay_capture",
+        first_conflict.map(conflict_from_file),
+        first_conflict.map(|file| conflict_message(file).to_owned()),
         timings,
-        metadata: Value::Null,
-    })
+        Value::Null,
+    ))
 }
 
-/// Capture the isolated command's upperdir (response metadata only — never
-/// published) and shape the command outcome.
 pub(crate) fn settle_isolated(
     binding: &CommandBinding,
     request: FinalizeCommandRequest,
-) -> Result<WorkspaceCommandOutcome, WorkspaceApiError> {
+) -> Result<CommandResponse, WorkspaceApiError> {
     let mut timings = base_timings(&binding.layer_stack_root)?;
     let capture_start = std::time::Instant::now();
     let changes = eos_overlay::capture_upperdir(&binding.upperdir)
@@ -124,42 +100,16 @@ pub(crate) fn settle_isolated(
         .collect::<ChangedPathKinds>();
     let changed_paths: Vec<String> = changed_path_kinds.keys().cloned().collect();
     merge_runner_timings(&mut timings, request.runner_result.as_ref());
-    timings.insert(
-        "resource.command_exec.changed_path_count".to_owned(),
-        json!(usize_to_f64_saturating(changed_paths.len())),
+    let command_success = request.command_succeeded();
+    insert_command_timings(
+        &mut timings,
+        changed_paths.len(),
+        capture_s,
+        0.0,
+        request.command_elapsed_s,
+        true,
     );
-    timings.insert(
-        "command_exec.capture_upperdir_s".to_owned(),
-        json!(capture_s),
-    );
-    timings.insert("command_exec.occ_apply_s".to_owned(), json!(0.0));
-    timings.insert(
-        "command_exec.total_s".to_owned(),
-        json!(request.command_elapsed_s),
-    );
-    timings.insert(
-        "api.exec_command.total_s".to_owned(),
-        json!(request.command_elapsed_s),
-    );
-    timings.insert(
-        "api.exec_command.dispatch_total_s".to_owned(),
-        json!(request.command_elapsed_s),
-    );
-    Ok(WorkspaceCommandOutcome {
-        workspace_kind: "isolated".to_owned(),
-        success: request.command_succeeded(),
-        status: request.status.clone(),
-        exit_code: Some(request.exit_code.unwrap_or(1)),
-        stdout: request.stdout,
-        stderr: request.stderr,
-        command_session_id: request.command_session_id,
-        changed_paths,
-        changed_path_kinds,
-        mutation_source: "isolated_workspace".to_owned(),
-        conflict: None,
-        conflict_reason: None,
-        timings,
-        metadata: json!({
+    let metadata = json!({
             "isolated_workspace": {
                 "caller_id": binding.caller_id,
                 "workspace_handle_id": binding.workspace_handle_id,
@@ -168,13 +118,98 @@ pub(crate) fn settle_isolated(
                 "published": false,
             },
             "warnings": [],
-        }),
-    })
+    });
+    let mut response = command_response(
+        "isolated",
+        request,
+        command_success,
+        changed_paths,
+        changed_path_kinds,
+        "isolated_workspace",
+        None,
+        None,
+        timings,
+        metadata,
+    );
+    response.exit_code = Some(response.exit_code.unwrap_or(1));
+    Ok(response)
 }
 
-/// Latest-state resource telemetry sampled at settle: manifest depth plus the
-/// zero-seeded tree counters the wire contract always carries (the per-run
-/// upperdir/run-dir counters overwrite their seeds on the ephemeral path).
+pub(crate) fn discarded_response(
+    workspace_kind: &'static str,
+    request: FinalizeCommandRequest,
+) -> CommandResponse {
+    command_response(
+        workspace_kind,
+        request,
+        false,
+        Vec::new(),
+        ChangedPathKinds::default(),
+        "",
+        None,
+        None,
+        WorkspaceTimings::default(),
+        Value::Null,
+    )
+}
+
+fn command_response(
+    workspace_kind: &'static str,
+    request: FinalizeCommandRequest,
+    success: bool,
+    changed_paths: Vec<String>,
+    changed_path_kinds: ChangedPathKinds,
+    mutation_source: &'static str,
+    conflict: Option<WorkspaceConflict>,
+    conflict_reason: Option<String>,
+    timings: WorkspaceTimings,
+    metadata: Value,
+) -> CommandResponse {
+    CommandResponse {
+        status: request.status,
+        exit_code: request.exit_code,
+        stdout: request.stdout,
+        stderr: request.stderr,
+        command_session_id: request.command_session_id,
+        workspace: Some(workspace_kind.to_owned()),
+        metadata: json!({
+            "success": success,
+            "changed_paths": changed_paths,
+            "changed_path_kinds": changed_path_kinds,
+            "mutation_source": mutation_source,
+            "conflict": conflict,
+            "conflict_reason": conflict_reason,
+            "timings": timings,
+            "metadata": metadata,
+        }),
+    }
+}
+
+fn insert_command_timings(
+    timings: &mut WorkspaceTimings,
+    changed_path_count: usize,
+    capture_s: f64,
+    occ_s: f64,
+    elapsed_s: f64,
+    include_api_total: bool,
+) {
+    for (key, value) in [
+        (
+            "resource.command_exec.changed_path_count",
+            usize_to_f64_saturating(changed_path_count),
+        ),
+        ("command_exec.capture_upperdir_s", capture_s),
+        ("command_exec.occ_apply_s", occ_s),
+        ("command_exec.total_s", elapsed_s),
+        ("api.exec_command.dispatch_total_s", elapsed_s),
+    ] {
+        timings.insert(key.to_owned(), json!(value));
+    }
+    if include_api_total {
+        timings.insert("api.exec_command.total_s".to_owned(), json!(elapsed_s));
+    }
+}
+
 fn base_timings(root: &Path) -> Result<WorkspaceTimings, WorkspaceApiError> {
     let manifest = service::active_manifest(root).map_err(|error| {
         WorkspaceApiError::new("daemon_command_workspace_error", error.to_string())
@@ -192,35 +227,26 @@ fn base_timings(root: &Path) -> Result<WorkspaceTimings, WorkspaceApiError> {
         "resource.layer_stack.manifest_path_count".to_owned(),
         json!(usize_to_f64_saturating(manifest.depth())),
     );
-    for key in [
-        "resource.command_exec.run_dir_tree_exists",
-        "resource.command_exec.run_dir_tree_bytes",
-        "resource.command_exec.run_dir_tree_file_count",
-        "resource.command_exec.run_dir_tree_dir_count",
-        "resource.command_exec.run_dir_tree_entry_count",
-        "resource.command_exec.run_dir_tree_truncated",
-        "resource.command_exec.workspace_tree_exists",
-        "resource.command_exec.workspace_tree_bytes",
-        "resource.command_exec.workspace_tree_file_count",
-        "resource.command_exec.workspace_tree_dir_count",
-        "resource.command_exec.workspace_tree_entry_count",
-        "resource.command_exec.workspace_tree_truncated",
-        "resource.command_exec.upperdir_tree_exists",
-        "resource.command_exec.upperdir_tree_bytes",
-        "resource.command_exec.upperdir_tree_file_count",
-        "resource.command_exec.upperdir_tree_dir_count",
-        "resource.command_exec.upperdir_tree_entry_count",
-        "resource.command_exec.upperdir_tree_truncated",
-    ] {
-        timings.insert(key.to_owned(), json!(0.0));
+    for tree in ["run_dir", "workspace", "upperdir"] {
+        for suffix in [
+            "exists",
+            "bytes",
+            "file_count",
+            "dir_count",
+            "entry_count",
+            "truncated",
+        ] {
+            timings.insert(
+                format!("resource.command_exec.{tree}_tree_{suffix}"),
+                json!(0.0),
+            );
+        }
     }
     insert_cgroup_resource_timings(&mut timings);
     insert_process_resource_timings(&mut timings);
     Ok(timings)
 }
 
-/// Daemon-process cgroup gauges (cpu/memory/io). Absent on hosts without
-/// cgroup v2 files.
 fn insert_cgroup_resource_timings(timings: &mut WorkspaceTimings) {
     if let Ok(raw) = std::fs::read_to_string("/sys/fs/cgroup/cpu.stat") {
         for line in raw.lines() {
@@ -281,8 +307,6 @@ fn insert_cgroup_resource_timings(timings: &mut WorkspaceTimings) {
     }
 }
 
-/// Daemon process memory gauges from `/proc/self/status` (bytes); absent on
-/// non-Linux dev hosts.
 fn insert_process_resource_timings(timings: &mut WorkspaceTimings) {
     let Ok(status) = std::fs::read_to_string("/proc/self/status") else {
         return;
@@ -324,7 +348,6 @@ fn conflict_message(file: &FileResult) -> &str {
     file.conflict_message(file.status.wire_str())
 }
 
-/// Emit `<prefix>_tree_*` resource counters for a captured scratch tree.
 fn insert_tree_resource_timings(
     timings: &mut WorkspaceTimings,
     prefix: &str,

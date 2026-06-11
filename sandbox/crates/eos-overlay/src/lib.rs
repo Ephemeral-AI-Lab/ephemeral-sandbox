@@ -15,14 +15,14 @@
 //!
 //! # Build-time guarantee / platform
 //!
-//! Syscall crate — `unsafe` is permitted for the raw mount API; every block
-//! carries a `// SAFETY:` note and `unsafe_op_in_unsafe_fn` is denied. The
-//! syscall surface is Linux-only: every mount/unmount body is gated behind
-//! `#[cfg(target_os = "linux")]`, with a `#[cfg(not(target_os = "linux"))]` arm
-//! returning [`OverlayError::Unsupported`] so `cargo check` is green on the
-//! macOS dev host.
+//! Syscall crate built entirely on safe `rustix` wrappers — `unsafe_code` is
+//! forbidden. The syscall surface is Linux-only: every mount/unmount body is
+//! gated behind `#[cfg(target_os = "linux")]`, with a
+//! `#[cfg(not(target_os = "linux"))]` arm returning
+//! [`OverlayError::Unsupported`] so `cargo check` is green on the macOS dev
+//! host.
 //!
-#![deny(unsafe_op_in_unsafe_fn)]
+#![forbid(unsafe_code)]
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -39,9 +39,6 @@ pub use eos_layerstack::{LayerChange, LayerPath};
 
 pub use kernel_mount::{mount_overlay, unmount_overlay, OverlayHandle, OverlayMount};
 pub use path_change::capture_upperdir;
-
-/// Canonical filesystem for overlay `upperdir`/`workdir`.
-pub const OVERLAY_WRITABLE_ROOT: &str = "/eos/scratch/overlay";
 
 /// Failures raised by the overlay kernel-mount and upper-dir capture paths.
 #[derive(Debug, Error)]
@@ -86,15 +83,14 @@ pub type Result<T> = std::result::Result<T, OverlayError>;
 /// Per-overlay writable directories created beside each other under one run dir.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OverlayWritableDirs {
-    /// The per-overlay run directory the upper/work dirs live under.
-    pub run_dir: PathBuf,
     /// The overlay `upperdir` (`run_dir/upper`).
     pub upperdir: PathBuf,
     /// The overlay `workdir` (`run_dir/work`).
     pub workdir: PathBuf,
 }
 
-/// Return the canonical writable root, creating it if its parent exists.
+/// Return the canonical writable root (`/eos/scratch/overlay`), creating it
+/// if its parent exists.
 ///
 /// # Errors
 ///
@@ -102,7 +98,7 @@ pub struct OverlayWritableDirs {
 /// [`OverlayError::WritableRootUnavailable`] when the canonical root is not a
 /// directory.
 pub fn overlay_writable_root() -> Result<PathBuf> {
-    let root = PathBuf::from(OVERLAY_WRITABLE_ROOT);
+    let root = PathBuf::from("/eos/scratch/overlay");
     if root.parent().is_some_and(Path::is_dir) {
         std::fs::create_dir_all(&root).map_err(OverlayError::Capture)?;
     }
@@ -126,11 +122,7 @@ pub fn allocate_overlay_writable_dirs(run_dir: &Path) -> Result<OverlayWritableD
     let workdir = run_dir.join("work");
     std::fs::create_dir_all(&upperdir).map_err(OverlayError::Capture)?;
     std::fs::create_dir_all(&workdir).map_err(OverlayError::Capture)?;
-    Ok(OverlayWritableDirs {
-        run_dir: run_dir.to_path_buf(),
-        upperdir,
-        workdir,
-    })
+    Ok(OverlayWritableDirs { upperdir, workdir })
 }
 
 #[cfg(test)]

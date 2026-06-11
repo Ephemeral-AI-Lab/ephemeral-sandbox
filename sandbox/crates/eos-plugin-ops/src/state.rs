@@ -10,7 +10,7 @@ use serde::Serialize;
 use super::{process::PluginServiceProcess, service::PluginServiceSnapshot};
 use crate::PluginRuntimeError;
 
-pub(super) type SharedPpcClient = Arc<crate::transport::PpcClient>;
+pub(super) type SharedPpcClient = Arc<super::transport::PpcClient>;
 
 /// One recorded plugin setup failure (the wire view is produced by
 /// serialization at the adapter).

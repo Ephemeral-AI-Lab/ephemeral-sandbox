@@ -14,7 +14,6 @@ use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use crate::route::{PluginProcessSpec, ENV_PLUGIN_WORKSPACE_MOUNTED};
-use crate::transport::PpcClient;
 use eos_isolated_workspace::NsRunnerLauncher;
 use eos_namespace::protocol::{Intent, RunMode, RunRequest, ToolCall, WorkspaceRoot};
 use eos_plugin::PluginError;
@@ -22,6 +21,8 @@ use serde::Serialize;
 use serde_json::json;
 
 use crate::PluginRuntimeError;
+
+use super::transport::PpcClient;
 
 #[derive(Debug, Clone)]
 pub(super) struct PluginServiceOverlay {
@@ -276,5 +277,5 @@ fn accept_ppc_client(
 }
 
 #[cfg(test)]
-#[path = "../../tests/plugin/unit/process.rs"]
+#[path = "../tests/plugin/unit/process.rs"]
 mod tests;

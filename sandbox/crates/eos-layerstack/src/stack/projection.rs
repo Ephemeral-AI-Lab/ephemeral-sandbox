@@ -142,13 +142,7 @@ fn collect_project_entries(layer_dir: &Path) -> Result<Vec<ProjectEntry>, LayerS
 }
 
 fn clear_directory(path: &Path) -> Result<(), LayerStackError> {
-    match std::fs::symlink_metadata(path) {
-        Ok(meta) if meta.file_type().is_symlink() || !meta.is_dir() => remove_path(path)?,
-        Ok(_) => {}
-        Err(err) if err.kind() == ErrorKind::NotFound => {}
-        Err(err) => return Err(err.into()),
-    }
-    std::fs::create_dir_all(path)?;
+    ensure_directory(path)?;
     for entry in std::fs::read_dir(path)? {
         remove_path(&entry?.path())?;
     }

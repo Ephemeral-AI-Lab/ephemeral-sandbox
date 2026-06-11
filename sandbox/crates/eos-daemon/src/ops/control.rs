@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 
 use crate::error::DaemonError;
 use crate::request_args::{require_string, trimmed_string};
-use crate::runtime::context::DispatchContext;
+use crate::DispatchContext;
 
 /// `api.runtime.ready` — binary readiness plus the three plane probes
 /// (`control_plane` / `data_plane` / `mutation_gate`). Requires `layer_stack_root`.

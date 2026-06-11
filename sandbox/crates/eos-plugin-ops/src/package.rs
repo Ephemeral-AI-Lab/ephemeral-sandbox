@@ -52,7 +52,7 @@ fn package_contract_active(args: &Value) -> bool {
         })
 }
 
-pub fn ensure_package(
+pub(super) fn ensure_package(
     args: &Value,
     manifest: Option<&PluginManifest>,
 ) -> Result<PackageEnsureReport, PpcError> {
@@ -513,5 +513,5 @@ fn collect_files(
 }
 
 #[cfg(test)]
-#[path = "../../tests/plugin/unit/package.rs"]
+#[path = "../tests/plugin/unit/package.rs"]
 mod tests;

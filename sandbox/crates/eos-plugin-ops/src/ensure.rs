@@ -8,13 +8,14 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use crate::package::{package_roots, PackageRoots};
 use crate::route::{PluginOperationRoute, PluginProcessSpec};
 use crate::PpcError;
 use eos_plugin::{
     PluginError, PluginManifest, PluginServiceKey, PluginServiceKeyParts, PluginServiceManifest,
     PluginServiceState, PluginServiceStatus, ServiceMode,
 };
+
+use super::package::{package_roots, PackageRoots};
 
 pub const MAX_PLUGIN_CALLER_FIELD_CHARS: usize = 256;
 
@@ -372,5 +373,5 @@ fn validate_public_identifier(field: &str, value: &str) -> Result<(), PluginErro
 }
 
 #[cfg(test)]
-#[path = "../../tests/plugin/unit/ensure_args.rs"]
+#[path = "../tests/plugin/unit/ensure_args.rs"]
 mod tests;

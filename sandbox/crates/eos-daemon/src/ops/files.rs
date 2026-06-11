@@ -2,8 +2,8 @@
 
 use eos_config::configs::daemon::{MAX_FILE_BYTES, MAX_READ_BYTES};
 use eos_file_ops::{
-    EditFileOutcome, EditFileRequest, ReadFileOutcome, ReadFileRequest, SearchReplaceEdit,
-    WorkspaceConflict, WriteFileOutcome, WriteFileRequest,
+    EditFileOutcome, EditFileRequest, MutationOutcome, ReadFileOutcome, ReadFileRequest,
+    SearchReplaceEdit, WorkspaceConflict, WriteFileRequest,
 };
 use eos_runtime::routing::file_op::{self, FileOpContext, FileOpError, FileRoute};
 use serde_json::{json, Value};
@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use crate::error::DaemonError;
 use crate::request_args::{optional_path, require_raw_string, require_string};
 use crate::response::GuardedResponse;
-use crate::runtime::context::DispatchContext;
+use crate::DispatchContext;
 
 /// `api.v1.read_file` — shared public read op, routed by active workspace mode.
 pub(crate) fn op_read_file(
@@ -46,7 +46,7 @@ pub(crate) fn op_write_file(
             outcome.changed_paths.len(),
         );
     }
-    Ok(write_response(outcome))
+    Ok(mutation_response(outcome, None))
 }
 
 /// `api.v1.edit_file` — shared public edit op, routed by active workspace mode.
@@ -58,15 +58,18 @@ pub(crate) fn op_edit_file(
     let caller_id = super::caller_id_or_default(args);
     let routed = file_op::edit_file(file_context(args, context, &caller_id), request)
         .map_err(file_op_error)?;
-    let mut outcome = routed.outcome;
+    let EditFileOutcome {
+        mut mutation,
+        applied_edits,
+    } = routed.outcome;
     if let FileRoute::Direct { layer_stack_root } = routed.route {
         enrich_direct_timings(
             &layer_stack_root,
-            &mut outcome.timings,
-            outcome.changed_paths.len(),
+            &mut mutation.timings,
+            mutation.changed_paths.len(),
         );
     }
-    Ok(edit_response(outcome))
+    Ok(mutation_response(mutation, Some(applied_edits)))
 }
 
 fn file_context<'a, 'ctx: 'a>(
@@ -143,7 +146,7 @@ fn read_response(outcome: ReadFileOutcome) -> Value {
     })
 }
 
-fn write_response(outcome: WriteFileOutcome) -> Value {
+fn mutation_response(outcome: MutationOutcome, applied_edits: Option<i64>) -> Value {
     GuardedResponse {
         success: outcome.success,
         published: Some(outcome.published),
@@ -155,24 +158,7 @@ fn write_response(outcome: WriteFileOutcome) -> Value {
         conflict: outcome.conflict.map(conflict_value),
         conflict_reason: outcome.conflict_reason,
         timings: json!(outcome.timings),
-        applied_edits: None,
-    }
-    .into_json()
-}
-
-fn edit_response(outcome: EditFileOutcome) -> Value {
-    GuardedResponse {
-        success: outcome.success,
-        published: Some(outcome.published),
-        workspace: outcome.workspace_kind,
-        changed_paths: json!(outcome.changed_paths),
-        changed_path_kinds: json!(outcome.changed_path_kinds),
-        mutation_source: outcome.mutation_source,
-        status: outcome.status,
-        conflict: outcome.conflict.map(conflict_value),
-        conflict_reason: outcome.conflict_reason,
-        timings: json!(outcome.timings),
-        applied_edits: Some(outcome.applied_edits),
+        applied_edits,
     }
     .into_json()
 }

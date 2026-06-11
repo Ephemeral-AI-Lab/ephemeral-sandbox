@@ -1,8 +1,3 @@
-//! Process-wide command runtime, configuration, and lifecycle backstops.
-//!
-//! The daemon schedules these hooks, but command-session runtime policy lives
-//! here with [`CommandOps`].
-
 use std::sync::{OnceLock, RwLock};
 use std::time::Instant;
 
@@ -48,36 +43,18 @@ pub fn active_command_sessions_for_caller(caller_id: &str) -> usize {
     command_ops().count_by_caller(Some(caller_id))
 }
 
-/// Best-effort lifecycle backstop for callers that bypass the model-facing
-/// `RequireNoBackgroundSessions` hook.
 pub fn cleanup_command_sessions_for_caller(caller_id: &str, grace_s: Option<f64>) -> usize {
     command_ops().cleanup_caller(caller_id, grace_s)
 }
 
-/// Cancel and discard every live command session across all callers (the
-/// whole-sandbox cancel sweep). Returns the number cancelled.
 pub fn cancel_all_command_sessions(grace_s: Option<f64>) -> usize {
     command_ops().cancel_all(grace_s)
 }
 
-/// Periodic reaper (sense-2 §2.4, §3): enforce the per-session timeout backstop
-/// and finalize any session whose child has exited without a live poller,
-/// parking the completion for the heartbeat. The runner enforces the per-call
-/// timeout internally (primary); this is the backstop for a wedged or
-/// no-timeout runner and the only finalizer for fire-and-forget sessions. A
-/// session started without an explicit `timeout` falls back to the configured
-/// wall-clock cap so it can never run forever.
 pub fn command_session_reaper_sweep() {
     command_ops().sweep_expired(Instant::now());
 }
 
-/// Startup recovery (sense-2 §2.4): a previous daemon may have left ephemeral
-/// command-session metadata behind. Park an `orphan_reaped` completion for each
-/// so a recovering agent learns the session is dead, then remove the stale dir.
-///
-/// We deliberately do **not** `killpg` the old children: their pgids are not
-/// persisted, so a restarted daemon could otherwise signal a reused PID. Their
-/// own runner timeout reclaims them; lease cleanup is left to LayerStack GC.
 pub fn recover_orphaned_command_sessions() {
     let dir = command_session_scratch_root();
     let Ok(entries) = std::fs::read_dir(&dir) else {

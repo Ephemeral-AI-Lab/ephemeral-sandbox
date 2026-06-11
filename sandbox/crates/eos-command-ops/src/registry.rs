@@ -1,6 +1,4 @@
-// The caller-keyed registry is the Linux PTY/overlay orchestration. On non-Linux
-// the daemon serves command-session ops as stubs, so most of the registry is dead
-// there — it stays compiled for the scaffold unit tests and a uniform module tree.
+// Non-Linux keeps this compiled for scaffold unit tests and a uniform module tree.
 #![cfg_attr(not(target_os = "linux"), allow(dead_code))]
 
 use std::collections::{HashMap, HashSet};
@@ -16,14 +14,8 @@ use eos_command_session::{
 use eos_ephemeral_workspace::EphemeralWorkspace;
 use eos_layerstack::service::Snapshot;
 
-use crate::binding::CommandBinding;
+use crate::CommandBinding;
 
-/// One ephemeral overlay run: exactly **one** command session paired with the
-/// overlay transaction it owns and the snapshot lease bracketing it. The run
-/// owns the overlay state directly — there is no policy indirection — so
-/// completion publishes the captured upperdir and cancellation discards it,
-/// structurally. Dropping the run drops the workspace, which removes its
-/// scratch dirs.
 pub(crate) struct EphemeralRun {
     pub(crate) session: CommandSession,
     pub(crate) root: PathBuf,
@@ -31,19 +23,11 @@ pub(crate) struct EphemeralRun {
     pub(crate) workspace: EphemeralWorkspace,
 }
 
-/// One command session running inside a caller's isolated workspace, bound by
-/// a [`CommandBinding`] (namespace fds, scratch dirs, lease/manifest
-/// coordinates). The namespace + lease themselves are owned by the
-/// isolated-session subsystem and torn down on `exit`.
 pub(crate) struct IsolatedRun {
     pub(crate) session: CommandSession,
     pub(crate) binding: CommandBinding,
 }
 
-/// A single active command: an ephemeral overlay run or one session of the
-/// caller's isolated workspace. The variant carries the per-kind state needed
-/// to publish (ephemeral complete), retain (isolated complete), or discard
-/// (cancel).
 pub(crate) enum ActiveCommand {
     Ephemeral(EphemeralRun),
     Isolated(IsolatedRun),
@@ -58,48 +42,6 @@ impl ActiveCommand {
     }
 }
 
-/// A caller's command-session runs, keyed by command-session id. A caller holds
-/// many ephemeral workspace runs (each one session) **or** its one isolated run's
-/// many sessions; the ephemeral-vs-isolated XOR is enforced by the isolated
-/// enter/exit gate, not here. Each [`ActiveCommand`] is self-describing
-/// (`Ephemeral`/`Isolated`), so cancel/settle dispatch on the run, and the
-/// registry needs no per-caller variant tag — one map holds whichever kind the
-/// caller currently runs.
-#[derive(Default)]
-struct CallerRuns(HashMap<String, Arc<ActiveCommand>>);
-
-impl CallerRuns {
-    fn runs(&self) -> Vec<Arc<ActiveCommand>> {
-        self.0.values().cloned().collect()
-    }
-
-    fn get(&self, session_id: &str) -> Option<Arc<ActiveCommand>> {
-        self.0.get(session_id).cloned()
-    }
-
-    fn count(&self) -> usize {
-        self.0.len()
-    }
-
-    fn insert(&mut self, session_id: String, run: Arc<ActiveCommand>) {
-        self.0.insert(session_id, run);
-    }
-
-    /// Remove `session_id`, returning the removed run and whether this caller is
-    /// now empty (so the registry can drop the caller entry).
-    fn take(&mut self, session_id: &str) -> (Option<Arc<ActiveCommand>>, bool) {
-        let removed = self.0.remove(session_id);
-        (removed, self.0.is_empty())
-    }
-}
-
-/// Hard cap on parked (completed-but-uncollected) sessions across **all** callers
-/// — the completion queue is one daemon-global map, not per caller. A caller that
-/// never calls `collect_completed` would otherwise grow it without bound; on
-/// overflow the oldest uncollected completion is dropped (silently — the daemon
-/// has no log surface). The cap is high enough that normal callers, which the
-/// heartbeat drains every tick, never approach it; the accepted residual is that
-/// one caller bursting past the cap could evict another caller's stale completion.
 const MAX_COMPLETED_ENTRIES: usize = 1024;
 
 struct CompletedEntry {
@@ -107,13 +49,9 @@ struct CompletedEntry {
     completion: CommandSessionCompletion,
 }
 
-/// Single caller-keyed command-session authority. Each caller maps to its
-/// [`CallerRuns`] (many ephemeral workspace runs or the one isolated run's
-/// sessions). Session-targeted ops resolve by scanning runs for the session id
-/// (caller count is small).
 #[derive(Default)]
 pub(crate) struct CommandRegistry {
-    runs: Mutex<HashMap<String, CallerRuns>>,
+    runs: Mutex<HashMap<String, HashMap<String, Arc<ActiveCommand>>>>,
     completed: Mutex<HashMap<String, CompletedEntry>>,
     counter: AtomicU64,
     completed_seq: AtomicU64,
@@ -135,8 +73,6 @@ impl CommandRegistry {
         format!("cmd_{}", self.counter.fetch_add(1, Ordering::Relaxed))
     }
 
-    /// File a started run under its caller, keyed by command-session id. Total by
-    /// construction — a freshly spawned run is never silently dropped.
     pub(crate) fn insert(&self, run: Arc<ActiveCommand>) {
         let caller_id = run.session().caller_id().to_owned();
         let session_id = run.session().id().to_owned();
@@ -148,20 +84,19 @@ impl CommandRegistry {
 
     #[must_use]
     pub(crate) fn get(&self, id: &str) -> Option<Arc<ActiveCommand>> {
-        lock(&self.runs).values().find_map(|run| run.get(id))
+        lock(&self.runs)
+            .values()
+            .find_map(|runs| runs.get(id).cloned())
     }
 
     pub(crate) fn remove(&self, id: &str) -> Option<Arc<ActiveCommand>> {
         let mut runs = lock(&self.runs);
         let caller = runs
             .iter()
-            .find(|(_, run)| run.get(id).is_some())
+            .find(|(_, caller_runs)| caller_runs.contains_key(id))
             .map(|(caller, _)| caller.clone())?;
-        let (run, now_empty) = runs
-            .get_mut(&caller)
-            .map(|run| run.take(id))
-            .unwrap_or((None, false));
-        if now_empty {
+        let run = runs.get_mut(&caller)?.remove(id);
+        if runs.get(&caller).is_some_and(HashMap::is_empty) {
             runs.remove(&caller);
         }
         run
@@ -171,8 +106,8 @@ impl CommandRegistry {
     pub(crate) fn count_by_caller(&self, caller_id: Option<&str>) -> usize {
         let runs = lock(&self.runs);
         match caller_id {
-            Some(caller) => runs.get(caller).map_or(0, CallerRuns::count),
-            None => runs.values().map(CallerRuns::count).sum(),
+            Some(caller) => runs.get(caller).map_or(0, HashMap::len),
+            None => runs.values().map(HashMap::len).sum(),
         }
     }
 
@@ -180,16 +115,15 @@ impl CommandRegistry {
     pub(crate) fn live(&self) -> Vec<Arc<ActiveCommand>> {
         lock(&self.runs)
             .values()
-            .flat_map(CallerRuns::runs)
+            .flat_map(|runs| runs.values().cloned())
             .collect()
     }
 
-    /// All live runs owned by `caller_id` (drives per-caller cleanup).
     #[must_use]
     pub(crate) fn caller_sessions(&self, caller_id: &str) -> Vec<Arc<ActiveCommand>> {
         lock(&self.runs)
             .get(caller_id)
-            .map(CallerRuns::runs)
+            .map(|runs| runs.values().cloned().collect())
             .unwrap_or_default()
     }
 
@@ -200,7 +134,6 @@ impl CommandRegistry {
             completion.command_session_id.clone(),
             CompletedEntry { seq, completion },
         );
-        // Bound memory: drop the oldest uncollected completion(s) past the cap.
         while completed.len() > MAX_COMPLETED_ENTRIES {
             let Some(oldest) = completed
                 .iter()

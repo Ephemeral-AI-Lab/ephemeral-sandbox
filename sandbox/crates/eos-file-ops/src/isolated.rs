@@ -1,10 +1,3 @@
-//! Isolated-workspace file backend: upperdir-first reads, private writes.
-//!
-//! The workspace crate stays storage-free; this backend composes the merged
-//! fallback itself from the binding's frozen `layer_paths` (a synthetic
-//! manifest over the leased layers), so an isolated read sees
-//! upperdir-then-snapshot exactly like the overlay mount does.
-
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -17,8 +10,6 @@ use crate::{
     ResolvedWorkspacePath, WorkspaceTimings,
 };
 
-/// One open isolated workspace's file view (plain fields — constructed by the
-/// daemon from its session state).
 #[derive(Debug, Clone)]
 pub struct IsolatedBackend {
     pub layer_stack_root: PathBuf,
@@ -89,12 +80,12 @@ impl FileBackend for IsolatedBackend {
             changed_paths,
             mutation_source: self.mutation_source(mutation.kind).to_owned(),
             timings: self.timings(1),
+            ..MutationOutcome::default()
         })
     }
 }
 
 impl IsolatedBackend {
-    /// Upperdir-first read, falling back to the frozen snapshot layers.
     fn read_current(&self, layer_path: &str) -> Result<(Option<Vec<u8>>, bool), FileOpsError> {
         let upper_path = self.upperdir.join(layer_path);
         match std::fs::symlink_metadata(&upper_path) {
@@ -122,7 +113,6 @@ impl IsolatedBackend {
             .map_err(api_error)
     }
 
-    /// The frozen base manifest the binding's `layer_paths` describe.
     fn snapshot_manifest(&self) -> Manifest {
         Manifest {
             version: self.manifest_version,

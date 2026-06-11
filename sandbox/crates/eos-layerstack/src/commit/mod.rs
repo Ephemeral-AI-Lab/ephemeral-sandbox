@@ -1,11 +1,9 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
 
 use ignore::gitignore::GitignoreBuilder;
 use ignore::Match;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use crate::model::{hex_lower, CasError, LayerChange, LayerPath};
@@ -15,6 +13,7 @@ mod worker;
 
 pub use worker::configure_auto_squash_max_depth;
 use worker::{CommitQueue, CommitTransaction, PreparedChangeset};
+
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum CommitError {
@@ -36,9 +35,6 @@ pub enum CommitError {
     #[error("occ commit reply channel disconnected")]
     ReplyDisconnected,
 
-    #[error("cas mismatch retry budget exhausted after {attempts} attempts")]
-    CasRetryExhausted { attempts: u32 },
-
     #[error("occ route preparation failed: {0}")]
     RoutePreparation(String),
 
@@ -48,17 +44,12 @@ pub enum CommitError {
     #[error(transparent)]
     Storage(#[from] crate::LayerStackError),
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[non_exhaustive]
-pub enum Route {
-    #[serde(rename = "gated")]
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Route {
     Gated,
-    #[serde(rename = "direct")]
     Direct,
-    #[serde(rename = "drop")]
     Drop,
-    #[serde(rename = "reject")]
-    Reject,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,11 +97,11 @@ impl CommitStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PublishDecision {
-    pub path: LayerPath,
-    pub route: Route,
-    pub base_hash: Option<String>,
-    pub message: Option<String>,
+pub(crate) struct PublishDecision {
+    pub(crate) path: LayerPath,
+    pub(crate) route: Route,
+    pub(crate) base_hash: Option<String>,
+    pub(crate) message: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -166,6 +157,7 @@ impl ChangesetResult {
             .count()
     }
 }
+
 pub(crate) struct CommitWriter {
     root: PathBuf,
     commit_queue: CommitQueue,
@@ -186,22 +178,6 @@ impl CommitWriter {
         atomic: bool,
         base_hashes: &[(LayerPath, Option<String>)],
     ) -> Result<ChangesetResult, CommitError> {
-        let prepared = self.prepare_changeset_with_base_hashes(
-            changes,
-            snapshot_version,
-            atomic,
-            base_hashes,
-        )?;
-        self.apply_prepared_changeset(prepared)
-    }
-
-    fn prepare_changeset_with_base_hashes(
-        &self,
-        changes: &[LayerChange],
-        snapshot_version: Option<u64>,
-        atomic: bool,
-        base_hashes: &[(LayerPath, Option<String>)],
-    ) -> Result<PreparedChangeset, CommitError> {
         let stack = self.open_stack()?;
         let mut path_groups = Vec::with_capacity(changes.len());
         let mut publishable = Vec::with_capacity(changes.len());
@@ -227,36 +203,34 @@ impl CommitWriter {
                 publishable.push(change.clone());
             }
         }
-        Ok(PreparedChangeset {
-            snapshot_version,
+        let receiver = self.commit_queue.submit(PreparedChangeset {
             path_groups,
             changes: publishable,
             atomic,
-        })
-    }
-
-    fn apply_prepared_changeset(
-        &self,
-        prepared: PreparedChangeset,
-    ) -> Result<ChangesetResult, CommitError> {
-        let total_start = Instant::now();
-        let snapshot_version = prepared.snapshot_version;
-        let receiver = self.commit_queue.submit(prepared)?;
-        let commit_start = Instant::now();
-        let result = receiver
+        })?;
+        let mut result = receiver
             .recv()
             .map_err(|_| CommitError::ReplyDisconnected)??;
-        Ok(finalize_apply_result(
-            result,
-            snapshot_version,
-            commit_start.elapsed().as_secs_f64(),
-            total_start.elapsed().as_secs_f64(),
-        ))
+        if let (Some(published), Some(snapshot)) =
+            (result.published_manifest_version, snapshot_version)
+        {
+            result.timings.insert(
+                "occ.apply.manifest_lag".to_owned(),
+                published.saturating_sub(snapshot + 1) as f64,
+            );
+        }
+        Ok(result)
     }
 
     fn open_stack(&self) -> Result<LayerStack, CommitError> {
         LayerStack::open(self.root.clone())
             .map_err(|err| CommitError::RoutePreparation(err.to_string()))
+    }
+}
+
+impl Drop for CommitWriter {
+    fn drop(&mut self) {
+        let _ = self.commit_queue.close();
     }
 }
 
@@ -280,111 +254,6 @@ fn stack_base_hash(stack: &LayerStack, path: &LayerPath) -> Result<Option<String
         .read_bytes(path.as_str())
         .map_err(|err| CommitError::RoutePreparation(err.to_string()))?;
     Ok(hash_current(bytes.as_deref(), exists))
-}
-
-fn finalize_apply_result(
-    mut result: ChangesetResult,
-    snapshot_version: Option<u64>,
-    commit_elapsed_s: f64,
-    total_s: f64,
-) -> ChangesetResult {
-    let commit_queue_wait_s = timing_or_default(&result.timings, "occ.serial.queue_wait_s");
-    let commit_worker_s = timing_or_default(&result.timings, "occ.commit.total_s")
-        .max(timing_or_default(&result.timings, "occ.serial.commit_s"));
-    result.timings.insert(
-        "occ.apply.commit_queue_wait_s".to_owned(),
-        commit_queue_wait_s,
-    );
-    result
-        .timings
-        .insert("occ.apply.commit_resume_wait_s".to_owned(), 0.0);
-    result
-        .timings
-        .insert("occ.apply.commit_worker_s".to_owned(), commit_worker_s);
-    result
-        .timings
-        .insert("occ.apply.commit_s".to_owned(), commit_elapsed_s);
-    result
-        .timings
-        .insert("occ.apply.total_s".to_owned(), total_s);
-    if let (Some(published), Some(snapshot)) = (result.published_manifest_version, snapshot_version)
-    {
-        result.timings.insert(
-            "occ.apply.manifest_lag".to_owned(),
-            published.saturating_sub(snapshot + 1) as f64,
-        );
-    }
-    result
-}
-
-fn timing_or_default(timings: &std::collections::BTreeMap<String, f64>, key: &str) -> f64 {
-    timings.get(key).copied().unwrap_or(0.0)
-}
-
-impl Drop for CommitWriter {
-    fn drop(&mut self) {
-        let _ = self.commit_queue.close();
-    }
-}
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct RouteMetrics {
-    pub gated_path_count: usize,
-    pub direct_path_count: usize,
-}
-
-pub fn route_metrics(
-    root: &Path,
-    changes: &[LayerChange],
-) -> Result<RouteMetrics, LayerStackError> {
-    let stack = LayerStack::open(root.to_path_buf())?;
-    let mut metrics = RouteMetrics::default();
-    for change in changes {
-        match route_for_path(&stack, change.path())? {
-            Route::Direct => metrics.direct_path_count += 1,
-            Route::Gated => metrics.gated_path_count += 1,
-            Route::Drop | Route::Reject => {}
-        }
-    }
-    Ok(metrics)
-}
-
-pub fn insert_route_timings(
-    timings: &mut serde_json::Map<String, Value>,
-    metrics: RouteMetrics,
-    route_s: f64,
-    occ_s: f64,
-) {
-    for (key, value) in [
-        ("occ.prepare.prepare_groups_s", route_s),
-        ("occ.prepare.group_by_route_s", route_s),
-        ("occ.prepare.route_and_base_hash_s", route_s),
-        ("occ.prepare.total_s", route_s),
-        ("occ.commit.total_s", occ_s),
-        (
-            "occ.commit.gated_path_count",
-            usize_to_f64_saturating(metrics.gated_path_count),
-        ),
-        (
-            "occ.commit.direct_path_count",
-            usize_to_f64_saturating(metrics.direct_path_count),
-        ),
-    ] {
-        timings.insert(key.to_owned(), json!(value));
-    }
-    for key in [
-        "occ.commit.validate_groups_s",
-        "occ.commit.publish_layer_s",
-        "occ.commit.stager_write_total_s",
-        "occ.commit.stager_write_count",
-        "occ.commit.gated_read_current_total_s",
-        "occ.commit.gated_apply_changes_total_s",
-        "occ.commit.gated_stage_delta_total_s",
-        "occ.commit.direct_read_current_total_s",
-        "occ.commit.direct_apply_changes_total_s",
-        "occ.commit.direct_stage_delta_total_s",
-    ] {
-        timings.entry(key.to_owned()).or_insert_with(|| json!(0.0));
-    }
 }
 
 fn path_is_ignored(stack: &LayerStack, path: &str) -> Result<bool, LayerStackError> {
@@ -472,6 +341,7 @@ fn join_rel(prefix: &str, child: &str) -> String {
         format!("{prefix}/{child}")
     }
 }
+
 pub fn base_hashes_for_snapshot(
     root: &Path,
     manifest: &Manifest,
@@ -498,29 +368,13 @@ pub fn hash_current(content: Option<&[u8]>, exists: bool) -> Option<String> {
     if !exists {
         return None;
     }
-    content.map(hash_bytes)
-}
-
-#[must_use]
-pub fn hash_bytes(content: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(content);
-    hex_lower(hasher.finalize())
-}
-
-pub(crate) fn usize_to_f64_saturating(value: usize) -> f64 {
-    u32::try_from(value).map_or_else(|_| f64::from(u32::MAX), f64::from)
-}
-
-pub(crate) fn i64_to_f64_saturating(value: i64) -> f64 {
-    u64::try_from(value).map_or(0.0, |value| {
-        u32::try_from(value).map_or_else(|_| f64::from(u32::MAX), f64::from)
+    content.map(|content| {
+        let mut hasher = Sha256::new();
+        hasher.update(content);
+        hex_lower(hasher.finalize())
     })
 }
 
-#[cfg(test)]
-#[path = "../../tests/unit/commit/prepare.rs"]
-mod prepare_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/route.rs"]
 mod route_tests;

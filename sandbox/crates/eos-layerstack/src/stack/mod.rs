@@ -1,8 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::ffi::OsString;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -13,9 +11,10 @@ use crate::model::{
 
 use crate::error::LayerStackError;
 use crate::fs::{
-    clear_storage_root_preserving_lock, fsync_dir, fsync_tree_files, join_layer_path,
-    layer_digest_path, read_manifest, record_elapsed, remove_path, replace_workspace_contents,
-    resolve_layer_path, validate_layer_ref, write_layer_digest, write_manifest,
+    allocate_layer_dirs, canonical_key, clear_storage_root_preserving_lock, fsync_dir,
+    fsync_tree_files, join_layer_path, layer_digest_path, next_unique, read_manifest,
+    record_elapsed, remove_path, replace_workspace_contents, resolve_layer_path,
+    validate_layer_ref, write_layer_digest, write_manifest,
 };
 use crate::lock::StorageWriterLockLease;
 use crate::squash::{manifest_prefix_before_plan, LayerCheckpointSquasher, SquashPlanEntry};
@@ -25,7 +24,9 @@ use crate::{ACTIVE_MANIFEST_FILE, LAYERS_DIR, STAGING_DIR};
 mod projection;
 mod whiteout;
 
-use whiteout::{is_kernel_whiteout, write_kernel_whiteout, LOGICAL_WHITEOUT_PREFIX, OPAQUE_MARKER};
+use whiteout::{
+    is_kernel_whiteout, logical_whiteout_path_for_target, write_kernel_whiteout, OPAQUE_MARKER,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lease {
@@ -34,7 +35,6 @@ pub struct Lease {
     pub root_hash: String,
     pub manifest: Manifest,
     pub layer_paths: Vec<String>,
-    pub timings: BTreeMap<String, f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,17 +46,13 @@ struct LayerStackLeaseRecord {
 #[derive(Debug, Default)]
 struct LeaseRegistry {
     leases: HashMap<String, LayerStackLeaseRecord>,
-    refcounts: BTreeMap<LayerRefKey, usize>,
+    refcounts: BTreeMap<LayerRef, usize>,
 }
 
 type SharedLeaseRegistry = Arc<Mutex<LeaseRegistry>>;
 
 fn shared_registry_for_root(storage_root: &Path) -> Result<SharedLeaseRegistry, LayerStackError> {
-    let key = storage_root
-        .canonicalize()
-        .unwrap_or_else(|_| storage_root.to_path_buf())
-        .to_string_lossy()
-        .into_owned();
+    let key = canonical_key(storage_root);
     let mut registries = shared_registries()
         .lock()
         .map_err(|_| LayerStackError::LockPoisoned("lease registry map"))?;
@@ -96,7 +92,7 @@ impl LeaseRegistry {
             manifest,
         };
         for layer in &lease.manifest.layers {
-            *self.refcounts.entry(LayerRefKey::from(layer)).or_insert(0) += 1;
+            *self.refcounts.entry(layer.clone()).or_insert(0) += 1;
         }
         self.leases.insert(lease.lease_id.clone(), lease.clone());
         Ok(lease)
@@ -105,11 +101,10 @@ impl LeaseRegistry {
     fn release(&mut self, lease_id: &str) -> Option<LayerStackLeaseRecord> {
         let lease = self.leases.remove(lease_id)?;
         for layer in &lease.manifest.layers {
-            let key = LayerRefKey::from(layer);
-            match self.refcounts.get_mut(&key) {
+            match self.refcounts.get_mut(layer) {
                 Some(count) if *count > 1 => *count -= 1,
                 Some(_) => {
-                    self.refcounts.remove(&key);
+                    self.refcounts.remove(layer);
                 }
                 None => {}
             }
@@ -118,17 +113,16 @@ impl LeaseRegistry {
     }
 
     fn leased_layers(&self) -> Vec<LayerRef> {
-        self.refcounts.keys().map(LayerRef::from).collect()
+        self.refcounts.keys().cloned().collect()
     }
 
     fn lease_head_layers(&self) -> Vec<LayerRef> {
         self.leases
             .values()
             .filter_map(|lease| lease.manifest.layers.first())
-            .map(LayerRefKey::from)
+            .cloned()
             .collect::<BTreeSet<_>>()
-            .iter()
-            .map(LayerRef::from)
+            .into_iter()
             .collect()
     }
 
@@ -137,37 +131,12 @@ impl LeaseRegistry {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct LayerRefKey {
-    layer_id: String,
-    path: String,
-}
-
-impl From<&LayerRef> for LayerRefKey {
-    fn from(layer: &LayerRef) -> Self {
-        Self {
-            layer_id: layer.layer_id.clone(),
-            path: layer.path.clone(),
-        }
-    }
-}
-
-impl From<&LayerRefKey> for LayerRef {
-    fn from(layer: &LayerRefKey) -> Self {
-        Self {
-            layer_id: layer.layer_id.clone(),
-            path: layer.path.clone(),
-        }
-    }
-}
-
 fn new_lease_id() -> String {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or_default();
-    let counter = NEXT_LEASE.fetch_add(1, Ordering::Relaxed);
-    format!("{nanos:032x}{counter:016x}")
+    format!("{nanos:032x}{:016x}", next_unique())
 }
 
 fn shared_registries() -> &'static Mutex<HashMap<String, SharedLeaseRegistry>> {
@@ -204,17 +173,17 @@ impl MergedView {
             match std::fs::symlink_metadata(&target) {
                 Ok(meta) if meta.file_type().is_symlink() => {
                     let target = std::fs::read_link(&target)
-                        .map_err(|err| stale_layer_error(layer, rel.as_str(), &err))?;
+                        .map_err(|err| stale_layer_error(layer, rel.as_str(), Some(&err)))?;
                     return Ok((Some(target.to_string_lossy().as_bytes().to_vec()), true));
                 }
                 Ok(meta) if meta.is_file() => {
                     let bytes = std::fs::read(&target)
-                        .map_err(|err| stale_layer_error(layer, rel.as_str(), &err))?;
+                        .map_err(|err| stale_layer_error(layer, rel.as_str(), Some(&err)))?;
                     return Ok((Some(bytes), true));
                 }
-                Ok(_) => return Err(stale_layer_error_value(layer, rel.as_str())),
+                Ok(_) => return Err(stale_layer_error(layer, rel.as_str(), None)),
                 Err(err) if err.kind() == ErrorKind::NotFound => {}
-                Err(err) => return Err(stale_layer_error(layer, rel.as_str(), &err)),
+                Err(err) => return Err(stale_layer_error(layer, rel.as_str(), Some(&err))),
             }
         }
         Ok((None, false))
@@ -242,26 +211,8 @@ impl MergedView {
     }
 
     fn is_whiteouted(layer_dir: &Path, rel: &str) -> bool {
-        if is_kernel_whiteout(&join_layer_path(layer_dir, rel)) {
-            return true;
-        }
-        let rel_path = PathBuf::from(rel);
-        let Some(name) = rel_path.file_name() else {
-            return false;
-        };
-        let marker_name = {
-            let mut marker = OsString::from(LOGICAL_WHITEOUT_PREFIX);
-            marker.push(name);
-            marker
-        };
-        let parent = rel_path
-            .parent()
-            .filter(|parent| !parent.as_os_str().is_empty());
-        let marker = match parent {
-            Some(parent) => layer_dir.join(parent).join(marker_name),
-            None => layer_dir.join(marker_name),
-        };
-        marker.exists()
+        let target = join_layer_path(layer_dir, rel);
+        is_kernel_whiteout(&target) || logical_whiteout_path_for_target(&target).exists()
     }
 
     fn lookup_blocked_by_layer(layer_dir: &Path, rel: &str) -> bool {
@@ -343,7 +294,6 @@ impl LayerStack {
             root_hash: manifest_root_hash(&manifest),
             manifest,
             layer_paths,
-            timings: BTreeMap::new(),
         })
     }
 
@@ -375,10 +325,7 @@ impl LayerStack {
         };
         let squash_lease = {
             let mut leases = lock_shared_registry(&self.leases)?;
-            leases.acquire(
-                active,
-                &format!("squash-{}", NEXT_LAYER.fetch_add(1, Ordering::Relaxed)),
-            )?
+            leases.acquire(active, &format!("squash-{}", next_unique()))?
         };
 
         let mut checkpoints = Vec::new();
@@ -445,11 +392,6 @@ impl LayerStack {
     }
 
     #[must_use]
-    pub fn lease_head_layers(&self) -> Vec<LayerRef> {
-        lock_shared_registry_recover(&self.leases).lease_head_layers()
-    }
-
-    #[must_use]
     pub fn active_lease_count(&self) -> usize {
         lock_shared_registry_recover(&self.leases).active_count()
     }
@@ -467,8 +409,7 @@ impl LayerStack {
         &mut self,
         workspace_root: &Path,
     ) -> Result<(Manifest, BTreeMap<String, f64>), LayerStackError> {
-        let writer_lock = StorageWriterLockLease::acquire(&self.storage_root)?;
-        let _guard = writer_lock.exclusive()?;
+        let _guard = self.writer_lock.exclusive()?;
         let total_start = Instant::now();
         if !workspace_root.is_dir() {
             return Err(LayerStackError::WorkspaceBinding(format!(
@@ -485,9 +426,11 @@ impl LayerStack {
         let active = self.read_active_manifest()?;
         let projection = self.commit_projection_dir()?;
         let mut timings = BTreeMap::new();
+        let storage_root = self.storage_root.clone();
+        let view = &mut self.view;
         let outcome = (|| {
             let project_start = Instant::now();
-            self.view.project(&projection, &active)?;
+            view.project(&projection, &active)?;
             record_elapsed(
                 &mut timings,
                 "layer_stack.commit_to_workspace.project_s",
@@ -503,10 +446,10 @@ impl LayerStack {
             );
 
             let rebuild_start = Instant::now();
-            clear_storage_root_preserving_lock(&self.storage_root)?;
-            let _ = build_workspace_base(&self.storage_root, workspace_root, false)?;
-            self.view = MergedView::new(self.storage_root.clone());
-            let new_manifest = self.read_active_manifest()?;
+            clear_storage_root_preserving_lock(&storage_root)?;
+            let _ = build_workspace_base(&storage_root, workspace_root, false)?;
+            *view = MergedView::new(storage_root.clone());
+            let new_manifest = read_manifest(storage_root.join(ACTIVE_MANIFEST_FILE))?;
             record_elapsed(
                 &mut timings,
                 "layer_stack.commit_to_workspace.rebuild_base_s",
@@ -551,7 +494,8 @@ impl LayerStack {
         }
 
         let next_version = active.version + 1;
-        let (layer_id, staging_dir, layer_dir) = self.allocate_layer_paths(next_version)?;
+        let (layer_id, staging_dir, layer_dir) =
+            allocate_layer_dirs(&self.storage_root, 'L', next_version)?;
         std::fs::create_dir_all(&staging_dir)?;
         if let Err(err) = write_layer_changes(&staging_dir, changes)
             .and_then(|()| fsync_tree_files(&staging_dir))
@@ -600,25 +544,6 @@ impl LayerStack {
         Ok(manifest)
     }
 
-    fn allocate_layer_paths(
-        &self,
-        next_version: i64,
-    ) -> Result<(String, PathBuf, PathBuf), LayerStackError> {
-        for _ in 0..100 {
-            let unique = NEXT_LAYER.fetch_add(1, Ordering::Relaxed);
-            let layer_id = format!("L{next_version:06}-{unique:08x}");
-            let staging_dir = self
-                .storage_root
-                .join(STAGING_DIR)
-                .join(format!("{layer_id}.staging"));
-            let layer_dir = self.storage_root.join(LAYERS_DIR).join(&layer_id);
-            if !staging_dir.exists() && !layer_dir.exists() {
-                return Ok((layer_id, staging_dir, layer_dir));
-            }
-        }
-        Err(LayerStackError::LayerIdAllocation)
-    }
-
     fn head_layer_digest(&self, manifest: &Manifest) -> Result<Option<String>, LayerStackError> {
         let Some(head) = manifest.layers.first() else {
             return Ok(None);
@@ -638,7 +563,7 @@ impl LayerStack {
             let candidate = parent.join(format!(
                 "projected-{}-{}",
                 std::process::id(),
-                NEXT_TMP_WRITE.fetch_add(1, Ordering::Relaxed)
+                next_unique()
             ));
             match std::fs::create_dir(&candidate) {
                 Ok(()) => return Ok(candidate),
@@ -764,20 +689,10 @@ fn write_layer_changes(layer_dir: &Path, changes: &[LayerChange]) -> Result<(), 
     Ok(())
 }
 
-static NEXT_LAYER: AtomicU64 = AtomicU64::new(0);
-static NEXT_TMP_WRITE: AtomicU64 = AtomicU64::new(0);
-static NEXT_LEASE: AtomicU64 = AtomicU64::new(0);
-
-fn stale_layer_error(layer: &LayerRef, rel: &str, err: &std::io::Error) -> LayerStackError {
+fn stale_layer_error(layer: &LayerRef, rel: &str, err: Option<&std::io::Error>) -> LayerStackError {
+    let detail = err.map(|err| format!(" ({err})")).unwrap_or_default();
     LayerStackError::Storage(format!(
-        "layer no longer present while reading {rel}: {} ({err})",
-        layer.layer_id
-    ))
-}
-
-fn stale_layer_error_value(layer: &LayerRef, rel: &str) -> LayerStackError {
-    LayerStackError::Storage(format!(
-        "layer no longer present while reading {rel}: {}",
+        "layer no longer present while reading {rel}: {}{detail}",
         layer.layer_id
     ))
 }

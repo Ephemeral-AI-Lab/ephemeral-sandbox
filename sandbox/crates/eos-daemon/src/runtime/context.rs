@@ -2,7 +2,7 @@ use eos_config::configs::daemon::FileLimitsConfig;
 use eos_runtime::RuntimeServices;
 
 use crate::error::DaemonError;
-use crate::runtime::invocation_registry::InFlightRegistry;
+use crate::invocation_registry::InFlightRegistry;
 
 /// Per-dispatch daemon services used by handlers that need runtime state.
 #[derive(Clone, Copy, Default)]
@@ -30,9 +30,7 @@ impl<'ctx> DispatchContext<'ctx> {
     pub const fn with_services(services: &'ctx RuntimeServices) -> Self {
         Self {
             services: Some(services),
-            invocation_registry: None,
-            file_limits: None,
-            read_request_s: None,
+            ..Self::empty()
         }
     }
 
@@ -40,10 +38,8 @@ impl<'ctx> DispatchContext<'ctx> {
     #[must_use]
     pub const fn with_invocation_registry(invocation_registry: &'ctx InFlightRegistry) -> Self {
         Self {
-            services: None,
             invocation_registry: Some(invocation_registry),
-            file_limits: None,
-            read_request_s: None,
+            ..Self::empty()
         }
     }
 
@@ -96,10 +92,8 @@ impl<'ctx> DispatchContext<'ctx> {
     #[cfg(test)]
     pub(crate) const fn with_read_request_s(read_request_s: f64) -> Self {
         Self {
-            services: None,
-            invocation_registry: None,
-            file_limits: None,
             read_request_s: Some(read_request_s),
+            ..Self::empty()
         }
     }
 }

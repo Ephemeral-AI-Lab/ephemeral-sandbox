@@ -74,11 +74,7 @@ pub(crate) fn require_nonempty_string(args: &Value, key: &str) -> Result<String,
 }
 
 pub(crate) fn optional_u64(args: &Value, key: &str) -> Option<u64> {
-    args.get(key).and_then(|value| {
-        value
-            .as_u64()
-            .or_else(|| value.as_i64().and_then(|value| u64::try_from(value).ok()))
-    })
+    args.get(key).and_then(Value::as_u64)
 }
 
 pub(crate) fn optional_path(args: &Value, key: &str) -> Option<PathBuf> {

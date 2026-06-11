@@ -10,7 +10,7 @@ This module owns the unified live E2E contract for plugin package setup, daemon-
 - [ ] plugin-setup-idempotent: Re-ensure with matching package and setup digests skips upload/setup and keeps the setup count at one.
 - [ ] plugin-dispatch-roundtrip: Dynamic daemon PPC dispatch preserves operation name, request body, success envelope, package root, and dependency root.
 - [ ] plugin-service-hosted: Daemon-hosted plugin services start as live PPC workers, connect routes, and report accepted health probes.
-- [ ] plugin-service-cleanup: Reload removes old routes, PPC clients, service snapshots, staged uploads, and worker processes. Socket-path unlink is not asserted: `sandbox/crates/eos-runtime/src/plugin/process.rs` removes stale socket paths before bind, while `PluginServiceProcess::teardown` only terminates the child process.
+- [ ] plugin-service-cleanup: Reload removes old routes, PPC clients, service snapshots, staged uploads, and worker processes. Socket-path unlink is not asserted: `sandbox/crates/eos-plugin-ops/src/process.rs` removes stale socket paths before bind, while `PluginServiceProcess::teardown` only terminates the child process.
 - [ ] plugin-refresh-remount: A read-only service sees the latest workspace after a LayerStack update and records bounded refresh activity.
 - [ ] plugin-refresh-singleflight: Concurrent refreshes after one workspace edit all observe new content while refresh counts stay bounded.
 - [ ] plugin-restart-policy: The `restart_service` strategy restarts the worker process instead of remounting the workspace.

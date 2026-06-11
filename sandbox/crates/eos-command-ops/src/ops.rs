@@ -1,12 +1,3 @@
-//! The command lifecycle: start/yield, stdin, poll, cancel, sweep, settle.
-//!
-//! Lease custody and the publish decision live here, concretely: an ephemeral
-//! run acquires its snapshot from `eos_layerstack::service` at start and the
-//! settle path publishes (complete) or discards (cancel/timeout) before
-//! releasing the lease. There are no injected ports — storage is a direct
-//! dependency, the workspaces are plain values, and the PTY substrate is the
-//! `eos-command-session` mechanism crate.
-
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -24,15 +15,12 @@ use eos_command_session::{
 use eos_ephemeral_workspace::EphemeralWorkspace;
 use eos_layerstack::service;
 
-use crate::binding::CommandBinding;
-use crate::outcome::{FinalizeCommandRequest, WorkspaceCommandOutcome};
+use crate::outcome::FinalizeCommandRequest;
 use crate::prepare::{prepare_ephemeral, prepare_isolated, PrepareInputs, PreparedCommand};
 use crate::registry::{ActiveCommand, CommandRegistry, EphemeralRun, IsolatedRun};
-use crate::settle::{settle_ephemeral, settle_isolated};
+use crate::settle::{discarded_response, settle_ephemeral, settle_isolated};
+use crate::CommandBinding;
 
-/// Which workspace a starting command runs on. The daemon picks the kind from
-/// the caller's current mode and supplies the inputs needed to lay out the
-/// run: the layer-stack roots (ephemeral) or the caller's isolated binding.
 pub enum ExecTarget {
     Ephemeral {
         root: PathBuf,
@@ -40,8 +28,6 @@ pub enum ExecTarget {
         scratch_root: PathBuf,
     },
     Isolated {
-        // Boxed: `CommandBinding` is far larger than the ephemeral variant,
-        // and this enum is only a short-lived dispatch value.
         binding: Box<CommandBinding>,
     },
 }
@@ -148,8 +134,6 @@ impl CommandOps {
         let (workspace, session) = match result {
             Ok(parts) => parts,
             Err(error) => {
-                // The workspace (if created) dropped with the error path and
-                // removed its dirs; only the lease needs explicit release.
                 let _ = service::release_lease(&root, &snapshot.lease_id);
                 return Err(error);
             }
@@ -228,9 +212,21 @@ impl CommandOps {
         let id = session.id().to_owned();
         let run = Arc::new(make_run(session));
         self.registry.insert(Arc::clone(&run));
-        match wait_for_yield(run.session(), &self.config, yield_time_ms, 0) {
+        self.wait_on_run(run, yield_time_ms, 0, |stdout| {
+            CommandResponse::running(id, stdout)
+        })
+    }
+
+    fn wait_on_run(
+        &self,
+        run: Arc<ActiveCommand>,
+        wait_ms: u64,
+        start_offset: u64,
+        on_running: impl FnOnce(String) -> CommandResponse,
+    ) -> CommandResponse {
+        match wait_for_yield(run.session(), &self.config, wait_ms, start_offset) {
             WaitOutcome::Completed(reaped) => self.finish_reaped(run, reaped, false),
-            WaitOutcome::Running(stdout) => CommandResponse::running(id, stdout),
+            WaitOutcome::Running(stdout) => on_running(stdout),
         }
     }
 
@@ -256,17 +252,11 @@ impl CommandOps {
         let command_session_id = request.command_session_id.clone();
         let start_offset = run.session().transcript_len();
         run.session().write_process_stdin(&request.chars)?;
-        match wait_for_yield(
-            run.session(),
-            &self.config,
-            request.yield_time_ms,
-            start_offset,
-        ) {
-            WaitOutcome::Completed(reaped) => Ok(self.finish_reaped(run, reaped, false)),
-            WaitOutcome::Running(stdout) => {
-                Ok(CommandResponse::running(command_session_id, stdout))
-            }
-        }
+        Ok(
+            self.wait_on_run(run, request.yield_time_ms, start_offset, |stdout| {
+                CommandResponse::running(command_session_id, stdout)
+            }),
+        )
     }
 
     pub fn read_command_progress(
@@ -308,15 +298,11 @@ impl CommandOps {
         };
         let start_offset = run.session().transcript_len();
         run.session().cancel_process();
-        match wait_for_yield(
-            run.session(),
-            &self.config,
-            self.config.cancel_wait_ms,
-            start_offset,
-        ) {
-            WaitOutcome::Completed(reaped) => Ok(self.finish_reaped(run, reaped, false)),
-            WaitOutcome::Running(stdout) => Ok(CommandResponse::cancelled(stdout)),
-        }
+        Ok(
+            self.wait_on_run(run, self.config.cancel_wait_ms, start_offset, |stdout| {
+                CommandResponse::cancelled(stdout)
+            }),
+        )
     }
 
     #[must_use]
@@ -333,9 +319,6 @@ impl CommandOps {
         self.registry.push_completed(completion);
     }
 
-    /// Cancel and discard every command session owned by `caller_id` (the
-    /// per-caller teardown). Cancelled sessions discard their overlay and push
-    /// no completion (the caller initiated the cancel).
     #[must_use]
     pub fn cleanup_caller(&self, caller_id: &str, grace_s: Option<f64>) -> usize {
         let caller_id = caller_id.trim();
@@ -345,16 +328,11 @@ impl CommandOps {
         self.cancel_and_drain(self.registry.caller_sessions(caller_id), grace_s)
     }
 
-    /// Cancel and discard every live command session in the sandbox (the
-    /// whole-sandbox sweep backstop). Cancelled sessions discard and push no
-    /// completion.
     #[must_use]
     pub fn cancel_all(&self, grace_s: Option<f64>) -> usize {
         self.cancel_and_drain(self.registry.live(), grace_s)
     }
 
-    /// Cancel every run, then reap+discard within `grace`, finalizing any
-    /// stragglers. Returns the number of runs that were live at entry.
     fn cancel_and_drain(&self, runs: Vec<Arc<ActiveCommand>>, grace_s: Option<f64>) -> usize {
         if runs.is_empty() {
             return 0;
@@ -383,26 +361,14 @@ impl CommandOps {
             if let Some(reaped) = run.session().reap() {
                 let _ = self.finish_reaped(run, reaped, false);
             } else {
-                // The kill could not reap the child within grace (e.g. an
-                // uninterruptible D-state task). Teardown must NOT depend on a
-                // successful reap: force the run out of the registry and
-                // release its overlay lease + dirs, or a stuck process would
-                // leak the snapshot lease the whole-sandbox assert-no-leases
-                // gate checks. Never publishes — this is the discard branch.
                 self.force_discard(&run);
             }
         }
         runs.len()
     }
 
-    /// Reap-independent teardown for a run the cancel grace could not reap.
-    /// Dropping the registry's ephemeral run releases its overlay dirs (the
-    /// workspace's drop) and the lease is freed here; an isolated session only
-    /// needs its registry entry dropped, since the namespace + lease are torn
-    /// down by `exit`.
     fn force_discard(&self, run: &Arc<ActiveCommand>) {
         if self.registry.remove(run.session().id()).is_none() {
-            // A concurrent reap already finalized + discarded it.
             return;
         }
         if let ActiveCommand::Ephemeral(ephemeral) = &**run {
@@ -410,15 +376,6 @@ impl CommandOps {
         }
     }
 
-    /// Periodic reaper: enforce the per-session timeout backstop and finalize
-    /// any session whose child has exited without a live poller, parking the
-    /// completion for the heartbeat.
-    ///
-    /// A past-deadline session is killed as a **timeout** (not a user cancel),
-    /// so its completion is still parked — a fire-and-forget session that hits
-    /// its timeout must reach the heartbeat, or its agent-core background
-    /// session is stuck Running forever. Only a caller-initiated cancel parks
-    /// nothing.
     pub fn sweep_expired(&self, now: Instant) {
         for run in self.registry.live() {
             if run
@@ -434,10 +391,6 @@ impl CommandOps {
         }
     }
 
-    /// Turn a reaped command into its final response: the run publishes
-    /// (normal completion) or discards (cancel/timeout), then persists the
-    /// final response. Routing cancel to the discard branch is the structural
-    /// guarantee that a cancelled command never reaches the shared merge.
     fn finish_reaped(
         &self,
         run: Arc<ActiveCommand>,
@@ -453,13 +406,11 @@ impl CommandOps {
             stderr: String::new(),
             command_session_id: Some(run.session().id().to_owned()),
         };
-        // A kill of EITHER reason (cancel or timeout) DISCARDS — only a
-        // natural exit (`kill == None`) takes the publish branch.
         let cancelled = reaped.kill.is_some();
         let outcome = match &*run {
             ActiveCommand::Ephemeral(ephemeral) => {
                 let outcome = if cancelled {
-                    Ok(WorkspaceCommandOutcome::discarded("ephemeral", request))
+                    Ok(discarded_response("ephemeral", request))
                 } else {
                     settle_ephemeral(
                         &ephemeral.root,
@@ -468,22 +419,19 @@ impl CommandOps {
                         request,
                     )
                 };
-                // ALWAYS release the lease — completion, cancel, and even a
-                // failed settle. The workspace dirs are removed when the run
-                // drops out of the registry below.
                 let _ = service::release_lease(&ephemeral.root, &ephemeral.snapshot.lease_id);
                 outcome
             }
             ActiveCommand::Isolated(isolated) => {
                 if cancelled {
-                    Ok(WorkspaceCommandOutcome::discarded("isolated", request))
+                    Ok(discarded_response("isolated", request))
                 } else {
                     settle_isolated(&isolated.binding, request)
                 }
             }
         };
         let response = match outcome {
-            Ok(outcome) => command_response_from_outcome(outcome),
+            Ok(response) => response,
             Err(error) => CommandResponse::error(error.to_string()),
         };
         run.session().persist_final(&response);
@@ -509,27 +457,4 @@ fn is_teardown_control(chars: &str) -> bool {
 
 fn contains_teardown_control(chars: &str) -> bool {
     chars.contains('\u{3}') || chars.contains('\u{4}')
-}
-
-/// Shape a settled [`WorkspaceCommandOutcome`] into the substrate's
-/// [`CommandResponse`], folding workspace policy fields into `metadata`.
-fn command_response_from_outcome(outcome: WorkspaceCommandOutcome) -> CommandResponse {
-    CommandResponse {
-        status: outcome.status,
-        exit_code: outcome.exit_code,
-        stdout: outcome.stdout,
-        stderr: outcome.stderr,
-        command_session_id: outcome.command_session_id,
-        workspace: Some(outcome.workspace_kind),
-        metadata: serde_json::json!({
-            "success": outcome.success,
-            "changed_paths": outcome.changed_paths,
-            "changed_path_kinds": outcome.changed_path_kinds,
-            "mutation_source": outcome.mutation_source,
-            "conflict": outcome.conflict,
-            "conflict_reason": outcome.conflict_reason,
-            "timings": outcome.timings,
-            "metadata": outcome.metadata,
-        }),
-    }
 }

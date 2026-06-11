@@ -57,13 +57,11 @@ fn walk_upperdir(
     for entry in files {
         capture_file_entry(root, &entry, emitted_opaque_dirs, changes)?;
     }
-    for entry in &dirs {
-        if has_overlay_opaque_xattr(entry) {
-            let opaque_path = relative_overlay_path(root, entry)?;
+    for entry in dirs {
+        if has_overlay_opaque_xattr(&entry) {
+            let opaque_path = relative_to_string(&relative_path(root, &entry)?);
             push_opaque_dir(opaque_path, emitted_opaque_dirs, changes)?;
         }
-    }
-    for entry in dirs {
         walk_upperdir(root, &entry, emitted_opaque_dirs, changes)?;
     }
     Ok(())
@@ -90,11 +88,11 @@ fn capture_file_entry(
         changes.push(delete_change(&relative_to_string(&target))?);
         return Ok(());
     }
-    if is_overlay_whiteout(entry)? {
+    let meta = std::fs::symlink_metadata(entry).map_err(OverlayError::Capture)?;
+    if is_overlay_whiteout(entry, &meta)? {
         changes.push(delete_change(&relative_to_string(&rel))?);
         return Ok(());
     }
-    let meta = std::fs::symlink_metadata(entry).map_err(OverlayError::Capture)?;
     if meta.file_type().is_symlink() {
         changes.push(symlink_change(&relative_to_string(&rel), entry)?);
     } else if meta.is_file() {
@@ -150,10 +148,6 @@ fn relative_path(root: &Path, entry: &Path) -> Result<PathBuf> {
         .map_err(|err| OverlayError::InvalidPathChange(err.to_string()))
 }
 
-fn relative_overlay_path(root: &Path, entry: &Path) -> Result<String> {
-    relative_path(root, entry).map(|path| relative_to_string(&path))
-}
-
 fn relative_to_string(path: &Path) -> String {
     path.components()
         .map(|component| component.as_os_str().to_string_lossy())
@@ -179,8 +173,7 @@ fn whiteout_target(rel: &Path) -> PathBuf {
         )
 }
 
-fn is_overlay_whiteout(entry: &Path) -> Result<bool> {
-    let meta = std::fs::symlink_metadata(entry).map_err(OverlayError::Capture)?;
+fn is_overlay_whiteout(entry: &Path, meta: &std::fs::Metadata) -> Result<bool> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::{FileTypeExt, MetadataExt};
@@ -198,52 +191,20 @@ fn has_overlay_opaque_xattr(entry: &Path) -> bool {
 
 #[cfg(target_os = "linux")]
 fn xattr_value(path: &Path, name: &str) -> Result<Option<Vec<u8>>> {
-    use std::ffi::CString;
-    use std::os::unix::ffi::OsStrExt;
+    use rustix::io::Errno;
 
-    let path = CString::new(path.as_os_str().as_bytes())
-        .map_err(|err| OverlayError::InvalidPathChange(err.to_string()))?;
-    let name =
-        CString::new(name).map_err(|err| OverlayError::InvalidPathChange(err.to_string()))?;
-    // SAFETY: `path` and `name` are live NUL-terminated C strings, and a null
-    // value pointer with size 0 is the documented probe form for getxattr.
-    let len = unsafe { libc::getxattr(path.as_ptr(), name.as_ptr(), std::ptr::null_mut(), 0) };
-    if len < 0 {
-        let err = std::io::Error::last_os_error();
-        return match err.raw_os_error() {
-            Some(libc::ENODATA | libc::EOPNOTSUPP) => Ok(None),
-            _ => Err(OverlayError::Capture(err)),
-        };
+    let mut buffer = vec![0_u8; 64];
+    loop {
+        match rustix::fs::lgetxattr(path, name, &mut buffer) {
+            Ok(len) => {
+                buffer.truncate(len);
+                return Ok(Some(buffer));
+            }
+            Err(Errno::RANGE) => buffer.resize(buffer.len() * 2, 0),
+            Err(Errno::NODATA | Errno::OPNOTSUPP) => return Ok(None),
+            Err(err) => return Err(OverlayError::Capture(std::io::Error::from(err))),
+        }
     }
-    let len = usize::try_from(len).map_err(|_| {
-        OverlayError::Capture(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "xattr length does not fit usize",
-        ))
-    })?;
-    let mut buffer = vec![0u8; len];
-    // SAFETY: `buffer` is allocated with the size returned by the first
-    // getxattr call, and its mutable pointer remains valid for `buffer.len()`
-    // bytes for the duration of this FFI call.
-    let read = unsafe {
-        libc::getxattr(
-            path.as_ptr(),
-            name.as_ptr(),
-            buffer.as_mut_ptr().cast(),
-            buffer.len(),
-        )
-    };
-    if read < 0 {
-        return Err(OverlayError::Capture(std::io::Error::last_os_error()));
-    }
-    let read = usize::try_from(read).map_err(|_| {
-        OverlayError::Capture(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "xattr read length does not fit usize",
-        ))
-    })?;
-    buffer.truncate(read);
-    Ok(Some(buffer))
 }
 
 #[cfg(not(target_os = "linux"))]

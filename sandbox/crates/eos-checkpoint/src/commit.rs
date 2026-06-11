@@ -37,7 +37,7 @@ pub fn commit_to_git(request: &CommitRequest<'_>) -> Result<CommitOutcome, Check
     let manifest_depth = lease.manifest.depth();
     let manifest_path_count = lease.layer_paths.len();
     let lease_id = lease.lease_id.clone();
-    let mut timings = lease.timings.clone();
+    let mut timings = BTreeMap::new();
 
     let outcome = (|| {
         let worktree = prepare_worktree(root, &lease, &mut timings)?;

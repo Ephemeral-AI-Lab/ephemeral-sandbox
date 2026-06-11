@@ -14,7 +14,7 @@ use crate::request_args::{
     optional_path, optional_u64, require_command_string, require_nonempty_string, trimmed_string,
 };
 use crate::response::u64_to_f64_saturating;
-use crate::runtime::context::DispatchContext;
+use crate::DispatchContext;
 
 /// `api.v1.exec_command` — command-session start contract.
 pub(crate) fn op_exec_command(

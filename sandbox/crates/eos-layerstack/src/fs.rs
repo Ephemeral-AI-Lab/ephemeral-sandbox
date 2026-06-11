@@ -7,8 +7,39 @@ use std::time::Instant;
 use crate::error::LayerStackError;
 use crate::lock::STORAGE_WRITER_LOCK_FILE;
 use crate::model::{LayerRef, Manifest, MANIFEST_SCHEMA_VERSION};
-use crate::LAYER_METADATA_DIR;
+use crate::{LAYERS_DIR, LAYER_METADATA_DIR, STAGING_DIR};
 use serde_json::{json, Value};
+
+pub(crate) fn canonical_key(path: &Path) -> String {
+    path.canonicalize()
+        .unwrap_or_else(|_| path.to_path_buf())
+        .to_string_lossy()
+        .into_owned()
+}
+
+pub(crate) fn next_unique() -> u64 {
+    NEXT_UNIQUE.fetch_add(1, Ordering::Relaxed)
+}
+
+pub(crate) fn allocate_layer_dirs(
+    storage_root: &Path,
+    prefix: char,
+    next_version: i64,
+) -> Result<(String, PathBuf, PathBuf), LayerStackError> {
+    std::fs::create_dir_all(storage_root.join(LAYERS_DIR))?;
+    std::fs::create_dir_all(storage_root.join(STAGING_DIR))?;
+    for _ in 0..100 {
+        let layer_id = format!("{prefix}{next_version:06}-{:08x}", next_unique());
+        let staging_dir = storage_root
+            .join(STAGING_DIR)
+            .join(format!("{layer_id}.staging"));
+        let layer_dir = storage_root.join(LAYERS_DIR).join(&layer_id);
+        if !staging_dir.exists() && !layer_dir.exists() {
+            return Ok((layer_id, staging_dir, layer_dir));
+        }
+    }
+    Err(LayerStackError::LayerIdAllocation)
+}
 
 pub(crate) fn remove_path(path: &Path) -> Result<(), LayerStackError> {
     match std::fs::symlink_metadata(path) {
@@ -149,7 +180,7 @@ pub(crate) fn write_atomic(path: impl AsRef<Path>, bytes: &[u8]) -> Result<(), L
             .and_then(|name| name.to_str())
             .unwrap_or("layerstack"),
         std::process::id(),
-        NEXT_TMP_WRITE.fetch_add(1, Ordering::Relaxed)
+        next_unique()
     ));
     let result = (|| -> Result<(), LayerStackError> {
         write_bytes_fsynced(&tmp, bytes)?;
@@ -284,4 +315,4 @@ pub(crate) fn validate_layer_ref(layer: &LayerRef) -> Result<(), LayerStackError
     check_layer_path(&layer.path)
 }
 
-static NEXT_TMP_WRITE: AtomicU64 = AtomicU64::new(0);
+static NEXT_UNIQUE: AtomicU64 = AtomicU64::new(0);

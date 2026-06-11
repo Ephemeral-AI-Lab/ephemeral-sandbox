@@ -6,7 +6,7 @@ use std::thread;
 use std::time::Duration;
 
 use eos_plugin::{PpcDirection, PpcMessage};
-use eos_runtime::{read_message_bytes, PpcClient};
+use eos_plugin_ops::{read_message_bytes, PpcClient};
 
 type TestResult = std::result::Result<(), Box<dyn std::error::Error + Send + Sync>>;
 

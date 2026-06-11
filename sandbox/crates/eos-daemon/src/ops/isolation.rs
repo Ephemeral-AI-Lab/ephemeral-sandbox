@@ -10,7 +10,7 @@ use eos_runtime::{ExitOutcome, WorkspaceEnterError};
 use serde_json::{json, Value};
 
 use crate::error::DaemonError;
-use crate::runtime::context::DispatchContext;
+use crate::DispatchContext;
 
 use super::{error_json, require_arg};
 

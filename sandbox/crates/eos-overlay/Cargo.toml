@@ -11,7 +11,6 @@ thiserror.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix.workspace = true
-libc.workspace = true
 
 [lints]
 workspace = true

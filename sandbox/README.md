@@ -44,7 +44,7 @@ drift gate.
   side: `eosd` (binary), `eos-daemon` (server + `wire/` protocol),
   `eos-layerstack`, `eos-overlay`, `eos-namespace`, `eos-command-session`,
   `eos-command-ops`, `eos-ephemeral-workspace`, `eos-isolated-workspace`,
-  `eos-file-ops`, and `eos-plugin`.
+  `eos-file-ops`, `eos-plugin`, and `eos-plugin-ops`.
 - `docs/API.md` — the public op reference, generated from `contract/ops.json`
   (`cargo run -p xtask -- gen-docs`).
 - `docs/contract/` — the frozen historical wire/CAS/audit contracts.

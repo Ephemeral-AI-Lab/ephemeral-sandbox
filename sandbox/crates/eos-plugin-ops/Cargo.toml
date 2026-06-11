@@ -1,0 +1,40 @@
+[package]
+name = "eos-plugin-ops"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+eos-config.workspace = true
+eos-ephemeral-workspace.workspace = true
+eos-isolated-workspace.workspace = true
+eos-layerstack.workspace = true
+eos-namespace.workspace = true
+eos-plugin.workspace = true
+nix = { workspace = true, features = ["process", "signal"] }
+serde.workspace = true
+# preserve_order keeps ensure/route arg objects in insertion order on the wire.
+serde_json = { workspace = true, features = ["preserve_order"] }
+# Package publish/setup: content-hash markers + staged-upload ids.
+sha2.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[features]
+# Test-only seam: lets a caller redirect the managed package roots to temp dirs.
+# Production builds MUST leave this off so the roots stay the fixed `/eos/...`
+# managed paths and an untrusted plugin caller cannot redirect package publishing.
+# The daemon enables it from its `[dev-dependencies]` so only its test build sees it.
+test-root-override = []
+
+[[test]]
+name = "plugin_ppc_client"
+path = "tests/plugin/ppc_client.rs"
+
+[[test]]
+name = "plugin_service_runtime"
+path = "tests/plugin/service_runtime.rs"
+
+[lints]
+workspace = true

@@ -1,10 +1,3 @@
-//! The direct fast path: no overlay anywhere.
-//!
-//! Reads resolve against the latest merged state of the layer stack; applies
-//! commit through the per-root single writer, gated by the content hash the
-//! read observed (so a concurrent commit surfaces as a typed conflict, never a
-//! silent clobber).
-
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -19,7 +12,6 @@ use crate::{
     ReadBytes, ResolvedWorkspacePath, WorkspaceConflict, WorkspaceTimings,
 };
 
-/// Latest-state file backend for one layer-stack root.
 #[derive(Debug, Clone)]
 pub struct DirectBackend {
     root: PathBuf,
@@ -131,6 +123,7 @@ fn changeset_outcome(
         changed_path_kinds,
         mutation_source: mutation_source.to_owned(),
         timings,
+        ..MutationOutcome::default()
     }
 }
 

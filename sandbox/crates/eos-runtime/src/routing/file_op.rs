@@ -53,24 +53,12 @@ pub fn read_file(
     context: FileOpContext<'_>,
     request: ReadFileRequest,
 ) -> Result<RoutedFileOutcome<ReadFileOutcome>, FileOpError> {
-    if let Some((workspace, binding)) = isolated_route(&context) {
-        let outcome = read_with_backend(&isolated_backend(&binding), request)?;
-        workspace.touch(&binding.caller_id);
-        return Ok(RoutedFileOutcome {
-            route: FileRoute::Isolated,
-            outcome,
-        });
-    }
-    let root = context
-        .layer_stack_root
-        .ok_or(FileOpError::MissingLayerStackRoot)?;
-    let outcome = read_with_backend(&DirectBackend::new(root.clone()), request)?;
-    Ok(RoutedFileOutcome {
-        route: FileRoute::Direct {
-            layer_stack_root: root,
-        },
-        outcome,
-    })
+    let direct_request = request.clone();
+    route_file_op(
+        context,
+        |binding| read_with_backend(&isolated_backend(binding), request),
+        |root| read_with_backend(&DirectBackend::new(root), direct_request),
+    )
 }
 
 /// Write through the caller's isolated workspace if open, otherwise through
@@ -84,24 +72,12 @@ pub fn write_file(
     context: FileOpContext<'_>,
     request: WriteFileRequest,
 ) -> Result<RoutedFileOutcome<WriteFileOutcome>, FileOpError> {
-    if let Some((workspace, binding)) = isolated_route(&context) {
-        let outcome = write_with_backend(&isolated_backend(&binding), request)?;
-        workspace.touch(&binding.caller_id);
-        return Ok(RoutedFileOutcome {
-            route: FileRoute::Isolated,
-            outcome,
-        });
-    }
-    let root = context
-        .layer_stack_root
-        .ok_or(FileOpError::MissingLayerStackRoot)?;
-    let outcome = write_with_backend(&DirectBackend::new(root.clone()), request)?;
-    Ok(RoutedFileOutcome {
-        route: FileRoute::Direct {
-            layer_stack_root: root,
-        },
-        outcome,
-    })
+    let direct_request = request.clone();
+    route_file_op(
+        context,
+        |binding| write_with_backend(&isolated_backend(binding), request),
+        |root| write_with_backend(&DirectBackend::new(root), direct_request),
+    )
 }
 
 /// Edit through the caller's isolated workspace if open, otherwise through the
@@ -115,32 +91,39 @@ pub fn edit_file(
     context: FileOpContext<'_>,
     request: EditFileRequest,
 ) -> Result<RoutedFileOutcome<EditFileOutcome>, FileOpError> {
-    if let Some((workspace, binding)) = isolated_route(&context) {
-        let outcome = edit_with_backend(&isolated_backend(&binding), request)?;
-        workspace.touch(&binding.caller_id);
-        return Ok(RoutedFileOutcome {
-            route: FileRoute::Isolated,
-            outcome,
-        });
+    let direct_request = request.clone();
+    route_file_op(
+        context,
+        |binding| edit_with_backend(&isolated_backend(binding), request),
+        |root| edit_with_backend(&DirectBackend::new(root), direct_request),
+    )
+}
+
+fn route_file_op<T>(
+    context: FileOpContext<'_>,
+    isolated: impl FnOnce(&CommandBinding) -> Result<T, FileOpsError>,
+    direct: impl FnOnce(PathBuf) -> Result<T, FileOpsError>,
+) -> Result<RoutedFileOutcome<T>, FileOpError> {
+    if let Some(workspace) = context.workspace {
+        if let Some(binding) = workspace.command_binding_for(context.caller_id) {
+            let outcome = isolated(&binding)?;
+            workspace.touch(&binding.caller_id);
+            return Ok(RoutedFileOutcome {
+                route: FileRoute::Isolated,
+                outcome,
+            });
+        }
     }
     let root = context
         .layer_stack_root
         .ok_or(FileOpError::MissingLayerStackRoot)?;
-    let outcome = edit_with_backend(&DirectBackend::new(root.clone()), request)?;
+    let outcome = direct(root.clone())?;
     Ok(RoutedFileOutcome {
         route: FileRoute::Direct {
             layer_stack_root: root,
         },
         outcome,
     })
-}
-
-fn isolated_route<'a>(
-    context: &FileOpContext<'a>,
-) -> Option<(&'a WorkspaceRuntime, CommandBinding)> {
-    let workspace = context.workspace?;
-    let binding = workspace.command_binding_for(context.caller_id)?;
-    Some((workspace, binding))
 }
 
 fn isolated_backend(binding: &CommandBinding) -> IsolatedBackend {

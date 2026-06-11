@@ -13,8 +13,8 @@ use std::time::{Duration, Instant};
 use eos_config::configs::daemon::PluginRuntimeConfig;
 use eos_layerstack::{LayerChange, LayerPath, LayerStack};
 use eos_plugin::{PluginError, PpcDirection, PpcMessage};
-use eos_runtime::ensure::{validate_plugin_caller_fields, MAX_PLUGIN_CALLER_FIELD_CHARS};
-use eos_runtime::{
+use eos_plugin_ops::ensure::{validate_plugin_caller_fields, MAX_PLUGIN_CALLER_FIELD_CHARS};
+use eos_plugin_ops::{
     read_message_bytes, EnsureOutcome, EnsureReady, LaunchError, NsRunnerLauncher,
     PluginDispatchOutcome, PluginRuntime, PluginRuntimeError,
 };

@@ -212,6 +212,7 @@ dependencies = [
  "eos-namespace",
  "eos-overlay",
  "eos-plugin",
+ "eos-plugin-ops",
  "eos-runtime",
  "proptest",
  "serde",
@@ -302,7 +303,6 @@ name = "eos-overlay"
 version = "0.1.0"
 dependencies = [
  "eos-layerstack",
- "libc",
  "rustix 0.38.44",
  "thiserror 2.0.18",
 ]
@@ -318,14 +318,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "eos-runtime"
+name = "eos-plugin-ops"
 version = "0.1.0"
 dependencies = [
- "eos-command-ops",
- "eos-command-session",
  "eos-config",
  "eos-ephemeral-workspace",
- "eos-file-ops",
  "eos-isolated-workspace",
  "eos-layerstack",
  "eos-namespace",
@@ -336,6 +333,24 @@ dependencies = [
  "sha2",
  "thiserror 2.0.18",
  "uuid",
+]
+
+[[package]]
+name = "eos-runtime"
+version = "0.1.0"
+dependencies = [
+ "eos-command-ops",
+ "eos-command-session",
+ "eos-config",
+ "eos-file-ops",
+ "eos-isolated-workspace",
+ "eos-layerstack",
+ "eos-namespace",
+ "eos-plugin",
+ "eos-plugin-ops",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

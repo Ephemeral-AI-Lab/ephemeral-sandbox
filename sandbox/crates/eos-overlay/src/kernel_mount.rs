@@ -14,14 +14,14 @@
 use std::fs::{self, File};
 #[cfg(target_os = "linux")]
 use std::os::fd::AsRawFd;
-#[cfg(target_os = "linux")]
-use std::os::unix::fs::OpenOptionsExt;
-#[cfg(target_os = "linux")]
-use std::path::Component;
 use std::path::{Path, PathBuf};
 
 #[cfg(target_os = "linux")]
 use rustix::fd::AsFd;
+#[cfg(target_os = "linux")]
+use rustix::fs::{Mode, OFlags};
+#[cfg(target_os = "linux")]
+use rustix::io::Errno;
 #[cfg(target_os = "linux")]
 use rustix::mount::{
     fsconfig_create, fsconfig_set_string, fsmount, fsopen, move_mount, unmount, FsMountFlags,
@@ -185,34 +185,34 @@ impl ValidatedMountInputs {
         let mut fds = Vec::with_capacity(handle.layer_paths.len() + 3);
         fds.push(open_dir_no_follow(workspace_root)?);
 
+        let mut layer_paths = Vec::with_capacity(handle.layer_paths.len());
         for layer in &handle.layer_paths {
             require_existing_dir(layer, "leased lowerdir")?;
-            fds.push(open_dir_no_follow(layer)?);
+            let fd = open_dir_no_follow(layer)?;
+            layer_paths.push(fd_path(&fd));
+            fds.push(fd);
         }
 
         for path in [&handle.upperdir, &handle.workdir] {
-            if path
-                .symlink_metadata()
-                .is_ok_and(|meta| meta.file_type().is_symlink())
-            {
-                return Err(OverlayError::InvalidMountInput(format!(
-                    "overlay upper/work dir must not be a symlink: {}",
-                    path.display()
-                )));
-            }
-            if path.exists() && !path.is_dir() {
-                return Err(OverlayError::InvalidMountInput(format!(
-                    "overlay upper/work path is not a directory: {}",
-                    path.display()
-                )));
+            match path.symlink_metadata() {
+                Ok(meta) if meta.file_type().is_symlink() => {
+                    return Err(OverlayError::InvalidMountInput(format!(
+                        "overlay upper/work dir must not be a symlink: {}",
+                        path.display()
+                    )));
+                }
+                Ok(meta) if !meta.is_dir() => {
+                    return Err(OverlayError::InvalidMountInput(format!(
+                        "overlay upper/work path is not a directory: {}",
+                        path.display()
+                    )));
+                }
+                _ => {}
             }
             fs::create_dir_all(path).map_err(OverlayError::Capture)?;
             fds.push(open_dir_no_follow(path)?);
         }
 
-        let layer_paths = (0..handle.layer_paths.len())
-            .map(|idx| fd_path(&fds[idx + 1]))
-            .collect();
         Ok(Self {
             workspace_root: workspace_root.to_path_buf(),
             layer_paths,
@@ -245,14 +245,13 @@ fn require_existing_dir(path: &Path, label: &str) -> Result<()> {
 
 #[cfg(target_os = "linux")]
 fn open_dir_no_follow(path: &Path) -> Result<File> {
-    fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
-        .open(path)
-        .map_err(|source| OverlayError::MountSyscall {
-            context: "open directory",
-            source,
-        })
+    rustix::fs::open(
+        path,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map(File::from)
+    .map_mount_syscall("open directory")
 }
 
 #[cfg(target_os = "linux")]
@@ -263,31 +262,30 @@ fn fd_path(file: &File) -> PathBuf {
 #[cfg(target_os = "linux")]
 fn peel_unmounts(workspace_root: &Path, allow_lazy_fallback: bool) -> Result<()> {
     for _ in 0..MAX_UNMOUNT_PEELS {
-        if !is_mountpoint(workspace_root) {
-            return Ok(());
-        }
-        if let Err(err) = unmount(workspace_root, UnmountFlags::empty()) {
-            if allow_lazy_fallback {
+        match unmount(workspace_root, UnmountFlags::empty()) {
+            Ok(()) => {}
+            // umount(2) reports "nothing mounted here" as EINVAL for a plain
+            // directory and ENOENT when the path itself is gone.
+            Err(Errno::INVAL | Errno::NOENT) => return Ok(()),
+            Err(_) if allow_lazy_fallback => {
                 unmount(workspace_root, UnmountFlags::DETACH)
                     .map_mount_syscall("lazy umount workspace_root")?;
-                continue;
             }
-            return Err(OverlayError::MountSyscall {
-                context: "umount workspace_root",
-                source: std::io::Error::from(err),
-            });
+            Err(err) => {
+                return Err(OverlayError::MountSyscall {
+                    context: "umount workspace_root",
+                    source: std::io::Error::from(err),
+                });
+            }
         }
     }
-    if is_mountpoint(workspace_root) {
-        return Err(OverlayError::MountSyscall {
-            context: "umount workspace_root",
-            source: std::io::Error::other(format!(
-                "workspace root is still mounted after {MAX_UNMOUNT_PEELS} unmount attempts: {}",
-                workspace_root.display()
-            )),
-        });
-    }
-    Ok(())
+    Err(OverlayError::MountSyscall {
+        context: "umount workspace_root",
+        source: std::io::Error::other(format!(
+            "workspace root is still mounted after {MAX_UNMOUNT_PEELS} unmount attempts: {}",
+            workspace_root.display()
+        )),
+    })
 }
 
 #[cfg(target_os = "linux")]
@@ -301,60 +299,6 @@ fn reject_forbidden_chars(path: &Path) -> Result<()> {
         }
     }
     Ok(())
-}
-
-#[cfg(target_os = "linux")]
-fn is_mountpoint(path: &Path) -> bool {
-    let Ok(mountinfo) = fs::read_to_string("/proc/self/mountinfo") else {
-        return true;
-    };
-    let target = normalize_mount_path(path);
-    mountinfo.lines().any(|line| {
-        let mut fields = line.split_whitespace();
-        let mountpoint = fields.nth(4);
-        mountpoint
-            .map(decode_mountinfo_path)
-            .is_some_and(|candidate| normalize_mount_path(&candidate) == target)
-    })
-}
-
-#[cfg(target_os = "linux")]
-fn normalize_mount_path(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                normalized.pop();
-            }
-            other => normalized.push(other.as_os_str()),
-        }
-    }
-    normalized
-}
-
-#[cfg(target_os = "linux")]
-fn decode_mountinfo_path(raw: &str) -> PathBuf {
-    let bytes = raw.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'\\'
-            && i + 3 < bytes.len()
-            && bytes[i + 1].is_ascii_digit()
-            && bytes[i + 2].is_ascii_digit()
-            && bytes[i + 3].is_ascii_digit()
-        {
-            if let Ok(value) = u8::from_str_radix(&raw[i + 1..i + 4], 8) {
-                out.push(value);
-                i += 4;
-                continue;
-            }
-        }
-        out.push(bytes[i]);
-        i += 1;
-    }
-    PathBuf::from(String::from_utf8_lossy(&out).into_owned())
 }
 
 #[cfg(target_os = "linux")]

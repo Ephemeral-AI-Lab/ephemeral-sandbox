@@ -1,11 +1,10 @@
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::model::{LayerRef, Manifest, MANIFEST_SCHEMA_VERSION};
 
 use crate::error::LayerStackError;
-use crate::fs::{check_layer_path, fsync_dir, resolve_layer_path};
-use crate::{MergedView, LAYERS_DIR, STAGING_DIR};
+use crate::fs::{allocate_layer_dirs, check_layer_path, fsync_dir, resolve_layer_path};
+use crate::{MergedView, LAYERS_DIR};
 
 pub const CHECKPOINT_ID_PREFIX: char = 'B';
 
@@ -124,27 +123,20 @@ impl LayerCheckpointSquasher {
         if active_manifest.layers.len() - entries.len() < min_reduction {
             return Ok(None);
         }
-        let checkpoint_segments: Vec<&CheckpointSegment> = entries
-            .iter()
-            .filter_map(|entry| match entry {
-                SquashPlanEntry::Segment(segment) => Some(segment),
-                SquashPlanEntry::Keep(_) => None,
-            })
-            .collect();
-        if entries.len() > max_depth
-            && checkpoint_segments
+        let plan = SquashPlan::new(
+            active_manifest.version,
+            active_manifest.layers.clone(),
+            entries,
+        )?;
+        if plan.entries.len() > max_depth
+            && plan
+                .checkpoint_segments()
                 .iter()
                 .all(|segment| segment.layers.len() <= max_depth)
         {
             return Ok(None);
         }
-
-        SquashPlan::new(
-            active_manifest.version,
-            active_manifest.layers.clone(),
-            entries,
-        )
-        .map(Some)
+        Ok(Some(plan))
     }
 
     pub(crate) fn build_checkpoint(
@@ -153,7 +145,7 @@ impl LayerCheckpointSquasher {
         active_version: i64,
     ) -> Result<LayerRef, LayerStackError> {
         let (layer_id, staging_dir, layer_dir) =
-            self.allocate_checkpoint_paths(active_version + 1)?;
+            allocate_layer_dirs(&self.storage_root, CHECKPOINT_ID_PREFIX, active_version + 1)?;
         let segment_manifest = Manifest::new(
             active_version,
             segment.layers.clone(),
@@ -190,7 +182,7 @@ impl LayerCheckpointSquasher {
             )));
         }
         let (layer_id, _staging_dir, layer_dir) =
-            self.allocate_checkpoint_paths(manifest_version)?;
+            allocate_layer_dirs(&self.storage_root, CHECKPOINT_ID_PREFIX, manifest_version)?;
         if let Some(parent) = layer_dir.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -211,27 +203,6 @@ impl LayerCheckpointSquasher {
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(err) => Err(err.into()),
         }
-    }
-
-    fn allocate_checkpoint_paths(
-        &self,
-        next_version: i64,
-    ) -> Result<(String, PathBuf, PathBuf), LayerStackError> {
-        std::fs::create_dir_all(self.storage_root.join(LAYERS_DIR))?;
-        std::fs::create_dir_all(self.storage_root.join(STAGING_DIR))?;
-        for _ in 0..100 {
-            let unique = NEXT_CHECKPOINT.fetch_add(1, Ordering::Relaxed);
-            let layer_id = format!("{CHECKPOINT_ID_PREFIX}{next_version:06}-{unique:08x}");
-            let staging_dir = self
-                .storage_root
-                .join(STAGING_DIR)
-                .join(format!("{layer_id}.staging"));
-            let layer_dir = self.storage_root.join(LAYERS_DIR).join(&layer_id);
-            if !staging_dir.exists() && !layer_dir.exists() {
-                return Ok((layer_id, staging_dir, layer_dir));
-            }
-        }
-        Err(LayerStackError::LayerIdAllocation)
     }
 
     fn layer_path(&self, layer: &LayerRef) -> Result<PathBuf, LayerStackError> {
@@ -288,8 +259,6 @@ fn flush_run(
     run.clear();
     Ok(())
 }
-
-static NEXT_CHECKPOINT: AtomicU64 = AtomicU64::new(0);
 
 #[cfg(test)]
 #[path = "../tests/unit/squash.rs"]

@@ -19,11 +19,7 @@ pub(crate) struct StorageWriterLockLease {
 impl StorageWriterLockLease {
     pub fn acquire(storage_root: &Path) -> Result<Self, LayerStackError> {
         std::fs::create_dir_all(storage_root)?;
-        let key = storage_root
-            .canonicalize()
-            .unwrap_or_else(|_| storage_root.to_path_buf())
-            .to_string_lossy()
-            .into_owned();
+        let key = crate::fs::canonical_key(storage_root);
         let mut registry = lock_registry()?;
         if let Some(record) = registry.get_mut(&key) {
             record.refcount += 1;

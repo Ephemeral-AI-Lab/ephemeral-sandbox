@@ -1,11 +1,12 @@
 use crate::dispatcher::OpTable;
 use crate::error::DaemonError;
-use crate::runtime::context::DispatchContext;
 use crate::wire::Request;
+use crate::DispatchContext;
 use eos_config::configs::daemon::PluginRuntimeConfig;
 use eos_config::configs::isolated_workspace::IsolatedWorkspaceConfig;
 use eos_namespace::protocol::{RunRequest, RunResult};
-use eos_runtime::{LaunchError, NsRunnerLauncher, RuntimeServices};
+use eos_plugin_ops::{LaunchError, NsRunnerLauncher};
+use eos_runtime::RuntimeServices;
 use serde_json::{json, Value};
 use std::error::Error;
 use std::path::{Path, PathBuf};

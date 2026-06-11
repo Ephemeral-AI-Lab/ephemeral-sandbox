@@ -125,7 +125,7 @@ absolute / `..` / NUL. Reproduce it as a `parse`-style constructor (`api-parse-d
   **`eos-isolated-workspace` not depending on `eos-layerstack` and not owning
   publish paths**. `eos-plugin` is even narrower now:
   it is a pure contract/PPC crate, while snapshot/overlay/publish/process
-  behavior stays daemon-owned. Verified edges (get these EXACTLY right):
+  behavior stays in `eos-plugin-ops`. Verified edges (get these EXACTLY right):
   - `contract/` → data/prose only; no compiled crate.
   - `eos-layerstack` → storage, leases, CAS hashes, route/commit policy.
   - `eos-overlay` → overlayfs mechanics and captured path changes.
@@ -138,6 +138,8 @@ absolute / `..` / NUL. Reproduce it as a `parse`-style constructor (`api-parse-d
   - `eos-file-ops` → file operation semantics over direct and isolated backends.
   - `eos-plugin` → plugin contracts and PPC framing; **NOT overlay/layerstack
     process ownership**.
+  - `eos-plugin-ops` → plugin package publishing, service processes, PPC
+    transport, dispatch, refresh, OCC callbacks, and oneshot overlays.
   - `eos-daemon` → transport, dispatch, wire, adapters, service composition,
     daemon-owned plugin/checkpoint process glue.
   - `eosd` → binary subcommand dispatch over daemon/namespace/overlay support.

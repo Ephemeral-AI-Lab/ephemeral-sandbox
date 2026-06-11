@@ -59,7 +59,7 @@ impl fmt::Display for LayerPath {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct LayerRef {
     pub layer_id: String,
     pub path: String,

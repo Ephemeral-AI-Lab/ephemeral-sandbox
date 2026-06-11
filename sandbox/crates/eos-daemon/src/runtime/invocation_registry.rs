@@ -1,11 +1,5 @@
-//! In-flight invocation registry + TTL reaper.
-//!
-//! This is the INVOCATION-keyed registry: id -> task handle, heartbeat ->
-//! `last_seen`, cancel-by-id, and the TTL reaper loop. It is DISTINCT from the
-//! per-caller isolated-workspace lifecycle state and active command-session
-//! records — do not fuse those with this invocation-keyed background-control
-//! registry.
-//!
+//! In-flight invocation registry: invocation id -> task handle, heartbeat,
+//! cancel-by-id, and background TTL reaping.
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 use std::thread;

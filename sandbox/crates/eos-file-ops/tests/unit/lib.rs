@@ -56,6 +56,7 @@ impl FileBackend for FakeBackend {
             changed_path_kinds: BTreeMap::from([(path, "write".to_owned())]),
             mutation_source: "api_write".to_owned(),
             timings: BTreeMap::new(),
+            ..MutationOutcome::default()
         })
     }
 }

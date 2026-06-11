@@ -1,29 +1,13 @@
-//! Workspace-run cancel op adapters.
-//!
-//! A workspace run composes a caller's command session(s) (`command_session`,
-//! cancel → discard the overlay) with its isolated workspace namespace + lease
-//! (`isolated_workspace`, exit → discard the upperdir). Neither substrate ever
-//! OCC-publishes on cancel — discard is structural, so the shared LayerStack is
-//! persisted only by the request-level commit gate, never by cancellation. The
-//! coordinator lives on `WorkspaceRuntime`; these adapters parse args and shape
-//! the wire counts.
-//!
-//! This is the daemon half of the §7 cancellation integration:
-//! - agent-core calls [`op_cancel_workspace_runs_by_caller_id`] once per
-//!   cancelled agent run (`caller_id == agent_run_id`);
-//! - the sandbox stage calls [`op_cancel_workspace_runs`] as the whole-sandbox
-//!   backstop (the assert-no-leases gate + commit live in the cancellation spec,
-//!   not here).
+//! Workspace-run cancel adapters. The runtime owns command-session and isolated
+//! workspace teardown; this module only parses args and shapes counts.
 
 use serde_json::{json, Value};
 
 use super::require_arg;
 use crate::error::DaemonError;
-use crate::runtime::context::DispatchContext;
+use crate::DispatchContext;
 
-/// `api.v1.cancel_workspace_runs_by_caller_id` — agent-core's one-RPC per-run
-/// teardown. Best-effort: a not-open isolated workspace is normal (the caller
-/// was ephemeral) and not surfaced as an error.
+/// Per-caller teardown; a missing isolated workspace is normal.
 pub(crate) fn op_cancel_workspace_runs_by_caller_id(
     args: &Value,
     context: DispatchContext<'_>,
@@ -43,7 +27,7 @@ pub(crate) fn op_cancel_workspace_runs_by_caller_id(
     }))
 }
 
-/// `api.v1.cancel_workspace_runs` — whole-sandbox cancel sweep backstop.
+/// Whole-sandbox cancel sweep backstop.
 pub(crate) fn op_cancel_workspace_runs(
     args: &Value,
     context: DispatchContext<'_>,

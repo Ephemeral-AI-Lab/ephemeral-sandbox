@@ -1,6 +1,6 @@
-//! Host-neutral plugin runtime.
+//! Host-neutral plugin operation runtime.
 //!
-//! This module owns service process lifetime, PPC transport and dispatch,
+//! This crate owns service process lifetime, PPC transport and dispatch,
 //! manifest refresh, package publish/setup, `api.plugin.ensure` parsing, and
 //! oneshot overlay execution. Wire parsing and response shaping stay in the
 //! daemon's `ops/plugin` adapter.
@@ -12,7 +12,6 @@
 //! error algebra.
 
 mod callbacks;
-mod connected;
 mod dispatch;
 pub mod ensure;
 mod overlay;
@@ -21,7 +20,6 @@ mod process;
 mod refresh;
 pub mod route;
 mod service;
-mod setup;
 mod state;
 pub(crate) mod transport;
 
@@ -36,13 +34,14 @@ use self::route::{PluginOperationRoute, PluginProcessSpec};
 use self::service::{
     insert_started_service_processes, reap_exited_processes, running_process_statuses,
     service_specs_to_start, stop_plugin_service_processes,
+    stop_services_for_layer_stack_root as stop_services_for_layer_stack_root_in_state,
 };
 use self::state::loaded_matches_parsed;
 use self::state::{connected_ppc_routes, connected_ppc_services, setup_failure_key};
 
 pub use self::dispatch::PluginDispatchOutcome;
 pub use self::overlay::PluginOverlayOutcome;
-pub use self::package::{ensure_package, needs_upload_response, PackageEnsureReport};
+pub use self::package::{needs_upload_response, PackageEnsureReport};
 pub use self::process::ServiceProcessStatus;
 pub use self::refresh::ServiceHealthReport;
 pub use self::state::{PluginRuntime, SetupFailure};
@@ -174,6 +173,39 @@ pub struct StatusOutcome {
 }
 
 impl PluginRuntime {
+    fn ppc_socket_root(&self) -> String {
+        self.config.ppc_root.to_string_lossy().into_owned()
+    }
+
+    fn record_setup_failure(&self, manifest: Option<&PluginManifest>, err: &PluginRuntimeError) {
+        let Some(manifest) = manifest else {
+            return;
+        };
+        if let Ok(mut state) = self.lock_state() {
+            state.setup_failures.insert(
+                setup_failure_key(&manifest.plugin_id, &manifest.plugin_digest),
+                SetupFailure {
+                    plugin: manifest.plugin_id.clone(),
+                    digest: manifest.plugin_digest.clone(),
+                    error: err.to_string(),
+                },
+            );
+        }
+    }
+
+    /// Stop and forget every connected service holding a snapshot on
+    /// `layer_stack_root` (the workspace-base reset path).
+    pub fn stop_services_for_layer_stack_root(
+        &self,
+        layer_stack_root: &str,
+    ) -> Result<usize, PluginRuntimeError> {
+        let mut state = self.lock_state()?;
+        Ok(stop_services_for_layer_stack_root_in_state(
+            &mut state,
+            layer_stack_root,
+        ))
+    }
+
     /// Register (or re-confirm) a plugin from its parsed ensure args, ensuring
     /// package content and optionally starting its declared service processes.
     ///
@@ -187,7 +219,7 @@ impl PluginRuntime {
         start_services: bool,
     ) -> Result<EnsureOutcome, PluginRuntimeError> {
         let parsed = ParsedEnsure::from_args(args, &self.ppc_socket_root())?;
-        let package_report = match ensure_package(args, parsed.manifest.as_ref()) {
+        let package_report = match package::ensure_package(args, parsed.manifest.as_ref()) {
             Ok(report) => report,
             Err(err) => {
                 let err = PluginRuntimeError::from(err);

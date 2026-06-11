@@ -1,14 +1,5 @@
-//! Op routing: the `OP_TABLE` and envelope validation.
-//!
-//! The daemon decodes one [`crate::wire::Request`] and routes `op` through the
-//! [`OpTable`]. Handlers return a JSON `Value` response; a failure becomes the
-//! structured error envelope ([`error_envelope`]) keyed by an
-//! [`crate::wire::ErrorKind`]. There is NO `ping` op — liveness is
-//! `api.v1.heartbeat`, readiness is `api.runtime.ready`.
-//!
-//! Built-in handlers are mapped from the wire op catalog below. Dynamic plugin
-//! handlers are intentionally deferred: after a built-in miss, the dispatcher
-//! asks the plugin service registry whether the op was installed at runtime.
+//! Op routing and envelope validation. Built-ins are mapped from the catalog;
+//! `plugin.*` misses defer to the runtime plugin registry.
 
 use std::collections::HashMap;
 #[cfg(test)]
@@ -23,17 +14,14 @@ use crate::wire::{ErrorKind, Request};
 use eos_layerstack::LayerStack;
 
 use crate::error::DaemonError;
+#[cfg(test)]
+use crate::invocation_registry::InFlightRegistry;
 use crate::ops::{cancel, checkpoint, command, control, files, isolation, plugin};
 #[cfg(test)]
 use crate::response::{insert_tree_resource_timings, resource_timings, TreeResourceStats};
-use crate::runtime::context::DispatchContext;
-#[cfg(test)]
-use crate::runtime::invocation_registry::InFlightRegistry;
+use crate::DispatchContext;
 
 /// A synchronous op handler: decoded args -> response value.
-///
-/// The daemon keeps the routing surface explicit here and lets each op facade
-/// own request shaping before delegating to its implementation service.
 pub(crate) type Handler = for<'ctx> fn(&Value, DispatchContext<'ctx>) -> Result<Value, DaemonError>;
 
 /// The op routing table.
@@ -46,8 +34,7 @@ pub struct OpTable {
 }
 
 impl OpTable {
-    /// Build the table pre-populated with the daemon-owned builtin ops (NO
-    /// `ping`). Every op is registered under its canonical `sandbox.*` name.
+    /// Build the table pre-populated with daemon-owned builtin ops.
     pub fn with_builtins() -> Self {
         let mut table = Self::default();
         for spec in BUILTIN_DAEMON_OP_SPECS {
@@ -77,9 +64,7 @@ impl OpTable {
         );
     }
 
-    /// Route `request` to its handler, returning the response value or an error
-    /// envelope value. Validates the envelope, runs the handler, and on an
-    /// unknown op returns the `unknown_op` envelope.
+    /// Route `request` to its handler and return a response or error envelope.
     #[must_use]
     pub fn dispatch(&self, request: &Request) -> Value {
         self.dispatch_with_context(request, DispatchContext::empty())
@@ -168,8 +153,6 @@ const fn builtin_handler(op: BuiltinDaemonOp) -> Handler {
     }
 }
 
-/// Attach the dispatch runtime timings to `response` and return the finalized
-/// response.
 fn finalize_response(
     mut response: Value,
     boot_to_dispatch_s: f64,
@@ -186,11 +169,6 @@ fn finalize_response(
     response
 }
 
-/// Build the structured wire error envelope.
-///
-/// `warnings`/`timings` are always `[]`/`{}` at the builder. `details`
-/// defaults to `{}` and `internal_error` responses receive a generated
-/// `details.error_id` when the caller did not provide one.
 #[must_use]
 pub(crate) fn error_envelope(kind: ErrorKind, message: &str, details: Value) -> Value {
     let is_internal_error = kind == ErrorKind::InternalError;

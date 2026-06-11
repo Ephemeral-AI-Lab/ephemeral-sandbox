@@ -1,26 +1,6 @@
-//! The async RPC server: `AF_UNIX` + loopback-TCP listeners, framing, shutdown.
-//!
-//! This is the primary daemon tokio surface. It listens on an `AF_UNIX`
-//! socket AND (optionally) a 127.0.0.1 TCP port, reads ONE newline-delimited
-//! compact-JSON request per connection (capped at [`crate::wire::MAX_REQUEST_BYTES`],
-//! read-timed at [`crate::wire::REQUEST_READ_TIMEOUT_S`]), pops the TCP-only
-//! auth token before dispatch, routes through the [`crate::dispatcher::OpTable`],
-//! and writes back one framed response.
-//!
-//! # The two async invariants (§5)
-//!
-//! 1. **Never hold a lock across `.await`.** Connection handlers clone the data
-//!    they need out of any guarded state, drop the guard, THEN await. The
-//!    invocation registry uses a synchronous mutex held only across non-await
-//!    sections.
-//! 2. **One OCC writer per root.** Write-capable handlers run inside their
-//!    per-request dispatch task and route to the dispatcher-owned per-root
-//!    `eos_layerstack::service` writer cache. The server never holds a mutex guard across an await
-//!    point while doing that dispatch.
-//!
-//! Shutdown is driven by a [`tokio_util::sync::CancellationToken`]: a SIGTERM /
-//! SIGINT cancels it, the serve loops select on it, in-flight pipelines are
-//! drained, and cancellation kills the full child process group.
+//! Async RPC server: `AF_UNIX` plus optional loopback TCP, one framed request per
+//! connection, dispatch through [`crate::dispatcher::OpTable`], and token-driven
+//! shutdown. Connection handlers keep mutex guards out of await points.
 
 use std::path::PathBuf;
 use std::sync::{mpsc as std_mpsc, Arc};
@@ -43,7 +23,7 @@ use crate::dispatcher::OpTable;
 use crate::error::DaemonError;
 use crate::invocation_registry::InFlightRegistry;
 use crate::request_args::trimmed_string;
-use crate::runtime::context::DispatchContext;
+use crate::DispatchContext;
 
 const MAX_REQUEST_BYTES: usize = crate::wire::MAX_REQUEST_BYTES;
 const REQUEST_READ_TIMEOUT_S: f64 = crate::wire::REQUEST_READ_TIMEOUT_S;
@@ -63,13 +43,8 @@ pub struct ServerConfig {
     pub auth_token: Option<String>,
 }
 
-/// The running daemon: the op table, invocation registry, and the shutdown
-/// token.
-///
-/// It ORCHESTRATES but NEVER enters a namespace: namespace work is delegated to
-/// the `eosd ns-holder` / `eosd ns-runner` children it spawns; the daemon stays
-/// multi-threaded (tokio) and would fail `unshare(CLONE_NEWUSER)` / `setns` into
-/// a userns itself.
+/// The running daemon: op table, runtime services, invocation registry, and
+/// shutdown token.
 pub struct DaemonServer {
     config: ServerConfig,
     op_table: Arc<OpTable>,
@@ -88,8 +63,15 @@ impl DaemonServer {
         Self {
             config,
             op_table: Arc::new(OpTable::with_builtins()),
-            services: Arc::new(default_runtime_services()),
-            file_limits: default_file_limits(),
+            services: Arc::new(RuntimeServices::new(
+                eos_config::configs::daemon::PluginRuntimeConfig::default(),
+                IsolatedWorkspaceConfig::default(),
+                Arc::new(CurrentExeNsRunnerLauncher),
+            )),
+            file_limits: FileLimitsConfig {
+                max_read_bytes: eos_config::configs::daemon::MAX_READ_BYTES,
+                max_write_bytes: eos_config::configs::daemon::MAX_FILE_BYTES,
+            },
             invocation_registry: Arc::new(InFlightRegistry::new(
                 crate::DEFAULT_TTL_S,
                 crate::DEFAULT_REAPER_INTERVAL_S,
@@ -180,8 +162,7 @@ impl DaemonServer {
                 }
             })
         };
-        // Command-session reaper (sense-2 §2.4): timeout backstop + finalize of
-        // unpolled child exits. Runs in a blocking task (try_wait/killpg/fs).
+        // Command-session reaping can touch process state and the filesystem.
         let _command_session_reaper = {
             let shutdown = server.shutdown.clone();
             tokio::spawn(async move {
@@ -420,21 +401,6 @@ impl DaemonServer {
             return Err(DaemonError::Unauthorized);
         }
         Ok(value)
-    }
-}
-
-fn default_runtime_services() -> RuntimeServices {
-    RuntimeServices::new(
-        eos_config::configs::daemon::PluginRuntimeConfig::default(),
-        IsolatedWorkspaceConfig::default(),
-        Arc::new(CurrentExeNsRunnerLauncher),
-    )
-}
-
-fn default_file_limits() -> FileLimitsConfig {
-    FileLimitsConfig {
-        max_read_bytes: eos_config::configs::daemon::MAX_READ_BYTES,
-        max_write_bytes: eos_config::configs::daemon::MAX_FILE_BYTES,
     }
 }
 

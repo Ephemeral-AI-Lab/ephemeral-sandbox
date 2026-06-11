@@ -17,6 +17,7 @@ eos-config.workspace = true
 eos-layerstack.workspace = true
 eos-overlay.workspace = true
 eos-plugin.workspace = true
+eos-plugin-ops.workspace = true
 eos-runtime.workspace = true
 # preserve_order is contract-load-bearing: request `args` keys must cross
 # the wire in insertion order for byte-stable envelope round-trips.
@@ -31,7 +32,7 @@ uuid.workspace = true
 # Enable the package-root test seam only for the daemon's own test build; the
 # production `[dependencies]` entry above leaves it off (resolver 2 keeps the
 # dev-dependency feature out of the non-test build).
-eos-runtime = { workspace = true, features = ["test-root-override"] }
+eos-plugin-ops = { workspace = true, features = ["test-root-override"] }
 # Property tests for the absorbed wire envelope round-trip.
 proptest.workspace = true
 

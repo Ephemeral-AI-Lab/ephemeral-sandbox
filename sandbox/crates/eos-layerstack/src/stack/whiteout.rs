@@ -1,10 +1,7 @@
-#[cfg(not(target_os = "linux"))]
 use std::ffi::OsString;
 #[cfg(unix)]
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
-use std::path::Path;
-#[cfg(not(target_os = "linux"))]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::error::LayerStackError;
 
@@ -68,8 +65,7 @@ pub(super) fn write_kernel_whiteout(path: &Path) -> Result<(), LayerStackError> 
     Ok(())
 }
 
-#[cfg(not(target_os = "linux"))]
-fn logical_whiteout_path_for_target(path: &Path) -> PathBuf {
+pub(super) fn logical_whiteout_path_for_target(path: &Path) -> PathBuf {
     let name = path.file_name().unwrap_or_default();
     let mut whiteout_name = OsString::from(LOGICAL_WHITEOUT_PREFIX);
     whiteout_name.push(name);
