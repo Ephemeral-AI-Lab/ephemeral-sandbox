@@ -1,9 +1,7 @@
 import type {
-  AgentKind,
-  AgentRunId,
+  AgentRunSnapshot,
   JsonObject,
   JsonValue,
-  SandboxId,
   ToolSpec,
   ToolUseId,
 } from "@eos/contracts";
@@ -28,25 +26,10 @@ export interface ToolOutcome {
 }
 
 /**
- * Frozen, fully serializable copy of `AgentRunState`: same fields, with
- * the one mutable cell collapsed to the batch's snapshot. Built by spread
- * + freeze, so a new run-state fact reaches every tool call and hook
- * payload without touching this projection.
- */
-export interface AgentRunSnapshot {
-  readonly run_id: AgentRunId;
-  readonly kind: AgentKind;
-  readonly parent?: AgentRunId;
-  readonly agent_name: string;
-  readonly sandbox_id: SandboxId;
-  readonly transcript_path: string;
-  /** Batch-scoped snapshot: a mid-batch flip never leaks into siblings. */
-  readonly workspace: { readonly is_isolated: boolean };
-}
-
-/**
  * Serializable per-call facts; built once per call, frozen, and shared by
  * pre-hooks, `execute`, and post-hooks (command hooks eat this as JSON).
+ * `run` is the contracts-level `AgentRunSnapshot`, built by spread +
+ * freeze over `AgentRunState`.
  */
 export interface ToolCallMeta {
   readonly tool_use_id: ToolUseId;

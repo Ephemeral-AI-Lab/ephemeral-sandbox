@@ -3,6 +3,12 @@
 Status: Proposed
 Date: 2026-06-11
 Owner: eos-agent-core
+Note: the notification system was later extracted into `@eos/notifications`
+(`packages/notifications/`): the inbox, the `LoopObserver` port, the
+notification-rule schemas (`CommandScriptSchema`, owned by the package, not
+shared with tool hooks), and the trigger engine live there; the spawn-backed
+`runTriggerCommand` stays in `@eos/tool` and the rules loader in the runtime's
+`notification-rules-config.ts`. Paths below were updated to match.
 Depends on: Phase 03 (agent loop engine), Phase 04 (tool framework / hook
 runner), Phase 04.5 (agent runtime), Phase 04.6 (agent runtime e2e baseline)
 
@@ -41,7 +47,7 @@ The seam is anticipated but absent:
 | Surface | Current behavior |
 | --- | --- |
 | `packages/engine/src/agent-loop.ts` | The loop doc comment defers exactly this: "the engine appends no reminder on a text turn - that nudge is a future notification rule." A bare-text turn with no live sessions loops with an unchanged conversation until `max_turns` fails the run. |
-| `packages/engine/src/notification-inbox.ts` | The inbox doc comment anticipates new publishers: "trigger rules and agent-to-agent messages later, with no inbox change." Publishers today: `BackgroundSupervisor` (`session_settled`) and the loop's hook-context publisher. |
+| `packages/notifications/src/inbox.ts` | The inbox doc comment anticipates new publishers: "trigger rules and agent-to-agent messages later, with no inbox change." Publishers today: `BackgroundSupervisor` (`session_settled`) and the loop's hook-context publisher. |
 | `packages/tool/src/hooks/protocol.ts` | `HookEventSchema` is strictly tool-scoped: `PreToolUse`, `PostToolUse`, `PostToolUseFailure`. A bare-text turn has no tool call, so no existing hook can observe any of this phase's triggers. |
 | `packages/engine/src/agent-loop.ts` `waitForWake` | The park races the steer queue against `inbox.waitForNext`; any publish wakes it. A trigger publish needs no park changes. |
 | `packages/agent-runtime/e2e/auto-wait.e2e.ts` | The trigger-off baseline is already pinned live: park with zero provider calls across a measured window, working-while-session-runs, and the bare-text spin to `failed: max_turns` with exactly one user message. |
@@ -106,7 +112,7 @@ The seam is anticipated but absent:
 
 ## 4. Engine Port
 
-`packages/engine/src/loop-observer.ts`:
+`packages/notifications/src/loop-observer.ts` (the engine imports the port):
 
 ```ts
 /**
@@ -189,7 +195,9 @@ Trigger rules live in `.eos-agents/notification_rules.json`, a sibling of
 no rules, malformed = loud startup error, command `cwd` defaults to the
 repo root for a `.eos-agents` config). The inner key is `rules`, not
 `hooks`, to keep notification rules visually distinct from tool hooks. The
-schema sits beside `HookConfigEntrySchema` in `@eos/tool`:
+schema is owned by `@eos/notifications` (`CommandScriptSchema` is the
+package's own command shape, look-alike to but independent of the tool
+layer's hook command schema):
 
 ```ts
 const TriggerRuleMatchers = {
@@ -203,14 +211,14 @@ export const TriggerRuleEntrySchema = z.discriminatedUnion("event", [
   z.object({
     event: z.literal("TurnCompleted"),
     ...TriggerRuleMatchers,
-    rules: z.array(CommandHookSchema).min(1),
+    rules: z.array(CommandScriptSchema).min(1),
   }),
   z.object({
     event: z.literal("IdleParked"),
     ...TriggerRuleMatchers,
     /** Park lifetime before the rule fires; one shot per park entry. */
     timeout_ms: z.number().int().positive(),
-    rules: z.array(CommandHookSchema).min(1),
+    rules: z.array(CommandScriptSchema).min(1),
   }),
 ]);
 ```
@@ -295,18 +303,20 @@ inbox.publish(
 
 ## 7. `NotificationTriggerEngine`
 
-`packages/agent-runtime/src/notification-trigger-engine.ts`, created per run
+`packages/notifications/src/trigger-engine.ts`, created per run
 in `startRun` beside the inbox and supervisor:
 
 ```ts
 export class NotificationTriggerEngine implements LoopObserver {
   constructor(deps: {
     rules: readonly TriggerRuleEntry[];
-    runCommand: TriggerCommandRunner; // reuses the tool hook runner mechanics
+    runCommand: TriggerCommandRunner; // @eos/tool's spawn-backed runTriggerCommand
     inbox: NotificationInbox;
-    supervisor: BackgroundSupervisor; // session list at fire time, not park time
+    // Session list at fire time, not park time; the runtime projects its
+    // supervisor so the package stays engine-free.
+    listSessions: () => readonly BackgroundSessionSnapshot[];
     runSnapshot: () => AgentRunSnapshot;
-    terminalTool: ToolName;
+    terminalTool: string;
   });
 
   async turnCompleted(facts: TurnFacts): Promise<void>;
@@ -434,14 +444,14 @@ reminder only points at the destination.
 
 ## 10. Implementation Plan
 
-1. Add `LoopObserver`/`TurnFacts` to `@eos/engine`; thread `observer` through
+1. Add `LoopObserver`/`TurnFacts` to `@eos/notifications`; thread `observer` through
    `StartAgentRunInput` and `AgentLoopContext`; place the three calls in
    `runAgentLoop` as in section 4.
 2. Engine unit tests: `turnCompleted` awaited on every turn shape (text,
    single call, batch) with exact facts; `idleStarted`/`idleEnded` bracket
    the park including the abort path; no observer means byte-identical
    behavior.
-3. Add `TriggerRuleEntrySchema` beside the hook config schema in `@eos/tool`;
+3. Add `TriggerRuleEntrySchema` to `@eos/notifications`;
    add `loadNotificationRules` over `.eos-agents/notification_rules.json`
    with the `loadHookConfig` mechanics (missing file, loud Zod errors, cwd
    defaulting); `loadHookConfig` stays tool-events-only.

@@ -4,7 +4,7 @@ import {
   triggerRuleAppliesTo,
   TriggerRuleEntrySchema,
   type TriggerRuleEntry,
-} from "../src/hooks/triggers.js";
+} from "../src/triggers.js";
 
 const RUN = { agent_name: "researcher", agent_kind: "main" } as const;
 

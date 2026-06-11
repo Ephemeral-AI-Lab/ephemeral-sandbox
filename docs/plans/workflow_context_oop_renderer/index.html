@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OOP Workflow Context Renderer</title>
+<title>Workflow Context OOP Renderer</title>
 <style>
   :root {
     --bg: #151619;
@@ -14,9 +14,6 @@
     --line: #48443c;
     --line-strong: #70695d;
     --teal: #2eb7a7;
-    --amber: #d7a545;
-    --red: #dd7068;
-    --green: #75ba71;
     --code: #101215;
     --shadow: 0 16px 34px rgba(0, 0, 0, .24);
   }
@@ -35,16 +32,12 @@
   }
 
   button,
-  input,
-  textarea,
-  select {
+  textarea {
     font: inherit;
   }
 
   button,
-  input,
-  textarea,
-  select {
+  textarea {
     color: var(--ink);
     background: var(--surface-2);
     border: 1px solid var(--line);
@@ -76,19 +69,10 @@
     color: #ffe0dd;
   }
 
-  button.ghost {
-    background: transparent;
-  }
-
-  input,
-  textarea,
-  select {
+  textarea {
     width: 100%;
     padding: 10px 11px;
     outline: none;
-  }
-
-  textarea {
     min-height: 106px;
     resize: vertical;
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
@@ -145,8 +129,7 @@
     max-width: 820px;
   }
 
-  .status-strip,
-  .row {
+  .status-strip {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -197,8 +180,7 @@
     padding: 16px;
   }
 
-  .right,
-  .stack {
+  .right {
     min-width: 0;
     display: grid;
     gap: 14px;
@@ -405,8 +387,8 @@
 <body>
 <header>
   <div>
-    <h1>OOP Workflow Context Renderer</h1>
-    <div class="subhead">One JS module per class: Workflow, Iteration, Attempt, Plan, WorkItem, WorkflowOrchestrator, IterationOrchestrator, AttemptOrchestrator, Store, Projector, and UI views.</div>
+    <h1>Workflow Context OOP Renderer</h1>
+    <div class="subhead">Entity classes own renderSpec/renderBrief; every committed mutation re-renders deterministic spec.md and brief.md projections from the latest workflow aggregate.</div>
   </div>
   <div class="status-strip">
     <span class="pill" id="versionPill">version 0</span>
@@ -461,26 +443,995 @@
   </section>
 </main>
 
-<script src="./src/domain/RunStatus.js"></script>
-<script src="./src/domain/Markdown.js"></script>
-<script src="./src/domain/WorkflowEntityBase.js"></script>
-<script src="./src/domain/Workflow.js"></script>
-<script src="./src/domain/Iteration.js"></script>
-<script src="./src/domain/Attempt.js"></script>
-<script src="./src/domain/Plan.js"></script>
-<script src="./src/domain/WorkItem.js"></script>
-<script src="./src/sample/SampleData.js"></script>
-<script src="./src/domain/WorkflowFactory.js"></script>
-<script src="./src/domain/AttemptAgentLaunchScheduler.js"></script>
-<script src="./src/domain/AttemptOrchestrator.js"></script>
-<script src="./src/domain/IterationOrchestrator.js"></script>
-<script src="./src/domain/WorkflowOrchestrator.js"></script>
-<script src="./src/store/InMemoryWorkflowStore.js"></script>
-<script src="./src/projection/WorkflowProjector.js"></script>
-<script src="./src/ui/FileTreeView.js"></script>
-<script src="./src/ui/FileViewer.js"></script>
-<script src="./src/ui/LifecycleActionsView.js"></script>
-<script src="./src/ui/WorkflowApp.js"></script>
-<script src="./src/main.js"></script>
+<script>
+// -- helpers --
+
+const RunStatus = Object.freeze({
+  NotStarted: "NotStarted",
+  Running: "Running",
+  Success: "Success",
+  Failed: "Failed",
+});
+
+function statusClass(status) {
+  if (status === RunStatus.Running) return "running";
+  if (status === RunStatus.Success) return "success";
+  if (status === RunStatus.Failed) return "failed";
+  return "not-started";
+}
+
+function joinMd(parts) {
+  return parts.filter(part => part !== null && part !== undefined).join("\n");
+}
+
+function shiftHeadings(markdown) {
+  return markdown.split("\n").map(line => line.startsWith("#") ? "#" + line : line).join("\n");
+}
+
+function pendingOr(value) {
+  return value && value.trim() ? value : "Pending to Run";
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/'/g, "&#39;");
+}
+
+// -- entities (render contract mirrors workflow_context_projection_SPEC §6) --
+
+class WorkflowEntityBase {
+  constructor({ id, status = RunStatus.NotStarted, folderPath }) {
+    this.id = id;
+    this.status = status;
+    this.folderPath = folderPath;
+  }
+
+  specPath() { return `${this.folderPath}/spec.md`; }
+  briefPath() { return `${this.folderPath}/brief.md`; }
+  statusLine() { return `Status: ${this.status}`; }
+  isNotStarted() { return this.status === RunStatus.NotStarted; }
+  isTerminal() { return this.status === RunStatus.Success || this.status === RunStatus.Failed; }
+
+  appendTerminalReference(parts) {
+    if (this.isTerminal()) {
+      parts.push("", `Reference: ${this.specPath()}`);
+    }
+  }
+}
+
+class Workflow extends WorkflowEntityBase {
+  constructor({ id, status = RunStatus.Running, folderPath, goal, iterations = [] }) {
+    super({ id, status, folderPath });
+    this.goal = goal;
+    this.iterations = iterations;
+  }
+
+  renderSpec() {
+    const parts = [
+      this.statusLine(),
+      "",
+      "# Workflow Goal",
+      this.goal,
+    ];
+    this.iterations.forEach(iteration => {
+      parts.push("", `# Iteration ${iteration.id}`, shiftHeadings(iteration.renderSpec()));
+    });
+    return joinMd(parts);
+  }
+
+  renderBrief() {
+    if (this.isNotStarted()) return this.statusLine();
+    const parts = [this.statusLine()];
+    this.iterations.forEach(iteration => {
+      parts.push("", `# Iteration ${iteration.id}`, shiftHeadings(iteration.renderBrief()));
+    });
+    this.appendTerminalReference(parts);
+    return joinMd(parts);
+  }
+}
+
+class Iteration extends WorkflowEntityBase {
+  constructor({ id, status = RunStatus.Running, folderPath, workflowId, goal, maxTry = 3, attempts = [] }) {
+    super({ id, status, folderPath });
+    this.workflowId = workflowId;
+    this.goal = goal;
+    this.maxTry = maxTry;
+    this.attempts = attempts;
+  }
+
+  renderSpec() {
+    const parts = [
+      this.statusLine(),
+      "",
+      "# Iteration Goal",
+      this.goal,
+      "",
+      "# Max Try",
+      String(this.maxTry),
+    ];
+    this.attempts.forEach(attempt => {
+      parts.push("", `# Attempt ${attempt.id}`, shiftHeadings(attempt.renderSpec()));
+    });
+    return joinMd(parts);
+  }
+
+  renderBrief() {
+    if (this.isNotStarted()) return this.statusLine();
+    const parts = [this.statusLine()];
+    this.attempts.forEach(attempt => {
+      parts.push("", `# Attempt ${attempt.id}`, shiftHeadings(attempt.renderBrief()));
+    });
+    this.appendTerminalReference(parts);
+    return joinMd(parts);
+  }
+}
+
+class Attempt extends WorkflowEntityBase {
+  constructor({ id, status = RunStatus.NotStarted, folderPath, workflowId, iterationId, plan, workItems = [] }) {
+    super({ id, status, folderPath });
+    this.workflowId = workflowId;
+    this.iterationId = iterationId;
+    this.plan = plan;
+    this.workItems = workItems;
+  }
+
+  leafWorkItems() {
+    const referenced = new Set();
+    this.workItems.forEach(item => item.needs.forEach(need => referenced.add(need)));
+    return this.workItems.filter(item => !referenced.has(item.id));
+  }
+
+  readyWorkItems() {
+    return this.workItems.filter(item => (
+      item.status === RunStatus.NotStarted && item.needs.every(needId => {
+        const dependency = this.workItems.find(candidate => candidate.id === needId);
+        return dependency && dependency.status === RunStatus.Success;
+      })
+    ));
+  }
+
+  hasFailedWorkItem() {
+    return this.workItems.some(item => item.status === RunStatus.Failed);
+  }
+
+  allWorkItemsSucceeded() {
+    return this.workItems.length > 0 && this.workItems.every(item => item.status === RunStatus.Success);
+  }
+
+  renderSpec() {
+    if (this.isNotStarted() && !this.plan && this.workItems.length === 0) {
+      return this.statusLine();
+    }
+
+    const parts = [
+      this.statusLine(),
+      "",
+      "# Plan",
+    ];
+    if (this.plan) {
+      parts.push(shiftHeadings(this.plan.renderSpec()));
+    } else {
+      parts.push("Pending to Run");
+    }
+    this.workItems.forEach(item => {
+      parts.push("", `# Work Item ${item.id}`, item.renderBrief());
+    });
+    return joinMd(parts);
+  }
+
+  renderBrief() {
+    if (this.isNotStarted()) return this.statusLine();
+
+    const parts = [
+      this.statusLine(),
+      "",
+      "# Plan",
+    ];
+    if (this.plan) {
+      parts.push(this.plan.renderBrief());
+    } else {
+      parts.push("Pending to Run");
+    }
+    this.leafWorkItems().forEach(item => {
+      parts.push("", `# Work Item ${item.id}`, item.renderBrief());
+    });
+    this.appendTerminalReference(parts);
+    return joinMd(parts);
+  }
+}
+
+class Plan extends WorkflowEntityBase {
+  constructor({ id, status = RunStatus.NotStarted, folderPath, workflowId, iterationId, attemptId,
+                planSpec, plannerSummary, deferredGoalForNextIteration }) {
+    super({ id, status, folderPath });
+    this.workflowId = workflowId;
+    this.iterationId = iterationId;
+    this.attemptId = attemptId;
+    this.planSpec = planSpec;
+    this.plannerSummary = plannerSummary;
+    this.deferredGoalForNextIteration = deferredGoalForNextIteration;
+  }
+
+  renderSpec() {
+    if (this.isNotStarted() && !this.planSpec) return this.statusLine();
+    return joinMd([
+      this.statusLine(),
+      "",
+      "# Plan Spec",
+      pendingOr(this.planSpec),
+      "",
+      "# Deferred Goal For Next Iteration",
+      this.deferredGoalForNextIteration || "",
+    ]);
+  }
+
+  renderBrief() {
+    if (this.isNotStarted()) return this.statusLine();
+    const parts = [
+      this.statusLine(),
+      "",
+      pendingOr(this.plannerSummary),
+    ];
+    this.appendTerminalReference(parts);
+    return joinMd(parts);
+  }
+}
+
+class WorkItem extends WorkflowEntityBase {
+  constructor({ id, status = RunStatus.NotStarted, folderPath, workflowId, iterationId, attemptId,
+                planId, workItemSpec, needs = [], workerSummary, workerOutcome }) {
+    super({ id, status, folderPath });
+    this.workflowId = workflowId;
+    this.iterationId = iterationId;
+    this.attemptId = attemptId;
+    this.planId = planId;
+    this.workItemSpec = workItemSpec;
+    this.needs = needs;
+    this.workerSummary = workerSummary;
+    this.workerOutcome = workerOutcome;
+  }
+
+  renderSpec() {
+    return joinMd([
+      this.statusLine(),
+      "",
+      "# Spec",
+      this.workItemSpec,
+      "",
+      "# Outcome",
+      this.isNotStarted() ? "" : pendingOr(this.workerOutcome),
+    ]);
+  }
+
+  renderBrief() {
+    if (this.isNotStarted()) return this.statusLine();
+    const parts = [
+      this.statusLine(),
+      "",
+      pendingOr(this.workerSummary),
+    ];
+    this.appendTerminalReference(parts);
+    return joinMd(parts);
+  }
+}
+
+// -- lifecycle (creation, transitions, reconcile, scheduling) --
+
+let planCounter = 1;
+
+function createPlan(attempt) {
+  const planId = `plan_pln_${planCounter++}`;
+  return new Plan({
+    id: planId,
+    status: RunStatus.NotStarted,
+    folderPath: `${attempt.folderPath}/${planId}`,
+    workflowId: attempt.workflowId,
+    iterationId: attempt.iterationId,
+    attemptId: attempt.id,
+  });
+}
+
+function delegateWorkflow(goal) {
+  const id = "workflow_wf_context_projection";
+  const workflow = new Workflow({ id, status: RunStatus.Running, folderPath: id, goal, iterations: [] });
+  launchIteration(workflow, workflow.goal, "iteration_it_initial");
+  return workflow;
+}
+
+function launchIteration(workflow, goal, iterationId) {
+  const id = iterationId || `iteration_it_${workflow.iterations.length + 1}`;
+  const iteration = new Iteration({
+    id,
+    status: RunStatus.Running,
+    folderPath: `${workflow.folderPath}/${id}`,
+    workflowId: workflow.id,
+    goal,
+    attempts: [],
+  });
+  workflow.status = RunStatus.Running;
+  workflow.iterations.push(iteration);
+  launchAttempt(workflow, iteration);
+}
+
+function launchAttempt(workflow, iteration) {
+  assertIterationScope(workflow, iteration);
+  if (iteration.attempts.length >= iteration.maxTry) {
+    throw new Error(`${iteration.id} has reached max_try=${iteration.maxTry}.`);
+  }
+
+  const nextIndex = iteration.attempts.length + 1;
+  const id = nextIndex === 1 ? "attempt_att_initial" : `attempt_att_retry_${nextIndex}`;
+  const attempt = new Attempt({
+    id,
+    status: RunStatus.NotStarted,
+    folderPath: `${iteration.folderPath}/${id}`,
+    workflowId: workflow.id,
+    iterationId: iteration.id,
+    workItems: [],
+  });
+  attempt.plan = createPlan(attempt);
+  iteration.status = RunStatus.Running;
+  iteration.attempts.push(attempt);
+}
+
+function materializeWorkItems(scope, plannerOutcome) {
+  const { workflow, iteration, attempt } = scope;
+  assertAttemptScope(workflow, iteration, attempt);
+  if (!attempt.plan) {
+    throw new Error("launchPlanner must run before submit_planner_outcome.");
+  }
+  if (attempt.plan.status !== RunStatus.Running) {
+    throw new Error("Planner outcome can only be submitted for a running planner agent.");
+  }
+
+  validateWorkItems(plannerOutcome.workItems);
+  attempt.plan.status = RunStatus.Success;
+  attempt.plan.planSpec = plannerOutcome.planSpec || "";
+  attempt.plan.plannerSummary = plannerOutcome.plannerSummary || "";
+  attempt.plan.deferredGoalForNextIteration = plannerOutcome.deferredGoalForNextIteration || "";
+  attempt.workItems = plannerOutcome.workItems.map(input => new WorkItem({
+    id: input.work_item_id,
+    status: RunStatus.NotStarted,
+    folderPath: `${attempt.folderPath}/${input.work_item_id}`,
+    workflowId: workflow.id,
+    iterationId: iteration.id,
+    attemptId: attempt.id,
+    planId: attempt.plan.id,
+    workItemSpec: input.work_item_spec,
+    needs: Array.isArray(input.needs) ? input.needs.slice() : [],
+  }));
+  attempt.status = RunStatus.Running;
+}
+
+function submitWorkerOutcome(scope, workItemId, outcome, isSuccess) {
+  const { workflow, iteration, attempt } = scope;
+  assertAttemptScope(workflow, iteration, attempt);
+  const workItem = attempt.workItems.find(candidate => candidate.id === workItemId);
+  if (!workItem) {
+    throw new Error(`Unknown work item: ${workItemId}`);
+  }
+  if (workItem.status !== RunStatus.Running) {
+    throw new Error(`${workItem.id} must be Running before submit_worker_outcome.`);
+  }
+
+  workItem.status = isSuccess ? RunStatus.Success : RunStatus.Failed;
+  workItem.workerSummary = outcome.workerSummary || (isSuccess
+    ? "Worker completed the assigned context projection work."
+    : "Worker could not complete the assigned context projection work.");
+  workItem.workerOutcome = outcome.workerOutcome || (isSuccess
+    ? "The requested artifact was produced and can be rendered from the latest aggregate."
+    : "The worker found a blocking issue and the attempt needs a retry.");
+
+  if (attempt.hasFailedWorkItem()) {
+    attempt.status = RunStatus.Failed;
+  } else if (attempt.allWorkItemsSucceeded()) {
+    attempt.status = RunStatus.Success;
+  } else {
+    attempt.status = RunStatus.Running;
+  }
+  return workItem;
+}
+
+function reconcileAttemptResult(scope) {
+  const { workflow, iteration, attempt } = scope;
+  assertAttemptScope(workflow, iteration, attempt);
+
+  if (attempt.status === RunStatus.Failed) {
+    const openRetry = iteration.attempts.find(candidate => (
+      candidate.status === RunStatus.NotStarted || candidate.status === RunStatus.Running
+    ));
+    if (openRetry && openRetry !== attempt) {
+      iteration.status = RunStatus.Running;
+    } else if (iteration.attempts.length < iteration.maxTry) {
+      launchAttempt(workflow, iteration);
+    } else {
+      iteration.status = RunStatus.Failed;
+    }
+  } else if (attempt.status === RunStatus.Success) {
+    iteration.status = RunStatus.Success;
+  } else {
+    iteration.status = RunStatus.Running;
+  }
+
+  if (iteration.status === RunStatus.Success) {
+    if (workflow.iterations[workflow.iterations.length - 1] !== iteration) {
+      workflow.status = RunStatus.Running;
+      return "workflow_running";
+    }
+
+    const deferredGoal = attempt.plan?.deferredGoalForNextIteration?.trim();
+    if (deferredGoal) {
+      launchIteration(workflow, deferredGoal);
+      return "workflow_deferred";
+    }
+
+    workflow.status = RunStatus.Success;
+    return "workflow_success";
+  }
+
+  if (iteration.status === RunStatus.Failed) {
+    workflow.status = RunStatus.Failed;
+    return "workflow_failed";
+  }
+
+  workflow.status = RunStatus.Running;
+  return "workflow_running";
+}
+
+// Synchronous stand-in for the durable launch queue (parent spec §7.2): scan
+// the aggregate in document order and start every launchable agent.
+function scheduleReadyAgents(workflow) {
+  const launched = [];
+  if (!workflow) return launched;
+  workflow.iterations.forEach(iteration => {
+    iteration.attempts.forEach(attempt => {
+      if (attempt.plan && attempt.plan.status === RunStatus.NotStarted) {
+        attempt.status = RunStatus.Running;
+        attempt.plan.status = RunStatus.Running;
+        launched.push(`launch_agent("planner") -> ${attempt.plan.id}`);
+      }
+      if (attempt.status !== RunStatus.Running) return;
+      attempt.readyWorkItems().forEach(item => {
+        item.status = RunStatus.Running;
+        launched.push(`launch_agent("worker") -> ${item.id}`);
+      });
+    });
+  });
+  return launched;
+}
+
+function validateWorkItems(workItems) {
+  if (!Array.isArray(workItems) || workItems.length === 0) {
+    throw new Error("work_items must be a non-empty array.");
+  }
+
+  const ids = new Set();
+  for (const item of workItems) {
+    if (!item.work_item_id || !item.work_item_spec) {
+      throw new Error("Each work item needs work_item_id and work_item_spec.");
+    }
+    if (ids.has(item.work_item_id)) {
+      throw new Error(`Duplicate work_item_id: ${item.work_item_id}`);
+    }
+    ids.add(item.work_item_id);
+  }
+
+  for (const item of workItems) {
+    for (const need of item.needs || []) {
+      if (!ids.has(need)) {
+        throw new Error(`${item.work_item_id} needs unknown work item ${need}.`);
+      }
+    }
+  }
+}
+
+function assertIterationScope(workflow, iteration) {
+  if (!workflow || !iteration) {
+    throw new Error("Workflow and iteration are required.");
+  }
+  if (iteration.workflowId !== workflow.id) {
+    throw new Error("Iteration does not belong to this workflow.");
+  }
+}
+
+function assertAttemptScope(workflow, iteration, attempt) {
+  if (!workflow || !iteration || !attempt) {
+    throw new Error("Workflow, iteration, and attempt are required.");
+  }
+  if (iteration.workflowId !== workflow.id || attempt.iterationId !== iteration.id) {
+    throw new Error("Attempt scope does not match the workflow aggregate.");
+  }
+}
+
+// -- store (snapshot isolation: commit a JSON snapshot, revive on every load) --
+
+class InMemoryWorkflowStore {
+  constructor() {
+    this.committed = undefined;
+    this.version = 0;
+    this.eventLog = [];
+  }
+
+  save(workflow, event) {
+    this.committed = JSON.stringify(workflow);
+    this.version += 1;
+    this.eventLog.unshift({ version: this.version, event });
+    this.eventLog = this.eventLog.slice(0, 30);
+  }
+
+  loadFreshWorkflow() {
+    return this.committed ? reviveWorkflow(JSON.parse(this.committed)) : undefined;
+  }
+
+  currentVersion() {
+    return this.version;
+  }
+
+  events() {
+    return this.eventLog.slice();
+  }
+}
+
+function reviveWorkflow(plain) {
+  const workflow = new Workflow(plain);
+  workflow.iterations = plain.iterations.map(plainIteration => {
+    const iteration = new Iteration(plainIteration);
+    iteration.attempts = plainIteration.attempts.map(plainAttempt => {
+      const attempt = new Attempt(plainAttempt);
+      attempt.plan = plainAttempt.plan ? new Plan(plainAttempt.plan) : undefined;
+      attempt.workItems = plainAttempt.workItems.map(item => new WorkItem(item));
+      return attempt;
+    });
+    return iteration;
+  });
+  return workflow;
+}
+
+// -- projection --
+
+function projectFiles(workflow) {
+  if (!workflow) return [];
+  const files = [];
+  const add = (entity, entityKind) => {
+    files.push(
+      { path: entity.specPath(), entityKind, kind: "spec", status: entity.status, content: entity.renderSpec() },
+      { path: entity.briefPath(), entityKind, kind: "brief", status: entity.status, content: entity.renderBrief() },
+    );
+  };
+
+  add(workflow, "workflow");
+  workflow.iterations.forEach(iteration => {
+    add(iteration, "iteration");
+    iteration.attempts.forEach(attempt => {
+      add(attempt, "attempt");
+      if (attempt.plan) add(attempt.plan, "plan");
+      attempt.workItems.forEach(item => add(item, "work_item"));
+    });
+  });
+  return files;
+}
+
+const projector = { project: projectFiles };
+
+// -- sample data --
+
+function defaultGoal() {
+  return "Implement DB-backed workflow context projections where every entity renders deterministic spec.md and brief.md files from the latest workflow aggregate.";
+}
+
+function samplePlanSpec() {
+  return [
+    "Use the workflow aggregate loaded after the DB commit as the only rendering input.",
+    "Render leaf plan and work item files first, then aggregate attempt, iteration, and workflow files.",
+    "Keep brief.md compact and add references only for terminal success/failure briefs.",
+  ].join("\n");
+}
+
+function samplePlannerSummary() {
+  return "The planner split projection work into schema, renderer, writer, and verification tasks. The plan keeps DB state authoritative and treats files as replaceable projections.";
+}
+
+function sampleDeferredGoal() {
+  return "Add context retrieval tools over projected workflow files with path and line-range reads.";
+}
+
+function sampleWorkItems() {
+  return [
+    {
+      work_item_id: "work_item_schema",
+      work_item_spec: "Define WorkflowEntityBase, status enum, entity IDs, folder paths, and denormalized parent references.",
+      needs: [],
+    },
+    {
+      work_item_id: "work_item_renderers",
+      work_item_spec: "Implement renderSpec and renderBrief for workflow, iteration, attempt, plan, and work item entities.",
+      needs: ["work_item_schema"],
+    },
+    {
+      work_item_id: "work_item_projector",
+      work_item_spec: "Write rendered files atomically to the context filesystem after each committed mutation.",
+      needs: ["work_item_schema"],
+    },
+    {
+      work_item_id: "work_item_verification",
+      work_item_spec: "Add projection tests for pending state, leaf-only attempt briefs, references, and retry attempt creation.",
+      needs: ["work_item_renderers", "work_item_projector"],
+    },
+  ];
+}
+
+function sampleWorkerOutcome(workItem, isSuccess) {
+  if (isSuccess) {
+    return {
+      workerSummary: `${workItem.id} completed its assigned projection step.`,
+      workerOutcome: `${workItem.id} produced the requested context projection artifact from the latest aggregate.`,
+    };
+  }
+
+  return {
+    workerSummary: `${workItem.id} found a blocking projection issue.`,
+    workerOutcome: `${workItem.id} failed, so the attempt closes as failure and the iteration retry policy is evaluated.`,
+  };
+}
+
+// -- ui --
+
+function pill(text, klass) {
+  return `<span class="pill ${klass || ""}">${escapeHtml(text)}</span>`;
+}
+
+function renderFileTree(workflow, files, selectedPath) {
+  if (!workflow) {
+    el.fileTree.innerHTML = '<div class="note">No workflow delegated.</div>';
+    return;
+  }
+
+  const fileByPath = new Map(files.map(file => [file.path, file]));
+  el.fileTree.innerHTML = renderFolder(workflow.id, workflow, fileByPath, [
+    ...workflow.iterations.map(iteration => renderFolder(iteration.id, iteration, fileByPath, [
+      ...iteration.attempts.map(attempt => renderFolder(attempt.id, attempt, fileByPath, [
+        attempt.plan ? renderFolder(attempt.plan.id, attempt.plan, fileByPath, [], selectedPath) : "",
+        ...attempt.workItems.map(item => renderFolder(item.id, item, fileByPath, [], selectedPath)),
+      ], selectedPath)),
+    ], selectedPath)),
+  ], selectedPath);
+}
+
+function renderFolder(name, entity, fileByPath, children, selectedPath) {
+  return `
+        <div class="fs-folder">
+          <div class="fs-folder-label">
+            <span class="fs-folder-name">${escapeHtml(name)}/</span>
+            ${pill(entity.status, statusClass(entity.status))}
+          </div>
+          <div class="fs-children">
+            ${renderFileLink(entity, "spec", fileByPath, selectedPath)}
+            ${renderFileLink(entity, "brief", fileByPath, selectedPath)}
+            ${children.filter(Boolean).join("")}
+          </div>
+        </div>
+      `;
+}
+
+function renderFileLink(entity, kind, fileByPath, selectedPath) {
+  const path = `${entity.folderPath}/${kind}.md`;
+  const file = fileByPath.get(path);
+  if (!file) return "";
+  return `
+        <a href="#fileView" class="fs-file ${path === selectedPath ? "selected" : ""}" data-path="${escapeAttr(path)}">
+          <span>${escapeHtml(kind)}.md</span>
+          <span class="fs-file-kind">${escapeHtml(file.entityKind)}</span>
+        </a>
+      `;
+}
+
+function describeSelection(scope) {
+  if (!scope?.workflow) return "no workflow";
+  if (!scope.kind || scope.kind === "none") return "select plan/work_item";
+  const entity = scope[scope.kind] || scope.entity;
+  return `${scope.kind}: ${entity?.id || "unknown"}`;
+}
+
+function renderActions(scope) {
+  if (!scope?.workflow) {
+    return note("delegate_workflow has not been called.");
+  }
+
+  if (scope.kind === "plan") {
+    return renderPlanActions(scope.plan);
+  }
+
+  if (scope.kind === "workItem") {
+    return renderWorkItemActions(scope);
+  }
+
+  if (scope.kind === "attempt") {
+    return note(`attempt status: ${scope.attempt.status}`);
+  }
+
+  if (scope.kind === "iteration") {
+    return note(`iteration status: ${scope.iteration.status}, max_try: ${scope.iteration.maxTry}`);
+  }
+
+  return note("Select a plan or work_item file to drive agent calls.");
+}
+
+function renderPlanActions(plan) {
+  if (plan.status === RunStatus.NotStarted) {
+    return note("planner queued; scheduler will launch automatically");
+  }
+  if (plan.status === RunStatus.Running) {
+    return buttons([
+      ["submitPlannerOutcomeDeferred", "submit_planner_outcome(deferred)"],
+      ["submitPlannerOutcomeFinal", "submit_planner_outcome(final)"],
+    ]);
+  }
+  return note(`planner status: ${plan.status}`);
+}
+
+function renderWorkItemActions(scope) {
+  const item = scope.workItem;
+  if (item.status === RunStatus.NotStarted && scope.isReadyWorkItem) {
+    return note("worker queued; scheduler will launch automatically");
+  }
+  if (item.status === RunStatus.NotStarted) {
+    return note(`waiting for: ${item.needs.join(", ") || "planner"}`);
+  }
+  if (item.status === RunStatus.Running) {
+    return buttons([
+      ["submitWorkerSuccess", "submit_worker_outcome(success)"],
+      ["submitWorkerFailure", "submit_worker_outcome(failure)", "danger"],
+    ]);
+  }
+  return note(`worker status: ${item.status}`);
+}
+
+function buttons(items) {
+  return `<div class="action-buttons">${items.map(([action, label, klass = "primary"]) => (
+    `<button type="button" class="${klass}" data-action="${escapeAttr(action)}">${escapeHtml(label)}</button>`
+  )).join("")}</div>`;
+}
+
+function note(message) {
+  return `<div class="note">${escapeHtml(message)}</div>`;
+}
+
+// -- app (state, action handlers, render loop, console hook) --
+
+const el = {
+  workflowGoal: document.getElementById("workflowGoal"),
+  delegateWorkflow: document.getElementById("delegateWorkflow"),
+  selectedEntityPill: document.getElementById("selectedEntityPill"),
+  selectedEntityActions: document.getElementById("selectedEntityActions"),
+  flowError: document.getElementById("flowError"),
+  statusStrip: document.getElementById("statusStrip"),
+  versionPill: document.getElementById("versionPill"),
+  eventCount: document.getElementById("eventCount"),
+  dbLog: document.getElementById("dbLog"),
+  fileTree: document.getElementById("fileTree"),
+  selectedFileTitle: document.getElementById("selectedFileTitle"),
+  fileView: document.getElementById("fileView"),
+};
+
+const store = new InMemoryWorkflowStore();
+let selectedPath = "";
+
+function showError(message) {
+  el.flowError.textContent = message;
+  el.flowError.classList.toggle("show", Boolean(message));
+}
+
+function runAction(action) {
+  showError("");
+  try {
+    return action();
+  } catch (error) {
+    showError(error.message);
+    return undefined;
+  }
+}
+
+function runSelectedAction(action) {
+  const actions = {
+    submitPlannerOutcomeDeferred: () => submitPlannerOutcomeForSelectedPlan(true),
+    submitPlannerOutcomeFinal: () => submitPlannerOutcomeForSelectedPlan(false),
+    submitWorkerSuccess: () => submitWorkerOutcomeForSelectedWorkItem(true),
+    submitWorkerFailure: () => submitWorkerOutcomeForSelectedWorkItem(false),
+  };
+  const handler = actions[action];
+  if (!handler) {
+    showError(`Unknown action: ${action}`);
+    return undefined;
+  }
+  return runAction(handler);
+}
+
+function runDelegateWorkflow(goal) {
+  const workflow = delegateWorkflow(goal || defaultGoal());
+  commit(workflow, "delegate_workflow initialized workflow, first iteration, first attempt, and plan");
+  return workflow;
+}
+
+function submitPlannerOutcomeForSelectedPlan(withDeferredGoal) {
+  return withSelectedScope("plan", scope => {
+    materializeWorkItems(scope, {
+      planSpec: samplePlanSpec(),
+      plannerSummary: samplePlannerSummary(),
+      deferredGoalForNextIteration: withDeferredGoal ? sampleDeferredGoal() : "",
+      workItems: sampleWorkItems(),
+    });
+    return `submit_planner_outcome materialized work_items for ${scope.attempt.id}`;
+  });
+}
+
+function submitWorkerOutcomeForSelectedWorkItem(isSuccess) {
+  return withSelectedScope("workItem", scope => {
+    const item = submitWorkerOutcome(scope, scope.workItem.id, sampleWorkerOutcome(scope.workItem, isSuccess), isSuccess);
+    const resultKind = reconcileAttemptResult(scope);
+    return `submit_worker_outcome recorded ${item.id} as ${item.status}; ${resultKind}`;
+  });
+}
+
+function withSelectedScope(expectedKind, mutator) {
+  return runMutation(workflow => {
+    const scope = resolveSelectedContext(workflow);
+    if (scope.kind !== expectedKind) {
+      throw new Error(`Select a ${expectedKind} file first.`);
+    }
+    return mutator(scope);
+  });
+}
+
+function runMutation(mutator) {
+  const workflow = store.loadFreshWorkflow();
+  if (!workflow) {
+    throw new Error("delegate_workflow must run first.");
+  }
+
+  commit(workflow, mutator(workflow));
+  return workflow;
+}
+
+function commit(workflow, event) {
+  const launched = scheduleReadyAgents(workflow);
+  store.save(workflow, launched.length ? `${event}; scheduler: ${launched.join(", ")}` : event);
+  selectedPath = defaultSelection(workflow);
+  reloadAndRender();
+}
+
+// Focus follows the freshest activity in the committed aggregate: the running
+// planner, else the first running worker, else the workflow spec.
+function defaultSelection(workflow) {
+  for (const iteration of workflow.iterations) {
+    for (const attempt of iteration.attempts) {
+      if (attempt.plan && attempt.plan.status === RunStatus.Running) {
+        return attempt.plan.briefPath();
+      }
+    }
+  }
+  for (const iteration of workflow.iterations) {
+    for (const attempt of iteration.attempts) {
+      if (attempt.status !== RunStatus.Running) continue;
+      const active = attempt.workItems.find(item => item.status === RunStatus.Running);
+      if (active) return active.briefPath();
+    }
+  }
+  return workflow.specPath();
+}
+
+function resolveSelectedContext(workflow) {
+  if (!workflow) return { kind: "none", workflow: undefined };
+  if (!selectedPath) return { kind: "none", workflow };
+  if (matchesEntity(workflow, selectedPath)) return { kind: "workflow", workflow, entity: workflow };
+
+  for (const iteration of workflow.iterations) {
+    if (matchesEntity(iteration, selectedPath)) {
+      return { kind: "iteration", workflow, iteration, entity: iteration };
+    }
+    for (const attempt of iteration.attempts) {
+      if (matchesEntity(attempt, selectedPath)) {
+        return { kind: "attempt", workflow, iteration, attempt, entity: attempt };
+      }
+      if (attempt.plan && matchesEntity(attempt.plan, selectedPath)) {
+        return { kind: "plan", workflow, iteration, attempt, plan: attempt.plan, entity: attempt.plan };
+      }
+      for (const workItem of attempt.workItems) {
+        if (matchesEntity(workItem, selectedPath)) {
+          return {
+            kind: "workItem",
+            workflow,
+            iteration,
+            attempt,
+            workItem,
+            entity: workItem,
+            isReadyWorkItem: attempt.readyWorkItems().some(candidate => candidate.id === workItem.id),
+          };
+        }
+      }
+    }
+  }
+
+  return { kind: "none", workflow };
+}
+
+function matchesEntity(entity, path) {
+  return path === entity.specPath() || path === entity.briefPath();
+}
+
+function reloadAndRender() {
+  const workflow = store.loadFreshWorkflow();
+  const files = projectFiles(workflow);
+  if (files.length && !files.some(file => file.path === selectedPath)) {
+    selectedPath = files[0].path;
+  }
+
+  renderHeader(workflow);
+  const scope = resolveSelectedContext(workflow);
+  el.selectedEntityPill.textContent = describeSelection(scope);
+  el.selectedEntityActions.innerHTML = renderActions(scope);
+  renderEvents();
+  renderFileTree(workflow, files, selectedPath);
+  const file = files.find(candidate => candidate.path === selectedPath);
+  el.selectedFileTitle.textContent = file ? file.path : "No file selected";
+  el.fileView.textContent = file ? file.content : "";
+}
+
+function renderHeader(workflow) {
+  el.versionPill.textContent = `version ${store.currentVersion()}`;
+  if (!workflow) {
+    el.statusStrip.innerHTML = '<span class="pill">no workflow</span>';
+    return;
+  }
+
+  const attempts = workflow.iterations.flatMap(iteration => iteration.attempts);
+  el.statusStrip.innerHTML = [
+    pill(workflow.status, statusClass(workflow.status)),
+    `<span class="pill">${workflow.iterations.length} iterations</span>`,
+    `<span class="pill">${attempts.length} attempts</span>`,
+    `<span class="pill">${attempts.filter(attempt => attempt.plan).length} plans</span>`,
+    `<span class="pill">${attempts.reduce((sum, attempt) => sum + attempt.workItems.length, 0)} work_items</span>`,
+  ].join("");
+}
+
+function renderEvents() {
+  const events = store.events();
+  el.eventCount.textContent = `${events.length} events`;
+  el.dbLog.innerHTML = events.map(event => (
+    `<div class="log-entry">v${event.version}: ${escapeHtml(event.event)}</div>`
+  )).join("");
+}
+
+el.workflowGoal.value = defaultGoal();
+el.delegateWorkflow.addEventListener("click", () => runAction(() => runDelegateWorkflow(el.workflowGoal.value.trim())));
+el.selectedEntityActions.addEventListener("click", event => {
+  const button = event.target.closest("[data-action]");
+  if (button) runSelectedAction(button.getAttribute("data-action"));
+});
+el.fileTree.addEventListener("click", event => {
+  const link = event.target.closest("[data-path]");
+  if (!link) return;
+  event.preventDefault();
+  selectedPath = link.getAttribute("data-path");
+  reloadAndRender();
+});
+reloadAndRender();
+
+window.workflowContextApp = {
+  store,
+  projector,
+  get selectedPath() { return selectedPath; },
+  set selectedPath(path) { selectedPath = path; },
+  delegateWorkflow: runDelegateWorkflow,
+  runSelectedAction,
+  reloadAndRender,
+};
+</script>
 </body>
 </html>

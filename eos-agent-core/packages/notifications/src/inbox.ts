@@ -10,8 +10,8 @@ interface InboxEntry {
  * The system-side twin of the steer queue: a plain mailbox of
  * already-rendered `Message`s, drained by the loop one priority below
  * steers. Deliberately generic - any holder of the reference can publish
- * (the supervisor and hook context today; trigger rules and agent-to-agent
- * messages later, with no inbox change).
+ * (the supervisor, the loop's tool-context publisher, and notification
+ * rules today; agent-to-agent messages later, with no inbox change).
  */
 export class NotificationInbox {
   #entries: InboxEntry[] = [];

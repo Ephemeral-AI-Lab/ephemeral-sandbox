@@ -36,4 +36,8 @@ export {
   type MessageRole,
   type ToolSpec,
 } from "./messages.js";
+export type {
+  AgentRunSnapshot,
+  BackgroundSessionSnapshot,
+} from "./run-snapshot.js";
 export { ToolCallResultSchema, type ToolCallResult } from "./tool-calls.js";

@@ -2,14 +2,20 @@ import {
   mintAgentRunId,
   sandboxIdFrom,
   type AgentRunId,
+  type BackgroundSessionSnapshot,
   type Message,
 } from "@eos/contracts";
 import {
   BackgroundSupervisor,
-  NotificationInbox,
   startAgentRun,
   type AgentRunHandle,
 } from "@eos/engine";
+import {
+  NotificationInbox,
+  NotificationTriggerEngine,
+  triggerRuleAppliesTo,
+  type TriggerRuleEntry,
+} from "@eos/notifications";
 import {
   BACKGROUND_TOOL_NAMES,
   AGENT_TOOL_NAMES,
@@ -21,10 +27,8 @@ import {
   runTriggerCommand,
   snapshotRunState,
   terminalToolDefinitions,
-  triggerRuleAppliesTo,
   type AgentRunState,
   type ToolDefinition,
-  type TriggerRuleEntry,
 } from "@eos/tool";
 
 import {
@@ -33,15 +37,12 @@ import {
   type AgentProfileRegistry,
   type KnownToolNames,
 } from "./agent-profile-registry.js";
-import { loadHookConfig, loadNotificationRules } from "./hook-config.js";
+import { loadHookConfig } from "./hook-config.js";
 import {
   loadLlmClientRegistry,
   type LlmClientRegistry,
 } from "./llm-client-registry.js";
-import {
-  NotificationTriggerEngine,
-  backgroundSessionForHook,
-} from "./notification-trigger-engine.js";
+import { loadNotificationRules } from "./notification-rules-config.js";
 import { RunRegistry, type RunSummary } from "./run-registry.js";
 import {
   RunLog,
@@ -229,15 +230,18 @@ function createRuntime(ctx: RuntimeContext): AgentRuntime {
     const definitions = selectProfileDefinitions(profile, availableDefinitions);
     validateAdvisoryToolAccess(profile, definitions);
 
+    // Both operator-script payload families carry the same projection:
+    // hook payloads through the executor, trigger payloads at fire time.
+    const listSessions = (): BackgroundSessionSnapshot[] =>
+      supervisor.list().map(sessionSnapshot);
+
     // No inbox parameter (decision 11): hook context rides result metadata
     // and the engine publishes it; tools and the executor never see the inbox.
     const tools = buildToolExecutor({
       runState,
       definitions,
       hookEngine: ctx.hookEngine,
-      hookPayloadFacts: () => ({
-        background_sessions: supervisor.list().map(backgroundSessionForHook),
-      }),
+      hookPayloadFacts: () => ({ background_sessions: listSessions() }),
     });
 
     const observer = new NotificationTriggerEngine({
@@ -249,7 +253,7 @@ function createRuntime(ctx: RuntimeContext): AgentRuntime {
       ),
       runCommand: runTriggerCommand,
       inbox,
-      supervisor,
+      listSessions,
       runSnapshot: () => snapshotRunState(runState),
       terminalTool: profile.terminal_tool,
     });
@@ -302,6 +306,26 @@ function createRuntime(ctx: RuntimeContext): AgentRuntime {
     startRun: (params) => startRun(params),
     listRuns: () => registry.list(),
   };
+}
+
+/** Explicit projection so a new `SessionRow` field never leaks into payloads. */
+function sessionSnapshot(row: {
+  type: string;
+  id: string;
+  status: BackgroundSessionSnapshot["status"];
+  started_at: string;
+  summary?: string;
+  description?: string;
+}): BackgroundSessionSnapshot {
+  const session: BackgroundSessionSnapshot = {
+    type: row.type,
+    id: row.id,
+    status: row.status,
+    started_at: row.started_at,
+  };
+  if (row.summary !== undefined) session.summary = row.summary;
+  if (row.description !== undefined) session.description = row.description;
+  return session;
 }
 
 function advisorPromptLookup(

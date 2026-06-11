@@ -1,7 +1,7 @@
 import {
   systemNotificationMessage,
   type NotificationInbox,
-} from "../notification-inbox.js";
+} from "@eos/notifications";
 import type {
   SessionHandle,
   SessionOutcome,

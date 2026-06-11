@@ -21,14 +21,16 @@ import type {
 import type { SessionOutcome } from "../src/background/session.js";
 import type { BackgroundSupervisor } from "../src/background/supervisor.js";
 import type { AgentEvent } from "../src/events.js";
-import type { NotificationInbox } from "../src/notification-inbox.js";
+import type {
+  LoopObserver,
+  NotificationInbox,
+  TurnFacts,
+} from "@eos/notifications";
 import {
   startAgentRun,
   type AgentRunHandle,
   type AgentRunOutcome,
-  type LoopObserver,
   type ToolExecutor,
-  type TurnFacts,
 } from "../src/index.js";
 
 // --- scripted provider client ----------------------------------------------

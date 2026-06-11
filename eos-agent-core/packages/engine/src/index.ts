@@ -1,11 +1,10 @@
 import { DEFAULT_MAX_TOKENS, type Message } from "@eos/contracts";
 import type { LlmClient, ReasoningEffort } from "@eos/llm-client";
+import type { LoopObserver, NotificationInbox } from "@eos/notifications";
 
 import { runAgentLoop } from "./agent-loop.js";
 import type { BackgroundSupervisor } from "./background/supervisor.js";
 import { Conversation } from "./conversation.js";
-import type { LoopObserver } from "./loop-observer.js";
-import type { NotificationInbox } from "./notification-inbox.js";
 import { RunHandle, type AgentRunHandle } from "./run-handle.js";
 import type { ToolExecutor } from "./tool-executor.js";
 
@@ -23,11 +22,6 @@ export type {
   PartialReason,
 } from "./conversation.js";
 export type { AgentEvent } from "./events.js";
-export type { LoopObserver, TurnFacts } from "./loop-observer.js";
-export {
-  NotificationInbox,
-  systemNotificationMessage,
-} from "./notification-inbox.js";
 export type {
   AgentRunFailure,
   AgentRunHandle,

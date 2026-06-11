@@ -1,7 +1,11 @@
-import type { ToolCallResult, ToolSpec, ToolUseId } from "@eos/contracts";
+import type {
+  AgentRunSnapshot,
+  ToolCallResult,
+  ToolSpec,
+  ToolUseId,
+} from "@eos/contracts";
 import type { AgentEvent, ToolExecutor, ToolUseBlock } from "@eos/engine";
 
-import type { AgentRunSnapshot } from "./contract.js";
 import { projectContent, type BoundTool } from "./pipeline.js";
 import { snapshotRunState, type AgentRunState } from "./run-state.js";
 

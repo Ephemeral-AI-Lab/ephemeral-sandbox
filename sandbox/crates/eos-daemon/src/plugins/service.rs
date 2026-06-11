@@ -7,7 +7,7 @@ use eos_plugin::{PluginError, PluginServiceKey, PluginServiceState, PluginServic
 use serde_json::Value;
 
 use crate::error::DaemonError;
-#[cfg(all(target_os = "linux", not(test)))]
+#[cfg(not(test))]
 use crate::overlay::overlay_run_dirs;
 
 use super::process::PluginServiceOverlay;
@@ -278,7 +278,7 @@ fn service_snapshot_from_lease(layer_stack_root: &str, lease: Lease) -> PluginSe
     }
 }
 
-#[cfg(all(target_os = "linux", not(test)))]
+#[cfg(not(test))]
 fn service_overlay_for_snapshot(
     key: &PluginServiceKey,
     snapshot: &PluginServiceSnapshot,
@@ -295,12 +295,12 @@ fn service_overlay_for_snapshot(
     }))
 }
 
-#[cfg(any(not(target_os = "linux"), test))]
-// Keep the same fallible signature as Linux so service snapshot setup remains
-// cfg-free for callers; off-Linux/test builds do not allocate overlay dirs.
+#[cfg(test)]
+// Keep the same fallible signature as the real path so service snapshot setup
+// remains cfg-free for callers; test builds do not allocate overlay dirs.
 #[expect(
     clippy::unnecessary_wraps,
-    reason = "non-Linux/test parity keeps the Linux fallible helper signature"
+    reason = "test parity keeps the real fallible helper signature"
 )]
 const fn service_overlay_for_snapshot(
     _key: &PluginServiceKey,

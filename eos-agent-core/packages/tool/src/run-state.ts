@@ -1,6 +1,9 @@
-import type { AgentKind, AgentRunId, SandboxId } from "@eos/contracts";
-
-import type { AgentRunSnapshot } from "./contract.js";
+import type {
+  AgentKind,
+  AgentRunId,
+  AgentRunSnapshot,
+  SandboxId,
+} from "@eos/contracts";
 
 /**
  * The per-run metadata record, assembled once by the composition root.

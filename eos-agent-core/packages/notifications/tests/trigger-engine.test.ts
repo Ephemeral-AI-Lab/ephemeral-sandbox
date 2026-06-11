@@ -1,26 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  BackgroundSupervisor,
-  NotificationInbox,
-  systemNotificationMessage,
-  type TurnFacts,
-} from "@eos/engine";
-import { scriptedRunState, scriptedSessionHandle } from "@eos/testkit";
-import {
-  ToolNameSchema,
-  snapshotRunState,
-  type TriggerCommand,
-  type TriggerCommandRun,
-  type TriggerCommandRunner,
-  type TriggerPayload,
-  type TriggerRuleEntry,
-} from "@eos/tool";
+  agentRunIdFrom,
+  sandboxIdFrom,
+  type AgentRunSnapshot,
+  type BackgroundSessionSnapshot,
+} from "@eos/contracts";
 
-import { NotificationTriggerEngine } from "../src/notification-trigger-engine.js";
+import { NotificationInbox, systemNotificationMessage } from "../src/inbox.js";
+import type { TurnFacts } from "../src/loop-observer.js";
+import { NotificationTriggerEngine } from "../src/trigger-engine.js";
+import type {
+  CommandScript,
+  TriggerCommandRun,
+  TriggerCommandRunner,
+  TriggerPayload,
+  TriggerRuleEntry,
+} from "../src/triggers.js";
 
-const TERMINAL = ToolNameSchema.parse("finish_task");
-const SNAPSHOT = snapshotRunState(scriptedRunState("main"));
+const SNAPSHOT: AgentRunSnapshot = {
+  run_id: agentRunIdFrom("run-fixture"),
+  kind: "main",
+  agent_name: "main",
+  sandbox_id: sandboxIdFrom("sb-fixture"),
+  transcript_path: "/dev/null",
+  workspace: { is_isolated: false },
+};
 const FACTS: TurnFacts = {
   turn: 3,
   maxTurns: 10,
@@ -29,15 +34,19 @@ const FACTS: TurnFacts = {
   hasPendingSteers: false,
 };
 
-function command(name: string): TriggerCommand {
+function command(name: string): CommandScript {
   return { type: "command", command: name };
 }
 
-function turnRule(...rules: TriggerCommand[]): TriggerRuleEntry {
+function session(type: string, id: string): BackgroundSessionSnapshot {
+  return { type, id, status: "running", started_at: "2026-06-11T00:00:00Z" };
+}
+
+function turnRule(...rules: CommandScript[]): TriggerRuleEntry {
   return { event: "TurnCompleted", rules };
 }
 
-function idleRule(timeoutMs: number, ...rules: TriggerCommand[]): TriggerRuleEntry {
+function idleRule(timeoutMs: number, ...rules: CommandScript[]): TriggerRuleEntry {
   return { event: "IdleParked", timeout_ms: timeoutMs, rules };
 }
 
@@ -48,7 +57,8 @@ function reminder(source: "TurnCompleted" | "IdleTimeout", text: string) {
 interface Fixture {
   engine: NotificationTriggerEngine;
   inbox: NotificationInbox;
-  supervisor: BackgroundSupervisor;
+  /** Mutable: what `listSessions` answers at fire time. */
+  sessions: BackgroundSessionSnapshot[];
   /** One entry per runCommand call: the command string and its payload. */
   ran: { command: string; payload: TriggerPayload }[];
 }
@@ -59,7 +69,7 @@ function fixture(
   answers: Partial<Record<string, TriggerCommandRun | (() => Promise<TriggerCommandRun>)>> = {},
 ): Fixture {
   const inbox = new NotificationInbox();
-  const supervisor = new BackgroundSupervisor(inbox);
+  const sessions: BackgroundSessionSnapshot[] = [];
   const ran: Fixture["ran"] = [];
   const runCommand: TriggerCommandRunner = (cmd, payload) => {
     ran.push({ command: cmd.command, payload });
@@ -71,11 +81,11 @@ function fixture(
     rules,
     runCommand,
     inbox,
-    supervisor,
+    listSessions: () => [...sessions],
     runSnapshot: () => SNAPSHOT,
-    terminalTool: TERMINAL,
+    terminalTool: "finish_task",
   });
-  return { engine, inbox, supervisor, ran };
+  return { engine, inbox, sessions, ran };
 }
 
 describe("notification trigger engine", () => {
@@ -92,11 +102,11 @@ describe("notification trigger engine", () => {
   });
 
   it("runs each TurnCompleted command with the serialized payload and publishes the answer as a reminder", async () => {
-    const { engine, inbox, supervisor, ran } = fixture(
+    const { engine, inbox, sessions, ran } = fixture(
       [turnRule(command("remind"))],
       { remind: { notification: "wrap it up" } },
     );
-    supervisor.register({ type: "command", id: "c1" }, scriptedSessionHandle().handle);
+    sessions.push(session("command", "c1"));
     await engine.turnCompleted(FACTS);
     expect(ran).toHaveLength(1);
     expect(ran[0].payload).toEqual({
@@ -110,14 +120,7 @@ describe("notification trigger engine", () => {
       },
       run: SNAPSHOT,
       terminal_tool: "finish_task",
-      background_sessions: [
-        {
-          type: "command",
-          id: "c1",
-          status: "running",
-          started_at: expect.any(String) as string,
-        },
-      ],
+      background_sessions: [session("command", "c1")],
     });
     expect(inbox.drain()).toEqual([reminder("TurnCompleted", "wrap it up")]);
   });
@@ -175,13 +178,13 @@ describe("notification trigger engine", () => {
 
   it("fires an IdleParked rule only once the park outlives timeout_ms, with fire-time facts (T6)", async () => {
     vi.useFakeTimers();
-    const { engine, inbox, supervisor, ran } = fixture(
+    const { engine, inbox, sessions, ran } = fixture(
       [idleRule(1_000, command("idle"))],
       { idle: { notification: "still waiting" } },
     );
     engine.idleStarted();
     // The session registers after the park starts: fire time, not park time.
-    supervisor.register({ type: "subagent", id: "r1" }, scriptedSessionHandle().handle);
+    sessions.push(session("subagent", "r1"));
     await vi.advanceTimersByTimeAsync(999);
     expect(ran, "no fire before the timeout").toEqual([]);
     await vi.advanceTimersByTimeAsync(1);
@@ -189,7 +192,7 @@ describe("notification trigger engine", () => {
     expect(ran[0].payload).toMatchObject({
       event: "IdleTimeout",
       facts: { idle_elapsed_ms: 1_000, timeout_ms: 1_000 },
-      background_sessions: [{ type: "subagent", id: "r1", status: "running" }],
+      background_sessions: [session("subagent", "r1")],
     });
     expect(inbox.drain(), "the publish is the wake").toEqual([
       reminder("IdleTimeout", "still waiting"),

@@ -12,6 +12,7 @@
   "dependencies": {
     "@eos/contracts": "workspace:*",
     "@eos/engine": "workspace:*",
+    "@eos/notifications": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {

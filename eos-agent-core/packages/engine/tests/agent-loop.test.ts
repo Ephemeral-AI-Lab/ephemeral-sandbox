@@ -10,7 +10,7 @@ import { RunHandle } from "../src/run-handle.js";
 import {
   NotificationInbox,
   systemNotificationMessage,
-} from "../src/notification-inbox.js";
+} from "@eos/notifications";
 import { startAgentRun, type ToolExecutor } from "../src/index.js";
 import {
   MockLlmClient,

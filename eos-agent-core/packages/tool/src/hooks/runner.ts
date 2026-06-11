@@ -9,7 +9,7 @@ import {
   type HookOutput,
   type HookPayload,
 } from "./protocol.js";
-import { spawnJsonCommand } from "./spawn.js";
+import { spawnJsonCommand } from "../spawn.js";
 
 /** One hook's settled run: a structured output, or passthrough + warning. */
 interface HookRunResult {

@@ -99,7 +99,6 @@ fn enter_uses_workspace_binding_over_configured_workspace_root() -> TestResult {
 }
 
 #[test]
-#[cfg(target_os = "linux")]
 fn enter_rebinds_idle_state_to_new_layer_stack_root() -> TestResult {
     let _guard = lock_isolated_test_state();
     let root =
@@ -223,7 +222,6 @@ fn reset_isolated_workspace_config() {
     configure_isolated_workspace(&default_isolated_workspace_config());
 }
 
-#[cfg(target_os = "linux")]
 fn seed_empty_stack(root: &Path) -> TestResult {
     std::fs::create_dir_all(root.join("layers"))?;
     std::fs::create_dir_all(root.join("staging"))?;

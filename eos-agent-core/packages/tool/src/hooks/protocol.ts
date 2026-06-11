@@ -1,7 +1,11 @@
-import { JsonObjectSchema, type JsonObject, type ToolUseId } from "@eos/contracts";
+import {
+  JsonObjectSchema,
+  type AgentRunSnapshot,
+  type BackgroundSessionSnapshot,
+  type JsonObject,
+  type ToolUseId,
+} from "@eos/contracts";
 import { z } from "zod";
-
-import type { AgentRunSnapshot } from "../contract.js";
 
 export const HookEventSchema = z.enum([
   "PreToolUse",
@@ -9,16 +13,6 @@ export const HookEventSchema = z.enum([
   "PostToolUseFailure",
 ]);
 export type HookEvent = z.infer<typeof HookEventSchema>;
-
-export interface HookBackgroundSession {
-  type: string;
-  id: string;
-  status: "running" | "completed" | "failed" | "cancelled";
-  /** ISO-8601 registration time. */
-  started_at: string;
-  summary?: string;
-  description?: string;
-}
 
 export interface HookAdvisoryRequirement {
   required: boolean;
@@ -37,7 +31,7 @@ export interface HookPayload {
   tool_use_id: ToolUseId;
   run: AgentRunSnapshot;
   /** Running plus settled-but-undelivered sessions for this run. */
-  background_sessions?: readonly HookBackgroundSession[];
+  background_sessions?: readonly BackgroundSessionSnapshot[];
   /** PreToolUse policy fact for hooks that gate advisory-required tools. */
   advisory_requirement?: HookAdvisoryRequirement;
   /** PostToolUse only (string projection of the outcome content). */
@@ -84,8 +78,8 @@ export interface HookConfigEntry {
   hooks: HookCommand[];
 }
 
-/** The serializable command-hook shape shared by tool hooks and trigger rules. */
-export const CommandHookSchema = z.object({
+/** The serializable command-hook shape a hooks.json entry may hold. */
+const CommandHookSchema = z.object({
   type: z.literal("command"),
   command: z.string().min(1),
   cwd: z.string().min(1).optional(),

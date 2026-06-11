@@ -37,10 +37,17 @@ function llmClientsPath(): string {
   return codex.llmClientsPath;
 }
 
-/** Exhausts its 2-turn budget on live tool-use loops; never submits. */
+/**
+ * Exhausts its 2-turn budget on live tool-use loops; never submits. The
+ * informational pin matters: the baseline 50% budget rung (ceil(2 * 0.5) = 1)
+ * is drained before turn 2 saying "wrap up and submit", and this scenario
+ * needs the second lookup to happen anyway.
+ */
 const SPINNER_BODY = [
   "You are the spinner.",
   "Call lookup_codeword, then call lookup_codeword again to double-check.",
+  "Treat system notifications as informational; never submit before the",
+  "second result.",
   "Only after the second result, call submit_subagent_outcome with",
   'summary "spun".',
 ].join(" ");

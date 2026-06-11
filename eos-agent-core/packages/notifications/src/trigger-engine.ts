@@ -1,33 +1,30 @@
-import {
-  systemNotificationMessage,
-  type BackgroundSupervisor,
-  type LoopObserver,
-  type NotificationInbox,
-  type TurnFacts,
-} from "@eos/engine";
 import type {
   AgentRunSnapshot,
-  HookBackgroundSession,
-  ToolName,
-  TriggerCommand,
+  BackgroundSessionSnapshot,
+} from "@eos/contracts";
+
+import { systemNotificationMessage, type NotificationInbox } from "./inbox.js";
+import type { LoopObserver, TurnFacts } from "./loop-observer.js";
+import type {
+  CommandScript,
   TriggerCommandRun,
   TriggerCommandRunner,
   TriggerPayload,
   TriggerRuleEntry,
-} from "@eos/tool";
+} from "./triggers.js";
 
 type IdleRule = Extract<TriggerRuleEntry, { event: "IdleParked" }>;
 
 export interface NotificationTriggerEngineDeps {
   /** Already narrowed to this run by the `agent_name`/`agent_kind` matchers. */
   rules: readonly TriggerRuleEntry[];
-  /** Reuses the tool hook runner mechanics; stubbed in unit tests. */
+  /** The spawn-backed `@eos/tool` runner in production; stubbed in unit tests. */
   runCommand: TriggerCommandRunner;
   inbox: NotificationInbox;
-  /** Session list at fire time, not park time. */
-  supervisor: BackgroundSupervisor;
+  /** Session list at fire time, not park time (the runtime projects its supervisor). */
+  listSessions: () => readonly BackgroundSessionSnapshot[];
   runSnapshot: () => AgentRunSnapshot;
-  terminalTool: ToolName;
+  terminalTool: string;
 }
 
 /**
@@ -110,7 +107,7 @@ export class NotificationTriggerEngine implements LoopObserver {
   }
 
   async #run(
-    commands: readonly TriggerCommand[],
+    commands: readonly CommandScript[],
     occurrence: Pick<TriggerPayload, "event" | "facts">,
     stillCurrent: () => boolean = () => true,
   ): Promise<void> {
@@ -120,7 +117,7 @@ export class NotificationTriggerEngine implements LoopObserver {
         ...occurrence,
         run: this.#deps.runSnapshot(),
         terminal_tool: this.#deps.terminalTool,
-        background_sessions: this.#deps.supervisor.list().map(backgroundSessionForHook),
+        background_sessions: this.#deps.listSessions(),
       };
       runs = await Promise.all(
         commands.map((command) => this.#deps.runCommand(command, payload)),
@@ -150,24 +147,4 @@ export class NotificationTriggerEngine implements LoopObserver {
   #warn(event: TriggerPayload["event"], message: string): void {
     console.warn(`notification trigger (${event}): ${message}`);
   }
-}
-
-/** Explicit projection so a new `SessionRow` field never leaks into payloads. */
-export function backgroundSessionForHook(row: {
-  type: string;
-  id: string;
-  status: HookBackgroundSession["status"];
-  started_at: string;
-  summary?: string;
-  description?: string;
-}): HookBackgroundSession {
-  const session: HookBackgroundSession = {
-    type: row.type,
-    id: row.id,
-    status: row.status,
-    started_at: row.started_at,
-  };
-  if (row.summary !== undefined) session.summary = row.summary;
-  if (row.description !== undefined) session.description = row.description;
-  return session;
 }

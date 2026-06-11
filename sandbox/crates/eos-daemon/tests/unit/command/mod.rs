@@ -1,6 +1,5 @@
 use serde_json::json;
 
-#[cfg(target_os = "linux")]
 use eos_command_session::{
     CollectCompleted, CommandResponse, CommandSessionCompletion, ReadCommandProgress,
 };
@@ -51,7 +50,6 @@ fn exec_timeout_uses_config_default_only_when_omitted() {
 }
 
 #[test]
-#[cfg(target_os = "linux")]
 fn command_session_completion_result_can_be_read_by_progress_tool() -> TestResult {
     let manager =
         eos_command_ops::CommandOps::new(eos_command_session::CommandSessionConfig::default());
@@ -88,7 +86,6 @@ fn command_session_completion_result_can_be_read_by_progress_tool() -> TestResul
 }
 
 #[test]
-#[cfg(target_os = "linux")]
 fn command_session_count_uses_runtime_manager() -> TestResult {
     let response = op_command_session_count(
         &json!({"caller_id": "no-live-session"}),
@@ -102,7 +99,6 @@ fn command_session_count_uses_runtime_manager() -> TestResult {
 }
 
 #[test]
-#[cfg(target_os = "linux")]
 fn command_session_read_progress_returns_completed_result_when_live_session_is_gone() -> TestResult
 {
     let id = "cmd_progress_done_unit";
@@ -122,7 +118,6 @@ fn command_session_read_progress_returns_completed_result_when_live_session_is_g
 }
 
 #[test]
-#[cfg(target_os = "linux")]
 fn command_session_write_stdin_does_not_claim_parked_completion() -> TestResult {
     let id = "cmd_stdin_done_unit";
     command_ops().push_completed(test_completion(id, "caller", "written\n"));
@@ -136,7 +131,6 @@ fn command_session_write_stdin_does_not_claim_parked_completion() -> TestResult 
 }
 
 #[test]
-#[cfg(target_os = "linux")]
 fn command_session_cancel_returns_completed_result_when_live_session_is_gone() -> TestResult {
     let id = "command_session_cancel_done_unit";
     command_ops().push_completed(test_completion(id, "caller", "already-finished\n"));
@@ -153,7 +147,6 @@ fn command_session_cancel_returns_completed_result_when_live_session_is_gone() -
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
 fn test_completion(id: &str, caller_id: &str, stdout: &str) -> CommandSessionCompletion {
     let result = CommandResponse {
         status: "ok".to_owned(),

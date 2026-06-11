@@ -1,10 +1,11 @@
 import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
 
 import { toolUseIdFrom } from "@eos/contracts";
-import { systemNotificationMessage } from "@eos/engine";
+import { systemNotificationMessage } from "@eos/notifications";
 import type { LlmClient } from "@eos/llm-client";
 import { terminalToolDefinitions, type ToolDefinition } from "@eos/tool";
 import { scriptedTool } from "@eos/testkit";
@@ -808,6 +809,87 @@ process.stdin.on("end", () => {
         text: "note was read before writing",
       }),
     );
+  });
+
+  it("reminds once per consecutive bare-text turn and drains same-boundary rule answers as separate messages (04.9)", async () => {
+    // The REAL reference scripts over a temp rules file: remind-terminal
+    // speaks on every bare-text/no-session turn, and the 50% budget rung
+    // (ceil(4 * 0.5) = 2) collides with the second one - two notifications
+    // at one boundary.
+    const rulesDir = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "../../../../.eos-agents/notification-rules",
+    );
+    const script = (name: string): string =>
+      `node ${JSON.stringify(join(rulesDir, name))}`;
+    const client = new MockLlmClient([
+      scriptedTurn([complete(assistantMessage(textBlock("a")))]),
+      scriptedTurn([complete(assistantMessage(textBlock("b")))]),
+      scriptedTurn([complete(assistantMessage(textBlock("c")))]),
+      scriptedTurn([
+        complete(
+          assistantMessage(
+            toolUseBlock("tu_s", "submit_subagent_outcome", { summary: "finally" }),
+          ),
+          "tool_use",
+        ),
+      ]),
+    ]);
+    const { runtime } = runtimeFixture({
+      profiles: [{ ...HELPER, name: "drifty", maxTurns: 4 }],
+      clients: { helper_llm: client },
+      notificationRules: [
+        {
+          event: "TurnCompleted",
+          rules: [{ type: "command", command: script("remind-terminal-submission.cjs") }],
+        },
+        {
+          event: "TurnCompleted",
+          rules: [{ type: "command", command: `${script("budget-reminder.cjs")} 50` }],
+        },
+      ],
+    });
+    const run = runtime.startRun({
+      agentName: "drifty",
+      initialMessages: [userMessage("go")],
+    });
+    const outcome = await run.handle.outcome;
+    expect(outcome.status).toBe("completed");
+
+    const remind = systemNotificationMessage({
+      type: "reminder",
+      source: "TurnCompleted",
+      text:
+        "You produced no tool call and have no background work. " +
+        "To finish this run you must call your terminal tool submit_subagent_outcome.",
+    });
+    const budget = systemNotificationMessage({
+      type: "reminder",
+      source: "TurnCompleted",
+      text: "Turn 2 of 4 (50% of budget). Wrap up and submit via submit_subagent_outcome.",
+    });
+    expect(
+      must(client.requests.at(1)).messages.slice(-1),
+      "turn 1 bare text: one reminder drained before the next call",
+    ).toEqual([remind]);
+    expect(
+      must(client.requests.at(2)).messages.slice(-2),
+      "turn 2 bare text on the 50% threshold: two notifications at one boundary arrive as two separate user messages, in rule-config order",
+    ).toEqual([remind, budget]);
+    expect(
+      must(client.requests.at(3)).messages.slice(-1),
+      "turn 3 bare text: reminded again - once per offending turn, no more",
+    ).toEqual([remind]);
+    expect(
+      outcome.llm.filter(
+        (message) =>
+          message.role === "user" &&
+          message.content.some(
+            (block) => block.type === "text" && block.text.includes('"reminder"'),
+          ),
+      ),
+      "three spin turns earned exactly four reminder messages: one per turn plus the budget rung",
+    ).toHaveLength(4);
   });
 
   it("narrows notification rules per run by the agent matchers (04.9 §5)", async () => {

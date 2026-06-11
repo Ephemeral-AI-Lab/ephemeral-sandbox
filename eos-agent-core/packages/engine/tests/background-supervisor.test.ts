@@ -4,7 +4,7 @@ import { BackgroundSupervisor } from "../src/background/supervisor.js";
 import {
   NotificationInbox,
   systemNotificationMessage,
-} from "../src/notification-inbox.js";
+} from "@eos/notifications";
 import { must, sessionHandle, tick } from "./support.js";
 
 const REF = { type: "command", id: "c1" };

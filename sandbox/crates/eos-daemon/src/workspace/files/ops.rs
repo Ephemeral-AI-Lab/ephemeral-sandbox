@@ -3,7 +3,6 @@
 use std::path::PathBuf;
 
 use eos_config::configs::daemon::{MAX_FILE_BYTES, MAX_READ_BYTES};
-#[cfg(target_os = "linux")]
 use eos_file_ops::IsolatedBackend;
 use eos_file_ops::{
     edit_file, read_file, write_file, DirectBackend, EditFileOutcome, EditFileRequest,
@@ -22,7 +21,6 @@ pub(crate) fn op_read_file(
     context: DispatchContext<'_>,
 ) -> Result<Value, DaemonError> {
     let request = read_request(args, context)?;
-    #[cfg(target_os = "linux")]
     if let Some(binding) = crate::workspace::isolated::command_handle_for_args(args) {
         let outcome = read_file(&isolated_backend(&binding), request).map_err(workspace_error)?;
         crate::workspace::isolated::touch_isolated(&binding.caller_id);
@@ -41,7 +39,6 @@ pub(crate) fn op_write_file(
     context: DispatchContext<'_>,
 ) -> Result<Value, DaemonError> {
     let request = write_request(args, context)?;
-    #[cfg(target_os = "linux")]
     if let Some(binding) = crate::workspace::isolated::command_handle_for_args(args) {
         let outcome = write_file(&isolated_backend(&binding), request).map_err(workspace_error)?;
         crate::workspace::isolated::touch_isolated(&binding.caller_id);
@@ -60,7 +57,6 @@ pub(crate) fn op_edit_file(
     _context: DispatchContext<'_>,
 ) -> Result<Value, DaemonError> {
     let request = edit_request(args)?;
-    #[cfg(target_os = "linux")]
     if let Some(binding) = crate::workspace::isolated::command_handle_for_args(args) {
         let outcome = edit_file(&isolated_backend(&binding), request).map_err(workspace_error)?;
         crate::workspace::isolated::touch_isolated(&binding.caller_id);
@@ -234,10 +230,7 @@ fn workspace_error(error: FileOpsError) -> DaemonError {
 }
 
 /// Build the isolated file backend from the caller's open binding.
-#[cfg(target_os = "linux")]
-fn isolated_backend(
-    binding: &eos_command_ops::CommandBinding,
-) -> IsolatedBackend {
+fn isolated_backend(binding: &eos_command_ops::CommandBinding) -> IsolatedBackend {
     IsolatedBackend {
         layer_stack_root: binding.layer_stack_root.clone(),
         workspace_root: binding.workspace_root.clone(),

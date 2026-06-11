@@ -9,18 +9,14 @@
 mod state;
 
 use std::collections::HashSet;
-#[cfg(any(test, target_os = "linux"))]
 use std::path::Path;
 use std::path::PathBuf;
 #[cfg(test)]
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 
-#[cfg(target_os = "linux")]
-#[cfg(target_os = "linux")]
+use eos_command_ops::CommandBinding;
 use eos_isolated_workspace::WorkspaceHandle;
 use eos_isolated_workspace::{ExitOutcome, IsolatedError};
-#[cfg(target_os = "linux")]
-use eos_command_ops::CommandBinding;
 use serde_json::{json, Value};
 
 use crate::dispatcher::DispatchContext;
@@ -177,7 +173,6 @@ pub(crate) fn op_test_reset(
     Ok(json!({"success": true, "reset": true, "exited_callers": exited_callers}))
 }
 
-#[cfg(target_os = "linux")]
 pub(crate) fn command_handle_for_args(args: &Value) -> Option<CommandBinding> {
     let caller_id = args
         .get("caller_id")
@@ -200,7 +195,6 @@ pub(crate) fn command_handle_for_args(args: &Value) -> Option<CommandBinding> {
     Some(command_handle_from(&layer_stack_root, handle))
 }
 
-#[cfg(target_os = "linux")]
 fn command_handle_from(layer_stack_root: &Path, handle: WorkspaceHandle) -> CommandBinding {
     CommandBinding {
         caller_id: handle.caller_id,
@@ -302,7 +296,6 @@ pub(crate) fn ttl_sweep() -> usize {
 }
 
 /// Bump the caller's isolated-workspace TTL liveness (file/command activity).
-#[cfg(target_os = "linux")]
 pub(crate) fn touch_isolated(caller_id: &str) {
     let mut guard = lock_state_cell();
     if let Some(state) = guard.as_mut() {

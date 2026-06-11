@@ -1,7 +1,6 @@
 //! Shared overlay ns-runner helpers and daemon adapters.
 
 use std::io::Write;
-#[cfg(target_os = "linux")]
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 
@@ -37,7 +36,6 @@ pub(crate) fn run_ns_runner_child(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    #[cfg(target_os = "linux")]
     command.process_group(0);
     let mut child = command.spawn()?;
     if let Some(registry) = invocation_registry {

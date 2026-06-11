@@ -19,7 +19,7 @@ use crate::error::DaemonError;
 use crate::overlay::{overlay_run_dirs, run_ns_runner_child, OverlayDirsGuard};
 use crate::response_timings::{
     attach_runner_shell_fields, guarded_changeset_response, insert_tree_resource_timings,
-    merge_runner_timings, resource_timings, TreeResourceStats,
+    merge_runner_timings, resource_timings, u64_to_f64_saturating, TreeResourceStats,
 };
 
 use eos_plugin::host::route::PluginOperationRoute;
@@ -361,13 +361,6 @@ fn plugin_overlay_run_request(
         cgroup_path: None,
         timeout_seconds: spec.timeout_seconds,
     }
-}
-
-fn u64_to_f64_saturating(value: u64) -> f64 {
-    const U32_FACTOR: f64 = 4_294_967_296.0;
-    let high = u32::try_from(value >> 32).unwrap_or(u32::MAX);
-    let low = u32::try_from(value & u64::from(u32::MAX)).unwrap_or(u32::MAX);
-    f64::from(high).mul_add(U32_FACTOR, f64::from(low))
 }
 
 fn read_plugin_overlay_result(path: &Path) -> Result<Option<Value>, DaemonError> {

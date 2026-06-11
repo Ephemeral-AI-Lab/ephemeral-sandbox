@@ -1,16 +1,19 @@
-import type { JsonObject, ToolCallResult } from "@eos/contracts";
+import type {
+  AgentRunSnapshot,
+  BackgroundSessionSnapshot,
+  JsonObject,
+  ToolCallResult,
+} from "@eos/contracts";
 import type { ToolUseBlock } from "@eos/engine";
 import type { z } from "zod";
 
 import type {
-  AgentRunSnapshot,
   ToolCallMeta,
   ToolDefinition,
   ToolOutcome,
 } from "./contract.js";
 import type {
   HookAdvisoryRequirement,
-  HookBackgroundSession,
   HookEvent,
   HookPayload,
 } from "./hooks/protocol.js";
@@ -30,7 +33,7 @@ export interface BindToolDeps {
 }
 
 export interface HookPayloadFacts {
-  background_sessions?: readonly HookBackgroundSession[];
+  background_sessions?: readonly BackgroundSessionSnapshot[];
 }
 
 /** One definition bound through the pipeline; dispatched by the executor. */

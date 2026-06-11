@@ -1,13 +1,13 @@
 import { toolUses, type ToolCallResult } from "@eos/contracts";
 import { ProviderError, type UsageSnapshot } from "@eos/llm-client";
+import {
+  systemNotificationMessage,
+  type LoopObserver,
+  type NotificationInbox,
+} from "@eos/notifications";
 
 import type { BackgroundSupervisor } from "./background/supervisor.js";
 import type { Conversation, ToolResultBlock } from "./conversation.js";
-import type { LoopObserver } from "./loop-observer.js";
-import {
-  systemNotificationMessage,
-  type NotificationInbox,
-} from "./notification-inbox.js";
 import type { AgentRunFailure, AgentRunStatus, RunHandle } from "./run-handle.js";
 import type { ToolExecutor, ToolUseBlock } from "./tool-executor.js";
 import { addUsage, runAssistantTurn, type TurnConfig } from "./turn.js";

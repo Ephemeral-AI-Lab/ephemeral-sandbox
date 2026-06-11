@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 
-export const DEFAULT_COMMAND_TIMEOUT_MS = 60_000;
+const DEFAULT_COMMAND_TIMEOUT_MS = 60_000;
 
 /** How one spawned command settled; mapping to a protocol is the caller's. */
 export type SpawnedCommandResult =
@@ -9,7 +9,7 @@ export type SpawnedCommandResult =
   | { kind: "exited"; code: number | null; stdout: string; stderr: string };
 
 /**
- * The command mechanics shared by tool hooks and trigger rules: spawn with
+ * The command mechanics shared by tool hooks and notification rules: spawn with
  * `shell: true`, payload JSON + newline on stdin, lifetime bounded by the
  * optional caller signal plus the per-command timeout. First settle wins;
  * a synchronous `spawn()` fault rejects and is the caller's to map.
@@ -34,7 +34,14 @@ export function spawnJsonCommand(
     child.stdout.on("data", (chunk: string) => (stdout += chunk));
     child.stderr.on("data", (chunk: string) => (stderr += chunk));
     child.on("error", (error) => {
-      resolve({ kind: "spawn_error", message: error.message });
+      // An aborted signal kills the child through this same event (Node
+      // raises AbortError here, before "close"), so classify by the signal:
+      // a timeout or caller abort is "aborted", never a spawn fault.
+      resolve(
+        commandSignal.aborted
+          ? { kind: "aborted" }
+          : { kind: "spawn_error", message: error.message },
+      );
     });
     child.on("close", (code) => {
       resolve(

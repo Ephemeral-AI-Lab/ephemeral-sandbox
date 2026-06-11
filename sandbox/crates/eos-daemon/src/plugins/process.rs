@@ -6,25 +6,26 @@
 //! env construction, and socket-path derivation live host-side.
 
 use std::io::ErrorKind;
-#[cfg(all(target_os = "linux", not(test)))]
+#[cfg(not(test))]
 use std::io::Write;
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-#[cfg(all(target_os = "linux", not(test)))]
+#[cfg(not(test))]
 use eos_namespace::protocol::Intent;
-#[cfg(all(target_os = "linux", not(test)))]
+#[cfg(not(test))]
 use eos_namespace::protocol::{RunMode, RunRequest, ToolCall, WorkspaceRoot};
 use eos_plugin::host::route::PluginProcessSpec;
-#[cfg(all(target_os = "linux", not(test)))]
+#[cfg(not(test))]
 use eos_plugin::host::route::ENV_PLUGIN_WORKSPACE_MOUNTED;
 use eos_plugin::host::PpcClient;
 use eos_plugin::PluginError;
 use serde_json::{json, Value};
 
 use crate::error::DaemonError;
+use crate::invocation_registry::terminate_process_group;
 
 #[derive(Debug, Clone)]
 pub(super) struct PluginServiceOverlay {
@@ -87,7 +88,7 @@ fn spawn_for_overlay(
     spawn(spec)
 }
 
-#[cfg(all(target_os = "linux", not(test)))]
+#[cfg(not(test))]
 fn spawn_overlay_runner(
     spec: &PluginProcessSpec,
     overlay: &PluginServiceOverlay,
@@ -101,7 +102,6 @@ fn spawn_overlay_runner(
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
         command.process_group(0);
@@ -122,7 +122,7 @@ fn spawn_overlay_runner(
     })
 }
 
-#[cfg(any(not(target_os = "linux"), test))]
+#[cfg(test)]
 fn spawn_overlay_runner(
     spec: &PluginProcessSpec,
     overlay: &PluginServiceOverlay,
@@ -131,7 +131,7 @@ fn spawn_overlay_runner(
     spawn(spec)
 }
 
-#[cfg(all(target_os = "linux", not(test)))]
+#[cfg(not(test))]
 fn overlay_run_request(spec: &PluginProcessSpec, overlay: &PluginServiceOverlay) -> RunRequest {
     let mut env = spec.environment();
     env.insert(ENV_PLUGIN_WORKSPACE_MOUNTED, "1".to_owned());
@@ -221,7 +221,7 @@ impl Drop for PluginServiceProcess {
     }
 }
 
-#[cfg(all(target_os = "linux", not(test)))]
+#[cfg(not(test))]
 pub(super) fn remount_workspace_overlay(
     target_pid: u32,
     workspace_root: &str,
@@ -289,12 +289,12 @@ pub(super) fn remount_workspace_overlay(
     )))
 }
 
-#[cfg(any(not(target_os = "linux"), test))]
-// Keep the same fallible signature as the Linux remount path so refresh callers
-// stay cfg-free; off-Linux/test builds only validate overlay metadata plumbing.
+#[cfg(test)]
+// Keep the same fallible signature as the real remount path so refresh callers
+// stay cfg-free; test builds only validate overlay metadata plumbing.
 #[expect(
     clippy::unnecessary_wraps,
-    reason = "non-Linux/test parity keeps the Linux fallible helper signature"
+    reason = "test parity keeps the real fallible helper signature"
 )]
 pub(super) const fn remount_workspace_overlay(
     _target_pid: u32,
@@ -305,7 +305,7 @@ pub(super) const fn remount_workspace_overlay(
     Ok(())
 }
 
-#[cfg(all(target_os = "linux", not(test)))]
+#[cfg(not(test))]
 fn wait_for_helper(
     mut child: Child,
     timeout: Duration,
@@ -330,23 +330,6 @@ fn wait_for_helper(
         std::thread::sleep(Duration::from_millis(10));
     }
 }
-
-#[cfg(target_os = "linux")]
-fn terminate_process_group(process_group_id: Option<i32>) {
-    use nix::sys::signal::{killpg, Signal};
-    use nix::unistd::Pid;
-
-    let Some(process_group_id) = process_group_id else {
-        return;
-    };
-    if killpg(Pid::from_raw(process_group_id), Signal::SIGTERM).is_ok() {
-        std::thread::sleep(std::time::Duration::from_millis(50));
-        let _ = killpg(Pid::from_raw(process_group_id), Signal::SIGKILL);
-    }
-}
-
-#[cfg(not(target_os = "linux"))]
-const fn terminate_process_group(_process_group_id: Option<i32>) {}
 
 fn bind_ppc_listener(socket_path: &Path) -> Result<UnixListener, DaemonError> {
     if let Some(parent) = socket_path.parent() {

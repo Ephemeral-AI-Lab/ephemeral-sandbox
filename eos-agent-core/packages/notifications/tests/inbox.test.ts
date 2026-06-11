@@ -7,7 +7,7 @@ import { fromUserText } from "@eos/contracts";
 import {
   NotificationInbox,
   systemNotificationMessage,
-} from "../src/notification-inbox.js";
+} from "../src/inbox.js";
 
 const note = (text: string) => fromUserText(text);
 
@@ -64,13 +64,13 @@ describe("NotificationInbox", () => {
     await wait;
   });
 
-  it("unhooks the abort listener once a publish wakes the wait", async () => {
+  it("unregisters the abort listener once a publish wakes the wait", async () => {
     const inbox = new NotificationInbox();
     const controller = new AbortController();
     const wait = inbox.waitForNext(controller.signal);
     expect(
       getEventListeners(controller.signal, "abort"),
-      "the wait is hooked while parked",
+      "the wait is registered while parked",
     ).toHaveLength(1);
     inbox.publish(note("arrives"));
     await wait;
@@ -93,13 +93,13 @@ describe("NotificationInbox", () => {
   });
 
   it("renders payloads as a <system_notification> user message", () => {
-    const message = systemNotificationMessage({ type: "hook_context", text: "hi" });
+    const message = systemNotificationMessage({ type: "reminder", text: "hi" });
     expect(message).toEqual({
       role: "user",
       content: [
         {
           type: "text",
-          text: '<system_notification>{"type":"hook_context","text":"hi"}</system_notification>',
+          text: '<system_notification>{"type":"reminder","text":"hi"}</system_notification>',
         },
       ],
     });

@@ -1,10 +1,10 @@
 // The package surface is the authoring contract, the hook protocol, and
 // the assembly entry. Pipeline and batch-executor internals (bindTool,
 // toolBatchExecutor, the precedence kernel) stay package-private behind
-// buildToolExecutor.
+// buildToolExecutor. `runTriggerCommand` is this package's spawn-backed
+// implementation of the @eos/notifications runner seam.
 export {
   ToolNameSchema,
-  type AgentRunSnapshot,
   type ToolCallContext,
   type ToolCallMeta,
   type ToolDefinition,
@@ -18,27 +18,13 @@ export {
   HookOutputSchema,
   type HookAdvisoryRequirement,
   type HookCommand,
-  type HookBackgroundSession,
   type HookConfigEntry,
   type HookEvent,
   type HookOutput,
   type HookPayload,
 } from "./hooks/protocol.js";
 export { HookEngine } from "./hooks/runner.js";
-export {
-  TriggerOutputSchema,
-  TriggerRuleEntrySchema,
-  runTriggerCommand,
-  triggerRuleAppliesTo,
-  type IdleTimeoutFacts,
-  type TriggerCommand,
-  type TriggerCommandRun,
-  type TriggerCommandRunner,
-  type TriggerOutput,
-  type TriggerPayload,
-  type TriggerRuleEntry,
-  type TurnCompletedFacts,
-} from "./hooks/triggers.js";
+export { runTriggerCommand } from "./trigger-runner.js";
 export { snapshotRunState, type AgentRunState } from "./run-state.js";
 export { buildToolExecutor, type BuildToolExecutorInput } from "./toolset.js";
 export {
