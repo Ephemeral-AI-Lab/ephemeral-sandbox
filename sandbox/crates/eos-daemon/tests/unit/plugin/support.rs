@@ -66,19 +66,19 @@ pub(super) struct TestIsolatedWorkspaceConfig {
 
 impl TestIsolatedWorkspaceConfig {
     pub(super) fn enabled(scratch_root: &Path, workspace_root: &Path) -> Self {
-        let guard = crate::workspace::isolated::lock_isolated_test_state();
+        let guard = crate::ops::isolation::lock_isolated_test_state();
         let mut config = default_isolated_workspace_config();
         config.enabled = true;
         config.scratch_root = scratch_root.to_path_buf();
         config.workspace_root = workspace_root.to_path_buf();
-        crate::workspace::isolated::configure_isolated_workspace(&config);
+        crate::services::workspace::configure_isolated_workspace(&config);
         Self { _guard: guard }
     }
 }
 
 impl Drop for TestIsolatedWorkspaceConfig {
     fn drop(&mut self) {
-        crate::workspace::isolated::configure_isolated_workspace(
+        crate::services::workspace::configure_isolated_workspace(
             &default_isolated_workspace_config(),
         );
     }

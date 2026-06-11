@@ -1,7 +1,7 @@
 {
   "workspace": "eos-agent-core",
   "schemaVersion": 1,
-  "generatedAt": "2026-06-11T10:29:48.646Z",
+  "generatedAt": "2026-06-11T10:49:39.395Z",
   "packageManager": "pnpm@10.23.0",
   "tsconfig": {
     "module": "NodeNext",
@@ -23,10 +23,11 @@
           "./agent-run-handle"
         ],
         "dependencies": [
+          "@eos/background",
           "@eos/contracts",
           "@eos/engine",
           "@eos/llm-client",
-          "@eos/notifications",
+          "@eos/notification",
           "@eos/tool",
           "yaml",
           "zod"
@@ -6404,7 +6405,7 @@
           ],
           "imports": [
             {
-              "source": "@eos/notifications",
+              "source": "@eos/notification",
               "imported": [
                 "TriggerRuleEntrySchema",
                 "type TriggerRuleEntry"
@@ -6696,14 +6697,21 @@
             {
               "source": "@eos/engine",
               "imported": [
-                "BackgroundSessionSupervisor",
                 "startAgentRun"
               ],
               "typeOnly": false,
               "line": 8
             },
             {
-              "source": "@eos/notifications",
+              "source": "@eos/background",
+              "imported": [
+                "BackgroundSessionSupervisor"
+              ],
+              "typeOnly": false,
+              "line": 11
+            },
+            {
+              "source": "@eos/notification",
               "imported": [
                 "NotificationInbox",
                 "NotificationTriggerEngine",
@@ -8334,7 +8342,7 @@
               "line": 7
             },
             {
-              "source": "@eos/notifications",
+              "source": "@eos/notification",
               "imported": [
                 "systemNotificationMessage"
               ],
@@ -9525,9 +9533,781 @@
         "types": 13,
         "functions": 136,
         "schemas": 9,
-        "relations": 305,
+        "relations": 307,
         "sourceModules": 29,
         "testModules": 8,
+        "empty": false
+      }
+    },
+    {
+      "id": "@eos/background",
+      "name": "@eos/background",
+      "path": "packages/background",
+      "packageJson": {
+        "name": "@eos/background",
+        "private": true,
+        "type": "module",
+        "exports": [
+          "."
+        ],
+        "dependencies": [
+          "@eos/notification"
+        ],
+        "devDependencies": []
+      },
+      "tags": [],
+      "modules": [
+        {
+          "id": "@eos/background/src/background-session-supervisor",
+          "packageName": "@eos/background",
+          "path": "packages/background/src/background-session-supervisor.ts",
+          "kind": "source",
+          "tags": [
+            "source"
+          ],
+          "imports": [
+            {
+              "source": "@eos/notification",
+              "imported": [
+                "systemNotificationMessage",
+                "type NotificationInbox"
+              ],
+              "typeOnly": false,
+              "line": 1
+            },
+            {
+              "source": "./background-session.js",
+              "imported": [
+                "BackgroundSessionHandle",
+                "BackgroundSessionOutcome",
+                "BackgroundSessionRef",
+                "BackgroundSessionRow",
+                "BackgroundSessionStatus"
+              ],
+              "typeOnly": true,
+              "line": 5
+            }
+          ],
+          "exports": [],
+          "symbols": [
+            {
+              "id": "@eos/background/src/background-session-supervisor#BackgroundSessionEntry",
+              "name": "BackgroundSessionEntry",
+              "kind": "interface",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "interface BackgroundSessionEntry",
+              "file": "packages/background/src/background-session-supervisor.ts",
+              "line": 13,
+              "fields": [
+                {
+                  "name": "ref",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "BackgroundSessionRef"
+                },
+                {
+                  "name": "handle",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "BackgroundSessionHandle"
+                },
+                {
+                  "name": "status",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "Exclude<BackgroundSessionStatus, \"delivered\">"
+                },
+                {
+                  "name": "started_at",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "string"
+                },
+                {
+                  "name": "summary",
+                  "optional": true,
+                  "readonly": false,
+                  "ty": "string"
+                }
+              ],
+              "methods": [],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "internal"
+              ]
+            },
+            {
+              "id": "@eos/background/src/background-session-supervisor#backgroundSessionKey",
+              "name": "backgroundSessionKey",
+              "kind": "function",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "function backgroundSessionKey(ref: BackgroundSessionRef): string",
+              "file": "packages/background/src/background-session-supervisor.ts",
+              "line": 21,
+              "fields": [],
+              "methods": [],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "internal"
+              ]
+            },
+            {
+              "id": "@eos/background/src/background-session-supervisor#isBackgroundSessionRef",
+              "name": "isBackgroundSessionRef",
+              "kind": "function",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "function isBackgroundSessionRef(tag: unknown): tag is BackgroundSessionRef",
+              "file": "packages/background/src/background-session-supervisor.ts",
+              "line": 25,
+              "fields": [],
+              "methods": [],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "internal"
+              ]
+            },
+            {
+              "id": "@eos/background/src/background-session-supervisor#BackgroundSessionSupervisor",
+              "name": "BackgroundSessionSupervisor",
+              "kind": "class",
+              "exported": true,
+              "visibility": "public",
+              "signature": "export class BackgroundSessionSupervisor",
+              "docs": "Generic background-session lifecycle, keyed by the native ids the model\nalready holds. Background sessions are loop lifecycle: the loop's exit path calls\n`dispose()` on every finish, and every terminal transition publishes one\n`session_settled` notification whose drain marks the session delivered -\ndelivery bookkeeping never leaves this class.",
+              "file": "packages/background/src/background-session-supervisor.ts",
+              "line": 41,
+              "fields": [
+                {
+                  "name": "#inbox",
+                  "optional": false,
+                  "readonly": true,
+                  "ty": "NotificationInbox"
+                },
+                {
+                  "name": "#sessions",
+                  "optional": false,
+                  "readonly": true,
+                  "ty": "new Map<string, BackgroundSessionEntry>()"
+                },
+                {
+                  "name": "#disposedReason",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "string | undefined"
+                }
+              ],
+              "methods": [
+                {
+                  "name": "registerBackgroundSession",
+                  "signature": "registerBackgroundSession( ref: BackgroundSessionRef, handle: BackgroundSessionHandle, ): void",
+                  "async": false,
+                  "static": false,
+                  "line": 61
+                },
+                {
+                  "name": "cancelBackgroundSession",
+                  "signature": "async cancelBackgroundSession( ref: BackgroundSessionRef, reason: string, ): Promise<boolean>",
+                  "async": true,
+                  "static": false,
+                  "line": 96
+                },
+                {
+                  "name": "listBackgroundSessions",
+                  "signature": "listBackgroundSessions(): BackgroundSessionRow[]",
+                  "async": false,
+                  "static": false,
+                  "line": 112
+                },
+                {
+                  "name": "backgroundSessionCount",
+                  "signature": "backgroundSessionCount(): number",
+                  "async": false,
+                  "static": false,
+                  "line": 128
+                },
+                {
+                  "name": "openBackgroundSessionCount",
+                  "signature": "openBackgroundSessionCount(): number",
+                  "async": false,
+                  "static": false,
+                  "line": 141
+                },
+                {
+                  "name": "dispose",
+                  "signature": "async dispose(reason: string): Promise<void>",
+                  "async": true,
+                  "static": false,
+                  "line": 150
+                },
+                {
+                  "name": "#settle",
+                  "signature": "#settle(key: string, outcome: BackgroundSessionOutcome): void",
+                  "async": false,
+                  "static": false,
+                  "line": 163
+                },
+                {
+                  "name": "#transition",
+                  "signature": "#transition( entry: BackgroundSessionEntry, outcome: BackgroundSessionOutcome, ): void",
+                  "async": false,
+                  "static": false,
+                  "line": 169
+                },
+                {
+                  "name": "#markDelivered",
+                  "signature": "#markDelivered(tags: unknown[]): void",
+                  "async": false,
+                  "static": false,
+                  "line": 187
+                }
+              ],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "exported",
+                "public-api",
+                "stateful"
+              ]
+            }
+          ],
+          "stats": {
+            "symbols": 4,
+            "classes": 1,
+            "interfaces": 1,
+            "types": 0,
+            "functions": 2,
+            "schemas": 0
+          }
+        },
+        {
+          "id": "@eos/background/src/background-session",
+          "packageName": "@eos/background",
+          "path": "packages/background/src/background-session.ts",
+          "kind": "source",
+          "tags": [
+            "source"
+          ],
+          "imports": [],
+          "exports": [],
+          "symbols": [
+            {
+              "id": "@eos/background/src/background-session#BackgroundSessionRef",
+              "name": "BackgroundSessionRef",
+              "kind": "interface",
+              "exported": true,
+              "visibility": "public",
+              "signature": "export interface BackgroundSessionRef",
+              "docs": "Background-session data contracts. The supervisor is generic: `type` is\nan open string here; the narrow session-kind union is a tool-side\nrefinement that arrives with the spawning tool families.",
+              "file": "packages/background/src/background-session.ts",
+              "line": 6,
+              "fields": [
+                {
+                  "name": "type",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "string"
+                },
+                {
+                  "name": "id",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "string"
+                }
+              ],
+              "methods": [],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "exported",
+                "public-api"
+              ]
+            },
+            {
+              "id": "@eos/background/src/background-session#BackgroundSessionStatus",
+              "name": "BackgroundSessionStatus",
+              "kind": "type",
+              "exported": true,
+              "visibility": "public",
+              "signature": "export type BackgroundSessionStatus = | \"running\" | \"completed\" | \"failed\" | \"cancelled\" | \"delivered\"",
+              "docs": "`running -> completed | failed | cancelled -> delivered -> evicted`.\nTerminal-status and delivered are separate facts; eviction requires both,\nso the model can never miss a completion.",
+              "file": "packages/background/src/background-session.ts",
+              "line": 16,
+              "fields": [],
+              "methods": [],
+              "variants": [
+                {
+                  "name": "\"running\""
+                },
+                {
+                  "name": "\"completed\""
+                },
+                {
+                  "name": "\"failed\""
+                },
+                {
+                  "name": "\"cancelled\""
+                },
+                {
+                  "name": "\"delivered\""
+                }
+              ],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "exported",
+                "public-api"
+              ]
+            },
+            {
+              "id": "@eos/background/src/background-session#BackgroundSessionOutcome",
+              "name": "BackgroundSessionOutcome",
+              "kind": "interface",
+              "exported": true,
+              "visibility": "public",
+              "signature": "export interface BackgroundSessionOutcome",
+              "file": "packages/background/src/background-session.ts",
+              "line": 23,
+              "fields": [
+                {
+                  "name": "status",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "\"completed\" | \"failed\" | \"cancelled\""
+                },
+                {
+                  "name": "summary",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "string"
+                }
+              ],
+              "methods": [],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "exported",
+                "public-api"
+              ]
+            },
+            {
+              "id": "@eos/background/src/background-session#BackgroundSessionHandle",
+              "name": "BackgroundSessionHandle",
+              "kind": "interface",
+              "exported": true,
+              "visibility": "public",
+              "signature": "export interface BackgroundSessionHandle",
+              "docs": "The capability record a spawn site hands over - no driver classes. Each\ncapability closes over exactly the right port (`exec_command` over\n`killCommand`, `run_subagent` over the child run), so the supervisor\nnever resolves kind -> behavior.",
+              "file": "packages/background/src/background-session.ts",
+              "line": 35,
+              "fields": [
+                {
+                  "name": "settled",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "Promise<BackgroundSessionOutcome>"
+                }
+              ],
+              "methods": [
+                {
+                  "name": "cancel",
+                  "signature": "cancel(reason: string): Promise<void>;",
+                  "async": false,
+                  "static": false,
+                  "line": 39
+                },
+                {
+                  "name": "describe",
+                  "signature": "describe?(): string;",
+                  "async": false,
+                  "static": false,
+                  "line": 41
+                }
+              ],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "exported",
+                "public-api",
+                "run-handle"
+              ]
+            },
+            {
+              "id": "@eos/background/src/background-session#BackgroundSessionRow",
+              "name": "BackgroundSessionRow",
+              "kind": "interface",
+              "exported": true,
+              "visibility": "public",
+              "signature": "export interface BackgroundSessionRow",
+              "docs": "One row of `listBackgroundSessions()`: running and settled-but-undelivered sessions.",
+              "file": "packages/background/src/background-session.ts",
+              "line": 45,
+              "fields": [
+                {
+                  "name": "type",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "string"
+                },
+                {
+                  "name": "id",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "string"
+                },
+                {
+                  "name": "status",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "Exclude<BackgroundSessionStatus, \"delivered\">"
+                },
+                {
+                  "name": "started_at",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "string"
+                },
+                {
+                  "name": "summary",
+                  "optional": true,
+                  "readonly": false,
+                  "ty": "string"
+                },
+                {
+                  "name": "description",
+                  "optional": true,
+                  "readonly": false,
+                  "ty": "string"
+                }
+              ],
+              "methods": [],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "exported",
+                "public-api"
+              ]
+            }
+          ],
+          "stats": {
+            "symbols": 5,
+            "classes": 0,
+            "interfaces": 4,
+            "types": 1,
+            "functions": 0,
+            "schemas": 0
+          }
+        },
+        {
+          "id": "@eos/background/src/index",
+          "packageName": "@eos/background",
+          "path": "packages/background/src/index.ts",
+          "kind": "entrypoint",
+          "tags": [
+            "entrypoint",
+            "package-entrypoint",
+            "public-api"
+          ],
+          "imports": [],
+          "exports": [
+            {
+              "target": "./background-session.js",
+              "exported": [
+                "BackgroundSessionHandle",
+                "BackgroundSessionOutcome",
+                "BackgroundSessionRef",
+                "BackgroundSessionRow",
+                "BackgroundSessionStatus"
+              ],
+              "typeOnly": true,
+              "line": 1
+            },
+            {
+              "target": "./background-session-supervisor.js",
+              "exported": [
+                "BackgroundSessionSupervisor"
+              ],
+              "typeOnly": false,
+              "line": 8
+            }
+          ],
+          "symbols": [],
+          "stats": {
+            "symbols": 0,
+            "classes": 0,
+            "interfaces": 0,
+            "types": 0,
+            "functions": 0,
+            "schemas": 0
+          }
+        },
+        {
+          "id": "@eos/background/tests/background-session-supervisor.test",
+          "packageName": "@eos/background",
+          "path": "packages/background/tests/background-session-supervisor.test.ts",
+          "kind": "test",
+          "tags": [
+            "test",
+            "test-only"
+          ],
+          "imports": [
+            {
+              "source": "vitest",
+              "imported": [
+                "describe",
+                "expect",
+                "it"
+              ],
+              "typeOnly": false,
+              "line": 1
+            },
+            {
+              "source": "../src/index.js",
+              "imported": [
+                "BackgroundSessionSupervisor"
+              ],
+              "typeOnly": false,
+              "line": 3
+            },
+            {
+              "source": "@eos/notification",
+              "imported": [
+                "NotificationInbox",
+                "systemNotificationMessage"
+              ],
+              "typeOnly": false,
+              "line": 4
+            },
+            {
+              "source": "./support.js",
+              "imported": [
+                "must",
+                "backgroundSessionHandle",
+                "tick"
+              ],
+              "typeOnly": false,
+              "line": 8
+            }
+          ],
+          "exports": [],
+          "symbols": [
+            {
+              "id": "@eos/background/tests/background-session-supervisor.test#REF",
+              "name": "REF",
+              "kind": "const",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "const REF = { type: \"command\", id: \"c1\" }",
+              "file": "packages/background/tests/background-session-supervisor.test.ts",
+              "line": 10,
+              "fields": [],
+              "methods": [],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "internal",
+                "test-only"
+              ]
+            },
+            {
+              "id": "@eos/background/tests/background-session-supervisor.test#setup",
+              "name": "setup",
+              "kind": "function",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "function setup():",
+              "file": "packages/background/tests/background-session-supervisor.test.ts",
+              "line": 12,
+              "fields": [],
+              "methods": [],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "internal",
+                "test-only"
+              ]
+            }
+          ],
+          "stats": {
+            "symbols": 2,
+            "classes": 0,
+            "interfaces": 0,
+            "types": 0,
+            "functions": 1,
+            "schemas": 0
+          }
+        },
+        {
+          "id": "@eos/background/tests/support",
+          "packageName": "@eos/background",
+          "path": "packages/background/tests/support.ts",
+          "kind": "test-support",
+          "tags": [
+            "test-only",
+            "test-support"
+          ],
+          "imports": [
+            {
+              "source": "../src/index.js",
+              "imported": [
+                "BackgroundSessionOutcome"
+              ],
+              "typeOnly": true,
+              "line": 1
+            }
+          ],
+          "exports": [],
+          "symbols": [
+            {
+              "id": "@eos/background/tests/support#TestBackgroundSessionHandle",
+              "name": "TestBackgroundSessionHandle",
+              "kind": "interface",
+              "exported": true,
+              "visibility": "public",
+              "signature": "export interface TestBackgroundSessionHandle",
+              "file": "packages/background/tests/support.ts",
+              "line": 3,
+              "fields": [
+                {
+                  "name": "handle",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "{\n    settled: Promise<BackgroundSessionOutcome>;\n    cancel(reason: string): Promise<void>;\n    describe?(): string;\n  }"
+                },
+                {
+                  "name": "cancelled",
+                  "optional": false,
+                  "readonly": false,
+                  "ty": "string[]"
+                }
+              ],
+              "methods": [
+                {
+                  "name": "settle",
+                  "signature": "settle(outcome: BackgroundSessionOutcome): void;",
+                  "async": false,
+                  "static": false,
+                  "line": 9
+                },
+                {
+                  "name": "fail",
+                  "signature": "fail(error: Error): void;",
+                  "async": false,
+                  "static": false,
+                  "line": 10
+                }
+              ],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "exported",
+                "public-api",
+                "run-handle",
+                "test-only"
+              ]
+            },
+            {
+              "id": "@eos/background/tests/support#backgroundSessionHandle",
+              "name": "backgroundSessionHandle",
+              "kind": "function",
+              "exported": true,
+              "visibility": "public",
+              "signature": "export function backgroundSessionHandle( options:",
+              "docs": "A push-settled capability handle for supervisor tests.",
+              "file": "packages/background/tests/support.ts",
+              "line": 16,
+              "fields": [],
+              "methods": [],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "exported",
+                "public-api",
+                "run-handle",
+                "test-only"
+              ]
+            },
+            {
+              "id": "@eos/background/tests/support#tick",
+              "name": "tick",
+              "kind": "function",
+              "exported": true,
+              "visibility": "public",
+              "signature": "export function tick(): Promise<void>",
+              "docs": "One macrotask: every already-queued microtask has run by then.",
+              "file": "packages/background/tests/support.ts",
+              "line": 43,
+              "fields": [],
+              "methods": [],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "exported",
+                "public-api",
+                "test-only"
+              ]
+            },
+            {
+              "id": "@eos/background/tests/support#must",
+              "name": "must",
+              "kind": "function",
+              "exported": true,
+              "visibility": "public",
+              "signature": "export function must<T>(value: T | undefined | null): T",
+              "file": "packages/background/tests/support.ts",
+              "line": 51,
+              "fields": [],
+              "methods": [],
+              "variants": [],
+              "extends": [],
+              "implements": [],
+              "tags": [
+                "exported",
+                "public-api",
+                "test-only"
+              ]
+            }
+          ],
+          "stats": {
+            "symbols": 4,
+            "classes": 0,
+            "interfaces": 1,
+            "types": 0,
+            "functions": 3,
+            "schemas": 0
+          }
+        }
+      ],
+      "stats": {
+        "packages": 1,
+        "modules": 5,
+        "symbols": 15,
+        "classes": 1,
+        "interfaces": 6,
+        "types": 1,
+        "functions": 6,
+        "schemas": 0,
+        "relations": 15,
+        "sourceModules": 3,
+        "testModules": 2,
         "empty": false
       }
     },
@@ -11057,9 +11837,10 @@
         ],
         "dependencies": [
           "@eos/agent-runtime",
+          "@eos/background",
           "@eos/contracts",
           "@eos/llm-client",
-          "@eos/notifications"
+          "@eos/notification"
         ],
         "devDependencies": []
       },
@@ -11095,7 +11876,7 @@
               "line": 2
             },
             {
-              "source": "@eos/notifications",
+              "source": "@eos/notification",
               "imported": [
                 "systemNotificationMessage",
                 "type LoopObserver",
@@ -11115,12 +11896,12 @@
               "line": 8
             },
             {
-              "source": "./background/background-session-supervisor.js",
+              "source": "@eos/background",
               "imported": [
                 "BackgroundSessionSupervisor"
               ],
               "typeOnly": true,
-              "line": 14
+              "line": 13
             },
             {
               "source": "./conversation.js",
@@ -11390,460 +12171,6 @@
           }
         },
         {
-          "id": "@eos/engine/src/background/background-session-supervisor",
-          "packageName": "@eos/engine",
-          "path": "packages/engine/src/background/background-session-supervisor.ts",
-          "kind": "source",
-          "tags": [
-            "source"
-          ],
-          "imports": [
-            {
-              "source": "@eos/notifications",
-              "imported": [
-                "systemNotificationMessage",
-                "type NotificationInbox"
-              ],
-              "typeOnly": false,
-              "line": 1
-            },
-            {
-              "source": "./background-session.js",
-              "imported": [
-                "BackgroundSessionHandle",
-                "BackgroundSessionOutcome",
-                "BackgroundSessionRef",
-                "BackgroundSessionRow",
-                "BackgroundSessionStatus"
-              ],
-              "typeOnly": true,
-              "line": 5
-            }
-          ],
-          "exports": [],
-          "symbols": [
-            {
-              "id": "@eos/engine/src/background/background-session-supervisor#BackgroundSessionEntry",
-              "name": "BackgroundSessionEntry",
-              "kind": "interface",
-              "exported": false,
-              "visibility": "internal",
-              "signature": "interface BackgroundSessionEntry",
-              "file": "packages/engine/src/background/background-session-supervisor.ts",
-              "line": 13,
-              "fields": [
-                {
-                  "name": "ref",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "BackgroundSessionRef"
-                },
-                {
-                  "name": "handle",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "BackgroundSessionHandle"
-                },
-                {
-                  "name": "status",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "Exclude<BackgroundSessionStatus, \"delivered\">"
-                },
-                {
-                  "name": "started_at",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "string"
-                },
-                {
-                  "name": "summary",
-                  "optional": true,
-                  "readonly": false,
-                  "ty": "string"
-                }
-              ],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "internal"
-              ]
-            },
-            {
-              "id": "@eos/engine/src/background/background-session-supervisor#backgroundSessionKey",
-              "name": "backgroundSessionKey",
-              "kind": "function",
-              "exported": false,
-              "visibility": "internal",
-              "signature": "function backgroundSessionKey(ref: BackgroundSessionRef): string",
-              "file": "packages/engine/src/background/background-session-supervisor.ts",
-              "line": 21,
-              "fields": [],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "internal"
-              ]
-            },
-            {
-              "id": "@eos/engine/src/background/background-session-supervisor#isBackgroundSessionRef",
-              "name": "isBackgroundSessionRef",
-              "kind": "function",
-              "exported": false,
-              "visibility": "internal",
-              "signature": "function isBackgroundSessionRef(tag: unknown): tag is BackgroundSessionRef",
-              "file": "packages/engine/src/background/background-session-supervisor.ts",
-              "line": 25,
-              "fields": [],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "internal"
-              ]
-            },
-            {
-              "id": "@eos/engine/src/background/background-session-supervisor#BackgroundSessionSupervisor",
-              "name": "BackgroundSessionSupervisor",
-              "kind": "class",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export class BackgroundSessionSupervisor",
-              "docs": "Generic background-session lifecycle, keyed by the native ids the model\nalready holds. Background sessions are loop lifecycle: the loop's exit path calls\n`dispose()` on every finish, and every terminal transition publishes one\n`session_settled` notification whose drain marks the session delivered -\ndelivery bookkeeping never leaves this class.",
-              "file": "packages/engine/src/background/background-session-supervisor.ts",
-              "line": 41,
-              "fields": [
-                {
-                  "name": "#inbox",
-                  "optional": false,
-                  "readonly": true,
-                  "ty": "NotificationInbox"
-                },
-                {
-                  "name": "#sessions",
-                  "optional": false,
-                  "readonly": true,
-                  "ty": "new Map<string, BackgroundSessionEntry>()"
-                },
-                {
-                  "name": "#disposedReason",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "string | undefined"
-                }
-              ],
-              "methods": [
-                {
-                  "name": "registerBackgroundSession",
-                  "signature": "registerBackgroundSession( ref: BackgroundSessionRef, handle: BackgroundSessionHandle, ): void",
-                  "async": false,
-                  "static": false,
-                  "line": 61
-                },
-                {
-                  "name": "cancelBackgroundSession",
-                  "signature": "async cancelBackgroundSession( ref: BackgroundSessionRef, reason: string, ): Promise<boolean>",
-                  "async": true,
-                  "static": false,
-                  "line": 96
-                },
-                {
-                  "name": "listBackgroundSessions",
-                  "signature": "listBackgroundSessions(): BackgroundSessionRow[]",
-                  "async": false,
-                  "static": false,
-                  "line": 112
-                },
-                {
-                  "name": "backgroundSessionCount",
-                  "signature": "backgroundSessionCount(): number",
-                  "async": false,
-                  "static": false,
-                  "line": 128
-                },
-                {
-                  "name": "openBackgroundSessionCount",
-                  "signature": "openBackgroundSessionCount(): number",
-                  "async": false,
-                  "static": false,
-                  "line": 141
-                },
-                {
-                  "name": "dispose",
-                  "signature": "async dispose(reason: string): Promise<void>",
-                  "async": true,
-                  "static": false,
-                  "line": 150
-                },
-                {
-                  "name": "#settle",
-                  "signature": "#settle(key: string, outcome: BackgroundSessionOutcome): void",
-                  "async": false,
-                  "static": false,
-                  "line": 163
-                },
-                {
-                  "name": "#transition",
-                  "signature": "#transition( entry: BackgroundSessionEntry, outcome: BackgroundSessionOutcome, ): void",
-                  "async": false,
-                  "static": false,
-                  "line": 169
-                },
-                {
-                  "name": "#markDelivered",
-                  "signature": "#markDelivered(tags: unknown[]): void",
-                  "async": false,
-                  "static": false,
-                  "line": 187
-                }
-              ],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "exported",
-                "public-api",
-                "stateful"
-              ]
-            }
-          ],
-          "stats": {
-            "symbols": 4,
-            "classes": 1,
-            "interfaces": 1,
-            "types": 0,
-            "functions": 2,
-            "schemas": 0
-          }
-        },
-        {
-          "id": "@eos/engine/src/background/background-session",
-          "packageName": "@eos/engine",
-          "path": "packages/engine/src/background/background-session.ts",
-          "kind": "source",
-          "tags": [
-            "source"
-          ],
-          "imports": [],
-          "exports": [],
-          "symbols": [
-            {
-              "id": "@eos/engine/src/background/background-session#BackgroundSessionRef",
-              "name": "BackgroundSessionRef",
-              "kind": "interface",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export interface BackgroundSessionRef",
-              "docs": "Background-session data contracts. The supervisor is generic: `type` is\nan open string here; the narrow session-kind union is a tool-side\nrefinement that arrives with the spawning tool families.",
-              "file": "packages/engine/src/background/background-session.ts",
-              "line": 6,
-              "fields": [
-                {
-                  "name": "type",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "string"
-                },
-                {
-                  "name": "id",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "string"
-                }
-              ],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "exported",
-                "public-api"
-              ]
-            },
-            {
-              "id": "@eos/engine/src/background/background-session#BackgroundSessionStatus",
-              "name": "BackgroundSessionStatus",
-              "kind": "type",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export type BackgroundSessionStatus = | \"running\" | \"completed\" | \"failed\" | \"cancelled\" | \"delivered\"",
-              "docs": "`running -> completed | failed | cancelled -> delivered -> evicted`.\nTerminal-status and delivered are separate facts; eviction requires both,\nso the model can never miss a completion.",
-              "file": "packages/engine/src/background/background-session.ts",
-              "line": 16,
-              "fields": [],
-              "methods": [],
-              "variants": [
-                {
-                  "name": "\"running\""
-                },
-                {
-                  "name": "\"completed\""
-                },
-                {
-                  "name": "\"failed\""
-                },
-                {
-                  "name": "\"cancelled\""
-                },
-                {
-                  "name": "\"delivered\""
-                }
-              ],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "exported",
-                "public-api"
-              ]
-            },
-            {
-              "id": "@eos/engine/src/background/background-session#BackgroundSessionOutcome",
-              "name": "BackgroundSessionOutcome",
-              "kind": "interface",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export interface BackgroundSessionOutcome",
-              "file": "packages/engine/src/background/background-session.ts",
-              "line": 23,
-              "fields": [
-                {
-                  "name": "status",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "\"completed\" | \"failed\" | \"cancelled\""
-                },
-                {
-                  "name": "summary",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "string"
-                }
-              ],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "exported",
-                "public-api"
-              ]
-            },
-            {
-              "id": "@eos/engine/src/background/background-session#BackgroundSessionHandle",
-              "name": "BackgroundSessionHandle",
-              "kind": "interface",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export interface BackgroundSessionHandle",
-              "docs": "The capability record a spawn site hands over - no driver classes. Each\ncapability closes over exactly the right port (`exec_command` over\n`killCommand`, `run_subagent` over the child run), so the supervisor\nnever resolves kind -> behavior.",
-              "file": "packages/engine/src/background/background-session.ts",
-              "line": 35,
-              "fields": [
-                {
-                  "name": "settled",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "Promise<BackgroundSessionOutcome>"
-                }
-              ],
-              "methods": [
-                {
-                  "name": "cancel",
-                  "signature": "cancel(reason: string): Promise<void>;",
-                  "async": false,
-                  "static": false,
-                  "line": 39
-                },
-                {
-                  "name": "describe",
-                  "signature": "describe?(): string;",
-                  "async": false,
-                  "static": false,
-                  "line": 41
-                }
-              ],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "exported",
-                "public-api",
-                "run-handle"
-              ]
-            },
-            {
-              "id": "@eos/engine/src/background/background-session#BackgroundSessionRow",
-              "name": "BackgroundSessionRow",
-              "kind": "interface",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export interface BackgroundSessionRow",
-              "docs": "One row of `listBackgroundSessions()`: running and settled-but-undelivered sessions.",
-              "file": "packages/engine/src/background/background-session.ts",
-              "line": 45,
-              "fields": [
-                {
-                  "name": "type",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "string"
-                },
-                {
-                  "name": "id",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "string"
-                },
-                {
-                  "name": "status",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "Exclude<BackgroundSessionStatus, \"delivered\">"
-                },
-                {
-                  "name": "started_at",
-                  "optional": false,
-                  "readonly": false,
-                  "ty": "string"
-                },
-                {
-                  "name": "summary",
-                  "optional": true,
-                  "readonly": false,
-                  "ty": "string"
-                },
-                {
-                  "name": "description",
-                  "optional": true,
-                  "readonly": false,
-                  "ty": "string"
-                }
-              ],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "exported",
-                "public-api"
-              ]
-            }
-          ],
-          "stats": {
-            "symbols": 5,
-            "classes": 0,
-            "interfaces": 4,
-            "types": 1,
-            "functions": 0,
-            "schemas": 0
-          }
-        },
-        {
           "id": "@eos/engine/src/conversation",
           "packageName": "@eos/engine",
           "path": "packages/engine/src/conversation.ts",
@@ -12030,7 +12357,7 @@
               "line": 2
             },
             {
-              "source": "@eos/notifications",
+              "source": "@eos/notification",
               "imported": [
                 "LoopObserver",
                 "NotificationInbox"
@@ -12048,19 +12375,19 @@
               "line": 4
             },
             {
+              "source": "@eos/background",
+              "imported": [
+                "BackgroundSessionSupervisor"
+              ],
+              "typeOnly": true,
+              "line": 5
+            },
+            {
               "source": "./agent-loop.js",
               "imported": [
                 "runAgentLoop"
               ],
               "typeOnly": false,
-              "line": 6
-            },
-            {
-              "source": "./background/background-session-supervisor.js",
-              "imported": [
-                "BackgroundSessionSupervisor"
-              ],
-              "typeOnly": true,
               "line": 7
             },
             {
@@ -12090,26 +12417,6 @@
               "line": 11
             },
             {
-              "target": "./background/background-session.js",
-              "exported": [
-                "BackgroundSessionHandle",
-                "BackgroundSessionOutcome",
-                "BackgroundSessionRef",
-                "BackgroundSessionRow",
-                "BackgroundSessionStatus"
-              ],
-              "typeOnly": true,
-              "line": 12
-            },
-            {
-              "target": "./background/background-session-supervisor.js",
-              "exported": [
-                "BackgroundSessionSupervisor"
-              ],
-              "typeOnly": false,
-              "line": 19
-            },
-            {
               "target": "@eos/agent-runtime/agent-run-handle",
               "exported": [
                 "AgentEvent",
@@ -12120,7 +12427,7 @@
                 "PartialReason"
               ],
               "typeOnly": true,
-              "line": 20
+              "line": 12
             },
             {
               "target": "./tool-executor.js",
@@ -12129,7 +12436,7 @@
                 "ToolUseBlock"
               ],
               "typeOnly": true,
-              "line": 28
+              "line": 20
             }
           ],
           "symbols": [
@@ -12141,7 +12448,7 @@
               "visibility": "internal",
               "signature": "const DEFAULT_MAX_TURNS = 32",
               "file": "packages/engine/src/index.ts",
-              "line": 31,
+              "line": 23,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -12161,7 +12468,7 @@
               "signature": "export interface StartAgentRunInput",
               "docs": "In-process input of `startAgentRun` (camelCase; never serialized).",
               "file": "packages/engine/src/index.ts",
-              "line": 34,
+              "line": 26,
               "fields": [
                 {
                   "name": "llmClient",
@@ -12257,7 +12564,7 @@
               "signature": "export function startAgentRun(input: StartAgentRunInput): AgentRunHandle",
               "docs": "Start one agent run as a detached loop and return its handle. The loop\nnever throws: every exit resolves `handle.outcome` exactly once and ends\n`handle.events` with `run_finished`.",
               "file": "packages/engine/src/index.ts",
-              "line": 76,
+              "line": 68,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -12631,15 +12938,15 @@
               "line": 7
             },
             {
-              "source": "../src/background/background-session-supervisor.js",
+              "source": "@eos/background",
               "imported": [
                 "BackgroundSessionSupervisor"
               ],
               "typeOnly": false,
-              "line": 9
+              "line": 8
             },
             {
-              "source": "@eos/notifications",
+              "source": "@eos/notification",
               "imported": [
                 "NotificationInbox",
                 "systemNotificationMessage"
@@ -12721,104 +13028,6 @@
             "interfaces": 0,
             "types": 0,
             "functions": 0,
-            "schemas": 0
-          }
-        },
-        {
-          "id": "@eos/engine/tests/background-session-supervisor.test",
-          "packageName": "@eos/engine",
-          "path": "packages/engine/tests/background-session-supervisor.test.ts",
-          "kind": "test",
-          "tags": [
-            "test",
-            "test-only"
-          ],
-          "imports": [
-            {
-              "source": "vitest",
-              "imported": [
-                "describe",
-                "expect",
-                "it"
-              ],
-              "typeOnly": false,
-              "line": 1
-            },
-            {
-              "source": "../src/background/background-session-supervisor.js",
-              "imported": [
-                "BackgroundSessionSupervisor"
-              ],
-              "typeOnly": false,
-              "line": 3
-            },
-            {
-              "source": "@eos/notifications",
-              "imported": [
-                "NotificationInbox",
-                "systemNotificationMessage"
-              ],
-              "typeOnly": false,
-              "line": 4
-            },
-            {
-              "source": "./support.js",
-              "imported": [
-                "must",
-                "backgroundSessionHandle",
-                "tick"
-              ],
-              "typeOnly": false,
-              "line": 8
-            }
-          ],
-          "exports": [],
-          "symbols": [
-            {
-              "id": "@eos/engine/tests/background-session-supervisor.test#REF",
-              "name": "REF",
-              "kind": "const",
-              "exported": false,
-              "visibility": "internal",
-              "signature": "const REF = { type: \"command\", id: \"c1\" }",
-              "file": "packages/engine/tests/background-session-supervisor.test.ts",
-              "line": 10,
-              "fields": [],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "internal",
-                "test-only"
-              ]
-            },
-            {
-              "id": "@eos/engine/tests/background-session-supervisor.test#setup",
-              "name": "setup",
-              "kind": "function",
-              "exported": false,
-              "visibility": "internal",
-              "signature": "function setup():",
-              "file": "packages/engine/tests/background-session-supervisor.test.ts",
-              "line": 12,
-              "fields": [],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "internal",
-                "test-only"
-              ]
-            }
-          ],
-          "stats": {
-            "symbols": 2,
-            "classes": 0,
-            "interfaces": 0,
-            "types": 0,
-            "functions": 1,
             "schemas": 0
           }
         },
@@ -12942,20 +13151,13 @@
               "line": 12
             },
             {
-              "source": "../src/background/background-session.js",
+              "source": "@eos/background",
               "imported": [
-                "BackgroundSessionOutcome"
-              ],
-              "typeOnly": true,
-              "line": 21
-            },
-            {
-              "source": "../src/background/background-session-supervisor.js",
-              "imported": [
+                "BackgroundSessionOutcome",
                 "BackgroundSessionSupervisor"
               ],
               "typeOnly": true,
-              "line": 22
+              "line": 20
             },
             {
               "source": "@eos/agent-runtime/agent-run-handle",
@@ -12963,17 +13165,17 @@
                 "AgentEvent"
               ],
               "typeOnly": true,
-              "line": 23
+              "line": 25
             },
             {
-              "source": "@eos/notifications",
+              "source": "@eos/notification",
               "imported": [
                 "LoopObserver",
                 "NotificationInbox",
                 "TurnFacts"
               ],
               "typeOnly": true,
-              "line": 24
+              "line": 26
             },
             {
               "source": "../src/index.js",
@@ -12984,7 +13186,7 @@
                 "type ToolExecutor"
               ],
               "typeOnly": false,
-              "line": 29
+              "line": 31
             }
           ],
           "exports": [],
@@ -12998,7 +13200,7 @@
               "signature": "export type ScriptedTurn = ( request: LlmRequest, signal: AbortSignal | undefined, ) => AsyncIterable<LlmStreamEvent>",
               "docs": "One scripted provider turn; receives the request and the run's signal.",
               "file": "packages/engine/tests/support.ts",
-              "line": 39,
+              "line": 41,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13021,7 +13223,7 @@
               "signature": "export class MockLlmClient implements LlmClient",
               "docs": "In-process `LlmClient` double: one script per provider call, in order.",
               "file": "packages/engine/tests/support.ts",
-              "line": 45,
+              "line": 47,
               "fields": [
                 {
                   "name": "requests",
@@ -13042,7 +13244,7 @@
                   "signature": "streamMessage( request: LlmRequest, options?: LlmStreamOptions, ): AsyncIterable<LlmStreamEvent>",
                   "async": false,
                   "static": false,
-                  "line": 53
+                  "line": 55
                 }
               ],
               "variants": [],
@@ -13067,7 +13269,7 @@
               "signature": "export function scriptedTurn(events: LlmStreamEvent[]): ScriptedTurn",
               "docs": "A turn that yields the given events, a microtask apart, then completes.",
               "file": "packages/engine/tests/support.ts",
-              "line": 67,
+              "line": 69,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13088,7 +13290,7 @@
               "signature": "export function failingTurn( events: LlmStreamEvent[], error: Error, ): ScriptedTurn",
               "docs": "A turn that yields events, then throws `error` mid-stream.",
               "file": "packages/engine/tests/support.ts",
-              "line": 77,
+              "line": 79,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13109,7 +13311,7 @@
               "signature": "export function hangingTurn( events: LlmStreamEvent[], streamed: Deferred, ): ScriptedTurn",
               "docs": "A turn that yields events, resolves `streamed`, then hangs until the\nrun's signal aborts — like a live socket killed mid-token.",
               "file": "packages/engine/tests/support.ts",
-              "line": 94,
+              "line": 96,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13130,7 +13332,7 @@
               "signature": "export function gatedTurn( started: Deferred, release: Promise<void>, events: LlmStreamEvent[], ): ScriptedTurn",
               "docs": "A turn that resolves `started`, waits for `release`, then yields.",
               "file": "packages/engine/tests/support.ts",
-              "line": 109,
+              "line": 111,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13150,7 +13352,7 @@
               "visibility": "public",
               "signature": "export const USAGE: UsageSnapshot = { input_tokens: 10, output_tokens: 5 }",
               "file": "packages/engine/tests/support.ts",
-              "line": 125,
+              "line": 127,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13170,7 +13372,7 @@
               "visibility": "public",
               "signature": "export function textDelta(text: string): LlmStreamEvent",
               "file": "packages/engine/tests/support.ts",
-              "line": 127,
+              "line": 129,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13190,7 +13392,7 @@
               "visibility": "public",
               "signature": "export function reasoningDelta(text: string): LlmStreamEvent",
               "file": "packages/engine/tests/support.ts",
-              "line": 131,
+              "line": 133,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13210,7 +13412,7 @@
               "visibility": "public",
               "signature": "export function toolUseDelta( id: string, name: string, input: JsonObject =",
               "file": "packages/engine/tests/support.ts",
-              "line": 135,
+              "line": 137,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13231,7 +13433,7 @@
               "visibility": "public",
               "signature": "export function complete( message: Message, stop_reason: StopReason = \"end_turn\", usage: UsageSnapshot = USAGE, ): LlmStreamEvent",
               "file": "packages/engine/tests/support.ts",
-              "line": 143,
+              "line": 145,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13251,7 +13453,7 @@
               "visibility": "public",
               "signature": "export function textBlock(text: string): ContentBlock",
               "file": "packages/engine/tests/support.ts",
-              "line": 151,
+              "line": 153,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13271,7 +13473,7 @@
               "visibility": "public",
               "signature": "export function toolUseBlock( id: string, name: string, input: JsonObject =",
               "file": "packages/engine/tests/support.ts",
-              "line": 155,
+              "line": 157,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13292,7 +13494,7 @@
               "visibility": "public",
               "signature": "export function toolResultBlock( id: string, content: string, isError = false, ): Extract<ContentBlock,",
               "file": "packages/engine/tests/support.ts",
-              "line": 163,
+              "line": 165,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13312,7 +13514,7 @@
               "visibility": "public",
               "signature": "export function assistantMessage(...content: ContentBlock[]): Message",
               "file": "packages/engine/tests/support.ts",
-              "line": 176,
+              "line": 178,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13332,7 +13534,7 @@
               "visibility": "public",
               "signature": "export const userText = fromUserText",
               "file": "packages/engine/tests/support.ts",
-              "line": 180,
+              "line": 182,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13353,7 +13555,7 @@
               "signature": "export interface ScriptedToolResult",
               "docs": "What a scripted tool yields; the executor fills the call facts.",
               "file": "packages/engine/tests/support.ts",
-              "line": 185,
+              "line": 187,
               "fields": [
                 {
                   "name": "content",
@@ -13398,7 +13600,7 @@
               "visibility": "public",
               "signature": "export type ScriptedToolHandler = ( input: JsonObject, signal: AbortSignal, ) => Promise<ScriptedToolResult>",
               "file": "packages/engine/tests/support.ts",
-              "line": 192,
+              "line": 194,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13422,7 +13624,7 @@
               "signature": "export function scriptedExecutor( ...tools: [string, ScriptedToolHandler][] ): ToolExecutor",
               "docs": "A minimal in-test `ToolExecutor`: sequential dispatch (concurrency is\n`@eos/tool`'s concern), abort-aware so a hanging tool settles the batch\nwith whatever finished — the engine's normalization fills the rest.",
               "file": "packages/engine/tests/support.ts",
-              "line": 202,
+              "line": 204,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13443,7 +13645,7 @@
               "signature": "export function emptyExecutor(): ToolExecutor",
               "docs": "An executor over no tools at all.",
               "file": "packages/engine/tests/support.ts",
-              "line": 259,
+              "line": 261,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13464,7 +13666,7 @@
               "signature": "export function submitHandler(submission: JsonValue): ScriptedToolHandler",
               "docs": "A handler that submits a structured outcome as a terminal result.",
               "file": "packages/engine/tests/support.ts",
-              "line": 264,
+              "line": 266,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13487,7 +13689,7 @@
               "signature": "function isAborted(signal: AbortSignal): boolean",
               "docs": "Read through a call so control-flow narrowing never caches `aborted`.",
               "file": "packages/engine/tests/support.ts",
-              "line": 270,
+              "line": 272,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13507,7 +13709,7 @@
               "visibility": "internal",
               "signature": "function settleOrAbort( work: Promise<ScriptedToolResult>, signal: AbortSignal, ): Promise<ScriptedToolResult>",
               "file": "packages/engine/tests/support.ts",
-              "line": 274,
+              "line": 276,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13527,7 +13729,7 @@
               "visibility": "public",
               "signature": "export interface TestBackgroundSessionHandle",
               "file": "packages/engine/tests/support.ts",
-              "line": 301,
+              "line": 303,
               "fields": [
                 {
                   "name": "handle",
@@ -13548,14 +13750,14 @@
                   "signature": "settle(outcome: BackgroundSessionOutcome): void;",
                   "async": false,
                   "static": false,
-                  "line": 307
+                  "line": 309
                 },
                 {
                   "name": "fail",
                   "signature": "fail(error: Error): void;",
                   "async": false,
                   "static": false,
-                  "line": 308
+                  "line": 310
                 }
               ],
               "variants": [],
@@ -13577,7 +13779,7 @@
               "signature": "export function backgroundSessionHandle( options:",
               "docs": "A push-settled capability handle; `cancel` resolves per `cancelMode`.",
               "file": "packages/engine/tests/support.ts",
-              "line": 314,
+              "line": 316,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13598,7 +13800,7 @@
               "visibility": "public",
               "signature": "export interface Deferred<T = void>",
               "file": "packages/engine/tests/support.ts",
-              "line": 344,
+              "line": 346,
               "fields": [
                 {
                   "name": "promise",
@@ -13631,7 +13833,7 @@
               "visibility": "public",
               "signature": "export function deferred<T = void>(): Deferred<T>",
               "file": "packages/engine/tests/support.ts",
-              "line": 349,
+              "line": 351,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13652,7 +13854,7 @@
               "signature": "function rejectOnAbort(signal: AbortSignal | undefined): Promise<never>",
               "docs": "Rejects when the signal aborts; classification stays on `signal.aborted`.",
               "file": "packages/engine/tests/support.ts",
-              "line": 358,
+              "line": 360,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13673,7 +13875,7 @@
               "signature": "export function tick(): Promise<void>",
               "docs": "One macrotask: every already-queued microtask has run by then.",
               "file": "packages/engine/tests/support.ts",
-              "line": 370,
+              "line": 372,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13693,7 +13895,7 @@
               "visibility": "public",
               "signature": "export type ObserverCall = |",
               "file": "packages/engine/tests/support.ts",
-              "line": 380,
+              "line": 382,
               "fields": [],
               "methods": [],
               "variants": [
@@ -13724,7 +13926,7 @@
               "signature": "export function recordingObserver( onTurnCompleted?: (facts: TurnFacts) => Promise<void> | void, ):",
               "docs": "A recording `LoopObserver`. `onTurnCompleted` lets a test gate the loop\n(return an unresolved promise) or publish a notification mid-call.",
               "file": "packages/engine/tests/support.ts",
-              "line": 389,
+              "line": 391,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13744,7 +13946,7 @@
               "visibility": "public",
               "signature": "export interface StartMockRunOptions",
               "file": "packages/engine/tests/support.ts",
-              "line": 412,
+              "line": 414,
               "fields": [
                 {
                   "name": "tools",
@@ -13803,7 +14005,7 @@
               "signature": "export function startMockRun( turns: ScriptedTurn[], options: StartMockRunOptions =",
               "docs": "Start a run over scripted turns with small defaults.",
               "file": "packages/engine/tests/support.ts",
-              "line": 422,
+              "line": 424,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13824,7 +14026,7 @@
               "signature": "export function collectEvents(handle: AgentRunHandle):",
               "docs": "Drain `handle.events` in the background without ever breaking early.",
               "file": "packages/engine/tests/support.ts",
-              "line": 443,
+              "line": 445,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13845,7 +14047,7 @@
               "visibility": "public",
               "signature": "export function must<T>(value: T | undefined | null): T",
               "file": "packages/engine/tests/support.ts",
-              "line": 458,
+              "line": 460,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13865,7 +14067,7 @@
               "visibility": "public",
               "signature": "export function asCompleted( outcome: AgentRunOutcome, ): Extract<AgentRunOutcome,",
               "file": "packages/engine/tests/support.ts",
-              "line": 465,
+              "line": 467,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13885,7 +14087,7 @@
               "visibility": "public",
               "signature": "export function asCancelled( outcome: AgentRunOutcome, ): Extract<AgentRunOutcome,",
               "file": "packages/engine/tests/support.ts",
-              "line": 474,
+              "line": 476,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13905,7 +14107,7 @@
               "visibility": "public",
               "signature": "export function asFailed( outcome: AgentRunOutcome, ): Extract<AgentRunOutcome,",
               "file": "packages/engine/tests/support.ts",
-              "line": 483,
+              "line": 485,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -13926,7 +14128,7 @@
               "signature": "export function expectProviderValid(messages: readonly Message[]): void",
               "docs": "§6/§7 invariant: the list is valid `LlmRequest.messages` input — roles\nsane and every `tool_use` answered by a later `tool_result`.",
               "file": "packages/engine/tests/support.ts",
-              "line": 496,
+              "line": 498,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -14059,16 +14261,16 @@
       ],
       "stats": {
         "packages": 1,
-        "modules": 12,
-        "symbols": 73,
-        "classes": 3,
-        "interfaces": 14,
-        "types": 6,
-        "functions": 44,
+        "modules": 9,
+        "symbols": 62,
+        "classes": 2,
+        "interfaces": 9,
+        "types": 5,
+        "functions": 41,
         "schemas": 0,
-        "relations": 96,
-        "sourceModules": 7,
-        "testModules": 5,
+        "relations": 83,
+        "sourceModules": 5,
+        "testModules": 4,
         "empty": false
       }
     },
@@ -19773,11 +19975,11 @@
       }
     },
     {
-      "id": "@eos/notifications",
-      "name": "@eos/notifications",
-      "path": "packages/notifications",
+      "id": "@eos/notification",
+      "name": "@eos/notification",
+      "path": "packages/notification",
       "packageJson": {
-        "name": "@eos/notifications",
+        "name": "@eos/notification",
         "private": true,
         "type": "module",
         "exports": [
@@ -19792,9 +19994,9 @@
       "tags": [],
       "modules": [
         {
-          "id": "@eos/notifications/src/inbox",
-          "packageName": "@eos/notifications",
-          "path": "packages/notifications/src/inbox.ts",
+          "id": "@eos/notification/src/inbox",
+          "packageName": "@eos/notification",
+          "path": "packages/notification/src/inbox.ts",
           "kind": "source",
           "tags": [
             "source"
@@ -19813,13 +20015,13 @@
           "exports": [],
           "symbols": [
             {
-              "id": "@eos/notifications/src/inbox#InboxEntry",
+              "id": "@eos/notification/src/inbox#InboxEntry",
               "name": "InboxEntry",
               "kind": "interface",
               "exported": false,
               "visibility": "internal",
               "signature": "interface InboxEntry",
-              "file": "packages/notifications/src/inbox.ts",
+              "file": "packages/notification/src/inbox.ts",
               "line": 3,
               "fields": [
                 {
@@ -19850,14 +20052,14 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/inbox#NotificationInbox",
+              "id": "@eos/notification/src/inbox#NotificationInbox",
               "name": "NotificationInbox",
               "kind": "class",
               "exported": true,
               "visibility": "public",
               "signature": "export class NotificationInbox",
               "docs": "The system-side twin of the steer queue: a plain mailbox of\nalready-rendered `Message`s, drained by the loop one priority below\nsteers. Deliberately generic - any holder of the reference can publish\n(the supervisor, the loop's tool-context publisher, and notification\nrules today; agent-to-agent messages later, with no inbox change).",
-              "file": "packages/notifications/src/inbox.ts",
+              "file": "packages/notification/src/inbox.ts",
               "line": 16,
               "fields": [
                 {
@@ -19926,14 +20128,14 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/inbox#systemNotificationMessage",
+              "id": "@eos/notification/src/inbox#systemNotificationMessage",
               "name": "systemNotificationMessage",
               "kind": "function",
               "exported": true,
               "visibility": "public",
               "signature": "export function systemNotificationMessage(payload: JsonObject): Message",
               "docs": "The one rendering helper: wrap a JSON payload as a user message holding\n`<system_notification>{json}</system_notification>`. Rendering happens at\npublish; the inbox stores plain messages, so new publishers never require\ninbox or engine changes.\n\nEvery `<` in the serialized payload is escaped to its unicode JSON\nescape sequence (still valid JSON), so untrusted text (command output,\nsubagent summaries) can never spoof the tag boundary.",
-              "file": "packages/notifications/src/inbox.ts",
+              "file": "packages/notification/src/inbox.ts",
               "line": 95,
               "fields": [],
               "methods": [],
@@ -19957,9 +20159,9 @@
           }
         },
         {
-          "id": "@eos/notifications/src/index",
-          "packageName": "@eos/notifications",
-          "path": "packages/notifications/src/index.ts",
+          "id": "@eos/notification/src/index",
+          "packageName": "@eos/notification",
+          "path": "packages/notification/src/index.ts",
           "kind": "entrypoint",
           "tags": [
             "entrypoint",
@@ -20020,9 +20222,9 @@
           }
         },
         {
-          "id": "@eos/notifications/src/loop-observer",
-          "packageName": "@eos/notifications",
-          "path": "packages/notifications/src/loop-observer.ts",
+          "id": "@eos/notification/src/loop-observer",
+          "packageName": "@eos/notification",
+          "path": "packages/notification/src/loop-observer.ts",
           "kind": "source",
           "tags": [
             "source"
@@ -20031,14 +20233,14 @@
           "exports": [],
           "symbols": [
             {
-              "id": "@eos/notifications/src/loop-observer#TurnFacts",
+              "id": "@eos/notification/src/loop-observer#TurnFacts",
               "name": "TurnFacts",
               "kind": "interface",
               "exported": true,
               "visibility": "public",
               "signature": "export interface TurnFacts",
               "docs": "Loop facts announced to the runtime after each committed assistant\nturn; in-process camelCase. Two axes: the SHAPE of the turn that just\ncommitted (`toolCalls`, `backgroundSessionCount`, `hasPendingSteers`) and the\nrun's BUDGET position (`turn`, `maxTurns`).",
-              "file": "packages/notifications/src/loop-observer.ts",
+              "file": "packages/notification/src/loop-observer.ts",
               "line": 7,
               "fields": [
                 {
@@ -20082,14 +20284,14 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/loop-observer#LoopObserver",
+              "id": "@eos/notification/src/loop-observer#LoopObserver",
               "name": "LoopObserver",
               "kind": "interface",
               "exported": true,
               "visibility": "public",
               "signature": "export interface LoopObserver",
               "docs": "The loop's announcement port. Implementations must never throw or\nreject; the loop adds no defensive handling around these calls.",
-              "file": "packages/notifications/src/loop-observer.ts",
+              "file": "packages/notification/src/loop-observer.ts",
               "line": 24,
               "fields": [],
               "methods": [
@@ -20134,9 +20336,9 @@
           }
         },
         {
-          "id": "@eos/notifications/src/trigger-engine",
-          "packageName": "@eos/notifications",
-          "path": "packages/notifications/src/trigger-engine.ts",
+          "id": "@eos/notification/src/trigger-engine",
+          "packageName": "@eos/notification",
+          "path": "packages/notification/src/trigger-engine.ts",
           "kind": "source",
           "tags": [
             "source"
@@ -20185,13 +20387,13 @@
           "exports": [],
           "symbols": [
             {
-              "id": "@eos/notifications/src/trigger-engine#IdleRule",
+              "id": "@eos/notification/src/trigger-engine#IdleRule",
               "name": "IdleRule",
               "kind": "type",
               "exported": false,
               "visibility": "internal",
               "signature": "type IdleRule = Extract<TriggerRuleEntry,",
-              "file": "packages/notifications/src/trigger-engine.ts",
+              "file": "packages/notification/src/trigger-engine.ts",
               "line": 16,
               "fields": [],
               "methods": [],
@@ -20203,13 +20405,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/trigger-engine#NotificationTriggerEngineDeps",
+              "id": "@eos/notification/src/trigger-engine#NotificationTriggerEngineDeps",
               "name": "NotificationTriggerEngineDeps",
               "kind": "interface",
               "exported": true,
               "visibility": "public",
               "signature": "export interface NotificationTriggerEngineDeps",
-              "file": "packages/notifications/src/trigger-engine.ts",
+              "file": "packages/notification/src/trigger-engine.ts",
               "line": 18,
               "fields": [
                 {
@@ -20259,14 +20461,14 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/trigger-engine#NotificationTriggerEngine",
+              "id": "@eos/notification/src/trigger-engine#NotificationTriggerEngine",
               "name": "NotificationTriggerEngine",
               "kind": "class",
               "exported": true,
               "visibility": "public",
               "signature": "export class NotificationTriggerEngine implements LoopObserver",
               "docs": "The runtime's `LoopObserver` (Phase 04.9): runs operator trigger rules\nagainst loop lifecycle facts and publishes their answers as\n`{type: \"reminder\"}` notifications into the run's inbox. Notification-only:\nscripts inform, the model acts. Never throws or rejects — every script\nfailure is logged and the firing dropped, matching the inbox's `onDrained`\nprecedent. Timers live here so the engine stays clock-free; a generation\ncounter makes idle-timer fires atomic per park epoch.",
-              "file": "packages/notifications/src/trigger-engine.ts",
+              "file": "packages/notification/src/trigger-engine.ts",
               "line": 39,
               "fields": [
                 {
@@ -20360,9 +20562,9 @@
           }
         },
         {
-          "id": "@eos/notifications/src/triggers",
-          "packageName": "@eos/notifications",
-          "path": "packages/notifications/src/triggers.ts",
+          "id": "@eos/notification/src/triggers",
+          "packageName": "@eos/notification",
+          "path": "packages/notification/src/triggers.ts",
           "kind": "source",
           "tags": [
             "source"
@@ -20391,13 +20593,13 @@
           "exports": [],
           "symbols": [
             {
-              "id": "@eos/notifications/src/triggers#CommandScriptSchema",
+              "id": "@eos/notification/src/triggers#CommandScriptSchema",
               "name": "CommandScriptSchema",
               "kind": "schema",
               "exported": true,
               "visibility": "public",
               "signature": "export const CommandScriptSchema = z.object({ type: z.literal(\"command\"), command: z.string().min(1), /** Working directory for relative command paths; runtime-filled when omitted. */ cwd: z.string().min(1).optional()...",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 15,
               "fields": [
                 {
@@ -20437,13 +20639,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/triggers#CommandScript",
+              "id": "@eos/notification/src/triggers#CommandScript",
               "name": "CommandScript",
               "kind": "type",
               "exported": true,
               "visibility": "public",
               "signature": "export type CommandScript = z.infer<typeof CommandScriptSchema>",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 23,
               "fields": [],
               "methods": [],
@@ -20457,13 +20659,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/triggers#TriggerRuleMatchers",
+              "id": "@eos/notification/src/triggers#TriggerRuleMatchers",
               "name": "TriggerRuleMatchers",
               "kind": "const",
               "exported": false,
               "visibility": "internal",
               "signature": "const TriggerRuleMatchers = { /** Exact profile name; absent matches all agents. */ agent_name: z.string().min(1).optional(), /** Profile kind; absent matches all kinds. Present with `agent_name`: AND. */ agent_kind: ...",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 26,
               "fields": [],
               "methods": [],
@@ -20475,13 +20677,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/triggers#TriggerRuleEntrySchema",
+              "id": "@eos/notification/src/triggers#TriggerRuleEntrySchema",
               "name": "TriggerRuleEntrySchema",
               "kind": "schema",
               "exported": true,
               "visibility": "public",
               "signature": "export const TriggerRuleEntrySchema = z.discriminatedUnion(\"event\", [ z.object({ event: z.literal(\"TurnCompleted\"), ...TriggerRuleMatchers, rules: z.array(CommandScriptSchema).min(1), }), z.object({ event: z.literal(\"...",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 39,
               "fields": [
                 {
@@ -20517,13 +20719,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/triggers#TriggerRuleEntry",
+              "id": "@eos/notification/src/triggers#TriggerRuleEntry",
               "name": "TriggerRuleEntry",
               "kind": "type",
               "exported": true,
               "visibility": "public",
               "signature": "export type TriggerRuleEntry = z.infer<typeof TriggerRuleEntrySchema>",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 53,
               "fields": [],
               "methods": [],
@@ -20537,14 +20739,14 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/triggers#triggerRuleAppliesTo",
+              "id": "@eos/notification/src/triggers#triggerRuleAppliesTo",
               "name": "triggerRuleAppliesTo",
               "kind": "function",
               "exported": true,
               "visibility": "public",
               "signature": "export function triggerRuleAppliesTo( rule: TriggerRuleEntry, run:",
               "docs": "The matcher fold: absent fields match every run; present fields AND.",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 56,
               "fields": [],
               "methods": [],
@@ -20557,14 +20759,14 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/triggers#TurnCompletedFacts",
+              "id": "@eos/notification/src/triggers#TurnCompletedFacts",
               "name": "TurnCompletedFacts",
               "kind": "interface",
               "exported": true,
               "visibility": "public",
               "signature": "export interface TurnCompletedFacts",
               "docs": "Serialized mirror of the engine's `TurnFacts`; same two axes.",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 66,
               "fields": [
                 {
@@ -20608,13 +20810,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/triggers#IdleTimeoutFacts",
+              "id": "@eos/notification/src/triggers#IdleTimeoutFacts",
               "name": "IdleTimeoutFacts",
               "kind": "interface",
               "exported": true,
               "visibility": "public",
               "signature": "export interface IdleTimeoutFacts",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 79,
               "fields": [
                 {
@@ -20640,14 +20842,14 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/triggers#TriggerPayload",
+              "id": "@eos/notification/src/triggers#TriggerPayload",
               "name": "TriggerPayload",
               "kind": "interface",
               "exported": true,
               "visibility": "public",
               "signature": "export interface TriggerPayload",
               "docs": "What a trigger script receives (JSON over stdin; snake_case: crosses the process boundary).",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 85,
               "fields": [
                 {
@@ -20691,13 +20893,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/triggers#TriggerOutputSchema",
+              "id": "@eos/notification/src/triggers#TriggerOutputSchema",
               "name": "TriggerOutputSchema",
               "kind": "const",
               "exported": true,
               "visibility": "public",
               "signature": "export const TriggerOutputSchema = z.strictObject({ notification: z.string().min(1).optional(), })",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 101,
               "fields": [],
               "methods": [],
@@ -20710,14 +20912,14 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/triggers#TriggerCommandRun",
+              "id": "@eos/notification/src/triggers#TriggerCommandRun",
               "name": "TriggerCommandRun",
               "kind": "interface",
               "exported": true,
               "visibility": "public",
               "signature": "export interface TriggerCommandRun",
               "docs": "One command's settled run: a reminder to publish, a failure to log, or neither (skip).",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 106,
               "fields": [
                 {
@@ -20743,14 +20945,14 @@
               ]
             },
             {
-              "id": "@eos/notifications/src/triggers#TriggerCommandRunner",
+              "id": "@eos/notification/src/triggers#TriggerCommandRunner",
               "name": "TriggerCommandRunner",
               "kind": "type",
               "exported": true,
               "visibility": "public",
               "signature": "export type TriggerCommandRunner = ( command: CommandScript, payload: TriggerPayload, ) => Promise<TriggerCommandRun>",
               "docs": "The runner seam `NotificationTriggerEngine` calls. The spawn-backed\nimplementation lives with the shared command-spawn mechanics in\n`@eos/tool` (`runTriggerCommand`), the same dependency direction as the\ntool layer implementing the engine's `ToolExecutor` port; tests stub it.",
-              "file": "packages/notifications/src/triggers.ts",
+              "file": "packages/notification/src/triggers.ts",
               "line": 118,
               "fields": [],
               "methods": [],
@@ -20773,9 +20975,9 @@
           }
         },
         {
-          "id": "@eos/notifications/tests/inbox.test",
-          "packageName": "@eos/notifications",
-          "path": "packages/notifications/tests/inbox.test.ts",
+          "id": "@eos/notification/tests/inbox.test",
+          "packageName": "@eos/notification",
+          "path": "packages/notification/tests/inbox.test.ts",
           "kind": "test",
           "tags": [
             "test",
@@ -20821,13 +21023,13 @@
           "exports": [],
           "symbols": [
             {
-              "id": "@eos/notifications/tests/inbox.test#note",
+              "id": "@eos/notification/tests/inbox.test#note",
               "name": "note",
               "kind": "const",
               "exported": false,
               "visibility": "internal",
               "signature": "const note = (text: string) => fromUserText(text)",
-              "file": "packages/notifications/tests/inbox.test.ts",
+              "file": "packages/notification/tests/inbox.test.ts",
               "line": 12,
               "fields": [],
               "methods": [],
@@ -20850,9 +21052,9 @@
           }
         },
         {
-          "id": "@eos/notifications/tests/trigger-engine.test",
-          "packageName": "@eos/notifications",
-          "path": "packages/notifications/tests/trigger-engine.test.ts",
+          "id": "@eos/notification/tests/trigger-engine.test",
+          "packageName": "@eos/notification",
+          "path": "packages/notification/tests/trigger-engine.test.ts",
           "kind": "test",
           "tags": [
             "test",
@@ -20923,13 +21125,13 @@
           "exports": [],
           "symbols": [
             {
-              "id": "@eos/notifications/tests/trigger-engine.test#SNAPSHOT",
+              "id": "@eos/notification/tests/trigger-engine.test#SNAPSHOT",
               "name": "SNAPSHOT",
               "kind": "const",
               "exported": false,
               "visibility": "internal",
               "signature": "const SNAPSHOT: AgentRunSnapshot = { run_id: agentRunIdFrom(\"run-fixture\"), kind: \"main\", agent_name: \"main\", sandbox_id: sandboxIdFrom(\"sb-fixture\"), transcript_path: \"/dev/null\", workspace: { is_isolated: false }, }",
-              "file": "packages/notifications/tests/trigger-engine.test.ts",
+              "file": "packages/notification/tests/trigger-engine.test.ts",
               "line": 21,
               "fields": [],
               "methods": [],
@@ -20942,13 +21144,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/tests/trigger-engine.test#FACTS",
+              "id": "@eos/notification/tests/trigger-engine.test#FACTS",
               "name": "FACTS",
               "kind": "const",
               "exported": false,
               "visibility": "internal",
               "signature": "const FACTS: TurnFacts = { turn: 3, maxTurns: 10, toolCalls: 0, backgroundSessionCount: 0, hasPendingSteers: false, }",
-              "file": "packages/notifications/tests/trigger-engine.test.ts",
+              "file": "packages/notification/tests/trigger-engine.test.ts",
               "line": 29,
               "fields": [],
               "methods": [],
@@ -20961,13 +21163,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/tests/trigger-engine.test#command",
+              "id": "@eos/notification/tests/trigger-engine.test#command",
               "name": "command",
               "kind": "function",
               "exported": false,
               "visibility": "internal",
               "signature": "function command(name: string): CommandScript",
-              "file": "packages/notifications/tests/trigger-engine.test.ts",
+              "file": "packages/notification/tests/trigger-engine.test.ts",
               "line": 37,
               "fields": [],
               "methods": [],
@@ -20980,13 +21182,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/tests/trigger-engine.test#session",
+              "id": "@eos/notification/tests/trigger-engine.test#session",
               "name": "session",
               "kind": "function",
               "exported": false,
               "visibility": "internal",
               "signature": "function session(type: string, id: string): BackgroundSessionSnapshot",
-              "file": "packages/notifications/tests/trigger-engine.test.ts",
+              "file": "packages/notification/tests/trigger-engine.test.ts",
               "line": 41,
               "fields": [],
               "methods": [],
@@ -20999,13 +21201,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/tests/trigger-engine.test#turnRule",
+              "id": "@eos/notification/tests/trigger-engine.test#turnRule",
               "name": "turnRule",
               "kind": "function",
               "exported": false,
               "visibility": "internal",
               "signature": "function turnRule(...rules: CommandScript[]): TriggerRuleEntry",
-              "file": "packages/notifications/tests/trigger-engine.test.ts",
+              "file": "packages/notification/tests/trigger-engine.test.ts",
               "line": 45,
               "fields": [],
               "methods": [],
@@ -21018,13 +21220,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/tests/trigger-engine.test#idleRule",
+              "id": "@eos/notification/tests/trigger-engine.test#idleRule",
               "name": "idleRule",
               "kind": "function",
               "exported": false,
               "visibility": "internal",
               "signature": "function idleRule(timeoutMs: number, ...rules: CommandScript[]): TriggerRuleEntry",
-              "file": "packages/notifications/tests/trigger-engine.test.ts",
+              "file": "packages/notification/tests/trigger-engine.test.ts",
               "line": 49,
               "fields": [],
               "methods": [],
@@ -21037,13 +21239,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/tests/trigger-engine.test#reminder",
+              "id": "@eos/notification/tests/trigger-engine.test#reminder",
               "name": "reminder",
               "kind": "function",
               "exported": false,
               "visibility": "internal",
               "signature": "function reminder(source: \"TurnCompleted\" | \"IdleTimeout\", text: string)",
-              "file": "packages/notifications/tests/trigger-engine.test.ts",
+              "file": "packages/notification/tests/trigger-engine.test.ts",
               "line": 53,
               "fields": [],
               "methods": [],
@@ -21056,13 +21258,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/tests/trigger-engine.test#Fixture",
+              "id": "@eos/notification/tests/trigger-engine.test#Fixture",
               "name": "Fixture",
               "kind": "interface",
               "exported": false,
               "visibility": "internal",
               "signature": "interface Fixture",
-              "file": "packages/notifications/tests/trigger-engine.test.ts",
+              "file": "packages/notification/tests/trigger-engine.test.ts",
               "line": 57,
               "fields": [
                 {
@@ -21100,14 +21302,14 @@
               ]
             },
             {
-              "id": "@eos/notifications/tests/trigger-engine.test#fixture",
+              "id": "@eos/notification/tests/trigger-engine.test#fixture",
               "name": "fixture",
               "kind": "function",
               "exported": false,
               "visibility": "internal",
               "signature": "function fixture( rules: TriggerRuleEntry[], answers: Partial<Record<string, TriggerCommandRun | (() => Promise<TriggerCommandRun>)>> =",
               "docs": "An engine over a scripted runner: each command name maps to its answer.",
-              "file": "packages/notifications/tests/trigger-engine.test.ts",
+              "file": "packages/notification/tests/trigger-engine.test.ts",
               "line": 67,
               "fields": [],
               "methods": [],
@@ -21130,9 +21332,9 @@
           }
         },
         {
-          "id": "@eos/notifications/tests/triggers.test",
-          "packageName": "@eos/notifications",
-          "path": "packages/notifications/tests/triggers.test.ts",
+          "id": "@eos/notification/tests/triggers.test",
+          "packageName": "@eos/notification",
+          "path": "packages/notification/tests/triggers.test.ts",
           "kind": "test",
           "tags": [
             "test",
@@ -21163,13 +21365,13 @@
           "exports": [],
           "symbols": [
             {
-              "id": "@eos/notifications/tests/triggers.test#RUN",
+              "id": "@eos/notification/tests/triggers.test#RUN",
               "name": "RUN",
               "kind": "const",
               "exported": false,
               "visibility": "internal",
               "signature": "const RUN = { agent_name: \"researcher\", agent_kind: \"main\" } as const",
-              "file": "packages/notifications/tests/triggers.test.ts",
+              "file": "packages/notification/tests/triggers.test.ts",
               "line": 9,
               "fields": [],
               "methods": [],
@@ -21182,13 +21384,13 @@
               ]
             },
             {
-              "id": "@eos/notifications/tests/triggers.test#rule",
+              "id": "@eos/notification/tests/triggers.test#rule",
               "name": "rule",
               "kind": "function",
               "exported": false,
               "visibility": "internal",
               "signature": "function rule(matchers: Partial<Pick<TriggerRuleEntry, \"agent_name\" | \"agent_kind\">>): TriggerRuleEntry",
-              "file": "packages/notifications/tests/triggers.test.ts",
+              "file": "packages/notification/tests/triggers.test.ts",
               "line": 11,
               "fields": [],
               "methods": [],
@@ -21405,7 +21607,7 @@
               "exported": true,
               "visibility": "public",
               "signature": "export interface ScriptedBackgroundSessionOutcome",
-              "docs": "Structurally a `@eos/engine` `BackgroundSessionOutcome` /\n`BackgroundSessionHandle` pair. Testkit deliberately depends only on\ncontracts + tool, so the shapes are declared here and checked structurally\nat the registration site.",
+              "docs": "Structurally a `@eos/background` `BackgroundSessionOutcome` /\n`BackgroundSessionHandle` pair. Testkit deliberately depends only on\ncontracts + tool, so the shapes are declared here and checked structurally\nat the registration site.",
               "file": "packages/testkit/src/scripted-tools.ts",
               "line": 57,
               "fields": [
@@ -21614,9 +21816,10 @@
           "."
         ],
         "dependencies": [
+          "@eos/background",
           "@eos/contracts",
           "@eos/engine",
-          "@eos/notifications",
+          "@eos/notification",
           "zod"
         ],
         "devDependencies": [
@@ -23910,13 +24113,20 @@
               "line": 1
             },
             {
-              "source": "@eos/engine",
+              "source": "@eos/background",
               "imported": [
-                "AgentRunHandle",
                 "BackgroundSessionSupervisor"
               ],
               "typeOnly": true,
               "line": 2
+            },
+            {
+              "source": "@eos/engine",
+              "imported": [
+                "AgentRunHandle"
+              ],
+              "typeOnly": true,
+              "line": 3
             },
             {
               "source": "../../contract.js",
@@ -23924,7 +24134,7 @@
                 "ToolDefinition"
               ],
               "typeOnly": true,
-              "line": 4
+              "line": 5
             },
             {
               "source": "./ask-advisor.js",
@@ -23932,7 +24142,7 @@
                 "askAdvisorTool"
               ],
               "typeOnly": false,
-              "line": 5
+              "line": 6
             },
             {
               "source": "./read-agent-run-transcript.js",
@@ -23940,7 +24150,7 @@
                 "readAgentRunTranscriptTool"
               ],
               "typeOnly": false,
-              "line": 6
+              "line": 7
             },
             {
               "source": "./run-subagent.js",
@@ -23948,7 +24158,7 @@
                 "runSubagentTool"
               ],
               "typeOnly": false,
-              "line": 7
+              "line": 8
             }
           ],
           "exports": [
@@ -23958,7 +24168,7 @@
                 "ADVISOR_AGENT_NAME"
               ],
               "typeOnly": false,
-              "line": 9
+              "line": 10
             }
           ],
           "symbols": [
@@ -23970,7 +24180,7 @@
               "visibility": "public",
               "signature": "export const AGENT_TOOL_NAMES = [ \"run_subagent\", \"ask_advisor\", \"read_agent_run_transcript\", ] as const",
               "file": "packages/tool/src/tools/agent/index.ts",
-              "line": 12,
+              "line": 13,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -23989,7 +24199,7 @@
               "visibility": "public",
               "signature": "export type AgentToolUserMessage = Message &",
               "file": "packages/tool/src/tools/agent/index.ts",
-              "line": 18,
+              "line": 19,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -24008,7 +24218,7 @@
               "visibility": "public",
               "signature": "export interface StartAgentToolRunParams",
               "file": "packages/tool/src/tools/agent/index.ts",
-              "line": 20,
+              "line": 21,
               "fields": [
                 {
                   "name": "agentName",
@@ -24047,7 +24257,7 @@
               "visibility": "public",
               "signature": "export interface StartedAgentToolRun",
               "file": "packages/tool/src/tools/agent/index.ts",
-              "line": 26,
+              "line": 27,
               "fields": [
                 {
                   "name": "runId",
@@ -24079,7 +24289,7 @@
               "visibility": "public",
               "signature": "export interface AgentToolTranscriptRead",
               "file": "packages/tool/src/tools/agent/index.ts",
-              "line": 31,
+              "line": 32,
               "fields": [
                 {
                   "name": "data",
@@ -24118,7 +24328,7 @@
               "signature": "export interface AgentRunCalls",
               "docs": "Narrow bound runtime calls - never a service object (§5).",
               "file": "packages/tool/src/tools/agent/index.ts",
-              "line": 38,
+              "line": 39,
               "fields": [],
               "methods": [
                 {
@@ -24126,28 +24336,28 @@
                   "signature": "startRun(params: StartAgentToolRunParams): StartedAgentToolRun;",
                   "async": false,
                   "static": false,
-                  "line": 40
+                  "line": 41
                 },
                 {
                   "name": "transcriptPathOf",
                   "signature": "transcriptPathOf(runId: AgentRunId): string | undefined;",
                   "async": false,
                   "static": false,
-                  "line": 42
+                  "line": 43
                 },
                 {
                   "name": "readTranscriptFile",
                   "signature": "readTranscriptFile(\n    path: string,\n    offset: number,\n    maxBytes: number,\n  ): Promise<AgentToolTranscriptRead>;",
                   "async": false,
                   "static": false,
-                  "line": 44
+                  "line": 45
                 },
                 {
                   "name": "advisorPromptFor",
                   "signature": "advisorPromptFor(toolName: string): string | undefined;",
                   "async": false,
                   "static": false,
-                  "line": 50
+                  "line": 51
                 }
               ],
               "variants": [],
@@ -24167,7 +24377,7 @@
               "signature": "export function agentTools( calls: AgentRunCalls, supervisor: BackgroundSessionSupervisor, ): ToolDefinition[]",
               "docs": "The agent family, one bound definition per `AGENT_TOOL_NAMES` entry.",
               "file": "packages/tool/src/tools/agent/index.ts",
-              "line": 54,
+              "line": 55,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -24365,12 +24575,19 @@
               "source": "@eos/engine",
               "imported": [
                 "RUN_FINISHED_DISPOSE_REASON",
-                "type AgentRunOutcome",
-                "type BackgroundSessionSupervisor",
-                "type BackgroundSessionOutcome"
+                "type AgentRunOutcome"
               ],
               "typeOnly": false,
               "line": 2
+            },
+            {
+              "source": "@eos/background",
+              "imported": [
+                "BackgroundSessionOutcome",
+                "BackgroundSessionSupervisor"
+              ],
+              "typeOnly": true,
+              "line": 6
             },
             {
               "source": "zod",
@@ -24378,7 +24595,7 @@
                 "z"
               ],
               "typeOnly": false,
-              "line": 8
+              "line": 10
             },
             {
               "source": "../../contract.js",
@@ -24386,7 +24603,7 @@
                 "ToolDefinition"
               ],
               "typeOnly": true,
-              "line": 10
+              "line": 12
             },
             {
               "source": "../../define.js",
@@ -24394,7 +24611,7 @@
                 "defineTool"
               ],
               "typeOnly": false,
-              "line": 11
+              "line": 13
             },
             {
               "source": "./index.js",
@@ -24403,7 +24620,7 @@
                 "AgentToolUserMessage"
               ],
               "typeOnly": true,
-              "line": 12
+              "line": 14
             }
           ],
           "exports": [],
@@ -24416,7 +24633,7 @@
               "visibility": "internal",
               "signature": "function userText(text: string): AgentToolUserMessage",
               "file": "packages/tool/src/tools/agent/run-subagent.ts",
-              "line": 14,
+              "line": 16,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -24434,7 +24651,7 @@
               "visibility": "internal",
               "signature": "const RunSubagentInputSchema = z.object({ agent_name: z.string().min(1), prompt: z.string().min(1), })",
               "file": "packages/tool/src/tools/agent/run-subagent.ts",
-              "line": 18,
+              "line": 20,
               "fields": [
                 {
                   "name": "agent_name",
@@ -24467,7 +24684,7 @@
               "visibility": "public",
               "signature": "export function runSubagentTool( calls: AgentRunCalls, supervisor: BackgroundSessionSupervisor, ): ToolDefinition",
               "file": "packages/tool/src/tools/agent/run-subagent.ts",
-              "line": 23,
+              "line": 25,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -24486,7 +24703,7 @@
               "visibility": "internal",
               "signature": "function mapSubagentOutcome(outcome: AgentRunOutcome): BackgroundSessionOutcome",
               "file": "packages/tool/src/tools/agent/run-subagent.ts",
-              "line": 62,
+              "line": 64,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -24504,7 +24721,7 @@
               "visibility": "internal",
               "signature": "function submissionSummary(submission: JsonValue | undefined): string",
               "file": "packages/tool/src/tools/agent/run-subagent.ts",
-              "line": 73,
+              "line": 75,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -24535,7 +24752,7 @@
           ],
           "imports": [
             {
-              "source": "@eos/engine",
+              "source": "@eos/background",
               "imported": [
                 "BackgroundSessionSupervisor"
               ],
@@ -24648,7 +24865,7 @@
           ],
           "imports": [
             {
-              "source": "@eos/engine",
+              "source": "@eos/background",
               "imported": [
                 "BackgroundSessionSupervisor"
               ],
@@ -24749,20 +24966,13 @@
               "line": 1
             },
             {
-              "source": "@eos/engine",
+              "source": "@eos/background",
               "imported": [
+                "BackgroundSessionRow",
                 "BackgroundSessionSupervisor"
               ],
               "typeOnly": true,
               "line": 2
-            },
-            {
-              "source": "@eos/engine",
-              "imported": [
-                "BackgroundSessionRow"
-              ],
-              "typeOnly": true,
-              "line": 3
             },
             {
               "source": "zod",
@@ -24770,7 +24980,7 @@
                 "z"
               ],
               "typeOnly": false,
-              "line": 4
+              "line": 6
             },
             {
               "source": "../../contract.js",
@@ -24778,7 +24988,7 @@
                 "ToolDefinition"
               ],
               "typeOnly": true,
-              "line": 6
+              "line": 8
             },
             {
               "source": "../../define.js",
@@ -24786,7 +24996,7 @@
                 "defineTool"
               ],
               "typeOnly": false,
-              "line": 7
+              "line": 9
             }
           ],
           "exports": [],
@@ -24800,7 +25010,7 @@
               "signature": "export function listBackgroundSessionsTool( supervisor: BackgroundSessionSupervisor, ): ToolDefinition",
               "docs": "Rows for running plus settled-but-undelivered sessions.",
               "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-              "line": 10,
+              "line": 12,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -24819,7 +25029,7 @@
               "visibility": "internal",
               "signature": "function backgroundSessionRowContent(row: BackgroundSessionRow): JsonObject",
               "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-              "line": 25,
+              "line": 27,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -25647,7 +25857,7 @@
           ],
           "imports": [
             {
-              "source": "@eos/notifications",
+              "source": "@eos/notification",
               "imported": [
                 "TriggerOutputSchema",
                 "type TriggerCommandRunner"
@@ -25914,7 +26124,7 @@
               "line": 3
             },
             {
-              "source": "@eos/engine",
+              "source": "@eos/background",
               "imported": [
                 "BackgroundSessionSupervisor"
               ],
@@ -25922,7 +26132,7 @@
               "line": 4
             },
             {
-              "source": "@eos/notifications",
+              "source": "@eos/notification",
               "imported": [
                 "NotificationInbox"
               ],
@@ -26638,7 +26848,7 @@
               "line": 1
             },
             {
-              "source": "@eos/engine",
+              "source": "@eos/background",
               "imported": [
                 "BackgroundSessionSupervisor"
               ],
@@ -26646,7 +26856,7 @@
               "line": 3
             },
             {
-              "source": "@eos/notifications",
+              "source": "@eos/notification",
               "imported": [
                 "NotificationInbox"
               ],
@@ -26751,7 +26961,7 @@
               "line": 1
             },
             {
-              "source": "@eos/notifications",
+              "source": "@eos/notification",
               "imported": [
                 "CommandScript",
                 "TriggerPayload"
@@ -26845,7 +27055,7 @@
         "types": 8,
         "functions": 61,
         "schemas": 10,
-        "relations": 232,
+        "relations": 234,
         "sourceModules": 25,
         "testModules": 8,
         "empty": false
@@ -26900,7 +27110,7 @@
       "to": "LlmClient",
       "kind": "implements",
       "file": "packages/engine/tests/support.ts",
-      "line": 45
+      "line": 47
     },
     {
       "from": "@eos/llm-client/src/stream-client#LlmStreamClient",
@@ -26924,10 +27134,10 @@
       "line": 154
     },
     {
-      "from": "@eos/notifications/src/trigger-engine#NotificationTriggerEngine",
+      "from": "@eos/notification/src/trigger-engine#NotificationTriggerEngine",
       "to": "LoopObserver",
       "kind": "implements",
-      "file": "packages/notifications/src/trigger-engine.ts",
+      "file": "packages/notification/src/trigger-engine.ts",
       "line": 39
     },
     {
@@ -28172,7 +28382,7 @@
     },
     {
       "from": "@eos/agent-runtime/src/notification-rules-config",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/agent-runtime/src/notification-rules-config.ts",
@@ -28268,6 +28478,14 @@
     },
     {
       "from": "@eos/agent-runtime/src/runtime",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/agent-runtime/src/runtime.ts",
+      "line": 11
+    },
+    {
+      "from": "@eos/agent-runtime/src/runtime",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
@@ -28284,7 +28502,7 @@
     },
     {
       "from": "@eos/agent-runtime/src/runtime",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/agent-runtime/src/runtime.ts",
@@ -28580,7 +28798,7 @@
     },
     {
       "from": "@eos/agent-runtime/tests/runtime.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/agent-runtime/tests/runtime.test.ts",
@@ -28763,6 +28981,62 @@
       "line": 4
     },
     {
+      "from": "@eos/background/src/background-session-supervisor",
+      "to": "@eos/background/src/background-session",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/background/src/background-session-supervisor.ts",
+      "line": 5
+    },
+    {
+      "from": "@eos/background/src/background-session-supervisor",
+      "to": "@eos/notification",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/background/src/background-session-supervisor.ts",
+      "line": 1
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/background/src/index",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 3
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/background/tests/support",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 8
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/notification",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 4
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "vitest",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 1
+    },
+    {
+      "from": "@eos/background/tests/support",
+      "to": "@eos/background/src/index",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/background/tests/support.ts",
+      "line": 1
+    },
+    {
       "from": "@eos/contracts/src/advisory",
       "to": "@eos/contracts/src/json",
       "kind": "imports",
@@ -28892,19 +29166,19 @@
     },
     {
       "from": "@eos/engine/src/agent-loop",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/engine/src/agent-loop.ts",
+      "line": 13
+    },
+    {
+      "from": "@eos/engine/src/agent-loop",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/engine/src/agent-loop.ts",
       "line": 1
-    },
-    {
-      "from": "@eos/engine/src/agent-loop",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/engine/src/agent-loop.ts",
-      "line": 14
     },
     {
       "from": "@eos/engine/src/agent-loop",
@@ -28940,27 +29214,11 @@
     },
     {
       "from": "@eos/engine/src/agent-loop",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/engine/src/agent-loop.ts",
       "line": 3
-    },
-    {
-      "from": "@eos/engine/src/background/background-session-supervisor",
-      "to": "@eos/engine/src/background/background-session",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/engine/src/background/background-session-supervisor.ts",
-      "line": 5
-    },
-    {
-      "from": "@eos/engine/src/background/background-session-supervisor",
-      "to": "@eos/notifications",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/src/background/background-session-supervisor.ts",
-      "line": 1
     },
     {
       "from": "@eos/engine/src/conversation",
@@ -28988,6 +29246,14 @@
     },
     {
       "from": "@eos/engine/src/index",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/engine/src/index.ts",
+      "line": 5
+    },
+    {
+      "from": "@eos/engine/src/index",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
@@ -28999,14 +29265,6 @@
       "to": "@eos/engine/src/agent-loop",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/engine/src/index.ts",
-      "line": 6
-    },
-    {
-      "from": "@eos/engine/src/index",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "imports",
-      "typeOnly": true,
       "file": "packages/engine/src/index.ts",
       "line": 7
     },
@@ -29036,7 +29294,7 @@
     },
     {
       "from": "@eos/engine/src/index",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/engine/src/index.ts",
@@ -29100,19 +29358,19 @@
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/engine/tests/agent-loop.test.ts",
+      "line": 8
+    },
+    {
+      "from": "@eos/engine/tests/agent-loop.test",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
       "line": 5
-    },
-    {
-      "from": "@eos/engine/tests/agent-loop.test",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/tests/agent-loop.test.ts",
-      "line": 9
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
@@ -29140,7 +29398,7 @@
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
@@ -29161,38 +29419,6 @@
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
       "line": 3
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 3
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/engine/tests/support",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 8
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/notifications",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 4
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "vitest",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 1
     },
     {
       "from": "@eos/engine/tests/conversation.test",
@@ -29224,7 +29450,15 @@
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/engine/tests/support.ts",
-      "line": 23
+      "line": 25
+    },
+    {
+      "from": "@eos/engine/tests/support",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/engine/tests/support.ts",
+      "line": 20
     },
     {
       "from": "@eos/engine/tests/support",
@@ -29236,27 +29470,11 @@
     },
     {
       "from": "@eos/engine/tests/support",
-      "to": "@eos/engine/src/background/background-session",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/engine/tests/support.ts",
-      "line": 21
-    },
-    {
-      "from": "@eos/engine/tests/support",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/engine/tests/support.ts",
-      "line": 22
-    },
-    {
-      "from": "@eos/engine/tests/support",
       "to": "@eos/engine/src/index",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/engine/tests/support.ts",
-      "line": 29
+      "line": 31
     },
     {
       "from": "@eos/engine/tests/support",
@@ -29268,11 +29486,11 @@
     },
     {
       "from": "@eos/engine/tests/support",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/engine/tests/support.ts",
-      "line": 24
+      "line": 26
     },
     {
       "from": "@eos/engine/tests/support",
@@ -30475,155 +30693,155 @@
       "line": 1
     },
     {
-      "from": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/src/inbox",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/src/inbox.ts",
+      "file": "packages/notification/src/inbox.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/src/trigger-engine",
+      "from": "@eos/notification/src/trigger-engine",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/src/trigger-engine.ts",
+      "file": "packages/notification/src/trigger-engine.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/src/trigger-engine",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/src/trigger-engine",
+      "to": "@eos/notification/src/inbox",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/src/trigger-engine.ts",
+      "file": "packages/notification/src/trigger-engine.ts",
       "line": 6
     },
     {
-      "from": "@eos/notifications/src/trigger-engine",
-      "to": "@eos/notifications/src/loop-observer",
+      "from": "@eos/notification/src/trigger-engine",
+      "to": "@eos/notification/src/loop-observer",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/src/trigger-engine.ts",
+      "file": "packages/notification/src/trigger-engine.ts",
       "line": 7
     },
     {
-      "from": "@eos/notifications/src/trigger-engine",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/src/trigger-engine",
+      "to": "@eos/notification/src/triggers",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/src/trigger-engine.ts",
+      "file": "packages/notification/src/trigger-engine.ts",
       "line": 8
     },
     {
-      "from": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/src/triggers",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/src/triggers",
       "to": "zod",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 7
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 5
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/tests/inbox.test",
+      "to": "@eos/notification/src/inbox",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 7
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "node:events",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "vitest",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
+      "from": "@eos/notification/tests/trigger-engine.test",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/inbox",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 10
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/loop-observer",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/loop-observer",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 11
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/trigger-engine",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/trigger-engine",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 12
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/triggers",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 13
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
+      "from": "@eos/notification/tests/trigger-engine.test",
       "to": "vitest",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/tests/triggers.test",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/tests/triggers.test",
+      "to": "@eos/notification/src/triggers",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/triggers.test.ts",
+      "file": "packages/notification/tests/triggers.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/triggers.test",
+      "from": "@eos/notification/tests/triggers.test",
       "to": "vitest",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/triggers.test.ts",
+      "file": "packages/notification/tests/triggers.test.ts",
       "line": 1
     },
     {
@@ -30900,6 +31118,14 @@
     },
     {
       "from": "@eos/tool/src/tools/agent/index",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/tool/src/tools/agent/index.ts",
+      "line": 2
+    },
+    {
+      "from": "@eos/tool/src/tools/agent/index",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": true,
@@ -30912,7 +31138,7 @@
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 2
+      "line": 3
     },
     {
       "from": "@eos/tool/src/tools/agent/index",
@@ -30920,7 +31146,7 @@
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 4
+      "line": 5
     },
     {
       "from": "@eos/tool/src/tools/agent/index",
@@ -30928,7 +31154,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 5
+      "line": 6
     },
     {
       "from": "@eos/tool/src/tools/agent/index",
@@ -30936,7 +31162,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 6
+      "line": 7
     },
     {
       "from": "@eos/tool/src/tools/agent/index",
@@ -30944,7 +31170,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 7
+      "line": 8
     },
     {
       "from": "@eos/tool/src/tools/agent/read-agent-run-transcript",
@@ -30988,6 +31214,14 @@
     },
     {
       "from": "@eos/tool/src/tools/agent/run-subagent",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/tool/src/tools/agent/run-subagent.ts",
+      "line": 6
+    },
+    {
+      "from": "@eos/tool/src/tools/agent/run-subagent",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": true,
@@ -31008,7 +31242,7 @@
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/agent/run-subagent.ts",
-      "line": 10
+      "line": 12
     },
     {
       "from": "@eos/tool/src/tools/agent/run-subagent",
@@ -31016,7 +31250,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/run-subagent.ts",
-      "line": 11
+      "line": 13
     },
     {
       "from": "@eos/tool/src/tools/agent/run-subagent",
@@ -31024,7 +31258,7 @@
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/agent/run-subagent.ts",
-      "line": 12
+      "line": 14
     },
     {
       "from": "@eos/tool/src/tools/agent/run-subagent",
@@ -31032,11 +31266,11 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/run-subagent.ts",
-      "line": 8
+      "line": 10
     },
     {
       "from": "@eos/tool/src/tools/background/cancel-background-session",
-      "to": "@eos/engine",
+      "to": "@eos/background",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/background/cancel-background-session.ts",
@@ -31068,7 +31302,7 @@
     },
     {
       "from": "@eos/tool/src/tools/background/index",
-      "to": "@eos/engine",
+      "to": "@eos/background",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/background/index.ts",
@@ -31100,6 +31334,14 @@
     },
     {
       "from": "@eos/tool/src/tools/background/list-background-sessions",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/tool/src/tools/background/list-background-sessions.ts",
+      "line": 2
+    },
+    {
+      "from": "@eos/tool/src/tools/background/list-background-sessions",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": true,
@@ -31108,27 +31350,11 @@
     },
     {
       "from": "@eos/tool/src/tools/background/list-background-sessions",
-      "to": "@eos/engine",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-      "line": 2
-    },
-    {
-      "from": "@eos/tool/src/tools/background/list-background-sessions",
-      "to": "@eos/engine",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-      "line": 3
-    },
-    {
-      "from": "@eos/tool/src/tools/background/list-background-sessions",
       "to": "@eos/tool/src/contract",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-      "line": 6
+      "line": 8
     },
     {
       "from": "@eos/tool/src/tools/background/list-background-sessions",
@@ -31136,7 +31362,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-      "line": 7
+      "line": 9
     },
     {
       "from": "@eos/tool/src/tools/background/list-background-sessions",
@@ -31144,7 +31370,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-      "line": 4
+      "line": 6
     },
     {
       "from": "@eos/tool/src/tools/submission/index",
@@ -31372,7 +31598,7 @@
     },
     {
       "from": "@eos/tool/src/trigger-runner",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/trigger-runner.ts",
@@ -31484,6 +31710,14 @@
     },
     {
       "from": "@eos/tool/tests/families.test",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/tool/tests/families.test.ts",
+      "line": 4
+    },
+    {
+      "from": "@eos/tool/tests/families.test",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
@@ -31492,15 +31726,7 @@
     },
     {
       "from": "@eos/tool/tests/families.test",
-      "to": "@eos/engine",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/tool/tests/families.test.ts",
-      "line": 4
-    },
-    {
-      "from": "@eos/tool/tests/families.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/tests/families.test.ts",
@@ -31724,7 +31950,7 @@
     },
     {
       "from": "@eos/tool/tests/toolset.test",
-      "to": "@eos/engine",
+      "to": "@eos/background",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/tests/toolset.test.ts",
@@ -31732,7 +31958,7 @@
     },
     {
       "from": "@eos/tool/tests/toolset.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/tests/toolset.test.ts",
@@ -31788,7 +32014,7 @@
     },
     {
       "from": "@eos/tool/tests/trigger-runner.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/tests/trigger-runner.test.ts",
@@ -31828,6 +32054,11 @@
     },
     {
       "from": "@eos/agent-runtime",
+      "to": "@eos/background",
+      "kind": "package-depends-on"
+    },
+    {
+      "from": "@eos/agent-runtime",
       "to": "@eos/contracts",
       "kind": "package-depends-on"
     },
@@ -31843,7 +32074,7 @@
     },
     {
       "from": "@eos/agent-runtime",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "package-depends-on"
     },
     {
@@ -31862,6 +32093,11 @@
       "kind": "package-depends-on"
     },
     {
+      "from": "@eos/background",
+      "to": "@eos/notification",
+      "kind": "package-depends-on"
+    },
+    {
       "from": "@eos/contracts",
       "to": "zod",
       "kind": "package-depends-on"
@@ -31869,6 +32105,11 @@
     {
       "from": "@eos/engine",
       "to": "@eos/agent-runtime",
+      "kind": "package-depends-on"
+    },
+    {
+      "from": "@eos/engine",
+      "to": "@eos/background",
       "kind": "package-depends-on"
     },
     {
@@ -31883,7 +32124,7 @@
     },
     {
       "from": "@eos/engine",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "package-depends-on"
     },
     {
@@ -31907,12 +32148,12 @@
       "kind": "package-depends-on"
     },
     {
-      "from": "@eos/notifications",
+      "from": "@eos/notification",
       "to": "@eos/contracts",
       "kind": "package-depends-on"
     },
     {
-      "from": "@eos/notifications",
+      "from": "@eos/notification",
       "to": "zod",
       "kind": "package-depends-on"
     },
@@ -31928,6 +32169,11 @@
     },
     {
       "from": "@eos/tool",
+      "to": "@eos/background",
+      "kind": "package-depends-on"
+    },
+    {
+      "from": "@eos/tool",
       "to": "@eos/contracts",
       "kind": "package-depends-on"
     },
@@ -31938,7 +32184,7 @@
     },
     {
       "from": "@eos/tool",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "package-depends-on"
     },
     {
@@ -31993,6 +32239,22 @@
       "typeOnly": false,
       "file": "packages/agent-runtime/src/index.ts",
       "line": 6
+    },
+    {
+      "from": "@eos/background/src/index",
+      "to": "@eos/background/src/background-session",
+      "kind": "reexports",
+      "typeOnly": true,
+      "file": "packages/background/src/index.ts",
+      "line": 1
+    },
+    {
+      "from": "@eos/background/src/index",
+      "to": "@eos/background/src/background-session-supervisor",
+      "kind": "reexports",
+      "typeOnly": false,
+      "file": "packages/background/src/index.ts",
+      "line": 8
     },
     {
       "from": "@eos/contracts/src/index",
@@ -32056,7 +32318,7 @@
       "kind": "reexports",
       "typeOnly": true,
       "file": "packages/engine/src/index.ts",
-      "line": 20
+      "line": 12
     },
     {
       "from": "@eos/engine/src/index",
@@ -32068,27 +32330,11 @@
     },
     {
       "from": "@eos/engine/src/index",
-      "to": "@eos/engine/src/background/background-session",
-      "kind": "reexports",
-      "typeOnly": true,
-      "file": "packages/engine/src/index.ts",
-      "line": 12
-    },
-    {
-      "from": "@eos/engine/src/index",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "reexports",
-      "typeOnly": false,
-      "file": "packages/engine/src/index.ts",
-      "line": 19
-    },
-    {
-      "from": "@eos/engine/src/index",
       "to": "@eos/engine/src/tool-executor",
       "kind": "reexports",
       "typeOnly": true,
       "file": "packages/engine/src/index.ts",
-      "line": 28
+      "line": 20
     },
     {
       "from": "@eos/llm-client/src/index",
@@ -32155,35 +32401,35 @@
       "line": 22
     },
     {
-      "from": "@eos/notifications/src/index",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/src/index",
+      "to": "@eos/notification/src/inbox",
       "kind": "reexports",
       "typeOnly": false,
-      "file": "packages/notifications/src/index.ts",
+      "file": "packages/notification/src/index.ts",
       "line": 7
     },
     {
-      "from": "@eos/notifications/src/index",
-      "to": "@eos/notifications/src/loop-observer",
+      "from": "@eos/notification/src/index",
+      "to": "@eos/notification/src/loop-observer",
       "kind": "reexports",
       "typeOnly": true,
-      "file": "packages/notifications/src/index.ts",
+      "file": "packages/notification/src/index.ts",
       "line": 11
     },
     {
-      "from": "@eos/notifications/src/index",
-      "to": "@eos/notifications/src/trigger-engine",
+      "from": "@eos/notification/src/index",
+      "to": "@eos/notification/src/trigger-engine",
       "kind": "reexports",
       "typeOnly": false,
-      "file": "packages/notifications/src/index.ts",
+      "file": "packages/notification/src/index.ts",
       "line": 12
     },
     {
-      "from": "@eos/notifications/src/index",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/src/index",
+      "to": "@eos/notification/src/triggers",
       "kind": "reexports",
       "typeOnly": false,
-      "file": "packages/notifications/src/index.ts",
+      "file": "packages/notification/src/index.ts",
       "line": 13
     },
     {
@@ -32288,7 +32534,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 9
+      "line": 10
     },
     {
       "from": "@eos/tool/src/tools/submission/index",
@@ -32436,17 +32682,17 @@
       "line": 12
     },
     {
-      "from": "@eos/notifications/src/triggers#CommandScriptSchema",
-      "to": "@eos/notifications/src/triggers#CommandScript",
+      "from": "@eos/notification/src/triggers#CommandScriptSchema",
+      "to": "@eos/notification/src/triggers#CommandScript",
       "kind": "schema-infers-type",
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 23
     },
     {
-      "from": "@eos/notifications/src/triggers#TriggerRuleEntrySchema",
-      "to": "@eos/notifications/src/triggers#TriggerRuleEntry",
+      "from": "@eos/notification/src/triggers#TriggerRuleEntrySchema",
+      "to": "@eos/notification/src/triggers#TriggerRuleEntry",
       "kind": "schema-infers-type",
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 53
     },
     {
@@ -32711,7 +32957,7 @@
     },
     {
       "from": "@eos/agent-runtime/tests/runtime.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/agent-runtime/tests/runtime.test.ts",
@@ -32894,6 +33140,46 @@
       "line": 4
     },
     {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/background/src/index",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 3
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/background/tests/support",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 8
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/notification",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 4
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "vitest",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 1
+    },
+    {
+      "from": "@eos/background/tests/support",
+      "to": "@eos/background/src/index",
+      "kind": "tests",
+      "typeOnly": true,
+      "file": "packages/background/tests/support.ts",
+      "line": 1
+    },
+    {
       "from": "@eos/contracts/tests/contracts.test",
       "to": "@eos/contracts/src/index",
       "kind": "tests",
@@ -32919,19 +33205,19 @@
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
+      "to": "@eos/background",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/engine/tests/agent-loop.test.ts",
+      "line": 8
+    },
+    {
+      "from": "@eos/engine/tests/agent-loop.test",
       "to": "@eos/contracts",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
       "line": 5
-    },
-    {
-      "from": "@eos/engine/tests/agent-loop.test",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/engine/tests/agent-loop.test.ts",
-      "line": 9
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
@@ -32959,7 +33245,7 @@
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
@@ -32980,38 +33266,6 @@
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
       "line": 3
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 3
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/engine/tests/support",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 8
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/notifications",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 4
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "vitest",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 1
     },
     {
       "from": "@eos/engine/tests/conversation.test",
@@ -33043,7 +33297,15 @@
       "kind": "tests",
       "typeOnly": true,
       "file": "packages/engine/tests/support.ts",
-      "line": 23
+      "line": 25
+    },
+    {
+      "from": "@eos/engine/tests/support",
+      "to": "@eos/background",
+      "kind": "tests",
+      "typeOnly": true,
+      "file": "packages/engine/tests/support.ts",
+      "line": 20
     },
     {
       "from": "@eos/engine/tests/support",
@@ -33055,27 +33317,11 @@
     },
     {
       "from": "@eos/engine/tests/support",
-      "to": "@eos/engine/src/background/background-session",
-      "kind": "tests",
-      "typeOnly": true,
-      "file": "packages/engine/tests/support.ts",
-      "line": 21
-    },
-    {
-      "from": "@eos/engine/tests/support",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "tests",
-      "typeOnly": true,
-      "file": "packages/engine/tests/support.ts",
-      "line": 22
-    },
-    {
-      "from": "@eos/engine/tests/support",
       "to": "@eos/engine/src/index",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/engine/tests/support.ts",
-      "line": 29
+      "line": 31
     },
     {
       "from": "@eos/engine/tests/support",
@@ -33087,11 +33333,11 @@
     },
     {
       "from": "@eos/engine/tests/support",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": true,
       "file": "packages/engine/tests/support.ts",
-      "line": 24
+      "line": 26
     },
     {
       "from": "@eos/engine/tests/support",
@@ -33702,99 +33948,99 @@
       "line": 1
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "@eos/contracts",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 5
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/tests/inbox.test",
+      "to": "@eos/notification/src/inbox",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 7
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "node:events",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "vitest",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
+      "from": "@eos/notification/tests/trigger-engine.test",
       "to": "@eos/contracts",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/inbox",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 10
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/loop-observer",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/loop-observer",
       "kind": "tests",
       "typeOnly": true,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 11
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/trigger-engine",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/trigger-engine",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 12
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/triggers",
       "kind": "tests",
       "typeOnly": true,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 13
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
+      "from": "@eos/notification/tests/trigger-engine.test",
       "to": "vitest",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/tests/triggers.test",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/tests/triggers.test",
+      "to": "@eos/notification/src/triggers",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/triggers.test.ts",
+      "file": "packages/notification/tests/triggers.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/triggers.test",
+      "from": "@eos/notification/tests/triggers.test",
       "to": "vitest",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/triggers.test.ts",
+      "file": "packages/notification/tests/triggers.test.ts",
       "line": 1
     },
     {
@@ -33895,6 +34141,14 @@
     },
     {
       "from": "@eos/tool/tests/families.test",
+      "to": "@eos/background",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/tool/tests/families.test.ts",
+      "line": 4
+    },
+    {
+      "from": "@eos/tool/tests/families.test",
       "to": "@eos/contracts",
       "kind": "tests",
       "typeOnly": false,
@@ -33903,15 +34157,7 @@
     },
     {
       "from": "@eos/tool/tests/families.test",
-      "to": "@eos/engine",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/tool/tests/families.test.ts",
-      "line": 4
-    },
-    {
-      "from": "@eos/tool/tests/families.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/tool/tests/families.test.ts",
@@ -34135,7 +34381,7 @@
     },
     {
       "from": "@eos/tool/tests/toolset.test",
-      "to": "@eos/engine",
+      "to": "@eos/background",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/tool/tests/toolset.test.ts",
@@ -34143,7 +34389,7 @@
     },
     {
       "from": "@eos/tool/tests/toolset.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/tool/tests/toolset.test.ts",
@@ -34199,7 +34445,7 @@
     },
     {
       "from": "@eos/tool/tests/trigger-runner.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": true,
       "file": "packages/tool/tests/trigger-runner.test.ts",
@@ -34462,24 +34708,24 @@
       "line": 50
     },
     {
-      "from": "@eos/notifications/src/triggers#CommandScript",
-      "to": "@eos/notifications/src/triggers#CommandScriptSchema",
+      "from": "@eos/notification/src/triggers#CommandScript",
+      "to": "@eos/notification/src/triggers#CommandScriptSchema",
       "kind": "uses-schema",
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 23
     },
     {
-      "from": "@eos/notifications/src/triggers#TriggerRuleEntry",
-      "to": "@eos/notifications/src/triggers#TriggerRuleEntrySchema",
+      "from": "@eos/notification/src/triggers#TriggerRuleEntry",
+      "to": "@eos/notification/src/triggers#TriggerRuleEntrySchema",
       "kind": "uses-schema",
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 53
     },
     {
-      "from": "@eos/notifications/src/triggers#TriggerRuleEntrySchema",
-      "to": "@eos/notifications/src/triggers#CommandScriptSchema",
+      "from": "@eos/notification/src/triggers#TriggerRuleEntrySchema",
+      "to": "@eos/notification/src/triggers#CommandScriptSchema",
       "kind": "uses-schema",
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 39
     },
     {
@@ -34540,14 +34786,14 @@
     }
   ],
   "stats": {
-    "packages": 9,
-    "modules": 134,
-    "symbols": 652,
+    "packages": 10,
+    "modules": 136,
+    "symbols": 656,
     "classes": 17,
-    "interfaces": 108,
+    "interfaces": 109,
     "types": 60,
-    "functions": 321,
+    "functions": 324,
     "schemas": 42,
-    "relations": 979
+    "relations": 985
   }
 }

@@ -66,6 +66,9 @@ importers:
 
   packages/agent-runtime:
     dependencies:
+      '@eos/background':
+        specifier: workspace:*
+        version: link:../background
       '@eos/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -75,9 +78,9 @@ importers:
       '@eos/llm-client':
         specifier: workspace:*
         version: link:../llm-client
-      '@eos/notifications':
+      '@eos/notification':
         specifier: workspace:*
-        version: link:../notifications
+        version: link:../notification
       '@eos/tool':
         specifier: workspace:*
         version: link:../tool
@@ -92,6 +95,12 @@ importers:
         specifier: workspace:*
         version: link:../testkit
 
+  packages/background:
+    dependencies:
+      '@eos/notification':
+        specifier: workspace:*
+        version: link:../notification
+
   packages/contracts:
     dependencies:
       zod:
@@ -105,15 +114,18 @@ importers:
       '@eos/agent-runtime':
         specifier: workspace:*
         version: link:../agent-runtime
+      '@eos/background':
+        specifier: workspace:*
+        version: link:../background
       '@eos/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@eos/llm-client':
         specifier: workspace:*
         version: link:../llm-client
-      '@eos/notifications':
+      '@eos/notification':
         specifier: workspace:*
-        version: link:../notifications
+        version: link:../notification
 
   packages/llm-client:
     dependencies:
@@ -130,7 +142,7 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
-  packages/notifications:
+  packages/notification:
     dependencies:
       '@eos/contracts':
         specifier: workspace:*
@@ -152,15 +164,18 @@ importers:
 
   packages/tool:
     dependencies:
+      '@eos/background':
+        specifier: workspace:*
+        version: link:../background
       '@eos/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@eos/engine':
         specifier: workspace:*
         version: link:../engine
-      '@eos/notifications':
+      '@eos/notification':
         specifier: workspace:*
-        version: link:../notifications
+        version: link:../notification
       zod:
         specifier: ^4.4.3
         version: 4.4.3

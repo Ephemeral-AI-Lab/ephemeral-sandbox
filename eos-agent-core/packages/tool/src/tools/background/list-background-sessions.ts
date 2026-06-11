@@ -1,10 +1,13 @@
 import type { JsonObject } from "@eos/contracts";
-import type { BackgroundSessionSupervisor } from "@eos/engine";
-import type { BackgroundSessionRow } from "@eos/engine";
+import type {
+  BackgroundSessionRow,
+  BackgroundSessionSupervisor,
+} from "@eos/background";
 import { z } from "zod";
 
 import type { ToolDefinition } from "../../contract.js";
 import { defineTool } from "../../define.js";
+import { descriptionPrompt } from "../description_prompts/index.js";
 
 /** Rows for running plus settled-but-undelivered sessions. */
 export function listBackgroundSessionsTool(
@@ -12,8 +15,7 @@ export function listBackgroundSessionsTool(
 ): ToolDefinition {
   return defineTool({
     name: "list_background_sessions",
-    description:
-      "List background sessions: running ones plus settled ones whose completion notice has not been delivered yet.",
+    description: descriptionPrompt("list_background_sessions"),
     input: z.object({}),
     execute: () =>
       Promise.resolve({

@@ -1,10 +1,10 @@
 import type { ToolDefinition } from "../../contract.js";
+import { descriptionPrompt } from "../description_prompts/index.js";
 import { defineSubmissionTool } from "./shared.js";
 
 export function submitSubagentOutcomeTool(): ToolDefinition {
   return defineSubmissionTool({
     name: "submit_subagent_outcome",
-    description:
-      "Submit the final outcome of this subagent run. Terminal: a successful call ends the run.",
+    description: descriptionPrompt("submit_subagent_outcome"),
   });
 }

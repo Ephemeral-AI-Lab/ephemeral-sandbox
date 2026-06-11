@@ -1,0 +1,1 @@
+Ask the advisor to review this run's transcript and the terminal payload you intend to submit (pass tool_name and the exact payload). Blocks until the advisor answers; the result is the advisor's submission.

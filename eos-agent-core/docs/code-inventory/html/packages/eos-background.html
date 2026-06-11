@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>@eos/background Code Inventory</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+  <script defer src="../assets/inventory-data.js"></script>
+  <script defer src="../assets/inventory.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">eos-agent-core</a>
+    <nav>
+      <a href="../assets/inventory.json">JSON</a>
+      <a href="../assets/graph.json">Graph</a>
+    </nav>
+  </header>
+  <main>
+
+      <section class="page-head">
+        <div>
+          <p class="eyebrow"><a href="../index.html">Code Inventory</a></p>
+          <h1>@eos/background</h1>
+          <p class="lede">packages/background</p>
+
+        </div>
+        <dl class="stat-grid">
+          <div><dt>Modules</dt><dd>5</dd></div>
+          <div><dt>Source</dt><dd>3</dd></div>
+          <div><dt>Tests</dt><dd>2</dd></div>
+          <div><dt>Symbols</dt><dd>15</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Package Manifest</h2>
+          <span>module</span>
+        </div>
+        <div class="manifest-grid">
+          <div><strong>exports</strong><ul><li><code>.</code></li></ul></div>
+          <div><strong>dependencies</strong><ul><li><code>@eos/notification</code></li></ul></div>
+          <div><strong>devDependencies</strong><p>none</p></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>File Tree</h2>
+          <input class="search-input" type="search" placeholder="Filter files, symbols, tags" aria-label="Filter files, symbols, tags">
+        </div>
+        <div class="tree-nav"><div class="tree-children">
+      <details class="tree-folder" open>
+        <summary>
+          <span class="tree-label">src</span>
+        </summary>
+        <div class="tree-children">
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-background-src-background-session-supervisor.html"><code>background-session-supervisor.ts</code></a>
+        <small>source · 4 symbols</small>
+      </div>
+      <div class="tags"><span>source</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-src-background-session-supervisor.html#BackgroundSessionEntry"><code>BackgroundSessionEntry</code></a>
+          <span>interface</span>
+          <span class="compact-tags">internal</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-src-background-session-supervisor.html#backgroundSessionKey"><code>backgroundSessionKey</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-src-background-session-supervisor.html#isBackgroundSessionRef"><code>isBackgroundSessionRef</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-src-background-session-supervisor.html#BackgroundSessionSupervisor"><code>BackgroundSessionSupervisor</code></a>
+          <span>class</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+    </ul>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-background-src-background-session.html"><code>background-session.ts</code></a>
+        <small>source · 5 symbols</small>
+      </div>
+      <div class="tags"><span>source</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-src-background-session.html#BackgroundSessionRef"><code>BackgroundSessionRef</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-src-background-session.html#BackgroundSessionStatus"><code>BackgroundSessionStatus</code></a>
+          <span>type</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-src-background-session.html#BackgroundSessionOutcome"><code>BackgroundSessionOutcome</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-src-background-session.html#BackgroundSessionHandle"><code>BackgroundSessionHandle</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api run-handle</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-src-background-session.html#BackgroundSessionRow"><code>BackgroundSessionRow</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+    </ul>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-background-src-index.html"><code>index.ts</code></a>
+        <small>entrypoint · 0 symbols</small>
+      </div>
+      <div class="tags"><span>entrypoint</span><span>package-entrypoint</span><span>public-api</span></div>
+
+    </div>
+  </div>
+      </details>
+
+
+      <details class="tree-folder" open>
+        <summary>
+          <span class="tree-label">tests</span>
+        </summary>
+        <div class="tree-children">
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-background-tests-background-session-supervisor-test.html"><code>background-session-supervisor.test.ts</code></a>
+        <small>test · 2 symbols</small>
+      </div>
+      <div class="tags"><span>test</span><span>test-only</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-tests-background-session-supervisor-test.html#REF"><code>REF</code></a>
+          <span>const</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-tests-background-session-supervisor-test.html#setup"><code>setup</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+    </ul>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-background-tests-support.html"><code>support.ts</code></a>
+        <small>test-support · 4 symbols</small>
+      </div>
+      <div class="tags"><span>test-only</span><span>test-support</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-tests-support.html#TestBackgroundSessionHandle"><code>TestBackgroundSessionHandle</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api run-handle test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-tests-support.html#backgroundSessionHandle"><code>backgroundSessionHandle</code></a>
+          <span>function</span>
+          <span class="compact-tags">public-api run-handle test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-tests-support.html#tick"><code>tick</code></a>
+          <span>function</span>
+          <span class="compact-tags">public-api test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-background-tests-support.html#must"><code>must</code></a>
+          <span>function</span>
+          <span class="compact-tags">public-api test-only</span>
+        </li>
+
+    </ul>
+
+    </div>
+  </div>
+      </details>
+    </div></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Relations</h2><span>15</span></div>
+        <div class="table-wrap relation-table">
+          <table>
+            <thead><tr><th>Kind</th><th>From</th><th>To</th><th>Line</th></tr></thead>
+            <tbody>
+    <tr class="search-item">
+      <td>imports <small>type</small></td>
+      <td><code>@eos/background/src/background-session-supervisor</code></td>
+      <td><code>@eos/background/src/background-session</code></td>
+      <td>5</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/background/src/background-session-supervisor</code></td>
+      <td><code>@eos/notification</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/background/tests/background-session-supervisor.test</code></td>
+      <td><code>@eos/background/src/index</code></td>
+      <td>3</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/background/tests/background-session-supervisor.test</code></td>
+      <td><code>@eos/background/tests/support</code></td>
+      <td>8</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/background/tests/background-session-supervisor.test</code></td>
+      <td><code>@eos/notification</code></td>
+      <td>4</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/background/tests/background-session-supervisor.test</code></td>
+      <td><code>vitest</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports <small>type</small></td>
+      <td><code>@eos/background/tests/support</code></td>
+      <td><code>@eos/background/src/index</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>package-depends-on</td>
+      <td><code>@eos/background</code></td>
+      <td><code>@eos/notification</code></td>
+      <td></td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>reexports <small>type</small></td>
+      <td><code>@eos/background/src/index</code></td>
+      <td><code>@eos/background/src/background-session</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>reexports</td>
+      <td><code>@eos/background/src/index</code></td>
+      <td><code>@eos/background/src/background-session-supervisor</code></td>
+      <td>8</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/background/tests/background-session-supervisor.test</code></td>
+      <td><code>@eos/background/src/index</code></td>
+      <td>3</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/background/tests/background-session-supervisor.test</code></td>
+      <td><code>@eos/background/tests/support</code></td>
+      <td>8</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/background/tests/background-session-supervisor.test</code></td>
+      <td><code>@eos/notification</code></td>
+      <td>4</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/background/tests/background-session-supervisor.test</code></td>
+      <td><code>vitest</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests <small>type</small></td>
+      <td><code>@eos/background/tests/support</code></td>
+      <td><code>@eos/background/src/index</code></td>
+      <td>1</td>
+    </tr>
+  </tbody>
+          </table>
+        </div>
+      </section>
+
+  </main>
+</body>
+</html>

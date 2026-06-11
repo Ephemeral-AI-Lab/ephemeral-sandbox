@@ -22,73 +22,19 @@ use crate::wire::{ErrorKind, Request};
 use eos_layerstack::LayerStack;
 
 use super::registry::BUILTIN_OPS;
-use crate::config::FileLimitsConfig;
 use crate::error::DaemonError;
-use crate::invocation_registry::InFlightRegistry;
-use crate::plugins;
+use crate::ops::plugin;
 #[cfg(test)]
-use crate::response_timings::{insert_tree_resource_timings, resource_timings, TreeResourceStats};
+use crate::response::{insert_tree_resource_timings, resource_timings, TreeResourceStats};
+use crate::runtime::context::DispatchContext;
+#[cfg(test)]
+use crate::runtime::invocation_registry::InFlightRegistry;
 
 /// A synchronous op handler: decoded args -> response value.
 ///
 /// The daemon keeps the routing surface explicit here and lets each op facade
 /// own request shaping before delegating to its implementation service.
 pub(crate) type Handler = for<'ctx> fn(&Value, DispatchContext<'ctx>) -> Result<Value, DaemonError>;
-
-/// Per-dispatch daemon services used by handlers that need runtime state.
-#[derive(Clone, Copy, Default)]
-pub struct DispatchContext<'ctx> {
-    invocation_registry: Option<&'ctx InFlightRegistry>,
-    file_limits: Option<FileLimitsConfig>,
-    read_request_s: Option<f64>,
-}
-
-impl<'ctx> DispatchContext<'ctx> {
-    /// Empty context for direct unit dispatch.
-    #[must_use]
-    pub const fn empty() -> Self {
-        Self {
-            invocation_registry: None,
-            file_limits: None,
-            read_request_s: None,
-        }
-    }
-
-    /// Context carrying the server's invocation registry.
-    #[must_use]
-    pub const fn with_invocation_registry(invocation_registry: &'ctx InFlightRegistry) -> Self {
-        Self {
-            invocation_registry: Some(invocation_registry),
-            file_limits: None,
-            read_request_s: None,
-        }
-    }
-
-    /// Context carrying the server's invocation registry, file byte limits,
-    /// and measured request read duration.
-    #[must_use]
-    pub const fn with_runtime_config(
-        invocation_registry: &'ctx InFlightRegistry,
-        file_limits: FileLimitsConfig,
-        read_request_s: f64,
-    ) -> Self {
-        Self {
-            invocation_registry: Some(invocation_registry),
-            file_limits: Some(file_limits),
-            read_request_s: Some(read_request_s),
-        }
-    }
-
-    pub(crate) const fn invocation_registry(&self) -> Option<&'ctx InFlightRegistry> {
-        self.invocation_registry
-    }
-
-    /// Per-file read/write byte caps, when runtime config was threaded. File ops
-    /// fall back to the `eos_config` defaults when this is `None`.
-    pub(crate) const fn file_limits(&self) -> Option<FileLimitsConfig> {
-        self.file_limits
-    }
-}
 
 /// The op routing table.
 ///
@@ -144,7 +90,7 @@ impl OpTable {
     pub fn dispatch_with_context(&self, request: &Request, context: DispatchContext<'_>) -> Value {
         let dispatch_start = Instant::now();
         let boot_to_dispatch_s = daemon_uptime_s();
-        let read_request_s = context.read_request_s.unwrap_or(0.0);
+        let read_request_s = context.read_request_s().unwrap_or(0.0);
         let finalize = |response| {
             finalize_response(response, boot_to_dispatch_s, dispatch_start, read_request_s)
         };
@@ -163,7 +109,7 @@ impl OpTable {
             ));
         }
         let Some(handler) = self.handlers.get(&request.op) else {
-            if let Some(response) = plugins::dispatch_registered_op(
+            if let Some(response) = plugin::dispatch_registered_op(
                 &request.op,
                 &request.invocation_id,
                 &request.args,

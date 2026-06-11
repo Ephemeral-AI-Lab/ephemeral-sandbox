@@ -2,7 +2,7 @@
 // the assembly entry. Pipeline and batch-executor internals (bindTool,
 // toolBatchExecutor, the precedence kernel) stay package-private behind
 // buildToolExecutor. `runTriggerCommand` is this package's spawn-backed
-// implementation of the @eos/notifications runner seam.
+// implementation of the @eos/notification runner seam.
 export {
   ToolNameSchema,
   type ToolCallContext,

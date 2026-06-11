@@ -59,7 +59,7 @@
 
 
     <tr class="search-item">
-      <td><code>@eos/notifications</code></td>
+      <td><code>@eos/notification</code></td>
       <td>LoopObserver, NotificationInbox</td>
       <td>type</td>
       <td>3</td>
@@ -75,17 +75,17 @@
 
 
     <tr class="search-item">
-      <td><code>./agent-loop.js</code></td>
-      <td>runAgentLoop</td>
-      <td>value</td>
-      <td>6</td>
+      <td><code>@eos/background</code></td>
+      <td>BackgroundSessionSupervisor</td>
+      <td>type</td>
+      <td>5</td>
     </tr>
 
 
     <tr class="search-item">
-      <td><code>./background/background-session-supervisor.js</code></td>
-      <td>BackgroundSessionSupervisor</td>
-      <td>type</td>
+      <td><code>./agent-loop.js</code></td>
+      <td>runAgentLoop</td>
+      <td>value</td>
       <td>7</td>
     </tr>
 
@@ -112,7 +112,7 @@
       <section class="panel">
         <div class="panel-head">
           <h2>Exports</h2>
-          <span>5</span>
+          <span>3</span>
         </div>
         <div class="table-wrap">
           <table>
@@ -127,26 +127,10 @@
 
 
     <tr class="search-item">
-      <td><code>./background/background-session.js</code></td>
-      <td>BackgroundSessionHandle, BackgroundSessionOutcome, BackgroundSessionRef, BackgroundSessionRow, BackgroundSessionStatus</td>
-      <td>type</td>
-      <td>12</td>
-    </tr>
-
-
-    <tr class="search-item">
-      <td><code>./background/background-session-supervisor.js</code></td>
-      <td>BackgroundSessionSupervisor</td>
-      <td>value</td>
-      <td>19</td>
-    </tr>
-
-
-    <tr class="search-item">
       <td><code>@eos/agent-runtime/agent-run-handle</code></td>
       <td>AgentEvent, AgentRunFailure, AgentRunHandle, AgentRunOutcome, DisplayedMessage, PartialReason</td>
       <td>type</td>
-      <td>20</td>
+      <td>12</td>
     </tr>
 
 
@@ -154,7 +138,7 @@
       <td><code>./tool-executor.js</code></td>
       <td>ToolExecutor, ToolUseBlock</td>
       <td>type</td>
-      <td>28</td>
+      <td>20</td>
     </tr>
   </tbody>
           </table>
@@ -203,7 +187,7 @@
       <div class="symbol-head">
         <div>
           <strong>DEFAULT_MAX_TURNS</strong>
-          <span>const · line 31 · internal</span>
+          <span>const · line 23 · internal</span>
         </div>
         <a href="../modules/eos-engine-src-index.html#DEFAULT_MAX_TURNS">Module</a>
       </div>
@@ -221,7 +205,7 @@
       <div class="symbol-head">
         <div>
           <strong>StartAgentRunInput</strong>
-          <span>interface · line 34 · public</span>
+          <span>interface · line 26 · public</span>
         </div>
         <a href="../modules/eos-engine-src-index.html#StartAgentRunInput">Module</a>
       </div>
@@ -334,7 +318,7 @@
       <div class="symbol-head">
         <div>
           <strong>startAgentRun</strong>
-          <span>function · line 76 · public</span>
+          <span>function · line 68 · public</span>
         </div>
         <a href="../modules/eos-engine-src-index.html#startAgentRun">Module</a>
       </div>
@@ -367,6 +351,14 @@ never throws: every exit resolves `handle.outcome` exactly once and ends
 
 
     <tr class="search-item">
+      <td>imports <small>type</small></td>
+      <td><code>@eos/engine/src/index</code></td>
+      <td><code>@eos/background</code></td>
+      <td>5</td>
+    </tr>
+
+
+    <tr class="search-item">
       <td>imports</td>
       <td><code>@eos/engine/src/index</code></td>
       <td><code>@eos/contracts</code></td>
@@ -378,14 +370,6 @@ never throws: every exit resolves `handle.outcome` exactly once and ends
       <td>imports</td>
       <td><code>@eos/engine/src/index</code></td>
       <td><code>@eos/engine/src/agent-loop</code></td>
-      <td>6</td>
-    </tr>
-
-
-    <tr class="search-item">
-      <td>imports <small>type</small></td>
-      <td><code>@eos/engine/src/index</code></td>
-      <td><code>@eos/engine/src/background/background-session-supervisor</code></td>
       <td>7</td>
     </tr>
 
@@ -417,7 +401,7 @@ never throws: every exit resolves `handle.outcome` exactly once and ends
     <tr class="search-item">
       <td>imports <small>type</small></td>
       <td><code>@eos/engine/src/index</code></td>
-      <td><code>@eos/notifications</code></td>
+      <td><code>@eos/notification</code></td>
       <td>3</td>
     </tr>
 
@@ -426,7 +410,7 @@ never throws: every exit resolves `handle.outcome` exactly once and ends
       <td>reexports <small>type</small></td>
       <td><code>@eos/engine/src/index</code></td>
       <td><code>@eos/agent-runtime</code></td>
-      <td>20</td>
+      <td>12</td>
     </tr>
 
 
@@ -441,24 +425,8 @@ never throws: every exit resolves `handle.outcome` exactly once and ends
     <tr class="search-item">
       <td>reexports <small>type</small></td>
       <td><code>@eos/engine/src/index</code></td>
-      <td><code>@eos/engine/src/background/background-session</code></td>
-      <td>12</td>
-    </tr>
-
-
-    <tr class="search-item">
-      <td>reexports</td>
-      <td><code>@eos/engine/src/index</code></td>
-      <td><code>@eos/engine/src/background/background-session-supervisor</code></td>
-      <td>19</td>
-    </tr>
-
-
-    <tr class="search-item">
-      <td>reexports <small>type</small></td>
-      <td><code>@eos/engine/src/index</code></td>
       <td><code>@eos/engine/src/tool-executor</code></td>
-      <td>28</td>
+      <td>20</td>
     </tr>
   </tbody>
           </table>

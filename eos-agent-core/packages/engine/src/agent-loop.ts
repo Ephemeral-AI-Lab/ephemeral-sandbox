@@ -4,14 +4,14 @@ import {
   systemNotificationMessage,
   type LoopObserver,
   type NotificationInbox,
-} from "@eos/notifications";
+} from "@eos/notification";
 import type {
   AgentRunFailure,
   AgentRunStatus,
   RunHandle,
 } from "@eos/agent-runtime/agent-run-handle";
+import type { BackgroundSessionSupervisor } from "@eos/background";
 
-import type { BackgroundSessionSupervisor } from "./background/background-session-supervisor.js";
 import type { Conversation, ToolResultBlock } from "./conversation.js";
 import type { ToolExecutor, ToolUseBlock } from "./tool-executor.js";
 import { addUsage, runAssistantTurn, type TurnConfig } from "./turn.js";

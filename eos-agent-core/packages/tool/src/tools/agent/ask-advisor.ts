@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import type { ToolDefinition, ToolOutcome } from "../../contract.js";
 import { defineTool } from "../../define.js";
+import { descriptionPrompt } from "../description_prompts/index.js";
 import type { AgentRunCalls, AgentToolUserMessage } from "./index.js";
 
 /** The single site that owns the advisor profile's magic name (§2.6). */
@@ -29,8 +30,7 @@ const AskAdvisorInputSchema = z.object({
 export function askAdvisorTool(calls: AgentRunCalls): ToolDefinition {
   return defineTool({
     name: "ask_advisor",
-    description:
-      "Ask the advisor to review this run's transcript and the terminal payload you intend to submit (pass tool_name and the exact payload). Blocks until the advisor answers; the result is the advisor's submission.",
+    description: descriptionPrompt("ask_advisor"),
     input: AskAdvisorInputSchema,
     execute: async (input, ctx) => {
       const advisorPrompt = calls.advisorPromptFor(input.tool_name);

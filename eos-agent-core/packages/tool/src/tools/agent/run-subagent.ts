@@ -2,13 +2,16 @@ import type { JsonValue } from "@eos/contracts";
 import {
   RUN_FINISHED_DISPOSE_REASON,
   type AgentRunOutcome,
-  type BackgroundSessionSupervisor,
-  type BackgroundSessionOutcome,
 } from "@eos/engine";
+import type {
+  BackgroundSessionOutcome,
+  BackgroundSessionSupervisor,
+} from "@eos/background";
 import { z } from "zod";
 
 import type { ToolDefinition } from "../../contract.js";
 import { defineTool } from "../../define.js";
+import { descriptionPrompt } from "../description_prompts/index.js";
 import type { AgentRunCalls, AgentToolUserMessage } from "./index.js";
 
 function userText(text: string): AgentToolUserMessage {
@@ -26,8 +29,7 @@ export function runSubagentTool(
 ): ToolDefinition {
   return defineTool({
     name: "run_subagent",
-    description:
-      "Start the named agent as a detached background run on the given prompt. Returns its run_id immediately; the outcome arrives later as a session_settled notification.",
+    description: descriptionPrompt("run_subagent"),
     input: RunSubagentInputSchema,
     execute: (input) => {
       // Deliberately NO signal: a detached run gets a fresh abort root and

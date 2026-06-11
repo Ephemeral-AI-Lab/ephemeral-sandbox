@@ -80,7 +80,6 @@ impl EphemeralWorkspace {
     pub fn capture(&self) -> Result<CapturedChanges, EphemeralWorkspaceError> {
         capture_upperdir(&self.dirs.upperdir)
     }
-
 }
 
 impl Drop for EphemeralWorkspace {

@@ -11,8 +11,9 @@
   },
   "dependencies": {
     "@eos/agent-runtime": "workspace:*",
+    "@eos/background": "workspace:*",
     "@eos/contracts": "workspace:*",
     "@eos/llm-client": "workspace:*",
-    "@eos/notifications": "workspace:*"
+    "@eos/notification": "workspace:*"
   }
 }

@@ -17,15 +17,17 @@ import type {
   StopReason,
   UsageSnapshot,
 } from "@eos/llm-client";
+import type {
+  BackgroundSessionOutcome,
+  BackgroundSessionSupervisor,
+} from "@eos/background";
 
-import type { BackgroundSessionOutcome } from "../src/background/background-session.js";
-import type { BackgroundSessionSupervisor } from "../src/background/background-session-supervisor.js";
 import type { AgentEvent } from "@eos/agent-runtime/agent-run-handle";
 import type {
   LoopObserver,
   NotificationInbox,
   TurnFacts,
-} from "@eos/notifications";
+} from "@eos/notification";
 import {
   startAgentRun,
   type AgentRunHandle,

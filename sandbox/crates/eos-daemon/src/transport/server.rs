@@ -37,9 +37,10 @@ use eos_config::configs::{
 };
 
 use super::framing::{read_request_line, signal_shutdown, MAX_REQUEST_BYTES};
-use crate::dispatcher::{DispatchContext, OpTable};
+use crate::dispatcher::OpTable;
 use crate::error::DaemonError;
 use crate::invocation_registry::InFlightRegistry;
+use crate::runtime::context::DispatchContext;
 
 /// Where the daemon binds + writes its pid, plus the optional TCP listener.
 #[derive(Debug, Clone)]
@@ -98,9 +99,9 @@ impl DaemonServer {
         daemon_config: &DaemonConfig,
         isolated_config: &IsolatedWorkspaceConfig,
     ) -> Self {
-        crate::workspace::run::configure_command_sessions(&daemon_config.command_sessions);
-        crate::workspace::isolated::configure_isolated_workspace(isolated_config);
-        crate::plugins::configure_plugin_runtime(&daemon_config.plugin);
+        eos_command_ops::configure_command_sessions(&daemon_config.command_sessions);
+        crate::services::workspace::configure_isolated_workspace(isolated_config);
+        crate::services::plugin::configure_plugin_runtime(&daemon_config.plugin);
         eos_layerstack::configure_auto_squash_max_depth(
             daemon_config.layer_stack.auto_squash_max_depth,
         );
@@ -157,7 +158,7 @@ impl DaemonServer {
                     tokio::select! {
                         () = shutdown.cancelled() => break,
                         () = tokio::time::sleep(Duration::from_millis(sweep_interval_ms)) => {
-                            let _ = tokio::task::spawn_blocking(crate::workspace::isolated::ttl_sweep).await;
+                            let _ = tokio::task::spawn_blocking(crate::ops::isolation::ttl_sweep).await;
                         }
                     }
                 }
@@ -173,7 +174,7 @@ impl DaemonServer {
                         () = shutdown.cancelled() => break,
                         () = tokio::time::sleep(Duration::from_millis(50)) => {
                             let _ = tokio::task::spawn_blocking(
-                                crate::workspace::run::command_session_reaper_sweep,
+                                eos_command_ops::command_session_reaper_sweep,
                             )
                             .await;
                         }
@@ -182,7 +183,7 @@ impl DaemonServer {
             })
         };
         // Reap stale command sessions left by a prior daemon, before accepting.
-        crate::workspace::run::recover_orphaned_command_sessions();
+        eos_command_ops::recover_orphaned_command_sessions();
 
         if let Some(parent) = server.config.socket_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
@@ -355,11 +356,7 @@ impl DaemonServer {
             let _ = start_rx.recv();
             table.dispatch_with_context(
                 &request,
-                DispatchContext::with_runtime_config(
-                    &task_registry,
-                    file_limits,
-                    read_request_s,
-                ),
+                DispatchContext::with_runtime_config(&task_registry, file_limits, read_request_s),
             )
         });
         registry.register(&invocation_id, task.abort_handle(), &caller_id, background);

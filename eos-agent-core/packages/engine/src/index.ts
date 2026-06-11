@@ -1,22 +1,14 @@
 import { DEFAULT_MAX_TOKENS, type Message } from "@eos/contracts";
 import type { LlmClient, ReasoningEffort } from "@eos/llm-client";
-import type { LoopObserver, NotificationInbox } from "@eos/notifications";
+import type { LoopObserver, NotificationInbox } from "@eos/notification";
 import { RunHandle, type AgentRunHandle } from "@eos/agent-runtime/agent-run-handle";
+import type { BackgroundSessionSupervisor } from "@eos/background";
 
 import { runAgentLoop } from "./agent-loop.js";
-import type { BackgroundSessionSupervisor } from "./background/background-session-supervisor.js";
 import { Conversation } from "./conversation.js";
 import type { ToolExecutor } from "./tool-executor.js";
 
 export { RUN_FINISHED_DISPOSE_REASON } from "./agent-loop.js";
-export type {
-  BackgroundSessionHandle,
-  BackgroundSessionOutcome,
-  BackgroundSessionRef,
-  BackgroundSessionRow,
-  BackgroundSessionStatus,
-} from "./background/background-session.js";
-export { BackgroundSessionSupervisor } from "./background/background-session-supervisor.js";
 export type {
   AgentEvent,
   AgentRunFailure,

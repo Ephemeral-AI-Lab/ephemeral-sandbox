@@ -1,4 +1,4 @@
-import type { BackgroundSessionSupervisor } from "@eos/engine";
+import type { BackgroundSessionSupervisor } from "@eos/background";
 
 import type { ToolDefinition } from "../../contract.js";
 import { cancelBackgroundSessionTool } from "./cancel-background-session.js";

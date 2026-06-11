@@ -70,6 +70,7 @@ fn enabled_caps() -> ResourceCaps {
     ResourceCaps {
         enabled: true,
         total_cap: 2,
+        upperdir_bytes: 16 * 1024 * 1024,
         eos_workspace_root: "/workspace".to_owned(),
         ..ResourceCaps::default()
     }

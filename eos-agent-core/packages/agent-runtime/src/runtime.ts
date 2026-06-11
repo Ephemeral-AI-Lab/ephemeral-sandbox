@@ -6,15 +6,15 @@ import {
   type Message,
 } from "@eos/contracts";
 import {
-  BackgroundSessionSupervisor,
   startAgentRun,
 } from "@eos/engine";
+import { BackgroundSessionSupervisor } from "@eos/background";
 import {
   NotificationInbox,
   NotificationTriggerEngine,
   triggerRuleAppliesTo,
   type TriggerRuleEntry,
-} from "@eos/notifications";
+} from "@eos/notification";
 import {
   BACKGROUND_TOOL_NAMES,
   AGENT_TOOL_NAMES,

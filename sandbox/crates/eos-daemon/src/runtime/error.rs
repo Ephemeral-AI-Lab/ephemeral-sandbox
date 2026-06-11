@@ -110,12 +110,12 @@ impl From<eos_plugin::host::PpcError> for DaemonError {
     }
 }
 
-impl From<crate::checkpoint::CheckpointError> for DaemonError {
+impl From<crate::services::checkpoint::CheckpointError> for DaemonError {
     /// Fold a host checkpoint failure onto the matching daemon variant,
     /// preserving variant identity (so `wire_kind` classifies `Forbidden`
     /// correctly) and the original message text.
-    fn from(err: crate::checkpoint::CheckpointError) -> Self {
-        use crate::checkpoint::CheckpointError;
+    fn from(err: crate::services::checkpoint::CheckpointError) -> Self {
+        use crate::services::checkpoint::CheckpointError;
         match err {
             CheckpointError::InvalidEnvelope(message) => Self::InvalidEnvelope(message),
             CheckpointError::Forbidden(message) => Self::Forbidden(message),

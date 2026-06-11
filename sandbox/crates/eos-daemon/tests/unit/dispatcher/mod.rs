@@ -126,11 +126,7 @@ fn dispatch_attaches_real_runtime_timings() {
             invocation_id: "timings-test".to_owned(),
             args: json!({}),
         },
-        DispatchContext {
-            invocation_registry: None,
-            file_limits: None,
-            read_request_s: Some(0.125),
-        },
+        DispatchContext::with_read_request_s(0.125),
     );
 
     assert_eq!(response["success"], json!(true));

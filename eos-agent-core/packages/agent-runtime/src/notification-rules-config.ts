@@ -1,4 +1,4 @@
-import { TriggerRuleEntrySchema, type TriggerRuleEntry } from "@eos/notifications";
+import { TriggerRuleEntrySchema, type TriggerRuleEntry } from "@eos/notification";
 import { z } from "zod";
 
 import { loadEntriesFile, withDefaultCwd } from "./config-file.js";

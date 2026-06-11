@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 
 import { toolUseIdFrom } from "@eos/contracts";
-import { systemNotificationMessage } from "@eos/notifications";
+import { systemNotificationMessage } from "@eos/notification";
 import type { LlmClient } from "@eos/llm-client";
 import { terminalToolDefinitions, type ToolDefinition } from "@eos/tool";
 import { scriptedTool } from "@eos/testkit";

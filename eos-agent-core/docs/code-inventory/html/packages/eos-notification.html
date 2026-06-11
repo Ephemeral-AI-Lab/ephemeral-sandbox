@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>@eos/notification Code Inventory</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+  <script defer src="../assets/inventory-data.js"></script>
+  <script defer src="../assets/inventory.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">eos-agent-core</a>
+    <nav>
+      <a href="../assets/inventory.json">JSON</a>
+      <a href="../assets/graph.json">Graph</a>
+    </nav>
+  </header>
+  <main>
+
+      <section class="page-head">
+        <div>
+          <p class="eyebrow"><a href="../index.html">Code Inventory</a></p>
+          <h1>@eos/notification</h1>
+          <p class="lede">packages/notification</p>
+
+        </div>
+        <dl class="stat-grid">
+          <div><dt>Modules</dt><dd>8</dd></div>
+          <div><dt>Source</dt><dd>5</dd></div>
+          <div><dt>Tests</dt><dd>3</dd></div>
+          <div><dt>Symbols</dt><dd>32</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Package Manifest</h2>
+          <span>module</span>
+        </div>
+        <div class="manifest-grid">
+          <div><strong>exports</strong><ul><li><code>.</code></li></ul></div>
+          <div><strong>dependencies</strong><ul><li><code>@eos/contracts</code></li><li><code>zod</code></li></ul></div>
+          <div><strong>devDependencies</strong><p>none</p></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>File Tree</h2>
+          <input class="search-input" type="search" placeholder="Filter files, symbols, tags" aria-label="Filter files, symbols, tags">
+        </div>
+        <div class="tree-nav"><div class="tree-children">
+      <details class="tree-folder" open>
+        <summary>
+          <span class="tree-label">src</span>
+        </summary>
+        <div class="tree-children">
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-notification-src-inbox.html"><code>inbox.ts</code></a>
+        <small>source · 3 symbols</small>
+      </div>
+      <div class="tags"><span>source</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-inbox.html#InboxEntry"><code>InboxEntry</code></a>
+          <span>interface</span>
+          <span class="compact-tags">internal</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-inbox.html#NotificationInbox"><code>NotificationInbox</code></a>
+          <span>class</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-inbox.html#systemNotificationMessage"><code>systemNotificationMessage</code></a>
+          <span>function</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+    </ul>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-notification-src-index.html"><code>index.ts</code></a>
+        <small>entrypoint · 0 symbols</small>
+      </div>
+      <div class="tags"><span>entrypoint</span><span>package-entrypoint</span><span>public-api</span></div>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-notification-src-loop-observer.html"><code>loop-observer.ts</code></a>
+        <small>source · 2 symbols</small>
+      </div>
+      <div class="tags"><span>source</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-loop-observer.html#TurnFacts"><code>TurnFacts</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-loop-observer.html#LoopObserver"><code>LoopObserver</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+    </ul>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-notification-src-trigger-engine.html"><code>trigger-engine.ts</code></a>
+        <small>source · 3 symbols</small>
+      </div>
+      <div class="tags"><span>source</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-trigger-engine.html#IdleRule"><code>IdleRule</code></a>
+          <span>type</span>
+          <span class="compact-tags">internal</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-trigger-engine.html#NotificationTriggerEngineDeps"><code>NotificationTriggerEngineDeps</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-trigger-engine.html#NotificationTriggerEngine"><code>NotificationTriggerEngine</code></a>
+          <span>class</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+    </ul>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-notification-src-triggers.html"><code>triggers.ts</code></a>
+        <small>source · 12 symbols</small>
+      </div>
+      <div class="tags"><span>source</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#CommandScriptSchema"><code>CommandScriptSchema</code></a>
+          <span>schema</span>
+          <span class="compact-tags">public-api schema:zod</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#CommandScript"><code>CommandScript</code></a>
+          <span>type</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#TriggerRuleMatchers"><code>TriggerRuleMatchers</code></a>
+          <span>const</span>
+          <span class="compact-tags">internal</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#TriggerRuleEntrySchema"><code>TriggerRuleEntrySchema</code></a>
+          <span>schema</span>
+          <span class="compact-tags">public-api schema:zod</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#TriggerRuleEntry"><code>TriggerRuleEntry</code></a>
+          <span>type</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#triggerRuleAppliesTo"><code>triggerRuleAppliesTo</code></a>
+          <span>function</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#TurnCompletedFacts"><code>TurnCompletedFacts</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#IdleTimeoutFacts"><code>IdleTimeoutFacts</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#TriggerPayload"><code>TriggerPayload</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#TriggerOutputSchema"><code>TriggerOutputSchema</code></a>
+          <span>const</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#TriggerCommandRun"><code>TriggerCommandRun</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-src-triggers.html#TriggerCommandRunner"><code>TriggerCommandRunner</code></a>
+          <span>type</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+    </ul>
+
+    </div>
+  </div>
+      </details>
+
+
+      <details class="tree-folder" open>
+        <summary>
+          <span class="tree-label">tests</span>
+        </summary>
+        <div class="tree-children">
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-notification-tests-inbox-test.html"><code>inbox.test.ts</code></a>
+        <small>test · 1 symbols</small>
+      </div>
+      <div class="tags"><span>test</span><span>test-only</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-inbox-test.html#note"><code>note</code></a>
+          <span>const</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+    </ul>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-notification-tests-trigger-engine-test.html"><code>trigger-engine.test.ts</code></a>
+        <small>test · 9 symbols</small>
+      </div>
+      <div class="tags"><span>test</span><span>test-only</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-trigger-engine-test.html#SNAPSHOT"><code>SNAPSHOT</code></a>
+          <span>const</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-trigger-engine-test.html#FACTS"><code>FACTS</code></a>
+          <span>const</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-trigger-engine-test.html#command"><code>command</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-trigger-engine-test.html#session"><code>session</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-trigger-engine-test.html#turnRule"><code>turnRule</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-trigger-engine-test.html#idleRule"><code>idleRule</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-trigger-engine-test.html#reminder"><code>reminder</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-trigger-engine-test.html#Fixture"><code>Fixture</code></a>
+          <span>interface</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-trigger-engine-test.html#fixture"><code>fixture</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+    </ul>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="../modules/eos-notification-tests-triggers-test.html"><code>triggers.test.ts</code></a>
+        <small>test · 2 symbols</small>
+      </div>
+      <div class="tags"><span>test</span><span>test-only</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-triggers-test.html#RUN"><code>RUN</code></a>
+          <span>const</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="../modules/eos-notification-tests-triggers-test.html#rule"><code>rule</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+    </ul>
+
+    </div>
+  </div>
+      </details>
+    </div></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Relations</h2><span>43</span></div>
+        <div class="table-wrap relation-table">
+          <table>
+            <thead><tr><th>Kind</th><th>From</th><th>To</th><th>Line</th></tr></thead>
+            <tbody>
+    <tr class="search-item">
+      <td>implements</td>
+      <td><code>@eos/notification/src/trigger-engine#NotificationTriggerEngine</code></td>
+      <td><code>LoopObserver</code></td>
+      <td>39</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports <small>type</small></td>
+      <td><code>@eos/notification/src/inbox</code></td>
+      <td><code>@eos/contracts</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports <small>type</small></td>
+      <td><code>@eos/notification/src/trigger-engine</code></td>
+      <td><code>@eos/contracts</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/src/trigger-engine</code></td>
+      <td><code>@eos/notification/src/inbox</code></td>
+      <td>6</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports <small>type</small></td>
+      <td><code>@eos/notification/src/trigger-engine</code></td>
+      <td><code>@eos/notification/src/loop-observer</code></td>
+      <td>7</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports <small>type</small></td>
+      <td><code>@eos/notification/src/trigger-engine</code></td>
+      <td><code>@eos/notification/src/triggers</code></td>
+      <td>8</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/src/triggers</code></td>
+      <td><code>@eos/contracts</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/src/triggers</code></td>
+      <td><code>zod</code></td>
+      <td>7</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/tests/inbox.test</code></td>
+      <td><code>@eos/contracts</code></td>
+      <td>5</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/tests/inbox.test</code></td>
+      <td><code>@eos/notification/src/inbox</code></td>
+      <td>7</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/tests/inbox.test</code></td>
+      <td><code>node:events</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/tests/inbox.test</code></td>
+      <td><code>vitest</code></td>
+      <td>3</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>@eos/contracts</code></td>
+      <td>3</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>@eos/notification/src/inbox</code></td>
+      <td>10</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports <small>type</small></td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>@eos/notification/src/loop-observer</code></td>
+      <td>11</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>@eos/notification/src/trigger-engine</code></td>
+      <td>12</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports <small>type</small></td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>@eos/notification/src/triggers</code></td>
+      <td>13</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>vitest</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/tests/triggers.test</code></td>
+      <td><code>@eos/notification/src/triggers</code></td>
+      <td>3</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/tests/triggers.test</code></td>
+      <td><code>vitest</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>package-depends-on</td>
+      <td><code>@eos/notification</code></td>
+      <td><code>@eos/contracts</code></td>
+      <td></td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>package-depends-on</td>
+      <td><code>@eos/notification</code></td>
+      <td><code>zod</code></td>
+      <td></td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>reexports</td>
+      <td><code>@eos/notification/src/index</code></td>
+      <td><code>@eos/notification/src/inbox</code></td>
+      <td>7</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>reexports <small>type</small></td>
+      <td><code>@eos/notification/src/index</code></td>
+      <td><code>@eos/notification/src/loop-observer</code></td>
+      <td>11</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>reexports</td>
+      <td><code>@eos/notification/src/index</code></td>
+      <td><code>@eos/notification/src/trigger-engine</code></td>
+      <td>12</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>reexports</td>
+      <td><code>@eos/notification/src/index</code></td>
+      <td><code>@eos/notification/src/triggers</code></td>
+      <td>13</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>schema-infers-type</td>
+      <td><code>@eos/notification/src/triggers#CommandScriptSchema</code></td>
+      <td><code>@eos/notification/src/triggers#CommandScript</code></td>
+      <td>23</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>schema-infers-type</td>
+      <td><code>@eos/notification/src/triggers#TriggerRuleEntrySchema</code></td>
+      <td><code>@eos/notification/src/triggers#TriggerRuleEntry</code></td>
+      <td>53</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/notification/tests/inbox.test</code></td>
+      <td><code>@eos/contracts</code></td>
+      <td>5</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/notification/tests/inbox.test</code></td>
+      <td><code>@eos/notification/src/inbox</code></td>
+      <td>7</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/notification/tests/inbox.test</code></td>
+      <td><code>node:events</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/notification/tests/inbox.test</code></td>
+      <td><code>vitest</code></td>
+      <td>3</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>@eos/contracts</code></td>
+      <td>3</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>@eos/notification/src/inbox</code></td>
+      <td>10</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests <small>type</small></td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>@eos/notification/src/loop-observer</code></td>
+      <td>11</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>@eos/notification/src/trigger-engine</code></td>
+      <td>12</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests <small>type</small></td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>@eos/notification/src/triggers</code></td>
+      <td>13</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/notification/tests/trigger-engine.test</code></td>
+      <td><code>vitest</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/notification/tests/triggers.test</code></td>
+      <td><code>@eos/notification/src/triggers</code></td>
+      <td>3</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests</td>
+      <td><code>@eos/notification/tests/triggers.test</code></td>
+      <td><code>vitest</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>uses-schema</td>
+      <td><code>@eos/notification/src/triggers#CommandScript</code></td>
+      <td><code>@eos/notification/src/triggers#CommandScriptSchema</code></td>
+      <td>23</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>uses-schema</td>
+      <td><code>@eos/notification/src/triggers#TriggerRuleEntry</code></td>
+      <td><code>@eos/notification/src/triggers#TriggerRuleEntrySchema</code></td>
+      <td>53</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>uses-schema</td>
+      <td><code>@eos/notification/src/triggers#TriggerRuleEntrySchema</code></td>
+      <td><code>@eos/notification/src/triggers#CommandScriptSchema</code></td>
+      <td>39</td>
+    </tr>
+  </tbody>
+          </table>
+        </div>
+      </section>
+
+  </main>
+</body>
+</html>

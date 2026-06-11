@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>@eos/notification/src/loop-observer Code Inventory</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+  <script defer src="../assets/inventory-data.js"></script>
+  <script defer src="../assets/inventory.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">eos-agent-core</a>
+    <nav>
+      <a href="../assets/inventory.json">JSON</a>
+      <a href="../assets/graph.json">Graph</a>
+    </nav>
+  </header>
+  <main>
+
+      <section class="page-head">
+        <div>
+          <p class="eyebrow"><a href="../index.html">Code Inventory</a> / <a href="../packages/eos-notification.html">@eos/notification</a></p>
+          <h1>@eos/notification/src/loop-observer</h1>
+          <p class="lede">packages/notification/src/loop-observer.ts</p>
+          <div class="tags"><span>source</span></div>
+        </div>
+        <dl class="stat-grid">
+          <div><dt>Symbols</dt><dd>2</dd></div>
+          <div><dt>Schemas</dt><dd>0</dd></div>
+          <div><dt>Types</dt><dd>0</dd></div>
+          <div><dt>Functions</dt><dd>0</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Imports</h2>
+          <span>0</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Source</th><th>Names</th><th>Mode</th><th>Line</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Exports</h2>
+          <span>0</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Target</th><th>Names</th><th>Mode</th><th>Line</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Symbol Outline</h2>
+          <input class="search-input" type="search" placeholder="Filter symbols" aria-label="Filter symbols">
+        </div>
+        <div class="module-symbol-layout">
+
+    <nav class="symbol-outline">
+      <div class="tree-file-row">
+        <code>loop-observer.ts</code>
+        <small>2 symbols</small>
+      </div>
+      <ul class="tree-symbols">
+
+          <li class="tree-symbol search-item">
+            <a href="#TurnFacts"><code>TurnFacts</code></a>
+            <span>interface</span>
+            <span class="compact-tags">public-api</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#LoopObserver"><code>LoopObserver</code></a>
+            <span>interface</span>
+            <span class="compact-tags">public-api</span>
+          </li>
+
+      </ul>
+    </nav>
+
+          <div class="symbol-stack">
+    <article id="TurnFacts" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>TurnFacts</strong>
+          <span>interface · line 7 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-loop-observer.html#TurnFacts">Module</a>
+      </div>
+      <pre><code>export interface TurnFacts</code></pre>
+      <p>Loop facts announced to the runtime after each committed assistant
+turn; in-process camelCase. Two axes: the SHAPE of the turn that just
+committed (`toolCalls`, `backgroundSessionCount`, `hasPendingSteers`) and the
+run's BUDGET position (`turn`, `maxTurns`).</p>
+      <div class="tags"><span>exported</span><span>public-api</span></div>
+
+
+    <h3>Fields</h3>
+
+    <div class="table-wrap compact">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Flags</th></tr></thead>
+        <tbody>
+
+            <tr>
+              <td><code>turn</code></td>
+              <td><code>number</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>maxTurns</code></td>
+              <td><code>number</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>toolCalls</code></td>
+              <td><code>number</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>backgroundSessionCount</code></td>
+              <td><code>number</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>hasPendingSteers</code></td>
+              <td><code>boolean</code></td>
+              <td></td>
+            </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+
+
+
+    </article>
+
+
+    <article id="LoopObserver" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>LoopObserver</strong>
+          <span>interface · line 24 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-loop-observer.html#LoopObserver">Module</a>
+      </div>
+      <pre><code>export interface LoopObserver</code></pre>
+      <p>The loop's announcement port. Implementations must never throw or
+reject; the loop adds no defensive handling around these calls.</p>
+      <div class="tags"><span>exported</span><span>public-api</span></div>
+
+
+
+    <h3>Methods</h3>
+
+    <div class="table-wrap compact">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Flags</th></tr></thead>
+        <tbody>
+
+            <tr>
+              <td><code>turnCompleted</code></td>
+              <td><code>turnCompleted(facts: TurnFacts): Promise&lt;void&gt;;</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>idleStarted</code></td>
+              <td><code>idleStarted(): void;</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>idleEnded</code></td>
+              <td><code>idleEnded(): void;</code></td>
+              <td></td>
+            </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+
+
+    </article>
+  </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Relations</h2></div>
+        <div class="table-wrap relation-table">
+          <table>
+            <thead><tr><th>Kind</th><th>From</th><th>To</th><th>Line</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+  </main>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import type { AgentRunId, Message } from "@eos/contracts";
-import type { AgentRunHandle, BackgroundSessionSupervisor } from "@eos/engine";
+import type { BackgroundSessionSupervisor } from "@eos/background";
+import type { AgentRunHandle } from "@eos/engine";
 
 import type { ToolDefinition } from "../../contract.js";
 import { askAdvisorTool } from "./ask-advisor.js";

@@ -40,7 +40,7 @@
         </div>
         <div class="manifest-grid">
           <div><strong>exports</strong><ul><li><code>.</code></li><li><code>./agent-run-handle</code></li></ul></div>
-          <div><strong>dependencies</strong><ul><li><code>@eos/contracts</code></li><li><code>@eos/engine</code></li><li><code>@eos/llm-client</code></li><li><code>@eos/notifications</code></li><li><code>@eos/tool</code></li><li><code>yaml</code></li><li><code>zod</code></li></ul></div>
+          <div><strong>dependencies</strong><ul><li><code>@eos/background</code></li><li><code>@eos/contracts</code></li><li><code>@eos/engine</code></li><li><code>@eos/llm-client</code></li><li><code>@eos/notification</code></li><li><code>@eos/tool</code></li><li><code>yaml</code></li><li><code>zod</code></li></ul></div>
           <div><strong>devDependencies</strong><ul><li><code>@eos/testkit</code></li></ul></div>
         </div>
       </section>
@@ -2316,7 +2316,7 @@
       </section>
 
       <section class="panel">
-        <div class="panel-head"><h2>Relations</h2><span>305</span></div>
+        <div class="panel-head"><h2>Relations</h2><span>307</span></div>
         <div class="table-wrap relation-table">
           <table>
             <thead><tr><th>Kind</th><th>From</th><th>To</th><th>Line</th></tr></thead>
@@ -3588,7 +3588,7 @@
     <tr class="search-item">
       <td>imports</td>
       <td><code>@eos/agent-runtime/src/notification-rules-config</code></td>
-      <td><code>@eos/notifications</code></td>
+      <td><code>@eos/notification</code></td>
       <td>1</td>
     </tr>
 
@@ -3684,6 +3684,14 @@
     <tr class="search-item">
       <td>imports</td>
       <td><code>@eos/agent-runtime/src/runtime</code></td>
+      <td><code>@eos/background</code></td>
+      <td>11</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/agent-runtime/src/runtime</code></td>
       <td><code>@eos/contracts</code></td>
       <td>1</td>
     </tr>
@@ -3700,7 +3708,7 @@
     <tr class="search-item">
       <td>imports</td>
       <td><code>@eos/agent-runtime/src/runtime</code></td>
-      <td><code>@eos/notifications</code></td>
+      <td><code>@eos/notification</code></td>
       <td>12</td>
     </tr>
 
@@ -3996,7 +4004,7 @@
     <tr class="search-item">
       <td>imports</td>
       <td><code>@eos/agent-runtime/tests/runtime.test</code></td>
-      <td><code>@eos/notifications</code></td>
+      <td><code>@eos/notification</code></td>
       <td>8</td>
     </tr>
 
@@ -4180,6 +4188,14 @@
     <tr class="search-item">
       <td>package-depends-on</td>
       <td><code>@eos/agent-runtime</code></td>
+      <td><code>@eos/background</code></td>
+      <td></td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>package-depends-on</td>
+      <td><code>@eos/agent-runtime</code></td>
       <td><code>@eos/contracts</code></td>
       <td></td>
     </tr>
@@ -4204,7 +4220,7 @@
     <tr class="search-item">
       <td>package-depends-on</td>
       <td><code>@eos/agent-runtime</code></td>
-      <td><code>@eos/notifications</code></td>
+      <td><code>@eos/notification</code></td>
       <td></td>
     </tr>
 
@@ -4222,22 +4238,6 @@
       <td><code>@eos/agent-runtime</code></td>
       <td><code>yaml</code></td>
       <td></td>
-    </tr>
-
-
-    <tr class="search-item">
-      <td>package-depends-on</td>
-      <td><code>@eos/agent-runtime</code></td>
-      <td><code>zod</code></td>
-      <td></td>
-    </tr>
-
-
-    <tr class="search-item">
-      <td>reexports <small>type</small></td>
-      <td><code>@eos/agent-runtime/src/index</code></td>
-      <td><code>@eos/agent-runtime/src/agent-run-handle</code></td>
-      <td>7</td>
     </tr>
   </tbody>
           </table>

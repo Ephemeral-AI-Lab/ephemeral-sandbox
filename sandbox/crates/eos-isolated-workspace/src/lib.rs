@@ -18,12 +18,14 @@
 
 pub mod caps;
 mod error;
+mod manager;
 pub(crate) mod namespace;
 mod network;
 mod sessions;
 
 pub use caps::{ResourceCaps, Rfc1918Egress};
 pub use error::IsolatedError;
+pub use manager::IsolatedManager;
 pub use sessions::{
     ExitOutcome, IsolatedSessions, IsolatedSnapshot, IsolatedWorkspaceId, WorkspaceHandle,
 };

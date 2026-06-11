@@ -15,10 +15,11 @@
 //! single-threaded `eosd ns-holder` / `eosd ns-runner` children and wires their
 //! pinned namespace FDs in — it does the namespace syscalls only by delegation.
 //!
-//! Op handlers live with their feature modules — [`checkpoint`], [`control`],
-//! [`plugins`], and [`workspace`] — and [`dispatch::registry`] is
-//! the single table binding wire op names to those handlers. [`overlay`] is
-//! the shared substrate seam over the sibling crates. Write-capable
+//! Op handlers live under [`ops`], while implementation state lives with the
+//! owning service modules or sibling crates. [`dispatch::registry`] is the
+//! single table binding wire op names to those handlers. Overlay and workspace
+//! helpers live in the sibling crates that own those domains, with daemon code
+//! keeping only process launch and service orchestration. Write-capable
 //! shared-workspace operations route through `eos_layerstack::service`, the
 //! per-root single writer shared with the live dispatcher.
 //!
@@ -32,20 +33,18 @@
 //!
 #![forbid(unsafe_code)]
 
-pub(crate) mod checkpoint;
-pub(crate) mod control;
 pub(crate) mod dispatch;
-pub(crate) mod overlay;
-pub(crate) mod plugins;
+pub(crate) mod ops;
 pub(crate) mod runtime;
+pub(crate) mod services;
 pub(crate) mod transport;
 pub mod wire;
-pub(crate) mod workspace;
 
 pub(crate) use dispatch::dispatcher;
-pub use dispatcher::{DispatchContext, OpTable};
+pub use dispatcher::OpTable;
 pub use invocation_registry::InFlightRegistry;
 pub(crate) use invocation_registry::{DEFAULT_REAPER_INTERVAL_S, DEFAULT_TTL_S};
+pub use runtime::context::DispatchContext;
 pub(crate) use runtime::{config, error, invocation_registry};
-pub(crate) use runtime::{request_args, response_timings};
+pub(crate) use runtime::{request_args, response};
 pub use transport::server::{DaemonServer, ServerConfig};

@@ -49,7 +49,7 @@ export function scriptedRunState(
 }
 
 /**
- * Structurally a `@eos/engine` `BackgroundSessionOutcome` /
+ * Structurally a `@eos/background` `BackgroundSessionOutcome` /
  * `BackgroundSessionHandle` pair. Testkit deliberately depends only on
  * contracts + tool, so the shapes are declared here and checked structurally
  * at the registration site.

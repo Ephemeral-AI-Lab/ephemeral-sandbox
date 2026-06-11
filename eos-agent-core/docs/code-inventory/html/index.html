@@ -25,10 +25,10 @@
           <p class="lede">Package boundaries, module surfaces, symbols, Zod contracts, and graph relations generated from the live TypeScript workspace.</p>
         </div>
         <dl class="stat-grid">
-          <div><dt>Packages</dt><dd>9</dd></div>
-          <div><dt>Modules</dt><dd>134</dd></div>
-          <div><dt>Symbols</dt><dd>652</dd></div>
-          <div><dt>Relations</dt><dd>979</dd></div>
+          <div><dt>Packages</dt><dd>10</dd></div>
+          <div><dt>Modules</dt><dd>136</dd></div>
+          <div><dt>Symbols</dt><dd>656</dd></div>
+          <div><dt>Relations</dt><dd>985</dd></div>
         </dl>
       </section>
 
@@ -41,7 +41,15 @@
     <a class="package-card search-item" href="packages/eos-agent-runtime.html">
       <strong>@eos/agent-runtime</strong>
       <span>packages/agent-runtime</span>
-      <small>37 modules · 252 symbols · 305 relations</small>
+      <small>37 modules · 252 symbols · 307 relations</small>
+
+    </a>
+
+
+    <a class="package-card search-item" href="packages/eos-background.html">
+      <strong>@eos/background</strong>
+      <span>packages/background</span>
+      <small>5 modules · 15 symbols · 15 relations</small>
 
     </a>
 
@@ -65,7 +73,7 @@
     <a class="package-card search-item" href="packages/eos-engine.html">
       <strong>@eos/engine</strong>
       <span>packages/engine</span>
-      <small>12 modules · 73 symbols · 96 relations</small>
+      <small>9 modules · 62 symbols · 83 relations</small>
       <div class="tags"><span>runtime</span></div>
     </a>
 
@@ -78,9 +86,9 @@
     </a>
 
 
-    <a class="package-card search-item" href="packages/eos-notifications.html">
-      <strong>@eos/notifications</strong>
-      <span>packages/notifications</span>
+    <a class="package-card search-item" href="packages/eos-notification.html">
+      <strong>@eos/notification</strong>
+      <span>packages/notification</span>
       <small>8 modules · 32 symbols · 43 relations</small>
 
     </a>
@@ -105,7 +113,7 @@
     <a class="package-card search-item" href="packages/eos-tool.html">
       <strong>@eos/tool</strong>
       <span>packages/tool</span>
-      <small>33 modules · 118 symbols · 232 relations</small>
+      <small>33 modules · 118 symbols · 234 relations</small>
 
     </a>
   </div>
@@ -2393,6 +2401,196 @@
 
         <details class="tree-folder tree-package" open>
           <summary>
+            <span class="tree-label">@eos/background</span>
+            <a class="tree-action" href="packages/eos-background.html">Open</a>
+            <small>5 modules · 15 symbols</small>
+          </summary>
+          <div class="tree-nav"><div class="tree-children">
+      <details class="tree-folder" open>
+        <summary>
+          <span class="tree-label">src</span>
+        </summary>
+        <div class="tree-children">
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="modules/eos-background-src-background-session-supervisor.html"><code>background-session-supervisor.ts</code></a>
+        <small>source · 4 symbols</small>
+      </div>
+      <div class="tags"><span>source</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-src-background-session-supervisor.html#BackgroundSessionEntry"><code>BackgroundSessionEntry</code></a>
+          <span>interface</span>
+          <span class="compact-tags">internal</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-src-background-session-supervisor.html#backgroundSessionKey"><code>backgroundSessionKey</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-src-background-session-supervisor.html#isBackgroundSessionRef"><code>isBackgroundSessionRef</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-src-background-session-supervisor.html#BackgroundSessionSupervisor"><code>BackgroundSessionSupervisor</code></a>
+          <span>class</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+    </ul>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="modules/eos-background-src-background-session.html"><code>background-session.ts</code></a>
+        <small>source · 5 symbols</small>
+      </div>
+      <div class="tags"><span>source</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-src-background-session.html#BackgroundSessionRef"><code>BackgroundSessionRef</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-src-background-session.html#BackgroundSessionStatus"><code>BackgroundSessionStatus</code></a>
+          <span>type</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-src-background-session.html#BackgroundSessionOutcome"><code>BackgroundSessionOutcome</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-src-background-session.html#BackgroundSessionHandle"><code>BackgroundSessionHandle</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api run-handle</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-src-background-session.html#BackgroundSessionRow"><code>BackgroundSessionRow</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api</span>
+        </li>
+
+    </ul>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="modules/eos-background-src-index.html"><code>index.ts</code></a>
+        <small>entrypoint · 0 symbols</small>
+      </div>
+      <div class="tags"><span>entrypoint</span><span>package-entrypoint</span><span>public-api</span></div>
+
+    </div>
+  </div>
+      </details>
+
+
+      <details class="tree-folder" open>
+        <summary>
+          <span class="tree-label">tests</span>
+        </summary>
+        <div class="tree-children">
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="modules/eos-background-tests-background-session-supervisor-test.html"><code>background-session-supervisor.test.ts</code></a>
+        <small>test · 2 symbols</small>
+      </div>
+      <div class="tags"><span>test</span><span>test-only</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-tests-background-session-supervisor-test.html#REF"><code>REF</code></a>
+          <span>const</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-tests-background-session-supervisor-test.html#setup"><code>setup</code></a>
+          <span>function</span>
+          <span class="compact-tags">internal test-only</span>
+        </li>
+
+    </ul>
+
+    </div>
+
+
+    <div class="tree-file search-item">
+      <div class="tree-file-row">
+        <a href="modules/eos-background-tests-support.html"><code>support.ts</code></a>
+        <small>test-support · 4 symbols</small>
+      </div>
+      <div class="tags"><span>test-only</span><span>test-support</span></div>
+
+    <ul class="tree-symbols">
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-tests-support.html#TestBackgroundSessionHandle"><code>TestBackgroundSessionHandle</code></a>
+          <span>interface</span>
+          <span class="compact-tags">public-api run-handle test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-tests-support.html#backgroundSessionHandle"><code>backgroundSessionHandle</code></a>
+          <span>function</span>
+          <span class="compact-tags">public-api run-handle test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-tests-support.html#tick"><code>tick</code></a>
+          <span>function</span>
+          <span class="compact-tags">public-api test-only</span>
+        </li>
+
+
+        <li class="tree-symbol search-item">
+          <a href="modules/eos-background-tests-support.html#must"><code>must</code></a>
+          <span>function</span>
+          <span class="compact-tags">public-api test-only</span>
+        </li>
+
+    </ul>
+
+    </div>
+  </div>
+      </details>
+    </div></div>
+        </details>
+
+
+        <details class="tree-folder tree-package" open>
+          <summary>
             <span class="tree-label">@eos/contracts</span>
             <a class="tree-action" href="packages/eos-contracts.html">Open</a>
             <small>9 modules · 35 symbols</small>
@@ -2784,7 +2982,7 @@
           <summary>
             <span class="tree-label">@eos/engine</span>
             <a class="tree-action" href="packages/eos-engine.html">Open</a>
-            <small>12 modules · 73 symbols</small>
+            <small>9 modules · 62 symbols</small>
           </summary>
           <div class="tree-nav"><div class="tree-children">
       <details class="tree-folder" open>
@@ -2792,101 +2990,6 @@
           <span class="tree-label">src</span>
         </summary>
         <div class="tree-children">
-      <details class="tree-folder" open>
-        <summary>
-          <span class="tree-label">background</span>
-        </summary>
-        <div class="tree-children">
-    <div class="tree-file search-item">
-      <div class="tree-file-row">
-        <a href="modules/eos-engine-src-background-background-session-supervisor.html"><code>background-session-supervisor.ts</code></a>
-        <small>source · 4 symbols</small>
-      </div>
-      <div class="tags"><span>source</span></div>
-
-    <ul class="tree-symbols">
-
-        <li class="tree-symbol search-item">
-          <a href="modules/eos-engine-src-background-background-session-supervisor.html#BackgroundSessionEntry"><code>BackgroundSessionEntry</code></a>
-          <span>interface</span>
-          <span class="compact-tags">internal</span>
-        </li>
-
-
-        <li class="tree-symbol search-item">
-          <a href="modules/eos-engine-src-background-background-session-supervisor.html#backgroundSessionKey"><code>backgroundSessionKey</code></a>
-          <span>function</span>
-          <span class="compact-tags">internal</span>
-        </li>
-
-
-        <li class="tree-symbol search-item">
-          <a href="modules/eos-engine-src-background-background-session-supervisor.html#isBackgroundSessionRef"><code>isBackgroundSessionRef</code></a>
-          <span>function</span>
-          <span class="compact-tags">internal</span>
-        </li>
-
-
-        <li class="tree-symbol search-item">
-          <a href="modules/eos-engine-src-background-background-session-supervisor.html#BackgroundSessionSupervisor"><code>BackgroundSessionSupervisor</code></a>
-          <span>class</span>
-          <span class="compact-tags">public-api</span>
-        </li>
-
-    </ul>
-
-    </div>
-
-
-    <div class="tree-file search-item">
-      <div class="tree-file-row">
-        <a href="modules/eos-engine-src-background-background-session.html"><code>background-session.ts</code></a>
-        <small>source · 5 symbols</small>
-      </div>
-      <div class="tags"><span>source</span></div>
-
-    <ul class="tree-symbols">
-
-        <li class="tree-symbol search-item">
-          <a href="modules/eos-engine-src-background-background-session.html#BackgroundSessionRef"><code>BackgroundSessionRef</code></a>
-          <span>interface</span>
-          <span class="compact-tags">public-api</span>
-        </li>
-
-
-        <li class="tree-symbol search-item">
-          <a href="modules/eos-engine-src-background-background-session.html#BackgroundSessionStatus"><code>BackgroundSessionStatus</code></a>
-          <span>type</span>
-          <span class="compact-tags">public-api</span>
-        </li>
-
-
-        <li class="tree-symbol search-item">
-          <a href="modules/eos-engine-src-background-background-session.html#BackgroundSessionOutcome"><code>BackgroundSessionOutcome</code></a>
-          <span>interface</span>
-          <span class="compact-tags">public-api</span>
-        </li>
-
-
-        <li class="tree-symbol search-item">
-          <a href="modules/eos-engine-src-background-background-session.html#BackgroundSessionHandle"><code>BackgroundSessionHandle</code></a>
-          <span>interface</span>
-          <span class="compact-tags">public-api run-handle</span>
-        </li>
-
-
-        <li class="tree-symbol search-item">
-          <a href="modules/eos-engine-src-background-background-session.html#BackgroundSessionRow"><code>BackgroundSessionRow</code></a>
-          <span>interface</span>
-          <span class="compact-tags">public-api</span>
-        </li>
-
-    </ul>
-
-    </div>
-  </div>
-      </details>
-
     <div class="tree-file search-item">
       <div class="tree-file-row">
         <a href="modules/eos-engine-src-agent-loop.html"><code>agent-loop.ts</code></a>
@@ -3111,33 +3214,6 @@
         <li class="tree-symbol search-item">
           <a href="modules/eos-engine-tests-agent-loop-test.html#SUBMISSION"><code>SUBMISSION</code></a>
           <span>const</span>
-          <span class="compact-tags">internal test-only</span>
-        </li>
-
-    </ul>
-
-    </div>
-
-
-    <div class="tree-file search-item">
-      <div class="tree-file-row">
-        <a href="modules/eos-engine-tests-background-session-supervisor-test.html"><code>background-session-supervisor.test.ts</code></a>
-        <small>test · 2 symbols</small>
-      </div>
-      <div class="tags"><span>test</span><span>test-only</span></div>
-
-    <ul class="tree-symbols">
-
-        <li class="tree-symbol search-item">
-          <a href="modules/eos-engine-tests-background-session-supervisor-test.html#REF"><code>REF</code></a>
-          <span>const</span>
-          <span class="compact-tags">internal test-only</span>
-        </li>
-
-
-        <li class="tree-symbol search-item">
-          <a href="modules/eos-engine-tests-background-session-supervisor-test.html#setup"><code>setup</code></a>
-          <span>function</span>
           <span class="compact-tags">internal test-only</span>
         </li>
 
@@ -4903,8 +4979,8 @@
 
         <details class="tree-folder tree-package" open>
           <summary>
-            <span class="tree-label">@eos/notifications</span>
-            <a class="tree-action" href="packages/eos-notifications.html">Open</a>
+            <span class="tree-label">@eos/notification</span>
+            <a class="tree-action" href="packages/eos-notification.html">Open</a>
             <small>8 modules · 32 symbols</small>
           </summary>
           <div class="tree-nav"><div class="tree-children">
@@ -4915,7 +4991,7 @@
         <div class="tree-children">
     <div class="tree-file search-item">
       <div class="tree-file-row">
-        <a href="modules/eos-notifications-src-inbox.html"><code>inbox.ts</code></a>
+        <a href="modules/eos-notification-src-inbox.html"><code>inbox.ts</code></a>
         <small>source · 3 symbols</small>
       </div>
       <div class="tags"><span>source</span></div>
@@ -4923,21 +4999,21 @@
     <ul class="tree-symbols">
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-inbox.html#InboxEntry"><code>InboxEntry</code></a>
+          <a href="modules/eos-notification-src-inbox.html#InboxEntry"><code>InboxEntry</code></a>
           <span>interface</span>
           <span class="compact-tags">internal</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-inbox.html#NotificationInbox"><code>NotificationInbox</code></a>
+          <a href="modules/eos-notification-src-inbox.html#NotificationInbox"><code>NotificationInbox</code></a>
           <span>class</span>
           <span class="compact-tags">public-api</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-inbox.html#systemNotificationMessage"><code>systemNotificationMessage</code></a>
+          <a href="modules/eos-notification-src-inbox.html#systemNotificationMessage"><code>systemNotificationMessage</code></a>
           <span>function</span>
           <span class="compact-tags">public-api</span>
         </li>
@@ -4949,7 +5025,7 @@
 
     <div class="tree-file search-item">
       <div class="tree-file-row">
-        <a href="modules/eos-notifications-src-index.html"><code>index.ts</code></a>
+        <a href="modules/eos-notification-src-index.html"><code>index.ts</code></a>
         <small>entrypoint · 0 symbols</small>
       </div>
       <div class="tags"><span>entrypoint</span><span>package-entrypoint</span><span>public-api</span></div>
@@ -4959,7 +5035,7 @@
 
     <div class="tree-file search-item">
       <div class="tree-file-row">
-        <a href="modules/eos-notifications-src-loop-observer.html"><code>loop-observer.ts</code></a>
+        <a href="modules/eos-notification-src-loop-observer.html"><code>loop-observer.ts</code></a>
         <small>source · 2 symbols</small>
       </div>
       <div class="tags"><span>source</span></div>
@@ -4967,14 +5043,14 @@
     <ul class="tree-symbols">
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-loop-observer.html#TurnFacts"><code>TurnFacts</code></a>
+          <a href="modules/eos-notification-src-loop-observer.html#TurnFacts"><code>TurnFacts</code></a>
           <span>interface</span>
           <span class="compact-tags">public-api</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-loop-observer.html#LoopObserver"><code>LoopObserver</code></a>
+          <a href="modules/eos-notification-src-loop-observer.html#LoopObserver"><code>LoopObserver</code></a>
           <span>interface</span>
           <span class="compact-tags">public-api</span>
         </li>
@@ -4986,7 +5062,7 @@
 
     <div class="tree-file search-item">
       <div class="tree-file-row">
-        <a href="modules/eos-notifications-src-trigger-engine.html"><code>trigger-engine.ts</code></a>
+        <a href="modules/eos-notification-src-trigger-engine.html"><code>trigger-engine.ts</code></a>
         <small>source · 3 symbols</small>
       </div>
       <div class="tags"><span>source</span></div>
@@ -4994,21 +5070,21 @@
     <ul class="tree-symbols">
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-trigger-engine.html#IdleRule"><code>IdleRule</code></a>
+          <a href="modules/eos-notification-src-trigger-engine.html#IdleRule"><code>IdleRule</code></a>
           <span>type</span>
           <span class="compact-tags">internal</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-trigger-engine.html#NotificationTriggerEngineDeps"><code>NotificationTriggerEngineDeps</code></a>
+          <a href="modules/eos-notification-src-trigger-engine.html#NotificationTriggerEngineDeps"><code>NotificationTriggerEngineDeps</code></a>
           <span>interface</span>
           <span class="compact-tags">public-api</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-trigger-engine.html#NotificationTriggerEngine"><code>NotificationTriggerEngine</code></a>
+          <a href="modules/eos-notification-src-trigger-engine.html#NotificationTriggerEngine"><code>NotificationTriggerEngine</code></a>
           <span>class</span>
           <span class="compact-tags">public-api</span>
         </li>
@@ -5020,7 +5096,7 @@
 
     <div class="tree-file search-item">
       <div class="tree-file-row">
-        <a href="modules/eos-notifications-src-triggers.html"><code>triggers.ts</code></a>
+        <a href="modules/eos-notification-src-triggers.html"><code>triggers.ts</code></a>
         <small>source · 12 symbols</small>
       </div>
       <div class="tags"><span>source</span></div>
@@ -5028,84 +5104,84 @@
     <ul class="tree-symbols">
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#CommandScriptSchema"><code>CommandScriptSchema</code></a>
+          <a href="modules/eos-notification-src-triggers.html#CommandScriptSchema"><code>CommandScriptSchema</code></a>
           <span>schema</span>
           <span class="compact-tags">public-api schema:zod</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#CommandScript"><code>CommandScript</code></a>
+          <a href="modules/eos-notification-src-triggers.html#CommandScript"><code>CommandScript</code></a>
           <span>type</span>
           <span class="compact-tags">public-api</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#TriggerRuleMatchers"><code>TriggerRuleMatchers</code></a>
+          <a href="modules/eos-notification-src-triggers.html#TriggerRuleMatchers"><code>TriggerRuleMatchers</code></a>
           <span>const</span>
           <span class="compact-tags">internal</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#TriggerRuleEntrySchema"><code>TriggerRuleEntrySchema</code></a>
+          <a href="modules/eos-notification-src-triggers.html#TriggerRuleEntrySchema"><code>TriggerRuleEntrySchema</code></a>
           <span>schema</span>
           <span class="compact-tags">public-api schema:zod</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#TriggerRuleEntry"><code>TriggerRuleEntry</code></a>
+          <a href="modules/eos-notification-src-triggers.html#TriggerRuleEntry"><code>TriggerRuleEntry</code></a>
           <span>type</span>
           <span class="compact-tags">public-api</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#triggerRuleAppliesTo"><code>triggerRuleAppliesTo</code></a>
+          <a href="modules/eos-notification-src-triggers.html#triggerRuleAppliesTo"><code>triggerRuleAppliesTo</code></a>
           <span>function</span>
           <span class="compact-tags">public-api</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#TurnCompletedFacts"><code>TurnCompletedFacts</code></a>
+          <a href="modules/eos-notification-src-triggers.html#TurnCompletedFacts"><code>TurnCompletedFacts</code></a>
           <span>interface</span>
           <span class="compact-tags">public-api</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#IdleTimeoutFacts"><code>IdleTimeoutFacts</code></a>
+          <a href="modules/eos-notification-src-triggers.html#IdleTimeoutFacts"><code>IdleTimeoutFacts</code></a>
           <span>interface</span>
           <span class="compact-tags">public-api</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#TriggerPayload"><code>TriggerPayload</code></a>
+          <a href="modules/eos-notification-src-triggers.html#TriggerPayload"><code>TriggerPayload</code></a>
           <span>interface</span>
           <span class="compact-tags">public-api</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#TriggerOutputSchema"><code>TriggerOutputSchema</code></a>
+          <a href="modules/eos-notification-src-triggers.html#TriggerOutputSchema"><code>TriggerOutputSchema</code></a>
           <span>const</span>
           <span class="compact-tags">public-api</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#TriggerCommandRun"><code>TriggerCommandRun</code></a>
+          <a href="modules/eos-notification-src-triggers.html#TriggerCommandRun"><code>TriggerCommandRun</code></a>
           <span>interface</span>
           <span class="compact-tags">public-api</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-src-triggers.html#TriggerCommandRunner"><code>TriggerCommandRunner</code></a>
+          <a href="modules/eos-notification-src-triggers.html#TriggerCommandRunner"><code>TriggerCommandRunner</code></a>
           <span>type</span>
           <span class="compact-tags">public-api</span>
         </li>
@@ -5124,7 +5200,7 @@
         <div class="tree-children">
     <div class="tree-file search-item">
       <div class="tree-file-row">
-        <a href="modules/eos-notifications-tests-inbox-test.html"><code>inbox.test.ts</code></a>
+        <a href="modules/eos-notification-tests-inbox-test.html"><code>inbox.test.ts</code></a>
         <small>test · 1 symbols</small>
       </div>
       <div class="tags"><span>test</span><span>test-only</span></div>
@@ -5132,7 +5208,7 @@
     <ul class="tree-symbols">
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-inbox-test.html#note"><code>note</code></a>
+          <a href="modules/eos-notification-tests-inbox-test.html#note"><code>note</code></a>
           <span>const</span>
           <span class="compact-tags">internal test-only</span>
         </li>
@@ -5144,7 +5220,7 @@
 
     <div class="tree-file search-item">
       <div class="tree-file-row">
-        <a href="modules/eos-notifications-tests-trigger-engine-test.html"><code>trigger-engine.test.ts</code></a>
+        <a href="modules/eos-notification-tests-trigger-engine-test.html"><code>trigger-engine.test.ts</code></a>
         <small>test · 9 symbols</small>
       </div>
       <div class="tags"><span>test</span><span>test-only</span></div>
@@ -5152,63 +5228,63 @@
     <ul class="tree-symbols">
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-trigger-engine-test.html#SNAPSHOT"><code>SNAPSHOT</code></a>
+          <a href="modules/eos-notification-tests-trigger-engine-test.html#SNAPSHOT"><code>SNAPSHOT</code></a>
           <span>const</span>
           <span class="compact-tags">internal test-only</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-trigger-engine-test.html#FACTS"><code>FACTS</code></a>
+          <a href="modules/eos-notification-tests-trigger-engine-test.html#FACTS"><code>FACTS</code></a>
           <span>const</span>
           <span class="compact-tags">internal test-only</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-trigger-engine-test.html#command"><code>command</code></a>
+          <a href="modules/eos-notification-tests-trigger-engine-test.html#command"><code>command</code></a>
           <span>function</span>
           <span class="compact-tags">internal test-only</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-trigger-engine-test.html#session"><code>session</code></a>
+          <a href="modules/eos-notification-tests-trigger-engine-test.html#session"><code>session</code></a>
           <span>function</span>
           <span class="compact-tags">internal test-only</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-trigger-engine-test.html#turnRule"><code>turnRule</code></a>
+          <a href="modules/eos-notification-tests-trigger-engine-test.html#turnRule"><code>turnRule</code></a>
           <span>function</span>
           <span class="compact-tags">internal test-only</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-trigger-engine-test.html#idleRule"><code>idleRule</code></a>
+          <a href="modules/eos-notification-tests-trigger-engine-test.html#idleRule"><code>idleRule</code></a>
           <span>function</span>
           <span class="compact-tags">internal test-only</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-trigger-engine-test.html#reminder"><code>reminder</code></a>
+          <a href="modules/eos-notification-tests-trigger-engine-test.html#reminder"><code>reminder</code></a>
           <span>function</span>
           <span class="compact-tags">internal test-only</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-trigger-engine-test.html#Fixture"><code>Fixture</code></a>
+          <a href="modules/eos-notification-tests-trigger-engine-test.html#Fixture"><code>Fixture</code></a>
           <span>interface</span>
           <span class="compact-tags">internal test-only</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-trigger-engine-test.html#fixture"><code>fixture</code></a>
+          <a href="modules/eos-notification-tests-trigger-engine-test.html#fixture"><code>fixture</code></a>
           <span>function</span>
           <span class="compact-tags">internal test-only</span>
         </li>
@@ -5220,7 +5296,7 @@
 
     <div class="tree-file search-item">
       <div class="tree-file-row">
-        <a href="modules/eos-notifications-tests-triggers-test.html"><code>triggers.test.ts</code></a>
+        <a href="modules/eos-notification-tests-triggers-test.html"><code>triggers.test.ts</code></a>
         <small>test · 2 symbols</small>
       </div>
       <div class="tags"><span>test</span><span>test-only</span></div>
@@ -5228,14 +5304,14 @@
     <ul class="tree-symbols">
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-triggers-test.html#RUN"><code>RUN</code></a>
+          <a href="modules/eos-notification-tests-triggers-test.html#RUN"><code>RUN</code></a>
           <span>const</span>
           <span class="compact-tags">internal test-only</span>
         </li>
 
 
         <li class="tree-symbol search-item">
-          <a href="modules/eos-notifications-tests-triggers-test.html#rule"><code>rule</code></a>
+          <a href="modules/eos-notification-tests-triggers-test.html#rule"><code>rule</code></a>
           <span>function</span>
           <span class="compact-tags">internal test-only</span>
         </li>
@@ -6662,7 +6738,7 @@
       <section class="panel">
         <div class="panel-head">
           <h2>Graph Relations</h2>
-          <span>showing 240 of 979</span>
+          <span>showing 240 of 985</span>
         </div>
         <div class="table-wrap relation-table">
           <table>
@@ -6720,7 +6796,7 @@
       <td>implements</td>
       <td><code>@eos/engine/tests/support#MockLlmClient</code></td>
       <td><code>LlmClient</code></td>
-      <td>45</td>
+      <td>47</td>
     </tr>
 
 
@@ -6750,7 +6826,7 @@
 
     <tr class="search-item">
       <td>implements</td>
-      <td><code>@eos/notifications/src/trigger-engine#NotificationTriggerEngine</code></td>
+      <td><code>@eos/notification/src/trigger-engine#NotificationTriggerEngine</code></td>
       <td><code>LoopObserver</code></td>
       <td>39</td>
     </tr>
@@ -7999,7 +8075,7 @@
     <tr class="search-item">
       <td>imports</td>
       <td><code>@eos/agent-runtime/src/notification-rules-config</code></td>
-      <td><code>@eos/notifications</code></td>
+      <td><code>@eos/notification</code></td>
       <td>1</td>
     </tr>
 
@@ -8095,6 +8171,14 @@
     <tr class="search-item">
       <td>imports</td>
       <td><code>@eos/agent-runtime/src/runtime</code></td>
+      <td><code>@eos/background</code></td>
+      <td>11</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/agent-runtime/src/runtime</code></td>
       <td><code>@eos/contracts</code></td>
       <td>1</td>
     </tr>
@@ -8111,7 +8195,7 @@
     <tr class="search-item">
       <td>imports</td>
       <td><code>@eos/agent-runtime/src/runtime</code></td>
-      <td><code>@eos/notifications</code></td>
+      <td><code>@eos/notification</code></td>
       <td>12</td>
     </tr>
 
@@ -8407,7 +8491,7 @@
     <tr class="search-item">
       <td>imports</td>
       <td><code>@eos/agent-runtime/tests/runtime.test</code></td>
-      <td><code>@eos/notifications</code></td>
+      <td><code>@eos/notification</code></td>
       <td>8</td>
     </tr>
 
@@ -8577,14 +8661,6 @@
       <td><code>@eos/agent-runtime/tests/transcript.test</code></td>
       <td><code>node:path</code></td>
       <td>2</td>
-    </tr>
-
-
-    <tr class="search-item">
-      <td>imports</td>
-      <td><code>@eos/agent-runtime/tests/transcript.test</code></td>
-      <td><code>vitest</code></td>
-      <td>4</td>
     </tr>
   </tbody>
           </table>

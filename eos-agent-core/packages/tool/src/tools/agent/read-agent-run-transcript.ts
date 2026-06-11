@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { ToolDefinition } from "../../contract.js";
 import { defineTool } from "../../define.js";
+import { descriptionPrompt } from "../description_prompts/index.js";
 import type { AgentRunCalls } from "./index.js";
 
 const DEFAULT_READ_BYTES = 65_536;
@@ -18,8 +19,7 @@ const ReadTranscriptInputSchema = z.object({
 export function readAgentRunTranscriptTool(calls: AgentRunCalls): ToolDefinition {
   return defineTool({
     name: "read_agent_run_transcript",
-    description:
-      "Read a started agent run's JSONL transcript by byte offset. Returns the chunk, the offset to resume from, and whether the end was reached.",
+    description: descriptionPrompt("read_agent_run_transcript"),
     input: ReadTranscriptInputSchema,
     execute: async (input) => {
       const path = calls.transcriptPathOf(agentRunIdFrom(input.run_id));

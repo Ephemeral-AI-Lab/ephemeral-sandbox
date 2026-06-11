@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { CommandScript, TriggerPayload } from "@eos/notifications";
+import type { CommandScript, TriggerPayload } from "@eos/notification";
 import { scriptedRunState } from "@eos/testkit";
 
 import { runTriggerCommand } from "../src/trigger-runner.js";

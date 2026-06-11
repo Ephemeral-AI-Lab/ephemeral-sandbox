@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>@eos/notification/src/triggers Code Inventory</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+  <script defer src="../assets/inventory-data.js"></script>
+  <script defer src="../assets/inventory.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">eos-agent-core</a>
+    <nav>
+      <a href="../assets/inventory.json">JSON</a>
+      <a href="../assets/graph.json">Graph</a>
+    </nav>
+  </header>
+  <main>
+
+      <section class="page-head">
+        <div>
+          <p class="eyebrow"><a href="../index.html">Code Inventory</a> / <a href="../packages/eos-notification.html">@eos/notification</a></p>
+          <h1>@eos/notification/src/triggers</h1>
+          <p class="lede">packages/notification/src/triggers.ts</p>
+          <div class="tags"><span>source</span></div>
+        </div>
+        <dl class="stat-grid">
+          <div><dt>Symbols</dt><dd>12</dd></div>
+          <div><dt>Schemas</dt><dd>2</dd></div>
+          <div><dt>Types</dt><dd>3</dd></div>
+          <div><dt>Functions</dt><dd>1</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Imports</h2>
+          <span>2</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Source</th><th>Names</th><th>Mode</th><th>Line</th></tr></thead>
+            <tbody>
+    <tr class="search-item">
+      <td><code>@eos/contracts</code></td>
+      <td>AgentKindSchema, type AgentKind, type AgentRunSnapshot, type BackgroundSessionSnapshot</td>
+      <td>value</td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td><code>zod</code></td>
+      <td>z</td>
+      <td>value</td>
+      <td>7</td>
+    </tr>
+  </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Exports</h2>
+          <span>0</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Target</th><th>Names</th><th>Mode</th><th>Line</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Symbol Outline</h2>
+          <input class="search-input" type="search" placeholder="Filter symbols" aria-label="Filter symbols">
+        </div>
+        <div class="module-symbol-layout">
+
+    <nav class="symbol-outline">
+      <div class="tree-file-row">
+        <code>triggers.ts</code>
+        <small>12 symbols</small>
+      </div>
+      <ul class="tree-symbols">
+
+          <li class="tree-symbol search-item">
+            <a href="#CommandScriptSchema"><code>CommandScriptSchema</code></a>
+            <span>schema</span>
+            <span class="compact-tags">public-api schema:zod</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#CommandScript"><code>CommandScript</code></a>
+            <span>type</span>
+            <span class="compact-tags">public-api</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#TriggerRuleMatchers"><code>TriggerRuleMatchers</code></a>
+            <span>const</span>
+            <span class="compact-tags">internal</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#TriggerRuleEntrySchema"><code>TriggerRuleEntrySchema</code></a>
+            <span>schema</span>
+            <span class="compact-tags">public-api schema:zod</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#TriggerRuleEntry"><code>TriggerRuleEntry</code></a>
+            <span>type</span>
+            <span class="compact-tags">public-api</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#triggerRuleAppliesTo"><code>triggerRuleAppliesTo</code></a>
+            <span>function</span>
+            <span class="compact-tags">public-api</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#TurnCompletedFacts"><code>TurnCompletedFacts</code></a>
+            <span>interface</span>
+            <span class="compact-tags">public-api</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#IdleTimeoutFacts"><code>IdleTimeoutFacts</code></a>
+            <span>interface</span>
+            <span class="compact-tags">public-api</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#TriggerPayload"><code>TriggerPayload</code></a>
+            <span>interface</span>
+            <span class="compact-tags">public-api</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#TriggerOutputSchema"><code>TriggerOutputSchema</code></a>
+            <span>const</span>
+            <span class="compact-tags">public-api</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#TriggerCommandRun"><code>TriggerCommandRun</code></a>
+            <span>interface</span>
+            <span class="compact-tags">public-api</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#TriggerCommandRunner"><code>TriggerCommandRunner</code></a>
+            <span>type</span>
+            <span class="compact-tags">public-api</span>
+          </li>
+
+      </ul>
+    </nav>
+
+          <div class="symbol-stack">
+    <article id="CommandScriptSchema" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>CommandScriptSchema</strong>
+          <span>schema · line 15 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#CommandScriptSchema">Module</a>
+      </div>
+      <pre><code>export const CommandScriptSchema = z.object({ type: z.literal(&quot;command&quot;), command: z.string().min(1), /** Working directory for relative command paths; runtime-filled when omitted. */ cwd: z.string().min(1).optional()...</code></pre>
+
+      <div class="tags"><span>exported</span><span>public-api</span><span>schema:object</span><span>schema:zod</span></div>
+
+
+    <h3>Fields</h3>
+
+    <div class="table-wrap compact">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Flags</th></tr></thead>
+        <tbody>
+
+            <tr>
+              <td><code>type</code></td>
+              <td><code>z.literal(&quot;command&quot;)</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>command</code></td>
+              <td><code>z.string().min(1)</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>cwd</code></td>
+              <td><code>z.string().min(1).optional()</code></td>
+              <td>optional</td>
+            </tr>
+
+
+            <tr>
+              <td><code>timeout_ms</code></td>
+              <td><code>z.number().int().positive().optional()</code></td>
+              <td>optional</td>
+            </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+
+
+
+    </article>
+
+
+    <article id="CommandScript" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>CommandScript</strong>
+          <span>type · line 23 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#CommandScript">Module</a>
+      </div>
+      <pre><code>export type CommandScript = z.infer&lt;typeof CommandScriptSchema&gt;</code></pre>
+
+      <div class="tags"><span>exported</span><span>public-api</span><span>type:inferred</span></div>
+
+
+
+
+    </article>
+
+
+    <article id="TriggerRuleMatchers" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>TriggerRuleMatchers</strong>
+          <span>const · line 26 · internal</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#TriggerRuleMatchers">Module</a>
+      </div>
+      <pre><code>const TriggerRuleMatchers = { /** Exact profile name; absent matches all agents. */ agent_name: z.string().min(1).optional(), /** Profile kind; absent matches all kinds. Present with `agent_name`: AND. */ agent_kind: ...</code></pre>
+
+      <div class="tags"><span>internal</span></div>
+
+
+
+
+    </article>
+
+
+    <article id="TriggerRuleEntrySchema" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>TriggerRuleEntrySchema</strong>
+          <span>schema · line 39 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#TriggerRuleEntrySchema">Module</a>
+      </div>
+      <pre><code>export const TriggerRuleEntrySchema = z.discriminatedUnion(&quot;event&quot;, [ z.object({ event: z.literal(&quot;TurnCompleted&quot;), ...TriggerRuleMatchers, rules: z.array(CommandScriptSchema).min(1), }), z.object({ event: z.literal(&quot;...</code></pre>
+
+      <div class="tags"><span>exported</span><span>public-api</span><span>schema:discriminated-union</span><span>schema:object</span><span>schema:zod</span></div>
+
+
+    <h3>Fields</h3>
+
+    <div class="table-wrap compact">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Flags</th></tr></thead>
+        <tbody>
+
+            <tr>
+              <td><code>event</code></td>
+              <td><code>z.literal(&quot;TurnCompleted&quot;)</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>rules</code></td>
+              <td><code>z.array(CommandScriptSchema).min(1)</code></td>
+              <td></td>
+            </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+
+
+
+    <h3>Variants</h3>
+
+    <ul class="variant-list">
+
+        <li><code>TurnCompleted</code></li>
+
+
+        <li><code>IdleParked</code></li>
+
+    </ul>
+
+
+    </article>
+
+
+    <article id="TriggerRuleEntry" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>TriggerRuleEntry</strong>
+          <span>type · line 53 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#TriggerRuleEntry">Module</a>
+      </div>
+      <pre><code>export type TriggerRuleEntry = z.infer&lt;typeof TriggerRuleEntrySchema&gt;</code></pre>
+
+      <div class="tags"><span>exported</span><span>public-api</span><span>type:inferred</span></div>
+
+
+
+
+    </article>
+
+
+    <article id="triggerRuleAppliesTo" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>triggerRuleAppliesTo</strong>
+          <span>function · line 56 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#triggerRuleAppliesTo">Module</a>
+      </div>
+      <pre><code>export function triggerRuleAppliesTo( rule: TriggerRuleEntry, run:</code></pre>
+      <p>The matcher fold: absent fields match every run; present fields AND.</p>
+      <div class="tags"><span>exported</span><span>public-api</span></div>
+
+
+
+
+    </article>
+
+
+    <article id="TurnCompletedFacts" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>TurnCompletedFacts</strong>
+          <span>interface · line 66 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#TurnCompletedFacts">Module</a>
+      </div>
+      <pre><code>export interface TurnCompletedFacts</code></pre>
+      <p>Serialized mirror of the engine's `TurnFacts`; same two axes.</p>
+      <div class="tags"><span>exported</span><span>public-api</span></div>
+
+
+    <h3>Fields</h3>
+
+    <div class="table-wrap compact">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Flags</th></tr></thead>
+        <tbody>
+
+            <tr>
+              <td><code>turn</code></td>
+              <td><code>number</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>max_turns</code></td>
+              <td><code>number</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>tool_calls</code></td>
+              <td><code>number</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>background_session_count</code></td>
+              <td><code>number</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>has_pending_steers</code></td>
+              <td><code>boolean</code></td>
+              <td></td>
+            </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+
+
+
+    </article>
+
+
+    <article id="IdleTimeoutFacts" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>IdleTimeoutFacts</strong>
+          <span>interface · line 79 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#IdleTimeoutFacts">Module</a>
+      </div>
+      <pre><code>export interface IdleTimeoutFacts</code></pre>
+
+      <div class="tags"><span>exported</span><span>public-api</span></div>
+
+
+    <h3>Fields</h3>
+
+    <div class="table-wrap compact">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Flags</th></tr></thead>
+        <tbody>
+
+            <tr>
+              <td><code>idle_elapsed_ms</code></td>
+              <td><code>number</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>timeout_ms</code></td>
+              <td><code>number</code></td>
+              <td></td>
+            </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+
+
+
+    </article>
+
+
+    <article id="TriggerPayload" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>TriggerPayload</strong>
+          <span>interface · line 85 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#TriggerPayload">Module</a>
+      </div>
+      <pre><code>export interface TriggerPayload</code></pre>
+      <p>What a trigger script receives (JSON over stdin; snake_case: crosses the process boundary).</p>
+      <div class="tags"><span>exported</span><span>public-api</span></div>
+
+
+    <h3>Fields</h3>
+
+    <div class="table-wrap compact">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Flags</th></tr></thead>
+        <tbody>
+
+            <tr>
+              <td><code>event</code></td>
+              <td><code>&quot;TurnCompleted&quot; | &quot;IdleTimeout&quot;</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>facts</code></td>
+              <td><code>TurnCompletedFacts | IdleTimeoutFacts</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>run</code></td>
+              <td><code>AgentRunSnapshot</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>terminal_tool</code></td>
+              <td><code>string</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>background_sessions</code></td>
+              <td><code>readonly BackgroundSessionSnapshot[]</code></td>
+              <td></td>
+            </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+
+
+
+    </article>
+
+
+    <article id="TriggerOutputSchema" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>TriggerOutputSchema</strong>
+          <span>const · line 101 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#TriggerOutputSchema">Module</a>
+      </div>
+      <pre><code>export const TriggerOutputSchema = z.strictObject({ notification: z.string().min(1).optional(), })</code></pre>
+
+      <div class="tags"><span>exported</span><span>public-api</span></div>
+
+
+
+
+    </article>
+
+
+    <article id="TriggerCommandRun" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>TriggerCommandRun</strong>
+          <span>interface · line 106 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#TriggerCommandRun">Module</a>
+      </div>
+      <pre><code>export interface TriggerCommandRun</code></pre>
+      <p>One command's settled run: a reminder to publish, a failure to log, or neither (skip).</p>
+      <div class="tags"><span>exported</span><span>public-api</span></div>
+
+
+    <h3>Fields</h3>
+
+    <div class="table-wrap compact">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Flags</th></tr></thead>
+        <tbody>
+
+            <tr>
+              <td><code>notification</code></td>
+              <td><code>string</code></td>
+              <td>optional</td>
+            </tr>
+
+
+            <tr>
+              <td><code>warning</code></td>
+              <td><code>string</code></td>
+              <td>optional</td>
+            </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+
+
+
+    </article>
+
+
+    <article id="TriggerCommandRunner" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>TriggerCommandRunner</strong>
+          <span>type · line 118 · public</span>
+        </div>
+        <a href="../modules/eos-notification-src-triggers.html#TriggerCommandRunner">Module</a>
+      </div>
+      <pre><code>export type TriggerCommandRunner = ( command: CommandScript, payload: TriggerPayload, ) =&gt; Promise&lt;TriggerCommandRun&gt;</code></pre>
+      <p>The runner seam `NotificationTriggerEngine` calls. The spawn-backed
+implementation lives with the shared command-spawn mechanics in
+`@eos/tool` (`runTriggerCommand`), the same dependency direction as the
+tool layer implementing the engine's `ToolExecutor` port; tests stub it.</p>
+      <div class="tags"><span>exported</span><span>public-api</span></div>
+
+
+
+
+    </article>
+  </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Relations</h2></div>
+        <div class="table-wrap relation-table">
+          <table>
+            <thead><tr><th>Kind</th><th>From</th><th>To</th><th>Line</th></tr></thead>
+            <tbody>
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/src/triggers</code></td>
+      <td><code>@eos/contracts</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>imports</td>
+      <td><code>@eos/notification/src/triggers</code></td>
+      <td><code>zod</code></td>
+      <td>7</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>schema-infers-type</td>
+      <td><code>@eos/notification/src/triggers#CommandScriptSchema</code></td>
+      <td><code>@eos/notification/src/triggers#CommandScript</code></td>
+      <td>23</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>schema-infers-type</td>
+      <td><code>@eos/notification/src/triggers#TriggerRuleEntrySchema</code></td>
+      <td><code>@eos/notification/src/triggers#TriggerRuleEntry</code></td>
+      <td>53</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>uses-schema</td>
+      <td><code>@eos/notification/src/triggers#CommandScript</code></td>
+      <td><code>@eos/notification/src/triggers#CommandScriptSchema</code></td>
+      <td>23</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>uses-schema</td>
+      <td><code>@eos/notification/src/triggers#TriggerRuleEntry</code></td>
+      <td><code>@eos/notification/src/triggers#TriggerRuleEntrySchema</code></td>
+      <td>53</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>uses-schema</td>
+      <td><code>@eos/notification/src/triggers#TriggerRuleEntrySchema</code></td>
+      <td><code>@eos/notification/src/triggers#CommandScriptSchema</code></td>
+      <td>39</td>
+    </tr>
+  </tbody>
+          </table>
+        </div>
+      </section>
+
+  </main>
+</body>
+</html>

@@ -10,9 +10,10 @@
     }
   },
   "dependencies": {
+    "@eos/background": "workspace:*",
     "@eos/contracts": "workspace:*",
     "@eos/engine": "workspace:*",
-    "@eos/notifications": "workspace:*",
+    "@eos/notification": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 //! Unit tests for plugin service process specs (spec/env, spawn, PPC connect).
 //!
-//! Referenced from `src/plugins/process.rs` via `#[path]` so they can
+//! Referenced from `src/services/plugin/process.rs` via `#[path]` so they can
 //! reach the `pub(super)` spec/process types and `ENV_*` constants.
 
 use super::*;

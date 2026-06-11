@@ -2,12 +2,14 @@
 
 use crate::wire::ops as protocol_ops;
 
-use crate::checkpoint::ops as checkpoint_ops;
 use crate::dispatcher::Handler;
-use crate::workspace::files::ops as file_ops;
-use crate::workspace::run::ops as run_ops;
-use crate::workspace::{cancel, isolated};
-use crate::{control, plugins};
+use crate::ops::cancel;
+use crate::ops::checkpoint as checkpoint_ops;
+use crate::ops::command as run_ops;
+use crate::ops::control;
+use crate::ops::files as file_ops;
+use crate::ops::isolation as isolated;
+use crate::ops::plugin as plugins;
 
 #[derive(Clone, Copy)]
 pub(crate) struct BuiltinOp {

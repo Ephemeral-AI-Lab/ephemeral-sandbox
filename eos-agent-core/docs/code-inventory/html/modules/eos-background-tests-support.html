@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>@eos/background/tests/support Code Inventory</title>
+  <link rel="stylesheet" href="../assets/inventory.css">
+  <script defer src="../assets/inventory-data.js"></script>
+  <script defer src="../assets/inventory.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html">eos-agent-core</a>
+    <nav>
+      <a href="../assets/inventory.json">JSON</a>
+      <a href="../assets/graph.json">Graph</a>
+    </nav>
+  </header>
+  <main>
+
+      <section class="page-head">
+        <div>
+          <p class="eyebrow"><a href="../index.html">Code Inventory</a> / <a href="../packages/eos-background.html">@eos/background</a></p>
+          <h1>@eos/background/tests/support</h1>
+          <p class="lede">packages/background/tests/support.ts</p>
+          <div class="tags"><span>test-only</span><span>test-support</span></div>
+        </div>
+        <dl class="stat-grid">
+          <div><dt>Symbols</dt><dd>4</dd></div>
+          <div><dt>Schemas</dt><dd>0</dd></div>
+          <div><dt>Types</dt><dd>0</dd></div>
+          <div><dt>Functions</dt><dd>3</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Imports</h2>
+          <span>1</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Source</th><th>Names</th><th>Mode</th><th>Line</th></tr></thead>
+            <tbody>
+    <tr class="search-item">
+      <td><code>../src/index.js</code></td>
+      <td>BackgroundSessionOutcome</td>
+      <td>type</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Exports</h2>
+          <span>0</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Target</th><th>Names</th><th>Mode</th><th>Line</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Symbol Outline</h2>
+          <input class="search-input" type="search" placeholder="Filter symbols" aria-label="Filter symbols">
+        </div>
+        <div class="module-symbol-layout">
+
+    <nav class="symbol-outline">
+      <div class="tree-file-row">
+        <code>support.ts</code>
+        <small>4 symbols</small>
+      </div>
+      <ul class="tree-symbols">
+
+          <li class="tree-symbol search-item">
+            <a href="#TestBackgroundSessionHandle"><code>TestBackgroundSessionHandle</code></a>
+            <span>interface</span>
+            <span class="compact-tags">public-api run-handle test-only</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#backgroundSessionHandle"><code>backgroundSessionHandle</code></a>
+            <span>function</span>
+            <span class="compact-tags">public-api run-handle test-only</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#tick"><code>tick</code></a>
+            <span>function</span>
+            <span class="compact-tags">public-api test-only</span>
+          </li>
+
+
+          <li class="tree-symbol search-item">
+            <a href="#must"><code>must</code></a>
+            <span>function</span>
+            <span class="compact-tags">public-api test-only</span>
+          </li>
+
+      </ul>
+    </nav>
+
+          <div class="symbol-stack">
+    <article id="TestBackgroundSessionHandle" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>TestBackgroundSessionHandle</strong>
+          <span>interface · line 3 · public</span>
+        </div>
+        <a href="../modules/eos-background-tests-support.html#TestBackgroundSessionHandle">Module</a>
+      </div>
+      <pre><code>export interface TestBackgroundSessionHandle</code></pre>
+
+      <div class="tags"><span>exported</span><span>public-api</span><span>run-handle</span><span>test-only</span></div>
+
+
+    <h3>Fields</h3>
+
+    <div class="table-wrap compact">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Flags</th></tr></thead>
+        <tbody>
+
+            <tr>
+              <td><code>handle</code></td>
+              <td><code>{
+    settled: Promise&lt;BackgroundSessionOutcome&gt;;
+    cancel(reason: string): Promise&lt;void&gt;;
+    describe?(): string;
+  }</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>cancelled</code></td>
+              <td><code>string[]</code></td>
+              <td></td>
+            </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+
+
+    <h3>Methods</h3>
+
+    <div class="table-wrap compact">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Flags</th></tr></thead>
+        <tbody>
+
+            <tr>
+              <td><code>settle</code></td>
+              <td><code>settle(outcome: BackgroundSessionOutcome): void;</code></td>
+              <td></td>
+            </tr>
+
+
+            <tr>
+              <td><code>fail</code></td>
+              <td><code>fail(error: Error): void;</code></td>
+              <td></td>
+            </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+
+
+    </article>
+
+
+    <article id="backgroundSessionHandle" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>backgroundSessionHandle</strong>
+          <span>function · line 16 · public</span>
+        </div>
+        <a href="../modules/eos-background-tests-support.html#backgroundSessionHandle">Module</a>
+      </div>
+      <pre><code>export function backgroundSessionHandle( options:</code></pre>
+      <p>A push-settled capability handle for supervisor tests.</p>
+      <div class="tags"><span>exported</span><span>public-api</span><span>run-handle</span><span>test-only</span></div>
+
+
+
+
+    </article>
+
+
+    <article id="tick" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>tick</strong>
+          <span>function · line 43 · public</span>
+        </div>
+        <a href="../modules/eos-background-tests-support.html#tick">Module</a>
+      </div>
+      <pre><code>export function tick(): Promise&lt;void&gt;</code></pre>
+      <p>One macrotask: every already-queued microtask has run by then.</p>
+      <div class="tags"><span>exported</span><span>public-api</span><span>test-only</span></div>
+
+
+
+
+    </article>
+
+
+    <article id="must" class="symbol-card search-item">
+      <div class="symbol-head">
+        <div>
+          <strong>must</strong>
+          <span>function · line 51 · public</span>
+        </div>
+        <a href="../modules/eos-background-tests-support.html#must">Module</a>
+      </div>
+      <pre><code>export function must&lt;T&gt;(value: T | undefined | null): T</code></pre>
+
+      <div class="tags"><span>exported</span><span>public-api</span><span>test-only</span></div>
+
+
+
+
+    </article>
+  </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Relations</h2></div>
+        <div class="table-wrap relation-table">
+          <table>
+            <thead><tr><th>Kind</th><th>From</th><th>To</th><th>Line</th></tr></thead>
+            <tbody>
+    <tr class="search-item">
+      <td>imports <small>type</small></td>
+      <td><code>@eos/background/tests/support</code></td>
+      <td><code>@eos/background/src/index</code></td>
+      <td>1</td>
+    </tr>
+
+
+    <tr class="search-item">
+      <td>tests <small>type</small></td>
+      <td><code>@eos/background/tests/support</code></td>
+      <td><code>@eos/background/src/index</code></td>
+      <td>1</td>
+    </tr>
+  </tbody>
+          </table>
+        </div>
+      </section>
+
+  </main>
+</body>
+</html>

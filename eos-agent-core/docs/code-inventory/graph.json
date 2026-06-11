@@ -2273,6 +2273,175 @@
       ]
     },
     {
+      "id": "@eos/background",
+      "kind": "package",
+      "tags": []
+    },
+    {
+      "id": "@eos/background/src/background-session-supervisor",
+      "kind": "module",
+      "tags": [
+        "source"
+      ]
+    },
+    {
+      "id": "@eos/background/src/background-session-supervisor#BackgroundSessionEntry",
+      "kind": "symbol",
+      "tags": [
+        "internal"
+      ]
+    },
+    {
+      "id": "@eos/background/src/background-session-supervisor#backgroundSessionKey",
+      "kind": "symbol",
+      "tags": [
+        "internal"
+      ]
+    },
+    {
+      "id": "@eos/background/src/background-session-supervisor#isBackgroundSessionRef",
+      "kind": "symbol",
+      "tags": [
+        "internal"
+      ]
+    },
+    {
+      "id": "@eos/background/src/background-session-supervisor#BackgroundSessionSupervisor",
+      "kind": "symbol",
+      "tags": [
+        "exported",
+        "public-api",
+        "stateful"
+      ]
+    },
+    {
+      "id": "@eos/background/src/background-session",
+      "kind": "module",
+      "tags": [
+        "source"
+      ]
+    },
+    {
+      "id": "@eos/background/src/background-session#BackgroundSessionRef",
+      "kind": "symbol",
+      "tags": [
+        "exported",
+        "public-api"
+      ]
+    },
+    {
+      "id": "@eos/background/src/background-session#BackgroundSessionStatus",
+      "kind": "symbol",
+      "tags": [
+        "exported",
+        "public-api"
+      ]
+    },
+    {
+      "id": "@eos/background/src/background-session#BackgroundSessionOutcome",
+      "kind": "symbol",
+      "tags": [
+        "exported",
+        "public-api"
+      ]
+    },
+    {
+      "id": "@eos/background/src/background-session#BackgroundSessionHandle",
+      "kind": "symbol",
+      "tags": [
+        "exported",
+        "public-api",
+        "run-handle"
+      ]
+    },
+    {
+      "id": "@eos/background/src/background-session#BackgroundSessionRow",
+      "kind": "symbol",
+      "tags": [
+        "exported",
+        "public-api"
+      ]
+    },
+    {
+      "id": "@eos/background/src/index",
+      "kind": "module",
+      "tags": [
+        "entrypoint",
+        "package-entrypoint",
+        "public-api"
+      ]
+    },
+    {
+      "id": "@eos/background/tests/background-session-supervisor.test",
+      "kind": "module",
+      "tags": [
+        "test",
+        "test-only"
+      ]
+    },
+    {
+      "id": "@eos/background/tests/background-session-supervisor.test#REF",
+      "kind": "symbol",
+      "tags": [
+        "internal",
+        "test-only"
+      ]
+    },
+    {
+      "id": "@eos/background/tests/background-session-supervisor.test#setup",
+      "kind": "symbol",
+      "tags": [
+        "internal",
+        "test-only"
+      ]
+    },
+    {
+      "id": "@eos/background/tests/support",
+      "kind": "module",
+      "tags": [
+        "test-only",
+        "test-support"
+      ]
+    },
+    {
+      "id": "@eos/background/tests/support#TestBackgroundSessionHandle",
+      "kind": "symbol",
+      "tags": [
+        "exported",
+        "public-api",
+        "run-handle",
+        "test-only"
+      ]
+    },
+    {
+      "id": "@eos/background/tests/support#backgroundSessionHandle",
+      "kind": "symbol",
+      "tags": [
+        "exported",
+        "public-api",
+        "run-handle",
+        "test-only"
+      ]
+    },
+    {
+      "id": "@eos/background/tests/support#tick",
+      "kind": "symbol",
+      "tags": [
+        "exported",
+        "public-api",
+        "test-only"
+      ]
+    },
+    {
+      "id": "@eos/background/tests/support#must",
+      "kind": "symbol",
+      "tags": [
+        "exported",
+        "public-api",
+        "test-only"
+      ]
+    },
+    {
       "id": "@eos/contracts",
       "kind": "package",
       "tags": [
@@ -2802,91 +2971,6 @@
       ]
     },
     {
-      "id": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "module",
-      "tags": [
-        "source"
-      ]
-    },
-    {
-      "id": "@eos/engine/src/background/background-session-supervisor#BackgroundSessionEntry",
-      "kind": "symbol",
-      "tags": [
-        "internal"
-      ]
-    },
-    {
-      "id": "@eos/engine/src/background/background-session-supervisor#backgroundSessionKey",
-      "kind": "symbol",
-      "tags": [
-        "internal"
-      ]
-    },
-    {
-      "id": "@eos/engine/src/background/background-session-supervisor#isBackgroundSessionRef",
-      "kind": "symbol",
-      "tags": [
-        "internal"
-      ]
-    },
-    {
-      "id": "@eos/engine/src/background/background-session-supervisor#BackgroundSessionSupervisor",
-      "kind": "symbol",
-      "tags": [
-        "exported",
-        "public-api",
-        "stateful"
-      ]
-    },
-    {
-      "id": "@eos/engine/src/background/background-session",
-      "kind": "module",
-      "tags": [
-        "source"
-      ]
-    },
-    {
-      "id": "@eos/engine/src/background/background-session#BackgroundSessionRef",
-      "kind": "symbol",
-      "tags": [
-        "exported",
-        "public-api"
-      ]
-    },
-    {
-      "id": "@eos/engine/src/background/background-session#BackgroundSessionStatus",
-      "kind": "symbol",
-      "tags": [
-        "exported",
-        "public-api"
-      ]
-    },
-    {
-      "id": "@eos/engine/src/background/background-session#BackgroundSessionOutcome",
-      "kind": "symbol",
-      "tags": [
-        "exported",
-        "public-api"
-      ]
-    },
-    {
-      "id": "@eos/engine/src/background/background-session#BackgroundSessionHandle",
-      "kind": "symbol",
-      "tags": [
-        "exported",
-        "public-api",
-        "run-handle"
-      ]
-    },
-    {
-      "id": "@eos/engine/src/background/background-session#BackgroundSessionRow",
-      "kind": "symbol",
-      "tags": [
-        "exported",
-        "public-api"
-      ]
-    },
-    {
       "id": "@eos/engine/src/conversation",
       "kind": "module",
       "tags": [
@@ -3024,30 +3108,6 @@
     },
     {
       "id": "@eos/engine/tests/agent-loop.test#SUBMISSION",
-      "kind": "symbol",
-      "tags": [
-        "internal",
-        "test-only"
-      ]
-    },
-    {
-      "id": "@eos/engine/tests/background-session-supervisor.test",
-      "kind": "module",
-      "tags": [
-        "test",
-        "test-only"
-      ]
-    },
-    {
-      "id": "@eos/engine/tests/background-session-supervisor.test#REF",
-      "kind": "symbol",
-      "tags": [
-        "internal",
-        "test-only"
-      ]
-    },
-    {
-      "id": "@eos/engine/tests/background-session-supervisor.test#setup",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -4938,26 +4998,26 @@
       ]
     },
     {
-      "id": "@eos/notifications",
+      "id": "@eos/notification",
       "kind": "package",
       "tags": []
     },
     {
-      "id": "@eos/notifications/src/inbox",
+      "id": "@eos/notification/src/inbox",
       "kind": "module",
       "tags": [
         "source"
       ]
     },
     {
-      "id": "@eos/notifications/src/inbox#InboxEntry",
+      "id": "@eos/notification/src/inbox#InboxEntry",
       "kind": "symbol",
       "tags": [
         "internal"
       ]
     },
     {
-      "id": "@eos/notifications/src/inbox#NotificationInbox",
+      "id": "@eos/notification/src/inbox#NotificationInbox",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -4966,7 +5026,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/inbox#systemNotificationMessage",
+      "id": "@eos/notification/src/inbox#systemNotificationMessage",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -4975,7 +5035,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/index",
+      "id": "@eos/notification/src/index",
       "kind": "module",
       "tags": [
         "entrypoint",
@@ -4984,14 +5044,14 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/loop-observer",
+      "id": "@eos/notification/src/loop-observer",
       "kind": "module",
       "tags": [
         "source"
       ]
     },
     {
-      "id": "@eos/notifications/src/loop-observer#TurnFacts",
+      "id": "@eos/notification/src/loop-observer#TurnFacts",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -4999,7 +5059,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/loop-observer#LoopObserver",
+      "id": "@eos/notification/src/loop-observer#LoopObserver",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5007,21 +5067,21 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/trigger-engine",
+      "id": "@eos/notification/src/trigger-engine",
       "kind": "module",
       "tags": [
         "source"
       ]
     },
     {
-      "id": "@eos/notifications/src/trigger-engine#IdleRule",
+      "id": "@eos/notification/src/trigger-engine#IdleRule",
       "kind": "symbol",
       "tags": [
         "internal"
       ]
     },
     {
-      "id": "@eos/notifications/src/trigger-engine#NotificationTriggerEngineDeps",
+      "id": "@eos/notification/src/trigger-engine#NotificationTriggerEngineDeps",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5029,7 +5089,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/trigger-engine#NotificationTriggerEngine",
+      "id": "@eos/notification/src/trigger-engine#NotificationTriggerEngine",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5038,14 +5098,14 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers",
+      "id": "@eos/notification/src/triggers",
       "kind": "module",
       "tags": [
         "source"
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#CommandScriptSchema",
+      "id": "@eos/notification/src/triggers#CommandScriptSchema",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5055,7 +5115,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#CommandScript",
+      "id": "@eos/notification/src/triggers#CommandScript",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5064,14 +5124,14 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#TriggerRuleMatchers",
+      "id": "@eos/notification/src/triggers#TriggerRuleMatchers",
       "kind": "symbol",
       "tags": [
         "internal"
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#TriggerRuleEntrySchema",
+      "id": "@eos/notification/src/triggers#TriggerRuleEntrySchema",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5082,7 +5142,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#TriggerRuleEntry",
+      "id": "@eos/notification/src/triggers#TriggerRuleEntry",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5091,7 +5151,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#triggerRuleAppliesTo",
+      "id": "@eos/notification/src/triggers#triggerRuleAppliesTo",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5099,7 +5159,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#TurnCompletedFacts",
+      "id": "@eos/notification/src/triggers#TurnCompletedFacts",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5107,7 +5167,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#IdleTimeoutFacts",
+      "id": "@eos/notification/src/triggers#IdleTimeoutFacts",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5115,7 +5175,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#TriggerPayload",
+      "id": "@eos/notification/src/triggers#TriggerPayload",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5123,7 +5183,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#TriggerOutputSchema",
+      "id": "@eos/notification/src/triggers#TriggerOutputSchema",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5131,7 +5191,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#TriggerCommandRun",
+      "id": "@eos/notification/src/triggers#TriggerCommandRun",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5139,7 +5199,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/src/triggers#TriggerCommandRunner",
+      "id": "@eos/notification/src/triggers#TriggerCommandRunner",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -5147,7 +5207,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/inbox.test",
+      "id": "@eos/notification/tests/inbox.test",
       "kind": "module",
       "tags": [
         "test",
@@ -5155,7 +5215,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/inbox.test#note",
+      "id": "@eos/notification/tests/inbox.test#note",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -5163,7 +5223,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/trigger-engine.test",
+      "id": "@eos/notification/tests/trigger-engine.test",
       "kind": "module",
       "tags": [
         "test",
@@ -5171,7 +5231,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/trigger-engine.test#SNAPSHOT",
+      "id": "@eos/notification/tests/trigger-engine.test#SNAPSHOT",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -5179,7 +5239,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/trigger-engine.test#FACTS",
+      "id": "@eos/notification/tests/trigger-engine.test#FACTS",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -5187,7 +5247,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/trigger-engine.test#command",
+      "id": "@eos/notification/tests/trigger-engine.test#command",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -5195,7 +5255,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/trigger-engine.test#session",
+      "id": "@eos/notification/tests/trigger-engine.test#session",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -5203,7 +5263,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/trigger-engine.test#turnRule",
+      "id": "@eos/notification/tests/trigger-engine.test#turnRule",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -5211,7 +5271,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/trigger-engine.test#idleRule",
+      "id": "@eos/notification/tests/trigger-engine.test#idleRule",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -5219,7 +5279,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/trigger-engine.test#reminder",
+      "id": "@eos/notification/tests/trigger-engine.test#reminder",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -5227,7 +5287,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/trigger-engine.test#Fixture",
+      "id": "@eos/notification/tests/trigger-engine.test#Fixture",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -5235,7 +5295,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/trigger-engine.test#fixture",
+      "id": "@eos/notification/tests/trigger-engine.test#fixture",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -5243,7 +5303,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/triggers.test",
+      "id": "@eos/notification/tests/triggers.test",
       "kind": "module",
       "tags": [
         "test",
@@ -5251,7 +5311,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/triggers.test#RUN",
+      "id": "@eos/notification/tests/triggers.test#RUN",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -5259,7 +5319,7 @@
       ]
     },
     {
-      "id": "@eos/notifications/tests/triggers.test#rule",
+      "id": "@eos/notification/tests/triggers.test#rule",
       "kind": "symbol",
       "tags": [
         "internal",
@@ -6628,7 +6688,7 @@
       "to": "LlmClient",
       "kind": "implements",
       "file": "packages/engine/tests/support.ts",
-      "line": 45
+      "line": 47
     },
     {
       "from": "@eos/llm-client/src/stream-client#LlmStreamClient",
@@ -6652,10 +6712,10 @@
       "line": 154
     },
     {
-      "from": "@eos/notifications/src/trigger-engine#NotificationTriggerEngine",
+      "from": "@eos/notification/src/trigger-engine#NotificationTriggerEngine",
       "to": "LoopObserver",
       "kind": "implements",
-      "file": "packages/notifications/src/trigger-engine.ts",
+      "file": "packages/notification/src/trigger-engine.ts",
       "line": 39
     },
     {
@@ -7900,7 +7960,7 @@
     },
     {
       "from": "@eos/agent-runtime/src/notification-rules-config",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/agent-runtime/src/notification-rules-config.ts",
@@ -7996,6 +8056,14 @@
     },
     {
       "from": "@eos/agent-runtime/src/runtime",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/agent-runtime/src/runtime.ts",
+      "line": 11
+    },
+    {
+      "from": "@eos/agent-runtime/src/runtime",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
@@ -8012,7 +8080,7 @@
     },
     {
       "from": "@eos/agent-runtime/src/runtime",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/agent-runtime/src/runtime.ts",
@@ -8308,7 +8376,7 @@
     },
     {
       "from": "@eos/agent-runtime/tests/runtime.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/agent-runtime/tests/runtime.test.ts",
@@ -8491,6 +8559,62 @@
       "line": 4
     },
     {
+      "from": "@eos/background/src/background-session-supervisor",
+      "to": "@eos/background/src/background-session",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/background/src/background-session-supervisor.ts",
+      "line": 5
+    },
+    {
+      "from": "@eos/background/src/background-session-supervisor",
+      "to": "@eos/notification",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/background/src/background-session-supervisor.ts",
+      "line": 1
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/background/src/index",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 3
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/background/tests/support",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 8
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/notification",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 4
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "vitest",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 1
+    },
+    {
+      "from": "@eos/background/tests/support",
+      "to": "@eos/background/src/index",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/background/tests/support.ts",
+      "line": 1
+    },
+    {
       "from": "@eos/contracts/src/advisory",
       "to": "@eos/contracts/src/json",
       "kind": "imports",
@@ -8620,19 +8744,19 @@
     },
     {
       "from": "@eos/engine/src/agent-loop",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/engine/src/agent-loop.ts",
+      "line": 13
+    },
+    {
+      "from": "@eos/engine/src/agent-loop",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/engine/src/agent-loop.ts",
       "line": 1
-    },
-    {
-      "from": "@eos/engine/src/agent-loop",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/engine/src/agent-loop.ts",
-      "line": 14
     },
     {
       "from": "@eos/engine/src/agent-loop",
@@ -8668,27 +8792,11 @@
     },
     {
       "from": "@eos/engine/src/agent-loop",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/engine/src/agent-loop.ts",
       "line": 3
-    },
-    {
-      "from": "@eos/engine/src/background/background-session-supervisor",
-      "to": "@eos/engine/src/background/background-session",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/engine/src/background/background-session-supervisor.ts",
-      "line": 5
-    },
-    {
-      "from": "@eos/engine/src/background/background-session-supervisor",
-      "to": "@eos/notifications",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/src/background/background-session-supervisor.ts",
-      "line": 1
     },
     {
       "from": "@eos/engine/src/conversation",
@@ -8716,6 +8824,14 @@
     },
     {
       "from": "@eos/engine/src/index",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/engine/src/index.ts",
+      "line": 5
+    },
+    {
+      "from": "@eos/engine/src/index",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
@@ -8727,14 +8843,6 @@
       "to": "@eos/engine/src/agent-loop",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/engine/src/index.ts",
-      "line": 6
-    },
-    {
-      "from": "@eos/engine/src/index",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "imports",
-      "typeOnly": true,
       "file": "packages/engine/src/index.ts",
       "line": 7
     },
@@ -8764,7 +8872,7 @@
     },
     {
       "from": "@eos/engine/src/index",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/engine/src/index.ts",
@@ -8828,19 +8936,19 @@
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/engine/tests/agent-loop.test.ts",
+      "line": 8
+    },
+    {
+      "from": "@eos/engine/tests/agent-loop.test",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
       "line": 5
-    },
-    {
-      "from": "@eos/engine/tests/agent-loop.test",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/tests/agent-loop.test.ts",
-      "line": 9
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
@@ -8868,7 +8976,7 @@
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
@@ -8889,38 +8997,6 @@
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
       "line": 3
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 3
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/engine/tests/support",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 8
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/notifications",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 4
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "vitest",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 1
     },
     {
       "from": "@eos/engine/tests/conversation.test",
@@ -8952,7 +9028,15 @@
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/engine/tests/support.ts",
-      "line": 23
+      "line": 25
+    },
+    {
+      "from": "@eos/engine/tests/support",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/engine/tests/support.ts",
+      "line": 20
     },
     {
       "from": "@eos/engine/tests/support",
@@ -8964,27 +9048,11 @@
     },
     {
       "from": "@eos/engine/tests/support",
-      "to": "@eos/engine/src/background/background-session",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/engine/tests/support.ts",
-      "line": 21
-    },
-    {
-      "from": "@eos/engine/tests/support",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/engine/tests/support.ts",
-      "line": 22
-    },
-    {
-      "from": "@eos/engine/tests/support",
       "to": "@eos/engine/src/index",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/engine/tests/support.ts",
-      "line": 29
+      "line": 31
     },
     {
       "from": "@eos/engine/tests/support",
@@ -8996,11 +9064,11 @@
     },
     {
       "from": "@eos/engine/tests/support",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/engine/tests/support.ts",
-      "line": 24
+      "line": 26
     },
     {
       "from": "@eos/engine/tests/support",
@@ -10203,155 +10271,155 @@
       "line": 1
     },
     {
-      "from": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/src/inbox",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/src/inbox.ts",
+      "file": "packages/notification/src/inbox.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/src/trigger-engine",
+      "from": "@eos/notification/src/trigger-engine",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/src/trigger-engine.ts",
+      "file": "packages/notification/src/trigger-engine.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/src/trigger-engine",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/src/trigger-engine",
+      "to": "@eos/notification/src/inbox",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/src/trigger-engine.ts",
+      "file": "packages/notification/src/trigger-engine.ts",
       "line": 6
     },
     {
-      "from": "@eos/notifications/src/trigger-engine",
-      "to": "@eos/notifications/src/loop-observer",
+      "from": "@eos/notification/src/trigger-engine",
+      "to": "@eos/notification/src/loop-observer",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/src/trigger-engine.ts",
+      "file": "packages/notification/src/trigger-engine.ts",
       "line": 7
     },
     {
-      "from": "@eos/notifications/src/trigger-engine",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/src/trigger-engine",
+      "to": "@eos/notification/src/triggers",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/src/trigger-engine.ts",
+      "file": "packages/notification/src/trigger-engine.ts",
       "line": 8
     },
     {
-      "from": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/src/triggers",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/src/triggers",
       "to": "zod",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 7
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 5
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/tests/inbox.test",
+      "to": "@eos/notification/src/inbox",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 7
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "node:events",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "vitest",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
+      "from": "@eos/notification/tests/trigger-engine.test",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/inbox",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 10
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/loop-observer",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/loop-observer",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 11
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/trigger-engine",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/trigger-engine",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 12
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/triggers",
       "kind": "imports",
       "typeOnly": true,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 13
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
+      "from": "@eos/notification/tests/trigger-engine.test",
       "to": "vitest",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/tests/triggers.test",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/tests/triggers.test",
+      "to": "@eos/notification/src/triggers",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/triggers.test.ts",
+      "file": "packages/notification/tests/triggers.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/triggers.test",
+      "from": "@eos/notification/tests/triggers.test",
       "to": "vitest",
       "kind": "imports",
       "typeOnly": false,
-      "file": "packages/notifications/tests/triggers.test.ts",
+      "file": "packages/notification/tests/triggers.test.ts",
       "line": 1
     },
     {
@@ -10628,6 +10696,14 @@
     },
     {
       "from": "@eos/tool/src/tools/agent/index",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/tool/src/tools/agent/index.ts",
+      "line": 2
+    },
+    {
+      "from": "@eos/tool/src/tools/agent/index",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": true,
@@ -10640,7 +10716,7 @@
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 2
+      "line": 3
     },
     {
       "from": "@eos/tool/src/tools/agent/index",
@@ -10648,7 +10724,7 @@
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 4
+      "line": 5
     },
     {
       "from": "@eos/tool/src/tools/agent/index",
@@ -10656,7 +10732,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 5
+      "line": 6
     },
     {
       "from": "@eos/tool/src/tools/agent/index",
@@ -10664,7 +10740,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 6
+      "line": 7
     },
     {
       "from": "@eos/tool/src/tools/agent/index",
@@ -10672,7 +10748,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 7
+      "line": 8
     },
     {
       "from": "@eos/tool/src/tools/agent/read-agent-run-transcript",
@@ -10716,6 +10792,14 @@
     },
     {
       "from": "@eos/tool/src/tools/agent/run-subagent",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/tool/src/tools/agent/run-subagent.ts",
+      "line": 6
+    },
+    {
+      "from": "@eos/tool/src/tools/agent/run-subagent",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": true,
@@ -10736,7 +10820,7 @@
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/agent/run-subagent.ts",
-      "line": 10
+      "line": 12
     },
     {
       "from": "@eos/tool/src/tools/agent/run-subagent",
@@ -10744,7 +10828,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/run-subagent.ts",
-      "line": 11
+      "line": 13
     },
     {
       "from": "@eos/tool/src/tools/agent/run-subagent",
@@ -10752,7 +10836,7 @@
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/agent/run-subagent.ts",
-      "line": 12
+      "line": 14
     },
     {
       "from": "@eos/tool/src/tools/agent/run-subagent",
@@ -10760,11 +10844,11 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/run-subagent.ts",
-      "line": 8
+      "line": 10
     },
     {
       "from": "@eos/tool/src/tools/background/cancel-background-session",
-      "to": "@eos/engine",
+      "to": "@eos/background",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/background/cancel-background-session.ts",
@@ -10796,7 +10880,7 @@
     },
     {
       "from": "@eos/tool/src/tools/background/index",
-      "to": "@eos/engine",
+      "to": "@eos/background",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/background/index.ts",
@@ -10828,6 +10912,14 @@
     },
     {
       "from": "@eos/tool/src/tools/background/list-background-sessions",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": true,
+      "file": "packages/tool/src/tools/background/list-background-sessions.ts",
+      "line": 2
+    },
+    {
+      "from": "@eos/tool/src/tools/background/list-background-sessions",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": true,
@@ -10836,27 +10928,11 @@
     },
     {
       "from": "@eos/tool/src/tools/background/list-background-sessions",
-      "to": "@eos/engine",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-      "line": 2
-    },
-    {
-      "from": "@eos/tool/src/tools/background/list-background-sessions",
-      "to": "@eos/engine",
-      "kind": "imports",
-      "typeOnly": true,
-      "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-      "line": 3
-    },
-    {
-      "from": "@eos/tool/src/tools/background/list-background-sessions",
       "to": "@eos/tool/src/contract",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-      "line": 6
+      "line": 8
     },
     {
       "from": "@eos/tool/src/tools/background/list-background-sessions",
@@ -10864,7 +10940,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-      "line": 7
+      "line": 9
     },
     {
       "from": "@eos/tool/src/tools/background/list-background-sessions",
@@ -10872,7 +10948,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/background/list-background-sessions.ts",
-      "line": 4
+      "line": 6
     },
     {
       "from": "@eos/tool/src/tools/submission/index",
@@ -11100,7 +11176,7 @@
     },
     {
       "from": "@eos/tool/src/trigger-runner",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/src/trigger-runner.ts",
@@ -11212,6 +11288,14 @@
     },
     {
       "from": "@eos/tool/tests/families.test",
+      "to": "@eos/background",
+      "kind": "imports",
+      "typeOnly": false,
+      "file": "packages/tool/tests/families.test.ts",
+      "line": 4
+    },
+    {
+      "from": "@eos/tool/tests/families.test",
       "to": "@eos/contracts",
       "kind": "imports",
       "typeOnly": false,
@@ -11220,15 +11304,7 @@
     },
     {
       "from": "@eos/tool/tests/families.test",
-      "to": "@eos/engine",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "packages/tool/tests/families.test.ts",
-      "line": 4
-    },
-    {
-      "from": "@eos/tool/tests/families.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/tests/families.test.ts",
@@ -11452,7 +11528,7 @@
     },
     {
       "from": "@eos/tool/tests/toolset.test",
-      "to": "@eos/engine",
+      "to": "@eos/background",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/tests/toolset.test.ts",
@@ -11460,7 +11536,7 @@
     },
     {
       "from": "@eos/tool/tests/toolset.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": false,
       "file": "packages/tool/tests/toolset.test.ts",
@@ -11516,7 +11592,7 @@
     },
     {
       "from": "@eos/tool/tests/trigger-runner.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "imports",
       "typeOnly": true,
       "file": "packages/tool/tests/trigger-runner.test.ts",
@@ -11556,6 +11632,11 @@
     },
     {
       "from": "@eos/agent-runtime",
+      "to": "@eos/background",
+      "kind": "package-depends-on"
+    },
+    {
+      "from": "@eos/agent-runtime",
       "to": "@eos/contracts",
       "kind": "package-depends-on"
     },
@@ -11571,7 +11652,7 @@
     },
     {
       "from": "@eos/agent-runtime",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "package-depends-on"
     },
     {
@@ -11590,6 +11671,11 @@
       "kind": "package-depends-on"
     },
     {
+      "from": "@eos/background",
+      "to": "@eos/notification",
+      "kind": "package-depends-on"
+    },
+    {
       "from": "@eos/contracts",
       "to": "zod",
       "kind": "package-depends-on"
@@ -11597,6 +11683,11 @@
     {
       "from": "@eos/engine",
       "to": "@eos/agent-runtime",
+      "kind": "package-depends-on"
+    },
+    {
+      "from": "@eos/engine",
+      "to": "@eos/background",
       "kind": "package-depends-on"
     },
     {
@@ -11611,7 +11702,7 @@
     },
     {
       "from": "@eos/engine",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "package-depends-on"
     },
     {
@@ -11635,12 +11726,12 @@
       "kind": "package-depends-on"
     },
     {
-      "from": "@eos/notifications",
+      "from": "@eos/notification",
       "to": "@eos/contracts",
       "kind": "package-depends-on"
     },
     {
-      "from": "@eos/notifications",
+      "from": "@eos/notification",
       "to": "zod",
       "kind": "package-depends-on"
     },
@@ -11656,6 +11747,11 @@
     },
     {
       "from": "@eos/tool",
+      "to": "@eos/background",
+      "kind": "package-depends-on"
+    },
+    {
+      "from": "@eos/tool",
       "to": "@eos/contracts",
       "kind": "package-depends-on"
     },
@@ -11666,7 +11762,7 @@
     },
     {
       "from": "@eos/tool",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "package-depends-on"
     },
     {
@@ -11721,6 +11817,22 @@
       "typeOnly": false,
       "file": "packages/agent-runtime/src/index.ts",
       "line": 6
+    },
+    {
+      "from": "@eos/background/src/index",
+      "to": "@eos/background/src/background-session",
+      "kind": "reexports",
+      "typeOnly": true,
+      "file": "packages/background/src/index.ts",
+      "line": 1
+    },
+    {
+      "from": "@eos/background/src/index",
+      "to": "@eos/background/src/background-session-supervisor",
+      "kind": "reexports",
+      "typeOnly": false,
+      "file": "packages/background/src/index.ts",
+      "line": 8
     },
     {
       "from": "@eos/contracts/src/index",
@@ -11784,7 +11896,7 @@
       "kind": "reexports",
       "typeOnly": true,
       "file": "packages/engine/src/index.ts",
-      "line": 20
+      "line": 12
     },
     {
       "from": "@eos/engine/src/index",
@@ -11796,27 +11908,11 @@
     },
     {
       "from": "@eos/engine/src/index",
-      "to": "@eos/engine/src/background/background-session",
-      "kind": "reexports",
-      "typeOnly": true,
-      "file": "packages/engine/src/index.ts",
-      "line": 12
-    },
-    {
-      "from": "@eos/engine/src/index",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "reexports",
-      "typeOnly": false,
-      "file": "packages/engine/src/index.ts",
-      "line": 19
-    },
-    {
-      "from": "@eos/engine/src/index",
       "to": "@eos/engine/src/tool-executor",
       "kind": "reexports",
       "typeOnly": true,
       "file": "packages/engine/src/index.ts",
-      "line": 28
+      "line": 20
     },
     {
       "from": "@eos/llm-client/src/index",
@@ -11883,35 +11979,35 @@
       "line": 22
     },
     {
-      "from": "@eos/notifications/src/index",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/src/index",
+      "to": "@eos/notification/src/inbox",
       "kind": "reexports",
       "typeOnly": false,
-      "file": "packages/notifications/src/index.ts",
+      "file": "packages/notification/src/index.ts",
       "line": 7
     },
     {
-      "from": "@eos/notifications/src/index",
-      "to": "@eos/notifications/src/loop-observer",
+      "from": "@eos/notification/src/index",
+      "to": "@eos/notification/src/loop-observer",
       "kind": "reexports",
       "typeOnly": true,
-      "file": "packages/notifications/src/index.ts",
+      "file": "packages/notification/src/index.ts",
       "line": 11
     },
     {
-      "from": "@eos/notifications/src/index",
-      "to": "@eos/notifications/src/trigger-engine",
+      "from": "@eos/notification/src/index",
+      "to": "@eos/notification/src/trigger-engine",
       "kind": "reexports",
       "typeOnly": false,
-      "file": "packages/notifications/src/index.ts",
+      "file": "packages/notification/src/index.ts",
       "line": 12
     },
     {
-      "from": "@eos/notifications/src/index",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/src/index",
+      "to": "@eos/notification/src/triggers",
       "kind": "reexports",
       "typeOnly": false,
-      "file": "packages/notifications/src/index.ts",
+      "file": "packages/notification/src/index.ts",
       "line": 13
     },
     {
@@ -12016,7 +12112,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "packages/tool/src/tools/agent/index.ts",
-      "line": 9
+      "line": 10
     },
     {
       "from": "@eos/tool/src/tools/submission/index",
@@ -12164,17 +12260,17 @@
       "line": 12
     },
     {
-      "from": "@eos/notifications/src/triggers#CommandScriptSchema",
-      "to": "@eos/notifications/src/triggers#CommandScript",
+      "from": "@eos/notification/src/triggers#CommandScriptSchema",
+      "to": "@eos/notification/src/triggers#CommandScript",
       "kind": "schema-infers-type",
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 23
     },
     {
-      "from": "@eos/notifications/src/triggers#TriggerRuleEntrySchema",
-      "to": "@eos/notifications/src/triggers#TriggerRuleEntry",
+      "from": "@eos/notification/src/triggers#TriggerRuleEntrySchema",
+      "to": "@eos/notification/src/triggers#TriggerRuleEntry",
       "kind": "schema-infers-type",
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 53
     },
     {
@@ -12439,7 +12535,7 @@
     },
     {
       "from": "@eos/agent-runtime/tests/runtime.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/agent-runtime/tests/runtime.test.ts",
@@ -12622,6 +12718,46 @@
       "line": 4
     },
     {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/background/src/index",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 3
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/background/tests/support",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 8
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "@eos/notification",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 4
+    },
+    {
+      "from": "@eos/background/tests/background-session-supervisor.test",
+      "to": "vitest",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/background/tests/background-session-supervisor.test.ts",
+      "line": 1
+    },
+    {
+      "from": "@eos/background/tests/support",
+      "to": "@eos/background/src/index",
+      "kind": "tests",
+      "typeOnly": true,
+      "file": "packages/background/tests/support.ts",
+      "line": 1
+    },
+    {
       "from": "@eos/contracts/tests/contracts.test",
       "to": "@eos/contracts/src/index",
       "kind": "tests",
@@ -12647,19 +12783,19 @@
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
+      "to": "@eos/background",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/engine/tests/agent-loop.test.ts",
+      "line": 8
+    },
+    {
+      "from": "@eos/engine/tests/agent-loop.test",
       "to": "@eos/contracts",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
       "line": 5
-    },
-    {
-      "from": "@eos/engine/tests/agent-loop.test",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/engine/tests/agent-loop.test.ts",
-      "line": 9
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
@@ -12687,7 +12823,7 @@
     },
     {
       "from": "@eos/engine/tests/agent-loop.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
@@ -12708,38 +12844,6 @@
       "typeOnly": false,
       "file": "packages/engine/tests/agent-loop.test.ts",
       "line": 3
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 3
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/engine/tests/support",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 8
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "@eos/notifications",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 4
-    },
-    {
-      "from": "@eos/engine/tests/background-session-supervisor.test",
-      "to": "vitest",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/engine/tests/background-session-supervisor.test.ts",
-      "line": 1
     },
     {
       "from": "@eos/engine/tests/conversation.test",
@@ -12771,7 +12875,15 @@
       "kind": "tests",
       "typeOnly": true,
       "file": "packages/engine/tests/support.ts",
-      "line": 23
+      "line": 25
+    },
+    {
+      "from": "@eos/engine/tests/support",
+      "to": "@eos/background",
+      "kind": "tests",
+      "typeOnly": true,
+      "file": "packages/engine/tests/support.ts",
+      "line": 20
     },
     {
       "from": "@eos/engine/tests/support",
@@ -12783,27 +12895,11 @@
     },
     {
       "from": "@eos/engine/tests/support",
-      "to": "@eos/engine/src/background/background-session",
-      "kind": "tests",
-      "typeOnly": true,
-      "file": "packages/engine/tests/support.ts",
-      "line": 21
-    },
-    {
-      "from": "@eos/engine/tests/support",
-      "to": "@eos/engine/src/background/background-session-supervisor",
-      "kind": "tests",
-      "typeOnly": true,
-      "file": "packages/engine/tests/support.ts",
-      "line": 22
-    },
-    {
-      "from": "@eos/engine/tests/support",
       "to": "@eos/engine/src/index",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/engine/tests/support.ts",
-      "line": 29
+      "line": 31
     },
     {
       "from": "@eos/engine/tests/support",
@@ -12815,11 +12911,11 @@
     },
     {
       "from": "@eos/engine/tests/support",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": true,
       "file": "packages/engine/tests/support.ts",
-      "line": 24
+      "line": 26
     },
     {
       "from": "@eos/engine/tests/support",
@@ -13430,99 +13526,99 @@
       "line": 1
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "@eos/contracts",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 5
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/tests/inbox.test",
+      "to": "@eos/notification/src/inbox",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 7
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "node:events",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/tests/inbox.test",
+      "from": "@eos/notification/tests/inbox.test",
       "to": "vitest",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/inbox.test.ts",
+      "file": "packages/notification/tests/inbox.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
+      "from": "@eos/notification/tests/trigger-engine.test",
       "to": "@eos/contracts",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/inbox",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/inbox",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 10
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/loop-observer",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/loop-observer",
       "kind": "tests",
       "typeOnly": true,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 11
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/trigger-engine",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/trigger-engine",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 12
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/tests/trigger-engine.test",
+      "to": "@eos/notification/src/triggers",
       "kind": "tests",
       "typeOnly": true,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 13
     },
     {
-      "from": "@eos/notifications/tests/trigger-engine.test",
+      "from": "@eos/notification/tests/trigger-engine.test",
       "to": "vitest",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/trigger-engine.test.ts",
+      "file": "packages/notification/tests/trigger-engine.test.ts",
       "line": 1
     },
     {
-      "from": "@eos/notifications/tests/triggers.test",
-      "to": "@eos/notifications/src/triggers",
+      "from": "@eos/notification/tests/triggers.test",
+      "to": "@eos/notification/src/triggers",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/triggers.test.ts",
+      "file": "packages/notification/tests/triggers.test.ts",
       "line": 3
     },
     {
-      "from": "@eos/notifications/tests/triggers.test",
+      "from": "@eos/notification/tests/triggers.test",
       "to": "vitest",
       "kind": "tests",
       "typeOnly": false,
-      "file": "packages/notifications/tests/triggers.test.ts",
+      "file": "packages/notification/tests/triggers.test.ts",
       "line": 1
     },
     {
@@ -13623,6 +13719,14 @@
     },
     {
       "from": "@eos/tool/tests/families.test",
+      "to": "@eos/background",
+      "kind": "tests",
+      "typeOnly": false,
+      "file": "packages/tool/tests/families.test.ts",
+      "line": 4
+    },
+    {
+      "from": "@eos/tool/tests/families.test",
       "to": "@eos/contracts",
       "kind": "tests",
       "typeOnly": false,
@@ -13631,15 +13735,7 @@
     },
     {
       "from": "@eos/tool/tests/families.test",
-      "to": "@eos/engine",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "packages/tool/tests/families.test.ts",
-      "line": 4
-    },
-    {
-      "from": "@eos/tool/tests/families.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/tool/tests/families.test.ts",
@@ -13863,7 +13959,7 @@
     },
     {
       "from": "@eos/tool/tests/toolset.test",
-      "to": "@eos/engine",
+      "to": "@eos/background",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/tool/tests/toolset.test.ts",
@@ -13871,7 +13967,7 @@
     },
     {
       "from": "@eos/tool/tests/toolset.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": false,
       "file": "packages/tool/tests/toolset.test.ts",
@@ -13927,7 +14023,7 @@
     },
     {
       "from": "@eos/tool/tests/trigger-runner.test",
-      "to": "@eos/notifications",
+      "to": "@eos/notification",
       "kind": "tests",
       "typeOnly": true,
       "file": "packages/tool/tests/trigger-runner.test.ts",
@@ -14190,24 +14286,24 @@
       "line": 50
     },
     {
-      "from": "@eos/notifications/src/triggers#CommandScript",
-      "to": "@eos/notifications/src/triggers#CommandScriptSchema",
+      "from": "@eos/notification/src/triggers#CommandScript",
+      "to": "@eos/notification/src/triggers#CommandScriptSchema",
       "kind": "uses-schema",
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 23
     },
     {
-      "from": "@eos/notifications/src/triggers#TriggerRuleEntry",
-      "to": "@eos/notifications/src/triggers#TriggerRuleEntrySchema",
+      "from": "@eos/notification/src/triggers#TriggerRuleEntry",
+      "to": "@eos/notification/src/triggers#TriggerRuleEntrySchema",
       "kind": "uses-schema",
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 53
     },
     {
-      "from": "@eos/notifications/src/triggers#TriggerRuleEntrySchema",
-      "to": "@eos/notifications/src/triggers#CommandScriptSchema",
+      "from": "@eos/notification/src/triggers#TriggerRuleEntrySchema",
+      "to": "@eos/notification/src/triggers#CommandScriptSchema",
       "kind": "uses-schema",
-      "file": "packages/notifications/src/triggers.ts",
+      "file": "packages/notification/src/triggers.ts",
       "line": 39
     },
     {

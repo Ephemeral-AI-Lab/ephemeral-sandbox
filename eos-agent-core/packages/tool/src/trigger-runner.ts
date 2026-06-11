@@ -1,9 +1,9 @@
-import { TriggerOutputSchema, type TriggerCommandRunner } from "@eos/notifications";
+import { TriggerOutputSchema, type TriggerCommandRunner } from "@eos/notification";
 
 import { spawnJsonCommand } from "./spawn.js";
 
 /**
- * The spawn-backed implementation of the `@eos/notifications` trigger
+ * The spawn-backed implementation of the `@eos/notification` trigger
  * runner seam, reusing this package's shared command-spawn mechanics
  * (shell spawn, payload JSON + newline on stdin, per-command timeout) —
  * the same dependency direction as the tool layer implementing the

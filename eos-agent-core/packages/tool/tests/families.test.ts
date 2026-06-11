@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { toolUseIdFrom } from "@eos/contracts";
-import { BackgroundSessionSupervisor } from "@eos/engine";
-import { NotificationInbox } from "@eos/notifications";
+import { BackgroundSessionSupervisor } from "@eos/background";
+import { NotificationInbox } from "@eos/notification";
 import { scriptedRunState, scriptedBackgroundSessionHandle } from "@eos/testkit";
 
 import {
