@@ -1,11 +1,11 @@
-import type {
-  AgentRunSnapshot,
-  BackgroundSessionSnapshot,
-  JsonObject,
-  ToolCallResult,
+import {
+  zodIssueSummary,
+  type AgentRunSnapshot,
+  type BackgroundSessionSnapshot,
+  type JsonObject,
+  type ToolCallResult,
 } from "@eos/contracts";
 import type { ToolUseBlock } from "@eos/engine";
-import type { z } from "zod";
 
 import type {
   ToolCallMeta,
@@ -90,7 +90,7 @@ export function bindTool(definition: ToolDefinition, deps: BindToolDeps): BoundT
     const parsed = definition.input.safeParse(call.input);
     if (!parsed.success) {
       return rejected(
-        `invalid input for ${definition.name}: ${issueSummary(parsed.error)}`,
+        `invalid input for ${definition.name}: ${zodIssueSummary(parsed.error)}`,
       );
     }
     let input: unknown = parsed.data;
@@ -121,7 +121,7 @@ export function bindTool(definition: ToolDefinition, deps: BindToolDeps): BoundT
       const reparsed = definition.input.safeParse(pre.updatedInput);
       if (!reparsed.success) {
         return rejected(
-          `hook updatedInput rejected by ${definition.name} schema: ${issueSummary(reparsed.error)}`,
+          `hook updatedInput rejected by ${definition.name} schema: ${zodIssueSummary(reparsed.error)}`,
         );
       }
       input = reparsed.data;
@@ -198,14 +198,4 @@ function stamp(
   };
   if (metadata !== undefined) result.metadata = metadata;
   return result;
-}
-
-function issueSummary(error: z.ZodError): string {
-  return error.issues
-    .map((issue) =>
-      issue.path.length > 0
-        ? `${issue.path.map(String).join(".")}: ${issue.message}`
-        : issue.message,
-    )
-    .join("; ");
 }

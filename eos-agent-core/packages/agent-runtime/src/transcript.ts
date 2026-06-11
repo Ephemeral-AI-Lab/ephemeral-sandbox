@@ -129,7 +129,7 @@ export class RunLog {
     this.#meta = meta;
     this.#runDir = join(dataDir, "runs", meta.run_id);
     this.#eventsPath = join(this.#runDir, "events.jsonl");
-    this.transcriptPath = join(this.#runDir, "transcript.jsonl");
+    this.transcriptPath = runTranscriptPath(dataDir, meta.run_id);
     this.#resultPath = join(this.#runDir, "result.jsonl");
     this.#startedMs = Date.now();
     this.#startedAt = new Date(this.#startedMs).toISOString();

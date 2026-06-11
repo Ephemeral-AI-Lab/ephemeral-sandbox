@@ -41,3 +41,4 @@ export type {
   BackgroundSessionSnapshot,
 } from "./run-snapshot.js";
 export { ToolCallResultSchema, type ToolCallResult } from "./tool-calls.js";
+export { zodIssueSummary } from "./zod-issues.js";

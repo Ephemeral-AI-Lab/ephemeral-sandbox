@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { AgentKindSchema, type AgentKind } from "@eos/contracts";
+import { AgentKindSchema, zodIssueSummary, type AgentKind } from "@eos/contracts";
 import { ToolNameSchema, type ToolName } from "@eos/tool";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
@@ -63,17 +63,7 @@ export function loadAgentProfile(path: string): AgentProfile {
   }
   const parsed = FrontmatterSchema.safeParse(data);
   if (!parsed.success) {
-    throw new Error(`agent profile ${path} is invalid: ${issueSummary(parsed.error)}`);
+    throw new Error(`agent profile ${path} is invalid: ${zodIssueSummary(parsed.error)}`);
   }
   return { ...parsed.data, system_prompt: match[2].trim(), source_path: path };
-}
-
-function issueSummary(error: z.ZodError): string {
-  return error.issues
-    .map((issue) =>
-      issue.path.length > 0
-        ? `${issue.path.map(String).join(".")}: ${issue.message}`
-        : issue.message,
-    )
-    .join("; ");
 }
