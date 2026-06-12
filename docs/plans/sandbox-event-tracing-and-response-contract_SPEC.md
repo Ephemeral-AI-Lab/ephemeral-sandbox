@@ -583,6 +583,35 @@ transitions, and isolated-workspace lifecycle code follows these rules:
    before forwarding a mutating op, but it cannot slow a mutation after the
    daemon has started executing it.
 
+### Host / Container Boundary
+
+The audit system is intentionally split by trust and latency boundary. Host
+code owns durability, sequence assignment, fail-closed forwarding, and operator
+queries. Container code owns low-latency span capture for the sandbox decision
+engine and returns bounded trace batches to the host.
+
+| Boundary side | Owns | Must never own |
+| --- | --- | --- |
+| Host side: `eos-sandbox-gateway` + `eos-sandbox-host` | gateway UDS events, catalog routing events, `request_start`, TCP/docker-exec transport events, Docker lifecycle/registry facts, SQLite `audit_entries`, seq assignment, hash chain/seals, sidecar ingest, response digest, sidecar stripping, background export drainer, heartbeat monitor, transcript/archive pulls, operator query/CLI views | daemon dispatch decisions, LayerStack/OCC mutation logic, command/session state transitions inside the sandbox, plugin PPC callback execution |
+| Container side: `eosd` + `eos-daemon` + operation crates | daemon inbound transport events, `op_request` root span, dispatch spans, op-adapter spans, subsystem events, `resource_stats`, bounded in-memory request trace assembly, bounded background spool, `_trace_events` sidecar, `sandbox.trace.export` drain payloads | SQLite, fsync, hash sealing, WORM export, host DB migrations, response-sidecar stripping, gateway UDS routing, Docker/container lifecycle management |
+| Cross-boundary contract | `trace_id`, `request_id`, trace context, JSON-line request/response envelope, protobuf `TraceBatch`, `_trace_events` sidecar, `ResponseMeta.trace`, `trace_links` ids | raw auth tokens, unbounded stdout/stderr, raw file contents, host-only store internals in daemon DTOs |
+
+Ownership consequences:
+
+- Host-only failures (gateway parse, forbidden route, connect refused, stale
+  Docker port, docker-exec fallback failure) produce host/gateway trace events
+  and close the trace without daemon spans.
+- Container-only failures (bad TCP auth, daemon decode, dispatcher parse,
+  subsystem panic/error before response render) produce daemon sidecar events if
+  the daemon can write a response; otherwise crash-log JSON lines and
+  `daemon_boot_id` gaps become the evidence.
+- The host may refuse a mutating op before forwarding if `request_start` cannot
+  be durably appended. The container cannot make that decision because it does
+  not own audit durability.
+- The container may drop/truncate bounded trace children under pressure, but it
+  must report `dropped_children`, `truncated`, or `dropped_traces`. The host
+  records those loss markers in the immutable audit chain.
+
 ### Transport
 
 Implementation shape:
