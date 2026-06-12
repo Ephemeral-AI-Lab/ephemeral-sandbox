@@ -25,14 +25,6 @@ export interface UsageSnapshot {
   cache_creation_input_tokens?: number;
 }
 
-/** cache_read / total prompt tokens; 0 when no prompt tokens were reported. */
-export function cacheHitRate(usage: UsageSnapshot): number {
-  const read = usage.cache_read_input_tokens ?? 0;
-  const denominator =
-    usage.input_tokens + read + (usage.cache_creation_input_tokens ?? 0);
-  return denominator > 0 ? read / denominator : 0;
-}
-
 /** A neutral model invocation request. */
 export interface LlmRequest {
   /** Opaque provider model key. */

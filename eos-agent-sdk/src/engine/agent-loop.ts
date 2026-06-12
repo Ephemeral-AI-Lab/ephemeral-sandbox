@@ -16,7 +16,7 @@ import type { ToolExecutor, ToolUseBlock } from "./tool-executor.js";
 import { addUsage, runAssistantTurn, type TurnConfig } from "./turn.js";
 
 /** The cancel reason run-end disposal passes to the task registry. */
-export const RUN_FINISHED_DISPOSE_REASON = "run finished";
+const RUN_FINISHED_DISPOSE_REASON = "run finished";
 
 /**
  * Loop facts handed to `turnBoundary` hooks after each committed assistant

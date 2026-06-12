@@ -3,12 +3,14 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Result};
-use eos_e2e_test::client::error_kind;
 use eos_e2e_test::unique_suffix;
 use eos_operation::core::catalog;
 use serde_json::{json, Value};
 
-use crate::helpers::{pressure_levels, request_with_identity};
+use crate::helpers::{
+    optional_response_result, pressure_levels, request_with_identity, response_result,
+    result_committed,
+};
 use crate::support::{
     as_bool, as_i64, as_str, finalize_foreground_command, live_pool_or_skip,
     reset_isolated_workspaces, wait_for_active_leases,
@@ -53,11 +55,12 @@ fn plugin_refresh_ladder_1_3_6_12() -> Result<()> {
                         &caller_id,
                         json!({"path": path, "request": format!("level-{level}-{index}")}),
                     )?;
+                    let result = response_result(&response)?.clone();
                     assert_eq!(
-                        response["content"], content,
-                        "plugin dispatch should observe refreshed workspace content at level {level}: {response}"
+                        result["content"], content,
+                        "plugin dispatch should observe refreshed workspace content at level {level}: {result}"
                     );
-                    Ok::<Value, anyhow::Error>(response)
+                    Ok::<Value, anyhow::Error>(result)
                 })
             })
             .collect();
@@ -110,15 +113,23 @@ fn isolated_handle_cap_ladder() -> Result<()> {
         let mut opened = Vec::new();
         let mut rejected = Vec::new();
         for (caller, response) in callers.iter().zip(responses.iter()) {
-            if as_bool(response, "success").unwrap_or(false) {
-                assert!(
-                    !as_str(response, "workspace_handle_id")?.is_empty(),
-                    "successful enter should return a handle id at level {level}: {response}"
-                );
-                opened.push(caller.clone());
-            } else {
-                assert_stable_isolated_cap_error(response, level)?;
-                rejected.push(response.clone());
+            match optional_response_result(response)? {
+                Some(result)
+                    if result
+                        .get("workspace_handle_id")
+                        .and_then(Value::as_str)
+                        .is_some_and(|handle| !handle.is_empty()) =>
+                {
+                    assert!(
+                        !as_str(result, "workspace_handle_id")?.is_empty(),
+                        "successful enter should return a handle id at level {level}: {result}"
+                    );
+                    opened.push(caller.clone());
+                }
+                _ => {
+                    assert_stable_isolated_cap_error(response, level)?;
+                    rejected.push(response.clone());
+                }
             }
         }
 
@@ -135,10 +146,15 @@ fn isolated_handle_cap_ladder() -> Result<()> {
             let response = enter_isolated_callers(&lease, std::slice::from_ref(&extra))?
                 .pop()
                 .context("extra isolated enter response")?;
-            if as_bool(&response, "success").unwrap_or(false) {
+            if optional_response_result(&response)?.is_some_and(|result| {
+                result
+                    .get("workspace_handle_id")
+                    .and_then(Value::as_str)
+                    .is_some_and(|handle| !handle.is_empty())
+            }) {
                 opened.push(extra);
             } else {
-                let kind = error_kind(&response).unwrap_or_default();
+                let kind = response_error_kind(&response).unwrap_or_default();
                 assert_eq!(
                     kind, "quota_exceeded",
                     "one handle above the configured ladder cap should reject with quota_exceeded: {response}"
@@ -209,8 +225,10 @@ fn protocol_only_bundled_sandbox_capstone() -> Result<()> {
         .collect::<Result<Vec<_>>>()?;
     assert!(
         conflict_responses.iter().any(|response| {
-            response.get("status").and_then(Value::as_str) == Some("committed")
-                || as_bool(response, "success").unwrap_or(false)
+            optional_response_result(response)
+                .ok()
+                .flatten()
+                .is_some_and(result_committed)
         }),
         "capstone same-path pressure should commit at least one writer: {conflict_responses:?}"
     );
@@ -322,11 +340,18 @@ fn exit_isolated_callers(lease: &eos_e2e_test::NodeLease<'_>, callers: &[String]
 }
 
 fn assert_stable_isolated_cap_error(response: &Value, level: usize) -> Result<()> {
-    let kind = error_kind(response).unwrap_or_default();
+    let kind = response_error_kind(response).unwrap_or_default();
     if matches!(kind, "quota_exceeded" | "host_ram_pressure") {
         return Ok(());
     }
     bail!("isolated handle pressure returned an unexpected error at level {level}: {response}")
+}
+
+fn response_error_kind(response: &Value) -> Option<&str> {
+    response
+        .get("error")
+        .and_then(|error| error.get("kind"))
+        .and_then(Value::as_str)
 }
 
 fn open_count_for(listing: &Value, callers: &[String]) -> usize {

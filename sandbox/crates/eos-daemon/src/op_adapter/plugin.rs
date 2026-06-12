@@ -419,6 +419,7 @@ fn plugin_overlay_response_with_trace(
             Some(err),
         ),
     }
+    record_plugin_overlay_lease_release_failed(context, op, invocation_id, overlay);
     result.map(|wire| wire.response)
 }
 
@@ -734,6 +735,27 @@ fn record_occ_changeset_trace_events(
     }
 }
 
+fn record_plugin_overlay_lease_release_failed(
+    context: &DispatchContext<'_>,
+    op: &str,
+    invocation_id: &str,
+    overlay: &PluginOverlayOutcome,
+) {
+    let Some(error) = overlay.lease_release_error.as_deref() else {
+        return;
+    };
+    context.record_trace_event(
+        "layer_stack",
+        "lease_release_failed",
+        json!({
+            "op": op,
+            "invocation_id": invocation_id,
+            "reason": "plugin_overlay_release_failed",
+            "error": error,
+        }),
+    );
+}
+
 fn record_ppc_trace_events(context: &DispatchContext<'_>, events: Vec<PpcTraceEvent>) {
     for event in events {
         context.record_trace_event(event.module, event.name, event.details);
@@ -798,6 +820,7 @@ fn record_plugin_overlay_finished(
             "changed_path_count": overlay.path_kinds.len(),
             "published_manifest_version": overlay.changeset.published_manifest_version,
             "lease_acquire_s": overlay.lease_acquire_s,
+            "lease_release_error": overlay.lease_release_error.as_deref(),
             "capture_s": overlay.capture_s,
             "occ_s": overlay.occ_s,
             "upperdir_files": overlay.upperdir_stats.files,

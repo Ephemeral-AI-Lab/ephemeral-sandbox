@@ -17,7 +17,7 @@ export function toolUseIdFrom(raw: string): ToolUseId {
  * Identifier for one agent run. Minted by whoever starts the run as a
  * dashed UUIDv4.
  */
-export const AgentRunIdSchema = z.string().min(1).brand<"AgentRunId">();
+const AgentRunIdSchema = z.string().min(1).brand<"AgentRunId">();
 
 export type AgentRunId = z.infer<typeof AgentRunIdSchema>;
 
@@ -35,17 +35,12 @@ export function mintAgentRunId(): AgentRunId {
  * Identifier for one registered background task. Minted by the run's
  * supervisor at `register`; hosts only ever receive one.
  */
-export const BackgroundTaskIdSchema = z
+const BackgroundTaskIdSchema = z
   .string()
   .min(1)
   .brand<"BackgroundTaskId">();
 
 export type BackgroundTaskId = z.infer<typeof BackgroundTaskIdSchema>;
-
-/** Adopt an existing task id (records replay). Rejects "". */
-export function backgroundTaskIdFrom(raw: string): BackgroundTaskId {
-  return BackgroundTaskIdSchema.parse(raw);
-}
 
 /** Mint a fresh task id. */
 export function mintBackgroundTaskId(): BackgroundTaskId {

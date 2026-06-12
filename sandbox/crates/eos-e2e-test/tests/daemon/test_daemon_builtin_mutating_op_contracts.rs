@@ -2,11 +2,13 @@
 //! they mutate daemon state or are intentionally harness-gated.
 
 use anyhow::{Context, Result};
-use eos_e2e_test::client::error_kind;
 use eos_operation::core::catalog;
 use serde_json::{json, Value};
 
-use crate::support::{as_bool, as_str, live_pool_or_skip, reset_isolated_workspaces};
+use crate::support::{
+    as_bool, as_str, envelope_error_kind, envelope_error_kind_or_status, envelope_result,
+    envelope_status, live_pool_or_skip, reset_isolated_workspaces,
+};
 
 #[test]
 fn isolated_workspace_lifecycle_ops_are_live() -> Result<()> {
@@ -81,20 +83,21 @@ fn isolated_workspace_test_reset_op_is_live_and_harness_gated() -> Result<()> {
 
     let reset = lease.call(catalog::SANDBOX_ISOLATION_TEST_RESET, json!({}))?;
     assert_ne!(
-        error_kind(&reset),
-        Some("unknown_op"),
+        envelope_error_kind_or_status(&reset)?,
+        "unknown_op",
         "test_reset should be a registered built-in op: {reset}"
     );
-    if reset.get("success").and_then(Value::as_bool) == Some(true) {
+    if envelope_status(&reset)? == "ok" {
+        let reset_result = envelope_result(&reset)?;
         assert!(
-            as_bool(&reset, "reset")?,
+            as_bool(reset_result, "reset")?,
             "harness-enabled reset should report reset=true: {reset}"
         );
         return Ok(());
     }
     assert_eq!(
-        error_kind(&reset),
-        Some("forbidden"),
+        envelope_error_kind(&reset)?,
+        "forbidden",
         "without the isolated test harness env, reset should fail with the stable gate: {reset}"
     );
     let message = reset

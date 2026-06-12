@@ -142,7 +142,7 @@
           <li class="tree-symbol search-item">
             <a href="#EventStream"><code>EventStream</code></a>
             <span>class</span>
-            <span class="compact-tags">event public-api</span>
+            <span class="compact-tags">event internal</span>
           </li>
 
 
@@ -386,11 +386,11 @@ that need by-id access keep their own map.</p>
       <div class="symbol-head">
         <div>
           <strong>EventStream</strong>
-          <span>class · line 108 · public</span>
+          <span>class · line 108 · internal</span>
         </div>
         <a href="../modules/engine-src-run-handle.html#EventStream">Module</a>
       </div>
-      <pre><code>export class EventStream implements AsyncIterable&lt;AgentEvent&gt;</code></pre>
+      <pre><code>class EventStream implements AsyncIterable&lt;AgentEvent&gt;</code></pre>
       <p>A push-fed queue consumed as one pull-based `AsyncIterable`:
 
 - single consumer: a second `[Symbol.asyncIterator]()` call throws,
@@ -400,7 +400,7 @@ that need by-id access keep their own map.</p>
   are dropped (run-end disposal settles tasks after `run_finished`),
 - an early `break`/`return()` detaches: later pushes are discarded while
   the run continues; a stream nobody iterates retains every event.</p>
-      <div class="tags"><span>async-iterable</span><span>event</span><span>exported</span><span>public-api</span><span>stateful</span></div>
+      <div class="tags"><span>async-iterable</span><span>event</span><span>internal</span><span>stateful</span></div>
 
     <h3>Heritage</h3>
     <p>AsyncIterable</p>

@@ -38,7 +38,7 @@ export type ScriptedTurn = (
   signal: AbortSignal | undefined,
 ) => AsyncIterable<LlmStreamEvent>;
 
-export class ScriptedClient implements LlmClient {
+class ScriptedClient implements LlmClient {
   readonly requests: LlmRequest[] = [];
   readonly #turns: ScriptedTurn[];
 
@@ -114,7 +114,7 @@ export function user(value: string): UserMessage {
 
 // --- stub task registry gate ---------------------------------------------
 
-export class StubTasks implements TaskRegistryGate {
+class StubTasks implements TaskRegistryGate {
   #open = 0;
   #changes = 0;
   #wakers = new Set<() => void>();
@@ -169,7 +169,7 @@ export type StubHandler = (
   is_terminal?: boolean;
 }>;
 
-export function stubExecutor(handlers: Record<string, StubHandler>): ToolExecutor {
+function stubExecutor(handlers: Record<string, StubHandler>): ToolExecutor {
   return {
     specs: () => [],
     executeBatch: async (calls, batch) => {

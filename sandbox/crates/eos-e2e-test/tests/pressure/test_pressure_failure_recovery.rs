@@ -5,7 +5,7 @@ use anyhow::Result;
 use eos_operation::core::catalog;
 use serde_json::json;
 
-use crate::helpers::{pressure_levels, request_with_identity, workload_timeout_s};
+use crate::helpers::{pressure_levels, request_with_identity, response_result, workload_timeout_s};
 use crate::support::{
     as_bool, as_i64, as_str, live_pool_or_skip, wait_for_active_leases, wait_for_command_count,
 };
@@ -110,12 +110,13 @@ fn commands_ladder_1_3_6_12() -> Result<()> {
         let mut ids = Vec::with_capacity(level);
         for handle in handles {
             let response = handle.join().expect("command start thread panicked")?;
+            let result = response_result(&response)?;
             assert_eq!(
-                as_str(&response, "status")?,
+                as_str(result, "status")?,
                 "running",
                 "command ladder should start long-running commands at level {level}: {response}"
             );
-            ids.push(as_str(&response, "command_id")?.to_owned());
+            ids.push(as_str(result, "command_id")?.to_owned());
         }
 
         let count = lease.call_ok(catalog::SANDBOX_COMMAND_COUNT, json!({}))?;
@@ -131,10 +132,12 @@ fn commands_ladder_1_3_6_12() -> Result<()> {
         );
 
         for id in ids {
-            let cancel = lease.call(catalog::SANDBOX_COMMAND_CANCEL, json!({"command_id": id}))?;
+            let cancel_wire =
+                lease.call(catalog::SANDBOX_COMMAND_CANCEL, json!({"command_id": id}))?;
+            let cancel = response_result(&cancel_wire)?;
             assert!(
                 matches!(as_str(&cancel, "status")?, "cancelled" | "ok" | "error"),
-                "cancel should return structured status at level {level}: {cancel}"
+                "cancel should return structured status at level {level}: {cancel_wire}"
             );
         }
         wait_for_command_count(&lease, 0)?;
@@ -158,10 +161,11 @@ fn cancel_storm() -> Result<()> {
         .map(|index| start_sleep(&lease, &format!("storm-{index}")))
         .collect::<Result<_>>()?;
     for id in ids {
-        let cancel = lease.call(catalog::SANDBOX_COMMAND_CANCEL, json!({"command_id": id}))?;
+        let cancel_wire = lease.call(catalog::SANDBOX_COMMAND_CANCEL, json!({"command_id": id}))?;
+        let cancel = response_result(&cancel_wire)?;
         assert!(
             matches!(as_str(&cancel, "status")?, "cancelled" | "ok" | "error"),
-            "cancel storm should return structured status: {cancel}"
+            "cancel storm should return structured status: {cancel_wire}"
         );
     }
     let count = lease.call_ok(catalog::SANDBOX_COMMAND_COUNT, json!({}))?;

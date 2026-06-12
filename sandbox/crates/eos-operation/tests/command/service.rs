@@ -239,8 +239,14 @@ fn active_command_advance_trace_record_carries_poll_results() {
     assert_eq!(span.fields.value["live_count"], 3);
     let event = record.events.first().expect("advance event");
     assert_eq!(event.name, "advance_finished");
-    assert_eq!(event.details.value["timed_out_commands"], json!(["cmd_timed_out"]));
-    assert_eq!(event.details.value["finalized_commands"], json!(["cmd_finalized"]));
+    assert_eq!(
+        event.details.value["timed_out_commands"],
+        json!(["cmd_timed_out"])
+    );
+    assert_eq!(
+        event.details.value["finalized_commands"],
+        json!(["cmd_finalized"])
+    );
 }
 
 #[test]

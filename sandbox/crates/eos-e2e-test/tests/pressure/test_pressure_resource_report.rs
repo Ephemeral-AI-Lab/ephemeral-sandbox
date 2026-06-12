@@ -4,12 +4,16 @@ use std::time::{Duration, Instant};
 use anyhow::{ensure, Context, Result};
 use eos_e2e_test::unique_suffix;
 use eos_operation::core::catalog;
+use eos_trace::ResourceStatsKind;
 use serde_json::{json, Value};
 
-use crate::helpers::{pressure_levels, workload_timeout_s};
+use crate::helpers::{
+    ensure_response_step, ensure_trace_resource, finalize_foreground_command_wire, pressure_levels,
+    response_result, trace_resource_number, workload_timeout_s,
+};
 use crate::support::{
-    as_bool, as_i64, as_str, finalize_foreground_command, live_pool_or_skip, seed_base_files,
-    wait_for_active_leases, wait_for_command_count,
+    as_bool, as_i64, as_str, live_pool_or_skip, seed_base_files, wait_for_active_leases,
+    wait_for_command_count,
 };
 
 #[test]
@@ -25,7 +29,7 @@ fn resource_report_smoke() -> Result<()> {
 
     for sample in 0..workload.sample_count {
         let path = format!("pressure/resource/sample-{sample}.txt");
-        let write = lease.call_ok(
+        let write_wire = lease.call(
             catalog::SANDBOX_FILE_WRITE,
             json!({
                 "path": path,
@@ -33,17 +37,19 @@ fn resource_report_smoke() -> Result<()> {
                 "overwrite": true
             }),
         )?;
-        let read = lease.call_ok(
+        let write = response_result(&write_wire)?.clone();
+        let read_wire = lease.call(
             catalog::SANDBOX_FILE_READ,
             json!({"path": format!("pressure/resource/sample-{sample}.txt")}),
         )?;
+        let read = response_result(&read_wire)?.clone();
         assert_eq!(
             as_str(&read, "content")?,
             format!("resource-sample-{sample}\n"),
             "resource report readback should match: {read}"
         );
 
-        let exec = lease.call_ok(
+        let exec_wire = lease.call(
             catalog::SANDBOX_COMMAND_EXEC,
             json!({
                 "cmd": format!("mkdir -p pressure/resource && printf exec-{sample} > pressure/resource/exec-{sample}.txt"),
@@ -53,26 +59,38 @@ fn resource_report_smoke() -> Result<()> {
         // The command can outlast the 1s yield under emulation and return status
         // "running" (whose timings carry only the runtime.* keys); finalize to the
         // finalized payload so the terminal status and upperdir timings hold.
-        let exec = finalize_foreground_command(
+        let (exec_wire, exec) = finalize_foreground_command_wire(
             &lease,
-            exec,
+            exec_wire,
             Instant::now() + Duration::from_secs(timeout_s + 5),
         )?;
         assert_eq!(as_str(&exec, "status")?, "ok", "{exec}");
         assert_eq!(as_i64(&exec, "exit_code")?, 0, "{exec}");
-        ensure_timing(&exec, "runtime.dispatch_s")?;
-        ensure_timing(&exec, "resource.command_exec.upperdir_tree_bytes")?;
-        ensure_timing(&exec, "resource.command_exec.run_dir_tree_bytes")?;
-        ensure_timing(&write, "runtime.dispatch_s")?;
-        ensure_timing(&read, "runtime.dispatch_s")?;
+        ensure_response_step(&exec_wire, "dispatch")?;
+        ensure_trace_resource(
+            &exec_wire,
+            ResourceStatsKind::Tree,
+            "resource.command_exec.upperdir",
+        )?;
+        ensure_trace_resource(
+            &exec_wire,
+            ResourceStatsKind::Tree,
+            "resource.command_exec.run_dir",
+        )?;
+        ensure_response_step(&write_wire, "dispatch")?;
+        ensure_response_step(&read_wire, "dispatch")?;
 
         // Memory gauges are collected per op via the cgroup/process collector.
         // Assert presence and a generous absolute ceiling — these are gauges
         // inflated by page cache on lowerdir reads, not delta-proportional, so a
         // tight O(1) bound would flake. The peak gauge is kernel-dependent
         // (cgroup v2 `memory.peak`, Linux 5.19+) and stays optional.
-        ensure_timing(&write, "resource.cgroup.memory_current_bytes")?;
-        let memory_current = read_timing(&write, "resource.cgroup.memory_current_bytes")?;
+        let memory_current = trace_resource_number(
+            &write_wire,
+            ResourceStatsKind::CgroupProcess,
+            "daemon.response_timings",
+            &["cgroup", "memory", "current_bytes"],
+        )?;
         ensure!(
             memory_current > 0.0 && memory_current < 64e9,
             "cgroup memory.current gauge should be present and sane: {memory_current}"
@@ -94,6 +112,7 @@ fn resource_report_smoke() -> Result<()> {
             catalog::SANDBOX_COMMAND_CANCEL,
             json!({"command_id": as_str(&session, "command_id")?}),
         )?;
+        let cancel = response_result(&cancel)?.clone();
         assert!(
             matches!(as_str(&cancel, "status")?, "cancelled" | "ok" | "error"),
             "resource report cancel should return structured status: {cancel}"
@@ -104,9 +123,9 @@ fn resource_report_smoke() -> Result<()> {
 
         samples.push(json!({
             "sample": sample,
-            "write_timing_keys": timing_keys(&write),
-            "read_timing_keys": timing_keys(&read),
-            "exec_timing_keys": timing_keys(&exec),
+            "write_status": write.get("status").and_then(Value::as_str),
+            "read_trace_step": "dispatch",
+            "exec_trace_resources": ["resource.command_exec.upperdir", "resource.command_exec.run_dir"],
             "memory_current_bytes": memory_current,
             "command_status": as_str(&session, "status")?,
             "cancel_status": as_str(&cancel, "status")?,
@@ -183,26 +202,37 @@ fn large_base_overlay_keeps_memory_bounded() -> Result<()> {
     // is a loose regression gauge (page cache inflates the gauge), not a tight
     // O(1) bound. The ~20MB base is built from sub-cap files (2 MiB write cap).
     seed_base_files(&lease, "pressure/mem/base", 20, 1_000_000)?;
-    let exec = lease.call_ok(
+    let exec = lease.call(
         catalog::SANDBOX_COMMAND_EXEC,
         json!({
             "cmd": "printf TINY > pressure/mem/delta.txt",
             "yield_time_ms": 1000,
             "timeout_seconds": 30,}),
     )?;
-    let exec = finalize_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(35))?;
+    let (_, exec) =
+        finalize_foreground_command_wire(&lease, exec, Instant::now() + Duration::from_secs(35))?;
     assert_eq!(as_str(&exec, "status")?, "ok", "{exec}");
     // Memory gauges land on the fast-path file response; sample one after the op.
-    let probe = lease.call_ok(
+    let probe = lease.call(
         catalog::SANDBOX_FILE_WRITE,
         json!({"path": "pressure/mem/probe.txt", "content": "probe\n", "overwrite": true}),
     )?;
-    let memory_current = read_timing(&probe, "resource.cgroup.memory_current_bytes")?;
+    let memory_current = trace_resource_number(
+        &probe,
+        ResourceStatsKind::CgroupProcess,
+        "daemon.response_timings",
+        &["cgroup", "memory", "current_bytes"],
+    )?;
     ensure!(
         memory_current < 8e9,
         "daemon cgroup memory.current after a 20MB-base overlay op should stay well under 8GB (got {memory_current}): {probe}"
     );
-    if let Ok(rss) = read_timing(&probe, "resource.process.rss_bytes") {
+    if let Ok(rss) = trace_resource_number(
+        &probe,
+        ResourceStatsKind::CgroupProcess,
+        "daemon.response_timings",
+        &["process", "gauges", "rss_bytes"],
+    ) {
         ensure!(
             rss > 0.0 && rss < 8e9,
             "daemon process RSS gauge should be present and sane: {rss}"
@@ -210,36 +240,6 @@ fn large_base_overlay_keeps_memory_bounded() -> Result<()> {
     }
     wait_for_active_leases(&lease, 0)?;
     Ok(())
-}
-
-fn read_timing(response: &Value, key: &str) -> Result<f64> {
-    response
-        .get("timings")
-        .and_then(Value::as_object)
-        .and_then(|timings| timings.get(key))
-        .and_then(Value::as_f64)
-        .with_context(|| format!("response timings should include numeric {key}: {response}"))
-}
-
-fn ensure_timing(response: &Value, key: &str) -> Result<()> {
-    ensure!(
-        response
-            .get("timings")
-            .and_then(Value::as_object)
-            .is_some_and(|timings| timings.contains_key(key)),
-        "response timings should include {key}: {response}"
-    );
-    Ok(())
-}
-
-fn timing_keys(response: &Value) -> Vec<String> {
-    let mut keys = response
-        .get("timings")
-        .and_then(Value::as_object)
-        .map(|timings| timings.keys().cloned().collect::<Vec<_>>())
-        .unwrap_or_default();
-    keys.sort();
-    keys
 }
 
 fn ensure_eq_zero(report: &Value, key: &str) -> Result<()> {

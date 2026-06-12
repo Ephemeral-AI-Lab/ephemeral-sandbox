@@ -35,7 +35,7 @@ export interface BoundTool {
 }
 
 /** Derive the wire declaration from the Zod input contract. */
-export function toolSpec(definition: ToolDefinition): ToolSpec {
+function toolSpec(definition: ToolDefinition): ToolSpec {
   return {
     name: definition.name,
     description: definition.description,

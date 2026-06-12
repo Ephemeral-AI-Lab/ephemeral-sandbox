@@ -7,11 +7,10 @@
 //! an unregistered string returns `unknown_op`.
 
 use anyhow::Result;
-use eos_e2e_test::client::error_kind;
 use eos_operation::core::catalog::{BuiltinOp, ServedBy, BUILTIN_OPS};
 use serde_json::json;
 
-use crate::support::live_pool_or_skip;
+use crate::support::{envelope_error_kind, envelope_error_kind_or_status, live_pool_or_skip};
 
 /// State-toggling ops are skipped: called with injected args they would mutate
 /// the lease (enter isolated mode) and perturb the loop. Their dispatch is
@@ -36,8 +35,8 @@ fn every_builtin_op_is_wire_routed_under_its_canonical_name() -> Result<()> {
         }
         let resp = lease.call(contract.name, json!({}))?;
         assert_ne!(
-            error_kind(&resp),
-            Some("unknown_op"),
+            envelope_error_kind_or_status(&resp)?,
+            "unknown_op",
             "catalog spelling {} must be registered over the wire: {resp}",
             contract.name
         );
@@ -45,8 +44,8 @@ fn every_builtin_op_is_wire_routed_under_its_canonical_name() -> Result<()> {
     // Negative control: an unregistered op must surface unknown_op.
     let bogus = lease.call("api.totally.bogus.op", json!({}))?;
     assert_eq!(
-        error_kind(&bogus),
-        Some("unknown_op"),
+        envelope_error_kind(&bogus)?,
+        "unknown_op",
         "an unregistered op must surface unknown_op: {bogus}"
     );
     Ok(())

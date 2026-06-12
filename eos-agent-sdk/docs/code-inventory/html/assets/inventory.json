@@ -1,7 +1,7 @@
 {
   "workspace": "eos-agent-sdk",
   "schemaVersion": 1,
-  "generatedAt": "2026-06-12T22:46:31.199Z",
+  "generatedAt": "2026-06-12T23:12:31.233Z",
   "packageManager": "pnpm@10.23.0",
   "tsconfig": {
     "module": "NodeNext",
@@ -606,8 +606,7 @@
             {
               "target": "./background-task-supervisor.js",
               "exported": [
-                "RunBackgroundTaskSupervisor",
-                "type RunBackgroundTaskSupervisorDeps"
+                "RunBackgroundTaskSupervisor"
               ],
               "typeOnly": false,
               "line": 9
@@ -962,9 +961,9 @@
               "id": "contracts/src/ids#AgentRunIdSchema",
               "name": "AgentRunIdSchema",
               "kind": "schema",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export const AgentRunIdSchema = z.string().min(1).brand<\"AgentRunId\">()",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "const AgentRunIdSchema = z.string().min(1).brand<\"AgentRunId\">()",
               "file": "src/contracts/ids.ts",
               "line": 20,
               "fields": [],
@@ -974,8 +973,7 @@
               "implements": [],
               "tags": [
                 "contract",
-                "exported",
-                "public-api",
+                "internal",
                 "schema:brand",
                 "schema:zod",
                 "typed-id"
@@ -1050,9 +1048,9 @@
               "id": "contracts/src/ids#BackgroundTaskIdSchema",
               "name": "BackgroundTaskIdSchema",
               "kind": "schema",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export const BackgroundTaskIdSchema = z .string() .min(1) .brand<\"BackgroundTaskId\">()",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "const BackgroundTaskIdSchema = z .string() .min(1) .brand<\"BackgroundTaskId\">()",
               "file": "src/contracts/ids.ts",
               "line": 38,
               "fields": [],
@@ -1062,8 +1060,7 @@
               "implements": [],
               "tags": [
                 "contract",
-                "exported",
-                "public-api",
+                "internal",
                 "schema:brand",
                 "schema:zod",
                 "typed-id"
@@ -1092,27 +1089,6 @@
               ]
             },
             {
-              "id": "contracts/src/ids#backgroundTaskIdFrom",
-              "name": "backgroundTaskIdFrom",
-              "kind": "function",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export function backgroundTaskIdFrom(raw: string): BackgroundTaskId",
-              "docs": "Adopt an existing task id (records replay). Rejects \"\".",
-              "file": "src/contracts/ids.ts",
-              "line": 46,
-              "fields": [],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "contract",
-                "exported",
-                "public-api"
-              ]
-            },
-            {
               "id": "contracts/src/ids#mintBackgroundTaskId",
               "name": "mintBackgroundTaskId",
               "kind": "function",
@@ -1121,7 +1097,7 @@
               "signature": "export function mintBackgroundTaskId(): BackgroundTaskId",
               "docs": "Mint a fresh task id.",
               "file": "src/contracts/ids.ts",
-              "line": 51,
+              "line": 46,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -1136,11 +1112,11 @@
             }
           ],
           "stats": {
-            "symbols": 11,
+            "symbols": 10,
             "classes": 0,
             "interfaces": 0,
             "types": 3,
-            "functions": 5,
+            "functions": 4,
             "schemas": 3
           }
         },
@@ -1160,7 +1136,6 @@
               "target": "./json.js",
               "exported": [
                 "JsonObjectSchema",
-                "JsonValueSchema",
                 "type JsonObject",
                 "type JsonValue"
               ],
@@ -1170,11 +1145,8 @@
             {
               "target": "./ids.js",
               "exported": [
-                "AgentRunIdSchema",
-                "BackgroundTaskIdSchema",
                 "ToolUseIdSchema",
                 "agentRunIdFrom",
-                "backgroundTaskIdFrom",
                 "mintAgentRunId",
                 "mintBackgroundTaskId",
                 "toolUseIdFrom",
@@ -1183,7 +1155,7 @@
                 "type ToolUseId"
               ],
               "typeOnly": false,
-              "line": 7
+              "line": 6
             },
             {
               "target": "./messages.js",
@@ -1194,17 +1166,15 @@
                 "MessageSchema",
                 "ToolSpecSchema",
                 "assistantText",
-                "fromUserText",
                 "reasoningText",
                 "toolUses",
                 "type ContentBlock",
                 "type Message",
-                "type MessageRole",
                 "type ToolSpec",
                 "type UserMessage"
               ],
               "typeOnly": false,
-              "line": 20
+              "line": 16
             },
             {
               "target": "./tool-calls.js",
@@ -1213,7 +1183,7 @@
                 "type ToolCallResult"
               ],
               "typeOnly": false,
-              "line": 36
+              "line": 30
             },
             {
               "target": "./zod-issues.js",
@@ -1221,7 +1191,7 @@
                 "zodIssueSummary"
               ],
               "typeOnly": false,
-              "line": 37
+              "line": 31
             }
           ],
           "symbols": [],
@@ -1457,27 +1427,6 @@
               ]
             },
             {
-              "id": "contracts/src/messages#MessageRole",
-              "name": "MessageRole",
-              "kind": "type",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export type MessageRole = z.infer<typeof MessageRoleSchema>",
-              "file": "src/contracts/messages.ts",
-              "line": 18,
-              "fields": [],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "contract",
-                "exported",
-                "public-api",
-                "type:inferred"
-              ]
-            },
-            {
               "id": "contracts/src/messages#ContentBlockSchema",
               "name": "ContentBlockSchema",
               "kind": "schema",
@@ -1485,7 +1434,7 @@
               "visibility": "public",
               "signature": "export const ContentBlockSchema = z.discriminatedUnion(\"type\", [ z.object({ type: z.literal(\"text\"), text: z.string(), }), z.object({ type: z.literal(\"tool_use\"), tool_use_id: ToolUseIdSchema, name: z.string(), input:...",
               "file": "src/contracts/messages.ts",
-              "line": 26,
+              "line": 25,
               "fields": [
                 {
                   "name": "type",
@@ -1534,7 +1483,7 @@
               "visibility": "public",
               "signature": "export type ContentBlock = z.infer<typeof ContentBlockSchema>",
               "file": "src/contracts/messages.ts",
-              "line": 48,
+              "line": 47,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -1555,7 +1504,7 @@
               "visibility": "public",
               "signature": "export const MessageSchema = z.object({ role: MessageRoleSchema, content: z.array(ContentBlockSchema).default([]), })",
               "file": "src/contracts/messages.ts",
-              "line": 51,
+              "line": 50,
               "fields": [
                 {
                   "name": "role",
@@ -1590,7 +1539,7 @@
               "visibility": "public",
               "signature": "export type Message = z.infer<typeof MessageSchema>",
               "file": "src/contracts/messages.ts",
-              "line": 55,
+              "line": 54,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -1612,7 +1561,7 @@
               "signature": "export type UserMessage = Message &",
               "docs": "The caller-input narrowing: run seeds and steers are user messages.",
               "file": "src/contracts/messages.ts",
-              "line": 58,
+              "line": 57,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -1632,7 +1581,7 @@
               "visibility": "public",
               "signature": "export const ToolSpecSchema = z.object({ name: z.string(), description: z.string(), input_schema: JsonObjectSchema, output_schema: JsonObjectSchema.optional(), })",
               "file": "src/contracts/messages.ts",
-              "line": 61,
+              "line": 60,
               "fields": [
                 {
                   "name": "name",
@@ -1680,7 +1629,7 @@
               "visibility": "public",
               "signature": "export type ToolSpec = z.infer<typeof ToolSpecSchema>",
               "file": "src/contracts/messages.ts",
-              "line": 67,
+              "line": 66,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -1694,27 +1643,6 @@
               ]
             },
             {
-              "id": "contracts/src/messages#fromUserText",
-              "name": "fromUserText",
-              "kind": "function",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export function fromUserText(text: string): UserMessage",
-              "docs": "Construct a user message from raw text.",
-              "file": "src/contracts/messages.ts",
-              "line": 70,
-              "fields": [],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "contract",
-                "exported",
-                "public-api"
-              ]
-            },
-            {
               "id": "contracts/src/messages#assistantText",
               "name": "assistantText",
               "kind": "function",
@@ -1723,7 +1651,7 @@
               "signature": "export function assistantText(message: Message): string",
               "docs": "Concatenated text blocks, excluding reasoning.",
               "file": "src/contracts/messages.ts",
-              "line": 75,
+              "line": 69,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -1744,7 +1672,7 @@
               "signature": "export function reasoningText(message: Message): string",
               "docs": "Concatenated reasoning blocks.",
               "file": "src/contracts/messages.ts",
-              "line": 83,
+              "line": 77,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -1765,7 +1693,7 @@
               "signature": "export function toolUses( message: Message, ): Extract<ContentBlock,",
               "docs": "The tool-use blocks in the message, in order.",
               "file": "src/contracts/messages.ts",
-              "line": 91,
+              "line": 85,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -1779,11 +1707,11 @@
             }
           ],
           "stats": {
-            "symbols": 14,
+            "symbols": 12,
             "classes": 0,
             "interfaces": 0,
-            "types": 5,
-            "functions": 4,
+            "types": 4,
+            "functions": 3,
             "schemas": 4
           }
         },
@@ -2004,8 +1932,6 @@
                 "ToolUseIdSchema",
                 "agentRunIdFrom",
                 "assistantText",
-                "backgroundTaskIdFrom",
-                "fromUserText",
                 "mintAgentRunId",
                 "mintBackgroundTaskId",
                 "reasoningText",
@@ -2032,13 +1958,13 @@
       "stats": {
         "packages": 1,
         "modules": 7,
-        "symbols": 32,
+        "symbols": 29,
         "classes": 0,
         "interfaces": 0,
-        "types": 11,
-        "functions": 10,
+        "types": 10,
+        "functions": 8,
         "schemas": 9,
-        "relations": 42,
+        "relations": 40,
         "sourceModules": 6,
         "testModules": 1,
         "empty": false
@@ -2148,9 +2074,9 @@
               "id": "engine/src/agent-loop#RUN_FINISHED_DISPOSE_REASON",
               "name": "RUN_FINISHED_DISPOSE_REASON",
               "kind": "const",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export const RUN_FINISHED_DISPOSE_REASON = \"run finished\"",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "const RUN_FINISHED_DISPOSE_REASON = \"run finished\"",
               "file": "src/engine/agent-loop.ts",
               "line": 19,
               "fields": [],
@@ -2159,8 +2085,7 @@
               "extends": [],
               "implements": [],
               "tags": [
-                "exported",
-                "public-api"
+                "internal"
               ]
             },
             {
@@ -2729,10 +2654,7 @@
             {
               "target": "./agent-loop.js",
               "exported": [
-                "RUN_FINISHED_DISPOSE_REASON",
                 "runAgentLoop",
-                "type AgentLoopContext",
-                "type TaskRegistryGate",
                 "type TerminationMode",
                 "type TurnFacts"
               ],
@@ -2743,28 +2665,23 @@
               "target": "./conversation.js",
               "exported": [
                 "Conversation",
-                "type ConversationRecord",
-                "type PartialReason",
-                "type ToolResultBlock",
-                "type UserMessageOrigin"
+                "type ConversationRecord"
               ],
               "typeOnly": false,
-              "line": 12
+              "line": 9
             },
             {
               "target": "./run-handle.js",
               "exported": [
-                "EventStream",
                 "RunHandle",
                 "type AgentEvent",
                 "type AgentEventBody",
                 "type AgentOutcome",
                 "type AgentRunError",
-                "type AgentRunHandle",
-                "type RunHandleDeps"
+                "type AgentRunHandle"
               ],
               "typeOnly": false,
-              "line": 19
+              "line": 10
             },
             {
               "target": "./tool-executor.js",
@@ -2774,18 +2691,7 @@
                 "ToolUseBlock"
               ],
               "typeOnly": true,
-              "line": 29
-            },
-            {
-              "target": "./turn.js",
-              "exported": [
-                "addUsage",
-                "runAssistantTurn",
-                "type CompletedTurn",
-                "type TurnConfig"
-              ],
-              "typeOnly": false,
-              "line": 34
+              "line": 18
             }
           ],
           "symbols": [],
@@ -3038,9 +2944,9 @@
               "id": "engine/src/run-handle#EventStream",
               "name": "EventStream",
               "kind": "class",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export class EventStream implements AsyncIterable<AgentEvent>",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "class EventStream implements AsyncIterable<AgentEvent>",
               "docs": "A push-fed queue consumed as one pull-based `AsyncIterable`:\n\n- single consumer: a second `[Symbol.asyncIterator]()` call throws,\n- pushes never block the loop; the buffer is unbounded (the consumer is\n  in-process; fan-out and backpressure are host concerns),\n- `close()` completes iteration once the buffer drains; later pushes\n  are dropped (run-end disposal settles tasks after `run_finished`),\n- an early `break`/`return()` detaches: later pushes are discarded while\n  the run continues; a stream nobody iterates retains every event.",
               "file": "src/engine/run-handle.ts",
               "line": 108,
@@ -3128,8 +3034,7 @@
               "tags": [
                 "async-iterable",
                 "event",
-                "exported",
-                "public-api",
+                "internal",
                 "stateful"
               ]
             },
@@ -4056,9 +3961,9 @@
               "id": "engine/tests/support#ScriptedClient",
               "name": "ScriptedClient",
               "kind": "class",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export class ScriptedClient implements LlmClient",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "class ScriptedClient implements LlmClient",
               "file": "tests/engine/support.ts",
               "line": 41,
               "fields": [
@@ -4090,9 +3995,8 @@
                 "LlmClient"
               ],
               "tags": [
-                "exported",
+                "internal",
                 "provider-client",
-                "public-api",
                 "stateful",
                 "test-only"
               ]
@@ -4261,9 +4165,9 @@
               "id": "engine/tests/support#StubTasks",
               "name": "StubTasks",
               "kind": "class",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export class StubTasks implements TaskRegistryGate",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "class StubTasks implements TaskRegistryGate",
               "file": "tests/engine/support.ts",
               "line": 117,
               "fields": [
@@ -4342,8 +4246,7 @@
                 "TaskRegistryGate"
               ],
               "tags": [
-                "exported",
-                "public-api",
+                "internal",
                 "stateful",
                 "test-only"
               ]
@@ -4373,9 +4276,9 @@
               "id": "engine/tests/support#stubExecutor",
               "name": "stubExecutor",
               "kind": "function",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export function stubExecutor(handlers: Record<string, StubHandler>): ToolExecutor",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "function stubExecutor(handlers: Record<string, StubHandler>): ToolExecutor",
               "file": "tests/engine/support.ts",
               "line": 172,
               "fields": [],
@@ -4384,8 +4287,7 @@
               "extends": [],
               "implements": [],
               "tags": [
-                "exported",
-                "public-api",
+                "internal",
                 "test-only"
               ]
             },
@@ -4512,7 +4414,7 @@
         "types": 11,
         "functions": 20,
         "schemas": 0,
-        "relations": 67,
+        "relations": 66,
         "sourceModules": 6,
         "testModules": 4,
         "empty": false
@@ -4775,28 +4677,12 @@
               "line": 1
             },
             {
-              "source": "node:os",
-              "imported": [
-                "homedir"
-              ],
-              "typeOnly": false,
-              "line": 2
-            },
-            {
-              "source": "node:path",
-              "imported": [
-                "join"
-              ],
-              "typeOnly": false,
-              "line": 3
-            },
-            {
               "source": "zod",
               "imported": [
                 "z"
               ],
               "typeOnly": false,
-              "line": 5
+              "line": 3
             },
             {
               "source": "../../../src/llm-client/secret.js",
@@ -4804,7 +4690,7 @@
                 "SecretString"
               ],
               "typeOnly": false,
-              "line": 7
+              "line": 5
             }
           ],
           "exports": [],
@@ -4817,7 +4703,7 @@
               "visibility": "internal",
               "signature": "const AuthFileSchema = z.object({ tokens: z.object({ access_token: z.string() }), })",
               "file": "e2e/llm-client/support/codex-auth.ts",
-              "line": 10,
+              "line": 8,
               "fields": [
                 {
                   "name": "tokens",
@@ -4844,7 +4730,7 @@
               "visibility": "internal",
               "signature": "const JwtPayloadSchema = z.object({ exp: z.number().optional(), \"https://api.openai.com/auth\": z .object({ chatgpt_account_id: z.string().optional() }) .optional(), })",
               "file": "e2e/llm-client/support/codex-auth.ts",
-              "line": 14,
+              "line": 12,
               "fields": [
                 {
                   "name": "exp",
@@ -4877,7 +4763,7 @@
               "visibility": "public",
               "signature": "export type CodexAuth = |",
               "file": "e2e/llm-client/support/codex-auth.ts",
-              "line": 21,
+              "line": 19,
               "fields": [],
               "methods": [],
               "variants": [
@@ -4903,7 +4789,7 @@
               "visibility": "internal",
               "signature": "function decodeJwtPayload( token: string, ): z.infer<typeof JwtPayloadSchema> | undefined",
               "file": "e2e/llm-client/support/codex-auth.ts",
-              "line": 25,
+              "line": 23,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -4922,27 +4808,7 @@
               "signature": "export function loadCodexAuthFromPath(path: string): CodexAuth",
               "docs": "Load one Codex CLI credential cache. Missing or stale credentials are a\nskip, never a failure. The raw token goes straight into `SecretString`;\nno token material is logged and nothing is written. Refreshing tokens is\nthe Codex CLI's job.",
               "file": "e2e/llm-client/support/codex-auth.ts",
-              "line": 45,
-              "fields": [],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "exported",
-                "public-api"
-              ]
-            },
-            {
-              "id": "llm-client/e2e/support/codex-auth#loadCodexAuth",
-              "name": "loadCodexAuth",
-              "kind": "function",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export function loadCodexAuth( env: NodeJS.ProcessEnv = process.env, ): CodexAuth",
-              "docs": "Resolve the default local Codex CLI credential cache path.",
-              "file": "e2e/llm-client/support/codex-auth.ts",
-              "line": 80,
+              "line": 43,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -4955,11 +4821,11 @@
             }
           ],
           "stats": {
-            "symbols": 6,
+            "symbols": 5,
             "classes": 0,
             "interfaces": 0,
             "types": 1,
-            "functions": 3,
+            "functions": 2,
             "schemas": 2
           }
         },
@@ -5302,9 +5168,9 @@
               "id": "llm-client/src/access/access#AccessCredential",
               "name": "AccessCredential",
               "kind": "interface",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export interface AccessCredential",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "interface AccessCredential",
               "docs": "How a credential rides the request: `x-api-key` or `Authorization: Bearer`.",
               "file": "src/llm-client/access/access.ts",
               "line": 4,
@@ -5328,8 +5194,7 @@
               "implements": [],
               "tags": [
                 "access-boundary",
-                "exported",
-                "public-api"
+                "internal"
               ]
             },
             {
@@ -5889,9 +5754,9 @@
               "id": "llm-client/src/config#RetryConfigInput",
               "name": "RetryConfigInput",
               "kind": "type",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export type RetryConfigInput = z.input<typeof RetryConfigSchema>",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "type RetryConfigInput = z.input<typeof RetryConfigSchema>",
               "file": "src/llm-client/config.ts",
               "line": 13,
               "fields": [],
@@ -5902,8 +5767,7 @@
               "tags": [
                 "config",
                 "dto",
-                "exported",
-                "public-api",
+                "internal",
                 "retry"
               ]
             },
@@ -5940,9 +5804,9 @@
               "id": "llm-client/src/config#StreamGuardConfigInput",
               "name": "StreamGuardConfigInput",
               "kind": "type",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export type StreamGuardConfigInput = z.input<typeof StreamGuardConfigSchema>",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "type StreamGuardConfigInput = z.input<typeof StreamGuardConfigSchema>",
               "file": "src/llm-client/config.ts",
               "line": 22,
               "fields": [],
@@ -5953,8 +5817,7 @@
               "tags": [
                 "config",
                 "dto",
-                "exported",
-                "public-api"
+                "internal"
               ]
             },
             {
@@ -6491,27 +6354,12 @@
               "line": 1
             },
             {
-              "target": "./config.js",
+              "target": "./errors.js",
               "exported": [
-                "RetryConfigSchema",
-                "StreamGuardConfigSchema",
-                "type ProviderClientOptions",
-                "type RetryConfig",
-                "type RetryConfigInput",
-                "type StreamGuardConfigInput"
+                "ProviderError"
               ],
               "typeOnly": false,
               "line": 2
-            },
-            {
-              "target": "./errors.js",
-              "exported": [
-                "ProviderError",
-                "type ProviderErrorKind",
-                "type ProviderErrorOptions"
-              ],
-              "typeOnly": false,
-              "line": 10
             },
             {
               "target": "./events.js",
@@ -6520,7 +6368,7 @@
                 "StopReason"
               ],
               "typeOnly": true,
-              "line": 15
+              "line": 3
             },
             {
               "target": "./factory.js",
@@ -6528,16 +6376,15 @@
                 "createLlmClient"
               ],
               "typeOnly": false,
-              "line": 16
+              "line": 4
             },
             {
               "target": "./profiles.js",
               "exported": [
-                "ProviderConnectionSchema",
-                "type ProviderConnection"
+                "ProviderConnection"
               ],
-              "typeOnly": false,
-              "line": 17
+              "typeOnly": true,
+              "line": 5
             },
             {
               "target": "./secret.js",
@@ -6545,21 +6392,19 @@
                 "SecretString"
               ],
               "typeOnly": false,
-              "line": 21
+              "line": 6
             },
             {
               "target": "./types.js",
               "exported": [
                 "buildLlmRequest",
-                "cacheHitRate",
                 "type LlmRequest",
                 "type LlmRequestInit",
                 "type ReasoningEffort",
-                "type ToolChoice",
                 "type UsageSnapshot"
               ],
               "typeOnly": false,
-              "line": 22
+              "line": 7
             }
           ],
           "symbols": [],
@@ -7424,26 +7269,6 @@
               ]
             },
             {
-              "id": "llm-client/src/types#cacheHitRate",
-              "name": "cacheHitRate",
-              "kind": "function",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export function cacheHitRate(usage: UsageSnapshot): number",
-              "docs": "cache_read / total prompt tokens; 0 when no prompt tokens were reported.",
-              "file": "src/llm-client/types.ts",
-              "line": 29,
-              "fields": [],
-              "methods": [],
-              "variants": [],
-              "extends": [],
-              "implements": [],
-              "tags": [
-                "exported",
-                "public-api"
-              ]
-            },
-            {
               "id": "llm-client/src/types#LlmRequest",
               "name": "LlmRequest",
               "kind": "interface",
@@ -7452,7 +7277,7 @@
               "signature": "export interface LlmRequest",
               "docs": "A neutral model invocation request.",
               "file": "src/llm-client/types.ts",
-              "line": 37,
+              "line": 29,
               "fields": [
                 {
                   "name": "model",
@@ -7515,7 +7340,7 @@
               "visibility": "public",
               "signature": "export type LlmRequestInit = Partial<LlmRequest> & Pick<LlmRequest, \"model\">",
               "file": "src/llm-client/types.ts",
-              "line": 54,
+              "line": 46,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -7535,7 +7360,7 @@
               "signature": "export function buildLlmRequest(init: LlmRequestInit): LlmRequest",
               "docs": "Build a request with defaults: empty history, no tools, default cap.",
               "file": "src/llm-client/types.ts",
-              "line": 57,
+              "line": 49,
               "fields": [],
               "methods": [],
               "variants": [],
@@ -7549,11 +7374,11 @@
             }
           ],
           "stats": {
-            "symbols": 7,
+            "symbols": 6,
             "classes": 0,
             "interfaces": 2,
             "types": 3,
-            "functions": 2,
+            "functions": 1,
             "schemas": 0
           }
         },
@@ -9817,47 +9642,6 @@
           }
         },
         {
-          "id": "llm-client/tests/usage.test",
-          "packageName": "llm-client",
-          "path": "tests/llm-client/usage.test.ts",
-          "kind": "test",
-          "tags": [
-            "test",
-            "test-only"
-          ],
-          "imports": [
-            {
-              "source": "vitest",
-              "imported": [
-                "describe",
-                "expect",
-                "it"
-              ],
-              "typeOnly": false,
-              "line": 1
-            },
-            {
-              "source": "../../src/llm-client/index.js",
-              "imported": [
-                "cacheHitRate",
-                "type UsageSnapshot"
-              ],
-              "typeOnly": false,
-              "line": 3
-            }
-          ],
-          "exports": [],
-          "symbols": [],
-          "stats": {
-            "symbols": 0,
-            "classes": 0,
-            "interfaces": 0,
-            "types": 0,
-            "functions": 0,
-            "schemas": 0
-          }
-        },
-        {
           "id": "llm-client/tests/wires/anthropic-messages.test",
           "packageName": "llm-client",
           "path": "tests/llm-client/wires/anthropic-messages.test.ts",
@@ -10205,16 +9989,16 @@
       ],
       "stats": {
         "packages": 1,
-        "modules": 32,
-        "symbols": 136,
+        "modules": 31,
+        "symbols": 134,
         "classes": 6,
         "interfaces": 19,
         "types": 17,
-        "functions": 59,
+        "functions": 57,
         "schemas": 10,
-        "relations": 241,
+        "relations": 234,
         "sourceModules": 21,
-        "testModules": 11,
+        "testModules": 10,
         "empty": false
       }
     },
@@ -10588,23 +10372,12 @@
             {
               "target": "./llm-clients.js",
               "exported": [
-                "buildLlmClientRegistry",
-                "type LlmClientConfig",
-                "type LlmClientProfile",
-                "type LlmClientRegistry",
-                "type LlmRef",
-                "type ResolvedLlmProfile"
+                "LlmClientConfig",
+                "LlmClientProfile",
+                "LlmRef"
               ],
-              "typeOnly": false,
+              "typeOnly": true,
               "line": 4
-            },
-            {
-              "target": "./records.js",
-              "exported": [
-                "JsonlRunRecorder"
-              ],
-              "typeOnly": false,
-              "line": 12
             },
             {
               "target": "./sdk.js",
@@ -10616,7 +10389,7 @@
                 "type AgentSpec"
               ],
               "typeOnly": false,
-              "line": 13
+              "line": 9
             }
           ],
           "symbols": [],
@@ -12062,7 +11835,7 @@
         "types": 3,
         "functions": 16,
         "schemas": 2,
-        "relations": 68,
+        "relations": 67,
         "sourceModules": 4,
         "testModules": 3,
         "empty": false
@@ -13082,9 +12855,9 @@
               "id": "tool/src/executor#projectContent",
               "name": "projectContent",
               "kind": "function",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export function projectContent(content: PipelineResult[\"content\"]): string",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "function projectContent(content: PipelineResult[\"content\"]): string",
               "docs": "String projection for events (results stay structured).",
               "file": "src/tool/executor.ts",
               "line": 122,
@@ -13094,8 +12867,7 @@
               "extends": [],
               "implements": [],
               "tags": [
-                "exported",
-                "public-api"
+                "internal"
               ]
             },
             {
@@ -13538,21 +13310,11 @@
               "exported": [
                 "createAgentOutcomeFn",
                 "unwrapAgentOutcomeFn",
-                "type AgentOutcomeBinding",
                 "type AgentOutcomeFn",
-                "type SubmitCtx",
-                "type SubmitVerdict"
+                "type SubmitCtx"
               ],
               "typeOnly": false,
               "line": 19
-            },
-            {
-              "target": "./pipeline.js",
-              "exported": [
-                "RunScope"
-              ],
-              "typeOnly": true,
-              "line": 27
             },
             {
               "target": "./terminal.js",
@@ -13560,17 +13322,15 @@
                 "TerminalGate"
               ],
               "typeOnly": true,
-              "line": 28
+              "line": 25
             },
             {
               "target": "./toolset.js",
               "exported": [
-                "buildToolExecutor",
-                "type BuildToolExecutorInput",
-                "type BuiltToolExecutor"
+                "buildToolExecutor"
               ],
               "typeOnly": false,
-              "line": 29
+              "line": 26
             }
           ],
           "symbols": [],
@@ -14016,9 +13776,9 @@
               "id": "tool/src/pipeline#toolSpec",
               "name": "toolSpec",
               "kind": "function",
-              "exported": true,
-              "visibility": "public",
-              "signature": "export function toolSpec(definition: ToolDefinition): ToolSpec",
+              "exported": false,
+              "visibility": "internal",
+              "signature": "function toolSpec(definition: ToolDefinition): ToolSpec",
               "docs": "Derive the wire declaration from the Zod input contract.",
               "file": "src/tool/pipeline.ts",
               "line": 38,
@@ -14028,8 +13788,7 @@
               "extends": [],
               "implements": [],
               "tags": [
-                "exported",
-                "public-api"
+                "internal"
               ]
             },
             {
@@ -15214,7 +14973,7 @@
         "types": 5,
         "functions": 28,
         "schemas": 2,
-        "relations": 105,
+        "relations": 104,
         "sourceModules": 9,
         "testModules": 6,
         "empty": false
@@ -15815,7 +15574,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 7
+      "line": 5
     },
     {
       "from": "llm-client/e2e/support/codex-auth",
@@ -15827,27 +15586,11 @@
     },
     {
       "from": "llm-client/e2e/support/codex-auth",
-      "to": "node:os",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 2
-    },
-    {
-      "from": "llm-client/e2e/support/codex-auth",
-      "to": "node:path",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 3
-    },
-    {
-      "from": "llm-client/e2e/support/codex-auth",
       "to": "zod",
       "kind": "imports",
       "typeOnly": false,
       "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 5
+      "line": 3
     },
     {
       "from": "llm-client/e2e/support/llm-clients-config",
@@ -16719,22 +16462,6 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "tests/llm-client/support.ts",
-      "line": 1
-    },
-    {
-      "from": "llm-client/tests/usage.test",
-      "to": "llm-client/src/index",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "tests/llm-client/usage.test.ts",
-      "line": 3
-    },
-    {
-      "from": "llm-client/tests/usage.test",
-      "to": "vitest",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "tests/llm-client/usage.test.ts",
       "line": 1
     },
     {
@@ -17950,7 +17677,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/contracts/index.ts",
-      "line": 7
+      "line": 6
     },
     {
       "from": "contracts/src/index",
@@ -17966,7 +17693,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/contracts/index.ts",
-      "line": 20
+      "line": 16
     },
     {
       "from": "contracts/src/index",
@@ -17974,7 +17701,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/contracts/index.ts",
-      "line": 36
+      "line": 30
     },
     {
       "from": "contracts/src/index",
@@ -17982,7 +17709,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/contracts/index.ts",
-      "line": 37
+      "line": 31
     },
     {
       "from": "engine/src/index",
@@ -17998,7 +17725,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/engine/index.ts",
-      "line": 12
+      "line": 9
     },
     {
       "from": "engine/src/index",
@@ -18006,7 +17733,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/engine/index.ts",
-      "line": 19
+      "line": 10
     },
     {
       "from": "engine/src/index",
@@ -18014,15 +17741,7 @@
       "kind": "reexports",
       "typeOnly": true,
       "file": "src/engine/index.ts",
-      "line": 29
-    },
-    {
-      "from": "engine/src/index",
-      "to": "engine/src/turn",
-      "kind": "reexports",
-      "typeOnly": false,
-      "file": "src/engine/index.ts",
-      "line": 34
+      "line": 18
     },
     {
       "from": "llm-client/src/index",
@@ -18034,7 +17753,7 @@
     },
     {
       "from": "llm-client/src/index",
-      "to": "llm-client/src/config",
+      "to": "llm-client/src/errors",
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/llm-client/index.ts",
@@ -18042,19 +17761,11 @@
     },
     {
       "from": "llm-client/src/index",
-      "to": "llm-client/src/errors",
-      "kind": "reexports",
-      "typeOnly": false,
-      "file": "src/llm-client/index.ts",
-      "line": 10
-    },
-    {
-      "from": "llm-client/src/index",
       "to": "llm-client/src/events",
       "kind": "reexports",
       "typeOnly": true,
       "file": "src/llm-client/index.ts",
-      "line": 15
+      "line": 3
     },
     {
       "from": "llm-client/src/index",
@@ -18062,15 +17773,15 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/llm-client/index.ts",
-      "line": 16
+      "line": 4
     },
     {
       "from": "llm-client/src/index",
       "to": "llm-client/src/profiles",
       "kind": "reexports",
-      "typeOnly": false,
+      "typeOnly": true,
       "file": "src/llm-client/index.ts",
-      "line": 17
+      "line": 5
     },
     {
       "from": "llm-client/src/index",
@@ -18078,7 +17789,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/llm-client/index.ts",
-      "line": 21
+      "line": 6
     },
     {
       "from": "llm-client/src/index",
@@ -18086,7 +17797,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/llm-client/index.ts",
-      "line": 22
+      "line": 7
     },
     {
       "from": "notification/src/index",
@@ -18108,17 +17819,9 @@
       "from": "runtime/src/index",
       "to": "runtime/src/llm-clients",
       "kind": "reexports",
-      "typeOnly": false,
+      "typeOnly": true,
       "file": "src/runtime/index.ts",
       "line": 4
-    },
-    {
-      "from": "runtime/src/index",
-      "to": "runtime/src/records",
-      "kind": "reexports",
-      "typeOnly": false,
-      "file": "src/runtime/index.ts",
-      "line": 12
     },
     {
       "from": "runtime/src/index",
@@ -18126,7 +17829,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/runtime/index.ts",
-      "line": 13
+      "line": 9
     },
     {
       "from": "testkit/src/index",
@@ -18186,19 +17889,11 @@
     },
     {
       "from": "tool/src/index",
-      "to": "tool/src/pipeline",
-      "kind": "reexports",
-      "typeOnly": true,
-      "file": "src/tool/index.ts",
-      "line": 27
-    },
-    {
-      "from": "tool/src/index",
       "to": "tool/src/terminal",
       "kind": "reexports",
       "typeOnly": true,
       "file": "src/tool/index.ts",
-      "line": 28
+      "line": 25
     },
     {
       "from": "tool/src/index",
@@ -18206,7 +17901,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/tool/index.ts",
-      "line": 29
+      "line": 26
     },
     {
       "from": "contracts/src/ids#AgentRunIdSchema",
@@ -18234,28 +17929,21 @@
       "to": "contracts/src/messages#ContentBlock",
       "kind": "schema-infers-type",
       "file": "src/contracts/messages.ts",
-      "line": 48
-    },
-    {
-      "from": "contracts/src/messages#MessageRoleSchema",
-      "to": "contracts/src/messages#MessageRole",
-      "kind": "schema-infers-type",
-      "file": "src/contracts/messages.ts",
-      "line": 18
+      "line": 47
     },
     {
       "from": "contracts/src/messages#MessageSchema",
       "to": "contracts/src/messages#Message",
       "kind": "schema-infers-type",
       "file": "src/contracts/messages.ts",
-      "line": 55
+      "line": 54
     },
     {
       "from": "contracts/src/messages#ToolSpecSchema",
       "to": "contracts/src/messages#ToolSpec",
       "kind": "schema-infers-type",
       "file": "src/contracts/messages.ts",
-      "line": 67
+      "line": 66
     },
     {
       "from": "contracts/src/tool-calls#ToolCallResultSchema",
@@ -18269,7 +17957,7 @@
       "to": "llm-client/e2e/support/codex-auth#decodeJwtPayload",
       "kind": "schema-infers-type",
       "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 25
+      "line": 23
     },
     {
       "from": "llm-client/e2e/support/llm-clients-config#CodexClientConfigSchema",
@@ -18843,22 +18531,6 @@
       "kind": "tests",
       "typeOnly": false,
       "file": "tests/llm-client/support.ts",
-      "line": 1
-    },
-    {
-      "from": "llm-client/tests/usage.test",
-      "to": "llm-client/src/index",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "tests/llm-client/usage.test.ts",
-      "line": 3
-    },
-    {
-      "from": "llm-client/tests/usage.test",
-      "to": "vitest",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "tests/llm-client/usage.test.ts",
       "line": 1
     },
     {
@@ -19510,56 +19182,49 @@
       "to": "contracts/src/messages#ContentBlockSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 48
+      "line": 47
     },
     {
       "from": "contracts/src/messages#ContentBlockSchema",
       "to": "contracts/src/messages#ToolUseIdSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 26
+      "line": 25
     },
     {
       "from": "contracts/src/messages#Message",
       "to": "contracts/src/messages#MessageSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 55
-    },
-    {
-      "from": "contracts/src/messages#MessageRole",
-      "to": "contracts/src/messages#MessageRoleSchema",
-      "kind": "uses-schema",
-      "file": "src/contracts/messages.ts",
-      "line": 18
+      "line": 54
     },
     {
       "from": "contracts/src/messages#MessageSchema",
       "to": "contracts/src/messages#ContentBlockSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 51
+      "line": 50
     },
     {
       "from": "contracts/src/messages#MessageSchema",
       "to": "contracts/src/messages#MessageRoleSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 51
+      "line": 50
     },
     {
       "from": "contracts/src/messages#ToolSpec",
       "to": "contracts/src/messages#ToolSpecSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 67
+      "line": 66
     },
     {
       "from": "contracts/src/messages#ToolSpecSchema",
       "to": "contracts/src/messages#JsonObjectSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 61
+      "line": 60
     },
     {
       "from": "contracts/src/tool-calls#ToolCallResult",
@@ -19587,7 +19252,7 @@
       "to": "llm-client/e2e/support/codex-auth#JwtPayloadSchema",
       "kind": "uses-schema",
       "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 25
+      "line": 23
     },
     {
       "from": "llm-client/e2e/support/llm-clients-config#CodexClientConfig",
@@ -19641,13 +19306,13 @@
   ],
   "stats": {
     "packages": 8,
-    "modules": 83,
-    "symbols": 346,
+    "modules": 82,
+    "symbols": 341,
     "classes": 16,
     "interfaces": 67,
-    "types": 50,
-    "functions": 151,
+    "types": 49,
+    "functions": 147,
     "schemas": 23,
-    "relations": 568
+    "relations": 556
   }
 }

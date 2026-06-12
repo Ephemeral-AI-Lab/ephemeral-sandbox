@@ -26,10 +26,10 @@
           <div class="tags"><span>source</span></div>
         </div>
         <dl class="stat-grid">
-          <div><dt>Symbols</dt><dd>11</dd></div>
+          <div><dt>Symbols</dt><dd>10</dd></div>
           <div><dt>Schemas</dt><dd>3</dd></div>
           <div><dt>Types</dt><dd>3</dd></div>
-          <div><dt>Functions</dt><dd>5</dd></div>
+          <div><dt>Functions</dt><dd>4</dd></div>
         </dl>
       </section>
 
@@ -76,7 +76,7 @@
     <nav class="symbol-outline">
       <div class="tree-file-row">
         <code>ids.ts</code>
-        <small>11 symbols</small>
+        <small>10 symbols</small>
       </div>
       <ul class="tree-symbols">
 
@@ -104,7 +104,7 @@
           <li class="tree-symbol search-item">
             <a href="#AgentRunIdSchema"><code>AgentRunIdSchema</code></a>
             <span>schema</span>
-            <span class="compact-tags">contract public-api schema:zod</span>
+            <span class="compact-tags">contract internal schema:zod</span>
           </li>
 
 
@@ -132,20 +132,13 @@
           <li class="tree-symbol search-item">
             <a href="#BackgroundTaskIdSchema"><code>BackgroundTaskIdSchema</code></a>
             <span>schema</span>
-            <span class="compact-tags">contract public-api schema:zod</span>
+            <span class="compact-tags">contract internal schema:zod</span>
           </li>
 
 
           <li class="tree-symbol search-item">
             <a href="#BackgroundTaskId"><code>BackgroundTaskId</code></a>
             <span>type</span>
-            <span class="compact-tags">contract public-api</span>
-          </li>
-
-
-          <li class="tree-symbol search-item">
-            <a href="#backgroundTaskIdFrom"><code>backgroundTaskIdFrom</code></a>
-            <span>function</span>
             <span class="compact-tags">contract public-api</span>
           </li>
 
@@ -218,13 +211,13 @@
       <div class="symbol-head">
         <div>
           <strong>AgentRunIdSchema</strong>
-          <span>schema · line 20 · public</span>
+          <span>schema · line 20 · internal</span>
         </div>
         <a href="../modules/contracts-src-ids.html#AgentRunIdSchema">Module</a>
       </div>
-      <pre><code>export const AgentRunIdSchema = z.string().min(1).brand&lt;&quot;AgentRunId&quot;&gt;()</code></pre>
+      <pre><code>const AgentRunIdSchema = z.string().min(1).brand&lt;&quot;AgentRunId&quot;&gt;()</code></pre>
 
-      <div class="tags"><span>contract</span><span>exported</span><span>public-api</span><span>schema:brand</span><span>schema:zod</span><span>typed-id</span></div>
+      <div class="tags"><span>contract</span><span>internal</span><span>schema:brand</span><span>schema:zod</span><span>typed-id</span></div>
 
 
 
@@ -290,13 +283,13 @@
       <div class="symbol-head">
         <div>
           <strong>BackgroundTaskIdSchema</strong>
-          <span>schema · line 38 · public</span>
+          <span>schema · line 38 · internal</span>
         </div>
         <a href="../modules/contracts-src-ids.html#BackgroundTaskIdSchema">Module</a>
       </div>
-      <pre><code>export const BackgroundTaskIdSchema = z .string() .min(1) .brand&lt;&quot;BackgroundTaskId&quot;&gt;()</code></pre>
+      <pre><code>const BackgroundTaskIdSchema = z .string() .min(1) .brand&lt;&quot;BackgroundTaskId&quot;&gt;()</code></pre>
 
-      <div class="tags"><span>contract</span><span>exported</span><span>public-api</span><span>schema:brand</span><span>schema:zod</span><span>typed-id</span></div>
+      <div class="tags"><span>contract</span><span>internal</span><span>schema:brand</span><span>schema:zod</span><span>typed-id</span></div>
 
 
 
@@ -322,29 +315,11 @@
     </article>
 
 
-    <article id="backgroundTaskIdFrom" class="symbol-card search-item">
-      <div class="symbol-head">
-        <div>
-          <strong>backgroundTaskIdFrom</strong>
-          <span>function · line 46 · public</span>
-        </div>
-        <a href="../modules/contracts-src-ids.html#backgroundTaskIdFrom">Module</a>
-      </div>
-      <pre><code>export function backgroundTaskIdFrom(raw: string): BackgroundTaskId</code></pre>
-      <p>Adopt an existing task id (records replay). Rejects &quot;&quot;.</p>
-      <div class="tags"><span>contract</span><span>exported</span><span>public-api</span></div>
-
-
-
-
-    </article>
-
-
     <article id="mintBackgroundTaskId" class="symbol-card search-item">
       <div class="symbol-head">
         <div>
           <strong>mintBackgroundTaskId</strong>
-          <span>function · line 51 · public</span>
+          <span>function · line 46 · public</span>
         </div>
         <a href="../modules/contracts-src-ids.html#mintBackgroundTaskId">Module</a>
       </div>

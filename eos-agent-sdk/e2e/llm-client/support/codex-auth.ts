@@ -1,6 +1,4 @@
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 
 import { z } from "zod";
 
@@ -74,17 +72,4 @@ export function loadCodexAuthFromPath(path: string): CodexAuth {
     };
   }
   return { available: true, accessToken: new SecretString(accessToken) };
-}
-
-/** Resolve the default local Codex CLI credential cache path. */
-export function loadCodexAuth(
-  env: NodeJS.ProcessEnv = process.env,
-): CodexAuth {
-  const path =
-    env.CODEX_AUTH_PATH ??
-    (env.CODEX_HOME !== undefined
-      ? join(env.CODEX_HOME, "auth.json")
-      : join(homedir(), ".codex", "auth.json"));
-
-  return loadCodexAuthFromPath(path);
 }

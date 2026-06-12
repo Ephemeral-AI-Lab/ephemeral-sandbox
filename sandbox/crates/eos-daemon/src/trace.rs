@@ -17,6 +17,8 @@ use serde_json::{json, Value};
 use crate::wire::RequestTraceContext;
 
 pub(crate) const TRACE_SIDECAR_FIELD: &str = "_trace_events";
+const TRACE_SIDECAR_SCHEMA: &str = "eos.trace.v1.TraceBatch";
+const TRACE_SIDECAR_ENCODING: &str = "base64+protobuf";
 const COMMAND_PROCESS_SPAWN_SPAN_ID: SpanUid = SpanUid::new(5);
 const COMMAND_PROCESS_WAIT_SPAN_ID: SpanUid = SpanUid::new(6);
 
@@ -380,15 +382,17 @@ pub(crate) fn attach_request_sidecar_with_events(
     let encoded = encode_trace_batch(&batch);
     object.insert(
         TRACE_SIDECAR_FIELD.to_owned(),
-        Value::String(base64::engine::general_purpose::STANDARD.encode(encoded)),
+        json!({
+            "schema": TRACE_SIDECAR_SCHEMA,
+            "encoding": TRACE_SIDECAR_ENCODING,
+            "spool_pending": false,
+            "data": base64::engine::general_purpose::STANDARD.encode(encoded),
+        }),
     );
     response
 }
 
-fn child_spans_from_request_events(
-    events: &[RequestTraceEvent],
-    now: u64,
-) -> Vec<SpanRecord> {
+fn child_spans_from_request_events(events: &[RequestTraceEvent], now: u64) -> Vec<SpanRecord> {
     let mut spans = Vec::new();
     if let Some(event) = events
         .iter()
@@ -596,10 +600,7 @@ pub(crate) fn push_transport_failure_from_sidecar(
     event_name: &str,
     error: &std::io::Error,
 ) {
-    let Some(sidecar) = response.get(TRACE_SIDECAR_FIELD).and_then(Value::as_str) else {
-        return;
-    };
-    let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(sidecar) else {
+    let Some(bytes) = trace_sidecar_bytes(response) else {
         return;
     };
     let Ok(batch) = decode_trace_batch(&bytes) else {
@@ -636,6 +637,26 @@ pub(crate) fn push_transport_failure_from_sidecar(
     record.spans.push(span);
     record.events.push(event);
     push_background_record(record);
+}
+
+fn trace_sidecar_bytes(response: &Value) -> Option<Vec<u8>> {
+    let sidecar = response.get(TRACE_SIDECAR_FIELD)?;
+    let encoded = match sidecar {
+        Value::String(encoded) => encoded.as_str(),
+        Value::Object(object) => {
+            if object.get("schema").and_then(Value::as_str) != Some(TRACE_SIDECAR_SCHEMA) {
+                return None;
+            }
+            if object.get("encoding").and_then(Value::as_str) != Some(TRACE_SIDECAR_ENCODING) {
+                return None;
+            }
+            object.get("data").and_then(Value::as_str)?
+        }
+        _ => return None,
+    };
+    base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .ok()
 }
 
 fn op_family(op: &str) -> &str {
@@ -832,7 +853,10 @@ mod tests {
         assert_eq!(event.module, "isolated_workspace");
         assert_eq!(event.name, "workspace_evicted");
         assert_eq!(event.details.value["caller_id"], "caller");
-        assert_eq!(event.details.value["workspace_handle_id"], "workspace-handle");
+        assert_eq!(
+            event.details.value["workspace_handle_id"],
+            "workspace-handle"
+        );
         assert_eq!(event.details.value["lease_released"], true);
     }
 
@@ -1200,12 +1224,9 @@ mod tests {
         assert_eq!(host.payload.value["host"]["process"]["rss_bytes"], 4096);
         assert_eq!(host.payload.value["host"]["process"]["max_rss_bytes"], 8192);
         assert!(
-            record
-                .events
-                .iter()
-                .any(|event| event.module == "resource"
-                    && event.name == "resource_stats"
-                    && event.span_id == COMMAND_PROCESS_WAIT_SPAN_ID),
+            record.events.iter().any(|event| event.module == "resource"
+                && event.name == "resource_stats"
+                && event.span_id == COMMAND_PROCESS_WAIT_SPAN_ID),
             "resource_stats event remains queryable as an event"
         );
     }

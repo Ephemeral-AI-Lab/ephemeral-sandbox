@@ -6,7 +6,7 @@ use eos_e2e_test::unique_suffix;
 use eos_operation::core::catalog;
 use serde_json::json;
 
-use crate::helpers::{pressure_levels, request_with_identity};
+use crate::helpers::{pressure_levels, request_with_identity, response_result, result_committed};
 use crate::support::{
     as_bool, as_i64, as_str, live_pool_or_skip, reset_isolated_workspaces, wait_for_active_leases,
 };
@@ -60,9 +60,10 @@ fn public_and_isolated_same_path_ladder_1_3_6_12() -> Result<()> {
                             "overwrite": true
                         }),
                     )?;
+                    let private_result = response_result(&private)?;
                     ensure!(
-                        as_str(&private, "workspace")? == "isolated"
-                            && !as_bool(&private, "published")?,
+                        as_str(private_result, "workspace")? == "isolated"
+                            && !as_bool(private_result, "published")?,
                         "isolated pressure write should stay private: {private}"
                     );
                     Ok(())
@@ -85,8 +86,9 @@ fn public_and_isolated_same_path_ladder_1_3_6_12() -> Result<()> {
                             "overwrite": true
                         }),
                     )?;
+                    let public_result = response_result(&public)?;
                     ensure!(
-                        as_bool(&public, "success")?,
+                        result_committed(public_result),
                         "public pressure write should publish: {public}"
                     );
                     Ok(())

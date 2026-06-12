@@ -6,9 +6,13 @@ use anyhow::Result;
 use eos_operation::core::catalog;
 use serde_json::{json, Value};
 
-use crate::helpers::{pressure_levels, request_with_identity, workload_timeout_s};
+use crate::helpers::{
+    finalize_foreground_command_result, optional_response_result, pressure_levels,
+    request_with_identity, response_result, result_committed, result_structured,
+    workload_timeout_s,
+};
 use crate::support::{
-    as_bool, as_i64, as_str, finalize_foreground_command, live_pool_or_skip, wait_for_active_leases,
+    as_i64, as_str, finalize_foreground_command, live_pool_or_skip, wait_for_active_leases,
 };
 
 #[test]
@@ -86,7 +90,7 @@ fn ephemeral_exec_ladder_1_3_6_12() -> Result<()> {
             // the 1s yield and return status "running"; finalize it to its terminal
             // outcome (also publishing the upperdir before the read-back below).
             // Settle is a no-op for an already-terminal reply.
-            let response = finalize_foreground_command(
+            let response = finalize_foreground_command_result(
                 &lease,
                 response,
                 Instant::now() + Duration::from_secs(timeout_s + 5),
@@ -189,8 +193,9 @@ fn occ_merges_concurrent_disjoint_protocol_writes() -> Result<()> {
 
     for handle in handles {
         let response = handle.join().expect("writer thread panicked")?;
+        let result = response_result(&response)?;
         assert!(
-            as_bool(&response, "success")?,
+            result_committed(result),
             "disjoint write should publish successfully: {response}"
         );
     }
@@ -253,8 +258,9 @@ fn run_disjoint_occ_level(lease: &eos_e2e_test::NodeLease<'_>, level: usize) -> 
 
     for handle in handles {
         let response = handle.join().expect("disjoint OCC writer panicked")?;
+        let result = response_result(&response)?;
         assert!(
-            as_bool(&response, "success")?,
+            result_committed(result),
             "disjoint OCC write should publish at level {level}: {response}"
         );
     }
@@ -304,16 +310,17 @@ fn run_same_path_occ_level(lease: &eos_e2e_test::NodeLease<'_>, level: usize) ->
         .collect::<Result<_>>()?;
     assert!(
         responses.iter().any(|response| {
-            response.get("status").and_then(Value::as_str) == Some("committed")
-                || as_bool(response, "success").unwrap_or(false)
+            optional_response_result(response)
+                .ok()
+                .flatten()
+                .is_some_and(result_committed)
         }),
         "same-path OCC pressure should leave at least one committed writer at level {level}: {responses:?}"
     );
     for response in &responses {
+        let result = optional_response_result(response)?;
         assert!(
-            response.get("status").is_some()
-                || response.get("conflict").is_some()
-                || response.get("error").is_some(),
+            result.is_some_and(result_structured) || response.get("error").is_some(),
             "same-path OCC write should return a structured payload at level {level}: {response}"
         );
     }

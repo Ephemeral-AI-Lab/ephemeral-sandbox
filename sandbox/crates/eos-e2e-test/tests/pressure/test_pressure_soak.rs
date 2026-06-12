@@ -6,7 +6,7 @@ use anyhow::Result;
 use eos_operation::core::catalog;
 use serde_json::json;
 
-use crate::helpers::request_with_identity;
+use crate::helpers::{request_with_identity, response_result, result_committed};
 use crate::support::{
     as_bool, as_i64, as_str, finalize_foreground_command, live_pool_or_skip,
     wait_for_active_leases, wait_for_command_count,
@@ -57,8 +57,9 @@ fn mixed_workload_soak_keeps_counters_and_storage_bounded() -> Result<()> {
             .collect();
         for handle in handles {
             let response = handle.join().expect("soak writer panicked")?;
+            let result = response_result(&response)?;
             assert!(
-                as_bool(&response, "success")?,
+                result_committed(result),
                 "soak fanout write should commit at round {round}: {response}"
             );
         }

@@ -1,7 +1,7 @@
-// The package surface: the authoring contract (defineTool), the terminal
+// The module surface: the authoring contract (defineTool), the terminal
 // contract factory (createAgentOutcomeFn), the callback hook engine, and
 // the executor assembly. Pipeline and batch-executor internals stay
-// package-private behind buildToolExecutor. The package ships ZERO tool
+// module-private behind buildToolExecutor. The module ships ZERO tool
 // implementations — every tool is host-authored.
 export type {
   ToolCallContext,
@@ -19,15 +19,8 @@ export {
 export {
   createAgentOutcomeFn,
   unwrapAgentOutcomeFn,
-  type AgentOutcomeBinding,
   type AgentOutcomeFn,
   type SubmitCtx,
-  type SubmitVerdict,
 } from "./outcome.js";
-export type { RunScope } from "./pipeline.js";
 export type { TerminalGate } from "./terminal.js";
-export {
-  buildToolExecutor,
-  type BuildToolExecutorInput,
-  type BuiltToolExecutor,
-} from "./toolset.js";
+export { buildToolExecutor } from "./toolset.js";

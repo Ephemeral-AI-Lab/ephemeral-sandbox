@@ -2,15 +2,14 @@
 //!
 //! Asserts the daemon's wire-error catalog directly over the checked wire contract:
 //! unknown op, malformed frame, oversized request, and TCP auth. All four are
-//! observed as structured error responses (`success:false` + `error.kind`).
+//! observed as structured `OperationEnvelope` error responses.
 
 use anyhow::{Context, Result};
-use eos_e2e_test::client::error_kind;
 use eos_operation::core::catalog;
 use eos_sandbox_host::MAX_REQUEST_BYTES;
 use serde_json::json;
 
-use crate::support::live_pool_or_skip;
+use crate::support::{envelope_error_kind, envelope_status, live_pool_or_skip};
 
 #[test]
 fn unknown_op_rejected() -> Result<()> {
@@ -20,8 +19,8 @@ fn unknown_op_rejected() -> Result<()> {
     let lease = pool.acquire()?;
     let resp = lease.call("api.totally.bogus.op", json!({}))?;
     assert_eq!(
-        error_kind(&resp),
-        Some("unknown_op"),
+        envelope_error_kind(&resp)?,
+        "unknown_op",
         "unknown op must surface UnknownOp: {resp}"
     );
     Ok(())
@@ -39,8 +38,8 @@ fn bad_json_rejected() -> Result<()> {
         .request_raw(b"{ this is not valid json \n")
         .context("send malformed frame")?;
     assert_eq!(
-        error_kind(&resp),
-        Some("bad_json"),
+        envelope_error_kind(&resp)?,
+        "bad_json",
         "malformed frame must surface BadJson: {resp}"
     );
     Ok(())
@@ -59,8 +58,8 @@ fn oversized_request_rejected() -> Result<()> {
         json!({"path": "big.txt", "content": huge, "overwrite": true}),
     )?;
     assert_eq!(
-        error_kind(&resp),
-        Some("request_too_large"),
+        envelope_error_kind(&resp)?,
+        "request_too_large",
         "an oversized request line must surface RequestTooLarge: {}",
         resp.get("error").map_or(&resp, |e| e)
     );
@@ -85,8 +84,8 @@ fn unauthorized_tcp_rejected() -> Result<()> {
         )
         .context("heartbeat with wrong token")?;
     assert_eq!(
-        error_kind(&resp),
-        Some("unauthorized"),
+        envelope_error_kind(&resp)?,
+        "unauthorized",
         "a wrong auth token must surface Unauthorized: {resp}"
     );
 
@@ -99,8 +98,8 @@ fn unauthorized_tcp_rejected() -> Result<()> {
         )
         .context("heartbeat with no token")?;
     assert_eq!(
-        error_kind(&resp),
-        Some("unauthorized"),
+        envelope_error_kind(&resp)?,
+        "unauthorized",
         "a missing auth token must surface Unauthorized: {resp}"
     );
     Ok(())
@@ -115,15 +114,15 @@ fn forbidden_in_isolated_workspace_rejected() -> Result<()> {
 
     let entered = lease.call(catalog::SANDBOX_ISOLATION_ENTER, json!({}))?;
     assert!(
-        eos_e2e_test::client::is_success(&entered),
+        envelope_status(&entered)? == "ok",
         "isolated enter must succeed before checking plugin isolation gate: {entered}"
     );
 
     let blocked = lease.call("plugin.lsp.not_loaded_yet", json!({}))?;
     let _ = lease.call(catalog::SANDBOX_ISOLATION_EXIT, json!({}));
     assert_eq!(
-        error_kind(&blocked),
-        Some("forbidden_in_isolated_workspace"),
+        envelope_error_kind(&blocked)?,
+        "forbidden_in_isolated_workspace",
         "plugin-family ops must be blocked while isolated mode is active: {blocked}"
     );
     Ok(())

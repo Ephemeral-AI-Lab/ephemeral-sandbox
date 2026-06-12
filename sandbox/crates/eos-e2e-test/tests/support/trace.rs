@@ -45,6 +45,29 @@ pub(crate) fn envelope_result(response: &Value) -> Result<&Value> {
         .with_context(|| format!("response missing envelope result: {response}"))
 }
 
+pub(crate) fn envelope_status(response: &Value) -> Result<&str> {
+    response
+        .get("status")
+        .and_then(Value::as_str)
+        .with_context(|| format!("response missing envelope status: {response}"))
+}
+
+pub(crate) fn envelope_error_kind(response: &Value) -> Result<&str> {
+    response
+        .get("error")
+        .and_then(|error| error.get("kind"))
+        .and_then(Value::as_str)
+        .with_context(|| format!("response missing envelope error kind: {response}"))
+}
+
+pub(crate) fn envelope_error_kind_or_status(response: &Value) -> Result<String> {
+    if response.get("error").is_some() {
+        Ok(envelope_error_kind(response)?.to_owned())
+    } else {
+        Ok(envelope_status(response)?.to_owned())
+    }
+}
+
 pub(crate) fn response_trace_ids(response: &Value) -> Result<ResponseTraceIds> {
     let meta = envelope_meta(response)?;
     assert_consistent_trace_ref(&meta.trace, &meta.request_id)?;

@@ -9,7 +9,7 @@ export type SymbolKind =
   | "enum"
   | "schema";
 
-export type RelationKind =
+type RelationKind =
   | "package-depends-on"
   | "imports"
   | "exports"

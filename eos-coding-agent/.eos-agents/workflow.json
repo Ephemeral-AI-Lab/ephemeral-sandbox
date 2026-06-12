@@ -1,0 +1,9 @@
+{
+  "pursuit1": {
+    "type": "pursuit",
+    "args": {
+      "planner": "planner",
+      "worker": "worker"
+    }
+  }
+}

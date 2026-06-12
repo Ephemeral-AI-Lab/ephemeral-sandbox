@@ -119,7 +119,7 @@ async function executeCall(
 }
 
 /** String projection for events (results stay structured). */
-export function projectContent(content: PipelineResult["content"]): string {
+function projectContent(content: PipelineResult["content"]): string {
   return typeof content === "string" ? content : JSON.stringify(content);
 }
 

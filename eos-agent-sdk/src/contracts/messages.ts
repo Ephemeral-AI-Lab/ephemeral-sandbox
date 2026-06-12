@@ -15,7 +15,6 @@ export const DEFAULT_MAX_TOKENS = 32768;
  * to parse.
  */
 export const MessageRoleSchema = z.enum(["user", "assistant"]);
-export type MessageRole = z.infer<typeof MessageRoleSchema>;
 
 /**
  * A single content block within a `Message`.
@@ -65,11 +64,6 @@ export const ToolSpecSchema = z.object({
   output_schema: JsonObjectSchema.optional(),
 });
 export type ToolSpec = z.infer<typeof ToolSpecSchema>;
-
-/** Construct a user message from raw text. */
-export function fromUserText(text: string): UserMessage {
-  return { role: "user", content: [{ type: "text", text }] };
-}
 
 /** Concatenated text blocks, excluding reasoning. */
 export function assistantText(message: Message): string {

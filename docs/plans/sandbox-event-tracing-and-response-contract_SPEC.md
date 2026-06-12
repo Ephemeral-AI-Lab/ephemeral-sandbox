@@ -199,6 +199,59 @@ and `git diff --check` passed for this slice. Phase 05 remains in progress; the
 generated e2e inventory, live feature e2e gate, remaining e2e suites, gateway,
 and host still need the same migration pass.
 
+Phase 05 layerstack-suite evidence, 2026-06-13: `eos-layerstack` live-suite
+assertions no longer read flat response `timings.*`,
+`resource.layer_stack.*`, or helper timing maps. Checkpoint adapters now mirror
+workspace-base, commit-to-workspace, and commit-to-git phase/depth facts into
+bounded `checkpoint` and `layer_stack` trace events, while the e2e tests keep
+raw daemon responses long enough to unwrap `OperationEnvelope.result` and decode
+the trace sidecar. `rustfmt --edition 2021 --check
+crates/eos-daemon/src/op_adapter/checkpoint.rs
+crates/eos-e2e-test/tests/eos-layerstack/test_eos_layerstack_git_overlay_commit.rs
+crates/eos-e2e-test/tests/eos-layerstack/test_eos_layerstack_workspace_commit.rs`,
+`CARGO_TARGET_DIR=/tmp/eos-phase05-layerstack-target cargo check -p eos-daemon -p eos-e2e-test --tests`,
+`CARGO_TARGET_DIR=/tmp/eos-phase05-layerstack-target cargo test -p eos-e2e-test --test eos-layerstack --no-default-features -- --nocapture`,
+`CARGO_TARGET_DIR=/tmp/eos-phase05-layerstack-target cargo test -p eos-daemon commit_to_git_records_checkpoint_trace_events -- --nocapture`,
+`rg -n 'timings\.|timing_s|assert_timing_present|\["timings"\]|resource\.layer_stack|is_success\(|error_kind\(' crates/eos-e2e-test/tests/eos-layerstack -g '*.rs'`,
+and `git diff --check` passed for this slice. Full `cargo fmt --check` was not
+used as evidence because the current worktree has an unrelated dirty
+`sandbox/crates/eos-daemon/src/trace.rs` formatting change from parallel work.
+Phase 05 remains in progress; generated e2e inventory, live feature e2e gates,
+daemon/core/pressure leftovers, gateway, and host still need migration.
+
+Phase 05 pressure-suite evidence, 2026-06-13: pressure tests no longer read
+flat response `timings.*`, `resource.cgroup.*`, `resource.process.*`, or
+`resource.command_exec.*_tree_*` keys, and no pressure test imports the legacy
+`is_success`/`error_kind` helpers. Raw concurrent daemon replies now unwrap
+`OperationEnvelope.result` at the assertion boundary, command finalization
+helpers preserve the wire sidecar when resource facts are needed, and pressure
+resource reports assert response `meta.steps` plus typed `trace_resources` for
+cgroup/process gauges and command upperdir/run-dir tree samples. `rustfmt
+--edition 2021 --check` over the touched pressure files,
+`CARGO_TARGET_DIR=/tmp/eos-phase05-pressure-target cargo check -p eos-e2e-test --tests`,
+`CARGO_TARGET_DIR=/tmp/eos-phase05-pressure-target cargo test -p eos-e2e-test --test pressure --no-default-features -- --nocapture`,
+`rg -n 'timings\.|timing_f64|\["timings"\]|is_success\(|\berror_kind\(' sandbox/crates/eos-e2e-test/tests/pressure -g '*.rs'`,
+`rg -n 'resource\.cgroup|resource\.process|upperdir_tree_|run_dir_tree_|\.get\("timings"\)|\["timings"\]' sandbox/crates/eos-e2e-test/tests/pressure -g '*.rs'`,
+and `git diff --check` passed for this slice. Phase 05 remains in progress;
+generated e2e inventory, live feature e2e gates, daemon/core leftovers,
+gateway, and host still need migration.
+
+Phase 05 core/daemon wire-helper evidence, 2026-06-13: shared e2e support now
+has envelope-native status/fault extractors, and the core wire-message guard,
+daemon built-in registration, and daemon isolated test-reset contracts no
+longer call the mixed-wire `is_success`/`error_kind` helpers at their
+assertion boundaries. The tests assert `OperationEnvelope.status` and
+`error.kind` directly for malformed frames, unknown ops, oversized requests,
+auth failures, isolated plugin gating, built-in op registration, and the
+isolated test-reset harness gate. `rustfmt --edition 2021 --check` over the
+touched support/core/daemon files,
+`CARGO_TARGET_DIR=/tmp/eos-phase05-wire-target cargo test -p eos-e2e-test --test core --no-default-features test_core_protocol_wire_message_guards -- --nocapture`,
+`CARGO_TARGET_DIR=/tmp/eos-phase05-wire-target cargo test -p eos-e2e-test --test daemon --no-default-features -- --nocapture`,
+`rg -n 'is_success\(|\berror_kind\(' sandbox/crates/eos-e2e-test/tests/core sandbox/crates/eos-e2e-test/tests/daemon -g '*.rs'`,
+and `git diff --check` passed for this slice. Phase 05 remains in progress;
+generated e2e inventory, live feature e2e gates, daemon unit-test timing
+leftovers, gateway, and host still need migration.
+
 Implementation constraints:
 
 - No daemon hot-path persistence, host RPC, SQLite, fsync, or unbounded JSON

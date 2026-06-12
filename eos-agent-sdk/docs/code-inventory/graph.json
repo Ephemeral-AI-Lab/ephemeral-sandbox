@@ -217,8 +217,7 @@
       "kind": "symbol",
       "tags": [
         "contract",
-        "exported",
-        "public-api",
+        "internal",
         "schema:brand",
         "schema:zod",
         "typed-id"
@@ -259,8 +258,7 @@
       "kind": "symbol",
       "tags": [
         "contract",
-        "exported",
-        "public-api",
+        "internal",
         "schema:brand",
         "schema:zod",
         "typed-id"
@@ -275,15 +273,6 @@
         "public-api",
         "type:inferred",
         "typed-id"
-      ]
-    },
-    {
-      "id": "contracts/src/ids#backgroundTaskIdFrom",
-      "kind": "symbol",
-      "tags": [
-        "contract",
-        "exported",
-        "public-api"
       ]
     },
     {
@@ -382,16 +371,6 @@
       ]
     },
     {
-      "id": "contracts/src/messages#MessageRole",
-      "kind": "symbol",
-      "tags": [
-        "contract",
-        "exported",
-        "public-api",
-        "type:inferred"
-      ]
-    },
-    {
       "id": "contracts/src/messages#ContentBlockSchema",
       "kind": "symbol",
       "tags": [
@@ -463,15 +442,6 @@
         "exported",
         "public-api",
         "type:inferred"
-      ]
-    },
-    {
-      "id": "contracts/src/messages#fromUserText",
-      "kind": "symbol",
-      "tags": [
-        "contract",
-        "exported",
-        "public-api"
       ]
     },
     {
@@ -572,8 +542,7 @@
       "id": "engine/src/agent-loop#RUN_FINISHED_DISPOSE_REASON",
       "kind": "symbol",
       "tags": [
-        "exported",
-        "public-api"
+        "internal"
       ]
     },
     {
@@ -771,8 +740,7 @@
       "tags": [
         "async-iterable",
         "event",
-        "exported",
-        "public-api",
+        "internal",
         "stateful"
       ]
     },
@@ -944,9 +912,8 @@
       "id": "engine/tests/support#ScriptedClient",
       "kind": "symbol",
       "tags": [
-        "exported",
+        "internal",
         "provider-client",
-        "public-api",
         "stateful",
         "test-only"
       ]
@@ -1027,8 +994,7 @@
       "id": "engine/tests/support#StubTasks",
       "kind": "symbol",
       "tags": [
-        "exported",
-        "public-api",
+        "internal",
         "stateful",
         "test-only"
       ]
@@ -1047,8 +1013,7 @@
       "id": "engine/tests/support#stubExecutor",
       "kind": "symbol",
       "tags": [
-        "exported",
-        "public-api",
+        "internal",
         "test-only"
       ]
     },
@@ -1202,14 +1167,6 @@
       ]
     },
     {
-      "id": "llm-client/e2e/support/codex-auth#loadCodexAuth",
-      "kind": "symbol",
-      "tags": [
-        "exported",
-        "public-api"
-      ]
-    },
-    {
       "id": "llm-client/e2e/support/llm-clients-config",
       "kind": "module",
       "tags": [
@@ -1310,8 +1267,7 @@
       "kind": "symbol",
       "tags": [
         "access-boundary",
-        "exported",
-        "public-api"
+        "internal"
       ]
     },
     {
@@ -1480,8 +1436,7 @@
       "tags": [
         "config",
         "dto",
-        "exported",
-        "public-api",
+        "internal",
         "retry"
       ]
     },
@@ -1502,8 +1457,7 @@
       "tags": [
         "config",
         "dto",
-        "exported",
-        "public-api"
+        "internal"
       ]
     },
     {
@@ -1830,14 +1784,6 @@
     },
     {
       "id": "llm-client/src/types#UsageSnapshot",
-      "kind": "symbol",
-      "tags": [
-        "exported",
-        "public-api"
-      ]
-    },
-    {
-      "id": "llm-client/src/types#cacheHitRate",
       "kind": "symbol",
       "tags": [
         "exported",
@@ -2479,14 +2425,6 @@
         "dto",
         "exported",
         "public-api",
-        "test-only"
-      ]
-    },
-    {
-      "id": "llm-client/tests/usage.test",
-      "kind": "module",
-      "tags": [
-        "test",
         "test-only"
       ]
     },
@@ -3231,8 +3169,7 @@
       "id": "tool/src/executor#projectContent",
       "kind": "symbol",
       "tags": [
-        "exported",
-        "public-api"
+        "internal"
       ]
     },
     {
@@ -3452,8 +3389,7 @@
       "id": "tool/src/pipeline#toolSpec",
       "kind": "symbol",
       "tags": [
-        "exported",
-        "public-api"
+        "internal"
       ]
     },
     {
@@ -4326,7 +4262,7 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 7
+      "line": 5
     },
     {
       "from": "llm-client/e2e/support/codex-auth",
@@ -4338,27 +4274,11 @@
     },
     {
       "from": "llm-client/e2e/support/codex-auth",
-      "to": "node:os",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 2
-    },
-    {
-      "from": "llm-client/e2e/support/codex-auth",
-      "to": "node:path",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 3
-    },
-    {
-      "from": "llm-client/e2e/support/codex-auth",
       "to": "zod",
       "kind": "imports",
       "typeOnly": false,
       "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 5
+      "line": 3
     },
     {
       "from": "llm-client/e2e/support/llm-clients-config",
@@ -5230,22 +5150,6 @@
       "kind": "imports",
       "typeOnly": false,
       "file": "tests/llm-client/support.ts",
-      "line": 1
-    },
-    {
-      "from": "llm-client/tests/usage.test",
-      "to": "llm-client/src/index",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "tests/llm-client/usage.test.ts",
-      "line": 3
-    },
-    {
-      "from": "llm-client/tests/usage.test",
-      "to": "vitest",
-      "kind": "imports",
-      "typeOnly": false,
-      "file": "tests/llm-client/usage.test.ts",
       "line": 1
     },
     {
@@ -6461,7 +6365,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/contracts/index.ts",
-      "line": 7
+      "line": 6
     },
     {
       "from": "contracts/src/index",
@@ -6477,7 +6381,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/contracts/index.ts",
-      "line": 20
+      "line": 16
     },
     {
       "from": "contracts/src/index",
@@ -6485,7 +6389,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/contracts/index.ts",
-      "line": 36
+      "line": 30
     },
     {
       "from": "contracts/src/index",
@@ -6493,7 +6397,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/contracts/index.ts",
-      "line": 37
+      "line": 31
     },
     {
       "from": "engine/src/index",
@@ -6509,7 +6413,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/engine/index.ts",
-      "line": 12
+      "line": 9
     },
     {
       "from": "engine/src/index",
@@ -6517,7 +6421,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/engine/index.ts",
-      "line": 19
+      "line": 10
     },
     {
       "from": "engine/src/index",
@@ -6525,15 +6429,7 @@
       "kind": "reexports",
       "typeOnly": true,
       "file": "src/engine/index.ts",
-      "line": 29
-    },
-    {
-      "from": "engine/src/index",
-      "to": "engine/src/turn",
-      "kind": "reexports",
-      "typeOnly": false,
-      "file": "src/engine/index.ts",
-      "line": 34
+      "line": 18
     },
     {
       "from": "llm-client/src/index",
@@ -6545,7 +6441,7 @@
     },
     {
       "from": "llm-client/src/index",
-      "to": "llm-client/src/config",
+      "to": "llm-client/src/errors",
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/llm-client/index.ts",
@@ -6553,19 +6449,11 @@
     },
     {
       "from": "llm-client/src/index",
-      "to": "llm-client/src/errors",
-      "kind": "reexports",
-      "typeOnly": false,
-      "file": "src/llm-client/index.ts",
-      "line": 10
-    },
-    {
-      "from": "llm-client/src/index",
       "to": "llm-client/src/events",
       "kind": "reexports",
       "typeOnly": true,
       "file": "src/llm-client/index.ts",
-      "line": 15
+      "line": 3
     },
     {
       "from": "llm-client/src/index",
@@ -6573,15 +6461,15 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/llm-client/index.ts",
-      "line": 16
+      "line": 4
     },
     {
       "from": "llm-client/src/index",
       "to": "llm-client/src/profiles",
       "kind": "reexports",
-      "typeOnly": false,
+      "typeOnly": true,
       "file": "src/llm-client/index.ts",
-      "line": 17
+      "line": 5
     },
     {
       "from": "llm-client/src/index",
@@ -6589,7 +6477,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/llm-client/index.ts",
-      "line": 21
+      "line": 6
     },
     {
       "from": "llm-client/src/index",
@@ -6597,7 +6485,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/llm-client/index.ts",
-      "line": 22
+      "line": 7
     },
     {
       "from": "notification/src/index",
@@ -6619,17 +6507,9 @@
       "from": "runtime/src/index",
       "to": "runtime/src/llm-clients",
       "kind": "reexports",
-      "typeOnly": false,
+      "typeOnly": true,
       "file": "src/runtime/index.ts",
       "line": 4
-    },
-    {
-      "from": "runtime/src/index",
-      "to": "runtime/src/records",
-      "kind": "reexports",
-      "typeOnly": false,
-      "file": "src/runtime/index.ts",
-      "line": 12
     },
     {
       "from": "runtime/src/index",
@@ -6637,7 +6517,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/runtime/index.ts",
-      "line": 13
+      "line": 9
     },
     {
       "from": "testkit/src/index",
@@ -6697,19 +6577,11 @@
     },
     {
       "from": "tool/src/index",
-      "to": "tool/src/pipeline",
-      "kind": "reexports",
-      "typeOnly": true,
-      "file": "src/tool/index.ts",
-      "line": 27
-    },
-    {
-      "from": "tool/src/index",
       "to": "tool/src/terminal",
       "kind": "reexports",
       "typeOnly": true,
       "file": "src/tool/index.ts",
-      "line": 28
+      "line": 25
     },
     {
       "from": "tool/src/index",
@@ -6717,7 +6589,7 @@
       "kind": "reexports",
       "typeOnly": false,
       "file": "src/tool/index.ts",
-      "line": 29
+      "line": 26
     },
     {
       "from": "contracts/src/ids#AgentRunIdSchema",
@@ -6745,28 +6617,21 @@
       "to": "contracts/src/messages#ContentBlock",
       "kind": "schema-infers-type",
       "file": "src/contracts/messages.ts",
-      "line": 48
-    },
-    {
-      "from": "contracts/src/messages#MessageRoleSchema",
-      "to": "contracts/src/messages#MessageRole",
-      "kind": "schema-infers-type",
-      "file": "src/contracts/messages.ts",
-      "line": 18
+      "line": 47
     },
     {
       "from": "contracts/src/messages#MessageSchema",
       "to": "contracts/src/messages#Message",
       "kind": "schema-infers-type",
       "file": "src/contracts/messages.ts",
-      "line": 55
+      "line": 54
     },
     {
       "from": "contracts/src/messages#ToolSpecSchema",
       "to": "contracts/src/messages#ToolSpec",
       "kind": "schema-infers-type",
       "file": "src/contracts/messages.ts",
-      "line": 67
+      "line": 66
     },
     {
       "from": "contracts/src/tool-calls#ToolCallResultSchema",
@@ -6780,7 +6645,7 @@
       "to": "llm-client/e2e/support/codex-auth#decodeJwtPayload",
       "kind": "schema-infers-type",
       "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 25
+      "line": 23
     },
     {
       "from": "llm-client/e2e/support/llm-clients-config#CodexClientConfigSchema",
@@ -7354,22 +7219,6 @@
       "kind": "tests",
       "typeOnly": false,
       "file": "tests/llm-client/support.ts",
-      "line": 1
-    },
-    {
-      "from": "llm-client/tests/usage.test",
-      "to": "llm-client/src/index",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "tests/llm-client/usage.test.ts",
-      "line": 3
-    },
-    {
-      "from": "llm-client/tests/usage.test",
-      "to": "vitest",
-      "kind": "tests",
-      "typeOnly": false,
-      "file": "tests/llm-client/usage.test.ts",
       "line": 1
     },
     {
@@ -8021,56 +7870,49 @@
       "to": "contracts/src/messages#ContentBlockSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 48
+      "line": 47
     },
     {
       "from": "contracts/src/messages#ContentBlockSchema",
       "to": "contracts/src/messages#ToolUseIdSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 26
+      "line": 25
     },
     {
       "from": "contracts/src/messages#Message",
       "to": "contracts/src/messages#MessageSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 55
-    },
-    {
-      "from": "contracts/src/messages#MessageRole",
-      "to": "contracts/src/messages#MessageRoleSchema",
-      "kind": "uses-schema",
-      "file": "src/contracts/messages.ts",
-      "line": 18
+      "line": 54
     },
     {
       "from": "contracts/src/messages#MessageSchema",
       "to": "contracts/src/messages#ContentBlockSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 51
+      "line": 50
     },
     {
       "from": "contracts/src/messages#MessageSchema",
       "to": "contracts/src/messages#MessageRoleSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 51
+      "line": 50
     },
     {
       "from": "contracts/src/messages#ToolSpec",
       "to": "contracts/src/messages#ToolSpecSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 67
+      "line": 66
     },
     {
       "from": "contracts/src/messages#ToolSpecSchema",
       "to": "contracts/src/messages#JsonObjectSchema",
       "kind": "uses-schema",
       "file": "src/contracts/messages.ts",
-      "line": 61
+      "line": 60
     },
     {
       "from": "contracts/src/tool-calls#ToolCallResult",
@@ -8098,7 +7940,7 @@
       "to": "llm-client/e2e/support/codex-auth#JwtPayloadSchema",
       "kind": "uses-schema",
       "file": "e2e/llm-client/support/codex-auth.ts",
-      "line": 25
+      "line": 23
     },
     {
       "from": "llm-client/e2e/support/llm-clients-config#CodexClientConfig",

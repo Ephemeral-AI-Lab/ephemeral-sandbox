@@ -10,8 +10,6 @@ import {
   ToolUseIdSchema,
   agentRunIdFrom,
   assistantText,
-  backgroundTaskIdFrom,
-  fromUserText,
   mintAgentRunId,
   mintBackgroundTaskId,
   reasoningText,
@@ -125,11 +123,8 @@ describe("agent run and background task ids", () => {
     expect(() => agentRunIdFrom("")).toThrow();
   });
 
-  it("mints task ids and adopts existing ones", () => {
-    const minted = mintBackgroundTaskId();
-    expect(minted.length).toBeGreaterThan(0);
-    expect(backgroundTaskIdFrom(minted)).toBe(minted);
-    expect(() => backgroundTaskIdFrom("")).toThrow();
+  it("mints non-empty task ids", () => {
+    expect(mintBackgroundTaskId().length).toBeGreaterThan(0);
   });
 });
 
@@ -176,13 +171,6 @@ describe("message helpers", () => {
       },
     ],
   };
-
-  it("builds a user message from text", () => {
-    expect(fromUserText("hi")).toEqual({
-      role: "user",
-      content: [{ type: "text", text: "hi" }],
-    });
-  });
 
   it("concatenates text and reasoning separately", () => {
     expect(assistantText(message)).toBe("Hello world");

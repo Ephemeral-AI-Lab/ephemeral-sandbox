@@ -5,8 +5,11 @@ use anyhow::Result;
 use eos_operation::core::catalog;
 use serde_json::{json, Value};
 
-use crate::helpers::{pressure_levels, request_with_identity};
-use crate::support::{as_bool, as_i64, as_str, live_pool_or_skip, wait_for_active_leases};
+use crate::helpers::{
+    optional_response_result, pressure_levels, request_with_identity, response_result,
+    result_committed, result_structured,
+};
+use crate::support::{as_i64, as_str, live_pool_or_skip, wait_for_active_leases};
 
 /// Production runs N *distinct* agents (distinct `caller_id`s) concurrently on
 /// one shared LayerStack — see `docs/architecture/sandbox/space-model.html`
@@ -50,8 +53,9 @@ fn distinct_callers_disjoint_writes_ladder_1_3_6_12() -> Result<()> {
 
         for handle in handles {
             let response = handle.join().expect("distinct-caller writer panicked")?;
+            let result = response_result(&response)?;
             assert!(
-                as_bool(&response, "success")?,
+                result_committed(result),
                 "distinct-caller disjoint write should commit at level {level}: {response}"
             );
         }
@@ -120,16 +124,17 @@ fn distinct_callers_same_path_conflict_resolves_to_one_winner() -> Result<()> {
 
     assert!(
         responses.iter().any(|response| {
-            response.get("status").and_then(Value::as_str) == Some("committed")
-                || as_bool(response, "success").unwrap_or(false)
+            optional_response_result(response)
+                .ok()
+                .flatten()
+                .is_some_and(result_committed)
         }),
         "same-path distinct-caller pressure should leave at least one committed writer: {responses:?}"
     );
     for response in &responses {
+        let result = optional_response_result(response)?;
         assert!(
-            response.get("status").is_some()
-                || response.get("conflict").is_some()
-                || response.get("error").is_some(),
+            result.is_some_and(result_structured) || response.get("error").is_some(),
             "every distinct-caller contender should return a structured payload: {response}"
         );
     }

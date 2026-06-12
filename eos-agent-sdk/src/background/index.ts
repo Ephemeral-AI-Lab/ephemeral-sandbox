@@ -6,7 +6,4 @@ export type {
   BackgroundTaskRow,
   BackgroundTaskSupervisor,
 } from "./background-task.js";
-export {
-  RunBackgroundTaskSupervisor,
-  type RunBackgroundTaskSupervisorDeps,
-} from "./background-task-supervisor.js";
+export { RunBackgroundTaskSupervisor } from "./background-task-supervisor.js";

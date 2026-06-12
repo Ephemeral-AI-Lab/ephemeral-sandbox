@@ -124,6 +124,7 @@ pub struct PluginOverlayOutcome {
     pub capture_s: f64,
     pub occ_s: f64,
     pub upperdir_stats: eos_workspace::TreeResourceStats,
+    pub lease_release_error: Option<String>,
 }
 
 fn run_plugin_overlay_command(
@@ -146,8 +147,21 @@ fn run_plugin_overlay_command(
     let lease_acquire_s = acquire_start.elapsed().as_secs_f64();
     let run_result =
         run_plugin_overlay_once(launcher, spec, args, &binding, &lease, lease_acquire_s);
-    let _ = stack.release_lease(&lease.lease_id);
-    run_result
+    let release_result = stack.release_lease(&lease.lease_id);
+    match run_result {
+        Ok(mut outcome) => {
+            outcome.lease_release_error = release_result.err().map(|err| err.to_string());
+            Ok(outcome)
+        }
+        Err(err) => {
+            if let Err(release_err) = release_result {
+                return Err(PluginRuntimeError::OverlayPipeline(format!(
+                    "{err}; lease release failed: {release_err}"
+                )));
+            }
+            Err(err)
+        }
+    }
 }
 
 fn run_plugin_overlay_once(
@@ -199,6 +213,7 @@ fn run_plugin_overlay_once(
         capture_s,
         occ_s,
         upperdir_stats,
+        lease_release_error: None,
     })
 }
 

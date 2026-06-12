@@ -1,7 +1,7 @@
 import type { SecretString } from "../secret.js";
 
 /** How a credential rides the request: `x-api-key` or `Authorization: Bearer`. */
-export interface AccessCredential {
+interface AccessCredential {
   kind: "api_key" | "bearer";
   secret: SecretString;
 }

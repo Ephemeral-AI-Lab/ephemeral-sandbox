@@ -1,15 +1,11 @@
 export {
   JsonObjectSchema,
-  JsonValueSchema,
   type JsonObject,
   type JsonValue,
 } from "./json.js";
 export {
-  AgentRunIdSchema,
-  BackgroundTaskIdSchema,
   ToolUseIdSchema,
   agentRunIdFrom,
-  backgroundTaskIdFrom,
   mintAgentRunId,
   mintBackgroundTaskId,
   toolUseIdFrom,
@@ -24,12 +20,10 @@ export {
   MessageSchema,
   ToolSpecSchema,
   assistantText,
-  fromUserText,
   reasoningText,
   toolUses,
   type ContentBlock,
   type Message,
-  type MessageRole,
   type ToolSpec,
   type UserMessage,
 } from "./messages.js";

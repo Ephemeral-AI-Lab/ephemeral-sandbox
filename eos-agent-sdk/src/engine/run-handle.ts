@@ -105,7 +105,7 @@ export interface AgentRunHandle<T = string> {
  * - an early `break`/`return()` detaches: later pushes are discarded while
  *   the run continues; a stream nobody iterates retains every event.
  */
-export class EventStream implements AsyncIterable<AgentEvent> {
+class EventStream implements AsyncIterable<AgentEvent> {
   #buffer: AgentEvent[] = [];
   #wakers: (() => void)[] = [];
   #closed = false;

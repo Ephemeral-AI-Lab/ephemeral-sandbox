@@ -13,7 +13,8 @@ mod trace;
 
 #[allow(unused_imports)]
 pub(crate) use trace::{
-    assert_no_trace_sidecar, assert_response_trace_ref_in_store, envelope_meta, envelope_result,
+    assert_no_trace_sidecar, assert_response_trace_ref_in_store, envelope_error_kind,
+    envelope_error_kind_or_status, envelope_meta, envelope_result, envelope_status,
     has_trace_event, operation_envelope, response_trace_ids, trace_export_records, trace_record,
     ResponseTraceIds, StoredTraceSummary,
 };

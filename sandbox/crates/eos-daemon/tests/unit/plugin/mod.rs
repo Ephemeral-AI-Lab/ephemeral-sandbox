@@ -645,6 +645,7 @@ fn overlay_trace_events_include_started_and_finished_facts() {
         lease_acquire_s: 0.1,
         capture_s: 0.2,
         occ_s: 0.3,
+        lease_release_error: Some("release failed".to_owned()),
         upperdir_stats: TreeResourceStats {
             files: 1,
             dirs: 2,
@@ -699,9 +700,15 @@ fn overlay_trace_events_include_started_and_finished_facts() {
         &response,
         None,
     );
+    super::record_plugin_overlay_lease_release_failed(
+        &context,
+        "plugin.generic.write",
+        "plugin-overlay-test",
+        &overlay,
+    );
 
     let events = sink.drain();
-    assert_eq!(events.len(), 8);
+    assert_eq!(events.len(), 11);
     assert_eq!(events[0].module, "plugin");
     assert_eq!(events[0].name, "overlay_started");
     assert_eq!(events[0].details["op"], "plugin.generic.write");
@@ -773,31 +780,51 @@ fn overlay_trace_events_include_started_and_finished_facts() {
     assert_eq!(events[5].details["failing_path"], "/eos/work/blocked");
 
     assert_eq!(events[6].module, "occ");
-    assert_eq!(events[6].name, "commit_finished");
-    assert_eq!(events[6].details["success"], true);
-    assert_eq!(events[6].details["published_manifest_version"], 42);
+    assert_eq!(events[6].name, "commit_started");
     assert_eq!(events[6].details["file_count"], 1);
-    assert_eq!(events[6].details["published_file_count"], 1);
-    assert_eq!(events[6].details["committed_file_count"], 1);
 
-    assert_eq!(events[7].module, "plugin");
-    assert_eq!(events[7].name, "overlay_finished");
-    assert_eq!(events[7].details["op"], "plugin.generic.write");
-    assert_eq!(events[7].details["invocation_id"], "plugin-overlay-test");
-    assert_eq!(events[7].details["success"], true);
-    assert_eq!(events[7].details["status"], "committed");
-    assert!(events[7].details["error_kind"].is_null());
-    assert!(events[7].details["adapter_error"].is_null());
-    assert_eq!(events[7].details["worker_exit_code"], 0);
-    assert_eq!(events[7].details["changed_path_count"], 1);
-    assert_eq!(events[7].details["published_manifest_version"], 42);
-    assert_eq!(events[7].details["lease_acquire_s"], 0.1);
-    assert_eq!(events[7].details["capture_s"], 0.2);
-    assert_eq!(events[7].details["occ_s"], 0.3);
-    assert_eq!(events[7].details["upperdir_files"], 1);
-    assert_eq!(events[7].details["upperdir_dirs"], 2);
-    assert_eq!(events[7].details["upperdir_symlinks"], 3);
-    assert_eq!(events[7].details["upperdir_bytes"], 4096);
+    assert_eq!(events[7].module, "occ");
+    assert_eq!(events[7].name, "validate_groups_finished");
+    assert_eq!(events[7].details["file_count"], 1);
+    assert_eq!(events[7].details["committed_file_count"], 1);
+
+    assert_eq!(events[8].module, "occ");
+    assert_eq!(events[8].name, "commit_finished");
+    assert_eq!(events[8].details["success"], true);
+    assert_eq!(events[8].details["published_manifest_version"], 42);
+    assert_eq!(events[8].details["file_count"], 1);
+    assert_eq!(events[8].details["published_file_count"], 1);
+    assert_eq!(events[8].details["committed_file_count"], 1);
+
+    assert_eq!(events[9].module, "plugin");
+    assert_eq!(events[9].name, "overlay_finished");
+    assert_eq!(events[9].details["op"], "plugin.generic.write");
+    assert_eq!(events[9].details["invocation_id"], "plugin-overlay-test");
+    assert_eq!(events[9].details["success"], true);
+    assert_eq!(events[9].details["status"], "committed");
+    assert!(events[9].details["error_kind"].is_null());
+    assert!(events[9].details["adapter_error"].is_null());
+    assert_eq!(events[9].details["worker_exit_code"], 0);
+    assert_eq!(events[9].details["changed_path_count"], 1);
+    assert_eq!(events[9].details["published_manifest_version"], 42);
+    assert_eq!(events[9].details["lease_acquire_s"], 0.1);
+    assert_eq!(events[9].details["lease_release_error"], "release failed");
+    assert_eq!(events[9].details["capture_s"], 0.2);
+    assert_eq!(events[9].details["occ_s"], 0.3);
+    assert_eq!(events[9].details["upperdir_files"], 1);
+    assert_eq!(events[9].details["upperdir_dirs"], 2);
+    assert_eq!(events[9].details["upperdir_symlinks"], 3);
+    assert_eq!(events[9].details["upperdir_bytes"], 4096);
+
+    assert_eq!(events[10].module, "layer_stack");
+    assert_eq!(events[10].name, "lease_release_failed");
+    assert_eq!(events[10].details["op"], "plugin.generic.write");
+    assert_eq!(events[10].details["invocation_id"], "plugin-overlay-test");
+    assert_eq!(
+        events[10].details["reason"],
+        "plugin_overlay_release_failed"
+    );
+    assert_eq!(events[10].details["error"], "release failed");
 }
 
 #[test]
@@ -913,6 +940,7 @@ fn plugin_overlay_response_strips_timings_but_keeps_trace_samples() -> TestResul
         lease_acquire_s: 0.1,
         capture_s: 0.2,
         occ_s: 0.3,
+        lease_release_error: None,
         upperdir_stats: TreeResourceStats {
             files: 1,
             dirs: 2,

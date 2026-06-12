@@ -5,13 +5,15 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use eos_e2e_test::next_invocation_id;
 use eos_operation::core::catalog;
+use eos_trace::ResourceStatsKind;
 use serde_json::{json, Value};
 
-use crate::helpers::{pressure_levels, request_with_identity};
-use crate::support::{
-    as_bool, as_i64, as_str, finalize_foreground_command, live_pool_or_skip, seed_base_files,
-    wait_for_active_leases,
+use crate::helpers::{
+    finalize_foreground_command_result, finalize_foreground_command_wire, optional_response_result,
+    pressure_levels, request_with_identity, response_result, result_committed, result_structured,
+    trace_resource_number,
 };
+use crate::support::{as_i64, as_str, live_pool_or_skip, seed_base_files, wait_for_active_leases};
 
 #[test]
 fn n_concurrent_mixed_ops() -> Result<()> {
@@ -68,14 +70,26 @@ fn n_concurrent_mixed_ops() -> Result<()> {
         // status "running" (no success/error yet, lease still held); settle just
         // those so the structured-payload check and the lease drain below are
         // deterministic. Write/read responses carry no "status" and pass through.
-        let response = if response.get("status").and_then(Value::as_str) == Some("running") {
-            finalize_foreground_command(&lease, response, Instant::now() + Duration::from_secs(15))?
-        } else {
-            response
+        let result = match optional_response_result(&response)? {
+            Some(result) if result.get("status").and_then(Value::as_str) == Some("running") => {
+                finalize_foreground_command_result(
+                    &lease,
+                    response,
+                    Instant::now() + Duration::from_secs(15),
+                )?
+            }
+            Some(result) => result.clone(),
+            None => {
+                assert!(
+                    response.get("error").is_some(),
+                    "mixed pressure op should return an envelope error: {response}"
+                );
+                continue;
+            }
         };
         assert!(
-            as_bool(&response, "success").unwrap_or(false) || response.get("error").is_some(),
-            "mixed pressure op should return a structured payload: {response}"
+            result_structured(&result),
+            "mixed pressure op should return a structured payload: {result}"
         );
     }
     // Poll: lease release is asynchronous, so a finalized exec's lease may still be
@@ -119,8 +133,9 @@ fn file_ops_ladder_1_3_6_12() -> Result<()> {
 
         for handle in handles {
             let response = handle.join().expect("file writer thread panicked")?;
+            let result = response_result(&response)?;
             assert!(
-                as_bool(&response, "success")?,
+                result_committed(result),
                 "file ladder write should commit at level {level}: {response}"
             );
         }
@@ -149,8 +164,9 @@ fn file_ops_ladder_1_3_6_12() -> Result<()> {
 
         for (index, handle) in handles.into_iter().enumerate() {
             let response = handle.join().expect("file reader thread panicked")?;
+            let result = response_result(&response)?;
             assert_eq!(
-                as_str(&response, "content")?,
+                as_str(result, "content")?,
                 format!("file-level-{level}-item-{index}\n"),
                 "file ladder readback should match at level {level}: {response}"
             );
@@ -201,13 +217,6 @@ fn write_storm_squash_under_load() -> Result<()> {
     Ok(())
 }
 
-fn timing_f64(value: &serde_json::Value, key: &str) -> Option<f64> {
-    value
-        .get("timings")
-        .and_then(|timings| timings.get(key))
-        .and_then(serde_json::Value::as_f64)
-}
-
 #[test]
 fn concurrent_overlay_execs_share_lowerdir_storage_is_o1() -> Result<()> {
     let Some(pool) = live_pool_or_skip()? else {
@@ -251,19 +260,23 @@ fn concurrent_overlay_execs_share_lowerdir_storage_is_o1() -> Result<()> {
         let response = handle.join().expect("overlay exec thread panicked")?;
         // Finalize yielded ("running") execs to the finalized payload so both the
         // terminal status and the upperdir timing below are present under emulation.
-        let response = finalize_foreground_command(
+        let (response, result) = finalize_foreground_command_wire(
             &lease,
             response,
             Instant::now() + Duration::from_secs(35),
         )?;
         assert_eq!(
-            as_str(&response, "status")?,
+            as_str(&result, "status")?,
             "ok",
             "concurrent overlay exec should succeed: {response}"
         );
-        if let Some(upperdir) = timing_f64(&response, "resource.command_exec.upperdir_tree_bytes") {
-            max_upperdir = max_upperdir.max(upperdir);
-        }
+        let upperdir = trace_resource_number(
+            &response,
+            ResourceStatsKind::Tree,
+            "resource.command_exec.upperdir",
+            &["tree", "bytes"],
+        )?;
+        max_upperdir = max_upperdir.max(upperdir);
     }
     // No per-op copy-up under concurrency: each upperdir stays delta-sized.
     assert!(
@@ -322,8 +335,9 @@ fn concurrent_writes_during_squash_keep_manifest_bounded_and_coherent() -> Resul
                 // Concurrent disjoint publishes can move the manifest version
                 // under a same-path overwrite; with the retry budget it commits,
                 // but a structured conflict is also acceptable mid-race.
+                let result = optional_response_result(&response)?;
                 assert!(
-                    response.get("status").is_some() || response.get("error").is_some(),
+                    result.is_some_and(result_structured) || response.get("error").is_some(),
                     "driver overwrite should return a structured payload: {response}"
                 );
             }
@@ -351,8 +365,9 @@ fn concurrent_writes_during_squash_keep_manifest_bounded_and_coherent() -> Resul
                             "overwrite": true
                         }),
                     )?;
+                    let result = response_result(&response)?;
                     assert!(
-                        as_bool(&response, "success")?,
+                        result_committed(result),
                         "disjoint fanout write should commit during squash: {response}"
                     );
                 }
