@@ -66,6 +66,14 @@
       "summary": "Count in-flight invocations."
     },
     {
+      "name": "sandbox.trace.export",
+      "served_by": "daemon",
+      "visibility": "internal",
+      "family": "Control",
+      "mutates_state": false,
+      "summary": "Drain bounded daemon background trace records for host ingest."
+    },
+    {
       "name": "sandbox.checkpoint.layer_metrics",
       "served_by": "daemon",
       "visibility": "operator",

@@ -1,0 +1,7 @@
+[
+  {
+    "event": "TurnCompleted",
+    "agent_kind": "subagent",
+    "rules": [{ "type": "command", "command": "node kind-scoped-reminder.cjs" }]
+  }
+]

@@ -11,7 +11,7 @@ use crate::command::contract::{
     CancelCommandInput, CollectCompletedInput, ExecCommandInput, ReadProgressInput, WriteStdinInput,
 };
 use crate::control::contract::{
-    CallerCountInput, CancelInvocationInput, HeartbeatInput, RuntimeReadyInput,
+    CallerCountInput, CancelInvocationInput, HeartbeatInput, RuntimeReadyInput, TraceExportInput,
 };
 use crate::file::contract::{EditFileInput, ReadFileInput, WriteFileInput};
 use crate::isolation::contract::{IsolationEnterInput, IsolationExitInput, IsolationStatusInput};
@@ -59,6 +59,7 @@ pub enum OpRequest {
     InvocationHeartbeat(HeartbeatInput),
     InvocationCancel(CancelInvocationInput),
     InflightCount(CallerCountInput),
+    TraceExport(TraceExportInput),
     LayerMetrics(LayerMetricsInput),
     EnsureWorkspaceBase(EnsureBaseInput),
     BuildWorkspaceBase(BuildBaseInput),
@@ -100,6 +101,7 @@ impl OpRequest {
                 Self::InvocationCancel(CancelInvocationInput::parse(args))
             }
             BuiltinOp::InflightCount => Self::InflightCount(CallerCountInput::parse(args)),
+            BuiltinOp::TraceExport => Self::TraceExport(TraceExportInput::parse(args)),
             BuiltinOp::LayerMetrics => Self::LayerMetrics(LayerMetricsInput::parse(args)?),
             BuiltinOp::EnsureWorkspaceBase => {
                 Self::EnsureWorkspaceBase(EnsureBaseInput::parse(args)?)

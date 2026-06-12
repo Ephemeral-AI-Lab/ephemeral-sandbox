@@ -13,7 +13,9 @@ eos-layerstack.workspace = true
 eos-operation.workspace = true
 eos-overlay.workspace = true
 eos-plugin.workspace = true
+eos-trace.workspace = true
 eos-workspace.workspace = true
+base64.workspace = true
 # preserve_order is contract-load-bearing: request `args` keys must cross
 # the wire in insertion order for byte-stable wire-message round-trips.
 serde_json = { workspace = true, features = ["preserve_order"] }

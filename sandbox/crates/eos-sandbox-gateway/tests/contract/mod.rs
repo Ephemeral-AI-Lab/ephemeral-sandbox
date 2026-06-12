@@ -6,11 +6,11 @@
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde_json::{json, Value};
 
-use eos_sandbox_host::ForwardError;
+use eos_sandbox_host::{ForwardError, ForwardTraceContext};
 
 use crate::gateway::{
     self, parse_request, Catalog, ClientRequest, Engine, Route, Surface, Visibility,
@@ -45,6 +45,7 @@ impl Engine for StubEngine {
         op: &str,
         invocation_id: &str,
         _args: &Value,
+        _trace: ForwardTraceContext,
     ) -> Option<Result<Value, ForwardError>> {
         if sandbox_id != KNOWN_SANDBOX {
             return None;
@@ -57,8 +58,64 @@ impl Engine for StubEngine {
                 "forwarded_op": op,
                 "mutates_state": mutates_state,
                 "invocation_id": invocation_id,
+                "_trace_events": "internal-sidecar",
             })),
         })
+    }
+}
+
+#[derive(Clone)]
+struct RecordingEngine {
+    events: Arc<Mutex<Vec<(String, String)>>>,
+}
+
+impl RecordingEngine {
+    fn new(events: Arc<Mutex<Vec<(String, String)>>>) -> Self {
+        Self { events }
+    }
+}
+
+impl Engine for RecordingEngine {
+    fn acquire(&self) -> anyhow::Result<String> {
+        Ok(KNOWN_SANDBOX.to_owned())
+    }
+
+    fn release(&self, sandbox_id: &str) -> bool {
+        sandbox_id == KNOWN_SANDBOX
+    }
+
+    fn status(&self, sandbox_id: &str) -> Option<Value> {
+        (sandbox_id == KNOWN_SANDBOX).then(|| json!({"success": true}))
+    }
+
+    fn list(&self) -> Vec<Value> {
+        Vec::new()
+    }
+
+    fn forward(
+        &self,
+        sandbox_id: &str,
+        _mutates_state: bool,
+        op: &str,
+        _invocation_id: &str,
+        _args: &Value,
+        _trace: ForwardTraceContext,
+    ) -> Option<Result<Value, ForwardError>> {
+        (sandbox_id == KNOWN_SANDBOX).then(|| Ok(json!({"success": true, "forwarded_op": op})))
+    }
+
+    fn record_trace_event(
+        &self,
+        _sandbox_id: &str,
+        _trace: &ForwardTraceContext,
+        module: &str,
+        event: &str,
+        _details: Value,
+    ) {
+        self.events
+            .lock()
+            .expect("events lock")
+            .push((module.to_owned(), event.to_owned()));
     }
 }
 
@@ -115,6 +172,7 @@ fn daemon_ops_route_under_canonical_names_only() {
         );
         // The daemon's response comes back verbatim.
         assert_eq!(response["forwarded_op"], json!(name));
+        assert_eq!(response["_trace_events"], Value::Null);
     }
     // The retired legacy spellings are no longer in the catalog.
     for legacy in ["api.v1.read_file", "api.v1.heartbeat"] {
@@ -222,6 +280,45 @@ fn unix_socket_round_trip_serves_one_request_per_connection() {
         response["forwarded_op"],
         json!("sandbox.checkpoint.layer_metrics")
     );
+
+    let _ = std::fs::remove_file(gateway::operator_socket_path(&socket));
+    let _ = std::fs::remove_file(&socket);
+}
+
+#[test]
+fn unix_socket_records_forward_and_response_write_events() {
+    let socket = test_socket_path("trace-events");
+    let catalog = Arc::new(Catalog::load_builtin().expect("catalog"));
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let listen = socket.clone();
+    let engine = RecordingEngine::new(Arc::clone(&events));
+    std::thread::spawn(move || {
+        let _ = gateway::serve_with_catalog(&listen, catalog, Arc::new(engine));
+    });
+
+    let response = round_trip_when_ready(
+        &socket,
+        b"{\"op\":\"sandbox.file.read\",\"sandbox_id\":\"sb-stub\",\"invocation_id\":\"i3\",\"args\":{}}\n",
+    );
+    assert_eq!(response["success"], json!(true));
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    loop {
+        let snapshot = events.lock().expect("events lock").clone();
+        if snapshot.contains(&(
+            "gateway.route".to_owned(),
+            "engine_forward_finished".to_owned(),
+        )) && snapshot.contains(&(
+            "gateway.transport".to_owned(),
+            "response_written".to_owned(),
+        )) {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "gateway events not recorded: {snapshot:?}"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
 
     let _ = std::fs::remove_file(gateway::operator_socket_path(&socket));
     let _ = std::fs::remove_file(&socket);

@@ -1,17 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { scriptedRunState, scriptedTool, writeTranscriptFixture } from "@eos/testkit";
+import {
+  eosAgentsPath,
+  scriptedRunState,
+  scriptedTool,
+  writeTranscriptFixture,
+} from "@eos/testkit";
 import { z } from "zod";
 
 import { defineTool } from "../src/define.js";
 import type { HookCommand, HookConfigEntry, HookOutput } from "../src/hooks/protocol.js";
 import { hookWarnings, runPipeline } from "./support.js";
 
-/** A command hook running an inline node script (double quotes only). */
-function nodeHook(js: string, timeoutMs?: number): HookCommand {
+/** A command hook spawning a shared `.eos-agents/tests/scripts` file. */
+function scriptHook(name: string, timeoutMs?: number): HookCommand {
   return {
     type: "command",
-    command: `"${process.execPath}" -e '${js}'`,
+    command: `"${process.execPath}" "${eosAgentsPath("tests/scripts", name)}"`,
     ...(timeoutMs !== undefined && { timeout_ms: timeoutMs }),
   };
 }
@@ -33,19 +38,15 @@ describe("hook command adapter", () => {
   it("denies via exit 2 with stderr as the model-visible reason; the call never executes (§15.11)", async () => {
     let executed = false;
     const result = await runPipeline(probeTool(() => (executed = true)), {
-      entries: [
-        pre("probe", nodeHook('process.stderr.write("blocked by script"); process.exit(2);')),
-      ],
+      entries: [pre("probe", scriptHook("deny-with-stderr.cjs"))],
     });
     expect(result).toMatchObject({ content: "blocked by script", is_error: true });
     expect(executed).toBe(false);
   });
 
   it("receives the full payload as JSON on stdin", async () => {
-    const echoPayload =
-      'let d="";process.stdin.on("data",(c)=>d+=c);process.stdin.on("end",()=>{const p=JSON.parse(d);process.stderr.write([p.event,p.tool_name,p.tool_use_id,p.run.kind,String(p.run.workspace.is_isolated)].join("|"));process.exit(2);});';
     const result = await runPipeline(probeTool(), {
-      entries: [pre(undefined, nodeHook(echoPayload))],
+      entries: [pre(undefined, scriptHook("echo-hook-payload.cjs"))],
     });
     expect(result.content).toBe("PreToolUse|probe|tu_1|main|false");
   });
@@ -63,9 +64,7 @@ describe("hook command adapter", () => {
     });
     const result = await runPipeline(calc, {
       input: { n: 1 },
-      entries: [
-        pre("calc", nodeHook('console.log(JSON.stringify({updatedInput:{n:42}}));')),
-      ],
+      entries: [pre("calc", scriptHook("update-input.cjs"))],
     });
     expect(result.is_error).toBe(false);
     expect(received).toEqual([42]);
@@ -74,7 +73,7 @@ describe("hook command adapter", () => {
   it("treats garbage stdout as passthrough with a warning (§15.13)", async () => {
     let executed = false;
     const result = await runPipeline(probeTool(() => (executed = true)), {
-      entries: [pre("probe", nodeHook('process.stdout.write("not json at all");'))],
+      entries: [pre("probe", scriptHook("garbage-stdout.cjs"))],
     });
     expect(executed, "non-blocking: the call still ran").toBe(true);
     expect(result.is_error).toBe(false);
@@ -83,9 +82,7 @@ describe("hook command adapter", () => {
 
   it("treats schema-mismatched stdout as passthrough with a warning (§15.13)", async () => {
     const result = await runPipeline(probeTool(), {
-      entries: [
-        pre("probe", nodeHook('console.log(JSON.stringify({decision:"maybe"}));')),
-      ],
+      entries: [pre("probe", scriptHook("decision-maybe.cjs"))],
     });
     expect(result.is_error).toBe(false);
     expect(hookWarnings(result)).toContain(
@@ -112,9 +109,7 @@ describe("hook command adapter", () => {
   it("treats other nonzero exits as passthrough with a warning, never a deny", async () => {
     let executed = false;
     const result = await runPipeline(probeTool(() => (executed = true)), {
-      entries: [
-        pre("probe", nodeHook('process.stderr.write("flaky"); process.exit(3);')),
-      ],
+      entries: [pre("probe", scriptHook("exit-3.cjs"))],
     });
     expect(executed).toBe(true);
     expect(result.is_error).toBe(false);
@@ -124,7 +119,7 @@ describe("hook command adapter", () => {
 
   it("kills a hook on its timeout and passes through with a warning", async () => {
     const result = await runPipeline(probeTool(), {
-      entries: [pre("probe", nodeHook("setInterval(() => {}, 1000);", 250))],
+      entries: [pre("probe", scriptHook("hang.cjs", 250))],
     });
     expect(result.is_error).toBe(false);
     expect(hookWarnings(result)).toContain("aborted");
@@ -132,9 +127,7 @@ describe("hook command adapter", () => {
 
   it("skips hooks whose matcher names a different tool", async () => {
     const result = await runPipeline(probeTool(), {
-      entries: [
-        pre("other_tool", nodeHook('process.stderr.write("wrong"); process.exit(2);')),
-      ],
+      entries: [pre("other_tool", scriptHook("deny-with-stderr.cjs"))],
     });
     expect(result.is_error).toBe(false);
     expect(result.content).toBe("ran");
@@ -144,11 +137,9 @@ describe("hook command adapter", () => {
     const transcriptPath = writeTranscriptFixture([
       { role: "user", note: "contains FORBIDDEN marker" },
     ]);
-    const readTranscript =
-      'let d="";process.stdin.on("data",(c)=>d+=c);process.stdin.on("end",()=>{const p=JSON.parse(d);const t=require("fs").readFileSync(p.run.transcript_path,"utf8");if(t.includes("FORBIDDEN")){process.stderr.write("transcript said no");process.exit(2);}process.exit(0);});';
     const result = await runPipeline(probeTool(), {
       runState: scriptedRunState("main", { transcriptPath }),
-      entries: [pre("probe", nodeHook(readTranscript))],
+      entries: [pre("probe", scriptHook("read-transcript-forbidden.cjs"))],
     });
     expect(result).toMatchObject({ content: "transcript said no", is_error: true });
   });
@@ -157,14 +148,10 @@ describe("hook command adapter", () => {
     let executed = false;
     const result = await runPipeline(probeTool(() => (executed = true)), {
       entries: [
-        pre(
-          "probe",
-          nodeHook('console.log(JSON.stringify({decision:"allow"}));'),
-          nodeHook('process.stderr.write("hard no"); process.exit(2);'),
-        ),
+        pre("probe", scriptHook("allow.cjs"), scriptHook("deny-with-stderr.cjs")),
       ],
     });
-    expect(result).toMatchObject({ content: "hard no", is_error: true });
+    expect(result).toMatchObject({ content: "blocked by script", is_error: true });
     expect(executed).toBe(false);
   });
 });

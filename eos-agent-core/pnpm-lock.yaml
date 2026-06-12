@@ -50,15 +50,15 @@ importers:
       '@eos/notification':
         specifier: workspace:*
         version: link:../notification
+      '@eos/pursuit':
+        specifier: workspace:*
+        version: link:../pursuit
       '@eos/scripts':
         specifier: workspace:*
         version: link:../scripts
       '@eos/tool':
         specifier: workspace:*
         version: link:../tool
-      '@eos/pursuit':
-        specifier: workspace:*
-        version: link:../pursuit
       yaml:
         specifier: ^2.8.1
         version: 2.9.0
@@ -127,6 +127,10 @@ importers:
       zod:
         specifier: ^4.4.3
         version: 4.4.3
+    devDependencies:
+      '@eos/testkit':
+        specifier: workspace:*
+        version: link:../testkit
 
   packages/notification:
     dependencies:
@@ -139,6 +143,19 @@ importers:
       zod:
         specifier: ^4.4.3
         version: 4.4.3
+    devDependencies:
+      '@eos/testkit':
+        specifier: workspace:*
+        version: link:../testkit
+
+  packages/pursuit:
+    dependencies:
+      '@eos/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@eos/db':
+        specifier: workspace:*
+        version: link:../db
 
   packages/scripts: {}
 
@@ -175,15 +192,6 @@ importers:
       '@eos/testkit':
         specifier: workspace:*
         version: link:../testkit
-
-  packages/pursuit:
-    dependencies:
-      '@eos/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@eos/db':
-        specifier: workspace:*
-        version: link:../db
 
 packages:
 

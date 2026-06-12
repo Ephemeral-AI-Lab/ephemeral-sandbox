@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 
 import { ContextScriptOutputSchema } from "@eos/contracts";
 import { executeJsonCommand } from "@eos/scripts";
+import { eosAgentsPath } from "@eos/testkit";
 
-const REPO_ROOT = resolve(import.meta.dirname, "../../../..");
-const SCRIPT_ROOT = resolve(REPO_ROOT, ".eos-agents/pursuit/scripts");
+const SCRIPT_ROOT = eosAgentsPath("pursuit/scripts");
 
 function plannerInput() {
   return {

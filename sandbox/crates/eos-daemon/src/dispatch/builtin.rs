@@ -25,6 +25,7 @@ pub(crate) fn dispatch(request: OpRequest, context: DispatchContext<'_>) -> OpRe
         OpRequest::InflightCount(input) => {
             OpResponse::Success(control::op_inflight_count(input, context))
         }
+        OpRequest::TraceExport(input) => OpResponse::Success(control::op_trace_export(input)),
         OpRequest::LayerMetrics(input) => daemon_result(checkpoint::layer_metrics(input, context)),
         OpRequest::EnsureWorkspaceBase(input) => {
             daemon_result(checkpoint::ensure_workspace_base(input, context))

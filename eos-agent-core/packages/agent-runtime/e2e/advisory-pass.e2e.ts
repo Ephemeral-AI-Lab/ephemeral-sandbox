@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { eosAgentsPath } from "@eos/testkit";
 import { terminalToolDefinitions } from "@eos/tool";
 
 import { createAgentRuntime } from "../src/runtime.js";
@@ -21,7 +22,6 @@ import {
 } from "../tests/support.js";
 import {
   TERSE_BODY,
-  rootHookConfigPath,
   submissionOf,
   toolResultsIn,
 } from "./support/fixtures.js";
@@ -33,12 +33,27 @@ function runtimeFixture(options: {
   const root = tempDir("eos-advisory-pass-e2e-");
   const profilesDir = join(root, "profiles");
   mkdirSync(profilesDir, { recursive: true });
-  for (const profile of options.profiles) writeProfile(profilesDir, profile);
+  for (const profile of options.profiles) {
+    // Planner/worker profiles need a context script for startup validation
+    // even though no pursuit ever launches here.
+    const needsScript = profile.kind === "planner" || profile.kind === "worker";
+    writeProfile(
+      profilesDir,
+      needsScript
+        ? {
+            pursuitContextScript: eosAgentsPath("tests/pursuit/scripts/context.cjs"),
+            ...profile,
+          }
+        : profile,
+    );
+  }
   return createAgentRuntime({
     agentProfilesDir: profilesDir,
     llmClients: llmRegistry(options.clients),
-    hookConfigPath: rootHookConfigPath(),
+    hookConfigPath: eosAgentsPath("hooks.json"),
+    notificationRulesPath: eosAgentsPath("tests/notification-rules/none.json"),
     dataDir: join(root, "data"),
+    pursuitScriptsDir: eosAgentsPath("tests/pursuit/scripts"),
   });
 }
 
@@ -53,7 +68,7 @@ describe("advisory pass prehook (e2e)", () => {
               payload: {
                 verdict: "pass",
                 tool_name: "submit_worker_outcome",
-                payload: { summary: "done" },
+                payload: { summary: "done", is_pass: true, outcome: "done" },
                 reason: "exact payload matches",
               },
             }),
@@ -68,6 +83,8 @@ describe("advisory pass prehook (e2e)", () => {
           assistantMessage(
             toolUseBlock("tu_submit_without_pass", "submit_worker_outcome", {
               summary: "done",
+              is_pass: true,
+              outcome: "done",
             }),
           ),
           "tool_use",
@@ -78,7 +95,7 @@ describe("advisory pass prehook (e2e)", () => {
           assistantMessage(
             toolUseBlock("tu_ask", "ask_advisor", {
               tool_name: "submit_worker_outcome",
-              payload: { summary: "done" },
+              payload: { summary: "done", is_pass: true, outcome: "done" },
             }),
           ),
           "tool_use",
@@ -89,6 +106,8 @@ describe("advisory pass prehook (e2e)", () => {
           assistantMessage(
             toolUseBlock("tu_submit_after_pass", "submit_worker_outcome", {
               summary: "done",
+              is_pass: true,
+              outcome: "done",
             }),
           ),
           "tool_use",
@@ -125,7 +144,11 @@ describe("advisory pass prehook (e2e)", () => {
     const outcome = await run.handle.outcome;
 
     expect(outcome.status).toBe("completed");
-    expect(submissionOf(outcome)).toEqual({ summary: "done" });
+    expect(submissionOf(outcome)).toEqual({
+      summary: "done",
+      is_pass: true,
+      outcome: "done",
+    });
 
     const results = toolResultsIn(outcome.llm);
     const denied = must(
@@ -155,7 +178,7 @@ describe("advisory pass prehook (e2e)", () => {
     expect(callerTranscript).toBeDefined();
     expect(instruction).toEqual(
       userMessage(
-        `${advisorPrompt} Please verify against the below tool name + payload\n{"payload":{"summary":"done"},"tool_name":"submit_worker_outcome"}`,
+        `${advisorPrompt} Please verify against the below tool name + payload\n{"payload":{"is_pass":true,"outcome":"done","summary":"done"},"tool_name":"submit_worker_outcome"}`,
       ),
     );
   });

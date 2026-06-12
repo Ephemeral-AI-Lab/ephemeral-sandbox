@@ -279,6 +279,135 @@ impl TraceStore {
         Ok(())
     }
 
+    pub fn append_trace_event(&self, input: TraceEventInput<'_>) -> Result<(), TraceStoreError> {
+        let payload = HostTraceEventPayload {
+            trace_id: input.trace_id.to_string(),
+            request_id: input.request_id.map(ToString::to_string),
+            span_id: input.span_id,
+            module: input.module.to_owned(),
+            event: input.event.to_owned(),
+            details_json: BoundedJson::capture(input.details, DetailBudget::EventDetails)
+                .encoded_value(),
+            ts_us: now_ms().saturating_mul(1000),
+        };
+        let payload_bytes = encode_audit_payload(&payload);
+        let mut conn = self.lock();
+        let tx = conn.transaction()?;
+        append_audit_entry_tx(
+            &tx,
+            AuditAppend {
+                sandbox_id: input.sandbox_id,
+                trace_id: input.trace_id.as_str(),
+                request_id: input.request_id.map(RequestId::as_str),
+                entry_kind: "trace_event",
+                schema_name: AUDIT_SCHEMA,
+                schema_version: 1,
+                received_at_ms: now_ms(),
+                payload: &payload_bytes,
+                segment_id: None,
+                key_id: None,
+                signature: None,
+            },
+        )?;
+        project_host_trace_event_tx(&tx, &payload)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn record_response_persisted(
+        &self,
+        input: ResponsePersistedInput<'_>,
+    ) -> Result<(), TraceStoreError> {
+        let status = response_status(input.response);
+        let error_kind = input
+            .response
+            .get("error")
+            .and_then(|error| error.get("kind"))
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned);
+        let summary = BoundedJson::capture(input.response.clone(), DetailBudget::ResponseSummary);
+        let payload = ResponsePersistedPayload {
+            trace_id: input.trace_id.to_string(),
+            request_id: input.request_id.to_string(),
+            status: status.clone(),
+            error_kind: error_kind.clone(),
+            received_at_ms: now_ms(),
+            host_rtt_ms: input.host_rtt_ms,
+            response_digest: sha256_hex(input.raw_response_bytes),
+            response_len: usize_to_u64(input.raw_response_bytes.len()),
+            response_summary: summary.encoded_value(),
+        };
+        let payload_bytes = encode_audit_payload(&payload);
+        let mut conn = self.lock();
+        let tx = conn.transaction()?;
+        append_audit_entry_tx(
+            &tx,
+            AuditAppend {
+                sandbox_id: input.sandbox_id,
+                trace_id: input.trace_id.as_str(),
+                request_id: Some(input.request_id.as_str()),
+                entry_kind: "response_persisted",
+                schema_name: AUDIT_SCHEMA,
+                schema_version: 1,
+                received_at_ms: payload.received_at_ms,
+                payload: &payload_bytes,
+                segment_id: None,
+                key_id: None,
+                signature: None,
+            },
+        )?;
+        project_response_persisted_tx(&tx, &payload)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn record_response_missing(
+        &self,
+        input: ResponseMissingInput<'_>,
+    ) -> Result<(), TraceStoreError> {
+        let payload = ResponseMissingPayload {
+            trace_id: input.trace_id.to_string(),
+            request_id: input.request_id.to_string(),
+            status: input.status.to_owned(),
+            error_kind: input.error_kind.to_owned(),
+            message: input.message.to_owned(),
+            received_at_ms: now_ms(),
+        };
+        let payload_bytes = encode_audit_payload(&payload);
+        let mut conn = self.lock();
+        let tx = conn.transaction()?;
+        append_audit_entry_tx(
+            &tx,
+            AuditAppend {
+                sandbox_id: input.sandbox_id,
+                trace_id: input.trace_id.as_str(),
+                request_id: Some(input.request_id.as_str()),
+                entry_kind: "loss",
+                schema_name: AUDIT_SCHEMA,
+                schema_version: 1,
+                received_at_ms: payload.received_at_ms,
+                payload: &payload_bytes,
+                segment_id: None,
+                key_id: None,
+                signature: None,
+            },
+        )?;
+        tx.execute(
+            "UPDATE trace_requests
+             SET status=?2, error_kind=?3, received_at_ms=?4, response_summary=?5
+             WHERE request_id=?1",
+            params![
+                payload.request_id,
+                payload.status,
+                payload.error_kind,
+                payload.received_at_ms,
+                payload.message
+            ],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn rebuild_projections(&self) -> Result<(), TraceStoreError> {
         let mut conn = self.lock();
         let tx = conn.transaction()?;
@@ -294,12 +423,37 @@ impl TraceStore {
                     let batch = decode_trace_batch(&row.payload)?;
                     project_trace_batch_tx(&tx, &batch)?;
                 }
+                "trace_event" => {
+                    let payload = decode_audit_payload::<HostTraceEventPayload>(&row.payload)?;
+                    project_host_trace_event_tx(&tx, &payload)?;
+                }
+                "response_persisted" => {
+                    let payload = decode_audit_payload::<ResponsePersistedPayload>(&row.payload)?;
+                    project_response_persisted_tx(&tx, &payload)?;
+                }
                 "loss" => {
-                    let payload = proto::AuditEntry::decode(row.payload.as_slice())?;
-                    tx.execute(
-                        "UPDATE trace_requests SET status='uncertain' WHERE request_id=?1",
-                        params![payload.entry_id],
-                    )?;
+                    if let Ok(payload) =
+                        decode_audit_payload::<ResponseMissingPayload>(&row.payload)
+                    {
+                        tx.execute(
+                            "UPDATE trace_requests
+                             SET status=?2, error_kind=?3, received_at_ms=?4, response_summary=?5
+                             WHERE request_id=?1",
+                            params![
+                                payload.request_id,
+                                payload.status,
+                                payload.error_kind,
+                                payload.received_at_ms,
+                                payload.message
+                            ],
+                        )?;
+                    } else {
+                        let payload = proto::AuditEntry::decode(row.payload.as_slice())?;
+                        tx.execute(
+                            "UPDATE trace_requests SET status='uncertain' WHERE request_id=?1",
+                            params![payload.entry_id],
+                        )?;
+                    }
                 }
                 _ => {}
             }
@@ -722,6 +876,34 @@ pub struct RequestStartInput<'a> {
     pub forwarded_bytes: &'a [u8],
 }
 
+pub struct TraceEventInput<'a> {
+    pub sandbox_id: &'a str,
+    pub trace_id: &'a TraceId,
+    pub request_id: Option<&'a RequestId>,
+    pub span_id: Option<i64>,
+    pub module: &'a str,
+    pub event: &'a str,
+    pub details: Value,
+}
+
+pub struct ResponsePersistedInput<'a> {
+    pub sandbox_id: &'a str,
+    pub trace_id: &'a TraceId,
+    pub request_id: &'a RequestId,
+    pub response: &'a Value,
+    pub raw_response_bytes: &'a [u8],
+    pub host_rtt_ms: u64,
+}
+
+pub struct ResponseMissingInput<'a> {
+    pub sandbox_id: &'a str,
+    pub trace_id: &'a TraceId,
+    pub request_id: &'a RequestId,
+    pub status: &'a str,
+    pub error_kind: &'a str,
+    pub message: &'a str,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForwardTraceDecision {
     pub trace_id: TraceId,
@@ -837,6 +1019,40 @@ struct AuditVerifyRow {
 struct AuditHashRow {
     audit_seq: i64,
     entry_sha256: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct HostTraceEventPayload {
+    trace_id: String,
+    request_id: Option<String>,
+    span_id: Option<i64>,
+    module: String,
+    event: String,
+    details_json: String,
+    ts_us: u64,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct ResponsePersistedPayload {
+    trace_id: String,
+    request_id: String,
+    status: String,
+    error_kind: Option<String>,
+    received_at_ms: u64,
+    host_rtt_ms: u64,
+    response_digest: String,
+    response_len: u64,
+    response_summary: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct ResponseMissingPayload {
+    trace_id: String,
+    request_id: String,
+    status: String,
+    error_kind: String,
+    message: String,
+    received_at_ms: u64,
 }
 
 fn apply_pragmas(conn: &Connection) -> Result<(), rusqlite::Error> {
@@ -1033,6 +1249,52 @@ fn project_trace_batch_tx(
     Ok(())
 }
 
+fn project_host_trace_event_tx(
+    tx: &Transaction<'_>,
+    payload: &HostTraceEventPayload,
+) -> Result<(), rusqlite::Error> {
+    let seq = next_trace_seq(tx, &payload.trace_id)?;
+    tx.execute(
+        "INSERT INTO trace_events
+         (trace_id, seq, request_id, span_id, module, event, level, ts_us, details_json)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'info', ?7, ?8)",
+        params![
+            payload.trace_id,
+            seq,
+            payload.request_id,
+            payload.span_id,
+            payload.module,
+            payload.event,
+            u64_to_i64(payload.ts_us),
+            payload.details_json,
+        ],
+    )?;
+    Ok(())
+}
+
+fn project_response_persisted_tx(
+    tx: &Transaction<'_>,
+    payload: &ResponsePersistedPayload,
+) -> Result<(), rusqlite::Error> {
+    tx.execute(
+        "UPDATE trace_requests
+         SET status=?2, error_kind=?3, received_at_ms=?4, host_rtt_ms=?5,
+             response_digest=?6, response_len=?7, response_summary=?8
+         WHERE request_id=?1",
+        params![
+            payload.request_id,
+            payload.status,
+            payload.error_kind,
+            payload.received_at_ms,
+            payload.host_rtt_ms,
+            payload.response_digest,
+            payload.response_len,
+            payload.response_summary,
+        ],
+    )?;
+    Ok(())
+}
+
 fn clear_projections_tx(tx: &Transaction<'_>) -> Result<(), rusqlite::Error> {
     for table in [
         "trace_requests",
@@ -1050,7 +1312,7 @@ fn clear_projections_tx(tx: &Transaction<'_>) -> Result<(), rusqlite::Error> {
 fn audit_rows_for_rebuild(tx: &Transaction<'_>) -> Result<Vec<RebuildAuditRow>, rusqlite::Error> {
     let mut stmt = tx.prepare(
         "SELECT entry_kind, payload FROM audit_entries
-         WHERE entry_kind IN ('request_start', 'trace_batch', 'loss')
+         WHERE entry_kind IN ('request_start', 'trace_batch', 'trace_event', 'response_persisted', 'loss')
          ORDER BY audit_seq",
     )?;
     let rows = stmt
@@ -1144,6 +1406,38 @@ fn next_trace_seq(tx: &Transaction<'_>, trace_id: &str) -> Result<i64, rusqlite:
         params![trace_id],
         |row| row.get(0),
     )
+}
+
+fn encode_audit_payload<T: serde::Serialize>(payload: &T) -> Vec<u8> {
+    proto::AuditEntry {
+        entry_id: uuid::Uuid::new_v4().simple().to_string(),
+        trace_id: String::new(),
+        seq: 0,
+        payload: serde_json::to_vec(payload).expect("audit payload serializes"),
+        previous_hash: Vec::new(),
+        entry_hash: Vec::new(),
+        schema_version: "1".to_owned(),
+        written_at_unix_ms: now_ms(),
+    }
+    .encode_to_vec()
+}
+
+fn decode_audit_payload<T: serde::de::DeserializeOwned>(
+    payload: &[u8],
+) -> Result<T, prost::DecodeError> {
+    let entry = proto::AuditEntry::decode(payload)?;
+    serde_json::from_slice(&entry.payload)
+        .map_err(|err| prost::DecodeError::new(format!("decode audit payload json: {err}")))
+}
+
+fn response_status(response: &Value) -> String {
+    if response.get("success") == Some(&Value::Bool(false)) {
+        return "error".to_owned();
+    }
+    response
+        .get("status")
+        .and_then(Value::as_str)
+        .map_or_else(|| "ok".to_owned(), ToOwned::to_owned)
 }
 
 struct EntryHashInput<'a> {
@@ -1285,6 +1579,7 @@ CREATE TABLE IF NOT EXISTS trace_requests (
   host_boot_id     TEXT NOT NULL,
   modules_touched  TEXT,
   response_digest  TEXT,
+  response_len     INTEGER,
   response_summary TEXT
 );
 CREATE TABLE IF NOT EXISTS trace_spans (

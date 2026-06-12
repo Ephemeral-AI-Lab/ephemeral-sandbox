@@ -21,6 +21,7 @@ pub(crate) mod response;
 pub(crate) mod runtime_services;
 #[path = "transport/server.rs"]
 pub(crate) mod server;
+pub(crate) mod trace;
 pub mod wire;
 #[path = "runtime/workspace.rs"]
 pub(crate) mod workspace_runtime;
@@ -36,4 +37,21 @@ pub use workspace_runtime::{CallerCancel, ExitOutcome, WorkspaceEnterError, Work
 
 pub(crate) mod config {
     pub(crate) use eos_config::configs::daemon::CommandConfig;
+}
+
+#[cfg(test)]
+mod dependency_guard {
+    #[test]
+    fn daemon_manifest_excludes_host_store_and_sqlite_dependencies() {
+        let manifest = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"),
+        )
+        .expect("read daemon manifest");
+        for forbidden in ["rusqlite", "eos-sandbox-host"] {
+            assert!(
+                !manifest.contains(forbidden),
+                "daemon hot path must not depend on {forbidden}"
+            );
+        }
+    }
 }

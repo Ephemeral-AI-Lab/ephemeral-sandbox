@@ -37,6 +37,23 @@ pub struct Request {
     pub args: Value,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestTraceContext {
+    pub trace_id: String,
+    pub request_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_span_id: Option<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub link_hints: Vec<TraceLinkHint>,
+    pub capture_budget_version: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TraceLinkHint {
+    pub kind: String,
+    pub value: String,
+}
+
 /// Daemon error response (`success:false`). `warnings`/`timings` are always
 /// `[]`/`{}` at the builder.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

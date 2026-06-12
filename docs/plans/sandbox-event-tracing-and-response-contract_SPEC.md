@@ -54,8 +54,8 @@ Current phase status:
 | Phase | Status | Completion evidence |
 | --- | --- | --- |
 | Phase 01 - Contracts first | Complete | `cargo test -p eos-trace -p eos-operation` passed on 2026-06-12 after adding `eos-trace`, protobuf codec/layer tests, `OperationEnvelope`, and the temporary v1 flattening adapter. |
-| Phase 02 - Host store | Pending | |
-| Phase 03 - Gateway, host, and daemon propagation | Blocked | |
+| Phase 02 - Host store | Complete | `cargo test -p eos-sandbox-host` passed on 2026-06-12 after adding the host SQLite trace store, request-start fail-closed gate, projection rebuild, startup reconciliation, seal/prune verification, and indexed acceptance-query tests. |
+| Phase 03 - Gateway, host, and daemon propagation | In progress | Additive request trace context, daemon protobuf sidecar assembly, host sidecar ingest/strip, and gateway declassification landed; `cargo test -p eos-daemon -p eos-sandbox-host -p eos-sandbox-gateway` passed on 2026-06-12. Remaining Phase 03 work: full transport event coverage, export spool/drainer, crash-log boot events, and end-to-end replay assertions. |
 | Phase 04 - Subsystem events and resource stats | Blocked | |
 | Phase 05 - Response and e2e migration | Blocked | |
 | Phase 06 - Debt deletion | Blocked | |
@@ -1945,30 +1945,30 @@ shapes. Phase 02 remains Blocked until then.
 
 Acceptance checklist:
 
-- [ ] `eos-sandbox-host` owns `trace_store.rs` and DDL for append-only
+- [x] `eos-sandbox-host` owns `trace_store.rs` and DDL for append-only
   `audit_entries`, hash chain fields, segment seals, trace/span/event/resource/
   link/heartbeat projections, and `user_version` migrations.
-- [ ] Mutating ops append and durably commit `RequestStart` before forwarding;
+- [x] Mutating ops append and durably commit `RequestStart` before forwarding;
   if that append fails, the op is not forwarded.
-- [ ] Read-only ops can proceed with a chained `trace_degraded` marker when
+- [x] Read-only ops can proceed with a chained `trace_degraded` marker when
   the store is unavailable.
-- [ ] Sidecar ingest assigns gap-free host `seq` per `trace_id`, rebuilds
+- [x] Sidecar ingest assigns gap-free host `seq` per `trace_id`, rebuilds
   projections from canonical protobuf bytes, and exposes lookup helpers by
   `trace_id`, `request_id`, and link ids.
-- [ ] Host startup records `host_boot`, reconciles prior incomplete rows to
+- [x] Host startup records `host_boot`, reconciles prior incomplete rows to
   `uncertain`, and refuses to open newer `user_version` databases.
-- [ ] Pruning writes tombstone/range proof entries and never removes unsealed
+- [x] Pruning writes tombstone/range proof entries and never removes unsealed
   canonical data.
-- [ ] `cargo test -p eos-sandbox-host`
-- [ ] Store tests cover fail-closed mutating forwarding, read-only degraded
+- [x] `cargo test -p eos-sandbox-host`
+- [x] Store tests cover fail-closed mutating forwarding, read-only degraded
   forwarding, tamper detection, segment-signature verification, projection
   rebuild, startup reconciliation, and refuse-newer-version behavior.
-- [ ] SQLite posture test asserts `journal_mode=WAL`, `synchronous=FULL` on the
+- [x] SQLite posture test asserts `journal_mode=WAL`, `synchronous=FULL` on the
   live connection used for request-start appends.
-- [ ] `EXPLAIN QUERY PLAN` tests cover all acceptance queries in this spec.
-- [ ] Seal -> prune -> verify reports the pruned range and still validates the
+- [x] `EXPLAIN QUERY PLAN` tests cover all acceptance queries in this spec.
+- [x] Seal -> prune -> verify reports the pruned range and still validates the
   retained chain.
-- [ ] Update the progress tracker with Phase 02 evidence and mark Phase 02
+- [x] Update the progress tracker with Phase 02 evidence and mark Phase 02
   `Complete`.
 
 Phase gate:

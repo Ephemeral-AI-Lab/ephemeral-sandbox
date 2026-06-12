@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
+import { eosAgentsPath } from "@eos/testkit";
 import { z } from "zod";
 
 import {
@@ -16,13 +17,7 @@ export type ConfiguredCodexRuntime =
   | { available: false; reason: string };
 
 function defaultConfigPath(env: NodeJS.ProcessEnv): string {
-  if (env.EOS_LLM_CLIENTS_PATH !== undefined) return env.EOS_LLM_CLIENTS_PATH;
-
-  const candidates = [
-    resolve(process.cwd(), ".eos-agents", "llm_clients.json"),
-    resolve(process.cwd(), "..", ".eos-agents", "llm_clients.json"),
-  ];
-  return candidates.find((path) => existsSync(path)) ?? candidates[1];
+  return env.EOS_LLM_CLIENTS_PATH ?? eosAgentsPath("llm_clients.json");
 }
 
 /**

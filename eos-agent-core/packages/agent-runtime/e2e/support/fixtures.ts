@@ -1,11 +1,10 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { assistantText, type JsonObject, type Message } from "@eos/contracts";
 import type { AgentRunOutcome } from "@eos/engine";
-import { scriptedTool } from "@eos/testkit";
-import { defineTool, type HookConfigEntry, type ToolDefinition } from "@eos/tool";
+import { eosAgentsPath, scriptedTool } from "@eos/testkit";
+import { defineTool, type ToolDefinition } from "@eos/tool";
 import { z } from "zod";
 
 import { loadHookConfig } from "../../src/hook-config.js";
@@ -57,20 +56,6 @@ const ADVISORY_REQUIRED_SUBMISSION_TOOL_NAMES = new Set<string>([
   "submit_planner_outcome",
   "submit_worker_outcome",
 ]);
-
-export function rootHookConfigPath(): string {
-  return join(
-    dirname(fileURLToPath(import.meta.url)),
-    "../../../../../.eos-agents/hooks.json",
-  );
-}
-
-export function rootNotificationRulesPath(): string {
-  return join(
-    dirname(fileURLToPath(import.meta.url)),
-    "../../../../../.eos-agents/notification_rules.json",
-  );
-}
 
 /** A subagent that settles immediately with a fixed summary. */
 export const HELPER_BODY = [
@@ -290,8 +275,11 @@ export interface RuntimeFixtureOptions {
   llmClientsPath: string;
   profiles: readonly ProfileSpec[];
   baseTools?: ToolDefinition[];
-  /** Extra hooks appended to the repo `.eos-agents/hooks.json` baseline. */
-  hookEntries?: readonly HookConfigEntry[];
+  /**
+   * A checked-in `.eos-agents/tests/hooks/*.json` entry file whose hooks
+   * are appended to the repo `.eos-agents/hooks.json` baseline.
+   */
+  extraHooksPath?: string;
 }
 
 export interface RuntimeFixture {
@@ -311,12 +299,15 @@ export function runtimeFixture(options: RuntimeFixtureOptions): RuntimeFixture {
   for (const spec of profilesWithAdvisor(options.profiles)) {
     writeProfile(profilesDir, advisoryReadyProfile(spec));
   }
-  let hookConfigPath = rootHookConfigPath();
-  if (options.hookEntries !== undefined) {
+  let hookConfigPath = eosAgentsPath("hooks.json");
+  if (options.extraHooksPath !== undefined) {
     hookConfigPath = join(root, "hooks.json");
     writeFileSync(
       hookConfigPath,
-      JSON.stringify([...loadHookConfig(rootHookConfigPath()), ...options.hookEntries]),
+      JSON.stringify([
+        ...loadHookConfig(eosAgentsPath("hooks.json")),
+        ...loadHookConfig(options.extraHooksPath),
+      ]),
     );
   }
   const dataDir = join(root, "data");
@@ -325,7 +316,7 @@ export function runtimeFixture(options: RuntimeFixtureOptions): RuntimeFixture {
     llmClientsPath: options.llmClientsPath,
     baseTools: options.baseTools,
     hookConfigPath,
-    notificationRulesPath: rootNotificationRulesPath(),
+    notificationRulesPath: eosAgentsPath("notification_rules.json"),
     dataDir,
   });
   return { runtime, dataDir };

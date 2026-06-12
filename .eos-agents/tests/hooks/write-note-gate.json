@@ -1,0 +1,7 @@
+[
+  {
+    "event": "PreToolUse",
+    "matcher": "write_note",
+    "hooks": [{ "type": "command", "command": "node read-before-write.cjs" }]
+  }
+]

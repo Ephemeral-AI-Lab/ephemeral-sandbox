@@ -106,6 +106,66 @@ fn sidecar_ingest_rebuilds_lookup_projections_from_audit_entries() -> Result<(),
 }
 
 #[test]
+fn response_finalization_and_host_events_rebuild_from_audit_entries() -> Result<(), TraceStoreError>
+{
+    let store = temp_store("response-finalization")?;
+    let request = request_input("sb-1", "sandbox.file.read", false, "request-finalized");
+    let trace_id = request.trace_id.clone();
+    let request_id = request.request_id.clone();
+    store.append_request_start(request)?;
+
+    store.append_trace_event(TraceEventInput {
+        sandbox_id: "sb-1",
+        trace_id: &trace_id,
+        request_id: Some(&request_id),
+        span_id: None,
+        module: "host.transport",
+        event: "connect_failed",
+        details: json!({"endpoint": "127.0.0.1:9", "error_kind": "connect_failed"}),
+    })?;
+    let response = json!({"success": true, "content": "ok"});
+    let raw = br#"{"success":true,"content":"ok","_trace_events":"encoded"}"#;
+    store.record_response_persisted(ResponsePersistedInput {
+        sandbox_id: "sb-1",
+        trace_id: &trace_id,
+        request_id: &request_id,
+        response: &response,
+        raw_response_bytes: raw,
+        host_rtt_ms: 17,
+    })?;
+
+    let row = store
+        .request_by_id(request_id.as_str())?
+        .expect("request row");
+    assert_eq!(row.status.as_deref(), Some("ok"));
+    assert_eq!(store.events_for_trace(trace_id.as_str())?.len(), 1);
+
+    store.rebuild_projections()?;
+    let rebuilt = store
+        .request_by_id(request_id.as_str())?
+        .expect("rebuilt request row");
+    assert_eq!(rebuilt.status.as_deref(), Some("ok"));
+    assert_eq!(
+        store.events_for_trace(trace_id.as_str())?[0].event,
+        "connect_failed"
+    );
+
+    store.record_response_missing(ResponseMissingInput {
+        sandbox_id: "sb-1",
+        trace_id: &trace_id,
+        request_id: &request_id,
+        status: "uncertain",
+        error_kind: "read_timeout",
+        message: "daemon response timed out",
+    })?;
+    let missing = store
+        .request_by_id(request_id.as_str())?
+        .expect("missing response row");
+    assert_eq!(missing.status.as_deref(), Some("uncertain"));
+    Ok(())
+}
+
+#[test]
 fn startup_reconciles_prior_boot_incomplete_requests_to_uncertain() -> Result<(), TraceStoreError> {
     let dir = temp_dir("reconcile");
     {

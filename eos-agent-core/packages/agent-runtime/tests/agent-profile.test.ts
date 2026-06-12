@@ -1,8 +1,8 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
-import { scriptedTool } from "@eos/testkit";
+import { eosAgentsPath, scriptedTool } from "@eos/testkit";
 
 import { loadAgentProfile } from "../src/agent-profile-loader.js";
 import {
@@ -12,34 +12,11 @@ import {
 } from "../src/agent-profile-registry.js";
 import { tempDir, writeProfile, type ProfileSpec } from "./support.js";
 
-/** The §4 worker example, verbatim frontmatter shape. */
-const WORKER_PROFILE = `---
-name: worker
-description: Worker
-llm_client_id: codex_coding_plan
-max_turns: 100
-agent_kind: worker
-allowed_tools:
-  - read
-  - multi_read
-  - write
-  - edit
-  - exec_command
-  - command_stdin
-  - read_command_transcript
-  - list_background_sessions
-  - cancel_background_session
-  - ask_advisor
-terminal_tool: submit_worker_outcome
-pursuit_context_script: .eos-agents/pursuit/scripts/worker.cjs
----
+/** The REAL repo profile directory: the §4 worker example lives there. */
+const REAL_PROFILE_DIR = eosAgentsPath("profile");
 
-You are the worker for one assigned work item.
-
-Before terminal submission, call \`ask_advisor\` with
-\`tool_name="submit_worker_outcome"\` and the exact payload you intend to
-send.
-`;
+/** The repo worker profile, the base every mutation case breaks one way. */
+const WORKER_PROFILE = readFileSync(eosAgentsPath("profile/worker.md"), "utf8");
 
 const SANDBOX_NAMES = [
   "read",
@@ -77,9 +54,8 @@ function workerDir(): string {
 }
 
 describe("agent profile loader and registry", () => {
-  it("loads the worker-format Markdown profile by agent name (§13.1)", () => {
-    const dir = workerDir();
-    const registry = loadAgentProfileRegistry(dir, KNOWN);
+  it("loads the REAL repo worker profile by agent name (§13.1)", () => {
+    const registry = loadAgentProfileRegistry(REAL_PROFILE_DIR, KNOWN);
     const profile = registry.require("worker");
     expect(profile).toMatchObject({
       name: "worker",
@@ -89,7 +65,7 @@ describe("agent profile loader and registry", () => {
       agent_kind: "worker",
       terminal_tool: "submit_worker_outcome",
       pursuit_context_script: ".eos-agents/pursuit/scripts/worker.cjs",
-      source_path: join(dir, "worker.md"),
+      source_path: join(REAL_PROFILE_DIR, "worker.md"),
     });
     expect(profile.allowed_tools).toEqual([
       ...SANDBOX_NAMES,
@@ -105,9 +81,9 @@ describe("agent profile loader and registry", () => {
   });
 
   it("throws on an unknown agent name, naming the known ones", () => {
-    const registry = loadAgentProfileRegistry(workerDir(), KNOWN);
+    const registry = loadAgentProfileRegistry(REAL_PROFILE_DIR, KNOWN);
     expect(() => registry.require("nobody")).toThrow(
-      'unknown agent profile "nobody" (known: worker)',
+      'unknown agent profile "nobody" (known: planner, worker)',
     );
   });
 
@@ -259,7 +235,7 @@ describe("agent profile loader and registry", () => {
   });
 
   it("selects exactly allowed_tools + terminal_tool from the available definitions (§2.8)", () => {
-    const registry = loadAgentProfileRegistry(workerDir(), KNOWN);
+    const registry = loadAgentProfileRegistry(REAL_PROFILE_DIR, KNOWN);
     const profile = registry.require("worker");
     const define = (name: string): ReturnType<typeof scriptedTool> =>
       scriptedTool({ name, execute: () => Promise.resolve({ content: name }) });

@@ -1,22 +1,28 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Result};
+use base64::Engine as _;
 use serde_json::{json, Value};
+use sha2::Digest as _;
 
 use crate::protocol::{
-    encode_request_with_metadata, is_success, ClientError, ProtocolClient, CONNECT_RETRY_DELAYS_S,
-    DEFAULT_LAYER_STACK_ROOT, HEARTBEAT_OP, READY_OP,
+    encode_request_with_metadata, encode_request_with_trace_metadata, is_success,
+    take_trace_sidecar, ClientError, ProtocolClient, TraceWireContext, TraceWireLinkHint,
+    CONNECT_RETRY_DELAYS_S, DEFAULT_LAYER_STACK_ROOT, HEARTBEAT_OP, READY_OP,
 };
 use crate::runtime::{
     container_labels, docker, resolve_published_addr, running_container_ids, ContainerLifetime,
     ContainerSpec, DaemonContainer, DaemonSpec,
 };
-use crate::trace_store::{RequestStartInput, TraceStore, TraceStoreError};
+use crate::trace_store::{
+    RequestStartInput, ResponseMissingInput, ResponsePersistedInput, TraceEventInput, TraceStore,
+    TraceStoreError,
+};
 use eos_trace::{RequestId, TraceId};
 
 #[derive(Debug, Clone)]
@@ -60,11 +66,49 @@ pub struct SandboxStatus {
     pub daemon: Value,
 }
 
+#[derive(Debug, Clone)]
+pub struct ForwardTraceContext {
+    pub trace_id: TraceId,
+    pub request_id: RequestId,
+    pub parent_span_id: Option<u64>,
+    pub link_hints: Vec<TraceWireLinkHint>,
+    pub gateway_events: Vec<ForwardTraceEvent>,
+}
+
+impl ForwardTraceContext {
+    #[must_use]
+    pub fn new(invocation_id: &str) -> Self {
+        Self {
+            trace_id: TraceId::new(),
+            request_id: RequestId::parse(invocation_id.to_owned()).unwrap_or_default(),
+            parent_span_id: None,
+            link_hints: Vec::new(),
+            gateway_events: Vec::new(),
+        }
+    }
+
+    pub fn push_gateway_event(&mut self, module: &str, event: &str, details: Value) {
+        self.gateway_events.push(ForwardTraceEvent {
+            module: module.to_owned(),
+            event: event.to_owned(),
+            details,
+        });
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ForwardTraceEvent {
+    pub module: String,
+    pub event: String,
+    pub details: Value,
+}
+
 pub struct SandboxHost {
     config: HostConfig,
     config_yaml: String,
     registry: SandboxRegistry,
-    trace_store: TraceStore,
+    trace_store: Arc<TraceStore>,
+    trace_drainer: TraceExportDrainer,
 }
 
 impl SandboxHost {
@@ -77,12 +121,13 @@ impl SandboxHost {
         })?;
         let registry = SandboxRegistry::open(config.state_dir.clone())?;
         registry.rebuild_from_docker();
-        let trace_store = TraceStore::open(&config.state_dir)?;
+        let trace_store = Arc::new(TraceStore::open(&config.state_dir)?);
         Ok(Self {
             config,
             config_yaml,
             registry,
             trace_store,
+            trace_drainer: TraceExportDrainer::default(),
         })
     }
 
@@ -169,11 +214,55 @@ impl SandboxHost {
             &record,
             &self.config,
             &self.trace_store,
+            &self.trace_drainer,
+            ForwardTraceContext::new(invocation_id),
             mutates_state,
             op,
             invocation_id,
             args,
         ))
+    }
+
+    pub fn forward_with_trace(
+        &self,
+        sandbox_id: &str,
+        mutates_state: bool,
+        op: &str,
+        invocation_id: &str,
+        args: &Value,
+        trace: ForwardTraceContext,
+    ) -> Option<Result<Value, ForwardError>> {
+        let record = self.registry.get(sandbox_id)?;
+        Some(forward_request(
+            &record,
+            &self.config,
+            &self.trace_store,
+            &self.trace_drainer,
+            trace,
+            mutates_state,
+            op,
+            invocation_id,
+            args,
+        ))
+    }
+
+    pub fn record_trace_event(
+        &self,
+        sandbox_id: &str,
+        trace: &ForwardTraceContext,
+        module: &str,
+        event: &str,
+        details: Value,
+    ) {
+        let _ = self.trace_store.append_trace_event(TraceEventInput {
+            sandbox_id,
+            trace_id: &trace.trace_id,
+            request_id: Some(&trace.request_id),
+            span_id: None,
+            module,
+            event,
+            details,
+        });
     }
 
     fn probe_readiness(&self, record: &SandboxRecord) -> Value {
@@ -384,23 +473,31 @@ fn resolve_endpoint(record: &SandboxRecord) -> Result<SocketAddr> {
 fn forward_request(
     record: &SandboxRecord,
     config: &HostConfig,
-    trace_store: &TraceStore,
+    trace_store: &Arc<TraceStore>,
+    trace_drainer: &TraceExportDrainer,
+    trace_context: ForwardTraceContext,
     mutates_state: bool,
     op: &str,
     invocation_id: &str,
     args: &Value,
 ) -> Result<Value, ForwardError> {
-    let mut tcp_line = encode_request_with_metadata(op, invocation_id, args, Some(&record.token));
+    let trace = TraceWireContext {
+        trace_id: trace_context.trace_id.to_string(),
+        request_id: trace_context.request_id.to_string(),
+        parent_span_id: trace_context.parent_span_id,
+        link_hints: trace_context.link_hints.clone(),
+        capture_budget_version: 1,
+    };
+    let mut tcp_line =
+        encode_request_with_trace_metadata(op, invocation_id, args, Some(&record.token), &trace);
     tcp_line.push(b'\n');
-    let request_id = RequestId::parse(invocation_id.to_owned()).unwrap_or_default();
-    let trace_id = TraceId::new();
     let family = host_family_from_op(op);
     let caller_id = args.get("caller_id").and_then(Value::as_str);
-    trace_store
+    let decision = trace_store
         .prepare_forward(RequestStartInput {
             sandbox_id: &record.sandbox_id,
-            trace_id,
-            request_id,
+            trace_id: trace_context.trace_id.clone(),
+            request_id: trace_context.request_id.clone(),
             op,
             family: &family,
             caller_id,
@@ -412,13 +509,128 @@ fn forward_request(
     let attempt = ForwardAttempt {
         record,
         config,
+        trace_store: trace_store.as_ref(),
+        trace_id: decision.trace_id,
+        request_id: decision.request_id,
         mutates_state,
         tcp_line,
         op,
         invocation_id,
         args,
     };
-    run_recovery(&attempt)
+    if decision.degraded {
+        record_event(
+            &attempt,
+            "host.protocol",
+            "trace_degraded",
+            json!({"op": op, "mutates_state": mutates_state}),
+        );
+    }
+    for event in trace_context.gateway_events {
+        record_event(&attempt, &event.module, &event.event, event.details.clone());
+    }
+    record_event(
+        &attempt,
+        "host.protocol",
+        "forward_started",
+        json!({"op": op, "family": family, "mutates_state": mutates_state}),
+    );
+    let result = run_recovery(&attempt);
+    match &result {
+        Ok(response) => {
+            record_event(
+                &attempt,
+                "host.protocol",
+                "forward_finished",
+                json!({"op": op, "status": response_status(response)}),
+            );
+            trace_drainer.schedule(record, config, Arc::clone(trace_store));
+        }
+        Err(err) => record_event(
+            &attempt,
+            "host.protocol",
+            "forward_failed",
+            json!({"op": op, "error_kind": forward_error_kind(err), "message": err.to_string()}),
+        ),
+    }
+    result
+}
+
+#[derive(Clone, Default)]
+struct TraceExportDrainer {
+    in_flight: Arc<Mutex<HashSet<String>>>,
+}
+
+impl TraceExportDrainer {
+    fn schedule(&self, record: &SandboxRecord, config: &HostConfig, trace_store: Arc<TraceStore>) {
+        let sandbox_id = record.sandbox_id.clone();
+        {
+            let mut in_flight = self
+                .in_flight
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            if !in_flight.insert(sandbox_id.clone()) {
+                return;
+            }
+        }
+
+        let target = TraceDrainTarget {
+            sandbox_id,
+            token: record.token.clone(),
+            endpoint: record.cached_endpoint(),
+            request_timeout: config.request_timeout,
+        };
+        let drainer = self.clone();
+        std::thread::spawn(move || {
+            let _ = drain_trace_export_once(&target, &trace_store);
+            drainer.finish(&target.sandbox_id);
+        });
+    }
+
+    fn finish(&self, sandbox_id: &str) {
+        self.in_flight
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(sandbox_id);
+    }
+}
+
+struct TraceDrainTarget {
+    sandbox_id: String,
+    token: String,
+    endpoint: Option<SocketAddr>,
+    request_timeout: Duration,
+}
+
+fn drain_trace_export_once(
+    target: &TraceDrainTarget,
+    trace_store: &TraceStore,
+) -> anyhow::Result<()> {
+    let Some(endpoint) = target.endpoint else {
+        return Ok(());
+    };
+    let client = ProtocolClient::new(endpoint, None, target.request_timeout);
+    let args = json!({"max_records": 64});
+    let mut line = encode_request_with_metadata(
+        "sandbox.trace.export",
+        "trace-export-drain",
+        &args,
+        Some(&target.token),
+    );
+    line.push(b'\n');
+    let mut response = client.request_raw_observed(&line)?;
+    if let Some(sidecar) = take_trace_sidecar(&mut response.value) {
+        let _ = trace_store.ingest_trace_batch(&target.sandbox_id, &sidecar);
+    }
+    if let Some(encoded) = response
+        .value
+        .get("trace_batch_base64")
+        .and_then(Value::as_str)
+    {
+        let batch = base64::engine::general_purpose::STANDARD.decode(encoded)?;
+        let _ = trace_store.ingest_trace_batch(&target.sandbox_id, &batch);
+    }
+    Ok(())
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -438,6 +650,9 @@ fn host_family_from_op(op: &str) -> String {
 struct ForwardAttempt<'a> {
     record: &'a SandboxRecord,
     config: &'a HostConfig,
+    trace_store: &'a TraceStore,
+    trace_id: TraceId,
+    request_id: RequestId,
     mutates_state: bool,
     tcp_line: Vec<u8>,
     op: &'a str,
@@ -455,20 +670,50 @@ fn run_recovery(attempt: &ForwardAttempt<'_>) -> Result<Value, ForwardError> {
 
     let endpoint = match cached_or_resolve_endpoint(attempt.record) {
         Ok(addr) => addr,
-        Err(err) => return fallback_chain(attempt, &unavailable("resolve endpoint", &err)),
+        Err(err) => {
+            record_event(
+                attempt,
+                "host.transport",
+                "endpoint_refresh_failed",
+                json!({"reason": "resolve endpoint", "error": err.to_string()}),
+            );
+            return fallback_chain(attempt, &unavailable("resolve endpoint", &err));
+        }
     };
     match tcp_with_connect_backoff(attempt, endpoint) {
         Ok(value) => Ok(value),
         Err(err) if err.is_connect_failure() => match resolve_endpoint(attempt.record) {
-            Ok(addr) => match tcp_once(attempt, addr) {
-                Ok(value) => Ok(value),
-                Err(err) => fallback_chain(attempt, &unavailable("retry after re-resolve", &err)),
-            },
+            Ok(addr) => {
+                record_event(
+                    attempt,
+                    "host.transport",
+                    "endpoint_refreshed",
+                    json!({"old_endpoint": endpoint.to_string(), "new_endpoint": addr.to_string()}),
+                );
+                match tcp_once(attempt, addr, retry_attempt_index()) {
+                    Ok(value) => Ok(value),
+                    Err(err) => {
+                        fallback_chain(attempt, &unavailable("retry after re-resolve", &err))
+                    }
+                }
+            }
             Err(err) => fallback_chain(attempt, &unavailable("re-resolve endpoint", &err)),
         },
         Err(err) => {
             if attempt.mutates_state {
                 restore_if_unreachable(attempt);
+                record_missing(
+                    attempt,
+                    "uncertain",
+                    client_error_kind(&err),
+                    &format!("delivery-ambiguous daemon transport failure: {err}"),
+                );
+                record_event(
+                    attempt,
+                    "host.protocol",
+                    "uncertain_outcome",
+                    json!({"error_kind": client_error_kind(&err), "message": err.to_string()}),
+                );
                 return Err(ForwardError::UncertainOutcome(format!(
                     "{}: {err}",
                     attempt.record.sandbox_id
@@ -494,21 +739,29 @@ fn restore_if_unreachable(attempt: &ForwardAttempt<'_>) {
     if probe.is_some_and(|resp| is_success(&resp)) {
         return;
     }
-    let _ = respawn_and_gate(attempt);
+    let _ = respawn_and_gate_traced(attempt);
 }
 
 fn tcp_with_connect_backoff(
     attempt: &ForwardAttempt<'_>,
     endpoint: std::net::SocketAddr,
 ) -> Result<Value, ClientError> {
-    let mut last = match tcp_once(attempt, endpoint) {
+    let mut attempt_index = 0_u32;
+    let mut last = match tcp_once(attempt, endpoint, attempt_index) {
         Ok(value) => return Ok(value),
         Err(err) if err.is_connect_failure() => err,
         Err(err) => return Err(err),
     };
     for delay_s in CONNECT_RETRY_DELAYS_S {
+        attempt_index = attempt_index.saturating_add(1);
+        record_event(
+            attempt,
+            "host.transport",
+            "retry_scheduled",
+            json!({"attempt_index": attempt_index, "delay_ms": duration_ms(Duration::from_secs_f64(delay_s)), "reason": client_error_kind(&last)}),
+        );
         std::thread::sleep(Duration::from_secs_f64(delay_s));
-        match tcp_once(attempt, endpoint) {
+        match tcp_once(attempt, endpoint, attempt_index) {
             Ok(value) => return Ok(value),
             Err(err) if err.is_connect_failure() => last = err,
             Err(err) => return Err(err),
@@ -520,22 +773,99 @@ fn tcp_with_connect_backoff(
 fn tcp_once(
     attempt: &ForwardAttempt<'_>,
     endpoint: std::net::SocketAddr,
+    attempt_index: u32,
 ) -> Result<Value, ClientError> {
     let client = ProtocolClient::new(endpoint, None, attempt.config.request_timeout);
-    client.request_raw(&attempt.tcp_line)
+    record_event(
+        attempt,
+        "host.transport",
+        "connect_started",
+        json!({
+            "sandbox_id": attempt.record.sandbox_id,
+            "endpoint": endpoint.to_string(),
+            "resolved_addr": endpoint.to_string(),
+            "attempt_index": attempt_index,
+            "timeout_ms": duration_ms(attempt.config.request_timeout),
+        }),
+    );
+    let started = Instant::now();
+    let mut response = match client.request_raw_observed(&attempt.tcp_line) {
+        Ok(response) => response,
+        Err(err) => {
+            record_client_error(attempt, endpoint, attempt_index, started, &err);
+            return Err(err);
+        }
+    };
+    let elapsed = elapsed_us(started);
+    record_event(
+        attempt,
+        "host.transport",
+        "connect_finished",
+        json!({
+            "sandbox_id": attempt.record.sandbox_id,
+            "endpoint": endpoint.to_string(),
+            "resolved_addr": endpoint.to_string(),
+            "attempt_index": attempt_index,
+            "connect_duration_us": elapsed,
+        }),
+    );
+    record_event(
+        attempt,
+        "host.transport",
+        "request_written",
+        json!({
+            "request_bytes": attempt.tcp_line.len(),
+            "protocol_version": crate::protocol::DAEMON_PROTOCOL_VERSION,
+            "auth_token_present": true,
+            "write_duration_us": elapsed,
+        }),
+    );
+    let sidecar_ingested = ingest_and_strip_sidecar(attempt, &mut response.value);
+    record_event(
+        attempt,
+        "host.transport",
+        "response_read",
+        json!({
+            "response_bytes": response.raw_bytes.len(),
+            "read_duration_us": elapsed,
+            "response_digest": sha256_hex(&response.raw_bytes),
+            "sidecar_ingested": sidecar_ingested,
+        }),
+    );
+    record_response_persisted(
+        attempt,
+        &response.value,
+        &response.raw_bytes,
+        elapsed / 1000,
+    );
+    Ok(response.value)
 }
 
 fn fallback_chain(
     attempt: &ForwardAttempt<'_>,
     failure: &ForwardError,
 ) -> Result<Value, ForwardError> {
+    record_event(
+        attempt,
+        "host.transport",
+        "fallback_chain_started",
+        json!({"sandbox_id": attempt.record.sandbox_id, "reason": failure.to_string()}),
+    );
     if let Ok(value) = exec_thin_client(attempt) {
         return Ok(value);
     }
-    respawn_and_gate(attempt).map_err(|err| {
-        ForwardError::SandboxUnavailable(format!("{failure}; respawn failed: {err:#}"))
+    respawn_and_gate_traced(attempt).map_err(|err| {
+        let message = format!("{failure}; respawn failed: {err:#}");
+        record_missing(attempt, "error", "sandbox_unavailable", &message);
+        ForwardError::SandboxUnavailable(message)
     })?;
     if attempt.mutates_state {
+        record_missing(
+            attempt,
+            "uncertain",
+            "uncertain_outcome",
+            "daemon respawned after a delivery-ambiguous failure",
+        );
         return Err(ForwardError::UncertainOutcome(format!(
             "{}: daemon respawned after a delivery-ambiguous failure; the original outcome is unknowable",
             attempt.record.sandbox_id
@@ -544,8 +874,11 @@ fn fallback_chain(
     let endpoint = resolve_endpoint(attempt.record).map_err(|err| {
         ForwardError::SandboxUnavailable(format!("resolve after respawn: {err:#}"))
     })?;
-    tcp_once(attempt, endpoint)
-        .map_err(|err| ForwardError::SandboxUnavailable(format!("replay after respawn: {err}")))
+    tcp_once(attempt, endpoint, retry_attempt_index()).map_err(|err| {
+        let message = format!("replay after respawn: {err}");
+        record_missing(attempt, "error", client_error_kind(&err), &message);
+        ForwardError::SandboxUnavailable(message)
+    })
 }
 
 fn exec_thin_client(attempt: &ForwardAttempt<'_>) -> anyhow::Result<Value> {
@@ -561,19 +894,100 @@ fn exec_thin_client(attempt: &ForwardAttempt<'_>) -> anyhow::Result<Value> {
         .remote_eosd_path
         .to_string_lossy()
         .into_owned();
-    let payload = String::from_utf8(encode_request_with_metadata(
+    let trace = TraceWireContext {
+        trace_id: attempt.trace_id.to_string(),
+        request_id: attempt.request_id.to_string(),
+        parent_span_id: None,
+        link_hints: Vec::new(),
+        capture_budget_version: 1,
+    };
+    let payload = String::from_utf8(encode_request_with_trace_metadata(
         attempt.op,
         attempt.invocation_id,
         attempt.args,
         None,
+        &trace,
     ))?;
-    let stdout = container.exec(&[&eosd, "daemon", "--client", &socket, &payload])?;
-    Ok(serde_json::from_str(stdout.trim())?)
+    record_event(
+        attempt,
+        "host.transport",
+        "exec_client_started",
+        json!({
+            "sandbox_id": attempt.record.sandbox_id,
+            "container": attempt.record.container,
+            "remote_socket_path": socket,
+            "mutates_state": attempt.mutates_state,
+        }),
+    );
+    let started = Instant::now();
+    let stdout = match container.exec(&[&eosd, "daemon", "--client", &socket, &payload]) {
+        Ok(stdout) => stdout,
+        Err(err) => {
+            record_event(
+                attempt,
+                "host.transport",
+                "exec_client_failed",
+                json!({"duration_us": elapsed_us(started), "error_kind": "exec_failed", "message": err.to_string()}),
+            );
+            return Err(err);
+        }
+    };
+    let mut value = serde_json::from_str(stdout.trim())?;
+    let sidecar_ingested = ingest_and_strip_sidecar(attempt, &mut value);
+    record_event(
+        attempt,
+        "host.transport",
+        "exec_client_finished",
+        json!({"duration_us": elapsed_us(started), "sidecar_ingested": sidecar_ingested}),
+    );
+    record_response_persisted(
+        attempt,
+        &value,
+        stdout.as_bytes(),
+        elapsed_us(started) / 1000,
+    );
+    Ok(value)
 }
 
-fn respawn_and_gate(attempt: &ForwardAttempt<'_>) -> anyhow::Result<()> {
+fn ingest_and_strip_sidecar(attempt: &ForwardAttempt<'_>, response: &mut Value) -> bool {
+    if let Some(batch) = take_trace_sidecar(response) {
+        let _ = attempt
+            .trace_store
+            .ingest_trace_batch(&attempt.record.sandbox_id, &batch);
+        return true;
+    }
+    false
+}
+
+fn respawn_and_gate_traced(attempt: &ForwardAttempt<'_>) -> anyhow::Result<()> {
     let daemon = attempt.config.daemon_spec(attempt.record.tcp_port);
-    handle(attempt).restart_daemon(&daemon)
+    record_event(
+        attempt,
+        "host.transport",
+        "daemon_respawn_started",
+        json!({"sandbox_id": attempt.record.sandbox_id, "container": attempt.record.container}),
+    );
+    let started = Instant::now();
+    match handle(attempt).restart_daemon(&daemon) {
+        Ok(()) => {
+            record_event(
+                attempt,
+                "host.transport",
+                "daemon_respawn_finished",
+                json!({"duration_us": elapsed_us(started)}),
+            );
+            Ok(())
+        }
+        Err(err) => {
+            record_event(
+                attempt,
+                "host.transport",
+                "daemon_respawn_failed",
+                json!({"duration_us": elapsed_us(started), "error_kind": "respawn_failed", "message": err.to_string()}),
+            );
+            Err(err)
+        }
+    }
 }
 
 fn handle(attempt: &ForwardAttempt<'_>) -> DaemonContainer {
@@ -583,6 +997,142 @@ fn handle(attempt: &ForwardAttempt<'_>) -> DaemonContainer {
         &attempt.config.daemon_spec(attempt.record.tcp_port),
         attempt.record.cached_endpoint(),
     )
+}
+
+fn record_client_error(
+    attempt: &ForwardAttempt<'_>,
+    endpoint: SocketAddr,
+    attempt_index: u32,
+    started: Instant,
+    error: &ClientError,
+) {
+    let details = json!({
+        "sandbox_id": attempt.record.sandbox_id,
+        "endpoint": endpoint.to_string(),
+        "resolved_addr": endpoint.to_string(),
+        "attempt_index": attempt_index,
+        "error_kind": client_error_kind(error),
+        "duration_us": elapsed_us(started),
+        "message": error.to_string(),
+    });
+    let mut details = match details {
+        Value::Object(details) => details,
+        _ => unreachable!("json object"),
+    };
+    let (event, duration_field) = match error {
+        ClientError::Connect { .. } => ("connect_failed", "connect_duration_us"),
+        ClientError::Write(_) => ("write_failed", "write_duration_us"),
+        ClientError::EmptyResponse => ("empty_response", "read_duration_us"),
+        ClientError::Decode { .. } => ("decode_failed", "read_duration_us"),
+        ClientError::Read(_) | ClientError::Io(_) => ("read_failed", "read_duration_us"),
+    };
+    details.insert(duration_field.to_owned(), json!(elapsed_us(started)));
+    record_event(attempt, "host.transport", event, Value::Object(details));
+}
+
+fn record_event(attempt: &ForwardAttempt<'_>, module: &str, event: &str, details: Value) {
+    let _ = attempt.trace_store.append_trace_event(TraceEventInput {
+        sandbox_id: &attempt.record.sandbox_id,
+        trace_id: &attempt.trace_id,
+        request_id: Some(&attempt.request_id),
+        span_id: None,
+        module,
+        event,
+        details,
+    });
+}
+
+fn record_response_persisted(
+    attempt: &ForwardAttempt<'_>,
+    response: &Value,
+    raw_response_bytes: &[u8],
+    host_rtt_ms: u64,
+) {
+    let _ = attempt
+        .trace_store
+        .record_response_persisted(ResponsePersistedInput {
+            sandbox_id: &attempt.record.sandbox_id,
+            trace_id: &attempt.trace_id,
+            request_id: &attempt.request_id,
+            response,
+            raw_response_bytes,
+            host_rtt_ms,
+        });
+}
+
+fn record_missing(attempt: &ForwardAttempt<'_>, status: &str, error_kind: &str, message: &str) {
+    record_event(
+        attempt,
+        "host.protocol",
+        "response_missing",
+        json!({"status": status, "error_kind": error_kind, "message": message}),
+    );
+    let _ = attempt
+        .trace_store
+        .record_response_missing(ResponseMissingInput {
+            sandbox_id: &attempt.record.sandbox_id,
+            trace_id: &attempt.trace_id,
+            request_id: &attempt.request_id,
+            status,
+            error_kind,
+            message,
+        });
+}
+
+fn client_error_kind(error: &ClientError) -> &'static str {
+    match error {
+        ClientError::Connect { .. } => "connect_failed",
+        ClientError::Io(_) => "transport_io",
+        ClientError::Write(_) => "write_failed",
+        ClientError::Read(source) if source.kind() == std::io::ErrorKind::TimedOut => {
+            "read_timeout"
+        }
+        ClientError::Read(_) => "read_failed",
+        ClientError::EmptyResponse => "empty_response",
+        ClientError::Decode { .. } => "decode_failed",
+    }
+}
+
+fn forward_error_kind(error: &ForwardError) -> &'static str {
+    match error {
+        ForwardError::TraceUnavailable(_) => "trace_unavailable",
+        ForwardError::SandboxUnavailable(_) => "sandbox_unavailable",
+        ForwardError::UncertainOutcome(_) => "uncertain_outcome",
+    }
+}
+
+fn response_status(response: &Value) -> String {
+    if response.get("success") == Some(&Value::Bool(false)) {
+        "error".to_owned()
+    } else {
+        response
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("ok")
+            .to_owned()
+    }
+}
+
+fn retry_attempt_index() -> u32 {
+    u32::try_from(CONNECT_RETRY_DELAYS_S.len()).unwrap_or(u32::MAX)
+}
+
+fn elapsed_us(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX)
+}
+
+fn duration_ms(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = sha2::Sha256::digest(bytes);
+    let mut output = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        use std::fmt::Write as _;
+        write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
+    }
+    output
 }
 
 #[cfg(test)]

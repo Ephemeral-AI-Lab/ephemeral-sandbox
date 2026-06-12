@@ -1,10 +1,11 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import type { JsonObject } from "@eos/contracts";
 import type { LlmClient } from "@eos/llm-client";
+import { eosAgentsPath } from "@eos/testkit";
 
 import { createAgentRuntime, type AgentRuntime } from "../src/runtime.js";
 import { runTranscriptPath } from "../src/transcript.js";
@@ -27,132 +28,15 @@ import {
   type ScriptedTurn,
 } from "./support.js";
 
-// --- the §10 reference scripts, verbatim shapes, as fixtures ---------------------
-
-const VARIABLE_REFERENCE_MAP = `
-function create_variable_reference_map(ctx) {
-  const pursuit = ctx.pursuit_context.pursuit;
-  const current_leg = pursuit.legs.find(
-    (i) => i.id === ctx.current.leg_id,
-  ) ?? null;
-  const all_attempts = current_leg ? current_leg.attempts : [];
-  const current_attempt = all_attempts.find((a) => a.id === ctx.current.attempt_id) ?? null;
-  const previous_attempt =
-    all_attempts
-      .filter((a) => current_attempt && a.sequence < current_attempt.sequence)
-      .at(-1) ?? null;
-  const all_work_items = pursuit.legs.flatMap((leg) =>
-    leg.attempts.flatMap((attempt) => attempt.work_items),
-  );
-  const current_work_item =
-    "work_item_id" in ctx.current
-      ? all_work_items.find((item) => item.id === ctx.current.work_item_id) ?? null
-      : null;
-  const dependencies = current_work_item
-    ? current_work_item.depends_on.map(
-        (id) => all_work_items.find((item) => item.id === id) ?? { id },
-      )
-    : [];
-  const attempt_outcome = (attempt) =>
-    attempt === null
-      ? null
-      : {
-          attempt_id: attempt.id,
-          status: attempt.status,
-          failure_reasons: attempt.failure_reasons,
-          plan_summary: attempt.plan.summary,
-          work_items: attempt.work_items.map((item) => ({
-            id: item.id,
-            status: item.status,
-            summary: item.summary,
-            outcome: item.outcome,
-          })),
-        };
-  const goal_for_leg = (leg_id) => {
-    const index = pursuit.legs.findIndex((leg) => leg.id === leg_id);
-    let goal = pursuit.goal;
-    for (let cursor = 1; cursor <= index; cursor += 1) {
-      goal = pursuit.legs[cursor - 1].next_leg_goal ?? goal;
-    }
-    return goal;
-  };
-  return {
-    kind: ctx.kind,
-    pursuit_goal: goal_for_leg(ctx.current.leg_id),
-    current_leg_goal: current_leg ? current_leg.leg_goal : null,
-    previous_attempt_outcome: attempt_outcome(previous_attempt),
-    work_item_title: current_work_item ? current_work_item.title : null,
-    item_spec: current_work_item ? current_work_item.spec : null,
-    dependency_outcomes: dependencies.map((item) => ({
-      id: item.id,
-      title: item.title ?? null,
-      status: item.status ?? "Unknown",
-      summary: item.summary ?? null,
-      outcome: item.outcome ?? null,
-    })),
-  };
-}
-
-module.exports = { create_variable_reference_map };
-`;
-
-const PLANNER_SCRIPT = `
-const { create_variable_reference_map } = require("./variable_reference_map.cjs");
-
-function get_initial_messages(vars) {
-  const user = (text) => ({ role: "user", content: [{ type: "text", text }] });
-  const messages = [user("# Pursuit goal\\n" + vars.pursuit_goal)];
-  if (vars.current_leg_goal === null) {
-    messages.push(user("Plan work items for the current leg goal."));
-  } else {
-    messages.push(user("# Current leg goal\\n" + vars.current_leg_goal));
-    if (vars.previous_attempt_outcome !== null) {
-      messages.push(user("# Previous attempt\\n" + JSON.stringify(vars.previous_attempt_outcome)));
-    }
-    messages.push(user("Submit planner outcome with work items for this leg goal."));
-  }
-  return messages;
-}
-
-let input = "";
-process.stdin.on("data", (c) => (input += c));
-process.stdin.on("end", () => {
-  const ctx = JSON.parse(input);
-  const vars = create_variable_reference_map(ctx);
-  const initial_messages = get_initial_messages(vars);
-  process.stdout.write(JSON.stringify({ initial_messages }));
-});
-`;
-
-const WORKER_SCRIPT = `
-const { create_variable_reference_map } = require("./variable_reference_map.cjs");
-
-function get_initial_messages(vars) {
-  const user = (text) => ({ role: "user", content: [{ type: "text", text }] });
-  const messages = [user("# Pursuit goal\\n" + vars.pursuit_goal)];
-  messages.push(user("# Current leg goal\\n" + (vars.current_leg_goal ?? "")));
-  messages.push(user("# Work item title\\n" + (vars.work_item_title ?? "")));
-  messages.push(user("# Work item spec\\n" + (vars.item_spec ?? "")));
-  if (vars.dependency_outcomes.length > 0) {
-    messages.push(user("# Dependencies\\n" + JSON.stringify(vars.dependency_outcomes)));
-  }
-  messages.push(user("Submit worker outcome for this work item."));
-  return messages;
-}
-
-let input = "";
-process.stdin.on("data", (c) => (input += c));
-process.stdin.on("end", () => {
-  const ctx = JSON.parse(input);
-  const vars = create_variable_reference_map(ctx);
-  const initial_messages = get_initial_messages(vars);
-  process.stdout.write(JSON.stringify({ initial_messages }));
-});
-`;
+// The §10 reference scripts live as checked-in fixtures under
+// `.eos-agents/tests/pursuit/scripts`, referenced by the checked-in
+// `.eos-agents/tests/profile/pursuit*` profile directories.
+const SCRIPTS_DIR = eosAgentsPath("tests/pursuit/scripts");
 
 interface PursuitFixtureOptions {
   clients: Record<string, LlmClient>;
-  plannerScript?: string;
+  /** `pursuit-broken` points the planner at `broken-planner.cjs`. */
+  profileGroup?: "pursuit" | "pursuit-broken";
 }
 
 function pursuitRuntimeFixture(options: PursuitFixtureOptions): {
@@ -161,51 +45,17 @@ function pursuitRuntimeFixture(options: PursuitFixtureOptions): {
   contextRoot: string;
 } {
   const root = tempDir("eos-pursuit-runtime-");
-  const profilesDir = join(root, "profiles");
-  mkdirSync(profilesDir, { recursive: true });
-  const scriptsDir = join(root, "scripts");
-  mkdirSync(scriptsDir, { recursive: true });
-  writeFileSync(join(scriptsDir, "variable_reference_map.cjs"), VARIABLE_REFERENCE_MAP);
-  writeFileSync(join(scriptsDir, "planner.cjs"), options.plannerScript ?? PLANNER_SCRIPT);
-  writeFileSync(join(scriptsDir, "worker.cjs"), WORKER_SCRIPT);
-
-  writeProfile(profilesDir, {
-    name: "orchestrator",
-    kind: "main",
-    llmClientId: "main_llm",
-    allowed: [
-      "ask_advisor",
-      "delegate_pursuit",
-      "list_background_sessions",
-      "cancel_background_session",
-    ],
-  });
-  writeProfile(profilesDir, {
-    name: "planner",
-    kind: "planner",
-    llmClientId: "planner_llm",
-    allowed: ["ask_advisor"],
-    pursuitContextScript: join(scriptsDir, "planner.cjs"),
-  });
-  writeProfile(profilesDir, {
-    name: "worker",
-    kind: "worker",
-    llmClientId: "worker_llm",
-    allowed: ["ask_advisor"],
-    pursuitContextScript: join(scriptsDir, "worker.cjs"),
-  });
-
   const dataDir = join(root, "data");
   const contextRoot = join(root, "pursuit-context");
   const runtime = createAgentRuntime({
-    agentProfilesDir: profilesDir,
+    agentProfilesDir: eosAgentsPath("tests/profile", options.profileGroup ?? "pursuit"),
     llmClients: llmRegistry(options.clients),
-    hookConfigPath: join(root, "hooks.json"),
-    notificationRulesPath: join(root, "notification_rules.json"),
+    hookConfigPath: eosAgentsPath("tests/hooks/none.json"),
+    notificationRulesPath: eosAgentsPath("tests/notification-rules/none.json"),
     dataDir,
     pursuitDb: ":memory:",
     pursuitContextRoot: contextRoot,
-    pursuitScriptsDir: scriptsDir,
+    pursuitScriptsDir: SCRIPTS_DIR,
   });
   return { runtime, dataDir, contextRoot };
 }
@@ -416,7 +266,7 @@ describe("pursuit runtime end-to-end (§16 case 12)", () => {
         planner_llm: new MockLlmClient([]),
         worker_llm: new MockLlmClient([]),
       },
-      plannerScript: "process.exit(1);\n",
+      profileGroup: "pursuit-broken",
     });
 
     const run = runtime.startRun({
@@ -449,13 +299,6 @@ describe("pursuit runtime startup validation (§16 case 12)", () => {
     const root = tempDir("eos-pursuit-startup-");
     const profilesDir = join(root, "profiles");
     mkdirSync(profilesDir, { recursive: true });
-    const scriptsDir = join(root, "scripts");
-    mkdirSync(scriptsDir, { recursive: true });
-    writeFileSync(join(scriptsDir, "planner.cjs"), PLANNER_SCRIPT);
-    writeFileSync(
-      join(scriptsDir, "variable_reference_map.cjs"),
-      VARIABLE_REFERENCE_MAP,
-    );
 
     writeProfile(profilesDir, {
       name: "orchestrator",
@@ -470,7 +313,7 @@ describe("pursuit runtime startup validation (§16 case 12)", () => {
         llmClientId: "planner_llm",
         allowed: ["ask_advisor"],
         pursuitContextScript:
-          mutate.plannerScriptPath?.(scriptsDir) ?? join(scriptsDir, "planner.cjs"),
+          mutate.plannerScriptPath?.(SCRIPTS_DIR) ?? join(SCRIPTS_DIR, "planner.cjs"),
       });
     }
     if (mutate.secondPlanner) {
@@ -479,7 +322,7 @@ describe("pursuit runtime startup validation (§16 case 12)", () => {
         kind: "planner",
         llmClientId: "planner_llm",
         allowed: ["ask_advisor"],
-        pursuitContextScript: join(scriptsDir, "planner.cjs"),
+        pursuitContextScript: join(SCRIPTS_DIR, "planner.cjs"),
       });
     }
     return () =>
@@ -489,10 +332,10 @@ describe("pursuit runtime startup validation (§16 case 12)", () => {
           main_llm: new MockLlmClient([]),
           planner_llm: new MockLlmClient([]),
         }),
-        hookConfigPath: join(root, "hooks.json"),
-        notificationRulesPath: join(root, "notification_rules.json"),
+        hookConfigPath: eosAgentsPath("tests/hooks/none.json"),
+        notificationRulesPath: eosAgentsPath("tests/notification-rules/none.json"),
         dataDir: join(root, "data"),
-        pursuitScriptsDir: scriptsDir,
+        pursuitScriptsDir: SCRIPTS_DIR,
         ...(mutate.pursuitDb !== undefined && { pursuitDb: mutate.pursuitDb }),
       });
   }
@@ -518,11 +361,7 @@ describe("pursuit runtime startup validation (§16 case 12)", () => {
   it("fails startup on a non-script extension", () => {
     expect(
       startupFixture({
-        plannerScriptPath: (dir) => {
-          const path = join(dir, "planner.js");
-          writeFileSync(path, "x");
-          return path;
-        },
+        plannerScriptPath: (dir) => join(dir, "not-a-script.js"),
         pursuitDb: ":memory:",
       }),
     ).toThrow(/must be a \.cjs or \.mjs file/);

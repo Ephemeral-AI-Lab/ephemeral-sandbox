@@ -1,9 +1,10 @@
+import { join } from "node:path";
+
 import { TriggerRuleEntrySchema, type TriggerRuleEntry } from "@eos/notification";
 import { z } from "zod";
 
 import { loadEntriesFile, withDefaultCwd } from "./config-file.js";
-
-const DEFAULT_NOTIFICATION_RULES_PATH = ".eos-agents/notification_rules.json";
+import { eosAgentsRoot } from "./config-root.js";
 
 /**
  * Load the operator notification rules (Phase 04.9): a JSON array of
@@ -13,7 +14,7 @@ const DEFAULT_NOTIFICATION_RULES_PATH = ".eos-agents/notification_rules.json";
  * matchers.
  */
 export function loadNotificationRules(
-  path = DEFAULT_NOTIFICATION_RULES_PATH,
+  path = join(eosAgentsRoot(), "notification_rules.json"),
 ): TriggerRuleEntry[] {
   return loadEntriesFile(
     path,

@@ -190,6 +190,8 @@ declare_builtin_ops! {
         Daemon, Control, Public, true, "Request cooperative cancellation of an in-flight invocation.";
     InflightCount, SANDBOX_CALL_COUNT, "sandbox.call.count",
         Daemon, Control, Public, false, "Count in-flight invocations.";
+    TraceExport, SANDBOX_TRACE_EXPORT, "sandbox.trace.export",
+        Daemon, Control, Internal, false, "Drain bounded daemon background trace records for host ingest.";
     LayerMetrics, SANDBOX_CHECKPOINT_LAYER_METRICS, "sandbox.checkpoint.layer_metrics",
         Daemon, Checkpoint, Operator, false, "Report LayerStack and storage metrics for the sandbox.";
     EnsureWorkspaceBase, SANDBOX_CHECKPOINT_ENSURE_BASE, "sandbox.checkpoint.ensure_base",

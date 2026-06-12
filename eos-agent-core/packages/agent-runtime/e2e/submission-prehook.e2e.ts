@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { type JsonObject } from "@eos/contracts";
 import type { LlmClient, LlmRequest } from "@eos/llm-client";
+import { eosAgentsPath } from "@eos/testkit";
 
 import { createAgentRuntime, type AgentRuntime } from "../src/runtime.js";
 import {
@@ -26,7 +27,6 @@ import {
   SLEEPER_BODY,
   TERSE_BODY,
   advisoryReadyProfile,
-  rootHookConfigPath,
   submissionOf,
   toolResultsIn,
   waitTool,
@@ -49,7 +49,8 @@ function runtimeFixture(options: FixtureOptions): AgentRuntime {
     agentProfilesDir: profilesDir,
     llmClients: llmRegistry(options.clients),
     baseTools: options.baseTools,
-    hookConfigPath: rootHookConfigPath(),
+    hookConfigPath: eosAgentsPath("hooks.json"),
+    notificationRulesPath: eosAgentsPath("tests/notification-rules/none.json"),
     dataDir: join(root, "data"),
   });
 }

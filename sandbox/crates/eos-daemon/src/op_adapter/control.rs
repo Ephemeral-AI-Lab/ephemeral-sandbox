@@ -3,10 +3,12 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use base64::Engine as _;
 use eos_layerstack::{require_workspace_binding, LayerStack};
 use eos_operation::control::contract::{
     CallerCountInput, CancelInvocationInput, CancelInvocationOutput, HeartbeatInput,
-    HeartbeatOutput, InflightCountOutput, RuntimeReadyInput, RuntimeReadyOutput,
+    HeartbeatOutput, InflightCountOutput, RuntimeReadyInput, RuntimeReadyOutput, TraceExportInput,
+    TraceExportOutput,
 };
 use serde_json::{json, Value};
 
@@ -112,6 +114,26 @@ pub(crate) fn op_inflight_count(input: CallerCountInput, context: DispatchContex
         success: true,
         caller_id,
         count,
+    })
+}
+
+/// `sandbox.trace.export` — drain daemon background trace roots for host ingest.
+pub(crate) fn op_trace_export(input: TraceExportInput) -> Value {
+    let (records, dropped_traces) = crate::trace::drain_background_records(input.max_records);
+    let record_count = records.len();
+    let trace_batch_base64 = (!records.is_empty()).then(|| {
+        base64::engine::general_purpose::STANDARD.encode(eos_trace::encode_trace_batch(
+            &eos_trace::TraceBatch {
+                records,
+                dropped_traces,
+            },
+        ))
+    });
+    to_wire_value(TraceExportOutput {
+        success: true,
+        record_count,
+        dropped_traces,
+        trace_batch_base64,
     })
 }
 

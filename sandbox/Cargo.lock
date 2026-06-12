@@ -278,6 +278,7 @@ dependencies = [
 name = "eos-daemon"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "eos-command",
  "eos-config",
  "eos-layerstack",
@@ -285,6 +286,7 @@ dependencies = [
  "eos-operation",
  "eos-overlay",
  "eos-plugin",
+ "eos-trace",
  "eos-workspace",
  "proptest",
  "serde",
@@ -388,6 +390,7 @@ name = "eos-sandbox-host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "ed25519-dalek",
  "eos-trace",
  "prost",

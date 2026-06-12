@@ -4,14 +4,14 @@
 
 use std::path::PathBuf;
 use std::sync::{mpsc as std_mpsc, Arc};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, UnixListener};
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
-use crate::wire::{decode_value, encode, ErrorKind, Request, WireMessage};
+use crate::wire::{decode_value, encode, ErrorKind, Request, RequestTraceContext, WireMessage};
 use eos_config::configs::{
     daemon::{DaemonConfig, FileLimitsConfig},
     isolated_workspace::IsolatedWorkspaceConfig,
@@ -186,6 +186,13 @@ impl DaemonServer {
         }
         let _ = tokio::fs::remove_file(&server.config.socket_path).await;
         let unix_listener = UnixListener::bind(&server.config.socket_path)?;
+        emit_boot_event(
+            "listen_bound",
+            serde_json::json!({
+                "listener_kind": "unix",
+                "socket_path": server.config.socket_path.display().to_string(),
+            }),
+        );
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -219,6 +226,14 @@ impl DaemonServer {
         let tcp_server = match (&server.config.tcp_host, server.config.tcp_port) {
             (Some(host), Some(port)) => {
                 let listener = TcpListener::bind((host.as_str(), port)).await?;
+                emit_boot_event(
+                    "listen_bound",
+                    serde_json::json!({
+                        "listener_kind": "tcp",
+                        "host": host,
+                        "port": port,
+                    }),
+                );
                 let server = Arc::clone(&server);
                 Some(tokio::spawn(async move {
                     loop {
@@ -264,21 +279,64 @@ impl DaemonServer {
         S: AsyncRead + AsyncWrite + Unpin,
     {
         let (mut reader, mut writer) = tokio::io::split(stream);
+        let connection_id = crate::trace::next_connection_id();
         let read_start = Instant::now();
         let bytes = read_request_line(&mut reader).await;
-        let read_request_s = read_start.elapsed().as_secs_f64();
+        let read_duration_us = elapsed_us(read_start);
+        let read_request_s = read_duration_us as f64 / 1_000_000.0;
         let response = match bytes {
-            Ok(bytes) => self.dispatch_bytes(bytes, is_tcp, read_request_s).await,
-            Err(err @ DaemonError::RequestTooLarge { .. }) => crate::dispatcher::error_response(
-                err.wire_kind(),
-                &format!("daemon request exceeds {MAX_REQUEST_BYTES} byte limit"),
-                serde_json::json!({"limit": MAX_REQUEST_BYTES}),
-            ),
-            Err(err) => crate::dispatcher::error_response(
-                err.wire_kind(),
-                &err.to_string(),
-                serde_json::json!({}),
-            ),
+            Ok(bytes) => {
+                self.dispatch_bytes(
+                    bytes,
+                    is_tcp,
+                    read_request_s,
+                    read_duration_us,
+                    connection_id,
+                )
+                .await
+            }
+            Err(err @ DaemonError::RequestTooLarge { .. }) => {
+                let facts = trace_facts(
+                    connection_id,
+                    is_tcp,
+                    MAX_REQUEST_BYTES.saturating_add(1),
+                    read_duration_us,
+                    self.tcp_auth_required(is_tcp),
+                    false,
+                    None,
+                );
+                crate::trace::attach_request_sidecar(
+                    crate::dispatcher::error_response(
+                        err.wire_kind(),
+                        &format!("daemon request exceeds {MAX_REQUEST_BYTES} byte limit"),
+                        serde_json::json!({"limit": MAX_REQUEST_BYTES}),
+                    ),
+                    None,
+                    "daemon.transport.read",
+                    &facts,
+                )
+            }
+            Err(err) => {
+                let facts = trace_facts(
+                    connection_id,
+                    is_tcp,
+                    0,
+                    read_duration_us,
+                    self.tcp_auth_required(is_tcp),
+                    false,
+                    None,
+                );
+                crate::trace::attach_request_sidecar(
+                    crate::dispatcher::error_response(
+                        err.wire_kind(),
+                        &err.to_string(),
+                        serde_json::json!({}),
+                    ),
+                    None,
+                    "daemon.transport.read",
+                    &facts,
+                )
+            }
         };
         let framed = encode(&WireMessage::Response(response))?;
         writer.write_all(&framed).await?;
@@ -291,49 +349,116 @@ impl DaemonServer {
         bytes: Vec<u8>,
         is_tcp: bool,
         read_request_s: f64,
+        read_duration_us: u64,
+        connection_id: String,
     ) -> serde_json::Value {
+        let request_bytes = bytes.len();
+        let auth_required = self.tcp_auth_required(is_tcp);
+        let parse_error_facts = trace_facts(
+            connection_id.clone(),
+            is_tcp,
+            request_bytes,
+            read_duration_us,
+            auth_required,
+            false,
+            None,
+        );
         let value = match serde_json::from_slice::<serde_json::Value>(&bytes) {
             Ok(value) => value,
             Err(err) => {
-                return crate::dispatcher::error_response(
-                    ErrorKind::BadJson,
-                    &crate::wire::ProtocolError::from(err).to_string(),
-                    serde_json::json!({}),
+                return crate::trace::attach_request_sidecar(
+                    crate::dispatcher::error_response(
+                        ErrorKind::BadJson,
+                        &crate::wire::ProtocolError::from(err).to_string(),
+                        serde_json::json!({}),
+                    ),
+                    None,
+                    "daemon.transport.decode",
+                    &parse_error_facts,
                 );
             }
         };
+        let trace = value
+            .get("trace")
+            .cloned()
+            .and_then(|value| serde_json::from_value::<RequestTraceContext>(value).ok());
         let value = if is_tcp {
             match self.strip_tcp_auth(value) {
                 Ok(value) => value,
                 Err(err) => {
-                    return crate::dispatcher::error_response(
+                    let facts = trace_facts(
+                        connection_id,
+                        is_tcp,
+                        request_bytes,
+                        read_duration_us,
+                        auth_required,
+                        false,
+                        None,
+                    );
+                    let response = crate::dispatcher::error_response(
                         err.wire_kind(),
                         &err.to_string(),
                         serde_json::json!({}),
+                    );
+                    return crate::trace::attach_request_sidecar(
+                        response,
+                        trace.as_ref(),
+                        "daemon.transport.auth",
+                        &facts,
                     );
                 }
             }
         } else {
             value
         };
+        let protocol_version = value
+            .get("args")
+            .and_then(|args| args.get(crate::wire::DAEMON_PROTOCOL_FIELD))
+            .and_then(serde_json::Value::as_i64);
+        let facts = trace_facts(
+            connection_id,
+            is_tcp,
+            request_bytes,
+            read_duration_us,
+            auth_required,
+            true,
+            protocol_version,
+        );
         match decode_value(value) {
             Ok(WireMessage::Request(request)) => {
-                self.dispatch_request(request, read_request_s).await
+                self.dispatch_request(request, trace, facts, read_request_s)
+                    .await
             }
-            Ok(_) => crate::dispatcher::error_response(
-                ErrorKind::InvalidRequest,
-                "request must include op, invocation_id, and args",
-                serde_json::json!({}),
+            Ok(_) => crate::trace::attach_request_sidecar(
+                crate::dispatcher::error_response(
+                    ErrorKind::InvalidRequest,
+                    "request must include op, invocation_id, and args",
+                    serde_json::json!({}),
+                ),
+                trace.as_ref(),
+                "daemon.transport.decode",
+                &facts,
             ),
-            Err(err) => crate::dispatcher::error_response(
-                ErrorKind::BadJson,
-                &err.to_string(),
-                serde_json::json!({}),
+            Err(err) => crate::trace::attach_request_sidecar(
+                crate::dispatcher::error_response(
+                    ErrorKind::BadJson,
+                    &err.to_string(),
+                    serde_json::json!({}),
+                ),
+                trace.as_ref(),
+                "daemon.transport.decode",
+                &facts,
             ),
         }
     }
 
-    async fn dispatch_request(&self, request: Request, read_request_s: f64) -> serde_json::Value {
+    async fn dispatch_request(
+        &self,
+        request: Request,
+        trace: Option<RequestTraceContext>,
+        facts: crate::trace::RequestTraceFacts,
+        read_request_s: f64,
+    ) -> serde_json::Value {
         let invocation_id = request.invocation_id.clone();
         let caller_id = trimmed_string(&request.args, "caller_id");
         let background = request
@@ -375,7 +500,16 @@ impl DaemonServer {
             ),
         };
         registry.deregister(&invocation_id);
-        response
+        crate::trace::attach_request_sidecar(response, trace.as_ref(), &op, &facts)
+    }
+
+    fn tcp_auth_required(&self, is_tcp: bool) -> bool {
+        is_tcp
+            && self
+                .config
+                .auth_token
+                .as_deref()
+                .is_some_and(|token| !token.is_empty())
     }
 
     fn strip_tcp_auth(
@@ -442,4 +576,50 @@ fn trimmed_string(args: &serde_json::Value, key: &str) -> String {
         .unwrap_or_default()
         .trim()
         .to_owned()
+}
+
+fn trace_facts(
+    connection_id: String,
+    is_tcp: bool,
+    request_bytes: usize,
+    read_duration_us: u64,
+    auth_required: bool,
+    auth_ok: bool,
+    protocol_version: Option<i64>,
+) -> crate::trace::RequestTraceFacts {
+    crate::trace::RequestTraceFacts {
+        connection_id,
+        listener_kind: if is_tcp { "tcp" } else { "unix" },
+        is_tcp,
+        request_bytes,
+        read_duration_us,
+        auth_required,
+        auth_ok,
+        protocol_version,
+    }
+}
+
+fn elapsed_us(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX)
+}
+
+fn emit_boot_event(event: &str, details: serde_json::Value) {
+    eprintln!(
+        "{}",
+        serde_json::json!({
+            "ts_ms": unix_ms(),
+            "level": "info",
+            "module": "daemon.boot",
+            "event": event,
+            "details": details,
+        })
+    );
+}
+
+fn unix_ms() -> u64 {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    u64::try_from(millis).unwrap_or(u64::MAX)
 }

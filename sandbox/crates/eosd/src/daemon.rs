@@ -5,6 +5,7 @@ use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
 use eos_config::configs::{
@@ -30,6 +31,16 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
     if config.spawn {
         return spawn_daemon(&config);
     }
+    emit_boot_event(
+        "config_loaded",
+        serde_json::json!({
+            "socket_path": config.socket_path.display().to_string(),
+            "pid_path": config.pid_path.display().to_string(),
+            "tcp_host": config.tcp_host.clone(),
+            "tcp_port": config.tcp_port,
+            "auth_token_present": config.auth_token.as_ref().is_some_and(|token| !token.is_empty()),
+        }),
+    );
     let server_config = eos_daemon::ServerConfig {
         socket_path: config.socket_path,
         pid_path: config.pid_path,
@@ -255,6 +266,27 @@ fn spawn_daemon(config: &DaemonCliConfig) -> Result<()> {
     }
     command.spawn().context("failed to spawn eosd daemon")?;
     Ok(())
+}
+
+fn emit_boot_event(event: &str, details: serde_json::Value) {
+    eprintln!(
+        "{}",
+        serde_json::json!({
+            "ts_ms": unix_ms(),
+            "level": "info",
+            "module": "daemon.boot",
+            "event": event,
+            "details": details,
+        })
+    );
+}
+
+fn unix_ms() -> u64 {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    u64::try_from(millis).unwrap_or(u64::MAX)
 }
 
 fn daemon_already_running(pid_path: &Path, socket_path: &Path) -> bool {

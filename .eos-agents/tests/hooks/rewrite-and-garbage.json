@@ -1,0 +1,12 @@
+[
+  {
+    "event": "PreToolUse",
+    "matcher": "write_note",
+    "hooks": [{ "type": "command", "command": "node rewrite-input.cjs" }]
+  },
+  {
+    "event": "PreToolUse",
+    "matcher": "read_note",
+    "hooks": [{ "type": "command", "command": "node ../scripts/garbage-stdout.cjs" }]
+  }
+]

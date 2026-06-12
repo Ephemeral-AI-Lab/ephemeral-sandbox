@@ -7,6 +7,7 @@ use std::sync::Mutex;
 // Integration test crates receive every normal `eos-daemon` dependency even
 // when the test only drives public daemon APIs. These imports keep
 // `unused_crate_dependencies` meaningful without suppressing it crate-wide.
+use base64::Engine as _;
 use eos_config::configs::daemon::PluginRuntimeConfig;
 use eos_config::configs::isolated_workspace::IsolatedWorkspaceConfig;
 use eos_daemon::wire::{decode, encode, Request, WireMessage, DAEMON_AUTH_FIELD};
@@ -17,6 +18,7 @@ use eos_namespace::protocol::{RunRequest, RunResult};
 use eos_operation::plugin::{LaunchError, NsRunnerLauncher};
 use eos_overlay as _;
 use eos_plugin as _;
+use eos_trace::decode_trace_batch;
 use serde as _;
 use serde_json::{json, Value};
 use thiserror as _;
@@ -490,6 +492,106 @@ async fn tcp_server_dispatches_authenticated_ready_request() -> TestResult {
     };
     assert_eq!(response["success"], Value::Bool(true));
     assert_eq!(response["ready"], Value::Bool(true));
+    Ok(())
+}
+
+#[tokio::test]
+async fn tcp_server_sidecar_records_transport_dispatch_and_op_spans() -> TestResult {
+    let (root, _workspace) = seed_layer_stack("tcp_trace_sidecar")?;
+    let runtime_dir = root
+        .parent()
+        .ok_or("seeded layer-stack root must have parent")?
+        .join("runtime");
+    std::fs::create_dir_all(&runtime_dir)?;
+    let probe = TcpListener::bind(("127.0.0.1", 0)).await?;
+    let port = probe.local_addr()?.port();
+    drop(probe);
+    let config = ServerConfig {
+        socket_path: runtime_dir.join("runtime.sock"),
+        pid_path: runtime_dir.join("runtime.pid"),
+        tcp_host: Some("127.0.0.1".to_owned()),
+        tcp_port: Some(port),
+        auth_token: Some("secret".to_owned()),
+    };
+    let server = DaemonServer::new(config.clone());
+    let shutdown = server.shutdown_token();
+    let task = tokio::spawn(server.serve());
+    for _ in 0..50 {
+        if TcpStream::connect(("127.0.0.1", port)).await.is_ok() {
+            break;
+        }
+        sleep(Duration::from_millis(10)).await;
+    }
+
+    let request = json!({
+        "op": "sandbox.runtime.ready",
+        "invocation_id": "request-sidecar",
+        "args": {
+            "layer_stack_root": root,
+            "_eos_daemon_protocol_version": 1,
+        },
+        "trace": {
+            "trace_id": "trace-sidecar",
+            "request_id": "request-sidecar",
+            "link_hints": [],
+            "capture_budget_version": 1,
+        },
+        DAEMON_AUTH_FIELD: "secret",
+    });
+    let mut bytes = serde_json::to_vec(&request)?;
+    bytes.push(b'\n');
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).await?;
+    stream.write_all(&bytes).await?;
+    stream.shutdown().await?;
+    let mut response = Vec::new();
+    timeout(Duration::from_secs(2), stream.read_to_end(&mut response)).await??;
+    shutdown.cancel();
+    let _ = timeout(Duration::from_secs(2), task).await??;
+
+    let response = match decode(&response)? {
+        WireMessage::Response(value) => value,
+        other => return Err(format!("expected response, got {other:?}").into()),
+    };
+    let sidecar = response["_trace_events"]
+        .as_str()
+        .ok_or("response carries sidecar")?;
+    let batch = decode_trace_batch(&base64::engine::general_purpose::STANDARD.decode(sidecar)?)?;
+    let record = batch.records.first().ok_or("trace record")?;
+    assert_eq!(record.trace_id.as_str(), "trace-sidecar");
+    assert_eq!(
+        record.request_id.as_ref().map(eos_trace::RequestId::as_str),
+        Some("request-sidecar")
+    );
+    let spans: Vec<_> = record.spans.iter().map(|span| span.name.as_str()).collect();
+    assert!(spans.contains(&"op_request"), "{spans:?}");
+    assert!(spans.contains(&"daemon.transport"), "{spans:?}");
+    assert!(spans.contains(&"dispatch"), "{spans:?}");
+    assert!(spans.contains(&"op.runtime.ready"), "{spans:?}");
+    let events: Vec<_> = record
+        .events
+        .iter()
+        .map(|event| (event.module.as_str(), event.name.as_str()))
+        .collect();
+    assert!(
+        events.contains(&("daemon.transport", "accepted")),
+        "{events:?}"
+    );
+    assert!(
+        events.contains(&("daemon.transport", "read_finished")),
+        "{events:?}"
+    );
+    assert!(
+        events.contains(&("daemon.transport", "auth_checked")),
+        "{events:?}"
+    );
+    assert!(
+        events.contains(&("daemon.transport", "response_write_finished")),
+        "{events:?}"
+    );
+    assert!(
+        events.contains(&("daemon.dispatch", "dispatch_finished")),
+        "{events:?}"
+    );
     Ok(())
 }
 

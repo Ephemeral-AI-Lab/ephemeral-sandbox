@@ -10,8 +10,7 @@ import { executeJsonCommand } from "@eos/scripts";
 import type { ComposeLaunchContext } from "@eos/pursuit";
 
 import type { AgentProfile } from "./agent-profile-loader.js";
-
-export const DEFAULT_PURSUIT_SCRIPTS_DIR = ".eos-agents/pursuit/scripts";
+import { configBaseDir } from "./config-root.js";
 
 export interface PursuitContextScript {
   /** Absolute, validated script path. */
@@ -25,7 +24,8 @@ export interface PursuitContextScript {
  * `pursuit_context_script`: the path must resolve inside the scripts
  * root, name a readable `.cjs`/`.mjs` file, and never a directory. Helper
  * files in the same directory are allowed and simply never registered -
- * only profile-referenced files are spawned.
+ * only profile-referenced files are spawned. Relative paths resolve from
+ * the directory owning `.eos-agents`, never the process cwd.
  */
 export function resolvePursuitContextScripts(
   profiles: readonly AgentProfile[],
@@ -33,7 +33,8 @@ export function resolvePursuitContextScripts(
   scriptsDirOverridden: boolean,
 ): Map<string, PursuitContextScript> {
   const scripts = new Map<string, PursuitContextScript>();
-  const root = resolve(scriptsDir);
+  const base = configBaseDir();
+  const root = resolve(base, scriptsDir);
   for (const profile of profiles) {
     if (profile.agent_kind !== "planner" && profile.agent_kind !== "worker") continue;
     const raw = profile.pursuit_context_script;
@@ -42,7 +43,7 @@ export function resolvePursuitContextScripts(
         `agent profile "${profile.name}" requires pursuit_context_script`,
       );
     }
-    const scriptPath = resolve(raw);
+    const scriptPath = resolve(base, raw);
     if (scriptPath !== root && !scriptPath.startsWith(`${root}${sep}`)) {
       throw new Error(
         `agent profile "${profile.name}" pursuit_context_script "${raw}" escapes the script root ${scriptsDir}`,

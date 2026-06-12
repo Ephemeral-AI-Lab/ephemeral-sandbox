@@ -6,6 +6,7 @@ import {
   type AgentRunSnapshot,
   type BackgroundSessionSnapshot,
 } from "@eos/contracts";
+import { eosAgentsPath } from "@eos/testkit";
 
 import { NotificationInbox, systemNotificationMessage } from "../src/inbox.js";
 import type { TurnFacts } from "../src/loop-observer.js";
@@ -261,11 +262,11 @@ describe("notification trigger engine", () => {
   });
 });
 
-/** A trigger command running an inline node script (double quotes only). */
-function nodeCommand(js: string, timeoutMs?: number): CommandScript {
+/** A trigger command spawning a shared `.eos-agents/tests/scripts` file. */
+function scriptCommand(name: string, timeoutMs?: number): CommandScript {
   return {
     type: "command",
-    command: `"${process.execPath}" -e '${js}'`,
+    command: `"${process.execPath}" "${eosAgentsPath("tests/scripts", name)}"`,
     ...(timeoutMs !== undefined && { timeout_ms: timeoutMs }),
   };
 }
@@ -286,56 +287,49 @@ const PAYLOAD: TriggerPayload = {
 
 describe("trigger command runner", () => {
   it("answers the notification from valid stdout, reading the payload as JSON on stdin", async () => {
-    const echo =
-      'let d="";process.stdin.on("data",(c)=>d+=c);process.stdin.on("end",()=>{const p=JSON.parse(d);console.log(JSON.stringify({notification:p.event+":"+p.terminal_tool}));});';
-    await expect(runTriggerCommand(nodeCommand(echo), PAYLOAD)).resolves.toEqual({
+    await expect(
+      runTriggerCommand(scriptCommand("echo-trigger-event.cjs"), PAYLOAD),
+    ).resolves.toEqual({
       notification: "TurnCompleted:submit_main_outcome",
     });
   });
 
   it.each`
-    js                       | label
-    ${"process.exit(0);"}    | ${"empty stdout"}
-    ${'console.log("{}");'}  | ${"an empty JSON object"}
-  `("answers a skip (no notification, no warning) for $label", async ({ js }) => {
-    await expect(runTriggerCommand(nodeCommand(js as string), PAYLOAD)).resolves.toEqual({});
+    script                      | label
+    ${"noop.cjs"}               | ${"empty stdout"}
+    ${"print-empty-object.cjs"} | ${"an empty JSON object"}
+  `("answers a skip (no notification, no warning) for $label", async ({ script }) => {
+    await expect(
+      runTriggerCommand(scriptCommand(script as string), PAYLOAD),
+    ).resolves.toEqual({});
   });
 
   it("maps a nonzero exit to a warning carrying stderr - exit 2 has no deny semantics here", async () => {
-    const run = await runTriggerCommand(
-      nodeCommand('process.stderr.write("blocked"); process.exit(2);'),
-      PAYLOAD,
-    );
+    const run = await runTriggerCommand(scriptCommand("deny-with-stderr.cjs"), PAYLOAD);
     expect(run.notification).toBeUndefined();
     expect(run.warning).toContain("exited 2");
     expect(run.warning).toContain("blocked");
   });
 
   it("maps non-JSON stdout to a warning", async () => {
-    const run = await runTriggerCommand(
-      nodeCommand('process.stdout.write("not json at all");'),
-      PAYLOAD,
-    );
+    const run = await runTriggerCommand(scriptCommand("garbage-stdout.cjs"), PAYLOAD);
     expect(run.notification).toBeUndefined();
     expect(run.warning).toContain("not JSON");
   });
 
   it.each`
-    js                                                       | label
-    ${'console.log(JSON.stringify({decision:"deny"}));'}     | ${"a decision field"}
-    ${'console.log(JSON.stringify({updatedInput:{n:1}}));'}  | ${"an updatedInput field"}
-    ${'console.log(JSON.stringify({notification:""}));'}     | ${"an empty notification"}
-  `("rejects $label as a schema mismatch, never accepting or stripping it", async ({ js }) => {
-    const run = await runTriggerCommand(nodeCommand(js as string), PAYLOAD);
+    script                      | label
+    ${"decision-deny.cjs"}      | ${"a decision field"}
+    ${"update-input.cjs"}       | ${"an updatedInput field"}
+    ${"notification-empty.cjs"} | ${"an empty notification"}
+  `("rejects $label as a schema mismatch, never accepting or stripping it", async ({ script }) => {
+    const run = await runTriggerCommand(scriptCommand(script as string), PAYLOAD);
     expect(run.notification).toBeUndefined();
     expect(run.warning).toContain("did not match TriggerOutput");
   });
 
   it("kills a command on its timeout and maps it to a warning", { timeout: 10_000 }, async () => {
-    const run = await runTriggerCommand(
-      nodeCommand("setInterval(() => {}, 1000);", 250),
-      PAYLOAD,
-    );
+    const run = await runTriggerCommand(scriptCommand("hang.cjs", 250), PAYLOAD);
     expect(run.notification).toBeUndefined();
     expect(run.warning).toBe("trigger command timed out");
   });

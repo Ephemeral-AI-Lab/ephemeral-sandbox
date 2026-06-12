@@ -1,0 +1,17 @@
+[
+  {
+    "event": "TurnCompleted",
+    "rules": [
+      {
+        "type": "command",
+        "command": "node ../../notification-rules/remind-terminal-submission.cjs"
+      }
+    ]
+  },
+  {
+    "event": "TurnCompleted",
+    "rules": [
+      { "type": "command", "command": "node ../../notification-rules/budget-reminder.cjs 50" }
+    ]
+  }
+]

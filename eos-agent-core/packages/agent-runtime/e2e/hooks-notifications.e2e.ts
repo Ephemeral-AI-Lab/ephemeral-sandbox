@@ -1,17 +1,13 @@
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import { assistantText, type JsonObject } from "@eos/contracts";
-import { scriptedTool } from "@eos/testkit";
+import { eosAgentsPath, scriptedTool } from "@eos/testkit";
 import type { ToolDefinition } from "@eos/tool";
 
 import {
   asString,
   must,
   readTranscriptLines,
-  tempDir,
   userMessage,
 } from "../tests/support.js";
 import {
@@ -39,38 +35,6 @@ function llmClientsPath(): string {
   return codex.llmClientsPath;
 }
 
-/**
- * Exit-2 gate over the run's transcript file: deny `write_note` until a
- * `read_note` call is on record. The needle is the QUOTED JSON form so the
- * prompt's prose mention of the tool can never satisfy the gate.
- */
-const READ_BEFORE_WRITE_HOOK = `const fs = require("node:fs");
-let input = "";
-process.stdin.on("data", (chunk) => (input += chunk));
-process.stdin.on("end", () => {
-  const payload = JSON.parse(input);
-  const transcript = fs.readFileSync(payload.run.transcript_path, "utf8");
-  if (transcript.includes('"read_note"')) {
-    process.stdout.write(
-      JSON.stringify({ decision: "allow", additionalContext: "note was read before writing" }),
-    );
-    process.exit(0);
-  }
-  process.stderr.write("write_note requires reading the note first");
-  process.exit(2);
-});
-`;
-
-/** Single-hook input rewrite; re-validated through the tool's own schema. */
-const REWRITE_INPUT_HOOK = `process.stdout.write(
-  JSON.stringify({ decision: "allow", updatedInput: { text: "REDACTED-BY-HOOK" } }),
-);
-`;
-
-/** Garbage stdout on exit 0: passthrough plus an operator warning. */
-const GARBAGE_STDOUT_HOOK = `process.stdout.write("not json at all");
-`;
-
 function readNoteTool(): ToolDefinition {
   return scriptedTool({
     name: "read_note",
@@ -88,9 +52,9 @@ describe.skipIf(!codex.available)("hook verification over live codex (e2e)", () 
     "denies a live tool call by transcript evidence, watches the model recover, and republishes hook context",
     { timeout: 240_000 },
     async () => {
-      const root = tempDir("eos-hook-e2e-");
-      const scriptPath = join(root, "read-before-write.cjs");
-      writeFileSync(scriptPath, READ_BEFORE_WRITE_HOOK);
+      // The checked-in write-note gate: deny `write_note` until a
+      // `read_note` call is on the transcript (quoted-JSON needle, so the
+      // prompt's prose mention of the tool can never satisfy it).
       let writeExecutions = 0;
       const { runtime } = runtimeFixture({
         llmClientsPath: llmClientsPath(),
@@ -115,13 +79,7 @@ describe.skipIf(!codex.available)("hook verification over live codex (e2e)", () 
             },
           }),
         ],
-        hookEntries: [
-          {
-            event: "PreToolUse",
-            matcher: "write_note",
-            hooks: [{ type: "command", command: `node ${JSON.stringify(scriptPath)}` }],
-          },
-        ],
+        extraHooksPath: eosAgentsPath("tests/hooks/write-note-gate.json"),
       });
       const run = runtime.startRun({
         agentName: "scribe",
@@ -175,12 +133,9 @@ describe.skipIf(!codex.available)("hook verification over live codex (e2e)", () 
     "rewrites a live tool call's input through updatedInput and records warning passthroughs",
     { timeout: 240_000 },
     async () => {
-      const root = tempDir("eos-hook-e2e-");
-      const rewritePath = join(root, "rewrite-input.cjs");
-      const garbagePath = join(root, "garbage-stdout.cjs");
-      writeFileSync(rewritePath, REWRITE_INPUT_HOOK);
-      writeFileSync(garbagePath, GARBAGE_STDOUT_HOOK);
-
+      // Checked-in pair: rewrite write_note's input through updatedInput
+      // (re-validated by the tool's own schema) and answer read_note's
+      // hook with garbage stdout on exit 0 - passthrough plus a warning.
       const written: JsonObject[] = [];
       const { runtime } = runtimeFixture({
         llmClientsPath: llmClientsPath(),
@@ -205,18 +160,7 @@ describe.skipIf(!codex.available)("hook verification over live codex (e2e)", () 
             },
           }),
         ],
-        hookEntries: [
-          {
-            event: "PreToolUse",
-            matcher: "write_note",
-            hooks: [{ type: "command", command: `node ${JSON.stringify(rewritePath)}` }],
-          },
-          {
-            event: "PreToolUse",
-            matcher: "read_note",
-            hooks: [{ type: "command", command: `node ${JSON.stringify(garbagePath)}` }],
-          },
-        ],
+        extraHooksPath: eosAgentsPath("tests/hooks/rewrite-and-garbage.json"),
       });
       const run = runtime.startRun({
         agentName: "redactor",

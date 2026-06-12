@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -229,31 +229,6 @@ export function writeProfile(dir: string, spec: ProfileSpec): string {
   ].join("\n");
   const path = join(dir, `${spec.name}.md`);
   writeFileSync(path, content);
-  return path;
-}
-
-/**
- * A minimal context script that turns the snapshot into one user message;
- * planner/worker profile fixtures point at it so startup validation holds.
- */
-export function writeContextScript(dir: string, name = "context.cjs"): string {
-  mkdirSync(dir, { recursive: true });
-  const path = join(dir, name);
-  writeFileSync(
-    path,
-    `let input = "";
-process.stdin.on("data", (c) => (input += c));
-process.stdin.on("end", () => {
-  const ctx = JSON.parse(input);
-  const text = "pursuit goal: " + ctx.pursuit_context.pursuit.goal;
-  process.stdout.write(
-    JSON.stringify({
-      initial_messages: [{ role: "user", content: [{ type: "text", text }] }],
-    }),
-  );
-});
-`,
-  );
   return path;
 }
 

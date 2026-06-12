@@ -1,3 +1,4 @@
+export { REPO_ROOT, eosAgentsPath } from "./eos-agents.js";
 export {
   scriptedRunState,
   scriptedBackgroundSessionHandle,

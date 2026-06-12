@@ -3,12 +3,13 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Map, Value};
 
-use eos_sandbox_host::{ForwardError, SandboxHost, SandboxStatus};
+use eos_sandbox_host::protocol::strip_trace_sidecar;
+use eos_sandbox_host::{ForwardError, ForwardTraceContext, SandboxHost, SandboxStatus};
 
 const OPS_JSON: &str = include_str!("../../eos-operation/ops.json");
 const REQUEST_READ_TIMEOUT: Duration = Duration::from_secs(30);
@@ -129,7 +130,18 @@ pub(crate) trait Engine: Send + Sync {
         op: &str,
         invocation_id: &str,
         args: &Value,
+        trace: ForwardTraceContext,
     ) -> Option<Result<Value, ForwardError>>;
+
+    fn record_trace_event(
+        &self,
+        _sandbox_id: &str,
+        _trace: &ForwardTraceContext,
+        _module: &str,
+        _event: &str,
+        _details: Value,
+    ) {
+    }
 }
 
 impl Engine for SandboxHost {
@@ -159,8 +171,28 @@ impl Engine for SandboxHost {
         op: &str,
         invocation_id: &str,
         args: &Value,
+        trace: ForwardTraceContext,
     ) -> Option<Result<Value, ForwardError>> {
-        SandboxHost::forward(self, sandbox_id, mutates_state, op, invocation_id, args)
+        SandboxHost::forward_with_trace(
+            self,
+            sandbox_id,
+            mutates_state,
+            op,
+            invocation_id,
+            args,
+            trace,
+        )
+    }
+
+    fn record_trace_event(
+        &self,
+        sandbox_id: &str,
+        trace: &ForwardTraceContext,
+        module: &str,
+        event: &str,
+        details: Value,
+    ) {
+        SandboxHost::record_trace_event(self, sandbox_id, trace, module, event, details);
     }
 }
 
@@ -222,18 +254,77 @@ fn forward(engine: &dyn Engine, request: &ClientRequest, mutates_state: bool) ->
     let Some(sandbox_id) = request.sandbox_id.as_deref() else {
         return error_response("invalid_request", "sandbox_id is required for this op");
     };
+    let mut trace = request.trace.clone();
+    trace.push_gateway_event(
+        "gateway.route",
+        "route_selected",
+        json!({
+            "op": request.op,
+            "sandbox_id": sandbox_id,
+            "route": "daemon",
+            "visibility": "public",
+            "mutates_state": mutates_state,
+        }),
+    );
+    trace.push_gateway_event(
+        "gateway.route",
+        "engine_forward_started",
+        json!({"op": request.op, "sandbox_id": sandbox_id, "mutates_state": mutates_state}),
+    );
+    let trace_for_result = trace.clone();
+    let started = Instant::now();
     match engine.forward(
         sandbox_id,
         mutates_state,
         &request.op,
         &request.invocation_id,
         &request.args,
+        trace,
     ) {
-        Some(Ok(response)) => response,
+        Some(Ok(mut response)) => {
+            engine.record_trace_event(
+                sandbox_id,
+                &trace_for_result,
+                "gateway.route",
+                "engine_forward_finished",
+                json!({
+                    "op": request.op,
+                    "sandbox_id": sandbox_id,
+                    "mutates_state": mutates_state,
+                    "duration_us": elapsed_us(started),
+                }),
+            );
+            strip_trace_sidecar(&mut response);
+            response
+        }
+        Some(Err(ForwardError::TraceUnavailable(message))) => {
+            engine.record_trace_event(
+                sandbox_id,
+                &trace_for_result,
+                "gateway.route",
+                "engine_forward_failed",
+                json!({"op": request.op, "sandbox_id": sandbox_id, "error_kind": "trace_unavailable", "duration_us": elapsed_us(started)}),
+            );
+            error_response("trace_unavailable", &message.to_string())
+        }
         Some(Err(ForwardError::UncertainOutcome(message))) => {
+            engine.record_trace_event(
+                sandbox_id,
+                &trace_for_result,
+                "gateway.route",
+                "engine_forward_failed",
+                json!({"op": request.op, "sandbox_id": sandbox_id, "error_kind": "uncertain_outcome", "duration_us": elapsed_us(started)}),
+            );
             error_response("uncertain_outcome", &message)
         }
         Some(Err(ForwardError::SandboxUnavailable(message))) => {
+            engine.record_trace_event(
+                sandbox_id,
+                &trace_for_result,
+                "gateway.route",
+                "engine_forward_failed",
+                json!({"op": request.op, "sandbox_id": sandbox_id, "error_kind": "sandbox_unavailable", "duration_us": elapsed_us(started)}),
+            );
             error_response("sandbox_unavailable", &message)
         }
         None => unknown_sandbox(sandbox_id),
@@ -342,13 +433,72 @@ fn accept_loop(
 
 fn handle_connection(stream: UnixStream, surface: Surface, catalog: &Catalog, engine: &dyn Engine) {
     let _ = stream.set_read_timeout(Some(REQUEST_READ_TIMEOUT));
-    let response = match read_request_line(&stream).and_then(|line| parse_request(&line)) {
-        Ok(request) => handle(catalog, engine, surface, &request),
-        Err(err) => error_response(err.kind, &err.message),
+    let read_started = Instant::now();
+    let parsed = read_request_line(&stream).and_then(|line| {
+        let request_bytes = line.len();
+        parse_request(&line).map(|mut request| {
+            request.trace.push_gateway_event(
+                "gateway.transport",
+                "accepted",
+                json!({"surface": surface.label()}),
+            );
+            request.trace.push_gateway_event(
+                "gateway.transport",
+                "request_read",
+                json!({
+                    "surface": surface.label(),
+                    "request_bytes": request_bytes,
+                    "read_duration_us": elapsed_us(read_started),
+                }),
+            );
+            request
+        })
+    });
+    let (response, trace_target) = match parsed {
+        Ok(request) => {
+            let trace_target = request
+                .sandbox_id
+                .clone()
+                .map(|sandbox_id| (sandbox_id, request.trace.clone()));
+            (handle(catalog, engine, surface, &request), trace_target)
+        }
+        Err(err) => (error_response(err.kind, &err.message), None),
     };
     let mut stream = stream;
-    let _ = stream.write_all(&response_line(&response));
-    let _ = stream.flush();
+    let line = response_line(&response);
+    let write_started = Instant::now();
+    let write_result = stream.write_all(&line);
+    if let Some((sandbox_id, trace)) = trace_target {
+        match &write_result {
+            Ok(()) => engine.record_trace_event(
+                &sandbox_id,
+                &trace,
+                "gateway.transport",
+                "response_written",
+                json!({
+                    "surface": surface.label(),
+                    "response_bytes": line.len(),
+                    "write_duration_us": elapsed_us(write_started),
+                }),
+            ),
+            Err(err) => engine.record_trace_event(
+                &sandbox_id,
+                &trace,
+                "gateway.transport",
+                "write_failed",
+                json!({
+                    "surface": surface.label(),
+                    "response_bytes": line.len(),
+                    "write_duration_us": elapsed_us(write_started),
+                    "error_kind": "write_failed",
+                    "message": err.to_string(),
+                }),
+            ),
+        }
+    }
+    if write_result.is_ok() {
+        let _ = stream.flush();
+    }
     let _ = stream.shutdown(std::net::Shutdown::Write);
 }
 
@@ -358,6 +508,7 @@ pub(crate) struct ClientRequest {
     sandbox_id: Option<String>,
     invocation_id: String,
     args: Value,
+    trace: ForwardTraceContext,
 }
 
 #[derive(Debug)]
@@ -427,6 +578,7 @@ pub(crate) fn parse_request(line: &[u8]) -> Result<ClientRequest, WireError> {
     Ok(ClientRequest {
         op,
         sandbox_id,
+        trace: ForwardTraceContext::new(&invocation_id),
         invocation_id,
         args,
     })
@@ -453,6 +605,19 @@ fn error_response(kind: &str, message: &str) -> Value {
             "details": {},
         },
     })
+}
+
+impl Surface {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Client => "client",
+            Self::Operator => "operator",
+        }
+    }
+}
+
+fn elapsed_us(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX)
 }
 
 fn response_line(response: &Value) -> Vec<u8> {

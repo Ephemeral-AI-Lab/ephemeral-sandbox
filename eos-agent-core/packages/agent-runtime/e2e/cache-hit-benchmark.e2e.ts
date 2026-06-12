@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import type { JsonObject } from "@eos/contracts";
@@ -6,6 +6,7 @@ import type {
   LlmClient,
   UsageSnapshot,
 } from "@eos/llm-client";
+import { eosAgentsPath } from "@eos/testkit";
 import { defineTool, type ToolDefinition } from "@eos/tool";
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
@@ -86,14 +87,13 @@ function benchmarkRuntime(
   const profilesDir = join(root, "profiles");
   mkdirSync(profilesDir, { recursive: true });
   writeProfile(profilesDir, benchmarkProfile(label, toolCalls));
-  const hooksPath = join(root, "hooks.json");
-  writeFileSync(hooksPath, "[]\n");
   const dataDir = join(root, "data");
   const runtime = createAgentRuntime({
     agentProfilesDir: profilesDir,
     llmClients: singleClientRegistry(binding, binding.client),
     baseTools: [cacheProbeTool(probeStepsFor(toolCalls)), finishBenchmarkTool()],
-    hookConfigPath: hooksPath,
+    hookConfigPath: eosAgentsPath("tests/hooks/none.json"),
+    notificationRulesPath: eosAgentsPath("tests/notification-rules/none.json"),
     dataDir,
   });
   return { runtime };

@@ -57,6 +57,7 @@ Reserved for the host recovery machine; not served from any socket.
 | Op | Served by | Family | Mutates | Summary |
 |---|---|---|---|---|
 | `sandbox.runtime.ready` | daemon | Control | no | Daemon readiness probe used by the host recovery machine. |
+| `sandbox.trace.export` | daemon | Control | no | Drain bounded daemon background trace records for host ingest. |
 
 ## Test ops
 

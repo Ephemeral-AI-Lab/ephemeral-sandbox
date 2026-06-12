@@ -75,6 +75,24 @@ impl CallerCountInput {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TraceExportInput {
+    pub max_records: usize,
+}
+
+impl TraceExportInput {
+    pub(crate) fn parse(args: &Value) -> Self {
+        Self {
+            max_records: args
+                .get("max_records")
+                .and_then(Value::as_u64)
+                .and_then(|value| usize::try_from(value).ok())
+                .filter(|value| *value > 0)
+                .unwrap_or(64),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RuntimeReadyOutput {
     pub success: bool,
@@ -105,4 +123,13 @@ pub struct InflightCountOutput {
     pub success: bool,
     pub caller_id: String,
     pub count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TraceExportOutput {
+    pub success: bool,
+    pub record_count: usize,
+    pub dropped_traces: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace_batch_base64: Option<String>,
 }

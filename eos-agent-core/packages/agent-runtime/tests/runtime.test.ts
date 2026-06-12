@@ -1,6 +1,5 @@
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -8,7 +7,7 @@ import { toolUseIdFrom } from "@eos/contracts";
 import { systemNotificationMessage } from "@eos/notification";
 import type { LlmClient } from "@eos/llm-client";
 import { terminalToolDefinitions, type ToolDefinition } from "@eos/tool";
-import { scriptedTool } from "@eos/testkit";
+import { eosAgentsPath, scriptedTool } from "@eos/testkit";
 
 import { createAgentRuntime, type AgentRuntime } from "../src/runtime.js";
 import { runTranscriptPath } from "../src/transcript.js";
@@ -32,85 +31,54 @@ import {
   textBlock,
   toolUseBlock,
   userMessage,
-  writeContextScript,
-  writeProfile,
-  type ProfileSpec,
 } from "./support.js";
 
-const ROOT: ProfileSpec = {
-  name: "root",
-  kind: "main",
-  llmClientId: "root_llm",
-  allowed: [
-    "run_subagent",
-    "ask_advisor",
-    "read_agent_run_transcript",
-    "list_background_sessions",
-    "cancel_background_session",
+/** Every llm_client_id a `.eos-agents/tests/profile/<group>` directory names. */
+const PROFILE_GROUP_CLIENT_IDS = {
+  core: [
+    "root_llm",
+    "root2_llm",
+    "helper_llm",
+    "advisor_llm",
+    "asker_llm",
+    "unsafe_llm",
+    "researcher_llm",
+    "scout_llm",
   ],
-};
-const HELPER: ProfileSpec = {
-  name: "helper",
-  kind: "subagent",
-  llmClientId: "helper_llm",
-  allowed: [],
-};
-const ADVISOR: ProfileSpec = {
-  name: "advisor",
-  kind: "advisor",
-  llmClientId: "advisor_llm",
-  allowed: [],
-};
-const ASKER: ProfileSpec = {
-  name: "asker",
-  kind: "worker",
-  llmClientId: "asker_llm",
-  allowed: ["ask_advisor"],
-};
+  sandbox: ["worker_llm", "helper_llm"],
+  scribe: ["scribe_llm"],
+  "missing-client": [],
+} as const;
 
 interface FixtureOptions {
-  profiles: readonly ProfileSpec[];
-  clients: Record<string, LlmClient>;
+  /** A checked-in `.eos-agents/tests/profile/<group>` directory. */
+  profileGroup?: keyof typeof PROFILE_GROUP_CLIENT_IDS;
+  /** Scripted clients; the group's other ids get an empty mock. */
+  clients?: Record<string, LlmClient>;
   baseTools?: ToolDefinition[];
-  /** Written to `<root>/hooks.json` when present. */
-  hookEntries?: unknown;
-  /** Written to `<root>/notification_rules.json` when present. */
-  notificationRules?: unknown;
+  hookConfigPath?: string;
+  notificationRulesPath?: string;
 }
 
 function runtimeFixture(options: FixtureOptions): {
   runtime: AgentRuntime;
   dataDir: string;
 } {
-  const root = tempDir("eos-runtime-");
-  const dir = join(root, "profiles");
-  mkdirSync(dir, { recursive: true });
-  const pursuitScriptsDir = join(root, "pursuit-scripts");
-  const contextScript = writeContextScript(pursuitScriptsDir);
-  for (const spec of options.profiles) {
-    const needsScript = spec.kind === "planner" || spec.kind === "worker";
-    writeProfile(
-      dir,
-      needsScript ? { pursuitContextScript: contextScript, ...spec } : spec,
-    );
-  }
-  const hookConfigPath = join(root, "hooks.json");
-  if (options.hookEntries !== undefined) {
-    writeFileSync(hookConfigPath, JSON.stringify(options.hookEntries));
-  }
-  const notificationRulesPath = join(root, "notification_rules.json");
-  if (options.notificationRules !== undefined) {
-    writeFileSync(notificationRulesPath, JSON.stringify(options.notificationRules));
-  }
-  const dataDir = join(root, "data");
+  const group = options.profileGroup ?? "core";
+  const clients: Record<string, LlmClient> = {};
+  for (const id of PROFILE_GROUP_CLIENT_IDS[group]) clients[id] = new MockLlmClient([]);
+  Object.assign(clients, options.clients);
+  const dataDir = join(tempDir("eos-runtime-"), "data");
   const runtime = createAgentRuntime({
-    agentProfilesDir: dir,
-    llmClients: llmRegistry(options.clients),
+    agentProfilesDir: eosAgentsPath("tests/profile", group),
+    llmClients: llmRegistry(clients),
     baseTools: options.baseTools,
-    hookConfigPath,
-    notificationRulesPath,
+    hookConfigPath: options.hookConfigPath ?? eosAgentsPath("tests/hooks/none.json"),
+    notificationRulesPath:
+      options.notificationRulesPath ??
+      eosAgentsPath("tests/notification-rules/none.json"),
     dataDir,
-    pursuitScriptsDir,
+    pursuitScriptsDir: eosAgentsPath("tests/pursuit/scripts"),
   });
   return { runtime, dataDir };
 }
@@ -175,21 +143,7 @@ describe("agent runtime", () => {
       ]),
     ]);
     const { runtime } = runtimeFixture({
-      profiles: [
-        {
-          name: "worker",
-          kind: "worker",
-          llmClientId: "worker_llm",
-          allowed: [
-            ...sandboxNames,
-            "list_background_sessions",
-            "cancel_background_session",
-            "ask_advisor",
-            "run_subagent",
-          ],
-        },
-        HELPER,
-      ],
+      profileGroup: "sandbox",
       clients: { worker_llm: client, helper_llm: helperClient },
       baseTools,
     });
@@ -267,8 +221,6 @@ describe("agent runtime", () => {
   it("rejects baseTools whose names collide with a runtime tool family (§4)", () => {
     expect(() =>
       runtimeFixture({
-        profiles: [ROOT],
-        clients: { root_llm: new MockLlmClient([]) },
         baseTools: [
           scriptedTool({
             name: "run_subagent",
@@ -280,26 +232,13 @@ describe("agent runtime", () => {
   });
 
   it("fails createAgentRuntime when a profile references a missing llm client id (§13.2)", () => {
-    expect(() =>
-      runtimeFixture({
-        profiles: [{ ...ROOT, llmClientId: "ghost_llm" }],
-        clients: {},
-      }),
-    ).toThrow('unknown llm client id "ghost_llm"');
+    expect(() => runtimeFixture({ profileGroup: "missing-client" })).toThrow(
+      'unknown llm client id "ghost_llm"',
+    );
   });
 
   it("rejects starting a non-advisor profile that selects advisory tools without ask_advisor", () => {
-    const { runtime } = runtimeFixture({
-      profiles: [
-        {
-          name: "unsafe_worker",
-          kind: "worker",
-          llmClientId: "unsafe_llm",
-          allowed: [],
-        },
-      ],
-      clients: { unsafe_llm: new MockLlmClient([]) },
-    });
+    const { runtime } = runtimeFixture({});
     expect(() =>
       runtime.startRun({
         agentName: "unsafe_worker",
@@ -325,7 +264,7 @@ describe("agent runtime", () => {
         ),
       ]),
     ]);
-    const { runtime } = runtimeFixture({ profiles: [ROOT], clients: { root_llm: client } });
+    const { runtime } = runtimeFixture({ clients: { root_llm: client } });
     const run = runtime.startRun({
       agentName: "root",
       initialMessages: [userMessage("go")],
@@ -346,18 +285,7 @@ describe("agent runtime", () => {
     const client = new MockLlmClient([
       scriptedTurn([complete(assistantMessage(textBlock("research summary: 42")))]),
     ]);
-    const { runtime } = runtimeFixture({
-      profiles: [
-        {
-          name: "researcher",
-          kind: "subagent",
-          llmClientId: "researcher_llm",
-          allowed: ["read_agent_run_transcript"],
-          terminal: null,
-        },
-      ],
-      clients: { researcher_llm: client },
-    });
+    const { runtime } = runtimeFixture({ clients: { researcher_llm: client } });
     const run = runtime.startRun({
       agentName: "researcher",
       initialMessages: [userMessage("find the answer")],
@@ -410,16 +338,6 @@ describe("agent runtime", () => {
       ]),
     ]);
     const { runtime } = runtimeFixture({
-      profiles: [
-        ROOT,
-        {
-          name: "scout",
-          kind: "subagent",
-          llmClientId: "scout_llm",
-          allowed: [],
-          terminal: null,
-        },
-      ],
       clients: { root_llm: rootClient, scout_llm: scoutClient },
     });
 
@@ -497,7 +415,6 @@ describe("agent runtime", () => {
       ]),
     ]);
     const { runtime } = runtimeFixture({
-      profiles: [ROOT, HELPER],
       clients: { root_llm: rootClient, helper_llm: helperClient },
     });
 
@@ -588,7 +505,6 @@ describe("agent runtime", () => {
       ]),
     ]);
     const { runtime } = runtimeFixture({
-      profiles: [ASKER, ADVISOR],
       clients: { asker_llm: askerClient, advisor_llm: advisorClient },
     });
 
@@ -660,7 +576,6 @@ describe("agent runtime", () => {
       ]),
     ]);
     const { runtime, dataDir } = runtimeFixture({
-      profiles: [ASKER, ADVISOR],
       clients: { asker_llm: askerClient, advisor_llm: advisorClient },
     });
 
@@ -707,7 +622,6 @@ describe("agent runtime", () => {
       scriptedTurn([complete(assistantMessage(textBlock("waiting")))]),
     ]);
     const { runtime, dataDir } = runtimeFixture({
-      profiles: [ROOT, HELPER],
       clients: { root_llm: rootClient, helper_llm: helperClient },
     });
 
@@ -770,7 +684,6 @@ describe("agent runtime", () => {
       ]),
     ]);
     const { runtime, dataDir } = runtimeFixture({
-      profiles: [ROOT, HELPER],
       clients: { root_llm: rootClient, helper_llm: helperClient },
     });
 
@@ -817,10 +730,7 @@ describe("agent runtime", () => {
         ),
       ]),
     ]);
-    const { runtime } = runtimeFixture({
-      profiles: [ROOT, { ...ROOT, name: "root2", llmClientId: "root2_llm" }],
-      clients: { root_llm: rootClient, root2_llm: new MockLlmClient([]) },
-    });
+    const { runtime } = runtimeFixture({ clients: { root_llm: rootClient } });
     const root = runtime.startRun({
       agentName: "root",
       initialMessages: [userMessage("go")],
@@ -833,27 +743,6 @@ describe("agent runtime", () => {
   });
 
   it("lets a real spawned hook gate a tool on transcript contents and republishes its context (§13.8)", async () => {
-    const root = tempDir("eos-hook-");
-    const scriptPath = join(root, "read-before-write.cjs");
-    writeFileSync(
-      scriptPath,
-      `const fs = require("node:fs");
-let input = "";
-process.stdin.on("data", (chunk) => (input += chunk));
-process.stdin.on("end", () => {
-  const payload = JSON.parse(input);
-  const transcript = fs.readFileSync(payload.run.transcript_path, "utf8");
-  if (transcript.includes('"read_note"')) {
-    process.stdout.write(
-      JSON.stringify({ decision: "allow", additionalContext: "note was read before writing" }),
-    );
-    process.exit(0);
-  }
-  process.stderr.write("write_note requires reading the note first");
-  process.exit(2);
-});
-`,
-    );
     const baseTools = [
       scriptedTool({
         name: "read_note",
@@ -894,23 +783,10 @@ process.stdin.on("end", () => {
       ]),
     ]);
     const { runtime } = runtimeFixture({
-      profiles: [
-        {
-          name: "scribe",
-          kind: "worker",
-          llmClientId: "scribe_llm",
-          allowed: ["read_note", "write_note", "ask_advisor"],
-        },
-      ],
+      profileGroup: "scribe",
       clients: { scribe_llm: client },
       baseTools,
-      hookEntries: [
-        {
-          event: "PreToolUse",
-          matcher: "write_note",
-          hooks: [{ type: "command", command: `node ${JSON.stringify(scriptPath)}` }],
-        },
-      ],
+      hookConfigPath: eosAgentsPath("tests/hooks/write-note-gate.json"),
     });
 
     const run = runtime.startRun({
@@ -940,16 +816,10 @@ process.stdin.on("end", () => {
   });
 
   it("reminds once per consecutive bare-text turn and drains same-boundary rule answers as separate messages (04.9)", async () => {
-    // The REAL reference scripts over a temp rules file: remind-terminal
-    // speaks on every bare-text/no-session turn, and the 50% budget rung
-    // (ceil(4 * 0.5) = 2) collides with the second one - two notifications
-    // at one boundary.
-    const rulesDir = join(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../../../.eos-agents/notification-rules",
-    );
-    const script = (name: string): string =>
-      `node ${JSON.stringify(join(rulesDir, name))}`;
+    // The REAL reference scripts over the checked-in test rules file:
+    // remind-terminal speaks on every bare-text/no-session turn, and the
+    // 50% budget rung (ceil(4 * 0.5) = 2) collides with the second one -
+    // two notifications at one boundary.
     const client = new MockLlmClient([
       scriptedTurn([complete(assistantMessage(textBlock("a")))]),
       scriptedTurn([complete(assistantMessage(textBlock("b")))]),
@@ -964,18 +834,8 @@ process.stdin.on("end", () => {
       ]),
     ]);
     const { runtime } = runtimeFixture({
-      profiles: [{ ...HELPER, name: "drifty", maxTurns: 4 }],
       clients: { helper_llm: client },
-      notificationRules: [
-        {
-          event: "TurnCompleted",
-          rules: [{ type: "command", command: script("remind-terminal-submission.cjs") }],
-        },
-        {
-          event: "TurnCompleted",
-          rules: [{ type: "command", command: `${script("budget-reminder.cjs")} 50` }],
-        },
-      ],
+      notificationRulesPath: eosAgentsPath("tests/notification-rules/turn-reminders.json"),
     });
     const run = runtime.startRun({
       agentName: "drifty",
@@ -1042,20 +902,8 @@ process.stdin.on("end", () => {
       ]),
     ]);
     const { runtime } = runtimeFixture({
-      profiles: [ROOT, HELPER],
       clients: { root_llm: rootClient, helper_llm: helperClient },
-      notificationRules: [
-        {
-          event: "TurnCompleted",
-          agent_kind: "subagent",
-          rules: [
-            {
-              type: "command",
-              command: `node -e 'console.log(JSON.stringify({notification:"kind scoped"}))'`,
-            },
-          ],
-        },
-      ],
+      notificationRulesPath: eosAgentsPath("tests/notification-rules/kind-scoped.json"),
     });
     const helper = runtime.startRun({
       agentName: "helper",
@@ -1091,7 +939,7 @@ process.stdin.on("end", () => {
         ),
       ]),
     ]);
-    const { runtime } = runtimeFixture({ profiles: [ROOT], clients: { root_llm: client } });
+    const { runtime } = runtimeFixture({ clients: { root_llm: client } });
     const run = runtime.startRun({
       agentName: "root",
       initialMessages: [userMessage("first"), userMessage("second")],

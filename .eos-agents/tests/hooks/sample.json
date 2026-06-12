@@ -1,0 +1,11 @@
+[
+  {
+    "event": "PreToolUse",
+    "matcher": "write_file",
+    "hooks": [{ "type": "command", "command": "node check.js", "timeout_ms": 1000 }]
+  },
+  {
+    "event": "PostToolUse",
+    "hooks": [{ "type": "command", "command": "node audit.js" }]
+  }
+]

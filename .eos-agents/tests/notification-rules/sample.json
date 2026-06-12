@@ -1,0 +1,13 @@
+[
+  {
+    "event": "TurnCompleted",
+    "agent_kind": "main",
+    "rules": [{ "type": "command", "command": "node remind.cjs" }]
+  },
+  {
+    "event": "IdleParked",
+    "agent_name": "researcher",
+    "timeout_ms": 60000,
+    "rules": [{ "type": "command", "command": "node idle.cjs" }]
+  }
+]

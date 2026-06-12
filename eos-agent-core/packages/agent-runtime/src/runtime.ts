@@ -42,19 +42,21 @@ import {
   type ToolDefinition,
 } from "@eos/tool";
 
+import { join } from "node:path";
+
 import {
   loadAgentProfileRegistry,
   selectProfileDefinitions,
   type AgentProfileRegistry,
   type KnownToolNames,
 } from "./agent-profile-registry.js";
+import { eosAgentsRoot } from "./config-root.js";
 import { loadHookConfig } from "./hook-config.js";
 import {
   loadLlmClientRegistry,
   type LlmClientRegistry,
 } from "./llm-client-registry.js";
 import {
-  DEFAULT_PURSUIT_SCRIPTS_DIR,
   resolvePursuitContextScripts,
   pursuitContextScriptComposer,
 } from "./pursuit-context-scripts.js";
@@ -66,7 +68,11 @@ import {
   type TranscriptRead,
 } from "./transcript.js";
 
-/** Process-level dependencies, bound once at `createAgentRuntime` (§2.3). */
+/**
+ * Process-level dependencies, bound once at `createAgentRuntime` (§2.3).
+ * Path defaults resolve under the nearest `.eos-agents` directory walking
+ * up from the working directory - the repo-root config tree.
+ */
 export interface AgentRuntimeDependencies {
   /** Default: `.eos-agents/profile`. */
   agentProfilesDir?: string;
@@ -124,12 +130,14 @@ export interface AgentRuntime {
  */
 export function createAgentRuntime(dependencies: AgentRuntimeDependencies): AgentRuntime {
   const agentProfiles = loadAgentProfileRegistry(
-    dependencies.agentProfilesDir ?? ".eos-agents/profile",
+    dependencies.agentProfilesDir ?? join(eosAgentsRoot(), "profile"),
     knownToolNames(dependencies.baseTools ?? [], dependencies.pursuitDb !== undefined),
   );
   const llmClients =
     dependencies.llmClients ??
-    loadLlmClientRegistry(dependencies.llmClientsPath ?? ".eos-agents/llm_clients.json");
+    loadLlmClientRegistry(
+      dependencies.llmClientsPath ?? join(eosAgentsRoot(), "llm_clients.json"),
+    );
   // Profiles resolve before engine start (§2.8); a dangling llm_client_id
   // reference is a startup error, never a mid-run one.
   for (const profile of agentProfiles.list()) llmClients.require(profile.llm_client_id);
@@ -165,7 +173,7 @@ function pursuitWiring(
 ): PursuitWiring | undefined {
   const scripts = resolvePursuitContextScripts(
     agentProfiles.list(),
-    dependencies.pursuitScriptsDir ?? DEFAULT_PURSUIT_SCRIPTS_DIR,
+    dependencies.pursuitScriptsDir ?? join(eosAgentsRoot(), "pursuit", "scripts"),
     dependencies.pursuitScriptsDir !== undefined,
   );
   if (dependencies.pursuitDb === undefined) return undefined;
@@ -182,7 +190,8 @@ function pursuitWiring(
       typeof dependencies.pursuitDb === "string"
         ? createPursuitDatabase(dependencies.pursuitDb)
         : dependencies.pursuitDb,
-    contextRoot: dependencies.pursuitContextRoot ?? ".eos-agents/pursuit/context",
+    contextRoot:
+      dependencies.pursuitContextRoot ?? join(eosAgentsRoot(), "pursuit", "context"),
     compose: pursuitContextScriptComposer(scripts),
     plannerAgentName: planners[0].name,
     isRegisteredWorkerAgent: (agentName) =>
