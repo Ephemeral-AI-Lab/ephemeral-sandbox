@@ -84,6 +84,7 @@ Applies to every Vitest suite under `eos-agent-core/packages/*`:
 | `knowledge/claude-code-tech-stack.md` | Observed | Record local Claude Code source-stack observations and migration takeaways for eos-agent-core. |
 | `knowledge/ask-user-question-tool.md` | Observed | Record Claude Code's AskUserQuestion permission-layer question/answer design (no answer tool, main-thread-only exposure, headless guard) and migration takeaways. |
 | `knowledge/inter-agent-messaging-protocol.md` | Observed | Record Claude Code's SendMessage/mailbox/team-tool protocol surface (routing tree, poll-based delivery, per-role tool matrix) and migration takeaways. |
+| `workflow-background-supervisor-side-note.md` | Observed | Clarify that `@eos/workflow` does not depend on `@eos/background`; the runtime/tool adapter registers the delegated workflow terminal handle with the parent run's supervisor. |
 
 ## Current Boundary
 

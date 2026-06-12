@@ -64,6 +64,20 @@ with a transfer payload, the system creates the next L2 with that payload as
 its goal; the new L2's planner reads it as inherited scope from a predecessor
 that finished its own slice.
 
+The L2 layer is also the **continuation gate**. L2 completion is the point
+where the system decides whether the delegated pursuit is done or whether a
+successor L2 must be spawned. If the successful L2 has no transfer payload,
+the L1 can close successfully. If the successful L2 has a transfer payload
+(`deferred_goal`, `handoff_goal`, `successor_goal`, `next_leg_goal`, etc.),
+the system spawns a new L2 for that payload as its goal. That new L2 is
+vertical continuation, not a retry of the previous L2 and not a continuation
+of the same L2.
+
+An L2 that closes successfully with a transfer payload is therefore just one
+completed slice cut through the L1 goal: it finished the slice it owned and
+declared the next slice boundary, rather than failing, pausing, or leaving
+unfinished work inside the same L2.
+
 ### 1.4 Mechanism: Retry and Overrule
 
 When an L3 fails and budget remains, the system creates the next L3. Its
@@ -127,8 +141,8 @@ l1_<id>/
 Outcomes are derived at render time, bottom-up:
 
 - **L3 outcome**: every work item in planner order with its status and
-  worker summary; `(no work items)` when a planner died before
-  materializing any. Fail reasons stay in `fail_reason.md`, never embedded.
+  worker summary; `(no work items)` when a planner died before materializing
+  any. Fail reasons stay in `fail_reason.md`, never embedded.
 - **L2 outcome**: the closing (last) L3's outcome, created only when the L2
   closes `Success` or exhausts its budget and closes `Failed`. A failed L3
   with budget remaining produces no L2 outcome.
@@ -143,9 +157,18 @@ These files are what future agents read: the next L2's planner, a retry
 planner, and any context search all consume this tree. Entity names appear
 verbatim in every directory segment.
 
+This tree is the under-the-hood context-sharing surface for a swarm-style
+multiagent run. Planner and worker agents do not share memory, chat state, or
+live process identity; they coordinate through the durable projection above.
+The names must therefore make ownership and lifecycle readable from paths:
+which entity owns the immutable delegated goal, which entity gates successor
+spawning, which entity is the retry boundary, which files belong to the active
+standing focus, and which archived subtrees are superseded history rather
+than current instructions.
+
 ### 1.6 Why Names Carry Load
 
-Three decision points depend on a naive agent decoding the names correctly:
+Four decision points depend on a naive agent decoding the names correctly:
 
 1. **Initial planning**: peel a safely-plannable focus off the L2 goal and
    phrase the transfer payload as an actionable goal.
@@ -155,38 +178,44 @@ Three decision points depend on a naive agent decoding the names correctly:
 3. **Inherited reading**: the next L2's planner must read the transferred
    goal as "my predecessor succeeded and this is the remaining scope," never
    as "something failed upstream."
+4. **Continuation gate**: when an L2 closes successfully, the system must
+   read absence of a transfer payload as "close the L1" and presence of a
+   transfer payload as "spawn the next L2 for that goal."
 
 ## 2. Candidate Vocabularies
 
 All candidates keep **attempt** for L3 and **refocus** for the overrule act;
 the judge is evaluating the L1/L2 terms and the transfer vocabulary around
-them. Pattern A is the incumbent.
+them. Pattern A is the incumbent. Pattern H is a modified pursuit candidate
+that keeps F's L1 term while replacing `segment`/`successor_goal` with
+`leg`/`next_leg_goal`. Pattern I is a quest candidate that keeps H's
+`leg`/`next_leg_goal` while replacing `pursuit` with `quest` as the L1 term.
 
-| | A | B | C | D | E |
-| --- | --- | --- | --- | --- | --- |
-| L1 | workflow | relay | ascent | expedition | mission |
-| L2 | iteration | leg | pitch | stage | milestone |
-| L3 | attempt | attempt | attempt | attempt | attempt |
-| Delegate tool | `delegate_workflow` | `delegate_relay` | `delegate_ascent` | `delegate_expedition` | `delegate_mission` |
-| Focus field | `iteration_focus` | `leg_focus` | `pitch_focus` | `stage_focus` | `milestone_focus` |
-| Transfer field | `deferred_goal` | `handoff_goal` | `onward_goal` | `carryforward_goal` | `rollover_goal` |
-| Transfer verb | defer | hand off | route onward | carry forward | roll over |
-| Inherited-goal phrase | "deferred by iteration 1" | "handed off by leg 1" | "routed onward by pitch 1" | "carried forward by stage 1" | "rolled over from milestone 1" |
-| Budget phrase | "attempt 2 of 2" | "attempt 2 of 2" | "attempt 2 of 2" | "attempt 2 of 2" | "attempt 2 of 2" |
-| Context path | `workflow_<id>/iteration_<id>/attempt_<id>/` | `relay_<id>/leg_<id>/attempt_<id>/` | `ascent_<id>/pitch_<id>/attempt_<id>/` | `expedition_<id>/stage_<id>/attempt_<id>/` | `mission_<id>/milestone_<id>/attempt_<id>/` |
-| Transfer file | `deferred_goal.md` | `handoff_goal.md` | `onward_goal.md` | `carryforward_goal.md` | `rollover_goal.md` |
+| | A | B | C | D | E | F | G | H | I |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| L1 | workflow | relay | ascent | expedition | mission | pursuit | endeavor | pursuit | quest |
+| L2 | iteration | leg | pitch | stage | milestone | segment | leg | leg | leg |
+| L3 | attempt | attempt | attempt | attempt | attempt | attempt | attempt | attempt | attempt |
+| Delegate tool | `delegate_workflow` | `delegate_relay` | `delegate_ascent` | `delegate_expedition` | `delegate_mission` | `delegate_pursuit` | `delegate_endeavor` | `delegate_pursuit` | `delegate_quest` |
+| Focus field | `iteration_focus` | `leg_focus` | `pitch_focus` | `stage_focus` | `milestone_focus` | `segment_focus` | `leg_focus` | `leg_focus` | `leg_focus` |
+| Transfer field | `deferred_goal` | `handoff_goal` | `onward_goal` | `carryforward_goal` | `rollover_goal` | `successor_goal` | `remaining_goal` | `next_leg_goal` | `next_leg_goal` |
+| Transfer verb | defer | hand off | route onward | carry forward | roll over | continue with | pass forward | spawn next leg for | spawn next leg for |
+| Inherited-goal phrase | "deferred by iteration 1" | "handed off by leg 1" | "routed onward by pitch 1" | "carried forward by stage 1" | "rolled over from milestone 1" | "successor goal after segment 1" | "remaining goal from successful leg 1" | "next leg goal from successful leg 1" | "next leg goal from successful leg 1" |
+| Budget phrase | "attempt 2 of 2" | "attempt 2 of 2" | "attempt 2 of 2" | "attempt 2 of 2" | "attempt 2 of 2" | "attempt 2 of 2" | "attempt 2 of 2" | "attempt 2 of 2" | "attempt 2 of 2" |
+| Context path | `workflow_<id>/iteration_<id>/attempt_<id>/` | `relay_<id>/leg_<id>/attempt_<id>/` | `ascent_<id>/pitch_<id>/attempt_<id>/` | `expedition_<id>/stage_<id>/attempt_<id>/` | `mission_<id>/milestone_<id>/attempt_<id>/` | `pursuit_<id>/segment_<id>/attempt_<id>/` | `endeavor_<id>/leg_<id>/attempt_<id>/` | `pursuit_<id>/leg_<id>/attempt_<id>/` | `quest_<id>/leg_<id>/attempt_<id>/` |
+| Transfer file | `deferred_goal.md` | `handoff_goal.md` | `onward_goal.md` | `carryforward_goal.md` | `rollover_goal.md` | `successor_goal.md` | `remaining_goal.md` | `next_leg_goal.md` | `next_leg_goal.md` |
 
 ## 3. Judge Prompt
 
 Usage: provide sections 1 and 2 verbatim as context, then the prompt below.
-Run across several models and several samples per model; shuffle the A-E
+Run across several models and several samples per model; shuffle the A-I
 labels between samples to remove position and label bias, and de-shuffle
 before aggregating.
 
 ```text
 You are judging entity vocabularies for an agent-orchestration system. The
-system description (Section 1) uses neutral labels L1/L2/L3; five candidate
-vocabularies (Section 2, Patterns A-E) propose real names for those labels
+system description (Section 1) uses neutral labels L1/L2/L3; nine candidate
+vocabularies (Section 2, Patterns A-I) propose real names for those labels
 and their actions. The names will be read by small LLM agents that receive
 NO documentation - only composed context messages and context-tree paths
 using these words. Your job is to predict which vocabulary those agents will
@@ -224,25 +253,41 @@ aesthetics):
    from the Section 2 table remain short, readable, and unambiguous; an L2
    term must also read sensibly as a directory that CONTAINS attempts and
    work items.
+9. Continuation gate semantics - does the L2 term plus transfer vocabulary
+   make it obvious that L2 completion gates whether the L1 closes or a new L2
+   is spawned for the transferred goal? State any risk that an agent would
+   treat the transfer as retrying the old L2, continuing the same L2, or
+   handing work to a worker rather than creating successor L2 scope.
+10. LLM-understandable semantics - under compressed prompts and no hidden
+   documentation, would a smaller LLM reliably decode the literal words into
+   the intended lifecycle, or would metaphor, jargon, or overloaded project
+   language dominate?
+11. Swarm context-sharing fit - given the Section 1.5 file tree as the only
+   durable coordination surface for ephemeral planner and worker agents, do
+   the names help agents infer shared context ownership, active versus
+   archived scope, and L1/L2/L3 lifecycle boundaries from paths alone?
 
-Then, for each pattern, simulate the three decision points from Section 1.6
+Then, for each pattern, simulate the four decision points from Section 1.6
 in one sentence each: what does a naive planner most plausibly do at initial
-planning, retry planning, and inherited reading under this vocabulary? Name
-each pattern's single worst failure mode.
+planning, retry planning, inherited reading, and the L2 continuation gate
+under this vocabulary? Name each pattern's single worst failure mode.
 
 Output JSON only:
 
 {
-  "scores": { "A": {"1": n, ..., "8": n}, "B": {...}, "C": {...},
-              "D": {...}, "E": {...} },
+  "scores": { "A": {"1": n, ..., "11": n}, "B": {...}, "C": {...},
+              "D": {...}, "E": {...}, "F": {...}, "G": {...},
+              "H": {...}, "I": {...} },
   "justifications": { "A": {"1": "...", ...}, ... },
   "simulations": {
-    "A": {"initial": "...", "retry": "...", "inherited": "..."},
+    "A": {"initial": "...", "retry": "...", "inherited": "...",
+          "gate": "..."},
     ...
   },
   "worst_failure_mode": { "A": "...", "B": "...", "C": "...",
-                          "D": "...", "E": "..." },
-  "ranking": ["X", "Y", "Z", "...", "..."],
+                          "D": "...", "E": "...", "F": "...",
+                          "G": "...", "H": "...", "I": "..." },
+  "ranking": ["X", "Y", "Z", "...", "...", "...", "...", "...", "..."],
   "winner": "X",
   "amendments": "term-level swaps or directive sentences that would improve
                  the winning pattern, if any"
