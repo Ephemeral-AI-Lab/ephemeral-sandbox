@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use sha2::Digest as _;
 
 use crate::protocol::{
-    encode_request_with_metadata, encode_request_with_trace_metadata, is_success,
+    encode_request_with_metadata, encode_request_with_trace_metadata, is_success, response_status,
     take_trace_sidecar, ClientError, ProtocolClient, TraceWireContext, TraceWireLinkHint,
     DEFAULT_LAYER_STACK_ROOT, HEARTBEAT_OP, READY_OP,
 };
@@ -1112,18 +1112,6 @@ fn forward_error_kind(error: &ForwardError) -> &'static str {
         ForwardError::TraceUnavailable(_) => "trace_unavailable",
         ForwardError::SandboxUnavailable(_) => "sandbox_unavailable",
         ForwardError::UncertainOutcome(_) => "uncertain_outcome",
-    }
-}
-
-fn response_status(response: &Value) -> String {
-    if response.get("success") == Some(&Value::Bool(false)) {
-        "error".to_owned()
-    } else {
-        response
-            .get("status")
-            .and_then(Value::as_str)
-            .unwrap_or("ok")
-            .to_owned()
     }
 }
 

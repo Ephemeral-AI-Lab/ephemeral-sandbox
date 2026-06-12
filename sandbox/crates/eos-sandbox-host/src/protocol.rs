@@ -269,9 +269,163 @@ fn request_object(
     }
     request
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResponseShape {
+    Envelope,
+    Legacy,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ResponseClassification<'a> {
+    pub shape: ResponseShape,
+    pub status: &'a str,
+    pub success: bool,
+    pub error_kind: Option<&'a str>,
+}
+
+pub fn response_classification(response: &Value) -> ResponseClassification<'_> {
+    if let Some(status) = response.get("status").and_then(Value::as_str) {
+        return classify_envelope_response(response, status);
+    }
+    classify_legacy_response(response)
+}
+
+fn classify_envelope_response<'a>(
+    response: &'a Value,
+    status: &'a str,
+) -> ResponseClassification<'a> {
+    let error_kind = response
+        .get("error")
+        .and_then(|error| error.get("kind"))
+        .and_then(Value::as_str);
+    match status {
+        "ok" | "running" => ResponseClassification {
+            shape: ResponseShape::Envelope,
+            status,
+            success: true,
+            error_kind: None,
+        },
+        "rejected" | "cancelled" | "timed_out" | "error" => ResponseClassification {
+            shape: ResponseShape::Envelope,
+            status,
+            success: false,
+            error_kind: error_kind.or(Some(status)),
+        },
+        _ => ResponseClassification {
+            shape: ResponseShape::Envelope,
+            status: "error",
+            success: false,
+            error_kind: Some("invalid_status"),
+        },
+    }
+}
+
+fn classify_legacy_response(response: &Value) -> ResponseClassification<'_> {
+    if response.get("success") == Some(&Value::Bool(false)) {
+        return ResponseClassification {
+            shape: ResponseShape::Legacy,
+            status: "error",
+            success: false,
+            error_kind: response
+                .get("error")
+                .and_then(|error| error.get("kind"))
+                .and_then(Value::as_str),
+        };
+    }
+    ResponseClassification {
+        shape: ResponseShape::Legacy,
+        status: "ok",
+        success: true,
+        error_kind: None,
+    }
+}
+
 pub fn is_success(response: &Value) -> bool {
-    response.get("success") != Some(&Value::Bool(false))
+    response_classification(response).success
 }
 pub fn error_kind(response: &Value) -> Option<&str> {
-    response.get("error")?.get("kind")?.as_str()
+    response_classification(response).error_kind
+}
+
+pub fn response_status(response: &Value) -> &str {
+    response_classification(response).status
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{error_kind, is_success, response_classification, ResponseShape};
+    use serde_json::json;
+
+    #[test]
+    fn classifies_mixed_legacy_and_envelope_responses() {
+        let cases = [
+            (
+                "legacy success",
+                json!({"success": true, "ready": true}),
+                ResponseShape::Legacy,
+                "ok",
+                true,
+                None,
+            ),
+            (
+                "legacy error",
+                json!({"success": false, "error": {"kind": "bad_json", "message": "bad"}}),
+                ResponseShape::Legacy,
+                "error",
+                false,
+                Some("bad_json"),
+            ),
+            (
+                "envelope ok",
+                json!({"status": "ok", "result": {"ready": true}, "meta": {}}),
+                ResponseShape::Envelope,
+                "ok",
+                true,
+                None,
+            ),
+            (
+                "envelope running",
+                json!({"status": "running", "result": {"command_id": "cmd-1"}, "meta": {}}),
+                ResponseShape::Envelope,
+                "running",
+                true,
+                None,
+            ),
+            (
+                "envelope error",
+                json!({"status": "error", "error": {"kind": "internal_error", "message": "failed"}, "meta": {}}),
+                ResponseShape::Envelope,
+                "error",
+                false,
+                Some("internal_error"),
+            ),
+            (
+                "envelope rejected without kind",
+                json!({"status": "rejected", "error": {"message": "blocked"}, "meta": {}}),
+                ResponseShape::Envelope,
+                "rejected",
+                false,
+                Some("rejected"),
+            ),
+            (
+                "invalid envelope status",
+                json!({"status": "mystery", "meta": {}}),
+                ResponseShape::Envelope,
+                "error",
+                false,
+                Some("invalid_status"),
+            ),
+        ];
+
+        for (label, response, shape, status, success, kind) in cases {
+            let classification = response_classification(&response);
+            assert_eq!(classification.shape, shape, "{label}: response shape");
+            assert_eq!(classification.status, status, "{label}: response status");
+            assert_eq!(classification.success, success, "{label}: success flag");
+            assert_eq!(classification.error_kind, kind, "{label}: error kind");
+            assert_eq!(is_success(&response), success, "{label}: helper success");
+            assert_eq!(error_kind(&response), kind, "{label}: helper error kind");
+        }
+    }
 }

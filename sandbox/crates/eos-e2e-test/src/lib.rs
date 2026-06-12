@@ -18,7 +18,10 @@ pub mod container;
 pub mod pool;
 
 pub mod client {
-    pub use eos_sandbox_host::e2e_support::{error_kind, is_success, ClientError, ProtocolClient};
+    pub use eos_sandbox_host::e2e_support::{
+        error_kind, is_success, response_classification, response_status, ClientError,
+        ProtocolClient, ResponseClassification, ResponseShape,
+    };
 }
 
 pub mod config {

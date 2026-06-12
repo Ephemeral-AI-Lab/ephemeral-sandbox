@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -14,6 +15,12 @@ use eos_sandbox_host::{ForwardError, ForwardTraceContext, SandboxHost, SandboxSt
 const OPS_JSON: &str = include_str!("../../eos-operation/ops.json");
 const REQUEST_READ_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REQUEST_BYTES: usize = eos_sandbox_host::MAX_REQUEST_BYTES;
+
+static GATEWAY_CONNECTION_SEQ: AtomicU64 = AtomicU64::new(1);
+
+fn next_gateway_connection_id() -> String {
+    format!("gwc-{}", GATEWAY_CONNECTION_SEQ.fetch_add(1, Ordering::Relaxed))
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Visibility {
@@ -226,6 +233,17 @@ impl Surface {
     }
 }
 
+impl Visibility {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Public => "public",
+            Self::Operator => "operator",
+            Self::Internal => "internal",
+            Self::Test => "test",
+        }
+    }
+}
+
 pub(crate) fn handle(
     catalog: &Catalog,
     engine: &dyn Engine,
@@ -234,23 +252,77 @@ pub(crate) fn handle(
 ) -> Value {
     let Some(entry) = catalog.lookup(&request.op) else {
         if request.op.starts_with("plugin.") {
-            return forward(engine, request, true);
+            return forward(engine, request, true, "plugin_fallback", "public");
         }
+        record_route_event(
+            engine,
+            request,
+            "route_rejected",
+            json!({
+                "op": request.op,
+                "route": "rejected",
+                "surface": surface.label(),
+                "error_kind": "unknown_op",
+            }),
+        );
         return error_response("unknown_op", &format!("unknown op: {}", request.op));
     };
     if !surface.allows(entry.visibility) {
+        record_route_event(
+            engine,
+            request,
+            "route_rejected",
+            json!({
+                "op": entry.name,
+                "route": "rejected",
+                "surface": surface.label(),
+                "visibility": entry.visibility.label(),
+                "error_kind": "forbidden",
+            }),
+        );
         return error_response(
             "forbidden",
             &format!("op {} is not served on this socket", entry.name),
         );
     }
     match entry.route {
-        Route::Daemon => forward(engine, request, entry.mutates_state),
-        Route::Host(verb) => host_call(engine, verb, request),
+        Route::Daemon => forward(
+            engine,
+            request,
+            entry.mutates_state,
+            "daemon",
+            entry.visibility.label(),
+        ),
+        Route::Host(verb) => {
+            record_route_event(
+                engine,
+                request,
+                "route_selected",
+                json!({
+                    "op": entry.name,
+                    "route": "host",
+                    "visibility": entry.visibility.label(),
+                    "mutates_state": entry.mutates_state,
+                }),
+            );
+            host_call(engine, verb, request)
+        }
     }
 }
 
-fn forward(engine: &dyn Engine, request: &ClientRequest, mutates_state: bool) -> Value {
+fn record_route_event(engine: &dyn Engine, request: &ClientRequest, event: &str, details: Value) {
+    if let Some(sandbox_id) = request.sandbox_id.as_deref() {
+        engine.record_trace_event(sandbox_id, &request.trace, "gateway.route", event, details);
+    }
+}
+
+fn forward(
+    engine: &dyn Engine,
+    request: &ClientRequest,
+    mutates_state: bool,
+    route: &str,
+    visibility: &str,
+) -> Value {
     let Some(sandbox_id) = request.sandbox_id.as_deref() else {
         return error_response("invalid_request", "sandbox_id is required for this op");
     };
@@ -261,8 +333,8 @@ fn forward(engine: &dyn Engine, request: &ClientRequest, mutates_state: bool) ->
         json!({
             "op": request.op,
             "sandbox_id": sandbox_id,
-            "route": "daemon",
-            "visibility": "public",
+            "route": route,
+            "visibility": visibility,
             "mutates_state": mutates_state,
         }),
     );
@@ -380,19 +452,24 @@ pub(crate) fn serve_with_catalog(
     catalog: Arc<Catalog>,
     engine: Arc<dyn Engine>,
 ) -> Result<()> {
-    let operator = bind(&operator_socket_path(listen))?;
+    let operator_path = operator_socket_path(listen);
+    let operator = bind(&operator_path)?;
     {
         let catalog = Arc::clone(&catalog);
         let engine = Arc::clone(&engine);
-        std::thread::spawn(move || accept_loop(&operator, Surface::Operator, catalog, engine));
+        let socket_path: Arc<str> = Arc::from(operator_path.to_string_lossy().as_ref());
+        std::thread::spawn(move || {
+            accept_loop(&operator, Surface::Operator, &socket_path, catalog, engine);
+        });
     }
     let client = bind(listen)?;
     eprintln!(
         "eos-sandbox-gateway: serving {} (operator: {})",
         listen.display(),
-        operator_socket_path(listen).display()
+        operator_path.display()
     );
-    accept_loop(&client, Surface::Client, catalog, engine);
+    let socket_path: Arc<str> = Arc::from(listen.to_string_lossy().as_ref());
+    accept_loop(&client, Surface::Client, &socket_path, catalog, engine);
     Ok(())
 }
 
@@ -418,6 +495,7 @@ fn bind(path: &Path) -> Result<UnixListener> {
 fn accept_loop(
     listener: &UnixListener,
     surface: Surface,
+    socket_path: &Arc<str>,
     catalog: Arc<Catalog>,
     engine: Arc<dyn Engine>,
 ) {
@@ -427,17 +505,22 @@ fn accept_loop(
         };
         let catalog = Arc::clone(&catalog);
         let engine = Arc::clone(&engine);
-        std::thread::spawn(move || handle_connection(stream, surface, &catalog, &*engine));
+        let socket_path = Arc::clone(socket_path);
+        std::thread::spawn(move || {
+            handle_connection(stream, surface, &socket_path, &catalog, &*engine);
+        });
     }
 }
 
 pub(crate) fn handle_connection(
     stream: UnixStream,
     surface: Surface,
+    socket_path: &str,
     catalog: &Catalog,
     engine: &dyn Engine,
 ) {
     let _ = stream.set_read_timeout(Some(REQUEST_READ_TIMEOUT));
+    let gateway_connection_id = next_gateway_connection_id();
     let read_started = Instant::now();
     let parsed = read_request_line(&stream).and_then(|line| {
         let request_bytes = line.len();
@@ -445,13 +528,19 @@ pub(crate) fn handle_connection(
             request.trace.push_gateway_event(
                 "gateway.transport",
                 "accepted",
-                json!({"surface": surface.label()}),
+                json!({
+                    "gateway_connection_id": gateway_connection_id,
+                    "surface": surface.label(),
+                    "socket_path": socket_path,
+                }),
             );
             request.trace.push_gateway_event(
                 "gateway.transport",
                 "request_read",
                 json!({
+                    "gateway_connection_id": gateway_connection_id,
                     "surface": surface.label(),
+                    "socket_path": socket_path,
                     "request_bytes": request_bytes,
                     "read_duration_us": elapsed_us(read_started),
                 }),
@@ -467,7 +556,29 @@ pub(crate) fn handle_connection(
                 .map(|sandbox_id| (sandbox_id, request.trace.clone()));
             (handle(catalog, engine, surface, &request), trace_target)
         }
-        Err(err) => (error_response(err.kind, &err.message), None),
+        Err(err) => {
+            // A parse failure with a known sandbox still closes its trace; a
+            // request too malformed to name a sandbox has no store row to join.
+            let trace_target = err.sandbox_id.clone().map(|sandbox_id| {
+                let trace = ForwardTraceContext::new("");
+                engine.record_trace_event(
+                    &sandbox_id,
+                    &trace,
+                    "gateway.transport",
+                    "parse_failed",
+                    json!({
+                        "gateway_connection_id": gateway_connection_id,
+                        "surface": surface.label(),
+                        "socket_path": socket_path,
+                        "read_duration_us": elapsed_us(read_started),
+                        "error_kind": err.kind,
+                        "message": err.message,
+                    }),
+                );
+                (sandbox_id, trace)
+            });
+            (error_response(err.kind, &err.message), trace_target)
+        }
     };
     let mut stream = stream;
     let line = response_line(&response);
@@ -481,7 +592,9 @@ pub(crate) fn handle_connection(
                 "gateway.transport",
                 "response_written",
                 json!({
+                    "gateway_connection_id": gateway_connection_id,
                     "surface": surface.label(),
+                    "socket_path": socket_path,
                     "response_bytes": line.len(),
                     "write_duration_us": elapsed_us(write_started),
                 }),
@@ -492,7 +605,9 @@ pub(crate) fn handle_connection(
                 "gateway.transport",
                 "write_failed",
                 json!({
+                    "gateway_connection_id": gateway_connection_id,
                     "surface": surface.label(),
+                    "socket_path": socket_path,
                     "response_bytes": line.len(),
                     "write_duration_us": elapsed_us(write_started),
                     "error_kind": "write_failed",
@@ -520,6 +635,7 @@ pub(crate) struct ClientRequest {
 pub(crate) struct WireError {
     kind: &'static str,
     message: String,
+    sandbox_id: Option<String>,
 }
 
 impl WireError {
@@ -527,7 +643,13 @@ impl WireError {
         Self {
             kind,
             message: message.into(),
+            sandbox_id: None,
         }
+    }
+
+    fn with_sandbox(mut self, sandbox_id: Option<&str>) -> Self {
+        self.sandbox_id = sandbox_id.map(ToOwned::to_owned);
+        self
     }
 }
 
@@ -561,11 +683,6 @@ pub(crate) fn parse_request(line: &[u8]) -> Result<ClientRequest, WireError> {
             "request must be a JSON object",
         ));
     };
-    let op = take_string(&mut object, "op")?;
-    if op.trim().is_empty() {
-        return Err(WireError::new("invalid_request", "op is required"));
-    }
-    let invocation_id = take_string(&mut object, "invocation_id")?;
     let sandbox_id = match object.remove("sandbox_id") {
         None | Some(Value::Null) => None,
         Some(Value::String(id)) => Some(id),
@@ -576,9 +693,18 @@ pub(crate) fn parse_request(line: &[u8]) -> Result<ClientRequest, WireError> {
             ))
         }
     };
+    let op = take_string(&mut object, "op").map_err(|err| err.with_sandbox(sandbox_id.as_deref()))?;
+    if op.trim().is_empty() {
+        return Err(
+            WireError::new("invalid_request", "op is required").with_sandbox(sandbox_id.as_deref())
+        );
+    }
+    let invocation_id = take_string(&mut object, "invocation_id")
+        .map_err(|err| err.with_sandbox(sandbox_id.as_deref()))?;
     let args = object.remove("args").unwrap_or_else(|| json!({}));
     if !args.is_object() {
-        return Err(WireError::new("invalid_request", "args must be an object"));
+        return Err(WireError::new("invalid_request", "args must be an object")
+            .with_sandbox(sandbox_id.as_deref()));
     }
     Ok(ClientRequest {
         op,

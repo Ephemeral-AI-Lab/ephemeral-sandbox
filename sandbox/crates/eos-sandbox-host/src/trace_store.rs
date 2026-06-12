@@ -319,12 +319,7 @@ impl TraceStore {
         input: ResponsePersistedInput<'_>,
     ) -> Result<(), TraceStoreError> {
         let status = response_status(input.response);
-        let error_kind = input
-            .response
-            .get("error")
-            .and_then(|error| error.get("kind"))
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned);
+        let error_kind = crate::protocol::error_kind(input.response).map(ToOwned::to_owned);
         let summary = BoundedJson::capture(input.response.clone(), DetailBudget::ResponseSummary);
         let payload = ResponsePersistedPayload {
             trace_id: input.trace_id.to_string(),
@@ -1447,13 +1442,7 @@ fn decode_audit_payload<T: serde::de::DeserializeOwned>(
 }
 
 fn response_status(response: &Value) -> String {
-    if response.get("success") == Some(&Value::Bool(false)) {
-        return "error".to_owned();
-    }
-    response
-        .get("status")
-        .and_then(Value::as_str)
-        .map_or_else(|| "ok".to_owned(), ToOwned::to_owned)
+    crate::protocol::response_status(response).to_owned()
 }
 
 struct EntryHashInput<'a> {

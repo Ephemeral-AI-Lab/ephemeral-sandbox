@@ -338,12 +338,89 @@ fn unix_socket_records_response_write_failure() {
     client.shutdown(std::net::Shutdown::Both).ok();
     drop(client);
 
-    gateway::handle_connection(server, Surface::Client, &catalog, &engine);
+    gateway::handle_connection(server, Surface::Client, "/tmp/esg-pair.sock", &catalog, &engine);
 
     let snapshot = events.lock().expect("events lock").clone();
     assert!(
         snapshot.contains(&("gateway.transport".to_owned(), "write_failed".to_owned())),
         "gateway events not recorded: {snapshot:?}"
+    );
+}
+
+#[test]
+fn rejected_routes_record_route_rejected_events() {
+    let catalog = Catalog::load_builtin().expect("catalog");
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let engine = RecordingEngine::new(Arc::clone(&events));
+
+    let response = gateway::handle(
+        &catalog,
+        &engine,
+        Surface::Client,
+        &request("sandbox.runtime.ready", Some(KNOWN_SANDBOX)),
+    );
+    assert_eq!(kind(&response), Some("forbidden"));
+    let response = gateway::handle(
+        &catalog,
+        &engine,
+        Surface::Client,
+        &request("api.totally.bogus.op", Some(KNOWN_SANDBOX)),
+    );
+    assert_eq!(kind(&response), Some("unknown_op"));
+
+    let snapshot = events.lock().expect("events lock").clone();
+    assert_eq!(
+        snapshot
+            .iter()
+            .filter(|entry| *entry == &("gateway.route".to_owned(), "route_rejected".to_owned()))
+            .count(),
+        2,
+        "forbidden and unknown_op both record route_rejected: {snapshot:?}"
+    );
+}
+
+#[test]
+fn host_routes_record_route_selected_events() {
+    let catalog = Catalog::load_builtin().expect("catalog");
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let engine = RecordingEngine::new(Arc::clone(&events));
+
+    let response = gateway::handle(
+        &catalog,
+        &engine,
+        Surface::Client,
+        &request("sandbox.status", Some(KNOWN_SANDBOX)),
+    );
+    assert_eq!(response["success"], json!(true));
+
+    let snapshot = events.lock().expect("events lock").clone();
+    assert!(
+        snapshot.contains(&("gateway.route".to_owned(), "route_selected".to_owned())),
+        "host route records route_selected: {snapshot:?}"
+    );
+}
+
+#[test]
+fn sandbox_attributed_parse_failures_record_parse_failed_events() {
+    let catalog = Catalog::load_builtin().expect("catalog");
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let engine = RecordingEngine::new(Arc::clone(&events));
+    let (mut client, server) = UnixStream::pair().expect("socket pair");
+    client
+        .write_all(b"{\"sandbox_id\":\"sb-stub\",\"op\":\"sandbox.file.read\",\"args\":{}}\n")
+        .expect("write request");
+    client.shutdown(std::net::Shutdown::Write).ok();
+
+    gateway::handle_connection(server, Surface::Client, "/tmp/esg-pair.sock", &catalog, &engine);
+
+    let snapshot = events.lock().expect("events lock").clone();
+    assert!(
+        snapshot.contains(&("gateway.transport".to_owned(), "parse_failed".to_owned())),
+        "missing invocation_id records parse_failed: {snapshot:?}"
+    );
+    assert!(
+        snapshot.contains(&("gateway.transport".to_owned(), "response_written".to_owned())),
+        "parse-failure response write is recorded: {snapshot:?}"
     );
 }
 

@@ -10,6 +10,29 @@ use serde_json::{json, Value};
 
 use crate::support::{has_trace_event, live_pool_or_skip, trace_record};
 
+fn assert_connected_routes(value: &Value, expected: &[&str]) -> Result<()> {
+    let mut actual = value
+        .get("connected_ppc_routes")
+        .and_then(Value::as_array)
+        .with_context(|| format!("connected_ppc_routes missing from {value}"))?
+        .iter()
+        .map(|route| {
+            route
+                .as_str()
+                .map(str::to_owned)
+                .with_context(|| format!("connected_ppc_routes contains non-string route: {value}"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    actual.sort();
+    let mut expected = expected.iter().map(ToString::to_string).collect::<Vec<_>>();
+    expected.sort();
+    assert_eq!(
+        actual, expected,
+        "connected PPC routes should match expected set: {value}"
+    );
+    Ok(())
+}
+
 #[test]
 fn host_ensure_plugin_package_installs_generic_package() -> Result<()> {
     generic_package_installs_and_sets_up()
@@ -933,10 +956,7 @@ fn ensure_generic_callback_service_package(
     )?;
     assert_eq!(cold["success"], true);
     assert_eq!(cold["service_processes_started"], true);
-    assert_eq!(
-        cold["connected_ppc_routes"],
-        json!(["plugin.generic.query", "plugin.generic.apply"])
-    );
+    assert_connected_routes(&cold, &["plugin.generic.query", "plugin.generic.apply"])?;
     Ok(cold)
 }
 

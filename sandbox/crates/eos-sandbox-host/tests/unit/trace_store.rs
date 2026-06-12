@@ -166,6 +166,54 @@ fn response_finalization_and_host_events_rebuild_from_audit_entries() -> Result<
 }
 
 #[test]
+fn response_projection_classifies_new_envelope_errors() -> Result<(), TraceStoreError> {
+    let store = temp_store("response-envelope-error")?;
+    let request = request_input("sb-1", "sandbox.file.read", false, "request-envelope-error");
+    let trace_id = request.trace_id.clone();
+    let request_id = request.request_id.clone();
+    store.append_request_start(request)?;
+
+    let response = json!({
+        "status": "error",
+        "error": {
+            "kind": "internal_error",
+            "message": "failed",
+            "details": {}
+        },
+        "meta": {}
+    });
+    let raw = br#"{"status":"error","error":{"kind":"internal_error","message":"failed","details":{}},"meta":{}}"#;
+    store.record_response_persisted(ResponsePersistedInput {
+        sandbox_id: "sb-1",
+        trace_id: &trace_id,
+        request_id: &request_id,
+        response: &response,
+        raw_response_bytes: raw,
+        host_rtt_ms: 3,
+    })?;
+
+    let row = store
+        .request_by_id(request_id.as_str())?
+        .expect("request row");
+    assert_eq!(row.status.as_deref(), Some("error"));
+    assert_eq!(
+        trace_request_error_kind(&store, request_id.as_str())?.as_deref(),
+        Some("internal_error")
+    );
+
+    store.rebuild_projections()?;
+    let rebuilt = store
+        .request_by_id(request_id.as_str())?
+        .expect("rebuilt request row");
+    assert_eq!(rebuilt.status.as_deref(), Some("error"));
+    assert_eq!(
+        trace_request_error_kind(&store, request_id.as_str())?.as_deref(),
+        Some("internal_error")
+    );
+    Ok(())
+}
+
+#[test]
 fn startup_reconciles_prior_boot_incomplete_requests_to_uncertain() -> Result<(), TraceStoreError> {
     let dir = temp_dir("reconcile");
     {
@@ -434,6 +482,17 @@ fn request_input<'a>(
 
 fn temp_store(name: &str) -> Result<TraceStore, TraceStoreError> {
     TraceStore::open(temp_dir(name))
+}
+
+fn trace_request_error_kind(
+    store: &TraceStore,
+    request_id: &str,
+) -> Result<Option<String>, TraceStoreError> {
+    Ok(store.lock().query_row(
+        "SELECT error_kind FROM trace_requests WHERE request_id=?1",
+        [request_id],
+        |row| row.get(0),
+    )?)
 }
 
 fn temp_dir(name: &str) -> std::path::PathBuf {
