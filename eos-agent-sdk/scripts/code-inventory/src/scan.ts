@@ -824,7 +824,7 @@ async function readPackageManager(root: string): Promise<string | undefined> {
 }
 
 async function readTsConfig(root: string): Promise<TsConfigInventory> {
-  const record = await readJsonRecord(path.join(root, "tsconfig.base.json"));
+  const record = await readJsonRecord(path.join(root, "tsconfig.json"));
   const compilerOptions = optionalRecord(record, "compilerOptions");
   return {
     module: optionalString(compilerOptions, "module"),

@@ -1,24 +1,9 @@
 # Dependencies
 node_modules/
 
-# Build output
-dist/
-build/
-*.tsbuildinfo
-
-# Tooling caches
-coverage/
-.turbo/
-.cache/
-.vitest-cache/
-
-# Local SQLite databases (better-sqlite3)
-*.db
-*.sqlite
-*.sqlite3
-*.db-wal
-*.db-shm
-
 # Secrets / local env
 .env
 .env.*
+
+# macOS
+.DS_Store

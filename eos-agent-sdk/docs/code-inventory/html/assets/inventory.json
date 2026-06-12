@@ -1,7 +1,7 @@
 {
   "workspace": "eos-agent-sdk",
   "schemaVersion": 1,
-  "generatedAt": "2026-06-12T23:12:31.233Z",
+  "generatedAt": "2026-06-12T23:22:40.936Z",
   "packageManager": "pnpm@10.23.0",
   "tsconfig": {
     "module": "NodeNext",
