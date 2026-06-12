@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/eos-trace",
     "crates/eos-operation",
     "crates/eos-command",
     "crates/eos-config",
@@ -30,6 +31,11 @@ serde_json = "1"
 serde_path_to_error = "0.1"
 serde_yaml = "0.9"
 sha2 = "0.10"
+prost = "0.13"
+prost-build = "0.13"
+protoc-bin-vendored = "3"
+tracing = "0.1"
+tracing-subscriber = "0.3"
 regex = "1"
 ignore = "0.4"
 thiserror = "2"
@@ -57,6 +63,7 @@ eos-operation = { path = "crates/eos-operation" }
 eos-overlay = { path = "crates/eos-overlay" }
 eos-plugin = { path = "crates/eos-plugin" }
 eos-namespace = { path = "crates/eos-namespace" }
+eos-trace = { path = "crates/eos-trace" }
 eos-daemon = { path = "crates/eos-daemon" }
 eosd = { path = "crates/eosd" }
 eos-sandbox-gateway = { path = "crates/eos-sandbox-gateway" }

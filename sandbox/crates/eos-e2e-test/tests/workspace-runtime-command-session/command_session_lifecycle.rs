@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 
 use crate::support::{
     array, as_i64, as_str, command_session_transcript_logs, command_session_transcript_path,
-    live_pool_or_skip, settle_foreground_command, stdout, wait_for_active_leases,
+    finalize_foreground_command, live_pool_or_skip, stdout, wait_for_active_leases,
     wait_for_command_session_transcript_recycled, wait_for_container_path, wait_for_session_count,
 };
 
@@ -43,7 +43,7 @@ fn wait_for_transcript_logs(lease: &NodeLease<'_>, expected: &[String]) -> Resul
             return Ok(());
         }
         if Instant::now() >= deadline {
-            bail!("transcript logs did not settle at {expected:?}; last {current:?}");
+            bail!("transcript logs did not stabilize at {expected:?}; last {current:?}");
         }
         thread::sleep(Duration::from_millis(50));
     }
@@ -175,7 +175,7 @@ fn exec_command_outputs_timestamped_transcript_lines() -> Result<()> {
         }),
     )?;
     let completed =
-        settle_foreground_command(&lease, completed, Instant::now() + Duration::from_secs(30))?;
+        finalize_foreground_command(&lease, completed, Instant::now() + Duration::from_secs(30))?;
     assert_eq!(as_str(&completed, "status")?, "ok", "{completed}");
     assert!(
         stdout(&completed).contains("stamp-one") && stdout(&completed).contains("stamp-two"),
@@ -212,7 +212,8 @@ fn write_stdin_echo() -> Result<()> {
             "yield_time_ms": 2000
         }),
     )?;
-    let stdin = settle_foreground_command(&lease, stdin, Instant::now() + Duration::from_secs(30))?;
+    let stdin =
+        finalize_foreground_command(&lease, stdin, Instant::now() + Duration::from_secs(30))?;
     assert_eq!(
         as_str(&stdin, "status")?,
         "ok",
@@ -1081,7 +1082,7 @@ fn model_shell_sees_masked_proc() -> Result<()> {
             "timeout_seconds": 30
         }),
     )?;
-    let exec = settle_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(30))?;
+    let exec = finalize_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(30))?;
     assert_eq!(as_str(&exec, "status")?, "ok", "{exec}");
     assert!(
         stdout(&exec).contains("procvisible=0"),

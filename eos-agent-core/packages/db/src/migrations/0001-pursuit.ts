@@ -4,7 +4,7 @@ export function applyPursuitMigration(database: Database): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS pursuits (
       id TEXT PRIMARY KEY,
-      parent_run_id TEXT NOT NULL,
+      parent_run_id TEXT,
       pursuit_goal TEXT NOT NULL,
       leg_goal_mode TEXT NOT NULL CHECK (leg_goal_mode IN ('dynamic', 'predefined')),
       leg_goals TEXT,

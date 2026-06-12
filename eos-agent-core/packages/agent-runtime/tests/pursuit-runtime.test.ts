@@ -70,7 +70,7 @@ function create_variable_reference_map(ctx) {
         };
   const goal_for_leg = (leg_id) => {
     const index = pursuit.legs.findIndex((leg) => leg.id === leg_id);
-    let goal = pursuit.pursuit_goal;
+    let goal = pursuit.goal;
     for (let cursor = 1; cursor <= index; cursor += 1) {
       goal = pursuit.legs[cursor - 1].next_leg_goal ?? goal;
     }
@@ -160,7 +160,7 @@ function pursuitRuntimeFixture(options: PursuitFixtureOptions): {
   dataDir: string;
   contextRoot: string;
 } {
-  const root = tempDir("eos-wf-runtime-");
+  const root = tempDir("eos-pursuit-runtime-");
   const profilesDir = join(root, "profiles");
   mkdirSync(profilesDir, { recursive: true });
   const scriptsDir = join(root, "scripts");
@@ -446,7 +446,7 @@ describe("pursuit runtime startup validation (§16 case 12)", () => {
     pursuitDb?: string;
     allowDelegateWithoutDb?: boolean;
   }): () => void {
-    const root = tempDir("eos-wf-startup-");
+    const root = tempDir("eos-pursuit-startup-");
     const profilesDir = join(root, "profiles");
     mkdirSync(profilesDir, { recursive: true });
     const scriptsDir = join(root, "scripts");

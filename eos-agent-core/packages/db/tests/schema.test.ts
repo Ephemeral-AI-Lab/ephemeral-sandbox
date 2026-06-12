@@ -1,11 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { sql } from "kysely";
 
-import { workItemIdFrom } from "@eos/contracts";
+import { pursuitIdFrom, workItemIdFrom } from "@eos/contracts";
 
 import { createPursuitDatabase } from "../src/index.js";
 
 describe("pursuit database schema", () => {
+  it("allows caller-agnostic pursuits without an agent parent run", async () => {
+    const db = createPursuitDatabase(":memory:");
+
+    await sql`
+      INSERT INTO pursuits (
+        id, parent_run_id, pursuit_goal, leg_goal_mode, leg_goals,
+        status, created_at, updated_at, closed_at
+      )
+      VALUES ('p-standalone', NULL, 'ship it', 'dynamic', NULL, 'Running', 'now', 'now', NULL)
+    `.execute(db);
+
+    await expect(
+      db
+        .selectFrom("pursuits")
+        .select("parent_run_id")
+        .where("id", "=", pursuitIdFrom("p-standalone"))
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ parent_run_id: null });
+  });
+
   it("rejects Blocked for non-work-item entity statuses", async () => {
     const db = createPursuitDatabase(":memory:");
 

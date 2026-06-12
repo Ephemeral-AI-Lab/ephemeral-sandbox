@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 
 use crate::helpers::{pressure_levels, workload_timeout_s};
 use crate::support::{
-    as_bool, as_i64, as_str, live_pool_or_skip, seed_base_files, settle_foreground_command,
+    as_bool, as_i64, as_str, finalize_foreground_command, live_pool_or_skip, seed_base_files,
     wait_for_active_leases, wait_for_session_count,
 };
 
@@ -51,9 +51,9 @@ fn resource_report_smoke() -> Result<()> {
                 "timeout_seconds": timeout_s,}),
         )?;
         // The command can outlast the 1s yield under emulation and return status
-        // "running" (whose timings carry only the runtime.* keys); settle to the
+        // "running" (whose timings carry only the runtime.* keys); finalize to the
         // finalized payload so the terminal status and upperdir timings hold.
-        let exec = settle_foreground_command(
+        let exec = finalize_foreground_command(
             &lease,
             exec,
             Instant::now() + Duration::from_secs(timeout_s + 5),
@@ -190,7 +190,7 @@ fn large_base_overlay_keeps_memory_bounded() -> Result<()> {
             "yield_time_ms": 1000,
             "timeout_seconds": 30,}),
     )?;
-    let exec = settle_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(35))?;
+    let exec = finalize_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(35))?;
     assert_eq!(as_str(&exec, "status")?, "ok", "{exec}");
     // Memory gauges land on the fast-path file response; sample one after the op.
     let probe = lease.call_ok(

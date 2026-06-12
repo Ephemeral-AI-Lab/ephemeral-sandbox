@@ -10,8 +10,8 @@ use serde_json::{json, Value};
 
 use crate::helpers::{pressure_levels, request_with_identity};
 use crate::support::{
-    as_bool, as_i64, as_str, live_pool_or_skip, reset_isolated_workspaces,
-    settle_foreground_command, wait_for_active_leases,
+    as_bool, as_i64, as_str, finalize_foreground_command, live_pool_or_skip,
+    reset_isolated_workspaces, wait_for_active_leases,
 };
 
 #[test]
@@ -175,7 +175,7 @@ fn protocol_only_bundled_sandbox_capstone() -> Result<()> {
             "timeout_seconds": 10,}),
     )?;
     // Settle the yielded exec under emulation before asserting its terminal status.
-    let exec = settle_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(15))?;
+    let exec = finalize_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(15))?;
     assert_eq!(as_str(&exec, "status")?, "ok", "{exec}");
 
     let conflict_path = "capstone/conflict.txt";

@@ -30,23 +30,30 @@ function plannerMessages(input: PlannerContextInput): InitialUserMessage[] {
   const pursuit = input.pursuit_context.pursuit;
   const leg = pursuit.legs.find((candidate) => candidate.id === input.current.leg_id);
   const messages = [
-    user(`# Pursuit goal\n${pursuit.pursuit_goal}`),
+    user(`# Pursuit goal\n${pursuit.goal}`),
     user(`# Current leg goal\n${leg?.leg_goal ?? ""}`),
   ];
   if (pursuit.leg_goal_mode === "predefined") {
     messages.push(
       user(
-        "Plan work items for the current predefined leg goal. Do not submit " +
-          "`leg_goal` or `next_leg_goal`; predefined pursuits own the leg sequence.",
+        "Success means the full effective leg_goal is achieved. Plan work items " +
+          "for the current predefined leg goal. Do not submit `leg_goal` or " +
+          "`next_leg_goal`; predefined pursuits own the leg sequence. If the " +
+          "predefined leg_goal is too broad or wrong, plan only work that " +
+          "completes the current predefined leg_goal.",
       ),
     );
   } else {
     messages.push(
       user(
-        "Use the current leg goal as-is unless it needs refocus. You may submit " +
-          "`leg_goal` to replace this leg's goal, submit successor-only " +
-          "`next_leg_goal`, or omit both. Clearing `next_leg_goal` requires a " +
-          "replacement `leg_goal` in the same payload.",
+        "Dynamic mode: A new dynamic leg exists only because the previous leg " +
+          "closed successfully and declared next_leg_goal. Success means the " +
+          "full effective leg_goal is achieved. Use the current leg goal as-is " +
+          "unless it needs refocus. You may submit `leg_goal` to replace this " +
+          "leg's goal, submit successor-only `next_leg_goal`, or omit both. " +
+          "If you cannot achieve the full leg_goal in this leg, submit a " +
+          "narrowed leg_goal and put the remainder in next_leg_goal. Clearing " +
+          "`next_leg_goal` requires a replacement `leg_goal` in the same payload.",
       ),
     );
   }
@@ -79,10 +86,23 @@ function failedAttemptReport(attempt: PursuitContextAttempt): string {
 function workerMessages(input: WorkerContextInput): InitialUserMessage[] {
   const pursuit = input.pursuit_context.pursuit;
   const leg = pursuit.legs.find((candidate) => candidate.id === input.current.leg_id);
-  const items = leg?.attempts.flatMap((attempt) => attempt.work_items) ?? [];
-  const item = items.find((candidate) => candidate.id === input.current.work_item_id);
+  const attempt = leg?.attempts.find(
+    (candidate) => candidate.id === input.current.attempt_id,
+  );
+  const item = attempt?.work_items.find(
+    (candidate) => candidate.id === input.current.work_item_id,
+  );
+  const dependencyScope =
+    item === undefined
+      ? []
+      : (leg?.attempts ?? [])
+          .filter((candidate) => candidate.is_consistent_with_leg_goal)
+          .flatMap((candidate) => candidate.work_items)
+          .filter(
+            (candidate) => candidate.leg_goal_version === item.leg_goal_version,
+          );
   const dependencies = (item?.depends_on ?? [])
-    .map((id) => items.find((candidate) => candidate.id === id))
+    .map((id) => dependencyScope.find((candidate) => candidate.id === id))
     .filter(
       (dependency): dependency is PursuitContextWorkItem =>
         dependency?.status === "Success",
@@ -97,7 +117,7 @@ function workerMessages(input: WorkerContextInput): InitialUserMessage[] {
   messages.push(
     user(
       "Complete only this assigned work item. Do not plan, refocus, or change legs. " +
-        "Submit via submit_worker_outcome.",
+        "Do not decide next_leg_goal. Submit via submit_worker_outcome.",
     ),
   );
   return messages;

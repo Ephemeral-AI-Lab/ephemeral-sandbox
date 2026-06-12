@@ -19,8 +19,10 @@ pub mod plugin;
 pub mod workspace_run;
 
 pub use core::{
-    ArgProblem, ArgsError, CallerId, ChangedPathKind, ChangedPathKinds, CommandId, InvocationId,
-    MutationCore, MutationSource, MutationStatus, OpError, OpRequest, OpResponse, OpResponseError,
-    OpResponseErrorKind, RequestError, WorkspaceConflict, WorkspaceKind, WorkspaceMutationOutcome,
+    ArgProblem, ArgsError, CallerId, ChangedPathKind, ChangedPathKinds, CommandId, FaultDetails,
+    InvocationId, MutationCore, MutationSource, MutationStatus, OpError, OpRequest, OpResponse,
+    OpResponseError, OpResponseErrorKind, OperationEnvelope, OperationFault, OperationStatus,
+    OperationWarning, RequestError, ResourceSummary, ResponseMeta, SourceError, StepSummary,
+    TraceRef, V1FlatteningAdapter, WorkspaceConflict, WorkspaceKind, WorkspaceMutationOutcome,
     WorkspaceTimings,
 };

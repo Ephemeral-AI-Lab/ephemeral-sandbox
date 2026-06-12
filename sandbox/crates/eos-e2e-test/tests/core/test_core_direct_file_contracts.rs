@@ -10,8 +10,8 @@ use eos_operation::core::catalog;
 use serde_json::{json, Value};
 
 use crate::support::{
-    array, as_bool, as_i64, as_str, conflict_message, live_pool_or_skip, settle_foreground_command,
-    wait_for_active_leases,
+    array, as_bool, as_i64, as_str, conflict_message, finalize_foreground_command,
+    live_pool_or_skip, wait_for_active_leases,
 };
 
 /// Read a nested `timings.<key>` number from a response.
@@ -188,7 +188,7 @@ fn read_max_bytes_guard() -> Result<()> {
             "yield_time_ms": 1000,
             "timeout_seconds": 20,}),
     )?;
-    let exec = settle_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(30))?;
+    let exec = finalize_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(30))?;
     assert_eq!(
         as_str(&exec, "status")?,
         "ok",

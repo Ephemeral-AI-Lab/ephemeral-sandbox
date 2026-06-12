@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { agentRunIdFrom, pursuitIdFrom } from "@eos/contracts";
+import {
+  agentRunIdFrom,
+  attemptIdFrom,
+  planIdFrom,
+  pursuitIdFrom,
+  workItemIdFrom,
+} from "@eos/contracts";
 
 import {
   allMessageText,
@@ -56,6 +62,30 @@ describe("pursuit creation and planner declarations", () => {
     expect(afterPlan.legs[0].attempts[0].workItems[0].title).toBe(
       "implement the leg",
     );
+  });
+
+  it("lets non-agent callers create, launch without a parent, cancel, and settle", async () => {
+    const h = harness();
+
+    const pursuit = await h.service.createPursuit({
+      pursuit_goal: "standalone call",
+    });
+
+    expect(h.launches[0].options?.parent).toBeUndefined();
+    await expect(
+      h.db
+        .selectFrom("pursuits")
+        .select("parent_run_id")
+        .where("id", "=", pursuit.pursuit_id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toMatchObject({ parent_run_id: null });
+
+    await pursuit.cancel("operator stopped it");
+
+    await expect(pursuit.settle()).resolves.toMatchObject({
+      status: "Cancelled",
+      summary: "operator stopped it",
+    });
   });
 
   it("predefined mode rejects planner leg-goal declarations and promotes fixed legs", async () => {
@@ -332,6 +362,38 @@ describe("scheduler dependency and failure behavior", () => {
     );
   });
 
+  it("renders dependency outcomes from the matching leg-goal version when ids repeat", async () => {
+    const h = harness();
+    await h.create("ship retry", { maxAttempts: 4 });
+    await h.launches[0].submitPlanner(
+      plannerPayload({ work_items: [workItem("base"), workItem("breaker")] }),
+    );
+    await h.launches[1].submitWorker(workerPayload({ summary: "old base done" }));
+    await h.launches[2].submitWorker(
+      workerPayload({ is_pass: false, summary: "old breaker failed" }),
+    );
+
+    await h.launches[3].submitPlanner(
+      plannerPayload({
+        leg_goal: "new leg goal",
+        work_items: [workItem("base"), workItem("breaker")],
+      }),
+    );
+    await h.launches[4].submitWorker(workerPayload({ summary: "new base done" }));
+    await h.launches[5].submitWorker(
+      workerPayload({ is_pass: false, summary: "new breaker failed" }),
+    );
+
+    const accepted = await h.launches[6].submitPlanner(
+      plannerPayload({ work_items: [workItem("followup", ["base"])] }),
+    );
+
+    expect(accepted.ok).toBe(true);
+    const workerText = allMessageText(h.launches.at(-1)?.messages ?? []);
+    expect(workerText).toContain("new base done");
+    expect(workerText).not.toContain("old base done");
+  });
+
   it("closes failed after compose failures exhaust the attempt budget", async () => {
     const h = harness({ compose: () => Promise.reject(new Error("script exploded")) });
     const pursuit = await h.create("doomed", { maxAttempts: 2 });
@@ -490,6 +552,78 @@ describe("planner payload dependency validation", () => {
     expect(rejected.ok).toBe(false);
     if (!rejected.ok) expect(rejected.error).toContain("another leg");
   });
+
+  it("rejects dependencies on work items from future attempts", async () => {
+    const h = harness();
+    const pursuit = await h.create("validate");
+    const tree = await h.tree(pursuit.pursuit_id);
+    const leg = tree.legs[0];
+    const futureAttemptId = attemptIdFrom("future-attempt");
+    const futurePlanId = planIdFrom("future-plan");
+    const futureWorkItemId = workItemIdFrom("future");
+    const now = new Date().toISOString();
+
+    await h.db
+      .insertInto("attempts")
+      .values({
+        id: futureAttemptId,
+        pursuit_id: pursuit.pursuit_id,
+        leg_id: leg.id,
+        sequence: 2,
+        leg_goal_version: leg.legGoalVersion,
+        status: "Running",
+        failure_reasons: "[]",
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+    await h.db
+      .insertInto("plans")
+      .values({
+        id: futurePlanId,
+        pursuit_id: pursuit.pursuit_id,
+        leg_id: leg.id,
+        attempt_id: futureAttemptId,
+        agent_run_id: null,
+        status: "Success",
+        declared_leg_goal: null,
+        declared_next_leg_goal: null,
+        leg_goal_version: leg.legGoalVersion,
+        planner_summary: "future planned",
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+    await h.db
+      .insertInto("work_items")
+      .values({
+        key: `${leg.id}:${String(leg.legGoalVersion)}:${futureWorkItemId}`,
+        id: futureWorkItemId,
+        pursuit_id: pursuit.pursuit_id,
+        leg_id: leg.id,
+        attempt_id: futureAttemptId,
+        plan_id: futurePlanId,
+        agent_name: "worker",
+        agent_run_id: null,
+        status: "Success",
+        title: "future",
+        spec: "future",
+        depends_on: "[]",
+        leg_goal_version: leg.legGoalVersion,
+        worker_summary: "future done",
+        worker_outcome: "future done",
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+
+    const rejected = await h.launches[0].submitPlanner(
+      plannerPayload({ work_items: [workItem("followup", ["future"])] }),
+    );
+
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) expect(rejected.error).toContain("future attempt");
+  });
 });
 
 describe("dynamic refocus", () => {
@@ -516,5 +650,21 @@ describe("dynamic refocus", () => {
     expect(leg.attempts[0].isConsistentWithLegGoal).toBe(false);
     expect(leg.attempts[1].isConsistentWithLegGoal).toBe(true);
     expect(leg.attempts[1].workItems[0].id).toBe("old");
+  });
+
+  it("preserves standing next_leg_goal when retry payload omits both goal fields", async () => {
+    const h = harness();
+    const pursuit = await h.create("whole goal", { maxAttempts: 3 });
+    await h.launches[0].submitPlanner(
+      plannerPayload({ next_leg_goal: "later", work_items: [workItem("old")] }),
+    );
+    await h.launches[1].submitWorker(
+      workerPayload({ is_pass: false, summary: "old failed" }),
+    );
+
+    await h.launches[2].submitPlanner(plannerPayload({ work_items: [workItem("new")] }));
+
+    const leg = (await h.tree(pursuit.pursuit_id)).legs[0];
+    expect(leg.nextLegGoal).toBe("later");
   });
 });

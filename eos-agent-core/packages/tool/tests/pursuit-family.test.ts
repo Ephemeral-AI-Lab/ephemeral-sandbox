@@ -44,14 +44,12 @@ function scriptedPursuit(id: string): {
   });
   const pursuit: PursuitHandle = {
     pursuit_id: pursuitIdFrom(id),
-    terminal,
     settle: () => terminal,
     cancel: async (reason = "cancelled") => {
       cancelled.push(reason);
       resolveTerminal({ status: "Cancelled", summary: reason });
       await Promise.resolve();
     },
-    describe: () => "the goal",
   };
   return { pursuit, resolveTerminal, cancelled };
 }
@@ -83,7 +81,7 @@ describe("delegate_pursuit", () => {
       type: "pursuit",
       id: "p-1",
       status: "running",
-      description: "the goal",
+      description: "ship it",
     });
   });
 

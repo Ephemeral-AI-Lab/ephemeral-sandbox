@@ -13,7 +13,7 @@ import type { Generated, Selectable } from "kysely";
 
 export interface PursuitsTable {
   id: PursuitId;
-  parent_run_id: AgentRunId;
+  parent_run_id: AgentRunId | null;
   pursuit_goal: string;
   leg_goal_mode: LegGoalMode;
   /** JSON-encoded string array; null for dynamic mode. */

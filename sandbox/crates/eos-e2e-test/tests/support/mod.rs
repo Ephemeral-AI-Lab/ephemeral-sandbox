@@ -92,17 +92,17 @@ pub(crate) fn wait_for_session_count(lease: &NodeLease<'_>, expected: i64) -> Re
 /// status `"ok"` directly. Under x86-on-arm64 emulation the ns-runner spawn,
 /// PTY setup, and (for python workers) interpreter startup can outlast the
 /// 1s yield, so `exec_command` legitimately returns status `"running"` with a
-/// `command_id`. This polls `read_progress` (which reaps and finalizes
-/// the run the moment its child exits) until the status is terminal, then
-/// reconstructs the terminal-exec wire shape by stripping `command_id`
+/// `command_id`. This polls `read_progress` (which takes the process exit and
+/// finalizes the run the moment its child exits) until the status is terminal,
+/// then reconstructs the terminal-exec wire shape by stripping `command_id`
 /// — exactly what `exec_command` does for a non-`running` status. The returned
 /// value carries the full finalized payload (`exit_code`, `changed_paths`,
-/// `timings`), so the caller's real assertions still hold post-settlement.
+/// `timings`), so the caller's real assertions still hold post-finalization.
 ///
 /// # Errors
-/// Returns an error if `read_progress` fails or the run does not settle before
+/// Returns an error if `read_progress` fails or the run does not finalize before
 /// `deadline`.
-pub(crate) fn settle_foreground_command(
+pub(crate) fn finalize_foreground_command(
     lease: &NodeLease<'_>,
     response: Value,
     deadline: Instant,
@@ -112,16 +112,17 @@ pub(crate) fn settle_foreground_command(
     }
     let session_id = as_str(&response, "command_id")?.to_owned();
     loop {
-        // `call` (not `call_ok`): a command that settles to a NON-zero exit
+        // `call` (not `call_ok`): a command that finalizes to a NON-zero exit
         // returns `success:false`, which is a valid terminal outcome here, not a
-        // transport error. `call_ok` would reject it and break error-exit settles.
+        // transport error. `call_ok` would reject it and break error-exit
+        // finalization.
         let progress = lease.call(
             catalog::SANDBOX_COMMAND_POLL,
             json!({"command_id": &session_id, "last_n_lines": 50}),
         )?;
-        // A reaping `read_progress` finalizes with `publish_completion = false`
+        // A `read_progress` finalizes with `publish_completion = false`
         // and removes the run, so a second poll would 404. Stop on the first
-        // terminal status. The finalized response still carries the session id
+        // terminal status. The finalized response still carries the command id
         // (read_progress does not strip it); strip it here to match the
         // terminal-exec shape `assert_command_ok` expects.
         if as_str(&progress, "status")? != "running" {
@@ -132,7 +133,7 @@ pub(crate) fn settle_foreground_command(
             return Ok(progress);
         }
         if Instant::now() >= deadline {
-            bail!("foreground command {session_id} did not settle before deadline: {progress}");
+            bail!("foreground command {session_id} did not finalize before deadline: {progress}");
         }
         thread::sleep(Duration::from_millis(50));
     }

@@ -1,0 +1,175 @@
+syntax = "proto3";
+
+package eos.trace.v1;
+
+message TraceBatch {
+  repeated TraceRecord records = 1;
+  uint64 dropped_traces = 2;
+}
+
+message TraceRecord {
+  string trace_id = 1;
+  string request_id = 2;
+  TraceKind kind = 3;
+  uint64 root_span_id = 4;
+  uint64 started_at_unix_ms = 5;
+  uint64 finished_at_unix_ms = 6;
+  repeated TraceSpan spans = 7;
+  repeated TraceEvent events = 8;
+  repeated TraceLink links = 9;
+  repeated TraceResource resources = 10;
+  uint64 dropped_children = 11;
+  bool truncated = 12;
+}
+
+message TraceSpan {
+  uint64 span_id = 1;
+  uint64 parent_span_id = 2;
+  string name = 3;
+  SpanKind kind = 4;
+  SpanSubsystem subsystem = 5;
+  uint64 started_at_unix_ms = 6;
+  uint64 finished_at_unix_ms = 7;
+  uint64 duration_us = 8;
+  string fields_json = 9;
+  bool fields_truncated = 10;
+  string fields_sha256 = 11;
+  uint64 fields_original_len = 12;
+  SpanStatus status = 13;
+}
+
+message TraceEvent {
+  uint64 span_id = 1;
+  string name = 2;
+  string module = 3;
+  uint64 at_unix_ms = 4;
+  string details_json = 5;
+  bool details_truncated = 6;
+  string details_sha256 = 7;
+  uint64 details_original_len = 8;
+}
+
+message TraceResource {
+  string stats_kind = 1;
+  string phase = 2;
+  string source = 3;
+  bool source_available = 4;
+  string read_error = 5;
+  string parse_error = 6;
+  uint64 sampler_duration_us = 7;
+  uint64 inflight_requests = 8;
+  string payload_json = 9;
+  bool payload_truncated = 10;
+  string payload_sha256 = 11;
+  uint64 payload_original_len = 12;
+}
+
+message TraceLink {
+  TraceLinkKind kind = 1;
+  string value = 2;
+}
+
+message RequestStart {
+  string trace_id = 1;
+  string request_id = 2;
+  string sandbox_id = 3;
+  string op = 4;
+  bool mutates_state = 5;
+  string args_summary_json = 6;
+  bool args_summary_truncated = 7;
+  string args_summary_sha256 = 8;
+  uint64 args_summary_original_len = 9;
+  uint64 started_at_unix_ms = 10;
+}
+
+message SandboxStatusSnapshot {
+  string sandbox_id = 1;
+  string host_boot_id = 2;
+  string daemon_boot_id = 3;
+  bool reachable = 4;
+  uint64 sampled_at_unix_ms = 5;
+  string details_json = 6;
+}
+
+message ResponseTraceRef {
+  string trace_id = 1;
+  string request_id = 2;
+  uint64 root_span_id = 3;
+  uint64 sidecar_event_count = 4;
+  bool degraded = 5;
+}
+
+message AuditEntry {
+  string entry_id = 1;
+  string trace_id = 2;
+  uint64 seq = 3;
+  bytes payload = 4;
+  bytes previous_hash = 5;
+  bytes entry_hash = 6;
+  string schema_version = 7;
+  uint64 written_at_unix_ms = 8;
+}
+
+enum TraceKind {
+  TRACE_KIND_UNSPECIFIED = 0;
+  TRACE_KIND_OP_REQUEST = 1;
+  TRACE_KIND_COMMAND_FINALIZE = 2;
+  TRACE_KIND_ACTIVE_COMMAND_ADVANCE = 3;
+  TRACE_KIND_IDLE_WORKSPACE_EVICT = 4;
+  TRACE_KIND_PLUGIN_SERVICE = 5;
+}
+
+enum SpanKind {
+  SPAN_KIND_UNSPECIFIED = 0;
+  SPAN_KIND_OP_REQUEST = 1;
+  SPAN_KIND_GATEWAY_TRANSPORT = 2;
+  SPAN_KIND_GATEWAY_ROUTE = 3;
+  SPAN_KIND_HOST_PROTOCOL = 4;
+  SPAN_KIND_HOST_TRANSPORT = 5;
+  SPAN_KIND_DAEMON_TRANSPORT = 6;
+  SPAN_KIND_DISPATCH = 7;
+  SPAN_KIND_OPERATION = 8;
+  SPAN_KIND_LAYERSTACK = 9;
+  SPAN_KIND_OCC = 10;
+  SPAN_KIND_OVERLAY = 11;
+  SPAN_KIND_COMMAND_PROCESS_SPAWN = 12;
+  SPAN_KIND_COMMAND_PROCESS_WAIT = 13;
+  SPAN_KIND_COMMAND_FINALIZE = 14;
+  SPAN_KIND_WORKSPACE_ROUTE = 15;
+  SPAN_KIND_ISOLATED_WORKSPACE = 16;
+  SPAN_KIND_PLUGIN = 17;
+  SPAN_KIND_FILE = 18;
+  SPAN_KIND_CHECKPOINT = 19;
+  SPAN_KIND_RESOURCE = 20;
+  SPAN_KIND_CONTROL = 21;
+}
+
+enum SpanSubsystem {
+  SPAN_SUBSYSTEM_UNSPECIFIED = 0;
+  SPAN_SUBSYSTEM_WIRE = 1;
+  SPAN_SUBSYSTEM_DISPATCH = 2;
+  SPAN_SUBSYSTEM_OP = 3;
+  SPAN_SUBSYSTEM_LAYERSTACK = 4;
+  SPAN_SUBSYSTEM_OVERLAY = 5;
+  SPAN_SUBSYSTEM_COMMAND = 6;
+  SPAN_SUBSYSTEM_WORKSPACE = 7;
+  SPAN_SUBSYSTEM_PLUGIN = 8;
+  SPAN_SUBSYSTEM_CONTROL = 9;
+}
+
+enum SpanStatus {
+  SPAN_STATUS_UNSPECIFIED = 0;
+  SPAN_STATUS_OK = 1;
+  SPAN_STATUS_REJECTED = 2;
+  SPAN_STATUS_CANCELLED = 3;
+  SPAN_STATUS_TIMED_OUT = 4;
+  SPAN_STATUS_ERROR = 5;
+}
+
+enum TraceLinkKind {
+  TRACE_LINK_KIND_UNSPECIFIED = 0;
+  TRACE_LINK_KIND_COMMAND = 1;
+  TRACE_LINK_KIND_WORKSPACE_HANDLE = 2;
+  TRACE_LINK_KIND_PLUGIN_SERVICE = 3;
+  TRACE_LINK_KIND_MANIFEST_VERSION = 4;
+}

@@ -50,11 +50,11 @@ Current phase status:
 Verification evidence:
 
 - E1 focused suites:
-  `pnpm exec vitest run packages/contracts/tests/pursuit.test.ts packages/pursuit/tests/lifecycle.test.ts packages/pursuit/tests/context.test.ts packages/pursuit/tests/package-boundary.test.ts packages/tool/tests/pursuit-family.test.ts packages/agent-runtime/tests/agent-profile.test.ts packages/agent-runtime/tests/runtime.test.ts packages/agent-runtime/tests/pursuit-runtime.test.ts`
-  passed with 8 test files and 86 tests.
+  `pnpm exec vitest run packages/contracts/tests/pursuit.test.ts packages/db/tests/schema.test.ts packages/pursuit/tests/package-boundary.test.ts packages/pursuit/tests/context.test.ts packages/pursuit/tests/mirror.test.ts packages/pursuit/tests/lifecycle.test.ts packages/tool/tests/pursuit-family.test.ts packages/agent-runtime/tests/agent-profile.test.ts packages/agent-runtime/tests/runtime.test.ts packages/agent-runtime/tests/pursuit-runtime.test.ts packages/agent-runtime/tests/pursuit-active-scripts.test.ts`
+  passed with 11 test files and 116 tests.
 - E2 full workspace gate: `pnpm run check` passed, including
   `pnpm run typecheck`, `pnpm run lint`, and `pnpm run test`; Vitest reported
-  36 test files and 406 tests passed.
+  39 test files and 436 tests passed.
 - E3 docs hygiene:
   `git diff --check -- docs/plans/agent-core-rust-to-typescript-migration eos-agent-core .eos-agents/pursuit/scripts`
   produced no output.
@@ -1224,8 +1224,6 @@ packages/pursuit/
         mirror.ts
   tests/
     context.test.ts
-    creation-schedule.test.ts
-    guards.test.ts
     lifecycle.test.ts
     mirror.test.ts
     package-boundary.test.ts
@@ -1353,12 +1351,16 @@ Focused commands:
 cd /Users/yifanxu/machine_learning/LoVC/EphemeralOS/eos-agent-core
 pnpm exec vitest run \
   packages/contracts/tests/pursuit.test.ts \
+  packages/db/tests/schema.test.ts \
   packages/pursuit/tests/package-boundary.test.ts \
-  packages/pursuit/tests/creation-schedule.test.ts \
   packages/pursuit/tests/context.test.ts \
   packages/pursuit/tests/mirror.test.ts \
   packages/pursuit/tests/lifecycle.test.ts \
-  packages/agent-runtime/tests/pursuit-runtime.test.ts
+  packages/tool/tests/pursuit-family.test.ts \
+  packages/agent-runtime/tests/agent-profile.test.ts \
+  packages/agent-runtime/tests/runtime.test.ts \
+  packages/agent-runtime/tests/pursuit-runtime.test.ts \
+  packages/agent-runtime/tests/pursuit-active-scripts.test.ts
 pnpm run typecheck
 pnpm run lint
 pnpm run test

@@ -6,12 +6,12 @@ use eos_operation::core::catalog;
 use serde_json::{json, Value};
 
 use crate::support::{
-    array, as_bool, as_i64, as_str, clean_stdout, conflict_reason, live_pool_or_skip,
-    seed_base_files, settle_foreground_command, stdout, strip_transcript_timestamps,
+    array, as_bool, as_i64, as_str, clean_stdout, conflict_reason, finalize_foreground_command,
+    live_pool_or_skip, seed_base_files, stdout, strip_transcript_timestamps,
     wait_for_active_leases, wait_for_session_count,
 };
 
-/// Run a foreground `exec_command` and settle it to its terminal outcome. Under
+/// Run a foreground `exec_command` and finalize it to its terminal outcome. Under
 /// x86-on-arm64 emulation a quick command can outlast its yield window and return
 /// `"running"`; this polls it to completion so the caller's assertions on the
 /// finalized payload (status, exit_code, changed_paths, upperdir timings) hold
@@ -19,7 +19,7 @@ use crate::support::{
 /// the background/running-path tests keep their explicit `lease.call_ok`.
 fn exec_settled(lease: &NodeLease<'_>, args: Value) -> Result<Value> {
     let response = lease.call_ok(catalog::SANDBOX_COMMAND_EXEC, args)?;
-    settle_foreground_command(lease, response, Instant::now() + Duration::from_secs(25))
+    finalize_foreground_command(lease, response, Instant::now() + Duration::from_secs(25))
 }
 
 /// Read a nested `timings.<key>` number from a response.

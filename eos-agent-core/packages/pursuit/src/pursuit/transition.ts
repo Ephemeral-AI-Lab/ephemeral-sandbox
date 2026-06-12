@@ -12,7 +12,7 @@ import { encodeStringList, type PursuitTree } from "../pursuit-tree.js";
 
 export interface CreatePursuitInit {
   pursuitId: PursuitId;
-  parentRunId: AgentRunId;
+  parentRunId?: AgentRunId | null;
   input: CreatePursuitInput;
   maxAttempts: number;
 }

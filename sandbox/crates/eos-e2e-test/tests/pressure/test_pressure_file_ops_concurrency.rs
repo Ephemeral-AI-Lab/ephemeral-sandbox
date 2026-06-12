@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 
 use crate::helpers::{pressure_levels, request_with_identity};
 use crate::support::{
-    as_bool, as_i64, as_str, live_pool_or_skip, seed_base_files, settle_foreground_command,
+    as_bool, as_i64, as_str, finalize_foreground_command, live_pool_or_skip, seed_base_files,
     wait_for_active_leases,
 };
 
@@ -69,7 +69,7 @@ fn n_concurrent_mixed_ops() -> Result<()> {
         // those so the structured-payload check and the lease drain below are
         // deterministic. Write/read responses carry no "status" and pass through.
         let response = if response.get("status").and_then(Value::as_str) == Some("running") {
-            settle_foreground_command(&lease, response, Instant::now() + Duration::from_secs(15))?
+            finalize_foreground_command(&lease, response, Instant::now() + Duration::from_secs(15))?
         } else {
             response
         };
@@ -249,10 +249,13 @@ fn concurrent_overlay_execs_share_lowerdir_storage_is_o1() -> Result<()> {
     let mut max_upperdir = 0.0_f64;
     for handle in handles {
         let response = handle.join().expect("overlay exec thread panicked")?;
-        // Settle yielded ("running") execs to the finalized payload so both the
+        // Finalize yielded ("running") execs to the finalized payload so both the
         // terminal status and the upperdir timing below are present under emulation.
-        let response =
-            settle_foreground_command(&lease, response, Instant::now() + Duration::from_secs(35))?;
+        let response = finalize_foreground_command(
+            &lease,
+            response,
+            Instant::now() + Duration::from_secs(35),
+        )?;
         assert_eq!(
             as_str(&response, "status")?,
             "ok",

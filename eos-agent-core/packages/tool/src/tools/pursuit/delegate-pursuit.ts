@@ -44,13 +44,15 @@ export function pursuitTools(
           };
         }
         const pursuit = await delegate(input, ctx.meta.run.run_id);
+        const description =
+          input.pursuit_goal.split("\n", 1)[0] ?? input.pursuit_goal;
         // Registration precedes the tool result, exactly the subagent
         // pattern: the submission guard covers the pursuit before the
         // model's next token.
         supervisor.registerBackgroundSession(
           { type: "pursuit", id: pursuit.pursuit_id },
           {
-            settled: pursuit.terminal.then((terminal) => ({
+            settled: pursuit.settle().then((terminal) => ({
               status:
                 terminal.status === "Success"
                   ? ("completed" as const)
@@ -60,7 +62,7 @@ export function pursuitTools(
               summary: terminal.summary,
             })),
             cancel: (reason) => pursuit.cancel(reason),
-            describe: () => pursuit.describe(),
+            describe: () => description,
           },
         );
         return { content: { pursuit_id: pursuit.pursuit_id } };

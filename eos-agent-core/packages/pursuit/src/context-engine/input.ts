@@ -67,7 +67,7 @@ export function snapshotPursuitContext(tree: PursuitTree): PursuitContextSnapsho
   return {
     pursuit: {
       id: tree.pursuit.id,
-      pursuit_goal: tree.pursuit.pursuitGoal,
+      goal: tree.pursuit.pursuitGoal,
       leg_goal_mode: tree.pursuit.legGoalMode,
       predefined_leg_count:
         tree.pursuit.legGoalMode === "predefined" ? tree.pursuit.legGoals.length : null,

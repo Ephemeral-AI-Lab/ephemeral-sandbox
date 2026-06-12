@@ -8,8 +8,8 @@ use serde_json::json;
 
 use crate::helpers::request_with_identity;
 use crate::support::{
-    as_bool, as_i64, as_str, live_pool_or_skip, settle_foreground_command, wait_for_active_leases,
-    wait_for_session_count,
+    as_bool, as_i64, as_str, finalize_foreground_command, live_pool_or_skip,
+    wait_for_active_leases, wait_for_session_count,
 };
 
 /// Point-in-time leak checks (`active_leases == 0` after one drain) can miss a
@@ -72,9 +72,9 @@ fn mixed_workload_soak_keeps_counters_and_storage_bounded() -> Result<()> {
                 "timeout_seconds": 20,}),
         )?;
         // Trivial commands can outlast the 1s yield under emulation and return
-        // status "running"; settle to the terminal outcome before asserting.
+        // status "running"; finalize to the terminal outcome before asserting.
         let exec =
-            settle_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(25))?;
+            finalize_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(25))?;
         assert_eq!(as_str(&exec, "status")?, "ok", "{exec}");
 
         // A long-running command that must start, cancel, and fully drain.

@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 
 use crate::helpers::{pressure_levels, request_with_identity, workload_timeout_s};
 use crate::support::{
-    as_bool, as_i64, as_str, live_pool_or_skip, settle_foreground_command, wait_for_active_leases,
+    as_bool, as_i64, as_str, finalize_foreground_command, live_pool_or_skip, wait_for_active_leases,
 };
 
 #[test]
@@ -26,7 +26,7 @@ fn overlay_exec_publishes_file_back_to_layerstack() -> Result<()> {
             "timeout_seconds": 10,}),
     )?;
     // Settle the yielded exec under emulation before asserting its terminal status.
-    let exec = settle_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(15))?;
+    let exec = finalize_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(15))?;
     assert_eq!(as_str(&exec, "status")?, "ok");
     assert_eq!(as_i64(&exec, "exit_code")?, 0);
 
@@ -83,10 +83,10 @@ fn ephemeral_exec_ladder_1_3_6_12() -> Result<()> {
         for handle in handles {
             let response = handle.join().expect("exec thread panicked")?;
             // Under emulation at higher concurrency the trivial command can outlast
-            // the 1s yield and return status "running"; settle it to its terminal
+            // the 1s yield and return status "running"; finalize it to its terminal
             // outcome (also publishing the upperdir before the read-back below).
             // Settle is a no-op for an already-terminal reply.
-            let response = settle_foreground_command(
+            let response = finalize_foreground_command(
                 &lease,
                 response,
                 Instant::now() + Duration::from_secs(timeout_s + 5),

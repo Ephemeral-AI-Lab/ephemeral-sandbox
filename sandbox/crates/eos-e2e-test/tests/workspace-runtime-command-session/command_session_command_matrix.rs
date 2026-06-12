@@ -8,8 +8,8 @@ use eos_operation::core::catalog;
 use serde_json::{json, Value};
 
 use crate::support::{
-    array, as_i64, as_str, command_session_transcript_logs, live_pool_or_skip,
-    settle_foreground_command, stdout, wait_for_active_leases,
+    array, as_i64, as_str, command_session_transcript_logs, finalize_foreground_command,
+    live_pool_or_skip, stdout, wait_for_active_leases,
     wait_for_command_session_transcript_recycled, wait_for_session_count,
 };
 
@@ -97,8 +97,8 @@ fn run_command_family(family_name: &str) -> Result<()> {
                 "timeout_seconds": timeout_s,}),
         )?;
         // Under emulation a quick variant can outlast the yield and return
-        // "running"; settle to its terminal foreground outcome before asserting.
-        let response = settle_foreground_command(
+        // "running"; finalize to its terminal foreground outcome before asserting.
+        let response = finalize_foreground_command(
             &lease,
             response,
             Instant::now() + Duration::from_secs(timeout_s + 5),
@@ -296,7 +296,7 @@ fn parallel_command_matrix_load_stays_bounded() -> Result<()> {
             // Under emulation a quick worker may not finish inside the 1s yield
             // window, so `exec_command` returns "running"; poll it to its
             // terminal outcome before asserting on the finalized payload.
-            let response = settle_foreground_command(
+            let response = finalize_foreground_command(
                 &lease,
                 response,
                 Instant::now() + Duration::from_secs(timeout_s),

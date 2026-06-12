@@ -15,7 +15,7 @@ use eos_operation::core::catalog;
 use serde_json::json;
 
 use crate::support::{
-    array, as_i64, as_str, live_pool_or_skip, settle_foreground_command, stdout,
+    array, as_i64, as_str, finalize_foreground_command, live_pool_or_skip, stdout,
     wait_for_active_leases, wait_for_command_session_transcript_recycled, wait_for_session_count,
 };
 
@@ -29,7 +29,7 @@ fn exec_simple() -> Result<()> {
         catalog::SANDBOX_COMMAND_EXEC,
         json!({"cmd": "true", "yield_time_ms": 1000, "timeout_seconds": 5}),
     )?;
-    let exec = settle_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(15))?;
+    let exec = finalize_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(15))?;
     assert_eq!(as_str(&exec, "status")?, "ok");
     assert_eq!(as_i64(&exec, "exit_code")?, 0);
     assert_eq!(stdout(&exec), "");

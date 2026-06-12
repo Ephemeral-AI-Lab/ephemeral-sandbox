@@ -274,6 +274,15 @@ function itemFailureReasons(
           ...(blockedBy.length > 0 && { blocked_by: blockedBy }),
         };
       }
+      if (isContextCompositionFailure(item.worker_summary, item.worker_outcome)) {
+        return {
+          work_item_id: item.id,
+          kind: "context_composition_failed" as const,
+          message: item.worker_summary ?? item.worker_outcome,
+          summary: item.worker_summary,
+          outcome: item.worker_outcome,
+        };
+      }
       return {
         work_item_id: item.id,
         kind: "failed" as const,
@@ -282,6 +291,16 @@ function itemFailureReasons(
         outcome: item.worker_outcome,
       };
     });
+}
+
+function isContextCompositionFailure(
+  summary: string | null,
+  outcome: string | null,
+): boolean {
+  return (
+    summary?.startsWith("context_script_error:") === true ||
+    outcome?.startsWith("context_script_error:") === true
+  );
 }
 
 function decodeDependsOn(raw: string): string[] {

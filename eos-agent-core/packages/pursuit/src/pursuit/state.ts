@@ -7,7 +7,7 @@ import type {
 
 export interface PursuitState {
   readonly id: PursuitId;
-  readonly parentRunId: AgentRunId;
+  readonly parentRunId: AgentRunId | null;
   readonly pursuitGoal: string;
   readonly legGoalMode: LegGoalMode;
   readonly legGoals: readonly string[];

@@ -12,5 +12,10 @@ thiserror.workspace = true
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix.workspace = true
 
+[features]
+# Test-only seam for package tests that exercise overlay-backed code on hosts
+# without the production `/eos/scratch/overlay` tree.
+test-root-override = []
+
 [lints]
 workspace = true

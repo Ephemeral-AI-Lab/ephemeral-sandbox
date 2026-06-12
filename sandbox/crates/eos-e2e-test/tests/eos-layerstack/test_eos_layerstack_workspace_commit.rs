@@ -9,7 +9,7 @@ use eos_operation::core::catalog;
 use serde_json::{json, Value};
 
 use crate::support::{
-    as_bool, as_i64, as_str, live_pool_or_skip, settle_foreground_command, wait_for_active_leases,
+    as_bool, as_i64, as_str, finalize_foreground_command, live_pool_or_skip, wait_for_active_leases,
 };
 
 #[test]
@@ -178,9 +178,9 @@ fn commit_projects_delete_symlink_and_replacement_write() -> Result<()> {
             "timeout_seconds": 10,}),
     )?;
     // Under x86-on-arm64 emulation a quick command can outlast its yield window
-    // and return `running`; settle it before asserting the terminal outcome.
+    // and return `running`; finalize it before asserting the terminal outcome.
     let overlay =
-        settle_foreground_command(&lease, overlay, Instant::now() + Duration::from_secs(30))?;
+        finalize_foreground_command(&lease, overlay, Instant::now() + Duration::from_secs(30))?;
     assert_eq!(as_str(&overlay, "status")?, "ok", "{overlay}");
 
     let commit = lease.call_ok(
@@ -205,7 +205,8 @@ fn commit_projects_delete_symlink_and_replacement_write() -> Result<()> {
             "yield_time_ms": 1000,
             "timeout_seconds": 10,}),
     )?;
-    let check = settle_foreground_command(&lease, check, Instant::now() + Duration::from_secs(30))?;
+    let check =
+        finalize_foreground_command(&lease, check, Instant::now() + Duration::from_secs(30))?;
     assert_eq!(
         as_str(&check, "status")?,
         "ok",

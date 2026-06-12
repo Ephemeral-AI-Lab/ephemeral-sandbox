@@ -320,7 +320,7 @@ fn exited_service_process_fails_closed_before_dispatch() -> TestResult {
     let socket_root = test_socket_root("exited-service");
     let runtime = test_runtime(&socket_root);
     let (layer_stack_root, workspace_root) = test_bound_workspace("exited-service")?;
-    let connector = spawn_replying_connector(socket_root.clone(), r#"{"success":true}"#);
+    let (connector_stop, connector) = spawn_idle_connector(socket_root.clone());
     let ready = ensure_started(&runtime, &layer_stack_root, &workspace_root)?;
     let pid = ready.running_service_processes[0].pid;
 
@@ -342,7 +342,8 @@ fn exited_service_process_fails_closed_before_dispatch() -> TestResult {
         status.loaded_plugins[0].services[0].state,
         eos_plugin::PluginServiceState::Stopped
     );
-    let _ = connector.join();
+    let _ = connector_stop.send(());
+    join_test_thread(connector, "connector thread panicked")?;
     cleanup(&socket_root, &layer_stack_root);
     Ok(())
 }
@@ -415,7 +416,7 @@ fn stop_services_for_layer_root_releases_snapshot_leases() -> TestResult {
     let socket_root = test_socket_root("stop-services");
     let runtime = test_runtime(&socket_root);
     let (layer_stack_root, workspace_root) = test_bound_workspace("stop-services")?;
-    let connector = spawn_replying_connector(socket_root.clone(), r#"{"success":true}"#);
+    let (connector_stop, connector) = spawn_idle_connector(socket_root.clone());
     ensure_started(&runtime, &layer_stack_root, &workspace_root)?;
     assert_eq!(
         LayerStack::open(layer_stack_root.clone())?.active_lease_count(),
@@ -434,7 +435,8 @@ fn stop_services_for_layer_root_releases_snapshot_leases() -> TestResult {
         status.loaded_plugins[0].services[0].state,
         eos_plugin::PluginServiceState::Stopped
     );
-    let _ = connector.join();
+    let _ = connector_stop.send(());
+    join_test_thread(connector, "connector thread panicked")?;
     cleanup(&socket_root, &layer_stack_root);
     Ok(())
 }
@@ -783,6 +785,18 @@ fn spawn_replying_connector(
     })
 }
 
+fn spawn_idle_connector(
+    socket_root: PathBuf,
+) -> (mpsc::Sender<()>, std::thread::JoinHandle<TestResult>) {
+    let (stop_tx, stop_rx) = mpsc::channel();
+    let handle = std::thread::spawn(move || -> TestResult {
+        let _stream = connect_ppc_socket(&socket_root)?;
+        let _ = stop_rx.recv_timeout(Duration::from_secs(5));
+        Ok(())
+    });
+    (stop_tx, handle)
+}
+
 fn connect_ppc_socket(root: &Path) -> Result<std::os::unix::net::UnixStream, std::io::Error> {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
@@ -836,7 +850,7 @@ fn wait_until_dead(pid: u32) {
 }
 
 fn test_socket_root(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!(
+    let root = PathBuf::from("/tmp").join(format!(
         "eos-operation-plugin-ppc-{name}-{}",
         std::process::id()
     ));

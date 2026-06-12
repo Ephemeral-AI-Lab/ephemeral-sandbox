@@ -54,6 +54,9 @@ export function formatAttemptFailureReason(reason: AttemptFailureReason): string
     return `work_item_${reason.work_item_id} [Blocked]: ${reason.summary ?? reason.message ?? blockedByText(reason.blocked_by)}`;
   }
   if (reason.kind === "context_composition_failed") {
+    if (reason.work_item_id !== null) {
+      return `work_item_${reason.work_item_id} [Context composition failed]: ${reason.message ?? "(no message)"}`;
+    }
     return `planner [Context composition failed]: ${reason.message ?? "(no message)"}`;
   }
   return `planner [Failed]: ${reason.message ?? "(no message)"}`;

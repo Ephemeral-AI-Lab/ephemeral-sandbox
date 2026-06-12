@@ -6,8 +6,8 @@ use eos_operation::core::catalog;
 use serde_json::{json, Value};
 
 use crate::support::{
-    array, as_bool, as_str, isolated_command_session_transcript_path, live_pool_or_skip,
-    reset_isolated_workspaces, settle_foreground_command, stdout, wait_for_active_leases,
+    array, as_bool, as_str, finalize_foreground_command, isolated_command_session_transcript_path,
+    live_pool_or_skip, reset_isolated_workspaces, stdout, wait_for_active_leases,
     wait_for_container_path, wait_for_isolated_command_session_transcript_recycled,
     wait_for_session_count,
 };
@@ -265,9 +265,12 @@ fn setsid_descendant_reaped_on_isolated_exit() -> Result<()> {
                 "yield_time_ms": 1500,
                 "timeout_seconds": 60,}),
         )?;
-        // The `sleep 3` pushes completion past the yield window, so settle first.
-        let completed =
-            settle_foreground_command(&lease, completed, Instant::now() + Duration::from_secs(30))?;
+        // The `sleep 3` pushes completion past the yield window, so finalize first.
+        let completed = finalize_foreground_command(
+            &lease,
+            completed,
+            Instant::now() + Duration::from_secs(30),
+        )?;
         ensure!(
             as_str(&completed, "status")? == "ok",
             "isolated escaped-child command should complete: {completed}"

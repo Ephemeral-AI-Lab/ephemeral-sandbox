@@ -12,6 +12,7 @@ eos-layerstack.workspace = true
 eos-namespace.workspace = true
 eos-overlay.workspace = true
 eos-plugin.workspace = true
+eos-trace.workspace = true
 eos-workspace.workspace = true
 nix = { workspace = true, features = ["process", "signal"] }
 serde.workspace = true
@@ -20,6 +21,9 @@ serde_json = { workspace = true, features = ["preserve_order"] }
 sha2.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+eos-overlay = { workspace = true, features = ["test-root-override"] }
 
 [features]
 # Test-only seam: lets a caller redirect the managed package roots to temp dirs.

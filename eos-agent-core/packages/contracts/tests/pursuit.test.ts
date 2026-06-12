@@ -26,7 +26,7 @@ function snapshot() {
   return {
       pursuit: {
         id: "p-1",
-        pursuit_goal: "ship it",
+        goal: "ship it",
         leg_goal_mode: "dynamic",
         predefined_leg_count: null,
         status: "Running",
@@ -115,6 +115,16 @@ describe("create pursuit input", () => {
     expect(parsed.leg_goals).toEqual(["parser", "printer"]);
   });
 
+  it("rejects predefined mode with an empty leg list", () => {
+    expect(
+      CreatePursuitInputSchema.safeParse({
+        pursuit_goal: "ship it",
+        leg_goal_mode: "predefined",
+        leg_goals: [],
+      }).success,
+    ).toBe(false);
+  });
+
   it("rejects explicit mode and payload-shape mismatches", () => {
     expect(
       CreatePursuitInputSchema.safeParse({
@@ -183,6 +193,16 @@ describe("planner outcome payload", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("rejects null next_leg_goal instead of treating it as a clear request", () => {
+    expect(
+      PlannerOutcomePayloadSchema.safeParse({
+        summary: "planned",
+        next_leg_goal: null,
+        work_items: [WORK_ITEM],
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("context script inputs", () => {
@@ -201,7 +221,9 @@ describe("context script inputs", () => {
     expect(
       PlannerContextInputSchema.safeParse({
         ...input,
-        pursuit_context: { pursuit: { ...snapshot().pursuit, goal: "old" } },
+        pursuit_context: {
+          pursuit: { ...snapshot().pursuit, pursuit_goal: "old" },
+        },
       }).success,
     ).toBe(false);
   });

@@ -89,6 +89,22 @@ pub struct OverlayWritableDirs {
     pub workdir: PathBuf,
 }
 
+/// Return the test writable root, creating it if needed.
+///
+/// # Errors
+///
+/// Returns [`OverlayError::Capture`] when directory creation fails.
+#[cfg(feature = "test-root-override")]
+pub fn overlay_writable_root() -> Result<PathBuf> {
+    let root = std::env::var_os("EOS_OVERLAY_WRITABLE_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::temp_dir().join(format!("eos-overlay-writable-root-{}", std::process::id()))
+        });
+    std::fs::create_dir_all(&root).map_err(OverlayError::Capture)?;
+    Ok(root)
+}
+
 /// Return the canonical writable root (`/eos/scratch/overlay`), creating it
 /// if its parent exists.
 ///
@@ -97,6 +113,7 @@ pub struct OverlayWritableDirs {
 /// Returns [`OverlayError::Capture`] when directory creation fails, or
 /// [`OverlayError::WritableRootUnavailable`] when the canonical root is not a
 /// directory.
+#[cfg(not(feature = "test-root-override"))]
 pub fn overlay_writable_root() -> Result<PathBuf> {
     let root = PathBuf::from("/eos/scratch/overlay");
     if root.parent().is_some_and(Path::is_dir) {

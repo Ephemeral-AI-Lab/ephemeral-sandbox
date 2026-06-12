@@ -78,7 +78,7 @@ export class PursuitService {
 
   async createPursuit(
     input: DelegatePursuitInput,
-    parentRunId: AgentRunId,
+    parentRunId?: AgentRunId | null,
   ): Promise<PursuitHandle> {
     const parsedInput = DelegatePursuitInputSchema.parse(input);
     const pursuitId = mintPursuitId();
@@ -98,14 +98,10 @@ export class PursuitService {
           DEFAULT_MAX_ATTEMPTS,
       }),
     );
-    const goalLine =
-      parsedInput.pursuit_goal.split("\n", 1)[0] ?? parsedInput.pursuit_goal;
     return {
       pursuit_id: pursuitId,
-      terminal: active.terminal.promise,
       cancel: (reason = "pursuit_cancelled") => this.cancel(pursuitId, reason),
       settle: () => active.terminal.promise,
-      describe: () => goalLine,
     };
   }
 
@@ -215,7 +211,7 @@ export class PursuitService {
     const launched = this.#deps.port.launch(claim.agentName, messages, {
       submission: this.#buildBinding(pursuitId, claim),
       ...(active && { signal: active.controller.signal }),
-      parent: tree.pursuit.parentRunId,
+      ...(tree.pursuit.parentRunId !== null && { parent: tree.pursuit.parentRunId }),
     });
     await stampAgentRunId(this.#deps.db, claim, launched.runId);
     void launched.outcome

@@ -46,7 +46,7 @@ export interface Harness {
   contextRoot: string;
   create(
     pursuitGoal?: string,
-    options?: { maxAttempts?: number; legGoals?: readonly string[] },
+    options?: { maxAttempts?: number; legGoals?: readonly [string, ...string[]] },
   ): Promise<PursuitHandle>;
   tree(pursuitId: PursuitId): Promise<PursuitTree>;
 }
@@ -116,7 +116,9 @@ export function harness(
       service.createPursuit(
         {
           pursuit_goal: pursuitGoal,
-          ...(options.legGoals !== undefined && { leg_goals: [...options.legGoals] }),
+          ...(options.legGoals !== undefined && {
+            leg_goals: [...options.legGoals] as [string, ...string[]],
+          }),
           ...(options.maxAttempts !== undefined && {
             max_attempts: options.maxAttempts,
           }),

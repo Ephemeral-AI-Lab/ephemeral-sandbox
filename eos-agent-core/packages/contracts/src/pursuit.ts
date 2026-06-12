@@ -105,11 +105,13 @@ export function isWorkItemTerminal(status: WorkItemRunStatus): boolean {
 export const LegGoalModeSchema = z.enum(["dynamic", "predefined"]);
 export type LegGoalMode = z.infer<typeof LegGoalModeSchema>;
 
+const NonEmptyStringListSchema = z.tuple([z.string().min(1)], z.string().min(1));
+
 export const CreatePursuitInputSchema = z
   .strictObject({
     pursuit_goal: z.string().min(1),
     leg_goal_mode: LegGoalModeSchema.optional(),
-    leg_goals: z.array(z.string().min(1)).min(1).optional(),
+    leg_goals: NonEmptyStringListSchema.optional(),
   })
   .superRefine((payload, ctx) => {
     const derived = payload.leg_goals === undefined ? "dynamic" : "predefined";
@@ -251,7 +253,7 @@ export type PursuitContextLeg = z.infer<typeof PursuitContextLegSchema>;
 export const PursuitContextSnapshotSchema = z.strictObject({
   pursuit: z.strictObject({
     id: z.string(),
-    pursuit_goal: z.string(),
+    goal: z.string(),
     leg_goal_mode: LegGoalModeSchema,
     predefined_leg_count: z.number().int().nonnegative().nullable(),
     status: PursuitEntityRunStatusSchema,
@@ -305,10 +307,8 @@ export interface PursuitSettlement {
 
 export interface PursuitHandle {
   pursuit_id: PursuitId;
-  terminal: Promise<PursuitSettlement>;
   cancel(reason?: string): Promise<void>;
   settle(): Promise<PursuitSettlement>;
-  describe(): string;
 }
 
 export type SubmissionResult = { ok: true } | { ok: false; error: string };

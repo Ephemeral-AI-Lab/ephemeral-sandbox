@@ -14,16 +14,26 @@ function create_variable_reference_map(ctx) {
       .filter((attempt) => current_attempt && attempt.sequence < current_attempt.sequence)
       .at(-1) ?? null;
   const last_attempt = all_attempts.at(-1) ?? null;
-  const all_work_items = pursuit.legs.flatMap((leg) =>
-    leg.attempts.flatMap((attempt) => attempt.work_items),
-  );
+  const same_version_work_items =
+    current_leg === null || current_attempt === null
+      ? []
+      : current_leg.attempts
+          .filter((attempt) => attempt.is_consistent_with_leg_goal)
+          .flatMap((attempt) => attempt.work_items)
+          .filter(
+            (item) =>
+              current_attempt.leg_goal_version !== null &&
+              item.leg_goal_version === current_attempt.leg_goal_version,
+          );
   const current_work_item =
     "work_item_id" in ctx.current
-      ? all_work_items.find((item) => item.id === ctx.current.work_item_id) ?? null
+      ? current_attempt?.work_items.find(
+          (item) => item.id === ctx.current.work_item_id,
+        ) ?? null
       : null;
   const dependencies = current_work_item
     ? current_work_item.depends_on.map(
-        (id) => all_work_items.find((item) => item.id === id) ?? { id },
+        (id) => same_version_work_items.find((item) => item.id === id) ?? { id },
       )
     : [];
 
@@ -56,7 +66,7 @@ function create_variable_reference_map(ctx) {
 
     pursuit_id: pursuit.id,
     pursuit_status: pursuit.status,
-    pursuit_goal: pursuit.pursuit_goal,
+    pursuit_goal: pursuit.goal,
     pursuit_leg_goal_mode: pursuit.leg_goal_mode,
     pursuit_predefined_leg_count: pursuit.predefined_leg_count,
     pursuit_context_path: pursuit.context_path,

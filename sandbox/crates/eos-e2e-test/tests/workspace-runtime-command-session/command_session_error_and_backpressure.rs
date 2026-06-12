@@ -5,7 +5,7 @@ use eos_operation::core::catalog;
 use serde_json::{json, Value};
 
 use crate::support::{
-    array, as_i64, as_str, clean_stdout, live_pool_or_skip, settle_foreground_command, stdout,
+    array, as_i64, as_str, clean_stdout, finalize_foreground_command, live_pool_or_skip, stdout,
     wait_for_active_leases, wait_for_command_session_transcript_recycled, wait_for_session_count,
 };
 
@@ -23,9 +23,9 @@ fn nonzero_exit_and_stderr_are_structured() -> Result<()> {
             "timeout_seconds": 10,}),
     )?;
     // Under emulation a slow ns-runner spawn can outlast the yield, so the
-    // command returns "running"; settle it to its terminal outcome first.
+    // command returns "running"; finalize it to its terminal outcome first.
     let failed =
-        settle_foreground_command(&lease, failed, Instant::now() + Duration::from_secs(20))?;
+        finalize_foreground_command(&lease, failed, Instant::now() + Duration::from_secs(20))?;
     ensure!(
         as_str(&failed, "status")? == "error",
         "nonzero command should return an error status: {failed}"
