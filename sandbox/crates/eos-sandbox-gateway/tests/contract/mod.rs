@@ -338,7 +338,13 @@ fn unix_socket_records_response_write_failure() {
     client.shutdown(std::net::Shutdown::Both).ok();
     drop(client);
 
-    gateway::handle_connection(server, Surface::Client, "/tmp/esg-pair.sock", &catalog, &engine);
+    gateway::handle_connection(
+        server,
+        Surface::Client,
+        "/tmp/esg-pair.sock",
+        &catalog,
+        &engine,
+    );
 
     let snapshot = events.lock().expect("events lock").clone();
     assert!(
@@ -411,7 +417,13 @@ fn sandbox_attributed_parse_failures_record_parse_failed_events() {
         .expect("write request");
     client.shutdown(std::net::Shutdown::Write).ok();
 
-    gateway::handle_connection(server, Surface::Client, "/tmp/esg-pair.sock", &catalog, &engine);
+    gateway::handle_connection(
+        server,
+        Surface::Client,
+        "/tmp/esg-pair.sock",
+        &catalog,
+        &engine,
+    );
 
     let snapshot = events.lock().expect("events lock").clone();
     assert!(
@@ -419,7 +431,10 @@ fn sandbox_attributed_parse_failures_record_parse_failed_events() {
         "missing invocation_id records parse_failed: {snapshot:?}"
     );
     assert!(
-        snapshot.contains(&("gateway.transport".to_owned(), "response_written".to_owned())),
+        snapshot.contains(&(
+            "gateway.transport".to_owned(),
+            "response_written".to_owned()
+        )),
         "parse-failure response write is recorded: {snapshot:?}"
     );
 }

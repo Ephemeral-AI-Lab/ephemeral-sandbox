@@ -39,10 +39,13 @@ fn round_trips_trace_batch_through_protobuf() {
         .with_span_id(SpanUid::ROOT),
     );
 
-    let encoded = encode_trace_batch(&TraceBatch::single(record.clone()));
+    let mut batch = TraceBatch::single(record.clone());
+    batch.daemon_boot_id = Some("boot-codec".to_owned());
+    let encoded = encode_trace_batch(&batch);
     let decoded = decode_trace_batch(&encoded).expect("decode encoded trace batch");
 
     assert_eq!(decoded.records, vec![record]);
+    assert_eq!(decoded.daemon_boot_id.as_deref(), Some("boot-codec"));
 }
 
 #[test]

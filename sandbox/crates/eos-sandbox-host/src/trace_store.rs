@@ -475,20 +475,23 @@ impl TraceStore {
                 .collect::<Result<Vec<_>, _>>()?;
             rows
         };
+        let mut conn = self.lock();
+        let tx = conn.transaction()?;
         for (request_id, trace_id, sandbox_id) in &rows {
-            self.append_loss(
+            append_loss_tx(
+                &tx,
                 sandbox_id,
                 trace_id,
                 request_id,
                 "uncertain_outcome",
                 "host restarted with in-flight request from prior boot",
             )?;
-            let conn = self.lock();
-            conn.execute(
+            tx.execute(
                 "UPDATE trace_requests SET status='uncertain' WHERE request_id=?1",
                 params![request_id],
             )?;
         }
+        tx.commit()?;
         Ok(rows.len())
     }
 
@@ -820,49 +823,6 @@ impl TraceStore {
         Ok(())
     }
 
-    fn append_loss(
-        &self,
-        sandbox_id: &str,
-        trace_id: &str,
-        request_id: &str,
-        reason: &str,
-        message: &str,
-    ) -> Result<(), TraceStoreError> {
-        let payload = proto::AuditEntry {
-            entry_id: request_id.to_owned(),
-            trace_id: trace_id.to_owned(),
-            seq: 0,
-            payload: json!({"reason": reason, "message": message})
-                .to_string()
-                .into_bytes(),
-            previous_hash: Vec::new(),
-            entry_hash: Vec::new(),
-            schema_version: "1".to_owned(),
-            written_at_unix_ms: now_ms(),
-        }
-        .encode_to_vec();
-        let mut conn = self.lock();
-        let tx = conn.transaction()?;
-        append_audit_entry_tx(
-            &tx,
-            AuditAppend {
-                sandbox_id,
-                trace_id,
-                request_id: Some(request_id),
-                entry_kind: "loss",
-                schema_name: AUDIT_SCHEMA,
-                schema_version: 1,
-                received_at_ms: now_ms(),
-                payload: &payload,
-                segment_id: None,
-                key_id: None,
-                signature: None,
-            },
-        )?;
-        tx.commit()?;
-        Ok(())
-    }
-
     fn lock(&self) -> std::sync::MutexGuard<'_, Connection> {
         self.conn.lock().unwrap_or_else(PoisonError::into_inner)
     }
@@ -1072,6 +1032,46 @@ fn apply_pragmas(conn: &Connection) -> Result<(), rusqlite::Error> {
     Ok(())
 }
 
+fn append_loss_tx(
+    tx: &Transaction<'_>,
+    sandbox_id: &str,
+    trace_id: &str,
+    request_id: &str,
+    reason: &str,
+    message: &str,
+) -> Result<(), rusqlite::Error> {
+    let payload = proto::AuditEntry {
+        entry_id: request_id.to_owned(),
+        trace_id: trace_id.to_owned(),
+        seq: 0,
+        payload: json!({"reason": reason, "message": message})
+            .to_string()
+            .into_bytes(),
+        previous_hash: Vec::new(),
+        entry_hash: Vec::new(),
+        schema_version: "1".to_owned(),
+        written_at_unix_ms: now_ms(),
+    }
+    .encode_to_vec();
+    append_audit_entry_tx(
+        tx,
+        AuditAppend {
+            sandbox_id,
+            trace_id,
+            request_id: Some(request_id),
+            entry_kind: "loss",
+            schema_name: AUDIT_SCHEMA,
+            schema_version: 1,
+            received_at_ms: now_ms(),
+            payload: &payload,
+            segment_id: None,
+            key_id: None,
+            signature: None,
+        },
+    )?;
+    Ok(())
+}
+
 fn append_audit_entry_tx(
     tx: &Transaction<'_>,
     append: AuditAppend<'_>,
@@ -1172,7 +1172,7 @@ fn project_request_start_proto_tx(
             caller_id: (!payload.caller_id.is_empty()).then_some(payload.caller_id.as_str()),
             args_summary: &payload.args_summary_json,
             args_digest: &payload.args_digest,
-            sent_at_ms: i64_to_u64(payload.started_at_unix_ms),
+            sent_at_ms: payload.started_at_unix_ms,
             host_boot_id: &payload.host_boot_id,
         },
     )
@@ -1182,6 +1182,10 @@ fn project_trace_batch_tx(
     tx: &Transaction<'_>,
     batch: &eos_trace::TraceBatch,
 ) -> Result<(), rusqlite::Error> {
+    let daemon_boot_id = batch
+        .daemon_boot_id
+        .as_deref()
+        .filter(|boot_id| !boot_id.is_empty());
     for record in &batch.records {
         let trace_id = record.trace_id.to_string();
         let request_id = record.request_id.as_ref().map(ToString::to_string);
@@ -1256,7 +1260,62 @@ fn project_trace_batch_tx(
                 params![trace_id, serde_label(link.kind), link.value, request_id],
             )?;
         }
+        if let Some(request_id) = &request_id {
+            project_request_rollup_tx(tx, request_id, record, daemon_boot_id)?;
+        }
     }
+    Ok(())
+}
+
+/// Denormalized `trace_requests` rollups derived from the daemon batch: root
+/// span duration, recorded workspace route, daemon boot id, and the ordered
+/// distinct span subsystems.
+fn project_request_rollup_tx(
+    tx: &Transaction<'_>,
+    request_id: &str,
+    record: &eos_trace::TraceRecord,
+    daemon_boot_id: Option<&str>,
+) -> Result<(), rusqlite::Error> {
+    let duration_us = record
+        .spans
+        .iter()
+        .find(|span| span.span_id == record.root_span_id)
+        .map(|span| u64_to_i64(span.duration_us));
+    let workspace_route = record
+        .events
+        .iter()
+        .filter(|event| event.module == "workspace.route" && event.name == "route_selected")
+        .find_map(|event| event.details.value.get("kind").and_then(Value::as_str))
+        .filter(|kind| {
+            matches!(
+                *kind,
+                "ephemeral_workspace" | "isolated_workspace" | "fast_path" | "none"
+            )
+        });
+    let mut modules: Vec<String> = Vec::new();
+    for span in &record.spans {
+        let subsystem = serde_label(span.subsystem);
+        if !modules.contains(&subsystem) {
+            modules.push(subsystem);
+        }
+    }
+    let modules_touched =
+        (!modules.is_empty()).then(|| serde_json::to_string(&modules).unwrap_or_default());
+    tx.execute(
+        "UPDATE trace_requests
+         SET workspace_route=COALESCE(?2, workspace_route),
+             duration_us=COALESCE(?3, duration_us),
+             daemon_boot_id=COALESCE(?4, daemon_boot_id),
+             modules_touched=COALESCE(?5, modules_touched)
+         WHERE request_id=?1",
+        params![
+            request_id,
+            workspace_route,
+            duration_us,
+            daemon_boot_id,
+            modules_touched
+        ],
+    )?;
     Ok(())
 }
 
@@ -1510,10 +1569,6 @@ fn now_ms() -> u64 {
 
 fn now_ms_i64() -> i64 {
     u64_to_i64(now_ms())
-}
-
-fn i64_to_u64(value: u64) -> u64 {
-    value
 }
 
 fn u64_to_i64(value: u64) -> i64 {

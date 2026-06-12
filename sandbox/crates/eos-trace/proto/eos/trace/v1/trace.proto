@@ -5,6 +5,7 @@ package eos.trace.v1;
 message TraceBatch {
   repeated TraceRecord records = 1;
   uint64 dropped_traces = 2;
+  string daemon_boot_id = 3;
 }
 
 message TraceRecord {

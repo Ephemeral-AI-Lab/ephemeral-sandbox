@@ -5,9 +5,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Result};
-use base64::Engine as _;
 use eos_e2e_test::{live_pool_with_config, NodeLease, NodePool};
 use eos_operation::core::catalog;
+use eos_sandbox_host::protocol::{decode_trace_sidecar_base64, take_trace_sidecar};
 use eos_trace::{decode_trace_batch, TraceRecord};
 use serde_json::{json, Value};
 
@@ -278,7 +278,7 @@ pub(crate) fn seed_base_files(
 
 pub(crate) fn trace_record(response: &Value) -> Result<TraceRecord> {
     let mut response = response.clone();
-    let sidecar = eos_sandbox_host::protocol::take_trace_sidecar(&mut response)
+    let sidecar = take_trace_sidecar(&mut response)
         .with_context(|| format!("response missing trace sidecar: {response}"))?;
     let batch = decode_trace_batch(&sidecar).context("decode trace sidecar")?;
     let mut records = batch.records;
@@ -298,9 +298,7 @@ pub(crate) fn trace_export_records(response: &Value) -> Result<Vec<TraceRecord>>
         }
         bail!("trace export missing trace_batch_base64: {response}");
     };
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(encoded)
-        .context("decode trace export batch")?;
+    let bytes = decode_trace_sidecar_base64(encoded).context("decode trace export batch")?;
     Ok(decode_trace_batch(&bytes)
         .context("decode trace export protobuf")?
         .records)

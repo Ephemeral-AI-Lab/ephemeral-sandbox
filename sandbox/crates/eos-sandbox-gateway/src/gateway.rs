@@ -19,7 +19,10 @@ const MAX_REQUEST_BYTES: usize = eos_sandbox_host::MAX_REQUEST_BYTES;
 static GATEWAY_CONNECTION_SEQ: AtomicU64 = AtomicU64::new(1);
 
 fn next_gateway_connection_id() -> String {
-    format!("gwc-{}", GATEWAY_CONNECTION_SEQ.fetch_add(1, Ordering::Relaxed))
+    format!(
+        "gwc-{}",
+        GATEWAY_CONNECTION_SEQ.fetch_add(1, Ordering::Relaxed)
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -693,7 +696,8 @@ pub(crate) fn parse_request(line: &[u8]) -> Result<ClientRequest, WireError> {
             ))
         }
     };
-    let op = take_string(&mut object, "op").map_err(|err| err.with_sandbox(sandbox_id.as_deref()))?;
+    let op =
+        take_string(&mut object, "op").map_err(|err| err.with_sandbox(sandbox_id.as_deref()))?;
     if op.trim().is_empty() {
         return Err(
             WireError::new("invalid_request", "op is required").with_sandbox(sandbox_id.as_deref())

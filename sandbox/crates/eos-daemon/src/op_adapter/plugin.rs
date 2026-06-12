@@ -89,7 +89,7 @@ pub(crate) fn dispatch_registered_op(
     let total_start = Instant::now();
     let mut before_resource_timings = Map::new();
     insert_cgroup_process_resource_timings(&mut before_resource_timings);
-    let _ = services.plugin.drain_ppc_trace_events();
+    push_stale_ppc_background_root(services.plugin.drain_ppc_trace_events());
     let outcome = services
         .plugin
         .dispatch_registered_op(op, invocation_id, args)?;
@@ -97,14 +97,24 @@ pub(crate) fn dispatch_registered_op(
         .map_err(DaemonError::from)
         .and_then(|outcome| match outcome {
             PluginDispatchOutcome::Response(response) => Ok(response),
-            PluginDispatchOutcome::OneshotOverlay(overlay) => plugin_overlay_response_with_trace(
-                &context,
-                op,
-                invocation_id,
-                &overlay,
-                &before_resource_timings,
-                total_start,
-            ),
+            PluginDispatchOutcome::OneshotOverlay(overlay) => {
+                context.record_trace_event(
+                    "workspace.route",
+                    "route_selected",
+                    json!({
+                        "kind": "ephemeral_workspace",
+                        "reason": "plugin_oneshot_overlay",
+                    }),
+                );
+                plugin_overlay_response_with_trace(
+                    &context,
+                    op,
+                    invocation_id,
+                    &overlay,
+                    &before_resource_timings,
+                    total_start,
+                )
+            }
         });
     record_ppc_trace_events(&context, services.plugin.drain_ppc_trace_events());
     Some(result)
@@ -655,6 +665,38 @@ fn record_ppc_trace_events(context: &DispatchContext<'_>, events: Vec<PpcTraceEv
     for event in events {
         context.record_trace_event(event.module, event.name, event.details);
     }
+}
+
+/// PPC facts that accumulated with no plugin op in flight (orphan replies,
+/// refused callbacks) become a standalone `PluginService` background root
+/// instead of being dropped or misattributed to the next request's trace.
+fn push_stale_ppc_background_root(events: Vec<PpcTraceEvent>) {
+    use eos_trace::{EventRecord, SpanKind, SpanRecord, SpanUid, TraceId, TraceKind, TraceRecord};
+    if events.is_empty() {
+        return;
+    }
+    let now = crate::trace::now_ms();
+    let mut span = SpanRecord::new(
+        SpanUid::ROOT,
+        None,
+        "plugin.service",
+        SpanKind::Plugin,
+        json!({"event_count": events.len(), "source": "stale_ppc_drain"}),
+    );
+    span.started_at_unix_ms = now;
+    span.finished_at_unix_ms = now;
+    let mut record = TraceRecord::new(TraceId::new(), SpanUid::ROOT);
+    record.kind = TraceKind::PluginService;
+    record.started_at_unix_ms = now;
+    record.finished_at_unix_ms = now;
+    record.spans.push(span);
+    for event in events {
+        let mut event_record =
+            EventRecord::new(SpanUid::ROOT, event.name, event.module, event.details);
+        event_record.at_unix_ms = now;
+        record.events.push(event_record);
+    }
+    crate::trace::push_background_record(record);
 }
 
 fn record_plugin_overlay_finished(

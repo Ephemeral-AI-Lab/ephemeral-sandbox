@@ -58,6 +58,7 @@ pub(crate) fn op_exec_command(
         .yield_time_ms
         .unwrap_or(command_config.default_yield_time_ms);
     let outcome = match exec_command(
+        &context,
         context.services().map(|services| &services.workspace),
         ExecCommandRequest {
             invocation_id: input.invocation_id.to_string(),
@@ -93,6 +94,7 @@ fn exec_timeout_seconds(input: &ExecCommandInput, config: &crate::config::Comman
 }
 
 fn exec_command(
+    context: &DispatchContext<'_>,
     workspace: Option<&WorkspaceRuntime>,
     request: ExecCommandRequest,
 ) -> Result<CommandExecOutcome, CommandOpError> {
@@ -109,6 +111,14 @@ fn exec_command(
 
     if let Some(binding) = workspace.and_then(|workspace| workspace.command_binding_for(&caller_id))
     {
+        context.record_trace_event(
+            "workspace.route",
+            "route_selected",
+            json!({
+                "kind": "isolated_workspace",
+                "reason": "caller_has_open_isolated_workspace",
+            }),
+        );
         return command_ops()
             .exec_command_with_trace(
                 StartCommand {
@@ -129,6 +139,15 @@ fn exec_command(
 
     let root = layer_stack_root.ok_or(CommandOpError::MissingLayerStackRoot)?;
     let binding = eos_layerstack::require_workspace_binding(&root)?;
+    context.record_trace_event(
+        "workspace.route",
+        "route_selected",
+        json!({
+            "kind": "ephemeral_workspace",
+            "reason": "no_isolated_workspace_for_caller",
+            "layer_stack_root": &root,
+        }),
+    );
     command_ops()
         .exec_command_with_trace(
             StartCommand {

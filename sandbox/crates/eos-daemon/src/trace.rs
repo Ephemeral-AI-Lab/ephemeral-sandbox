@@ -4,9 +4,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::Engine as _;
 use eos_trace::{
-    decode_trace_batch, encode_trace_batch, BoundedJson, DetailBudget, EventRecord, RequestId,
-    ResourceStats, ResourceStatsKind, ResourceStatsMeta, SpanKind, SpanRecord, SpanUid, TraceBatch,
-    TraceId, TraceRecord, TraceSpool,
+    decode_trace_batch, encode_trace_batch, BootId, BoundedJson, DetailBudget, EventRecord,
+    RequestId, ResourceStats, ResourceStatsKind, ResourceStatsMeta, SpanKind, SpanRecord, SpanUid,
+    TraceBatch, TraceId, TraceRecord, TraceSpool,
 };
 use serde_json::{json, Value};
 
@@ -16,6 +16,11 @@ pub(crate) const TRACE_SIDECAR_FIELD: &str = "_trace_events";
 
 static CONNECTION_SEQ: AtomicU64 = AtomicU64::new(1);
 static BACKGROUND_SPOOL: OnceLock<Mutex<TraceSpool>> = OnceLock::new();
+static DAEMON_BOOT_ID: OnceLock<BootId> = OnceLock::new();
+
+pub(crate) fn daemon_boot_id() -> &'static BootId {
+    DAEMON_BOOT_ID.get_or_init(BootId::new)
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct RequestTraceFacts {
@@ -84,7 +89,6 @@ pub(crate) fn next_connection_id() -> String {
     )
 }
 
-#[allow(dead_code)]
 pub(crate) fn push_background_record(record: TraceRecord) {
     let _ = background_spool()
         .lock()
@@ -297,7 +301,9 @@ pub(crate) fn attach_request_sidecar_with_events(
         .collect();
     record.events = events;
 
-    let encoded = encode_trace_batch(&TraceBatch::single(record));
+    let mut batch = TraceBatch::single(record);
+    batch.daemon_boot_id = Some(daemon_boot_id().to_string());
+    let encoded = encode_trace_batch(&batch);
     object.insert(
         TRACE_SIDECAR_FIELD.to_owned(),
         Value::String(base64::engine::general_purpose::STANDARD.encode(encoded)),
@@ -422,7 +428,7 @@ fn optional_u64(value: Option<&Value>) -> Option<u64> {
     })
 }
 
-fn now_ms() -> u64 {
+pub(crate) fn now_ms() -> u64 {
     let millis = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()

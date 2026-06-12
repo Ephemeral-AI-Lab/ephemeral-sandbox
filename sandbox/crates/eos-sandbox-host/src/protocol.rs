@@ -206,6 +206,10 @@ pub fn take_trace_sidecar(response: &mut Value) -> Option<Vec<u8>> {
         .remove(DAEMON_TRACE_SIDECAR_FIELD)?
         .as_str()
         .map(str::to_owned)?;
+    decode_trace_sidecar_base64(&encoded)
+}
+
+pub fn decode_trace_sidecar_base64(encoded: &str) -> Option<Vec<u8>> {
     base64::engine::general_purpose::STANDARD
         .decode(encoded)
         .ok()
@@ -354,7 +358,9 @@ pub fn response_status(response: &Value) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::{error_kind, is_success, response_classification, ResponseShape};
+    use super::{
+        decode_trace_sidecar_base64, error_kind, is_success, response_classification, ResponseShape,
+    };
     use serde_json::json;
 
     #[test]
@@ -427,5 +433,14 @@ mod tests {
             assert_eq!(is_success(&response), success, "{label}: helper success");
             assert_eq!(error_kind(&response), kind, "{label}: helper error kind");
         }
+    }
+
+    #[test]
+    fn decodes_trace_sidecar_base64() {
+        assert_eq!(
+            decode_trace_sidecar_base64("AQID").as_deref(),
+            Some(&[1, 2, 3][..])
+        );
+        assert!(decode_trace_sidecar_base64("not base64").is_none());
     }
 }

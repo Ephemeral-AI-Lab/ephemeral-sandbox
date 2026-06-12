@@ -126,6 +126,7 @@ pub(crate) fn op_trace_export(input: TraceExportInput) -> Value {
             &eos_trace::TraceBatch {
                 records,
                 dropped_traces,
+                daemon_boot_id: Some(crate::trace::daemon_boot_id().to_string()),
             },
         ))
     });

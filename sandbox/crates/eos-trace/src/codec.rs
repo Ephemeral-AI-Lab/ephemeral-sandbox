@@ -16,6 +16,7 @@ pub mod proto {
 pub struct TraceBatch {
     pub records: Vec<TraceRecord>,
     pub dropped_traces: u64,
+    pub daemon_boot_id: Option<String>,
 }
 
 impl TraceBatch {
@@ -24,6 +25,7 @@ impl TraceBatch {
         Self {
             records: vec![record],
             dropped_traces: 0,
+            daemon_boot_id: None,
         }
     }
 }
@@ -44,6 +46,7 @@ pub fn encode_trace_batch(batch: &TraceBatch) -> Vec<u8> {
     let proto = proto::TraceBatch {
         records: batch.records.iter().map(record_to_proto).collect(),
         dropped_traces: batch.dropped_traces,
+        daemon_boot_id: batch.daemon_boot_id.clone().unwrap_or_default(),
     };
     proto.encode_to_vec()
 }
@@ -67,6 +70,7 @@ fn proto_to_batch(batch: proto::TraceBatch) -> TraceBatch {
             .filter_map(proto_to_record)
             .collect(),
         dropped_traces: batch.dropped_traces,
+        daemon_boot_id: (!batch.daemon_boot_id.is_empty()).then_some(batch.daemon_boot_id),
     }
 }
 

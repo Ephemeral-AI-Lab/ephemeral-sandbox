@@ -26,6 +26,14 @@ pub(crate) fn op_enter(
 ) -> Result<OpResponse, DaemonError> {
     let caller_id = input.caller.to_string();
     let root = input.layer_stack_root;
+    context.record_trace_event(
+        "workspace.route",
+        "route_selected",
+        json!({
+            "kind": "isolated_workspace",
+            "reason": "isolation_enter_lifecycle",
+        }),
+    );
     record_enter_started(&context, &caller_id, &root);
     let workspace = &context.require_services()?.workspace;
     match workspace.enter(&caller_id, &root) {
@@ -53,6 +61,14 @@ pub(crate) fn op_exit(
     context: DispatchContext<'_>,
 ) -> Result<OpResponse, DaemonError> {
     let caller_id = input.caller.to_string();
+    context.record_trace_event(
+        "workspace.route",
+        "route_selected",
+        json!({
+            "kind": "isolated_workspace",
+            "reason": "isolation_exit_lifecycle",
+        }),
+    );
     record_exit_started(&context, &caller_id);
     let workspace = &context.require_services()?.workspace;
     // Exit is the per-caller workspace-run teardown: discard the caller's
