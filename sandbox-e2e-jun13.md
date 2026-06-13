@@ -745,3 +745,23 @@ Rules for this run:
 - Result: passed; removed 4 stale `eos-e2e` containers.
 - Finding: the focused pressure suite left live E2E containers.
 - Fix: cleanup complete; rerun the serialized full live e2e gate once.
+
+### 2026-06-13 Attempt 77 - Serialized full live e2e gate final pass
+
+- Command: `cargo test -p eos-e2e-test --features e2e -- --test-threads=1 --nocapture`
+- Result: passed; unit test binary 1/1, core 33/33, daemon 12/12,
+  eos-layerstack 20/20, ephemeral_workspace 12/12, plugin 15/15, pressure
+  23/23, workspace-publish-gate 14/14, workspace-runtime-command 67/67,
+  workspace-runtime-isolated 21/21, doc-tests 0/0.
+- Finding: the full live E2E gate is green with response-envelope migration,
+  trace/resource assertions, per-test Git workspace reset, serialized isolated
+  leases, and longer foreground windows for resource-sidecar assertions.
+- Fix: no additional E2E code fix needed for Phase 05; proceed to non-live
+  checks and spec tracker update.
+
+### 2026-06-13 Attempt 78 - E2E stale-container cleanup after full live gate pass
+
+- Command: `docker rm -f eos-e2e-11588-18b885893b9e5c58-1 eos-e2e-1364-18b8857594cf6da8-98f eos-e2e-1364-18b88563694d4ba8-1 eos-e2e-97438-18b88561c6d7a3b0-1 eos-e2e-96464-18b88537a53d4e28-1`
+- Result: passed; removed 5 stale `eos-e2e` containers.
+- Finding: the successful full live gate left warm containers running.
+- Fix: cleanup complete; continue Phase 05 non-live verification.
