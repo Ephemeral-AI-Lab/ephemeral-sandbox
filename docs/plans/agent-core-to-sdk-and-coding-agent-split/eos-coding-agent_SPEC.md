@@ -87,10 +87,10 @@ into a shared package.
 
 ## 3. Target Layout
 
-The target host remains a pnpm workspace. The current checkout already has the
-`eos-coding-agent/` package groups; legacy config, tool, and test folders remain until
-the §13 migration steps retire them. Do not flatten this target into a single-package
-`src/` layout.
+The target host remains a pnpm workspace, but the root package is the application.
+Host-private composition, config, agent policy, and workflow-provider wiring live under
+root `src/`. `packages/` is reserved for real package boundaries; `packages/app` is
+intentionally absent.
 
 ```text
 eos-coding-agent/
@@ -115,39 +115,37 @@ eos-coding-agent/
       context/                         machine-written pursuit context mirror
       pursuit.sqlite                   or configured store path
   packages/
-    app/                               composition root and host policy
-      main.ts
-      config/
-        config-root.ts
-        config-file.ts
-        hook-config.ts
-        profile-loader.ts
-        workflow-config.ts
-      agents/
-        agent-factory.ts
-        profiles.ts
-      workflows/
-        hub.ts                         WorkflowHub + per-profile view + prompt fragment
-        contract.ts                    WorkflowProvider, WorkflowConfig, BuildWorkflowTools
-        pursuit-provider.ts            adapter over openPursuitService; builder imports tools/workflow/pursuit/*
-        pursuit-context-scripts.ts     script resolution + ComposeLaunchContext composer
-      tools/
-        agent/
-          run-subagent.ts
-          ask-advisor.ts
-        workflow/
-          read-workflow-docs.ts        app-authored, provider-agnostic (over the hub view)
-          pursuit/
-            delegate-pursuit.ts        pursuit provider's model tools, grouped by workflow;
-                                       pursuit-provider.ts imports and wires them with service + agents
-        advisor-pass-registry.ts
-    tools/                             mechanical tool families (no composition values)
+  src/                                  composition root and host policy
+    bootstrap.ts
+    config/
+      config-root.ts
+      config-file.ts
+      hook-config.ts
+      profile-loader.ts
+      workflow-config.ts
+    agents/
+      agent-factory.ts
+      advisor-pass-registry.ts
+    tools/
+      agent/
+        run-subagent.ts
+        ask-advisor.ts
       background/
         list-background-tasks.ts
         cancel-background-task.ts
       records/
         read-agent-run.ts
+      workflow/
+        read-workflow-docs.ts           provider-agnostic over a structural docs view
+      pursuit/
+        delegate-pursuit.ts             pursuit delegate tool factory
       sandbox/                         exec/file family (§7), migrated as-is
+    workflows/
+      hub.ts                            WorkflowHub + per-profile view + prompt fragment
+      contract.ts                       WorkflowProvider, WorkflowConfig, BuildWorkflowTools
+      pursuit-provider.ts               adapter over openPursuitService; imports src/tools/pursuit
+      pursuit-context-scripts.ts        script resolution + ComposeLaunchContext composer
+  packages/
     workflows/
       pursuit/
         contracts/
@@ -171,23 +169,17 @@ eos-coding-agent/
 
 Ownership rules for the layout:
 
-- The hub contract lives in `packages/app`, not in pursuit. Pursuit stays
+- The hub contract lives in `src/workflows`, not in pursuit. Pursuit stays
   caller-agnostic (Phase 05.3 §4) and never imports hub vocabulary; the
-  `pursuit-provider.ts` adapter in `app` wraps `openPursuitService` into a
+  `pursuit-provider.ts` adapter in root `src` wraps `openPursuitService` into a
   `WorkflowProvider`.
-- `packages/tools` holds tool families that need no composition-root values beyond
-  plain parameters (a records dir string). Tools that close over `AgentFactory` or hub
-  views live in `packages/app/tools/`.
-- Provider-authored workflow tools are grouped by workflow domain under
-  `packages/app/tools/workflow/<workflow>/` (e.g. `workflow/pursuit/delegate-pursuit.ts`),
-  one file per tool. They are authored as plain tool factories — `(name, service, agents)
-  => ToolDefinition` — that take their composition values as parameters; the workflow's
-  provider in `app/workflows/<name>-provider.ts` imports them and supplies `service` +
-  `agents` from its `BuildWorkflowTools` builder. The grouping is by workflow because one
-  workflow's tools can serve different callers — the delegating operator (`delegate_<name>`)
-  and, as the family grows, other host agents — so the cohesive boundary is the workflow,
-  not the consuming profile. `read-workflow-docs.ts` stays directly under
-  `app/tools/workflow/` because it is app-authored and provider-agnostic.
+- `src/tools` holds model-visible tool implementations. Agent tools that close over the
+  concrete `AgentFactory` and advisory policy live in `src/tools/agent/`.
+- Provider-authored workflow tools live in `src/tools/<workflow>/` when they are plain
+  tool factories such as `(name, service, agents) => ToolDefinition`. The provider in
+  `src/workflows/<name>-provider.ts` imports them and supplies `service` + `agents` from
+  its `BuildWorkflowTools` builder. `read-workflow-docs.ts` lives under
+  `src/tools/workflow/` because it is provider-agnostic over a structural docs view.
 - Pursuit is not a standalone product package; lifting it out is gated on a second host
   (§2).
 
@@ -198,11 +190,9 @@ SDK values.
 
 ```ts
 import { createAgentSdk } from "eos-agent-sdk";
+import { createAgentOutcomeFnWithAdvisory } from "./agents/agent-factory.js";
 
-import {
-  buildAgentFactory,
-  createAgentOutcomeFnWithAdvisory,
-} from "./agents/agent-factory.js";
+import { buildAgentFactory } from "./agents/agent-factory.js";
 import { loadEosConfig } from "./config/config-file.js";
 import { WorkflowHub } from "./workflows/hub.js";
 import { pursuitWorkflowProvider } from "./workflows/pursuit-provider.js";
@@ -519,11 +509,11 @@ contract. The SDK ships none.
 
 | Family | Tools | Package | Notes |
 | --- | --- | --- | --- |
-| agent patterns | `run_subagent`, `ask_advisor` | `app/tools/agent/` | Close over `AgentFactory`. `ask_advisor` is factory-injected via the advisory binding, never profile-selected. |
-| workflow | `read_workflow_docs` (app) + per-workflow provider tools, e.g. `delegate_<name>` | `app/tools/workflow/read-workflow-docs.ts`; provider tools under `app/tools/workflow/<workflow>/`, wired by `app/workflows/<name>-provider.ts` | Factory-injected from `profile.workflows`, never in `allowed_tools`. Providers author and name their own tools (off the configured workflow name) but the tool files are grouped by workflow domain; `read_workflow_docs` and the prompt fragment come from the profile view. |
-| background | `list_background_tasks`, `cancel_background_task` | `tools/background/` | Thin projections over `ctx.backgroundTaskSupervisor`. |
-| records | `read_agent_run` | `tools/records/` | Factory over `recordsDir`. |
-| sandbox | `read`, `multi_read`, `write`, `edit`, `exec_command`, `command_stdin`, `read_command_transcript` | `tools/sandbox/` | The coding capability, bridged to the sandbox daemon. Migrated as-is; out of this split's redesign scope, but the names must exist in the registry or every current planner/worker profile fails `allowed_tools` validation. |
+| agent patterns | `run_subagent`, `ask_advisor` | `src/tools/agent/` | Close over `AgentFactory` and host advisory policy. `ask_advisor` is factory-injected via the advisory binding, never profile-selected. |
+| workflow | `read_workflow_docs` + per-workflow provider tools, e.g. `delegate_<name>` | `src/tools/workflow/read-workflow-docs.ts`; provider tools under `src/tools/<workflow>/`, wired by `src/workflows/<name>-provider.ts` | Factory-injected from `profile.workflows`, never in `allowed_tools`. Providers author and name their own tools off the configured workflow name. |
+| background | `list_background_tasks`, `cancel_background_task` | `src/tools/background/` | Thin projections over `ctx.backgroundTaskSupervisor`. |
+| records | `read_agent_run` | `src/tools/records/` | Factory over `recordsDir`. |
+| sandbox | `read`, `multi_read`, `write`, `edit`, `exec_command`, `command_stdin`, `read_command_transcript` | `src/tools/sandbox/` | The coding capability, bridged to the sandbox daemon. Migrated as-is; out of this split's redesign scope, but the names must exist in the registry or every current planner/worker profile fails `allowed_tools` validation. |
 
 There is no coding-agent-specific tool context. Tool code receives only the SDK
 `ToolCallContext`:
@@ -852,8 +842,8 @@ Progressive discovery — light at the surface, detail one read away:
 - **`promptFragment()`** is the always-on index: one `description` line per workflow, its
   declared `tools`, and the read-the-docs instruction.
 
-`read_workflow_docs` is the only app-authored workflow tool; every other workflow tool is
-provider-authored. Adding a workflow *type* means writing a provider; configuring one
+`read_workflow_docs` is the provider-agnostic workflow docs tool; every other workflow
+tool is provider-authored. Adding a workflow *type* means writing a provider; configuring one
 means adding a `workflow/<name>.md` file that reuses the provider under a new name. Only a
 new type adds tool authoring.
 
@@ -869,7 +859,7 @@ in `create`, so a non-agent workflow returns a nullary builder and never names
 
 ## 9. Pursuit Registration
 
-Pursuit's provider is an adapter in `packages/app` over the pursuit service. It holds
+Pursuit's provider is a root `src/workflows` adapter over the pursuit service. It holds
 the two composition values pursuit cannot own: the profile registry (for registration
 validation) and the script composer (so pursuit never spawns subprocesses).
 
@@ -905,15 +895,15 @@ export function pursuitWorkflowProvider(init: {
 - `args.planner` and `args.worker` must name known profiles.
 - The planner profile's `terminal_tool` must be `submit_planner_outcome`; the worker
   profile's must be `submit_worker_outcome`, so pursuit's plain SDK outcome bindings can
-  bind and the app adapter can attach the matching advisory prompt (§11).
+  bind and the host adapter can attach the matching advisory prompt (§11).
 - Both profiles must declare `pursuit_context_script`, with the resolved paths inside
   `.eos-agents/pursuit/scripts/`.
 
 Any failure rejects `create`, so `WorkflowHub.open` fails startup naming the workflow.
 
-`delegate_pursuit` is an ordinary tool — the same shape as `run_subagent` (§7.2). It is
-authored in `app/tools/workflow/pursuit/delegate-pursuit.ts` (grouped by workflow domain,
-§3) and imported by `pursuit-provider.ts`, which supplies `service` and `agents` from its
+`delegate_pursuit` is an ordinary tool. It is authored in
+`src/tools/pursuit/delegate-pursuit.ts` and imported by `pursuit-provider.ts`,
+which supplies `service` and `agents` from its
 builder. It calls the pursuit service, which returns a cancel handle, and registers that
 handle as a background task. The provider supplies no `description`/`docs`; those live on
 the workflow's `WorkflowConfig` (frontmatter `description`, md body). Only the tool's own
@@ -1272,16 +1262,17 @@ Steps 1-2 are substantially complete on disk; they are listed for the record.
 
 1. **SDK flattening (done):** `eos-agent-sdk` is the single flattened package. Finish
    removing any remaining host concepts from its public surface.
-2. **Host workspace bootstrap (done):** `packages/{app,tools,workflows/pursuit,scripts,testkit}`
-   exist. `legacy/` and `legacy-tests/` folders and the notification-rules config remain;
-   the steps below retire them.
-3. **WorkflowHub:** implement `hub.ts` and `contract.ts` in `packages/app/workflows/`;
+2. **Host workspace bootstrap (done):** root `src/` and
+   `packages/{workflows/pursuit,scripts,testkit}` exist. `packages/app` is absent.
+   `legacy/` and `legacy-tests/` folders and the notification-rules config remain; the
+   steps below retire them.
+3. **WorkflowHub:** implement `hub.ts` and `contract.ts` in `src/workflows/`;
    wire `pursuitWorkflowProvider`; switch the composition root to `WorkflowHub.open`.
 4. **Pursuit launch seam:** replace `AgentLaunchPort` / `LaunchSettlement` /
    `PursuitAgentSubmissionBinding` with `PursuitAgents`, SDK run handles, and the
    `plannerOutcome` / `workerOutcome` factories. Keep the launch-queue machinery
    unchanged. Drop `workflowName` and `scriptsRoot` from service deps; inject `compose`.
-   Keep planner/worker advisory prompt content in the app-owned pursuit adapter, bundled
+   Keep planner/worker advisory prompt content in the host-owned pursuit adapter, bundled
    when plain pursuit outcomes are forwarded to `AgentFactory`; the main prompt lives
    inside the composition root's outcome binding.
 5. **Tool port:** move tool families out of `legacy/` per the §7 table. Rename

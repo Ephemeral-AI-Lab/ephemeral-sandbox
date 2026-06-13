@@ -516,7 +516,6 @@ fn forward_request(input: ForwardRequestInput<'_>) -> Result<Value, ForwardError
             caller_id,
             mutates_state,
             args: args.clone(),
-            forwarded_bytes: &tcp_line,
         })
         .map_err(ForwardError::TraceUnavailable)?;
     let attempt = ForwardAttempt {

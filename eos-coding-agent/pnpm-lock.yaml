@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@eos/pursuit':
+        specifier: workspace:*
+        version: link:packages/workflows/pursuit
+      '@eos/scripts':
+        specifier: workspace:*
+        version: link:packages/scripts
       eos-agent-sdk:
         specifier: link:../eos-agent-sdk
         version: link:../eos-agent-sdk
@@ -18,6 +24,9 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@eos/testkit':
+        specifier: workspace:*
+        version: link:packages/testkit
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.5.0)
@@ -40,27 +49,9 @@ importers:
         specifier: ^4.1.8
         version: 4.1.8(@types/node@25.9.3)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(tsx@4.22.4)(yaml@2.9.0))
 
-  packages/app:
-    dependencies:
-      '@eos/pursuit':
-        specifier: workspace:*
-        version: link:../workflows/pursuit
-      '@eos/scripts':
-        specifier: workspace:*
-        version: link:../scripts
-      '@eos/tools':
-        specifier: workspace:*
-        version: link:../tools
-    devDependencies:
-      '@eos/testkit':
-        specifier: workspace:*
-        version: link:../testkit
-
   packages/scripts: {}
 
   packages/testkit: {}
-
-  packages/tools: {}
 
   packages/workflows/pursuit:
     dependencies:

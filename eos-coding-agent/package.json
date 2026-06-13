@@ -11,6 +11,8 @@
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
   },
   "dependencies": {
+    "@eos/pursuit": "workspace:*",
+    "@eos/scripts": "workspace:*",
     "eos-agent-sdk": "link:../eos-agent-sdk",
     "yaml": "^2.6.1",
     "zod": "^4.4.3"
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@eos/testkit": "workspace:*",
     "@types/node": "^25.9.2",
     "eslint": "^10.4.1",
     "tsx": "^4.22.4",

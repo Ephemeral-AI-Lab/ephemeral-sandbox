@@ -1,7 +1,7 @@
 import type { AgentRunId, JsonObject, ToolCallFacts, ToolUseId } from "eos-agent-sdk";
 import { describe, expect, it } from "vitest";
 
-import { requireAdvisoryPass } from "./agent/ask-advisor.js";
+import { requireAdvisoryPass } from "../tools/agent/ask-advisor.js";
 import { AdvisorPassRegistry } from "./advisor-pass-registry.js";
 
 const RUN = "run-1" as AgentRunId;

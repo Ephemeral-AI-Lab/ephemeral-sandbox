@@ -182,12 +182,17 @@ fn proto_to_span(
         format!("records[{record_index}].spans[{span_index}].fields_json"),
     )?;
     let parent_span_id = (span.parent_span_id != 0).then(|| SpanUid::new(span.parent_span_id));
+    let kind = span_kind_from_code(span.kind, record_index, span_index)?;
+    // Subsystem is a pure projection of kind (the closed `SpanKind::subsystem`
+    // mapping). Derive it here rather than trusting the redundant wire byte, so
+    // the codec cannot reconstruct a kind/subsystem pair that contradicts the
+    // mapping the audit contract relies on.
     Ok(SpanRecord {
         span_id: SpanUid::new(span.span_id),
         parent_span_id,
         name: span.name,
-        kind: span_kind_from_code(span.kind, record_index, span_index)?,
-        subsystem: subsystem_from_code(span.subsystem, record_index, span_index)?,
+        kind,
+        subsystem: kind.subsystem(),
         started_at_unix_ms: span.started_at_unix_ms,
         finished_at_unix_ms: span.finished_at_unix_ms,
         duration_us: span.duration_us,
@@ -428,29 +433,6 @@ fn subsystem_code(subsystem: SpanSubsystem) -> i32 {
         SpanSubsystem::Plugin => 8,
         SpanSubsystem::Control => 9,
     }
-}
-
-fn subsystem_from_code(
-    code: i32,
-    record_index: usize,
-    span_index: usize,
-) -> Result<SpanSubsystem, DecodeTraceError> {
-    Ok(match code {
-        1 => SpanSubsystem::Wire,
-        2 => SpanSubsystem::Dispatch,
-        3 => SpanSubsystem::Op,
-        4 => SpanSubsystem::LayerStack,
-        5 => SpanSubsystem::Overlay,
-        6 => SpanSubsystem::Command,
-        7 => SpanSubsystem::Workspace,
-        8 => SpanSubsystem::Plugin,
-        9 => SpanSubsystem::Control,
-        _ => {
-            return Err(invalid(format!(
-                "records[{record_index}].spans[{span_index}].subsystem has unknown code {code}"
-            )))
-        }
-    })
 }
 
 fn span_status_code(status: SpanStatus) -> i32 {

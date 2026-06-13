@@ -120,7 +120,6 @@ impl TraceStore {
             family: input.family,
             caller_id: input.caller_id,
             args: input.args.clone(),
-            forwarded_bytes: input.forwarded_bytes,
         };
         let trace_id = input.trace_id.clone();
         let request_id = input.request_id.clone();
@@ -157,6 +156,11 @@ impl TraceStore {
 
         let args_summary =
             BoundedJson::capture(input.args.clone(), DetailBudget::RequestArgsSummary);
+        // Digest/length describe the request args only. They are never computed
+        // over the forwarded TCP frame, which carries `_eos_daemon_auth_token`;
+        // the security rule forbids recording, hashing, or length-recording the
+        // auth token (SPEC: Transport connection lifecycle -> Security rules).
+        let args_bytes = serde_json::to_vec(&input.args).unwrap_or_default();
         let payload = proto::RequestStart {
             trace_id: input.trace_id.to_string(),
             request_id: input.request_id.to_string(),
@@ -170,8 +174,8 @@ impl TraceStore {
             started_at_unix_ms: now_ms(),
             caller_id: input.caller_id.unwrap_or_default().to_owned(),
             host_boot_id: self.host_boot_id.to_string(),
-            args_len: usize_to_u64(input.forwarded_bytes.len()),
-            args_digest: sha256_hex(input.forwarded_bytes),
+            args_len: usize_to_u64(args_bytes.len()),
+            args_digest: sha256_hex(&args_bytes),
         }
         .encode_to_vec();
 
@@ -203,7 +207,7 @@ impl TraceStore {
                 family: input.family,
                 caller_id: input.caller_id,
                 args_summary: &args_summary.encoded_value(),
-                args_digest: &sha256_hex(input.forwarded_bytes),
+                args_digest: &sha256_hex(&args_bytes),
                 sent_at_ms: now_ms(),
                 host_boot_id: self.host_boot_id.as_str(),
             },
@@ -219,6 +223,8 @@ impl TraceStore {
     ) -> Result<(), TraceStoreError> {
         let args_summary =
             BoundedJson::capture(input.args.clone(), DetailBudget::RequestArgsSummary);
+        // Token-free args digest only — never the forwarded auth-bearing frame.
+        let args_bytes = serde_json::to_vec(&input.args).unwrap_or_default();
         let payload = TraceDegradedPayload {
             trace_id: input.trace_id.to_string(),
             request_id: input.request_id.to_string(),
@@ -227,7 +233,7 @@ impl TraceStore {
             family: input.family.to_owned(),
             caller_id: input.caller_id.map(ToOwned::to_owned),
             args_summary: args_summary.encoded_value(),
-            args_digest: sha256_hex(input.forwarded_bytes),
+            args_digest: sha256_hex(&args_bytes),
             sent_at_ms: now_ms(),
             host_boot_id: self.host_boot_id.to_string(),
             error_kind: "trace_degraded".to_owned(),
@@ -623,7 +629,7 @@ impl TraceStore {
     ) -> Result<Vec<PrunedRange>, TraceStoreError> {
         let mut conn = self.lock();
         let tx = conn.transaction()?;
-        let seals = {
+        let mut seals = {
             let mut stmt = tx.prepare(
                 "SELECT segment_id, first_audit_seq, last_audit_seq, root_sha256
                  FROM audit_segment_seals
@@ -642,12 +648,27 @@ impl TraceStore {
                         first_audit_seq: row.get(1)?,
                         last_audit_seq: row.get(2)?,
                         root_sha256: row.get(3)?,
+                        entry_count: 0,
+                        trace_count: 0,
                     })
                 })?
                 .collect::<Result<Vec<_>, _>>()?;
             rows
         };
-        for seal in &seals {
+        for seal in &mut seals {
+            // Record the deletion's count proof in the tombstone before deleting
+            // (SPEC: prune tombstone records entry and trace counts). trace_count
+            // is computed here because it cannot be recovered after the rows go.
+            seal.entry_count = tx.query_row(
+                "SELECT COUNT(*) FROM audit_entries WHERE audit_seq BETWEEN ?1 AND ?2",
+                params![seal.first_audit_seq, seal.last_audit_seq],
+                |row| row.get(0),
+            )?;
+            seal.trace_count = tx.query_row(
+                "SELECT COUNT(DISTINCT trace_id) FROM audit_entries WHERE audit_seq BETWEEN ?1 AND ?2",
+                params![seal.first_audit_seq, seal.last_audit_seq],
+                |row| row.get(0),
+            )?;
             let payload = proto::AuditEntry {
                 entry_id: seal.segment_id.clone(),
                 trace_id: seal.segment_id.clone(),
@@ -910,7 +931,6 @@ pub struct RequestStartInput<'a> {
     pub caller_id: Option<&'a str>,
     pub mutates_state: bool,
     pub args: Value,
-    pub forwarded_bytes: &'a [u8],
 }
 
 struct DegradedRequestInput<'a> {
@@ -921,7 +941,6 @@ struct DegradedRequestInput<'a> {
     family: &'a str,
     caller_id: Option<&'a str>,
     args: Value,
-    forwarded_bytes: &'a [u8],
 }
 
 pub struct TraceEventInput<'a> {
@@ -971,6 +990,12 @@ pub struct PrunedRange {
     pub first_audit_seq: i64,
     pub last_audit_seq: i64,
     pub root_sha256: String,
+    // Count proof recorded in the tombstone before deletion. trace_count is not
+    // derivable post-deletion (audit rows are gone), so it must be persisted.
+    #[serde(default)]
+    pub entry_count: i64,
+    #[serde(default)]
+    pub trace_count: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

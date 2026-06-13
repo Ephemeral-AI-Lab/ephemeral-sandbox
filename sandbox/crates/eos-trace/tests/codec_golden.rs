@@ -1,7 +1,7 @@
 use eos_trace::{
     decode_trace_batch, encode_trace_batch, proto, EventRecord, RequestId, ResourceStats,
-    ResourceStatsKind, SpanKind, SpanRecord, SpanUid, TraceBatch, TraceId, TraceLink,
-    TraceLinkKind, TraceRecord,
+    ResourceStatsKind, SpanKind, SpanRecord, SpanSubsystem, SpanUid, TraceBatch, TraceId,
+    TraceLink, TraceLinkKind, TraceRecord,
 };
 use prost::Message;
 use serde_json::json;
@@ -76,6 +76,42 @@ fn decodes_operation_span_kind_without_treating_it_as_unknown() {
     let decoded = decode_trace_batch(&batch.encode_to_vec()).expect("operation span kind decodes");
 
     assert_eq!(decoded.records[0].spans[0].kind, SpanKind::Operation);
+}
+
+#[test]
+fn derives_span_subsystem_from_kind_ignoring_a_contradicting_wire_byte() {
+    // A wire span whose subsystem byte contradicts its kind (kind=Operation,
+    // which maps to subsystem Op, but subsystem byte claims Wire=1) must decode
+    // to the kind-derived subsystem, so the closed SpanKind::subsystem mapping
+    // cannot be violated through the wire.
+    let batch = proto::TraceBatch {
+        records: vec![proto::TraceRecord {
+            trace_id: "trace-subsystem-mismatch".to_owned(),
+            kind: 1,
+            root_span_id: 1,
+            spans: vec![proto::TraceSpan {
+                span_id: 1,
+                name: "op.file.write".to_owned(),
+                kind: 8,
+                subsystem: 1,
+                fields_json: "{}".to_owned(),
+                ..proto::TraceSpan::default()
+            }],
+            ..proto::TraceRecord::default()
+        }],
+        ..proto::TraceBatch::default()
+    };
+
+    let decoded =
+        decode_trace_batch(&batch.encode_to_vec()).expect("contradicting subsystem still decodes");
+
+    let span = &decoded.records[0].spans[0];
+    assert_eq!(span.kind, SpanKind::Operation);
+    assert_eq!(
+        span.subsystem,
+        SpanSubsystem::Op,
+        "subsystem must be derived from kind, not the contradicting wire byte"
+    );
 }
 
 /// Schema-evolution gate: the committed populated fixture must keep decoding

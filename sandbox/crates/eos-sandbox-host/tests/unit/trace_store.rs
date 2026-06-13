@@ -4,6 +4,7 @@ use eos_trace::{
     SpanRecord, SpanUid, TraceBatch, TraceId, TraceLink, TraceLinkKind, TraceRecord,
 };
 use serde_json::json;
+use sha2::{Digest, Sha256};
 
 use super::*;
 
@@ -15,6 +16,43 @@ fn sqlite_posture_and_schema_are_set_on_open() -> Result<(), TraceStoreError> {
     assert_eq!(posture.journal_mode, "wal");
     assert_eq!(posture.synchronous, 2);
     assert!(store.db_path().is_file());
+    Ok(())
+}
+
+#[test]
+fn request_start_args_digest_excludes_the_daemon_auth_token() -> Result<(), TraceStoreError> {
+    // Security rule: the auth token is never recorded, hashed, or
+    // length-recorded. args_digest must describe the request args only, not the
+    // forwarded TCP frame (which carries _eos_daemon_auth_token).
+    let store = temp_store("args-digest-token-free")?;
+    let args = json!({"caller_id": "caller-1", "path": "README.md"});
+    store.append_request_start(request_input(
+        "sb-1",
+        "sandbox.file.read",
+        false,
+        "digest-token-free",
+    ))?;
+
+    let recorded = trace_request_args_digest(&store, "digest-token-free")?;
+    let args_bytes = serde_json::to_vec(&args).expect("args serialize");
+    assert_eq!(
+        recorded,
+        hex_sha256(&args_bytes),
+        "args_digest must hash the args bytes only"
+    );
+
+    // A token-bearing frame must never produce the recorded digest.
+    let token_frame = serde_json::to_vec(&json!({
+        "op": "sandbox.file.read",
+        "args": args,
+        "_eos_daemon_auth_token": "super-secret-token",
+    }))
+    .expect("frame serialize");
+    assert_ne!(
+        recorded,
+        hex_sha256(&token_frame),
+        "args_digest must not be computed over the token-bearing frame"
+    );
     Ok(())
 }
 
@@ -384,6 +422,20 @@ fn seal_prune_and_verify_retained_chain() -> Result<(), TraceStoreError> {
 
     let pruned = store.prune_sealed_through(seal.last_audit_seq)?;
     assert_eq!(pruned.len(), 1);
+    // The tombstone records the count proof. entry_count spans the contiguous
+    // audit_seq range; trace_count covers at least the two request traces
+    // sealed above (the segment also carries the host_boot entry).
+    let range = &pruned[0];
+    assert_eq!(
+        range.entry_count,
+        range.last_audit_seq - range.first_audit_seq + 1,
+        "entry count proof must cover the contiguous sealed range"
+    );
+    assert!(
+        range.trace_count >= 2,
+        "trace count proof must cover the sealed request traces, got {}",
+        range.trace_count
+    );
     let repeated_prune = store.prune_sealed_through(seal.last_audit_seq)?;
     assert!(
         repeated_prune.is_empty(),
@@ -392,6 +444,9 @@ fn seal_prune_and_verify_retained_chain() -> Result<(), TraceStoreError> {
     let report = store.verify_chain()?;
     assert!(report.is_valid(), "{:?}", report.errors);
     assert_eq!(report.pruned_ranges.len(), 1);
+    // The counts survive serialization into the hash-chained tombstone.
+    assert_eq!(report.pruned_ranges[0].entry_count, range.entry_count);
+    assert_eq!(report.pruned_ranges[0].trace_count, range.trace_count);
     Ok(())
 }
 
@@ -588,12 +643,31 @@ fn request_input<'a>(
         caller_id: Some("caller-1"),
         mutates_state,
         args: json!({"caller_id": "caller-1", "path": "README.md"}),
-        forwarded_bytes: br#"{"op":"sandbox.file.read"}"#,
     }
 }
 
 fn temp_store(name: &str) -> Result<TraceStore, TraceStoreError> {
     TraceStore::open(temp_dir(name))
+}
+
+fn trace_request_args_digest(
+    store: &TraceStore,
+    request_id: &str,
+) -> Result<String, TraceStoreError> {
+    Ok(store.lock().query_row(
+        "SELECT args_digest FROM trace_requests WHERE request_id=?1",
+        [request_id],
+        |row| row.get(0),
+    )?)
+}
+
+fn hex_sha256(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let mut out = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        out.push_str(&format!("{byte:02x}"));
+    }
+    out
 }
 
 fn trace_request_error_kind(

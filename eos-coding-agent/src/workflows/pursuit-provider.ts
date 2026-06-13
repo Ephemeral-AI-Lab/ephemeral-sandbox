@@ -8,10 +8,10 @@ import {
 } from "@eos/pursuit";
 import { z } from "zod";
 
-import { configBaseDir } from "../config/config-root.js";
-import type { AgentProfileRegistry } from "../config/profiles.js";
 import { withAdvisory, type AgentFactory } from "../agents/agent-factory.js";
-import { delegatePursuit } from "../tools/workflow/pursuit/delegate-pursuit.js";
+import { configBaseDir } from "../config/config-root.js";
+import { delegatePursuit } from "../tools/index.js";
+import type { AgentProfileRegistry } from "../config/profiles.js";
 import type { WorkflowProvider } from "./contract.js";
 
 const PursuitWorkflowArgsSchema = z.object({
@@ -37,7 +37,7 @@ const PURSUIT_ADVISORY_PROMPTS = new Map<string, string>([
 ]);
 
 /**
- * The pursuit provider: an `app`-side adapter over `openPursuitService`. It
+ * The pursuit provider: a host-side adapter over `openPursuitService`. It
  * holds the two values pursuit cannot own — the profile registry (registration
  * validation) and the script composer — and resolves config-relative paths from
  * the config base, never the cwd.

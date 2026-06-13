@@ -10,12 +10,15 @@ import {
   type ToolDefinition,
 } from "eos-agent-sdk";
 import type { z } from "zod";
+import {
+  cancelBackgroundTask,
+  listBackgroundTasks,
+  readAgentRun,
+  readWorkflowDocs,
+  sandboxTools,
+} from "../tools/index.js";
 
-import { cancelBackgroundTask, listBackgroundTasks, readAgentRun, sandboxTools } from "@eos/tools";
-
-import type { AgentProfile } from "../config/profile-loader.js";
-import type { AgentProfileRegistry } from "../config/profiles.js";
-import { AdvisorPassRegistry } from "../tools/advisor-pass-registry.js";
+import { AdvisorPassRegistry } from "./advisor-pass-registry.js";
 import {
   ADVISOR_AGENT_NAME,
   SUBMIT_ADVISOR_OUTCOME,
@@ -23,7 +26,8 @@ import {
   requireAdvisoryPass,
 } from "../tools/agent/ask-advisor.js";
 import { runSubagent } from "../tools/agent/run-subagent.js";
-import { readWorkflowDocs } from "../tools/workflow/read-workflow-docs.js";
+import type { AgentProfile } from "../config/profile-loader.js";
+import type { AgentProfileRegistry } from "../config/profiles.js";
 import type { WorkflowHub } from "../workflows/hub.js";
 
 /**

@@ -12,7 +12,7 @@ import {
 import { z } from "zod";
 
 import type { AgentFactory } from "../../agents/agent-factory.js";
-import { canonicalJson, type AdvisorPassRegistry } from "../advisor-pass-registry.js";
+import { canonicalJson, type AdvisorPassRegistry } from "../../agents/advisor-pass-registry.js";
 
 export const ADVISOR_AGENT_NAME = "advisor";
 export const SUBMIT_ADVISOR_OUTCOME = "submit_advisor_outcome";

@@ -13,6 +13,6 @@
     "target": "ES2022",
     "types": ["node"]
   },
-  "include": ["packages/**/*.ts", "vitest.config.ts", "eslint.config.js"],
+  "include": ["src/**/*.ts", "packages/**/*.ts", "vitest.config.ts", "eslint.config.js"],
   "exclude": ["**/node_modules", "**/legacy/**", "**/legacy-tests/**"]
 }
