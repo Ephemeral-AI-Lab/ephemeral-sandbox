@@ -46,9 +46,9 @@ crates/daemon/contract   # daemon-local runtime contracts
 crates/daemon/trace      # daemon trace production, sidecar, spool, export/ack
 ```
 
-Until that crate layout exists, the live catalog remains in
-`crates/protocol/src/catalog.rs` and the generated catalog artifact remains
-`crates/operation/ops.json`.
+The first-pass crate layout now exists. The live catalog source is
+`crates/shared/protocol/src/catalog.rs`, and the generated catalog artifact is
+`crates/daemon/operation/ops.json`.
 
 ## Top-Level Migration Plan
 
@@ -60,29 +60,29 @@ Target layout:
 ```text
 crates/
   shared/
-    protocol/          # current crates/protocol
-    trace/             # current shared parts of crates/trace
+    protocol/          # original crates/protocol plus wire protocol prose/fixtures
+    trace/             # original shared parts of crates/trace
 
   gateway/
-    gateway/           # current crates/gateway
+    src/               # gateway crate root; no gateway/gateway duplicate
     contract/          # gateway-local request/socket DTOs, if split out
     trace/             # gateway-local access/transport traces, only if needed
 
   host/
-    host/              # current crates/host
+    src/               # host crate root; no host/host duplicate
     contract/          # host image/container/sandbox DTOs, if split out
     trace/             # current host trace_store
 
   daemon/
     eosd/              # current crates/eosd
-    daemon/            # current crates/daemon
+    core/              # current crates/daemon package, named daemon
     operation/         # current crates/operation
     layerstack/        # current crates/layerstack
     overlay/           # current crates/overlay
     workspace/         # current crates/workspace
     namespace/         # current crates/namespace
     command/           # current crates/command
-    plugin/            # current crates/plugin
+    plugin/            # current crates/plugin, if restored as a separate crate
     config/            # current crates/config
 
   tests/
@@ -95,16 +95,16 @@ package in `crates/daemon/layerstack/Cargo.toml` can still be named
 `layerstack`. Rename packages only after the physical grouping and dependency
 rules are stable.
 
-### Current-to-Target Map
+### Original-to-Target Map
 
-| Current path | Target path | Owner | Notes |
+| Original path | Target path | Owner | Notes |
 |---|---|---|---|
 | `crates/protocol` | `crates/shared/protocol` | shared | Cross-boundary op catalog, envelope, fault/error vocabulary. |
 | `crates/trace` | `crates/shared/trace` | shared | Keep only trace ids, records, batches, codec, sidecar constants, and pure helpers here. |
-| `crates/gateway` | `crates/gateway/gateway` | gateway | Transport, visibility enforcement, routing. No Docker/runtime fleet logic. |
-| `crates/host` | `crates/host/host` | host | Docker runtime, image/container/sandbox registry, host trace persistence. |
+| `crates/gateway` | `crates/gateway` | gateway | Transport, visibility enforcement, routing. No Docker/runtime fleet logic. |
+| `crates/host` | `crates/host` | host | Docker runtime, image/container/sandbox registry, host trace persistence. |
 | `crates/host/src/trace_store` | `crates/host/trace` or host module | host | Durable trace store/query/verify belongs to host, not shared trace. |
-| `crates/daemon` | `crates/daemon/daemon` | daemon | Async daemon control plane and dispatch. |
+| `crates/daemon` | `crates/daemon/core` | daemon | Async daemon control plane and dispatch; package name can remain `daemon`. |
 | `crates/eosd` | `crates/daemon/eosd` | daemon | Binary entrypoint deployed into containers. |
 | `crates/operation` | `crates/daemon/operation` | daemon | Daemon operation DTOs and handlers. |
 | `crates/layerstack` | `crates/daemon/layerstack` | daemon | Keep separate crate; do not merge into daemon control plane. |
@@ -112,25 +112,28 @@ rules are stable.
 | `crates/workspace` | `crates/daemon/workspace` | daemon | Sandbox workspace orchestration. |
 | `crates/namespace` | `crates/daemon/namespace` | daemon | Namespace holder/runner support and syscall boundaries. |
 | `crates/command` | `crates/daemon/command` | daemon | PTY/process command lifecycle. |
-| `crates/plugin` | `crates/daemon/plugin` | daemon | Plugin manifest/service/PPC contracts and daemon-side plugin support. |
+| `crates/plugin` | `crates/daemon/plugin` | daemon | Plugin manifest/service/PPC contracts and daemon-side plugin support, if restored as a separate crate. |
 | `crates/config` | `crates/daemon/config` | daemon | Daemon/runtime config consumed by daemon-side crates. |
 | `crates/e2e-test` | `crates/tests/e2e-test` | tests | Optional; can stay top-level until runtime crate moves settle. |
-| `contract/PROTOCOL.md` | `crates/shared/protocol/PROTOCOL.md` or `docs/contract/protocol.md` | shared/docs | Active protocol contract should live with shared protocol or docs, not as an unowned global root. |
-| `contract/fixtures/*` | Split by owning crate | shared/daemon/host | Wire fixtures go to shared protocol; trace fixtures go to shared trace or host trace tests; CAS/LayerStack fixtures go to daemon layerstack tests. |
+| `contract/PROTOCOL.md` | `crates/shared/protocol/PROTOCOL.md` | shared | Active protocol contract lives with shared protocol, not as an unowned global root. |
+| `contract/fixtures/wire_messages/*` | `crates/shared/protocol/fixtures/wire_messages/*` | shared | Wire fixtures are shared protocol conformance data. |
+| `contract/fixtures/cas/cases.json` | `crates/daemon/layerstack/tests/fixtures/cas/cases.json` | daemon | CAS byte identity belongs to LayerStack. |
+| `contract/fixtures/command_finalize_conflict_response.json` | `crates/daemon/operation/fixtures/command_finalize_conflict_response.json` | daemon | Command operation response fixture belongs to daemon operation. |
+| `contract/fixtures/{audit_reset_floor_allowed,isolated_workspace_audit,layer_metrics}` | `crates/daemon/operation/fixtures/historical/*` | daemon | Historical daemon operation fixtures retained with operation. |
 
 ### Migration Phases
 
 | Phase | Change | Acceptance gate |
 |---|---|---|
 | 0. Freeze baseline | Record current crate graph, op catalog, and generated docs before moves. | `cargo metadata`, current `ops.json`, and docs diff are captured. |
-| 1. Introduce `shared` group | Move `crates/protocol` to `crates/shared/protocol`; move shared trace format code to `crates/shared/trace`. | Workspace builds with old package names and updated workspace paths. |
+| 1. Introduce `shared` group | Move `crates/protocol` to `crates/shared/protocol`; move shared trace format code to `crates/shared/trace`. | Workspace builds with old package names and updated workspace paths. Completed in the first pass. |
 | 2. Split trace ownership | Keep shared trace schema/codec in `shared/trace`; keep host trace store under host; keep daemon trace producer/spool/export under daemon. | No host trace-store code is imported by daemon; no daemon trace runtime is imported by host. |
 | 3. Group gateway and host | Move gateway and host crates under `crates/gateway` and `crates/host`; add local contract modules only for owner-specific DTOs. | Gateway depends only on host plus shared crates. |
 | 4. Group daemon crates | Move daemon-side crates under `crates/daemon`; keep `layerstack`, `overlay`, `workspace`, `namespace`, `command`, and `plugin` as separate crates. | Host/gateway do not depend on any `crates/daemon/*` package. |
 | 5. Move active global contracts | Retire top-level active `contract/` by moving fixtures/prose to their owning shared, host, or daemon crate. | Contract tests read fixtures from owner-local paths. |
-| 6. Rename host-served ops | Add `host.*` names for existing host-served operations and keep old aliases temporarily. | Catalog contains both names, docs prefer `host.*`, compatibility tests pass. |
+| 6. Rename host-served ops | Add `host.*` names for existing host-served operations. | Catalog contains the `host.*` names and docs prefer `host.*`. |
 | 7. Add new gateway ops | Add image/profile/container host operations and host routing. | `host.*` ops do not route through a daemon and enforce visibility/policy. |
-| 8. Remove compatibility aliases | Drop old host-served `sandbox.*` aliases after clients migrate. | Old names fail as unknown ops; docs and generated catalog contain only target names. |
+| 8. Remove compatibility aliases | Drop old host-served `sandbox.*` aliases. | Old names fail as unknown ops; docs and generated catalog contain only target names. Completed in cleanup. |
 
 ### Dependency Laws
 
@@ -145,18 +148,18 @@ rules are stable.
 
 ## Gateway Ops Migration Table
 
-These operations are already served by the host, but their names currently imply
-daemon/sandbox ownership. Rename them to `host.*`.
+These operations are served by the host. Their old `sandbox.*` spellings are
+retired; callers must use the `host.*` spellings.
 
 | Current op | Target op | Served by | Surface | Mutates | Request target | Migration action |
 |---|---|---:|---|---:|---|---|
-| `sandbox.acquire` | `host.sandbox.acquire` | host | public | yes | Host registry/runtime | Rename. Keep old name as a temporary compatibility alias if needed. |
-| `sandbox.release` | `host.sandbox.release` | host | public | yes | Existing managed sandbox record | Rename. Requires `sandbox_id` because it targets a host registry record. |
-| `sandbox.status` | `host.sandbox.status` | host | public | no | Existing managed sandbox record | Rename. Requires `sandbox_id` because it targets a host registry record. |
-| `sandbox.list` | `host.sandbox.list` | host | public | no | Host registry | Rename. No `sandbox_id`. |
-| `sandbox.trace.requests` | `host.trace.requests` | host | operator | no | Host trace store | Rename. No daemon call. |
-| `sandbox.trace.show` | `host.trace.show` | host | operator | no | Host trace store | Rename. No daemon call. |
-| `sandbox.trace.verify` | `host.trace.verify` | host | operator | no | Host trace store | Rename. No daemon call. |
+| `sandbox.acquire` | `host.sandbox.acquire` | host | public | yes | Host registry/runtime | Old spelling removed. |
+| `sandbox.release` | `host.sandbox.release` | host | public | yes | Existing managed sandbox record | Old spelling removed. Requires `sandbox_id` because it targets a host registry record. |
+| `sandbox.status` | `host.sandbox.status` | host | public | no | Existing managed sandbox record | Old spelling removed. Requires `sandbox_id` because it targets a host registry record. |
+| `sandbox.list` | `host.sandbox.list` | host | public | no | Host registry | Old spelling removed. No `sandbox_id`. |
+| `sandbox.trace.requests` | `host.trace.requests` | host | operator | no | Host trace store | Old spelling removed. No daemon call. |
+| `sandbox.trace.show` | `host.trace.show` | host | operator | no | Host trace store | Old spelling removed. No daemon call. |
+| `sandbox.trace.verify` | `host.trace.verify` | host | operator | no | Host trace store | Old spelling removed. No daemon call. |
 
 ## New Gateway Ops Table
 
@@ -258,14 +261,9 @@ The host owns:
 
 ## Compatibility Plan
 
-| Phase | Catalog behavior | Gateway behavior | Client behavior |
-|---|---|---|---|
-| 1. Add aliases | Catalog contains both old `sandbox.*` host aliases and new `host.*` names. | Gateway accepts both and emits a deprecation warning for old host aliases. | Clients may migrate incrementally. |
-| 2. Prefer new names | Docs/examples use only `host.*` for host-served ops. | Gateway still accepts old aliases on the public socket. | Clients should use `host.*`. |
-| 3. Remove aliases | Catalog drops old host-served `sandbox.*` aliases. | Gateway rejects old aliases as unknown ops. | Clients must use `host.*`. |
-
-No compatibility alias is needed for new image/container operations because they
-do not exist in the current catalog.
+Compatibility aliases are removed. Old host-served `sandbox.*` spellings now
+fail as `unknown_op`; docs and the generated catalog contain only target
+`host.*` names for host-served operations.
 
 ## Implementation Checklist
 
@@ -274,7 +272,7 @@ do not exist in the current catalog.
 3. Implement host image profile policy and Docker image/container adapters.
 4. Keep public image selection profile-based; reserve raw image references for
    operator operations.
-5. Regenerate `crates/operation/ops.json` and docs from the catalog.
+5. Regenerate `crates/daemon/operation/ops.json` and docs from the catalog.
 6. Add gateway tests proving `host.*` ops do not require daemon routing.
 7. Add gateway tests proving `sandbox.*` ops require `sandbox_id`.
 8. Run the contract drift gate after catalog/doc changes.

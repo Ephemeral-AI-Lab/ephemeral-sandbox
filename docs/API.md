@@ -1,6 +1,6 @@
 # Sandbox API — op catalog
 
-GENERATED from `crates/operation/ops.json` by `cargo run -p xtask -- gen-docs`.
+GENERATED from `crates/daemon/operation/ops.json` by `cargo run -p xtask -- gen-docs`.
 Do not edit by hand: `cargo run -p xtask -- check-contract` fails when
 this file drifts from the committed catalog.
 
@@ -12,10 +12,11 @@ The complete public vocabulary served on the `gateway` client socket.
 
 | Op | Served by | Family | Mutates | Args DTO | Response DTO | Summary |
 |---|---|---|---|---|---|---|
-| `sandbox.acquire` | host | Sandbox | yes | `host.sandbox.AcquireArgs` | `host.sandbox.AcquireResponse` | Provision a sandbox container plus daemon and return its sandbox_id. |
-| `sandbox.release` | host | Sandbox | yes | `host.sandbox.ReleaseArgs` | `host.sandbox.ReleaseResponse` | Destroy the sandbox container and drop its registry entry. |
-| `sandbox.status` | host | Sandbox | no | `host.sandbox.StatusArgs` | `host.sandbox.StatusResponse` | Host view of one sandbox (container/endpoint/recovery state) plus embedded daemon readiness. |
-| `sandbox.list` | host | Sandbox | no | `host.sandbox.ListArgs` | `host.sandbox.ListResponse` | Enumerate the sandbox registry. |
+| `host.sandbox.acquire` | host | Sandbox | yes | `host.sandbox.AcquireArgs` | `host.sandbox.AcquireResponse` | Provision a sandbox container plus daemon and return its sandbox_id. |
+| `host.sandbox.release` | host | Sandbox | yes | `host.sandbox.ReleaseArgs` | `host.sandbox.ReleaseResponse` | Destroy the sandbox container and drop its registry entry. |
+| `host.sandbox.status` | host | Sandbox | no | `host.sandbox.StatusArgs` | `host.sandbox.StatusResponse` | Host view of one sandbox (container/endpoint/recovery state) plus embedded daemon readiness. |
+| `host.sandbox.list` | host | Sandbox | no | `host.sandbox.ListArgs` | `host.sandbox.ListResponse` | Enumerate the sandbox registry. |
+| `host.image_profiles.list` | host | Image | no | `host.image_profiles.ListArgs` | `host.image_profiles.ListResponse` | List operator-approved image profiles that public clients may request. |
 | `sandbox.call.heartbeat` | daemon | Control | yes | `operation.control.HeartbeatInput` | `operation.control.HeartbeatOutput` | Extend the lease on an in-flight invocation. |
 | `sandbox.call.cancel` | daemon | Control | yes | `operation.control.CancelInvocationInput` | `operation.control.CancelInvocationOutput` | Request cooperative cancellation of an in-flight invocation. |
 | `sandbox.call.count` | daemon | Control | no | `operation.control.CallerCountInput` | `operation.control.InflightCountOutput` | Count in-flight invocations. |
@@ -45,9 +46,16 @@ Served only on the operator socket beside the client socket; never the client so
 
 | Op | Served by | Family | Mutates | Args DTO | Response DTO | Summary |
 |---|---|---|---|---|---|---|
-| `sandbox.trace.requests` | host | Trace | no | `host.trace.TraceRequestsArgs` | `host.trace.TraceRequestsResponse` | List recent trace requests from the host audit store. |
-| `sandbox.trace.show` | host | Trace | no | `host.trace.TraceShowArgs` | `host.trace.TraceShowResponse` | Show one trace from the host audit projections. |
-| `sandbox.trace.verify` | host | Trace | no | `host.trace.TraceVerifyArgs` | `host.trace.TraceVerifyReport` | Verify host audit hash chains and projection joinability. |
+| `host.trace.requests` | host | Trace | no | `host.trace.TraceRequestsArgs` | `host.trace.TraceRequestsResponse` | List recent trace requests from the host audit store. |
+| `host.trace.show` | host | Trace | no | `host.trace.TraceShowArgs` | `host.trace.TraceShowResponse` | Show one trace from the host audit projections. |
+| `host.trace.verify` | host | Trace | no | `host.trace.TraceVerifyArgs` | `host.trace.TraceVerifyReport` | Verify host audit hash chains and projection joinability. |
+| `host.image.list` | host | Image | no | `host.image.ListArgs` | `host.image.ListResponse` | List locally available Docker images visible to the gateway host. |
+| `host.image.pull` | host | Image | yes | `host.image.PullArgs` | `host.image.PullResponse` | Pull or refresh an operator-approved image reference. |
+| `host.container.list` | host | Container | no | `host.container.ListArgs` | `host.container.ListResponse` | List Docker containers relevant to the gateway host. |
+| `host.container.start` | host | Container | yes | `host.container.StartArgs` | `host.container.StartResponse` | Start a container from an explicit image reference and optional name. |
+| `host.container.adopt` | host | Container | yes | `host.container.AdoptArgs` | `host.container.AdoptResponse` | Register an existing compatible container as a managed sandbox. |
+| `host.container.stop` | host | Container | yes | `host.container.StopArgs` | `host.container.StopResponse` | Stop a host container by container name/id or managed sandbox_id. |
+| `host.container.remove` | host | Container | yes | `host.container.RemoveArgs` | `host.container.RemoveResponse` | Remove a host container by container name/id or managed sandbox_id. |
 | `sandbox.checkpoint.layer_metrics` | daemon | Checkpoint | no | `operation.checkpoint.LayerMetricsInput` | `operation.checkpoint.LayerMetricsOutput` | Report LayerStack and storage metrics for the sandbox. |
 | `sandbox.checkpoint.ensure_base` | daemon | Checkpoint | yes | `operation.checkpoint.EnsureBaseInput` | `operation.checkpoint.WorkspaceBaseOutput` | Ensure a workspace base binding exists. |
 | `sandbox.checkpoint.build_base` | daemon | Checkpoint | yes | `operation.checkpoint.BuildBaseInput` | `operation.checkpoint.WorkspaceBaseOutput` | Build or rebuild a workspace base binding. |

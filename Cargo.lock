@@ -187,6 +187,7 @@ dependencies = [
  "layerstack",
  "namespace",
  "operation",
+ "plugin",
  "proptest",
  "protocol",
  "serde",
@@ -759,7 +760,6 @@ name = "operation"
 version = "0.1.0"
 dependencies = [
  "command",
- "config",
  "layerstack",
  "namespace",
  "nix 0.29.0",
@@ -832,6 +832,19 @@ name = "pkg-config"
 version = "0.3.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
+
+[[package]]
+name = "plugin"
+version = "0.1.0"
+dependencies = [
+ "config",
+ "layerstack",
+ "nix 0.29.0",
+ "operation",
+ "serde_json",
+ "thiserror 2.0.18",
+ "workspace",
+]
 
 [[package]]
 name = "powerfmt"

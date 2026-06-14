@@ -3,9 +3,12 @@
 The sandbox system pins several version surfaces that must move deliberately.
 A careless bump silently breaks the thin-client handshake, the response
 envelope, or the on-disk manifest read path. The binding host<->box artifacts
-are `crates/operation/ops.json` plus `contract/` (`PROTOCOL.md` +
-`fixtures/`); no compiled code crosses that boundary, and
-`cargo run -p xtask -- check-contract` is the drift gate.
+are `crates/daemon/operation/ops.json`,
+`crates/shared/protocol/PROTOCOL.md`, and the owner-local fixtures under
+`crates/shared/protocol/fixtures/`, `crates/daemon/layerstack/tests/fixtures/`,
+and `crates/daemon/operation/fixtures/`; no daemon implementation code crosses
+into host/gateway, and `cargo run -p xtask -- check-contract` is the drift
+gate.
 
 ## Version surfaces at a glance
 
@@ -26,21 +29,21 @@ These move independently: the response envelope can gain fields (bumping
   non-integer, or unsupported versions with `invalid_request`. The accepted
   value is also captured into the request trace record (`transport/server.rs`).
 - Pinned in three places that the conformance suites hold in lockstep:
-  - `crates/operation/ops.json` (`protocol_version`) — the reviewed
+  - `crates/daemon/operation/ops.json` (`protocol_version`) — the reviewed
     catalog artifact;
-  - `crates/operation/src/core/catalog.rs` — the catalog renderer and protocol
+  - `crates/shared/protocol/src/catalog.rs` — the catalog renderer and protocol
     version source;
-  - `crates/host/src/protocol.rs` — the host side's deliberate copy
-    (no shared crate; drift is caught by the fixture conformance tests, not
-    the compiler).
+  - `crates/host/src/protocol.rs` — the host side's daemon protocol
+    copy, checked by the fixture conformance tests.
 
 ## 2. Envelope metadata version
 
 - `meta.envelope_version = 2`
 - Stamped into every response envelope's `meta` block, daemon-side by
-  `crates/daemon/src/trace/envelope_meta.rs` and host-side by
-  `crates/gateway/src/gateway.rs` (`request_meta` / `bare_meta`). The struct of
-  record is `ResponseMeta` in `crates/operation/src/core/envelope.rs`.
+  `crates/daemon/core/src/trace/envelope_meta.rs` and host-side by
+  `crates/gateway/src/gateway.rs` (`request_meta` / `bare_meta`). The
+  struct of record is `ResponseMeta` in
+  `crates/daemon/operation/src/core/envelope.rs`.
 - It is **independent** of the wire/catalog version above. It is `2` because the
   envelope `meta` shape (trace ref, workspace route, step summaries, resource
   summary) is the second iteration of the response contract; the wire framing it
@@ -52,8 +55,8 @@ These move independently: the response envelope can gain fields (bumping
 ## 3. Envelope-nesting rule (transport status vs. domain status)
 
 Every daemon and gateway response is an `OperationEnvelope` (see
-`crates/operation/src/core/envelope.rs`). It carries **two status layers**, and
-a client must branch on them in order:
+`crates/daemon/operation/src/core/envelope.rs`). It carries **two status
+layers**, and a client must branch on them in order:
 
 1. **Envelope `status`** — the *transport* outcome of delivering the op:
    `ok | running | rejected | cancelled | timed_out | error`. `ok`/`running`/
@@ -62,11 +65,12 @@ a client must branch on them in order:
 2. **`result.status`** — the *domain* outcome, present only for command and file
    ops:
    - Command ops (`CommandStatus`,
-     `crates/operation/src/command/contract.rs`): `running | ok | cancelled |
-     error | timed_out`.
+     `crates/daemon/operation/src/command/contract.rs`): `running | ok |
+     cancelled | error | timed_out`.
    - Mutation ops (`MutationStatus`,
-     `crates/operation/src/core/workspace_outcome.rs`): `accepted | committed |
-     rejected | aborted_version | aborted_overlap | dropped | failed`.
+     `crates/daemon/operation/src/core/workspace_outcome.rs`): `accepted |
+     committed | rejected | aborted_version | aborted_overlap | dropped |
+     failed`.
 
 The foot-gun: a backgrounded command and even a `command_not_found` come back
 as envelope `status: "ok"` — the *transport* succeeded — while the real outcome
@@ -102,22 +106,24 @@ is nested at `result.status`. A naive client that reads only the envelope
   hashes **only** the `layers` array, never `version`/`schema_version`, so the
   schema version can change without invalidating existing layer hashes — but a
   reader that does not understand a new schema version must refuse to load it.
-- Source of truth: `crates/layerstack/src/model.rs` (`MANIFEST_SCHEMA_VERSION`).
+- Source of truth: `crates/daemon/layerstack/src/model.rs` (`MANIFEST_SCHEMA_VERSION`).
 
 ## 5. Bump procedure
 
 When any version must change:
 
 1. Bump the constant in its owning location(s) above, regenerate
-   `crates/operation/ops.json`
-   (`cargo run -p eosd -- dump-ops > crates/operation/ops.json`) and
+   `crates/daemon/operation/ops.json`
+   (`cargo run -p eosd -- dump-ops > crates/daemon/operation/ops.json`) and
    `docs/API.md` (`cargo run -p xtask -- gen-docs`), and update this file in
    the same change. `check-contract` enforces the lockstep.
-2. The golden fixtures (`contract/fixtures/`) are **immutable ground truth**
-   captured from the original Python runtime, which has been removed — they
-   can no longer be regenerated. Never edit a fixture to match code. Two
-   deliberate exceptions, each a contract change made on purpose and recorded
-   here:
+2. The golden fixtures are **immutable ground truth** captured from the
+   original Python runtime, which has been removed — they can no longer be
+   regenerated. Never edit a fixture to match code. Wire fixtures live under
+   `crates/shared/protocol/fixtures/wire_messages/`; CAS fixtures live under
+   `crates/daemon/layerstack/tests/fixtures/cas/`; operation fixtures live
+   under `crates/daemon/operation/fixtures/`. Two deliberate exceptions, each
+   a contract change made on purpose and recorded here:
    - **2026-06 — legacy `api.*` aliases retired.** The `op` field of the three
      request fixtures was rewritten to the canonical `sandbox.*` spellings.
    - **Envelope `protocol_version` → `envelope_version` rename.** The response

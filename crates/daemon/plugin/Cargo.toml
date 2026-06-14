@@ -1,0 +1,18 @@
+[package]
+name = "plugin"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+config.workspace = true
+layerstack.workspace = true
+operation.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+thiserror.workspace = true
+workspace.workspace = true
+nix = { workspace = true, features = ["signal"] }
+
+[lints]
+workspace = true

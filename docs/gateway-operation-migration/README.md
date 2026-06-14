@@ -17,20 +17,20 @@ Rule of thumb:
 | Does it talk to Docker, host state, images, container lifecycle, or gateway audit? | `host.*` |
 | Does it execute inside a sandbox or mutate/read sandbox workspace state? | `sandbox.*` |
 
-## Current Host Actions
+## Host Actions
 
-These are host-served today, but still use `sandbox.*` names in the current
-catalog.
+These are host-served operations. The catalog uses `host.*`; old host-served
+`sandbox.*` spellings are retired and fail as `unknown_op`.
 
-| Current op | Proposed op | Surface | Mutates | Purpose |
-|---|---|---|---|---|
-| `sandbox.acquire` | `host.sandbox.acquire` | public | yes | Provision a sandbox container plus daemon and return its `sandbox_id`. |
-| `sandbox.release` | `host.sandbox.release` | public | yes | Destroy a managed sandbox container and drop its registry record. |
-| `sandbox.status` | `host.sandbox.status` | public | no | Inspect one managed sandbox from host state, including daemon readiness. |
-| `sandbox.list` | `host.sandbox.list` | public | no | Enumerate host-managed sandboxes. |
-| `sandbox.trace.requests` | `host.trace.requests` | operator | no | List recent host audit requests. |
-| `sandbox.trace.show` | `host.trace.show` | operator | no | Show one host audit trace projection. |
-| `sandbox.trace.verify` | `host.trace.verify` | operator | no | Verify host audit hash chains and projection joinability. |
+| Current op | Surface | Mutates | Purpose |
+|---|---|---|---|
+| `host.sandbox.acquire` | public | yes | Provision a sandbox container plus daemon and return its `sandbox_id`. |
+| `host.sandbox.release` | public | yes | Destroy a managed sandbox container and drop its registry record. |
+| `host.sandbox.status` | public | no | Inspect one managed sandbox from host state, including daemon readiness. |
+| `host.sandbox.list` | public | no | Enumerate host-managed sandboxes. |
+| `host.trace.requests` | operator | no | List recent host audit requests. |
+| `host.trace.show` | operator | no | Show one host audit trace projection. |
+| `host.trace.verify` | operator | no | Verify host audit hash chains and projection joinability. |
 
 ## Current Sandbox Actions
 
@@ -73,7 +73,7 @@ These are daemon-served today and should keep the `sandbox.*` prefix.
 | `sandbox.trace.export_ack` | internal | yes | Ack durably ingested daemon trace records. |
 | `sandbox.isolation.test_reset` | test | yes | Test-only isolated workspace reset hook. |
 
-## Proposed Host Actions
+## New Host Actions
 
 These are new host/gateway operations. They should not execute inside a sandbox
 daemon.
@@ -91,8 +91,8 @@ daemon.
 
 ## Enriched Acquire
 
-`host.sandbox.acquire` should become the public safe path for client-selected
-runtime choice:
+`host.sandbox.acquire` is the public safe path for client-selected runtime
+choice:
 
 ```json
 {

@@ -7,13 +7,14 @@ members = [
     "crates/daemon/command",
     "crates/daemon/config",
     "crates/daemon/eosd",
-    "crates/daemon/daemon",
+    "crates/daemon/core",
+    "crates/daemon/plugin",
     "crates/daemon/workspace",
     "crates/daemon/namespace",
     "crates/daemon/layerstack",
     "crates/daemon/overlay",
-    "crates/host/host",
-    "crates/gateway/gateway",
+    "crates/host",
+    "crates/gateway",
     "crates/e2e-test",
     "xtask",
 ]
@@ -62,10 +63,11 @@ overlay = { path = "crates/daemon/overlay" }
 namespace = { path = "crates/daemon/namespace" }
 trace = { path = "crates/shared/trace" }
 protocol = { path = "crates/shared/protocol" }
-daemon = { path = "crates/daemon/daemon" }
+daemon = { path = "crates/daemon/core" }
+plugin = { path = "crates/daemon/plugin" }
 eosd = { path = "crates/daemon/eosd" }
-gateway = { path = "crates/gateway/gateway" }
-host = { path = "crates/host/host" }
+gateway = { path = "crates/gateway" }
+host = { path = "crates/host" }
 e2e-test = { path = "crates/e2e-test" }
 workspace = { path = "crates/daemon/workspace" }
 xtask = { path = "xtask" }

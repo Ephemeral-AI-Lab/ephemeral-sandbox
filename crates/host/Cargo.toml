@@ -1,0 +1,29 @@
+[package]
+name = "host"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+e2e-support = []
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+protocol.workspace = true
+trace.workspace = true
+prost.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+# preserve_order is load-bearing: request args must cross the wire in
+# insertion order so host-encoded requests stay byte-compatible with the
+# frozen request fixtures in crates/shared/protocol/fixtures/wire_messages/.
+serde_json = { workspace = true, features = ["preserve_order"] }
+sha2.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

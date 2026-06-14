@@ -5,8 +5,9 @@ talks to the EphemeralOS sandbox, what operations it offers, and the
 sandbox-side changes that would make that bridge clean, auditable, and typed.
 
 This guide is the practical connection manual. The normative wire contract is
-`contract/PROTOCOL.md` + `crates/operation/ops.json`; the target architecture is
-`docs/SPEC.md`; the audit/trace design is
+`crates/shared/protocol/PROTOCOL.md` +
+`crates/daemon/operation/ops.json`; the target architecture is `docs/SPEC.md`;
+the audit/trace design is
 `docs/sandbox-event-tracing-response-plan.md`. Where this guide and those files
 disagree, those files win.
 
@@ -39,9 +40,9 @@ and invisible to the caller.
 
 **Isolation law (load-bearing for every recommendation below):** no compiled
 code is shared across the host/box boundary. The complete shared artifact is
-`crates/operation/ops.json` + `contract/` (PROTOCOL.md + fixtures). A TS client
-is therefore a pure data client — it speaks JSON described by those artifacts and
-links no Rust.
+`crates/daemon/operation/ops.json`, `crates/shared/protocol/PROTOCOL.md`, and
+the owner-local fixtures. A TS client is therefore a pure data client — it
+speaks JSON described by those artifacts and links no Rust.
 
 ### Surfaces and visibility
 
@@ -93,9 +94,9 @@ socket → write one line → read one line → socket closes.
 
 | Field | Required | Rules |
 |---|---|---|
-| `op` | yes | canonical `sandbox.*` name from `ops.json`; non-empty string |
+| `op` | yes | canonical `host.*` or `sandbox.*` name from `ops.json`; non-empty string |
 | `invocation_id` | yes | string; canonical request identity; **becomes `meta.request_id`**; uuid4 hex recommended. Doubles as the cancel/heartbeat key for background commands |
-| `sandbox_id` | for daemon ops + `release`/`status` | string. Absent on `sandbox.acquire` / `sandbox.list`. Stripped by the host before forwarding to the daemon |
+| `sandbox_id` | for daemon ops and `host.sandbox.release` / `host.sandbox.status` | string. Absent on `host.sandbox.acquire` / `host.sandbox.list`. Stripped by the host before forwarding to the daemon |
 | `args` | yes (may be `{}`) | object; defaults to `{}` if omitted |
 
 Unknown extra top-level fields are silently ignored; top-level `request_id` is
@@ -104,15 +105,14 @@ rejected `invalid_request`.
 
 **Routing** is a pure `ops.json` catalog lookup with no per-op branching: the
 gate checks visibility, then `served_by` picks host-verb vs daemon-forward. An
-unknown op starting with `plugin.` is dynamically forwarded to the daemon
-(public, mutating); any other unknown op → `unknown_op`.
+unknown op returns `unknown_op`.
 (`gateway.rs:249-318`.)
 
 ### Response envelope
 
 Every response — host-built or daemon-forwarded — is the same shape, an
 externally-tagged union on `status`
-(`crates/operation/src/core/envelope.rs:121-155`):
+(`crates/daemon/operation/src/core/envelope.rs:121-155`):
 
 ```json
 {
@@ -201,10 +201,10 @@ to `"default"` when absent.
 
 | Op | Args | Result |
 |---|---|---|
-| `sandbox.acquire` ★ | *(none)* | `{ sandbox_id }` — provisions a container+daemon |
-| `sandbox.release` ★ | `sandbox_id` (top-level) | `{ sandbox_id }` — `docker rm -f` + drop registry entry |
-| `sandbox.status` | `sandbox_id` (top-level) | `{ sandbox_id, container, endpoint, created_by, daemon }` (embedded readiness probe) |
-| `sandbox.list` | *(none)* | `{ sandboxes: [{ sandbox_id, container, endpoint, created_by }] }` |
+| `host.sandbox.acquire` ★ | *(none)* | `{ sandbox_id }` — provisions a container+daemon |
+| `host.sandbox.release` ★ | `sandbox_id` (top-level) | `{ sandbox_id }` — `docker rm -f` + drop registry entry |
+| `host.sandbox.status` | `sandbox_id` (top-level) | `{ sandbox_id, container, endpoint, created_by, daemon }` (embedded readiness probe) |
+| `host.sandbox.list` | *(none)* | `{ sandboxes: [{ sandbox_id, container, endpoint, created_by }] }` |
 
 ### Files — `D`, public
 
@@ -280,7 +280,7 @@ Command `result.status` ∈ `running|ok|cancelled|error|timed_out`. `running` me
 | `sandbox.plugin.ensure` ★ | `plugin?, digest?, manifest?, package.*?, start_services?, caller_id?, audit?` | untagged `NeedsUpload` \| `Ready{registered_ops, services, …}` |
 | `sandbox.plugin.status` | `probe_services?, probe_timeout_ms?, caller_id?` | `{ loaded_plugins, running_service_processes, service_health, … }` |
 
-Full per-arg/per-field detail is in `crates/operation/src/*/contract.rs`; the
+Full per-arg/per-field detail is in `crates/daemon/operation/src/*/contract.rs`; the
 rendered catalog is `docs/API.md` (regenerate with `cargo run -p xtask -- gen-docs`).
 
 ---
@@ -341,7 +341,7 @@ site exposing `run.runId`, the abort→`run.interrupt()` listener, and
 `run.outcome().then(reconcileRun)`) — **not** `bootstrap.ts`/`agent-factory.ts`
 (those only construct specs, never `.start()`). On start: `client.acquire()` →
 stash `sandbox_id`. On settlement / failure / interrupt: `sandbox.run.end` with
-`caller_id == agent_run_id`, then `sandbox.release(sandbox_id)`. Resolve the
+`caller_id == agent_run_id`, then `host.sandbox.release(sandbox_id)`. Resolve the
 caller_id granularity first: the SDK mints a fresh `AgentRunId` per `.start()`,
 and one pursuit spawns many child runs under one operator — decide which run owns
 acquire/release and how child `agent_run_id`s map to `run.end` scope.
@@ -361,7 +361,7 @@ inside each tool:
 | `read_command_transcript(command_id, offset?, limit?)` | `sandbox.command.poll` | `{command_id, last_n_lines}` (no `offset` on the daemon) |
 
 `sandbox_id` is **required** for all 7 (every one is `served_by:daemon`); there is
-no happy path without first calling `sandbox.acquire`.
+no happy path without first calling `host.sandbox.acquire`.
 
 **Response adapter — envelope-first.** Branch envelope `status`: `ok`/`running`
 → read `result`; `rejected`/`error` → `{error: error.message}`;
@@ -434,15 +434,15 @@ work is in `eos-coding-agent` (§4). The single optional sandbox-side helper:
 ### B. Auditability — host trace is operator-reachable
 
 The host owns a fail-closed, hash-chained SQLite trace store and exposes it on
-the operator socket through `sandbox.trace.requests`, `sandbox.trace.show`, and
-`sandbox.trace.verify`. Forwarded daemon responses get a host-minted
+the operator socket through `host.trace.requests`, `host.trace.show`, and
+`host.trace.verify`. Forwarded daemon responses get a host-minted
 `meta.trace` receipt with `store="local_sqlite"` and an event count refreshed
 from the durable store after terminal response persistence.
 
 | # | Change | Effort/Risk | Verdict |
 |---|---|---|---|
 | **AUD-3** | Add a **timed background drain** in `SandboxHost::open`: a periodic thread that resolves endpoints for idle sandboxes and `schedule()`s a trace-export drain, reusing the existing single-flight/coalesce machinery. Today the bounded daemon spool drains opportunistically after forwards and explicit trace export calls. | M / med | still valid |
-| **TRACE-OPS** | Operator readback is implemented as `sandbox.trace.requests`, `sandbox.trace.show`, and `sandbox.trace.verify`; keep new audit read surfaces out unless they provide a distinct operator workflow. | done | current |
+| **TRACE-OPS** | Operator readback is implemented as `host.trace.requests`, `host.trace.show`, and `host.trace.verify`; keep additional audit read surfaces out unless they provide a distinct operator workflow. | done | current |
 | **TRACE-RECEIPT** | Host forward responses refresh `meta.trace.event_count` from `TraceStore::event_count_for_trace(trace_id)` alongside the existing `store="local_sqlite"` rewrite. | done | current |
 | **SIDECAR-RECOVERY** | Decoded sidecar ingest failures are spooled as bounded pending sidecars and retried by host-local recovery. | done | current |
 
@@ -488,7 +488,7 @@ orchestrator's experience.
 
 ```sh
 # one op over the client socket
-printf '%s\n' '{"op":"sandbox.acquire","invocation_id":"probe-1","args":{}}' \
+printf '%s\n' '{"op":"host.sandbox.acquire","invocation_id":"probe-1","args":{}}' \
   | socat - UNIX-CONNECT:/tmp/sandbox-gateway.sock
 
 # an operator-only op over the operator socket

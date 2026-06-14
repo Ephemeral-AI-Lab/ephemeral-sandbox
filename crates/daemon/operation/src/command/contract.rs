@@ -448,7 +448,7 @@ mod tests {
         }
         .to_wire_value();
         let fixture: Value = serde_json::from_str(include_str!(
-            "../../../../../contract/fixtures/command_finalize_conflict_response.json"
+            "../../fixtures/command_finalize_conflict_response.json"
         ))
         .expect("valid command finalize conflict fixture");
 

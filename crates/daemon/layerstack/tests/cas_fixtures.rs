@@ -14,7 +14,7 @@ type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 const CASES: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../../contract/fixtures/cas/cases.json"
+    "/tests/fixtures/cas/cases.json"
 ));
 
 fn test_error(message: impl Into<String>) -> Box<dyn std::error::Error + Send + Sync> {

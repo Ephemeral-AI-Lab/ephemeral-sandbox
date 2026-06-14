@@ -115,14 +115,7 @@ impl OpRequest {
             | BuiltinOp::HostContainerStart
             | BuiltinOp::HostContainerAdopt
             | BuiltinOp::HostContainerStop
-            | BuiltinOp::HostContainerRemove
-            | BuiltinOp::LegacySandboxAcquire
-            | BuiltinOp::LegacySandboxRelease
-            | BuiltinOp::LegacySandboxStatus
-            | BuiltinOp::LegacySandboxList
-            | BuiltinOp::LegacyTraceRequests
-            | BuiltinOp::LegacyTraceShow
-            | BuiltinOp::LegacyTraceVerify => {
+            | BuiltinOp::HostContainerRemove => {
                 unreachable!("host-served ops are rejected before daemon request parsing")
             }
             BuiltinOp::RuntimeReady => Self::RuntimeReady(RuntimeReadyInput::parse(args)?),

@@ -4,7 +4,8 @@ Status: **implemented** (live crate map; supersedes the old shared-protocol-crat
 Scope: the sandbox system only — the host-side API service, the host engine, the
 in-container daemon, and the contract artifact that binds them. Client
 implementations (agent-core or otherwise) are out of scope; they are defined
-by `crates/operation/ops.json` plus `contract/`.
+by `crates/daemon/operation/ops.json`,
+`crates/shared/protocol/PROTOCOL.md`, and owner-local fixtures.
 
 ---
 
@@ -12,11 +13,11 @@ by `crates/operation/ops.json` plus `contract/`.
 
 1. **One entry point.** External callers reach exactly one socket, served by
    `gateway`. The per-sandbox daemons are unreachable from outside the host.
-2. **Complete isolation, loose coupling.** No compiled code is shared across
-   the host/box boundary. The shared artifacts are
-   `eos-sandbox/crates/operation/ops.json` plus `eos-sandbox/contract/`
-   (fixtures + prose). Drift is caught by conformance tests, not by a shared
-   host/box crate.
+2. **Complete isolation, loose coupling.** Host/gateway code and daemon
+   implementation code do not cross runtime boundaries. The shared artifacts
+   are the shared protocol/trace crates,
+   `eos-sandbox/crates/daemon/operation/ops.json`, and owner-local fixtures.
+   Drift is caught by conformance tests and catalog generation.
 3. **Client-first vocabulary.** The public op catalog is derived from what a
    caller needs (acquire a sandbox, use files/commands/isolation/plugins, end a
    run), not from the historical daemon inventory. Internal and operator ops
@@ -46,14 +47,15 @@ eosd / daemon  (bin+lib, in-container)   executes in-box ops: files (layer
 | `gateway` | bin | decode requests, enforce visibility, route by catalog, return response | contain fleet logic or per-op branches |
 | `host` | lib | host engine, duplicated protocol client, Docker runtime | parse op semantics beyond catalog metadata |
 | `eosd` / `daemon` | bin+lib | dispatch and execute the in-box op catalog | know about Docker, sandbox_ids, or the fleet |
-| `crates/operation/ops.json` | data | reviewed static op catalog | drift from `eosd dump-ops` |
-| `contract/` | data | protocol fixtures and prose | contain code |
+| `crates/daemon/operation/ops.json` | data | reviewed static op catalog | drift from `eosd dump-ops` |
+| `crates/shared/protocol/` | shared contract | op catalog, envelope/fault vocabulary, wire protocol prose and fixtures | depend on host/gateway/daemon implementation crates |
 | `layerstack` | lib (in-box) | the two frozen content hashes + manifest/layer types, storage, leases, checkpoint squashing | be depended on by host-side crates |
 
-Dependency law: `gateway → host → (std/tokio/serde only)`.
-Host crates never depend on in-box crates; in-box crates never depend on host
-crates. Both sides conform to `crates/operation/ops.json` and `contract/`
-via tests.
+Dependency law: shared crates are leaves; `gateway` may depend on `host` and
+shared crates; `host` may depend on shared crates but not daemon implementation
+crates; daemon crates may depend on shared crates and other daemon crates but
+not host/gateway. Both sides conform to `crates/daemon/operation/ops.json`,
+`crates/shared/protocol/PROTOCOL.md`, and owner-local fixtures via tests.
 
 ## 3. Wire protocol
 
@@ -71,8 +73,8 @@ via tests.
 
 | Field | Required | Notes |
 |---|---|---|
-| `op` | yes | canonical name from `crates/operation/ops.json` |
-| `sandbox_id` | for daemon-bound ops | absent on `sandbox.acquire` / `sandbox.list` |
+| `op` | yes | canonical name from `crates/daemon/operation/ops.json` |
+| `sandbox_id` | for daemon-bound ops; for host ops only when targeting an existing managed sandbox record | absent on host fleet-list/profile ops |
 | `invocation_id` | yes | uuid4 hex; canonical request identity; echoed back as `meta.request_id` / `meta.trace.request_id` |
 | `args` | yes (may be `{}`) | op-specific |
 
@@ -98,8 +100,9 @@ API-level error kinds (in addition to daemon kinds passed through):
 
 ### 3.2 Box hop (host → daemon)
 
-Unchanged from the frozen daemon protocol (`contract/PROTOCOL.md`, distilled
-from `docs/contract/01-wire-protocol.md`):
+Unchanged from the frozen daemon protocol
+(`crates/shared/protocol/PROTOCOL.md`, distilled from
+`docs/contract/01-wire-protocol.md`):
 
 - Loopback TCP to the docker-published port; one request per connection;
   compact JSON + `\n`; response read to EOF.
@@ -115,10 +118,10 @@ from `docs/contract/01-wire-protocol.md`):
 
 ## 4. Op catalog
 
-Canonical grammar: `sandbox.<verb>` for host ops and `sandbox.<service>.<verb>`
-for daemon ops, including static first-party plugin providers under
-`sandbox.plugin.*`. Each op has exactly one wire spelling -- its canonical name;
-the legacy `api.*` aliases are retired.
+Canonical grammar: `host.<service>.<verb>` for host/fleet ops and
+`sandbox.<service>.<verb>` for daemon ops, including static first-party plugin
+providers under `sandbox.plugin.*`. Host-served `sandbox.*` aliases and legacy
+`api.*` aliases are retired.
 The token `v1` is dead: protocol versioning lives in `args`/`ops.json`, never
 in names.
 
@@ -126,10 +129,11 @@ in names.
 
 | Op | Effect |
 |---|---|
-| `sandbox.acquire` | provision container + daemon (see §5); returns `sandbox_id` |
-| `sandbox.release` | destroy container, drop registry entry |
-| `sandbox.status` | host view (container/endpoint/recovery state) + embedded daemon readiness |
-| `sandbox.list` | enumerate registry |
+| `host.sandbox.acquire` | provision container + daemon (see §5); returns `sandbox_id` |
+| `host.sandbox.release` | destroy container, drop registry entry |
+| `host.sandbox.status` | host view (container/endpoint/recovery state) + embedded daemon readiness |
+| `host.sandbox.list` | enumerate registry |
+| `host.image_profiles.list` | list public, operator-approved image profiles |
 
 ### 4.2 Daemon ops (`served_by: daemon`, `visibility: public`)
 
@@ -163,10 +167,10 @@ in names.
 | Visibility | Ops | Caller |
 |---|---|---|
 | `internal` | `sandbox.runtime.ready` | host recovery machine only |
-| `operator` | `sandbox.checkpoint.{layer_metrics, ensure_base, build_base, commit_to_workspace, commit_to_git, binding}` · `sandbox.run.cancel_all` · `sandbox.isolation.list_open` | `<listen>.operator` socket; never the client socket |
+| `operator` | `host.trace.{requests, show, verify}` · `host.image.{list, pull}` · `host.container.{list, start, adopt, stop, remove}` · `sandbox.checkpoint.{layer_metrics, ensure_base, build_base, commit_to_workspace, commit_to_git, binding}` · `sandbox.run.cancel_all` · `sandbox.isolation.list_open` | `<listen>.operator` socket; never the client socket |
 | `test` | `sandbox.isolation.test_reset` | test builds only |
 
-### 4.4 `crates/operation/ops.json` schema
+### 4.4 `crates/daemon/operation/ops.json` schema
 
 ```json
 {
@@ -190,7 +194,7 @@ incrementally; fixtures cover the hot paths first.
 
 ## 5. Lifecycle (host engine)
 
-**Provision** (`sandbox.acquire`):
+**Provision** (`host.sandbox.acquire`):
 
 1. `docker run` with labels `eos.sandbox_id`, `eos.tcp_port`, `eos.created_by`.
 2. Copy the `eosd` binary and merged config into the container.
@@ -200,7 +204,7 @@ incrementally; fixtures cover the hot paths first.
 5. Ready-gate: poll `sandbox.runtime.ready` until `ready: true` (bounded).
 6. Insert registry record; return `sandbox_id`.
 
-**Destroy** (`sandbox.release`): `docker rm -f`, drop record. No daemon-side
+**Destroy** (`host.sandbox.release`): `docker rm -f`, drop record. No daemon-side
 courtesy calls — container teardown *is* the cleanup.
 
 **Registry**: in-memory map `sandbox_id → {container, endpoint, token, state}`.
@@ -251,35 +255,26 @@ is `served_by`, `visibility`, and `mutates_state`.
 eos-sandbox/
 ├── README.md                       entry point
 ├── CONTRACT.md                     version-pin pointers
-├── contract/                       protocol fixtures/prose — data only
-│   ├── fixtures/
-│   └── PROTOCOL.md                 framing/wire-message/auth/errors/canonicalization
 ├── crates/
-│   ├── gateway/        bin: main, serve, gateway
+│   ├── shared/
+│   │   ├── protocol/              op catalog, envelope, wire protocol fixtures/prose
+│   │   └── trace/                 trace ids, records, batches, codec/constants
+│   ├── gateway/                   bin: main, serve, gateway
 │   │   └── tests/contract/mod.rs
-│   ├── host/           lib: host, protocol, runtime
+│   ├── host/                      lib: host, protocol, runtime
 │   │   └── tests/
-│   ├── eosd/                       + dump-ops subcommand
 │   ├── daemon/
-│   │   ├── src/wire/               message codec, errors, version
-│   │   ├── src/dispatch/           dispatcher + builtin handler mapping
-│   │   ├── src/op_adapter/         daemon wire adapters
-│   │   └── tests/contract.rs
-│   ├── layerstack/             CAS hashes, storage, leases, commit queue
-│   ├── overlay/                overlayfs mount/capture leaf
-│   ├── namespace/              holder + runner namespace child support
-│   ├── command/        PTY-backed commands
-│   ├── workspace/              ephemeral + isolated workspace policy
-│   ├── operation/
-│   │   ├── ops.json                reviewed static op catalog
-│   │   └── src/
-│   │       ├── core/               static op contracts + outcomes
-│   │       ├── command/            command lifecycle/runtime policy
-│   │       ├── file/               file operation semantics
-│   │       ├── plugin/             static first-party plugin providers
-│   │       ├── plugin/             plugin package/process/dispatch runtime
-│   │       └── checkpoint/         checkpoint commit pipeline
-│   └── e2e-test/               live protocol tests
+│   │   ├── eosd/                  + dump-ops subcommand
+│   │   ├── core/                  daemon package: wire, dispatch, op adapters
+│   │   ├── operation/             daemon operation DTOs, handlers, ops.json
+│   │   ├── plugin/                static provider runtime implementation
+│   │   ├── layerstack/            CAS hashes, storage, leases, commit queue
+│   │   ├── overlay/               overlayfs mount/capture leaf
+│   │   ├── namespace/             holder + runner namespace child support
+│   │   ├── command/               PTY-backed commands
+│   │   ├── workspace/             ephemeral + isolated workspace policy
+│   │   └── config/                daemon/runtime config
+│   └── e2e-test/                  live protocol tests
 ├── docs/
 │   ├── README.md                   index
 │   ├── API.md                      GENERATED from ops.json
@@ -292,7 +287,7 @@ eos-sandbox/
 `cargo run -p xtask -- check-contract` is a REQUIRED CI gate:
 
 1. `eosd dump-ops` output must equal the committed
-   `crates/operation/ops.json`.
+   `crates/daemon/operation/ops.json`.
 2. Daemon conformance: decodes request fixtures byte-exactly; operation
    responses, including errors, match fixture shapes after documented
    canonicalization.
@@ -309,7 +304,7 @@ fixture tests; host-side crates never depend on it.
 
 When crate boundaries move, clean these surfaces in the same change:
 
-- `crates/operation/ops.json` via `cargo run -p eosd -- dump-ops` and
+- `crates/daemon/operation/ops.json` via `cargo run -p eosd -- dump-ops` and
   `docs/API.md` via `cargo run -p xtask -- gen-docs`.
 - Stale prose in `README.md`, `docs/SPEC.md`, and `docs/RUST-GUIDANCE.md`.
 - Ignored local junk such as `.DS_Store`, `.omc/`, and `target/` leftovers.

@@ -5,7 +5,8 @@ This is the standard every crate in this workspace follows. It distills the proj
 **source-verified contract traps** found during extraction (`docs/contract/*.md`).
 Those `docs/contract/` files are frozen historical migration evidence, not the
 live operation contract. For current behavior, read `SPEC.md`, `API.md`,
-`../crates/operation/ops.json`, and `../contract/PROTOCOL.md` plus fixtures.
+`../crates/daemon/operation/ops.json`,
+`../crates/shared/protocol/PROTOCOL.md`, and owner-local fixtures.
 
 Priority order when rules conflict: **correctness (byte-identity) > the live contract > these idioms > style**.
 
@@ -45,8 +46,9 @@ Priority order when rules conflict: **correctness (byte-identity) > the live con
 
 These two hashes are **correctness-bearing** (plan AV-1c). A wrong byte ⇒ silent data divergence
 that passes every ASCII test. The golden fixtures in
-`contract/fixtures/cas/cases.json` were produced by executing the real Python
-and MUST all pass through `layerstack/tests/cas_fixtures.rs`.
+`crates/daemon/layerstack/tests/fixtures/cas/cases.json` were produced by
+executing the real Python and MUST all pass through
+`layerstack/tests/cas_fixtures.rs`.
 
 ### 2a. `manifest_root_hash` — THE #1 TRAP: Python `ensure_ascii=True`
 `sha256( serialize({"layers":[{"layer_id":..,"path":..}, ...]}) )` where `serialize` reproduces
@@ -90,7 +92,7 @@ absolute / `..` / NUL. Reproduce it as a `parse`-style constructor (`api-parse-d
 
 ---
 
-## 3. Wire protocol (`contract/` / `daemon`) — live `contract/PROTOCOL.md`, historical traps in `docs/contract/01-wire-protocol.md`
+## 3. Wire protocol (`shared/protocol` / `daemon`) — live `crates/shared/protocol/PROTOCOL.md`, historical traps in `docs/contract/01-wire-protocol.md`
 
 - **Framing**: one newline-delimited compact JSON object per message: `json.dumps(obj,
   separators=(",",":")) + "\n"`. For wire messages (not the CAS hash) `serde_json` with compact
@@ -130,11 +132,14 @@ absolute / `..` / NUL. Reproduce it as a `parse`-style constructor (`api-parse-d
   *isolated keeps writes private and NEVER publishes* — is encoded inside
   **`workspace::isolated_workspace`**, which must not own publish paths.
   static plugin support is intentionally narrow now: first-party provider
-  request/response contracts and runtime code live in `operation::plugin`, with
-  no separate dynamic plugin crate or PPC/package pipeline. Verified edges (get
-  these EXACTLY right):
-  - `crates/operation/ops.json` → reviewed static op catalog.
-  - `contract/` → protocol fixtures/prose only; no compiled crate.
+  request/response contracts live in `operation::plugin::contract`, while
+  provider runtime code lives in the daemon-side `plugin` crate. There is no
+  dynamic plugin crate or PPC/package pipeline. Verified edges (get these
+  EXACTLY right):
+  - `crates/daemon/operation/ops.json` → reviewed static op catalog.
+  - `crates/shared/protocol/PROTOCOL.md` and
+    `crates/shared/protocol/fixtures/` → protocol fixtures/prose only; no
+    host/gateway/daemon implementation code.
   - `layerstack` → storage, leases, CAS hashes, route/commit policy.
   - `overlay` → overlayfs mechanics and captured path changes.
   - `namespace` → single-threaded namespace holder/runner support.
@@ -147,8 +152,9 @@ absolute / `..` / NUL. Reproduce it as a `parse`-style constructor (`api-parse-d
     shared operation outcome contracts.
   - `operation::file` → file operation semantics over direct and isolated
     backends.
-  - `operation::plugin` → static first-party provider contracts and runtime
-    implementation, currently `pyright_lsp`.
+  - `operation::plugin` → static first-party provider operation contracts.
+  - `plugin` → daemon-side static provider runtime implementation, currently
+    `pyright_lsp`.
   - `operation::checkpoint` → checkpoint commit pipeline.
   - `daemon` → transport, dispatch, wire-message codec, op adapters, service
     composition, daemon-owned plugin/checkpoint process glue.
@@ -203,9 +209,10 @@ absolute / `..` / NUL. Reproduce it as a `parse`-style constructor (`api-parse-d
 
 - Unit tests in-module under `#[cfg(test)] mod tests { use super::*; … }` (`test-cfg-test-module`).
 - **contract fixture tests are mandatory and gate the build**: `layerstack`
-  loads `contract/fixtures/cas/cases.json` and asserts every `expected` hash;
-  `daemon` loads `contract/fixtures/wire_messages/*.json` and asserts
-  encode/decode round-trips + canonical equality.
+  loads `crates/daemon/layerstack/tests/fixtures/cas/cases.json` and asserts
+  every `expected` hash; `daemon` loads
+  `crates/shared/protocol/fixtures/wire_messages/*.json` and asserts
+  encode/decode round-trips plus canonical equality.
 - Property tests (`test-proptest-properties`) for invariants: `decode(encode(x)) == x`;
   `aggregate` is idempotent and order-insensitive; the escaper never emits a non-ASCII byte.
 - `#[tokio::test]` for daemon async tests (`test-tokio-async`); RAII fixtures for teardown

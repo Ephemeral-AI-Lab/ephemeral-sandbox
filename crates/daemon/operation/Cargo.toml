@@ -7,7 +7,6 @@ license.workspace = true
 
 [dependencies]
 command.workspace = true
-config.workspace = true
 layerstack.workspace = true
 namespace.workspace = true
 overlay.workspace = true

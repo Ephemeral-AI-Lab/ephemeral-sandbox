@@ -153,7 +153,7 @@ fn render_api_doc(root: &Path) -> Result<String> {
 /// 1. `eosd dump-ops` must equal the committed
 ///    `crates/daemon/operation/ops.json`.
 /// 2. Name integrity: canonical names unique.
-/// 3. Both sides' conformance test suites pass against `contract/fixtures/`.
+/// 3. Both sides' conformance test suites pass against owner-local fixtures.
 fn check_contract() -> Result<()> {
     let root = workspace_root()?;
 

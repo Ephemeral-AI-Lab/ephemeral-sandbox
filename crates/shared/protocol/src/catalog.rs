@@ -1,8 +1,7 @@
 //! Static gateway/sandbox operation contracts and catalog rendering.
 //!
 //! Canonical grammar: `host.<service>.<verb>` for host/fleet ops and
-//! `sandbox.<service>.<verb>` for daemon ops. Temporary compatibility aliases
-//! keep the legacy host-served `sandbox.*` spellings during migration.
+//! `sandbox.<service>.<verb>` for daemon ops.
 
 use serde::Serialize;
 
@@ -266,20 +265,6 @@ declare_builtin_ops! {
         Host, Container, Operator, true, Some(HostVerb::ContainerStop), "host.container.StopArgs", "host.container.StopResponse", "Stop a host container by container name/id or managed sandbox_id.";
     HostContainerRemove, HOST_CONTAINER_REMOVE, "host.container.remove",
         Host, Container, Operator, true, Some(HostVerb::ContainerRemove), "host.container.RemoveArgs", "host.container.RemoveResponse", "Remove a host container by container name/id or managed sandbox_id.";
-    LegacySandboxAcquire, SANDBOX_ACQUIRE, "sandbox.acquire",
-        Host, Sandbox, Public, true, Some(HostVerb::Acquire), "host.sandbox.AcquireArgs", "host.sandbox.AcquireResponse", "Compatibility alias for host.sandbox.acquire.";
-    LegacySandboxRelease, SANDBOX_RELEASE, "sandbox.release",
-        Host, Sandbox, Public, true, Some(HostVerb::Release), "host.sandbox.ReleaseArgs", "host.sandbox.ReleaseResponse", "Compatibility alias for host.sandbox.release.";
-    LegacySandboxStatus, SANDBOX_STATUS, "sandbox.status",
-        Host, Sandbox, Public, false, Some(HostVerb::Status), "host.sandbox.StatusArgs", "host.sandbox.StatusResponse", "Compatibility alias for host.sandbox.status.";
-    LegacySandboxList, SANDBOX_LIST, "sandbox.list",
-        Host, Sandbox, Public, false, Some(HostVerb::List), "host.sandbox.ListArgs", "host.sandbox.ListResponse", "Compatibility alias for host.sandbox.list.";
-    LegacyTraceRequests, SANDBOX_TRACE_REQUESTS, "sandbox.trace.requests",
-        Host, Trace, Operator, false, Some(HostVerb::TraceRequests), "host.trace.TraceRequestsArgs", "host.trace.TraceRequestsResponse", "Compatibility alias for host.trace.requests.";
-    LegacyTraceShow, SANDBOX_TRACE_SHOW, "sandbox.trace.show",
-        Host, Trace, Operator, false, Some(HostVerb::TraceShow), "host.trace.TraceShowArgs", "host.trace.TraceShowResponse", "Compatibility alias for host.trace.show.";
-    LegacyTraceVerify, SANDBOX_TRACE_VERIFY, "sandbox.trace.verify",
-        Host, Trace, Operator, false, Some(HostVerb::TraceVerify), "host.trace.TraceVerifyArgs", "host.trace.TraceVerifyReport", "Compatibility alias for host.trace.verify.";
     RuntimeReady, SANDBOX_RUNTIME_READY, "sandbox.runtime.ready",
         Daemon, Control, Internal, false, None, "operation.control.RuntimeReadyInput", "operation.control.RuntimeReadyOutput", "Daemon readiness probe used by the host recovery machine.";
     InvocationHeartbeat, SANDBOX_CALL_HEARTBEAT, "sandbox.call.heartbeat",
@@ -435,9 +420,8 @@ mod tests {
             );
             match contract.served_by {
                 ServedBy::Host => assert!(
-                    contract.name.starts_with("host.")
-                        || contract.summary.starts_with("Compatibility alias"),
-                    "host op {} must use host.* unless it is a temporary compatibility alias",
+                    contract.name.starts_with("host."),
+                    "host op {} must use host.*",
                     contract.name
                 ),
                 ServedBy::Daemon => assert!(
