@@ -487,6 +487,15 @@ impl CommitWriter {
         Ok(result)
     }
 
+    pub(crate) fn apply_command_lane_aware_changeset(
+        &self,
+        changes: &[LayerChange],
+        snapshot_version: Option<u64>,
+        path_groups: Vec<PublishDecision>,
+    ) -> Result<ChangesetResult, CommitError> {
+        self.apply_changeset_with_decisions(changes, snapshot_version, true, path_groups)
+    }
+
     fn open_stack(&self) -> Result<LayerStack, CommitError> {
         LayerStack::open(self.root.clone())
             .map_err(|err| CommitError::RoutePreparation(err.to_string()))

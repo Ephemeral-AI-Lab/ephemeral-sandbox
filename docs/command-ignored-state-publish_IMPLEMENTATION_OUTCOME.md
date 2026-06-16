@@ -585,8 +585,9 @@ API replacement, or compaction/squash policy work.
 - When ignored limits are exceeded, the ignored lane is dropped with
   `dropped_due_to_limits` and a stable limit reason while eligible source output
   can still publish.
-- Accepted ignored regular files above the in-memory threshold are copied into
-  command-owned spool files and published from those file-backed references.
+- Accepted ignored regular files are copied into command-owned spool files when
+  an individual file or the accepted ignored aggregate crosses the in-memory
+  threshold, then published from those file-backed references.
 - Command finalization removes spool files after successful publish, ignored-lane
   drop, and publish failure.
 - `publish_lanes.ignored.spooled_bytes` now reports accepted file-backed ignored
@@ -617,8 +618,8 @@ API replacement, or compaction/squash policy work.
 - `crates/daemon/layerstack/tests/unit/route.rs`
   - Added file-backed write, ignored-limit, and spool-backed capture coverage.
 - `crates/e2e-test/tests/workspace-runtime-command/command_error_and_backpressure.rs`
-  - Added live runtime coverage for ignored-limit source publish and large
-    ignored spool-backed publish.
+  - Added live runtime coverage for ignored-limit source publish, large ignored
+    spool-backed publish, and aggregate multi-file spool-backed publish.
 
 ### Milestone 3 Checklist
 
@@ -626,7 +627,7 @@ API replacement, or compaction/squash policy work.
 | --- | --- | --- |
 | Replace ignored-tree all-in-memory capture with metadata-first capture | Complete | The command path routes metadata before ignored regular-file payload reads. |
 | Enforce ignored file/count/byte/duration limits before ignored payload reads | Complete | Limit reasons are `ignored_file_byte_limit`, `ignored_lane_file_limit`, `ignored_lane_byte_limit`, and `ignored_capture_duration_limit`. |
-| Publish accepted large ignored payloads through command-owned spool files | Complete | Accepted ignored writes above the threshold become `LayerChange::WriteFile`. |
+| Publish accepted large ignored payloads through command-owned spool files | Complete | Accepted ignored writes become `LayerChange::WriteFile` when an individual file or accepted ignored aggregate crosses the threshold. |
 | Clean up spool files after publish, drop, and publish failure | Complete | Command finalization owns a cleanup guard over the command run-dir spool. |
 | Preserve Milestone 1 and 2 behavior | Complete | Existing non-success, Git/protected, route, and opaque coverage continues to pass. |
 

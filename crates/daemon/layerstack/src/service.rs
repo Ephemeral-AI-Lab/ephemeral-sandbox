@@ -301,6 +301,28 @@ pub fn publish_capture_with_options_and_protected_drops(
     )
 }
 
+pub fn publish_command_capture_lane_aware(
+    root: &Path,
+    snapshot_manifest_version: i64,
+    snapshot_layer_paths: &[PathBuf],
+    changes: &[LayerChange],
+    protected_drops: &[ProtectedPathDrop],
+    options: CommitOptions,
+) -> Result<ChangesetResult, CommitError> {
+    let manifest = snapshot_manifest(root, snapshot_manifest_version, snapshot_layer_paths)?;
+    let decisions = publish_decisions_for_manifest_with_protected_drops(
+        root,
+        &manifest,
+        changes,
+        protected_drops,
+    )?;
+    service_for_root(root, options)?.apply_command_lane_aware_changeset(
+        changes,
+        Some(manifest_version_u64(snapshot_manifest_version)?),
+        decisions,
+    )
+}
+
 pub fn capture_upperdir_for_snapshot_with_options(
     root: &Path,
     snapshot_manifest_version: i64,
@@ -446,6 +468,8 @@ fn materialize_bounded_capture_changes(
     if !options.materialize_payloads {
         return Ok(Vec::new());
     }
+    let spool_direct_writes = !ignored_lane_dropped
+        && route_stats.direct_bytes > options.ignored_limits.spool_threshold_bytes;
     let mut changes = Vec::new();
     for (index, entry) in entries.iter().enumerate() {
         let Some(decision) = decisions.get(index) else {
@@ -464,6 +488,7 @@ fn materialize_bounded_capture_changes(
                     spool_dir,
                     &options.ignored_limits,
                     route_stats,
+                    spool_direct_writes,
                 )?);
             }
             Route::Drop => changes.push(entry.placeholder_change()),
@@ -478,10 +503,11 @@ fn materialize_direct_entry(
     spool_dir: &Path,
     limits: &IgnoredCaptureLimits,
     route_stats: &mut CaptureRouteStats,
+    spool_direct_writes: bool,
 ) -> Result<LayerChange, CommitError> {
     let max_file_bytes = usize::try_from(limits.max_ignored_file_bytes).unwrap_or(usize::MAX);
     match entry.regular_file_size() {
-        Some(size) if size > limits.spool_threshold_bytes => {
+        Some(size) if spool_direct_writes && size > 0 => {
             let spool_path = spool_dir.join(format!("{index:016x}.payload"));
             let change = entry.materialize_spooled(&spool_path, max_file_bytes)?;
             route_stats.direct_spooled_bytes =

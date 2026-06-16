@@ -140,7 +140,7 @@ pub(crate) fn finalize_ephemeral_command(
     }
 
     let publish_start = std::time::Instant::now();
-    let changeset = service::publish_capture_with_options_and_protected_drops(
+    let changeset = service::publish_command_capture_lane_aware(
         root,
         snapshot.manifest_version,
         &snapshot.layer_paths,
@@ -408,15 +408,15 @@ fn ignored_publish_outcome(
     if route_stats.direct_path_count == 0 {
         return ("empty", None, None);
     }
-    if let Some(reason) = route_stats.ignored_limit_drop_reason.as_deref() {
-        return ("dropped_due_to_limits", None, Some(reason.to_owned()));
-    }
     if matches!(source_status, "conflict" | "failed") {
         return (
             "dropped_due_to_source_conflict",
             None,
             Some("source_not_published".to_owned()),
         );
+    }
+    if let Some(reason) = route_stats.ignored_limit_drop_reason.as_deref() {
+        return ("dropped_due_to_limits", None, Some(reason.to_owned()));
     }
     if changeset.success() {
         return ("published_lww", Some("direct_lww"), None);
@@ -1253,6 +1253,194 @@ mod tests {
                 .join("publish-capture")
                 .exists(),
             "limit-dropped ignored payload must not leave a spool directory"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn source_conflict_drops_ignored_output_and_reports_lanes() -> TestResult {
+        let fixture = EphemeralFinalizeFixture::new("source-conflict-drops-ignored")?;
+        let snapshot = service::acquire_snapshot(&fixture.root, "test-command")?;
+        LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+            path: layerstack::LayerPath::parse("src/main.rs")?,
+            content: b"theirs".to_vec(),
+        }])?;
+        let workspace =
+            EphemeralWorkspace::create(&fixture.scratch, "command", "source-conflict-ignored")?;
+        write_upperdir_file(&workspace, "src/main.rs", b"mine")?;
+        write_upperdir_file(&workspace, "ignored/cache.txt", b"ignored")?;
+
+        let response = finalize_ephemeral_command(
+            &fixture.root,
+            &snapshot,
+            &workspace,
+            CommitOptions::default(),
+            FinalizeCommandRequest {
+                runner_result: None,
+                command_elapsed_s: 0.25,
+                status: CommandStatus::Ok,
+                exit_code: Some(0),
+                stdout: "stdout".to_owned(),
+                stderr: String::new(),
+                command_id: Some("cmd_source_conflict_drops_ignored".to_owned()),
+            },
+        )?;
+        service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+        let wire = response.to_wire_value();
+        assert_eq!(wire["status"], "ok");
+        assert_eq!(wire["success"], false);
+        assert_eq!(wire["changed_paths"], serde_json::json!([]));
+        assert_eq!(
+            wire["publish_lanes"]["source"]["publish_status"],
+            "conflict"
+        );
+        assert_eq!(
+            wire["publish_lanes"]["ignored"]["publish_status"],
+            "dropped_due_to_source_conflict"
+        );
+        assert_eq!(
+            wire["publish_lanes"]["ignored"]["drop_reason"],
+            "source_not_published"
+        );
+        assert_eq!(wire["publish_lanes"]["source"]["path_count"], 1);
+        assert_eq!(wire["publish_lanes"]["ignored"]["path_count"], 1);
+        assert_eq!(wire["publish_lanes"]["ignored"]["bytes"], 7);
+        assert_eq!(
+            LayerStack::open(fixture.root.clone())?
+                .read_text("src/main.rs")?
+                .0,
+            "theirs"
+        );
+        let (_bytes, ignored_exists) =
+            LayerStack::open(fixture.root.clone())?.read_bytes("ignored/cache.txt")?;
+        assert!(
+            !ignored_exists,
+            "ignored payload must not publish when source lane conflicts"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn source_and_ignored_success_reports_combined_lane_publish() -> TestResult {
+        let fixture = EphemeralFinalizeFixture::new("source-ignored-success")?;
+        let snapshot = service::acquire_snapshot(&fixture.root, "test-command")?;
+        let workspace =
+            EphemeralWorkspace::create(&fixture.scratch, "command", "source-ignored-success")?;
+        write_upperdir_file(&workspace, "src/main.rs", b"source")?;
+        write_upperdir_file(&workspace, "ignored/cache.txt", b"ignored")?;
+
+        let response = finalize_ephemeral_command(
+            &fixture.root,
+            &snapshot,
+            &workspace,
+            CommitOptions::default(),
+            FinalizeCommandRequest {
+                runner_result: None,
+                command_elapsed_s: 0.25,
+                status: CommandStatus::Ok,
+                exit_code: Some(0),
+                stdout: "stdout".to_owned(),
+                stderr: String::new(),
+                command_id: Some("cmd_source_ignored_success".to_owned()),
+            },
+        )?;
+        service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+        let wire = response.to_wire_value();
+        let active_version = LayerStack::open(fixture.root.clone())?
+            .read_active_manifest()?
+            .version;
+        assert_eq!(wire["status"], "ok");
+        assert_eq!(wire["success"], true);
+        assert_eq!(active_version, snapshot.manifest_version + 1);
+        assert_eq!(
+            wire["publish_lanes"]["source"]["publish_status"],
+            "committed"
+        );
+        assert_eq!(
+            wire["publish_lanes"]["ignored"]["publish_status"],
+            "published_lww"
+        );
+        assert_eq!(
+            wire["publish_lanes"]["ignored"]["publish_mode"],
+            "direct_lww"
+        );
+        assert_eq!(wire["publish_lanes"]["source"]["path_count"], 1);
+        assert_eq!(wire["publish_lanes"]["ignored"]["path_count"], 1);
+        assert_eq!(wire["publish_lanes"]["ignored"]["bytes"], 7);
+        assert_eq!(
+            LayerStack::open(fixture.root.clone())?
+                .read_text("src/main.rs")?
+                .0,
+            "source"
+        );
+        assert_eq!(
+            LayerStack::open(fixture.root.clone())?
+                .read_text("ignored/cache.txt")?
+                .0,
+            "ignored"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn source_conflict_takes_precedence_over_ignored_limit_drop_status() -> TestResult {
+        let fixture = EphemeralFinalizeFixture::new("ignored-limit-source-conflict")?;
+        let snapshot = service::acquire_snapshot(&fixture.root, "test-command")?;
+        LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+            path: layerstack::LayerPath::parse("src/main.rs")?,
+            content: b"theirs".to_vec(),
+        }])?;
+        let workspace =
+            EphemeralWorkspace::create(&fixture.scratch, "command", "ignored-limit-conflict")?;
+        write_upperdir_file(&workspace, "src/main.rs", b"mine")?;
+        write_upperdir_sparse_file(&workspace, "ignored/huge.bin", (16 * 1024 * 1024) + 1)?;
+
+        let response = finalize_ephemeral_command(
+            &fixture.root,
+            &snapshot,
+            &workspace,
+            CommitOptions::default(),
+            FinalizeCommandRequest {
+                runner_result: None,
+                command_elapsed_s: 0.25,
+                status: CommandStatus::Ok,
+                exit_code: Some(0),
+                stdout: "stdout".to_owned(),
+                stderr: String::new(),
+                command_id: Some("cmd_ignored_limit_source_conflict".to_owned()),
+            },
+        )?;
+        service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+        let wire = response.to_wire_value();
+        assert_eq!(wire["status"], "ok");
+        assert_eq!(wire["success"], false);
+        assert_eq!(wire["changed_paths"], serde_json::json!([]));
+        assert_eq!(
+            wire["publish_lanes"]["source"]["publish_status"],
+            "conflict"
+        );
+        assert_eq!(
+            wire["publish_lanes"]["ignored"]["publish_status"],
+            "dropped_due_to_source_conflict"
+        );
+        assert_eq!(
+            wire["publish_lanes"]["ignored"]["drop_reason"],
+            "source_not_published"
+        );
+        assert_eq!(
+            LayerStack::open(fixture.root.clone())?
+                .read_text("src/main.rs")?
+                .0,
+            "theirs"
+        );
+        let (_bytes, ignored_exists) =
+            LayerStack::open(fixture.root.clone())?.read_bytes("ignored/huge.bin")?;
+        assert!(
+            !ignored_exists,
+            "ignored payload must not publish when source lane conflicts"
         );
         Ok(())
     }

@@ -1,4 +1,5 @@
 use crate::model::LayerChange;
+use std::path::Path;
 use std::time::Duration;
 
 use crate::test_fixture::{lp, Fixture, TestResult};
@@ -154,6 +155,169 @@ fn bounded_capture_spools_accepted_ignored_payloads() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn bounded_capture_spools_multiple_accepted_ignored_payloads_by_aggregate_size() -> TestResult {
+    let fixture = Fixture::new_with_gitignore("bounded_capture_aggregate_spool", "ignored/\n")?;
+    let snapshot = service::acquire_snapshot(&fixture.root, "bounded-capture-aggregate-spool")?;
+    let upperdir = fixture.base.join("upper-bounded-aggregate-spool");
+    write_sparse_file(&upperdir.join("ignored/a.bin"), 6)?;
+    write_sparse_file(&upperdir.join("ignored/b.bin"), 6)?;
+    let spool_dir = fixture.base.join("spool-aggregate");
+
+    let captured = service::capture_upperdir_for_snapshot_with_options(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &upperdir,
+        &spool_dir,
+        service::BoundedCaptureOptions {
+            ignored_limits: service::IgnoredCaptureLimits {
+                spool_threshold_bytes: 10,
+                max_metadata_capture_duration: Duration::from_secs(30),
+                ..service::IgnoredCaptureLimits::default()
+            },
+            ..service::BoundedCaptureOptions::default()
+        },
+    )?;
+
+    assert_eq!(captured.route_stats.direct_path_count, 2);
+    assert_eq!(captured.route_stats.direct_bytes, 12);
+    assert_eq!(captured.route_stats.direct_spooled_bytes, 12);
+    assert_eq!(
+        captured
+            .changes
+            .iter()
+            .filter(|change| matches!(change, LayerChange::WriteFile { .. }))
+            .count(),
+        2
+    );
+    assert!(
+        spool_dir.exists(),
+        "aggregate-spooled ignored payloads should be stored in command spool"
+    );
+
+    service::publish_capture_with_options_and_protected_drops(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &captured.changes,
+        &captured.protected_drops,
+        CommitOptions::default(),
+    )?;
+    service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+    assert_eq!(
+        LayerStack::open(fixture.root.clone())?
+            .read_bytes("ignored/a.bin")?
+            .0
+            .expect("a.bin")
+            .len(),
+        6
+    );
+    assert_eq!(
+        LayerStack::open(fixture.root.clone())?
+            .read_bytes("ignored/b.bin")?
+            .0
+            .expect("b.bin")
+            .len(),
+        6
+    );
+    std::fs::remove_dir_all(&spool_dir)?;
+    assert!(!spool_dir.exists());
+    Ok(())
+}
+
+#[test]
+fn bounded_capture_reports_non_file_size_limit_reasons_before_payload_reads() -> TestResult {
+    for case in [
+        LimitCase {
+            label: "file-count",
+            file_sizes: &[1, 1],
+            limits: service::IgnoredCaptureLimits {
+                max_ignored_files: 1,
+                max_metadata_capture_duration: Duration::from_secs(30),
+                ..service::IgnoredCaptureLimits::default()
+            },
+            expected_reason: service::IGNORED_LANE_FILE_LIMIT_DROP_REASON,
+        },
+        LimitCase {
+            label: "aggregate-bytes",
+            file_sizes: &[6, 6],
+            limits: service::IgnoredCaptureLimits {
+                max_ignored_bytes: 10,
+                max_metadata_capture_duration: Duration::from_secs(30),
+                ..service::IgnoredCaptureLimits::default()
+            },
+            expected_reason: service::IGNORED_LANE_BYTE_LIMIT_DROP_REASON,
+        },
+        LimitCase {
+            label: "metadata-duration",
+            file_sizes: &[1, 1, 1, 1],
+            limits: service::IgnoredCaptureLimits {
+                max_metadata_capture_duration: Duration::ZERO,
+                ..service::IgnoredCaptureLimits::default()
+            },
+            expected_reason: service::IGNORED_CAPTURE_DURATION_LIMIT_DROP_REASON,
+        },
+    ] {
+        let fixture = Fixture::new_with_gitignore(
+            &format!("bounded_capture_limit_{}", case.label),
+            "ignored/\n",
+        )?;
+        let snapshot = service::acquire_snapshot(&fixture.root, case.label)?;
+        let upperdir = fixture.base.join(format!("upper-{}", case.label));
+        for (index, size) in case.file_sizes.iter().enumerate() {
+            write_sparse_file(&upperdir.join(format!("ignored/{index}.bin")), *size)?;
+        }
+        let spool_dir = fixture.base.join(format!("spool-{}", case.label));
+
+        let captured = service::capture_upperdir_for_snapshot_with_options(
+            &fixture.root,
+            snapshot.manifest_version,
+            &snapshot.layer_paths,
+            &upperdir,
+            &spool_dir,
+            service::BoundedCaptureOptions {
+                ignored_limits: case.limits,
+                ..service::BoundedCaptureOptions::default()
+            },
+        )?;
+        service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+        assert_eq!(
+            captured.route_stats.ignored_limit_drop_reason.as_deref(),
+            Some(case.expected_reason),
+            "limit reason for {}",
+            case.label
+        );
+        assert!(
+            captured.changes.is_empty(),
+            "ignored lane should be dropped before payload materialization for {}",
+            case.label
+        );
+        assert!(
+            !spool_dir.exists(),
+            "limit-dropped ignored payloads should not be spooled for {}",
+            case.label
+        );
+    }
+    Ok(())
+}
+
+struct LimitCase {
+    label: &'static str,
+    file_sizes: &'static [u64],
+    limits: service::IgnoredCaptureLimits,
+    expected_reason: &'static str,
+}
+
+fn write_sparse_file(path: &Path, len: u64) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::File::create(path)?.set_len(len)
+}
+
 fn is_ignored(fixture: &Fixture, path: &str) -> TestResult<bool> {
     Ok(route_of(fixture, path)? == Route::Direct)
 }
@@ -161,6 +325,15 @@ fn is_ignored(fixture: &Fixture, path: &str) -> TestResult<bool> {
 fn route_of(fixture: &Fixture, path: &str) -> TestResult<Route> {
     let stack = LayerStack::open(fixture.root.clone())?;
     Ok(route_for_path(&stack, &lp(path)?)?)
+}
+
+fn file_status(result: &crate::ChangesetResult, path: &str) -> TestResult<CommitStatus> {
+    Ok(result
+        .files
+        .iter()
+        .find(|file| file.path == lp(path).expect("valid layer path"))
+        .ok_or_else(|| format!("missing file result for {path}"))?
+        .status)
 }
 
 #[test]
@@ -483,6 +656,135 @@ fn publish_capture_uses_supplied_manifest_snapshot_for_routes() -> TestResult {
         .expect("worker handoff event");
     assert_eq!(handoff.details["gated_path_count"], 1);
     assert_eq!(handoff.details["direct_path_count"], 0);
+    Ok(())
+}
+
+#[test]
+fn lane_aware_publish_drops_ignored_when_source_conflicts() -> TestResult {
+    let fixture = Fixture::new_with_gitignore("lane_aware_source_conflict", "ignored/\n")?;
+    let snapshot = service::acquire_snapshot(&fixture.root, "lane-aware-source-conflict")?;
+    LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+        path: lp("src/main.rs")?,
+        content: b"theirs".to_vec(),
+    }])?;
+
+    let result = service::publish_command_capture_lane_aware(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &[
+            LayerChange::Write {
+                path: lp("src/main.rs")?,
+                content: b"mine".to_vec(),
+            },
+            LayerChange::Write {
+                path: lp("ignored/cache.txt")?,
+                content: b"ignored".to_vec(),
+            },
+        ],
+        &[],
+        CommitOptions::default(),
+    )?;
+    service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+    assert_eq!(result.published_manifest_version, None);
+    assert_eq!(
+        file_status(&result, "src/main.rs")?,
+        CommitStatus::AbortedVersion
+    );
+    assert_eq!(
+        file_status(&result, "ignored/cache.txt")?,
+        CommitStatus::Dropped
+    );
+    assert_eq!(fixture.read_text("src/main.rs")?, "theirs");
+    assert!(
+        !LayerStack::open(fixture.root.clone())?
+            .read_bytes("ignored/cache.txt")?
+            .1,
+        "ignored output must not publish after source OCC conflict"
+    );
+    Ok(())
+}
+
+#[test]
+fn lane_aware_publish_ignored_only_uses_direct_lww() -> TestResult {
+    let fixture = Fixture::new_with_gitignore("lane_aware_ignored_lww", "ignored/\n")?;
+    let snapshot = service::acquire_snapshot(&fixture.root, "lane-aware-ignored-lww")?;
+
+    let first = service::publish_command_capture_lane_aware(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &[LayerChange::Write {
+            path: lp("ignored/cache.txt")?,
+            content: b"first".to_vec(),
+        }],
+        &[],
+        CommitOptions::default(),
+    )?;
+    let second = service::publish_command_capture_lane_aware(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &[LayerChange::Write {
+            path: lp("ignored/cache.txt")?,
+            content: b"second".to_vec(),
+        }],
+        &[],
+        CommitOptions::default(),
+    )?;
+    service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+    assert!(first.success());
+    assert!(second.success());
+    assert_eq!(
+        first.published_manifest_version.map(|version| version + 1),
+        second.published_manifest_version
+    );
+    assert_eq!(fixture.read_text("ignored/cache.txt")?, "second");
+    Ok(())
+}
+
+#[test]
+fn lane_aware_publish_source_and_ignored_success_advances_one_manifest() -> TestResult {
+    let fixture = Fixture::new_with_gitignore("lane_aware_mixed_success", "ignored/\n")?;
+    let snapshot = service::acquire_snapshot(&fixture.root, "lane-aware-mixed-success")?;
+    let before = LayerStack::open(fixture.root.clone())?
+        .read_active_manifest()?
+        .version;
+
+    let result = service::publish_command_capture_lane_aware(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &[
+            LayerChange::Write {
+                path: lp("src/main.rs")?,
+                content: b"source".to_vec(),
+            },
+            LayerChange::Write {
+                path: lp("ignored/cache.txt")?,
+                content: b"ignored".to_vec(),
+            },
+        ],
+        &[],
+        CommitOptions::default(),
+    )?;
+    service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+    let after = LayerStack::open(fixture.root.clone())?
+        .read_active_manifest()?
+        .version;
+    assert!(result.success());
+    assert_eq!(after, before + 1);
+    assert_eq!(result.published_manifest_version, Some(u64::try_from(after)?));
+    assert_eq!(file_status(&result, "src/main.rs")?, CommitStatus::Committed);
+    assert_eq!(
+        file_status(&result, "ignored/cache.txt")?,
+        CommitStatus::Committed
+    );
+    assert_eq!(fixture.read_text("src/main.rs")?, "source");
+    assert_eq!(fixture.read_text("ignored/cache.txt")?, "ignored");
     Ok(())
 }
 

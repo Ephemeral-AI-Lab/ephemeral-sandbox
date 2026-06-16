@@ -1,3 +1,4 @@
+use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, ensure, Result};
@@ -7,7 +8,7 @@ use serde_json::{json, Value};
 use crate::support::{
     array, as_bool, as_i64, as_str, clean_stdout, finalize_foreground_command, has_trace_event,
     live_pool_or_skip, stdout, trace_record, unwrap_operation_result, wait_for_active_leases,
-    wait_for_command_count, wait_for_command_transcript_recycled,
+    wait_for_command_count, wait_for_command_stdout_contains, wait_for_command_transcript_recycled,
 };
 
 #[test]
@@ -501,6 +502,231 @@ fn oversized_ignored_output_drops_ignored_lane_but_publishes_source() -> Result<
 }
 
 #[test]
+fn source_conflict_drops_ignored_output_with_publish_lanes() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let lease = pool.acquire()?;
+    let dir = format!(
+        "publish-lanes-source-conflict/{}",
+        e2e_test::unique_suffix().replace('-', "_")
+    );
+    let source_path = format!("{dir}/src.txt");
+    let ignored_path = format!("{dir}/ignored/cache.txt");
+
+    lease.call_ok(
+        catalog::SANDBOX_FILE_WRITE,
+        json!({
+            "path": format!("{dir}/.gitignore"),
+            "content": "ignored/\n",
+            "overwrite": false,
+        }),
+    )?;
+    lease.call_ok(
+        catalog::SANDBOX_FILE_WRITE,
+        json!({
+            "path": &source_path,
+            "content": "base\n",
+            "overwrite": true,
+        }),
+    )?;
+
+    let started = lease.call_ok(
+        catalog::SANDBOX_COMMAND_EXEC,
+        json!({
+            "cmd": format!(
+                "bash -lc 'printf SNAPSHOT_READY; sleep 2; mkdir -p {dir}/ignored; printf mine > {source_path}; printf ignored > {ignored_path}'"
+            ),
+            "yield_time_ms": 500,
+            "timeout_seconds": 30,
+        }),
+    )?;
+    ensure!(
+        as_str(&started, "status")? == "running",
+        "source-conflict command should still be running at the sync point: {started}"
+    );
+    let command_id = as_str(&started, "command_id")?.to_owned();
+    wait_for_command_stdout_contains(&lease, &command_id, "SNAPSHOT_READY")?;
+
+    let body = (|| -> Result<()> {
+        lease.call_ok(
+            catalog::SANDBOX_FILE_WRITE,
+            json!({
+                "path": &source_path,
+                "content": "newer\n",
+                "overwrite": true,
+            }),
+        )?;
+        let terminal_wire = wait_for_terminal_command_wire(
+            &lease,
+            &command_id,
+            Instant::now() + Duration::from_secs(20),
+        )?;
+        let result = unwrap_operation_result(terminal_wire.clone())?;
+        ensure!(
+            as_str(&result, "status")? == "ok",
+            "the command process itself should exit successfully: {result}"
+        );
+        ensure!(
+            !as_bool(&result, "success")?,
+            "source conflict must fail workspace mutation success: {result}"
+        );
+        ensure!(
+            array(&result, "changed_paths")?.is_empty(),
+            "source conflict must not publish source or ignored changes: {result}"
+        );
+
+        let lanes = &result["publish_lanes"];
+        ensure!(
+            lanes["source"]["publish_status"] == "conflict"
+                && lanes["ignored"]["publish_status"] == "dropped_due_to_source_conflict"
+                && lanes["ignored"]["drop_reason"] == "source_not_published",
+            "source conflict should drop ignored lane with stable metadata: {result}"
+        );
+        ensure!(
+            lanes["source"]["path_count"] == 1 && lanes["ignored"]["path_count"] == 1,
+            "source conflict should report one source and one ignored path: {result}"
+        );
+
+        let record = trace_record(&terminal_wire)?;
+        ensure!(
+            has_trace_event(
+                &record,
+                "command",
+                "command.publish_lanes_decided",
+                |details| {
+                    details["source"]["publish_status"] == "conflict"
+                        && details["ignored"]["publish_status"]
+                            == "dropped_due_to_source_conflict"
+                        && details["ignored"]["drop_reason"] == "source_not_published"
+                }
+            ),
+            "command finalize trace must report source-conflict ignored drop: {record:?}"
+        );
+
+        let read_source =
+            lease.call_ok(catalog::SANDBOX_FILE_READ, json!({"path": &source_path}))?;
+        ensure!(
+            as_str(&read_source, "content")? == "newer\n",
+            "competing source writer should remain visible: {read_source}"
+        );
+        let read_ignored =
+            lease.call_ok(catalog::SANDBOX_FILE_READ, json!({"path": &ignored_path}))?;
+        ensure!(
+            !as_bool(&read_ignored, "exists")?,
+            "ignored command output must not publish after source conflict: {read_ignored}"
+        );
+        wait_for_command_count(&lease, 0)?;
+        wait_for_active_leases(&lease, 0)?;
+        Ok(())
+    })();
+
+    if body.is_err() {
+        let _ = lease.call(
+            catalog::SANDBOX_COMMAND_CANCEL,
+            json!({"command_id": command_id}),
+        );
+        let _ = wait_for_command_count(&lease, 0);
+    }
+    body
+}
+
+#[test]
+fn source_and_ignored_success_publish_as_one_lane_result() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let lease = pool.acquire()?;
+    let dir = format!(
+        "publish-lanes-source-ignored-success/{}",
+        e2e_test::unique_suffix().replace('-', "_")
+    );
+    let source_path = format!("{dir}/src.txt");
+    let ignored_path = format!("{dir}/ignored/cache.txt");
+
+    lease.call_ok(
+        catalog::SANDBOX_FILE_WRITE,
+        json!({
+            "path": format!("{dir}/.gitignore"),
+            "content": "ignored/\n",
+            "overwrite": false,
+        }),
+    )?;
+    let before = lease.call_ok(catalog::SANDBOX_CHECKPOINT_LAYER_METRICS, json!({}))?;
+    let before_version = as_i64(&before, "manifest_version")?;
+
+    let wire = lease.call(
+        catalog::SANDBOX_COMMAND_EXEC,
+        json!({
+            "cmd": format!(
+                "mkdir -p {dir}/ignored && printf source > {source_path} && printf ignored > {ignored_path}"
+            ),
+            "yield_time_ms": 8000,
+            "timeout_seconds": 10,
+        }),
+    )?;
+    let result = unwrap_operation_result(wire.clone())?;
+    ensure!(
+        as_str(&result, "status")? == "ok" && as_bool(&result, "success")?,
+        "source+ignored command should publish successfully: {result}"
+    );
+    let changed_paths = array(&result, "changed_paths")?;
+    ensure!(
+        changed_paths
+            .iter()
+            .any(|path| path.as_str() == Some(source_path.as_str()))
+            && changed_paths
+                .iter()
+                .any(|path| path.as_str() == Some(ignored_path.as_str())),
+        "source+ignored command should report both changed paths: {result}"
+    );
+
+    let lanes = &result["publish_lanes"];
+    ensure!(
+        lanes["source"]["publish_status"] == "committed"
+            && lanes["ignored"]["publish_status"] == "published_lww"
+            && lanes["ignored"]["publish_mode"] == "direct_lww"
+            && lanes["source"]["path_count"] == 1
+            && lanes["ignored"]["path_count"] == 1,
+        "source+ignored success should report committed source and direct LWW ignored: {result}"
+    );
+
+    let record = trace_record(&wire)?;
+    ensure!(
+        has_trace_event(
+            &record,
+            "command",
+            "command.publish_lanes_decided",
+            |details| {
+                details["source"]["publish_status"] == "committed"
+                    && details["ignored"]["publish_status"] == "published_lww"
+                    && details["ignored"]["publish_mode"] == "direct_lww"
+            }
+        ),
+        "command finalize trace must report mixed lane success: {record:?}"
+    );
+
+    let after = lease.call_ok(catalog::SANDBOX_CHECKPOINT_LAYER_METRICS, json!({}))?;
+    ensure!(
+        as_i64(&after, "manifest_version")? == before_version + 1,
+        "source+ignored command should advance the manifest once: before={before}, after={after}"
+    );
+    let read_source = lease.call_ok(catalog::SANDBOX_FILE_READ, json!({"path": source_path}))?;
+    ensure!(
+        as_bool(&read_source, "exists")? && as_str(&read_source, "content")? == "source",
+        "source output must publish: {read_source}"
+    );
+    let read_ignored = lease.call_ok(catalog::SANDBOX_FILE_READ, json!({"path": ignored_path}))?;
+    ensure!(
+        as_bool(&read_ignored, "exists")? && as_str(&read_ignored, "content")? == "ignored",
+        "ignored output must publish: {read_ignored}"
+    );
+    wait_for_command_count(&lease, 0)?;
+    wait_for_active_leases(&lease, 0)?;
+    Ok(())
+}
+
+#[test]
 fn large_ignored_output_publishes_through_spool_backed_capture() -> Result<()> {
     let Some(pool) = live_pool_or_skip()? else {
         return Ok(());
@@ -578,6 +804,91 @@ fn large_ignored_output_publishes_through_spool_backed_capture() -> Result<()> {
     ensure!(
         as_str(&verify, "status")? == "ok" && stdout(&verify).contains("size-ok"),
         "published ignored spool payload should have the expected size: {verify}"
+    );
+    wait_for_command_count(&lease, 0)?;
+    wait_for_active_leases(&lease, 0)?;
+    Ok(())
+}
+
+#[test]
+fn multiple_ignored_outputs_publish_through_aggregate_spool_backed_capture() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let lease = pool.acquire()?;
+    let dir = format!(
+        "publish-lanes-ignored-aggregate-spool/{}",
+        e2e_test::unique_suffix().replace('-', "_")
+    );
+    let ignored_len = 640 * 1024;
+    let ignored_total = ignored_len * 2;
+
+    lease.call_ok(
+        catalog::SANDBOX_FILE_WRITE,
+        json!({
+            "path": format!("{dir}/.gitignore"),
+            "content": "ignored/\n",
+            "overwrite": false,
+        }),
+    )?;
+
+    let wire = lease.call(
+        catalog::SANDBOX_COMMAND_EXEC,
+        json!({
+            "cmd": format!(
+                "mkdir -p {dir}/ignored && python3 - <<'PY'\nfrom pathlib import Path\nbase = Path('{dir}/ignored')\n(base / 'a.bin').write_bytes(b'a' * {ignored_len})\n(base / 'b.bin').write_bytes(b'b' * {ignored_len})\nPY"
+            ),
+            "yield_time_ms": 8000,
+            "timeout_seconds": 20,
+        }),
+    )?;
+    let result = unwrap_operation_result(wire.clone())?;
+    ensure!(
+        as_str(&result, "status")? == "ok",
+        "successful aggregate-spool command should finalize in foreground: {result}"
+    );
+
+    let lanes = &result["publish_lanes"];
+    ensure!(
+        lanes["source"]["publish_status"] == "empty",
+        "aggregate ignored-only command should not report source output: {result}"
+    );
+    ensure!(
+        lanes["ignored"]["publish_status"] == "published_lww"
+            && lanes["ignored"]["publish_mode"] == "direct_lww"
+            && as_i64(&lanes["ignored"], "bytes")? == i64::from(ignored_total)
+            && as_i64(&lanes["ignored"], "spooled_bytes")? == i64::from(ignored_total),
+        "aggregate ignored output should publish through the spool path: {result}"
+    );
+
+    let record = trace_record(&wire)?;
+    ensure!(
+        has_trace_event(
+            &record,
+            "command",
+            "command.publish_lanes_decided",
+            |details| {
+                details["ignored"]["publish_status"] == "published_lww"
+                    && details["ignored"]["spooled_bytes"].as_i64()
+                        == Some(i64::from(ignored_total))
+            }
+        ),
+        "command finalize trace must report aggregate spooled ignored bytes: {record:?}"
+    );
+
+    let verify = unwrap_operation_result(lease.call(
+        catalog::SANDBOX_COMMAND_EXEC,
+        json!({
+            "cmd": format!(
+                "python3 - <<'PY'\nfrom pathlib import Path\nbase = Path('{dir}/ignored')\nassert (base / 'a.bin').stat().st_size == {ignored_len}\nassert (base / 'b.bin').stat().st_size == {ignored_len}\nprint('aggregate-size-ok')\nPY"
+            ),
+            "yield_time_ms": 8000,
+            "timeout_seconds": 10,
+        }),
+    )?)?;
+    ensure!(
+        as_str(&verify, "status")? == "ok" && stdout(&verify).contains("aggregate-size-ok"),
+        "published aggregate spool payloads should have the expected sizes: {verify}"
     );
     wait_for_command_count(&lease, 0)?;
     wait_for_active_leases(&lease, 0)?;
@@ -847,6 +1158,27 @@ fn poll_read_progress_until_stdout_contains(
         last = Some(poll);
     }
     bail!("read_progress did not surface {needle:?} before deadline; last poll: {last:?}");
+}
+
+fn wait_for_terminal_command_wire(
+    lease: &e2e_test::NodeLease<'_>,
+    command_id: &str,
+    deadline: Instant,
+) -> Result<Value> {
+    loop {
+        let wire = lease.call(
+            catalog::SANDBOX_COMMAND_POLL,
+            json!({"command_id": command_id, "last_n_lines": 50}),
+        )?;
+        let result = unwrap_operation_result(wire.clone())?;
+        if as_str(&result, "status")? != "running" {
+            return Ok(wire);
+        }
+        if Instant::now() >= deadline {
+            bail!("command {command_id} did not finalize before deadline: {result}");
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
 }
 
 fn stderr(value: &Value) -> &str {
