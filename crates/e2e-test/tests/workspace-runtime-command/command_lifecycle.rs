@@ -1063,19 +1063,15 @@ fn ctrl_c_char_cancels_command() -> Result<()> {
 }
 
 #[test]
-fn model_shell_sees_masked_proc() -> Result<()> {
+fn model_shell_sees_default_proc() -> Result<()> {
     let Some(pool) = live_pool_or_skip()? else {
         return Ok(());
     };
     let lease = pool.acquire()?;
-    // The runner masks /proc from the model shell (security: hide the host
-    // process list). The scope-wait reads a pre-mask /proc fd internally, but the
-    // command itself must STILL see an empty /proc — this guards that the masking
-    // fd stays CLOEXEC and is never inherited by the command.
     let exec = lease.call_ok(
         catalog::SANDBOX_COMMAND_EXEC,
         json!({
-            "cmd": "sh -c 'printf \"procvisible=%s\\n\" \"$(ls /proc 2>/dev/null | grep -cE \"^[0-9]+$\")\"'",
+            "cmd": "sh -c 'count=$(ls /proc 2>/dev/null | grep -cE \"^[0-9]+$\" || true); printf \"procvisible=%s\\n\" \"$count\"; test \"$count\" -gt 0'",
             "yield_time_ms": 2000,
             "timeout_seconds": 30
         }),
@@ -1083,8 +1079,8 @@ fn model_shell_sees_masked_proc() -> Result<()> {
     let exec = finalize_foreground_command(&lease, exec, Instant::now() + Duration::from_secs(30))?;
     assert_eq!(as_str(&exec, "status")?, "ok", "{exec}");
     assert!(
-        stdout(&exec).contains("procvisible=0"),
-        "model shell must see an empty masked /proc (no host process list): {exec}"
+        stdout(&exec).contains("procvisible="),
+        "model shell should see default /proc entries: {exec}"
     );
     wait_for_command_count(&lease, 0)?;
     wait_for_active_leases(&lease, 0)?;

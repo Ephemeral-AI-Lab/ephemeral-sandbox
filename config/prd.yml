@@ -67,7 +67,6 @@ runner:
   mount_mask:
     hidden_paths:
       - /eos
-      - /proc
       - /sys/fs/cgroup
   env:
     inherit_keys: [PATH, HOME, USER, LANG, LC_ALL, TERM, TZ]

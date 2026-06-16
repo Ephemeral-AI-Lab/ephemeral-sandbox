@@ -1,8 +1,23 @@
 use super::*;
+use std::path::Path;
 
 #[test]
 fn config_prd_runner_section_deserializes_and_validates() {
     prd_config().validate().expect("prd runner config is valid");
+}
+
+#[test]
+fn config_prd_runner_mount_mask_leaves_proc_visible() {
+    let config = prd_config();
+
+    assert!(
+        !config
+            .mount_mask
+            .hidden_paths
+            .iter()
+            .any(|path| path == Path::new("/proc")),
+        "masking /proc with an empty tmpfs adds measurable Python startup latency"
+    );
 }
 
 #[test]

@@ -344,9 +344,8 @@ fn execute_shell(
     let prepare_start = Instant::now();
     let argv = shell_argv(request)?;
     let cwd = shell_cwd(request)?;
-    // Open a handle to the real /proc before the mount mask hides it, so the
-    // scope-wait can still enumerate same-pgid background processes even though
-    // the model shell sees an empty masked /proc.
+    // Open a handle to /proc before applying the mount mask, so scope-wait can
+    // still enumerate same-pgid background processes if a custom config hides it.
     let proc_dir = rustix::fs::open(
         "/proc",
         rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::DIRECTORY | rustix::fs::OFlags::CLOEXEC,
