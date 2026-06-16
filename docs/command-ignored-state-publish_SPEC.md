@@ -50,14 +50,16 @@ running commands.
 
 | Term | Meaning |
 | --- | --- |
-| Source path | Ordinary workspace path that is not `.git` metadata, not daemon metadata, and not matched by the active `.gitignore` view. |
-| Ignored path | Ordinary workspace path matched by the active LayerStack-aware `.gitignore` view. |
-| Protected path | `.git/**`, LayerStack/daemon control paths, sockets, pids, and other paths that must never become ordinary command output. |
+| Source path | Ordinary workspace path that is not `.git` metadata, not daemon metadata, and not matched by the route snapshot `.gitignore` view. |
+| Ignored path | Ordinary workspace path matched by the route snapshot LayerStack-aware `.gitignore` view. |
+| Git metadata path | `.git/**`, governed by `docs/command-git-occ-policy_SPEC.md` for command finalization and never by ordinary ignored direct routing. |
+| Protected path | LayerStack/daemon control paths, command scratch/spool internals, sockets, pids, unsupported special files, and other paths that must never become ordinary command output. `.git/**` is not part of this generic protected route. |
 | Source lane | Captured source paths published through gated OCC. |
 | Ignored lane | Captured ignored paths published without per-path content OCC, using last-writer-wins semantics after source-lane eligibility is known. |
 | Direct LWW | Publish without base-content validation; if later accepted layers write the same ignored path, the newest accepted head-visible layer wins. |
 | Route snapshot | The command's leased base snapshot used for ordinary ignore classification. |
 | Spool-backed capture | A capture representation that records metadata first and stores accepted file payloads in bounded scratch files, not long-lived in-memory `Vec<u8>` buffers. |
+| Opaque directory marker | OverlayFS directory replacement/deletion marker that can hide every lower-layer descendant below a directory. |
 | Finalization | The command-settle phase that captures the private upperdir, routes paths, validates source changes, filters ignored changes, and publishes or drops the result. |
 
 ## 5. Core Invariants
@@ -78,21 +80,28 @@ running commands.
    command's route snapshot and is not recomputed against the publish-time head.
 10. Ignored-lane byte and file limits must be enforced before ignored file
     payloads are materialized into memory.
+11. Non-successful commands must branch to discard before OCC validation,
+    LayerStack publish, or spool-backed payload installation.
+12. `.git/**` must never enter the ordinary ignored lane. Until Git metadata OCC
+    is implemented, command-produced `.git/**` changes must be dropped with a
+    stable Git metadata reason instead of being treated as protected direct state.
 
 ## 6. Route Order
 
 Path routing is evaluated in this order:
 
-1. Protected path rules.
-2. Git metadata rules from `docs/command-git-occ-policy_SPEC.md`.
+1. Git metadata rules from `docs/command-git-occ-policy_SPEC.md`.
+   Until those rules are implemented, `.git/**` is dropped with
+   `git_metadata_unsupported`.
+2. Protected path rules.
 3. Ordinary ignore routing using the command's route snapshot merged
    `.gitignore` view.
 4. Source path fallback.
 
 | Route | Examples | Publish rule |
 | --- | --- | --- |
-| Protected | daemon metadata, sockets, pids, unsupported special paths | Deny/drop with reason. |
 | Git metadata | `.git/**` | Governed by the Git OCC spec; never ordinary ignored direct. |
+| Protected | daemon metadata, command scratch/spool internals, sockets, pids, unsupported special paths | Deny/drop with reason. |
 | Ignored | `.cache/**`, `node_modules/**`, `target/**` when ignored | Conditional direct LWW. |
 | Source | lockfiles, source files, manifests, configs when not ignored | Gated OCC. |
 
@@ -107,6 +116,48 @@ time and gives every command a stable route decision for the lifetime of its
 private upperdir. A command that starts before a `.gitignore` change may therefore
 publish ignored state according to its own route snapshot. This is acceptable
 because source paths still use gated OCC and ignored paths are derived state.
+
+### 6.1 Protected Path Reasons
+
+Protected drops must use stable reason codes. V1 uses this closed set:
+
+| Reason | Meaning |
+| --- | --- |
+| `git_metadata_unsupported` | `.git/**` was produced before command Git OCC support is available. |
+| `daemon_control_path` | A command tried to publish daemon or LayerStack control state as workspace content. |
+| `command_scratch_path` | A command tried to publish command scratch, transcript, final-response, or spool internals. |
+| `unsupported_special_file` | Capture saw a socket, FIFO, device, or other unsupported special filesystem entry. |
+| `invalid_layer_path` | A captured path cannot be represented as a normalized relative `LayerPath`. |
+| `opaque_dir_protected_descendant` | An opaque directory marker would hide Git metadata or protected state. |
+| `opaque_dir_mixed_routes` | An opaque directory marker would hide both source and ignored descendants. |
+| `opaque_dir_expansion_limit` | Opaque directory descendant expansion exceeded configured bounds. |
+
+Special filesystem entries must not be silently ignored. Capture may skip their
+payload, but finalization must surface the protected drop reason in trace and
+response metadata.
+
+### 6.2 Opaque Directory Routing
+
+Opaque directory markers are not routed only by the marker path. They represent a
+directory-wide replacement and may hide lower-layer descendants with different
+routes.
+
+V1 handles opaque directories as follows:
+
+1. Expand the opaque directory against the command's route snapshot before lane
+   grouping.
+2. If the expansion would hide any Git metadata or protected path, reject the
+   command publish with `opaque_dir_protected_descendant`.
+3. If every hidden descendant is ignored, the marker may publish in the ignored
+   lane and counts against ignored byte/file/depth limits.
+4. If every hidden descendant is source, the marker publishes in the source lane
+   only after source OCC validates the hidden source descendants.
+5. If hidden descendants span source and ignored routes, v1 rejects the command
+   publish with `opaque_dir_mixed_routes`. A future enhancement may lower this to
+   explicit per-descendant deletes, but v1 must not publish a mixed-route opaque
+   marker as direct ignored state.
+6. If expansion exceeds configured count or time bounds, reject the command
+   publish with `opaque_dir_expansion_limit`.
 
 ## 7. Finalization State Machine
 
@@ -129,6 +180,11 @@ If the command exits non-zero, times out, or is cancelled:
 5. Report `ignored_publish_status = dropped_command_failed`.
 
 Stderr alone is not a failure signal.
+
+This branch is evaluated before source or ignored payloads are published. The
+finalizer may record bounded metadata for diagnostics, but it must not submit a
+changeset to OCC, advance the LayerStack manifest, or install spool-backed
+payloads for a non-successful command.
 
 ### 7.2 Command Succeeded With No Captured Changes
 
@@ -236,7 +292,7 @@ truth.
 
 ## 11. Response And Trace Requirements
 
-Every command settle trace must include:
+Every command result and command settle trace must include:
 
 | Field | Meaning |
 | --- | --- |
@@ -251,9 +307,43 @@ Every command settle trace must include:
 | `ignore_route_source` | `command_snapshot` in v1. |
 | `route_manifest_version` | Manifest version used for ordinary ignore routing. |
 
-The result should avoid silent ignored-state drops. If ignored changes are
-dropped while source changes publish, the response must make that degraded state
-visible.
+In the current flattened command response, these fields live under a single
+top-level `publish_lanes` object emitted from `CommandMetadata.extras`:
+
+```json
+{
+  "publish_lanes": {
+    "source": {
+      "path_count": 0,
+      "publish_status": "empty",
+      "drop_reason": null
+    },
+    "ignored": {
+      "path_count": 0,
+      "bytes": 0,
+      "spooled_bytes": 0,
+      "publish_status": "empty",
+      "publish_mode": null,
+      "drop_reason": null
+    },
+    "routing": {
+      "ignore_route_source": "command_snapshot",
+      "route_manifest_version": 0
+    }
+  }
+}
+```
+
+When the protocol-v2 response envelope from
+`docs/sandbox-event-tracing-response-plan.md` lands, the same object moves to
+`result.command.mutation.publish_lanes`; summary counts may also be copied into
+`meta.resource_summary`, but the structured lane object remains the canonical
+response contract.
+
+Trace must include one bounded `command.publish_lanes_decided` event with the
+same object and must bridge OCC publish/conflict events into the command finalize
+trace record. A caller must not need to inspect only raw OCC internals to learn
+whether ignored state was published, dropped, or skipped.
 
 ## 12. Biggest Improvements
 
@@ -329,21 +419,212 @@ semantics.
 
 ## 13. Implementation Plan
 
-1. Add a command finalization split between source and ignored lanes after
-   capture and before OCC validation.
-2. Make ordinary ignore routing explicitly snapshot-scoped by routing against the
+1. Add a command-success gate before OCC validation, LayerStack publish, or spool
+   installation. Natural non-zero exits, timeouts, and cancellations must all use
+   the discard path.
+2. Replace the command finalizer's all-capture `publish_capture_with_options`
+   call with a lane-aware finalization API that can report source, ignored, Git,
+   protected, and opaque-directory outcomes separately.
+3. Add a command finalization split between source and ignored lanes after
+   metadata capture and before OCC validation.
+4. Make ordinary ignore routing explicitly snapshot-scoped by routing against the
    command's leased base manifest and reporting `ignore_route_source =
    command_snapshot`.
-3. Keep existing `.gitignore` route semantics for ordinary paths, but make the
+5. Keep existing `.gitignore` route semantics for ordinary paths, but make the
    direct lane conditional on source-lane outcome.
-4. Replace all-at-once `Vec<u8>` capture for ignored trees with metadata-first,
+6. Replace all-at-once `Vec<u8>` capture for ignored trees with metadata-first,
    spool-backed capture.
-5. Add ignored-lane status fields to command metadata and trace events.
-6. Add ignored-lane limits to daemon config.
-7. Ensure protected paths cannot be reintroduced through ignore routing.
-8. Add compaction/squash coverage for ignored-heavy layers.
+7. Extend LayerStack publish input so accepted writes may reference either
+   in-memory bytes or command-owned spool files, while preserving atomic manifest
+   advancement.
+8. Make `.git/**` handling explicit: use command Git OCC when available, or drop
+   with `git_metadata_unsupported`; never route `.git/**` through ordinary
+   ignored direct publish.
+9. Add the protected-path reason-code set and surface special-file drops instead
+   of silently ignoring them.
+10. Expand and validate opaque directory markers before lane grouping.
+11. Add `publish_lanes` to command metadata, wire response, and command finalize
+    trace events.
+12. Add ignored-lane limits to daemon config.
+13. Add compaction/squash coverage for ignored-heavy layers.
 
-## 14. Acceptance Tests
+## 14. Milestones
+
+Each milestone is independently shippable only when its focused tests, trace-log
+assertions, and live E2E suite pass. Do not defer trace visibility or live Docker
+coverage to a final cleanup phase; every milestone that changes command
+finalization must prove the response and trace story at the same time.
+
+Live E2E gate for every milestone:
+
+```text
+cargo run -p e2e-test --bin e2e-runner -- --suites workspace-runtime-command --max-parallel 5 --container-weight-cap 10 --heavy-test-threads 4
+```
+
+### 14.1 Milestone 1: Non-Success Discard And Lane Metadata
+
+Implementation scope:
+
+1. Add the command-success gate before OCC validation, LayerStack publish, or
+   spool-backed payload installation.
+2. Add the current flattened `publish_lanes` response object.
+3. Add `command.publish_lanes_decided` to command finalize trace records.
+
+Test coverage:
+
+1. Unit or operation tests for natural non-zero exit, timeout, and cancellation
+   all returning lane statuses of `dropped_command_failed`.
+2. Live E2E where a non-zero command writes one source file and one ignored file;
+   neither path becomes visible and the manifest version does not advance.
+3. Contract/fixture test that current command responses include top-level
+   `publish_lanes` with source, ignored, and routing fields.
+
+Trace log gate:
+
+1. The response sidecar contains `command.publish_lanes_decided`.
+2. The finalize trace records both lane statuses as `dropped_command_failed`.
+3. The trace batch decodes and ingests with no dropped trace records.
+
+Live E2E gate:
+
+The `workspace-runtime-command` suite must pass with the new non-success publish
+case included.
+
+### 14.2 Milestone 2: Route Ownership, Git, Protected Paths, And Opaque Dirs
+
+Implementation scope:
+
+1. Keep ordinary ignore routing snapshot-scoped and report
+   `ignore_route_source = command_snapshot`.
+2. Route `.git/**` through Git metadata handling, or drop with
+   `git_metadata_unsupported` until command Git OCC is available.
+3. Implement the protected-path reason-code set.
+4. Expand and validate opaque directory markers before lane grouping.
+
+Test coverage:
+
+1. Unit tests for route classification against the command snapshot, including a
+   `.gitignore` change after command start.
+2. Unit and E2E tests proving `.git/**` never routes through ordinary ignored
+   direct publish.
+3. Tests for daemon control paths, command scratch/spool paths, and unsupported
+   special files producing stable protected drop reasons.
+4. Opaque directory tests for all-ignored, all-source, mixed source/ignored,
+   protected descendant, and expansion-limit cases.
+
+Trace log gate:
+
+1. `publish_lanes.routing.route_manifest_version` matches the command snapshot.
+2. Git/protected/opaque drops surface stable reason codes in response metadata
+   and trace events.
+3. Mixed-route opaque directory rejection is visible as
+   `opaque_dir_mixed_routes`.
+
+Live E2E gate:
+
+The `workspace-runtime-command` suite must pass with Git/protected/opaque route
+cases included.
+
+### 14.3 Milestone 3: Bounded File-Backed Capture
+
+Implementation scope:
+
+1. Replace ignored-tree all-in-memory capture with metadata-first capture.
+2. Enforce ignored file/count/byte/duration limits before ignored payload reads.
+3. Publish accepted large ignored payloads through command-owned spool files.
+4. Clean up spool files after publish, drop, and publish failure.
+
+Test coverage:
+
+1. Unit tests for metadata-first limit decisions that skip oversized ignored
+   payload reads.
+2. Unit tests for spool-backed LayerStack writes, cleanup, and publish failure.
+3. Live E2E for oversized ignored drop plus valid source publish.
+4. Live E2E for ignored output above the in-memory threshold but below lane
+   limits, proving the file publishes through the spool path.
+5. Live E2E for multiple ignored files whose aggregate size requires
+   spool-backed capture.
+
+Trace log gate:
+
+1. Published spool-backed output reports `ignored_spooled_bytes > 0`.
+2. Limit drops report `ignored_publish_status = dropped_due_to_limits` and the
+   stable limit reason.
+3. Trace evidence distinguishes `ignored_bytes` from `ignored_spooled_bytes`.
+
+Live E2E gate:
+
+The `workspace-runtime-command` suite must pass with the required file-backed
+capture cases enabled.
+
+### 14.4 Milestone 4: Lane-Aware OCC Publish Semantics
+
+Implementation scope:
+
+1. Replace command finalization's all-capture publish call with a lane-aware API.
+2. Validate source through gated OCC and conditionally publish ignored direct LWW.
+3. Drop ignored output when source OCC conflicts.
+4. Publish accepted source and ignored output in one visible head when both lanes
+   are accepted.
+5. Preserve atomic manifest advancement for in-memory and spool-backed payloads.
+
+Test coverage:
+
+1. Unit tests for source conflict dropping ignored output.
+2. Unit tests for ignored-only direct LWW and two ignored writers where the later
+   accepted layer wins.
+3. Unit tests for mixed source+ignored success producing one manifest advance.
+4. Live E2E for source conflict plus ignored output.
+5. Live E2E for source+ignored success and ignored-only LWW.
+6. Live E2E for injected publish failure leaving the previous manifest active.
+
+Trace log gate:
+
+1. Command finalize trace bridges OCC publish/conflict facts into the command
+   trace record.
+2. Source conflict reports `source_publish_status = conflict` and
+   `ignored_publish_status = dropped_due_to_source_conflict`.
+3. Mixed success reports source committed and ignored `published_lww`.
+
+Live E2E gate:
+
+The `workspace-runtime-command` suite must pass with lane-aware publish cases
+included.
+
+### 14.5 Milestone 5: Config, Compaction, And Full Regression Closeout
+
+Implementation scope:
+
+1. Add ignored-lane limits to daemon config and production YAML.
+2. Add validation for ignored file/count/byte/duration limit values.
+3. Add compaction/squash coverage for ignored-heavy layers.
+4. Keep protocol docs, generated contracts, and E2E readmes aligned with the new
+   response and trace fields.
+
+Test coverage:
+
+1. Config unit tests for defaults, production YAML deserialization, invalid
+   values, and low-limit override behavior.
+2. LayerStack tests for ignored-heavy layer compaction preserving head-visible
+   state.
+3. Contract/fixture tests for `publish_lanes` response shape and trace event
+   shape.
+4. Full workspace command E2E plus focused trace ingestion assertions.
+
+Trace log gate:
+
+1. E2E trace JSONL contains the expected publish-lane events for success, drop,
+   limit, protected-path, and conflict cases.
+2. Trace sidecar decoding and audit-store ingestion succeed for every new E2E
+   case.
+3. No new command finalize path silently omits `publish_lanes`.
+
+Live E2E gate:
+
+The full `workspace-runtime-command` live E2E suite must pass after config,
+contract, and readme updates.
+
+## 15. Acceptance Tests
 
 File-backed capture is a blocking v1 acceptance area. The implementation is not
 accepted if tests exercise only small in-memory ignored payloads. The test suite
@@ -356,11 +637,13 @@ must force the spool-backed path and prove both its publish and drop behavior.
 3. A command edits source and ignored paths. If source OCC succeeds, both lanes
    publish in one visible head.
 4. A command exits non-zero after writing source and ignored paths. Neither lane
-   publishes.
+   publishes, the manifest version does not advance, and `publish_lanes` reports
+   `dropped_command_failed` for both lanes.
 5. A command writes `.git/**` and ignored paths. `.git/**` follows the Git OCC
-   spec and never becomes ordinary direct ignored output.
-6. A command writes protected daemon metadata. The protected path is denied or
-   dropped with a stable reason.
+   spec when implemented, or drops with `git_metadata_unsupported`; it never
+   becomes ordinary direct ignored output.
+6. A command writes protected daemon metadata or a special filesystem entry. The
+   protected path is denied or dropped with a stable reason from the closed set.
 7. Ignored-lane file or byte limits are exceeded. Source lane can still publish
    if source OCC succeeds, and ignored lane reports `dropped_due_to_limits`.
 8. Two ignored-only commands write the same ignored file. The later accepted
@@ -375,8 +658,17 @@ must force the spool-backed path and prove both its publish and drop behavior.
     trace reports non-zero `ignored_spooled_bytes`.
 12. A command starts before a `.gitignore` change and finalizes after it. Routing
     follows the command snapshot and trace reports the route manifest version.
+13. A command produces an opaque directory marker over only ignored descendants.
+    The marker may publish in the ignored lane and counts against ignored limits.
+14. A command produces an opaque directory marker over only source descendants.
+    The marker publishes only after source OCC validates the hidden descendants.
+15. A command produces an opaque directory marker over mixed source and ignored
+    descendants. The command publish is rejected with `opaque_dir_mixed_routes`.
+16. Current flattened command responses include top-level `publish_lanes`; command
+    finalize trace includes `command.publish_lanes_decided` with the same bounded
+    object.
 
-### 14.1 Required File-Backed Capture Cases
+### 15.1 Required File-Backed Capture Cases
 
 These tests are mandatory and should fail if the implementation silently falls
 back to all-in-memory `Vec<u8>` capture for ignored output:
@@ -399,7 +691,7 @@ back to all-in-memory `Vec<u8>` capture for ignored output:
    prepared; assert no ignored payload becomes head-visible and the previous
    manifest remains active.
 
-## 15. Deferred Enhancements
+## 16. Deferred Enhancements
 
 These are intentionally out of v1:
 
