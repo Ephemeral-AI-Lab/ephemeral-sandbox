@@ -251,6 +251,28 @@ All accepted `.git` paths use the gated OCC lane.
 | validation failure rejects the whole command publish | partial normal-file publish is not allowed after Git metadata failure. |
 | rejections carry a code from a closed set | the publish path's rejection codes are the only cross-layer contract surface. |
 
+## Current Sandbox Floor Codes
+
+The first sandbox-side floor after ignored-state Milestone 5 uses this closed
+set for command Git metadata failures:
+
+| Code | Meaning |
+| --- | --- |
+| `git_metadata_unsupported` | A Git metadata write is outside the current safe accepted set. |
+| `git_index_staged_state` | `.git/index` changed semantic index entries and would publish durable staged state. |
+| `git_lock_file` | A `.git/**/*.lock` path remained in the final captured delta. |
+| `git_incomplete_operation` | Merge, revert, cherry-pick, bisect, sequencer, or rebase control state remained. |
+| `git_hook_write` | The command wrote under `.git/hooks/**`. |
+| `git_metadata_delete` | The command deleted Git metadata such as `HEAD`, refs, objects, index, or config. |
+| `git_metadata_opaque_replace` | The command deleted or opaquely replaced the `.git` root or a Git metadata subtree. |
+| `git_ref_write` | A ref or `packed-refs` write was observed before ref fast-forward/frame-shift support exists. |
+| `git_object_rewrite` | A Git object path already existed with different content. |
+| `git_reflog_rewrite` | A reflog was truncated or rewritten instead of appended. |
+
+The floor also reports the non-rejecting normalization drop code
+`git_index_stat_refresh` when an index write is semantically unchanged from the
+command snapshot and is treated as a no-op/stat-cache refresh.
+
 ## Rollback Rule
 
 Rejected Git metadata is not repaired in place.

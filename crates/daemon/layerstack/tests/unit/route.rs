@@ -7,10 +7,16 @@ use crate::{service, CommitOptions, CommitStatus, LayerStack};
 use crate::{ProtectedPathDrop, ProtectedPathDropReason};
 
 use super::{
-    capture_route_stats_for_manifest_with_protected_drops, publish_decision_for_opaque_dir,
-    publish_decisions_for_manifest_with_protected_drops, route_for_path, ManifestIgnoreSource,
-    Route, COMMAND_SCRATCH_PATH_DROP_REASON, DAEMON_CONTROL_PATH_DROP_REASON,
-    GIT_METADATA_UNSUPPORTED_DROP_REASON, INVALID_LAYER_PATH_DROP_REASON,
+    capture_route_stats_for_manifest_with_protected_drops,
+    publish_command_decisions_for_manifest_with_protected_drops, publish_decision_for_opaque_dir,
+    publish_decisions_for_manifest_with_protected_drops, route_for_path, GitMetadataPolicy,
+    ManifestIgnoreSource, Route, COMMAND_SCRATCH_PATH_DROP_REASON, DAEMON_CONTROL_PATH_DROP_REASON,
+    GIT_HOOK_WRITE_REJECT_REASON, GIT_INCOMPLETE_OPERATION_REJECT_REASON,
+    GIT_INDEX_STAGED_STATE_REJECT_REASON, GIT_INDEX_STAT_REFRESH_DROP_REASON,
+    GIT_LOCK_FILE_REJECT_REASON, GIT_METADATA_DELETE_REJECT_REASON,
+    GIT_METADATA_OPAQUE_REPLACE_REJECT_REASON, GIT_METADATA_UNSUPPORTED_DROP_REASON,
+    GIT_OBJECT_REWRITE_REJECT_REASON, GIT_REFLOG_REWRITE_REJECT_REASON,
+    GIT_REF_WRITE_REJECT_REASON, INVALID_LAYER_PATH_DROP_REASON,
     OPAQUE_DIR_EXPANSION_LIMIT_DROP_REASON, OPAQUE_DIR_MIXED_ROUTES_DROP_REASON,
     OPAQUE_DIR_PROTECTED_DESCENDANT_DROP_REASON, UNSUPPORTED_SPECIAL_FILE_DROP_REASON,
 };
@@ -351,6 +357,42 @@ fn write_sparse_file(path: &Path, len: u64) -> std::io::Result<()> {
     std::fs::File::create(path)?.set_len(len)
 }
 
+fn git_index_with_entry(path: &str, object_byte: u8, stat_seed: u32) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(b"DIRC");
+    bytes.extend_from_slice(&2_u32.to_be_bytes());
+    bytes.extend_from_slice(&1_u32.to_be_bytes());
+    bytes.extend_from_slice(&stat_seed.to_be_bytes());
+    bytes.extend_from_slice(&0_u32.to_be_bytes());
+    bytes.extend_from_slice(&stat_seed.saturating_add(1).to_be_bytes());
+    bytes.extend_from_slice(&0_u32.to_be_bytes());
+    bytes.extend_from_slice(&stat_seed.saturating_add(2).to_be_bytes());
+    bytes.extend_from_slice(&stat_seed.saturating_add(3).to_be_bytes());
+    bytes.extend_from_slice(&0o100644_u32.to_be_bytes());
+    bytes.extend_from_slice(&0_u32.to_be_bytes());
+    bytes.extend_from_slice(&0_u32.to_be_bytes());
+    bytes.extend_from_slice(&12_u32.to_be_bytes());
+    bytes.extend_from_slice(&[object_byte; 20]);
+    let path_len = u16::try_from(path.len()).expect("test path fits index flags");
+    bytes.extend_from_slice(&path_len.to_be_bytes());
+    bytes.extend_from_slice(path.as_bytes());
+    bytes.push(0);
+    while bytes.len() % 8 != 0 {
+        bytes.push(0);
+    }
+    bytes.extend_from_slice(&[0; 20]);
+    bytes
+}
+
+fn git_empty_index() -> Vec<u8> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(b"DIRC");
+    bytes.extend_from_slice(&2_u32.to_be_bytes());
+    bytes.extend_from_slice(&0_u32.to_be_bytes());
+    bytes.extend_from_slice(&[0; 20]);
+    bytes
+}
+
 fn is_ignored(fixture: &Fixture, path: &str) -> TestResult<bool> {
     Ok(route_of(fixture, path)? == Route::Direct)
 }
@@ -367,6 +409,16 @@ fn file_status(result: &crate::ChangesetResult, path: &str) -> TestResult<Commit
         .find(|file| file.path == lp(path).expect("valid layer path"))
         .ok_or_else(|| format!("missing file result for {path}"))?
         .status)
+}
+
+fn file_message(result: &crate::ChangesetResult, path: &str) -> TestResult<String> {
+    Ok(result
+        .files
+        .iter()
+        .find(|file| file.path == lp(path).expect("valid layer path"))
+        .ok_or_else(|| format!("missing file result for {path}"))?
+        .message
+        .clone())
 }
 
 #[test]
@@ -456,6 +508,440 @@ fn git_metadata_drop_decisions_use_stable_reason_code() -> TestResult {
     );
     assert_eq!(decisions[2].route, Route::Gated);
     assert_eq!(decisions[2].drop_reason, None);
+    Ok(())
+}
+
+#[test]
+fn command_git_index_stat_refresh_is_dropped_without_conflict_or_publish() -> TestResult {
+    let fixture = Fixture::new("command_git_index_stat_refresh")?;
+    let base_index = git_index_with_entry("src/main.rs", 1, 10);
+    LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+        path: lp(".git/index")?,
+        content: base_index,
+    }])?;
+    let snapshot = service::acquire_snapshot(&fixture.root, "git-index-stat-refresh")?;
+    LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+        path: lp("src/other.rs")?,
+        content: b"other".to_vec(),
+    }])?;
+
+    let result = service::publish_command_capture_lane_aware(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &[LayerChange::Write {
+            path: lp(".git/index")?,
+            content: git_index_with_entry("src/main.rs", 1, 99),
+        }],
+        &[],
+        CommitOptions::default(),
+    )?;
+    service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+    assert!(result.success());
+    assert_eq!(result.published_manifest_version, None);
+    assert_eq!(file_status(&result, ".git/index")?, CommitStatus::Dropped);
+    assert_eq!(
+        file_message(&result, ".git/index")?,
+        GIT_INDEX_STAT_REFRESH_DROP_REASON
+    );
+    Ok(())
+}
+
+#[test]
+fn command_git_empty_index_creation_is_dropped_as_noop() -> TestResult {
+    let fixture = Fixture::new("command_git_empty_index")?;
+    let snapshot = service::acquire_snapshot(&fixture.root, "git-empty-index")?;
+
+    let result = service::publish_command_capture_lane_aware(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &[LayerChange::Write {
+            path: lp(".git/index")?,
+            content: git_empty_index(),
+        }],
+        &[],
+        CommitOptions::default(),
+    )?;
+    service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+    assert!(result.success());
+    assert_eq!(result.published_manifest_version, None);
+    assert_eq!(file_status(&result, ".git/index")?, CommitStatus::Dropped);
+    assert_eq!(
+        file_message(&result, ".git/index")?,
+        GIT_INDEX_STAT_REFRESH_DROP_REASON
+    );
+    Ok(())
+}
+
+#[test]
+fn bounded_command_capture_preserves_git_index_stat_refresh_drop() -> TestResult {
+    let fixture = Fixture::new("bounded_command_git_index_stat_refresh")?;
+    let base_index = git_index_with_entry("src/main.rs", 1, 10);
+    LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+        path: lp(".git/index")?,
+        content: base_index,
+    }])?;
+    let snapshot = service::acquire_snapshot(&fixture.root, "bounded-git-index-stat-refresh")?;
+    let upperdir = fixture.base.join("upper-index-stat-refresh");
+    std::fs::create_dir_all(upperdir.join(".git"))?;
+    std::fs::write(
+        upperdir.join(".git/index"),
+        git_index_with_entry("src/main.rs", 1, 99),
+    )?;
+    let spool_dir = fixture.base.join("spool-index-stat-refresh");
+
+    let captured = service::capture_upperdir_for_snapshot_with_options(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &upperdir,
+        &spool_dir,
+        service::BoundedCaptureOptions::default(),
+    )?;
+    assert_eq!(
+        captured
+            .route_stats
+            .drop_reason_count(GIT_INDEX_STAT_REFRESH_DROP_REASON),
+        1
+    );
+
+    let result = service::publish_command_capture_lane_aware(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &captured.changes,
+        &captured.protected_drops,
+        CommitOptions::default(),
+    )?;
+    service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+    assert!(result.success());
+    assert_eq!(result.published_manifest_version, None);
+    assert_eq!(file_status(&result, ".git/index")?, CommitStatus::Dropped);
+    assert_eq!(
+        file_message(&result, ".git/index")?,
+        GIT_INDEX_STAT_REFRESH_DROP_REASON
+    );
+    Ok(())
+}
+
+#[test]
+fn bounded_command_capture_path_only_git_reject_does_not_read_payload() -> TestResult {
+    let fixture = Fixture::new("bounded_command_git_hook_large_reject")?;
+    let snapshot = service::acquire_snapshot(&fixture.root, "bounded-git-hook-large-reject")?;
+    let upperdir = fixture.base.join("upper-large-hook");
+    write_sparse_file(
+        &upperdir.join(".git/hooks/pre-commit"),
+        (8 * 1024 * 1024) + 1,
+    )?;
+    let spool_dir = fixture.base.join("spool-large-hook");
+
+    let captured = service::capture_upperdir_for_snapshot_with_options(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &upperdir,
+        &spool_dir,
+        service::BoundedCaptureOptions::default(),
+    )?;
+    assert_eq!(
+        captured
+            .route_stats
+            .drop_reason_count(GIT_HOOK_WRITE_REJECT_REASON),
+        1
+    );
+
+    let result = service::publish_command_capture_lane_aware(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &captured.changes,
+        &captured.protected_drops,
+        CommitOptions::default(),
+    )?;
+    service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+    assert!(!result.success());
+    assert_eq!(result.published_manifest_version, None);
+    assert_eq!(
+        file_status(&result, ".git/hooks/pre-commit")?,
+        CommitStatus::Failed
+    );
+    assert_eq!(
+        file_message(&result, ".git/hooks/pre-commit")?,
+        GIT_HOOK_WRITE_REJECT_REASON
+    );
+    Ok(())
+}
+
+#[test]
+fn command_git_staged_index_rejects_whole_publish() -> TestResult {
+    let fixture = Fixture::new_with_gitignore("command_git_staged_index", "cache/\n")?;
+    let base_index = git_index_with_entry("src/main.rs", 1, 10);
+    LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+        path: lp(".git/index")?,
+        content: base_index,
+    }])?;
+    let snapshot = service::acquire_snapshot(&fixture.root, "git-staged-index")?;
+
+    let result = service::publish_command_capture_lane_aware(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &[
+            LayerChange::Write {
+                path: lp(".git/index")?,
+                content: git_index_with_entry("src/main.rs", 2, 10),
+            },
+            LayerChange::Write {
+                path: lp("cache/out.txt")?,
+                content: b"ignored".to_vec(),
+            },
+        ],
+        &[],
+        CommitOptions::default(),
+    )?;
+    service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+    assert!(!result.success());
+    assert_eq!(result.published_manifest_version, None);
+    assert_eq!(file_status(&result, ".git/index")?, CommitStatus::Failed);
+    assert_eq!(
+        file_message(&result, ".git/index")?,
+        GIT_INDEX_STAGED_STATE_REJECT_REASON
+    );
+    assert_eq!(
+        file_status(&result, "cache/out.txt")?,
+        CommitStatus::Dropped
+    );
+    assert!(
+        !LayerStack::open(fixture.root.clone())?
+            .read_bytes("cache/out.txt")?
+            .1,
+        "ignored output must not publish when git metadata rejects"
+    );
+    Ok(())
+}
+
+#[test]
+fn command_git_rejects_locks_markers_hooks_and_ref_writes() -> TestResult {
+    let fixture = Fixture::new("command_git_reject_control_paths")?;
+    let manifest = LayerStack::open(fixture.root.clone())?.read_active_manifest()?;
+    let decisions = publish_command_decisions_for_manifest_with_protected_drops(
+        &fixture.root,
+        &manifest,
+        &[
+            LayerChange::Write {
+                path: lp(".git/index.lock")?,
+                content: b"lock".to_vec(),
+            },
+            LayerChange::Write {
+                path: lp(".git/MERGE_HEAD")?,
+                content: b"merge".to_vec(),
+            },
+            LayerChange::Write {
+                path: lp(".git/rebase-merge/head-name")?,
+                content: b"main".to_vec(),
+            },
+            LayerChange::Write {
+                path: lp(".git/hooks/pre-commit")?,
+                content: b"hook".to_vec(),
+            },
+            LayerChange::Write {
+                path: lp(".git/refs/heads/main")?,
+                content: b"abc".to_vec(),
+            },
+        ],
+        &[],
+    )?;
+
+    let expected = [
+        GIT_LOCK_FILE_REJECT_REASON,
+        GIT_INCOMPLETE_OPERATION_REJECT_REASON,
+        GIT_INCOMPLETE_OPERATION_REJECT_REASON,
+        GIT_HOOK_WRITE_REJECT_REASON,
+        GIT_REF_WRITE_REJECT_REASON,
+    ];
+    for (decision, reason) in decisions.iter().zip(expected) {
+        assert_eq!(decision.route, Route::Drop);
+        assert!(decision.reject_publish);
+        assert_eq!(
+            decision.drop_reason.map(|reason| reason.as_str()),
+            Some(reason)
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn command_git_deletions_and_opaque_root_reject() -> TestResult {
+    let fixture = Fixture::new("command_git_delete_reject")?;
+    let manifest = LayerStack::open(fixture.root.clone())?.read_active_manifest()?;
+    let decisions = publish_command_decisions_for_manifest_with_protected_drops(
+        &fixture.root,
+        &manifest,
+        &[
+            LayerChange::Delete {
+                path: lp(".git/HEAD")?,
+            },
+            LayerChange::Delete {
+                path: lp(".git/objects/aa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")?,
+            },
+            LayerChange::Delete {
+                path: lp(".git/refs/heads/main")?,
+            },
+            LayerChange::Delete {
+                path: lp(".git/index")?,
+            },
+            LayerChange::Delete {
+                path: lp(".git/config")?,
+            },
+            LayerChange::OpaqueDir { path: lp(".git")? },
+        ],
+        &[],
+    )?;
+
+    for decision in decisions.iter().take(5) {
+        assert_eq!(decision.route, Route::Drop);
+        assert!(decision.reject_publish);
+        assert_eq!(
+            decision.drop_reason.map(|reason| reason.as_str()),
+            Some(GIT_METADATA_DELETE_REJECT_REASON)
+        );
+    }
+    assert_eq!(
+        decisions[5].drop_reason.map(|reason| reason.as_str()),
+        Some(GIT_METADATA_OPAQUE_REPLACE_REJECT_REASON)
+    );
+    assert!(decisions[5].reject_publish);
+    Ok(())
+}
+
+#[test]
+fn command_git_reflog_append_is_gated_and_rewrite_rejects() -> TestResult {
+    let fixture = Fixture::new("command_git_reflog_append")?;
+    LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+        path: lp(".git/logs/HEAD")?,
+        content: b"old\n".to_vec(),
+    }])?;
+    let snapshot = service::acquire_snapshot(&fixture.root, "git-reflog-append")?;
+
+    let append = service::publish_command_capture_lane_aware(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &[LayerChange::Write {
+            path: lp(".git/logs/HEAD")?,
+            content: b"old\nnew\n".to_vec(),
+        }],
+        &[],
+        CommitOptions::default(),
+    )?;
+    assert!(append.success());
+    assert_eq!(
+        file_status(&append, ".git/logs/HEAD")?,
+        CommitStatus::Committed
+    );
+    assert_eq!(fixture.read_text(".git/logs/HEAD")?, "old\nnew\n");
+
+    let rewrite = service::publish_command_capture_lane_aware(
+        &fixture.root,
+        snapshot.manifest_version,
+        &snapshot.layer_paths,
+        &[LayerChange::Write {
+            path: lp(".git/logs/HEAD")?,
+            content: b"rewrite\n".to_vec(),
+        }],
+        &[],
+        CommitOptions::default(),
+    )?;
+    service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+    assert!(!rewrite.success());
+    assert_eq!(rewrite.published_manifest_version, None);
+    assert_eq!(
+        file_status(&rewrite, ".git/logs/HEAD")?,
+        CommitStatus::Failed
+    );
+    assert_eq!(
+        file_message(&rewrite, ".git/logs/HEAD")?,
+        GIT_REFLOG_REWRITE_REJECT_REASON
+    );
+    Ok(())
+}
+
+#[test]
+fn command_git_objects_are_gated_and_rewrites_reject() -> TestResult {
+    let fixture = Fixture::new("command_git_object_rules")?;
+    LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+        path: lp(".git/objects/aa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")?,
+        content: b"object".to_vec(),
+    }])?;
+    let snapshot = service::acquire_snapshot(&fixture.root, "git-object-rules")?;
+
+    let decisions = publish_command_decisions_for_manifest_with_protected_drops(
+        &fixture.root,
+        &LayerStack::open(fixture.root.clone())?.read_active_manifest()?,
+        &[
+            LayerChange::Write {
+                path: lp(".git/objects/cc/dddddddddddddddddddddddddddddddddddddddd")?,
+                content: b"new-object".to_vec(),
+            },
+            LayerChange::Write {
+                path: lp(".git/objects/aa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")?,
+                content: b"different".to_vec(),
+            },
+        ],
+        &[],
+    )?;
+    assert_eq!(decisions[0].route, Route::Gated);
+    assert!(!decisions[0].reject_publish);
+    assert_eq!(decisions[1].route, Route::Drop);
+    assert!(decisions[1].reject_publish);
+    assert_eq!(
+        decisions[1].drop_reason.map(|reason| reason.as_str()),
+        Some(GIT_OBJECT_REWRITE_REJECT_REASON)
+    );
+    service::release_lease(&fixture.root, &snapshot.lease_id)?;
+    Ok(())
+}
+
+#[test]
+fn command_gitignore_cannot_route_git_metadata_direct_or_source() -> TestResult {
+    let fixture = Fixture::new_with_gitignore("command_git_ignore_bypass", ".git/\n*\n")?;
+    LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+        path: lp(".git/logs/HEAD")?,
+        content: b"old\n".to_vec(),
+    }])?;
+    let manifest = LayerStack::open(fixture.root.clone())?.read_active_manifest()?;
+
+    let decisions = publish_command_decisions_for_manifest_with_protected_drops(
+        &fixture.root,
+        &manifest,
+        &[
+            LayerChange::Write {
+                path: lp(".git/logs/HEAD")?,
+                content: b"old\nnew\n".to_vec(),
+            },
+            LayerChange::Write {
+                path: lp(".git/config")?,
+                content: b"config".to_vec(),
+            },
+            LayerChange::Write {
+                path: lp("ordinary.txt")?,
+                content: b"ignored".to_vec(),
+            },
+        ],
+        &[],
+    )?;
+
+    assert_eq!(decisions[0].route, Route::Gated);
+    assert_eq!(decisions[1].route, Route::Drop);
+    assert!(decisions[1].reject_publish);
+    assert_eq!(decisions[2].route, Route::Direct);
     Ok(())
 }
 
@@ -1206,8 +1692,15 @@ fn opaque_dir_expansion_limit_rejects_publish() -> TestResult {
         manifest: &manifest,
     };
 
-    let decision =
-        publish_decision_for_opaque_dir(&fixture.root, &source, &view, &manifest, &lp("big")?, 2)?;
+    let decision = publish_decision_for_opaque_dir(
+        &fixture.root,
+        &source,
+        &view,
+        &manifest,
+        &lp("big")?,
+        2,
+        GitMetadataPolicy::UnsupportedDrop,
+    )?;
 
     assert_eq!(decision.route, Route::Drop);
     assert!(decision.reject_publish);

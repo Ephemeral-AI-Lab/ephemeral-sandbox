@@ -151,13 +151,13 @@ fn nonzero_exit_discards_source_and_ignored_writes_with_publish_lanes() -> Resul
 }
 
 #[test]
-fn git_metadata_write_is_dropped_with_publish_lane_reason() -> Result<()> {
+fn git_metadata_write_rejects_publish_and_ignored_lane() -> Result<()> {
     let Some(pool) = live_pool_or_skip()? else {
         return Ok(());
     };
     let lease = pool.acquire()?;
     let dir = format!(
-        "publish-lanes-git-drop/{}",
+        "publish-lanes-git-reject/{}",
         e2e_test::unique_suffix().replace('-', "_")
     );
     let git_path = format!("{dir}/.git/config");
@@ -167,7 +167,7 @@ fn git_metadata_write_is_dropped_with_publish_lane_reason() -> Result<()> {
         catalog::SANDBOX_FILE_WRITE,
         json!({
             "path": format!("{dir}/.gitignore"),
-            "content": "cache/\n",
+            "content": ".git/\ncache/\n",
             "overwrite": false,
         }),
     )?;
@@ -192,6 +192,10 @@ fn git_metadata_write_is_dropped_with_publish_lane_reason() -> Result<()> {
         as_str(&result, "status")? == "ok",
         "successful command should finalize in foreground: {result}"
     );
+    ensure!(
+        !as_bool(&result, "success")?,
+        "git metadata rejection must fail the workspace mutation: {result}"
+    );
 
     let lanes = &result["publish_lanes"];
     ensure!(
@@ -199,8 +203,8 @@ fn git_metadata_write_is_dropped_with_publish_lane_reason() -> Result<()> {
         "git metadata must not be treated as source: {result}"
     );
     ensure!(
-        lanes["ignored"]["publish_status"] == "published_lww",
-        "ordinary ignored output should still publish when git metadata is dropped: {result}"
+        lanes["ignored"]["publish_status"] == "failed",
+        "ordinary ignored output must not publish when git metadata rejects: {result}"
     );
     ensure!(
         lanes["ignored"]["path_count"] == 1,
@@ -209,7 +213,7 @@ fn git_metadata_write_is_dropped_with_publish_lane_reason() -> Result<()> {
     ensure!(
         lanes["routing"]["dropped_path_count"] == 1
             && lanes["routing"]["drop_reason_counts"]["git_metadata_unsupported"] == 1,
-        "git metadata drop reason must be surfaced: {result}"
+        "git metadata rejection reason must be surfaced: {result}"
     );
 
     assert_command_publish_lanes_trace(
@@ -220,9 +224,9 @@ fn git_metadata_write_is_dropped_with_publish_lane_reason() -> Result<()> {
         |details| {
             details["routing"]["dropped_path_count"] == 1
                 && details["routing"]["drop_reason_counts"]["git_metadata_unsupported"] == 1
-                && details["ignored"]["publish_status"] == "published_lww"
+                && details["ignored"]["publish_status"] == "failed"
         },
-        "command finalize trace must include git metadata drop reason",
+        "command finalize trace must include git metadata rejection reason",
     )?;
 
     let read_git = lease.call_ok(catalog::SANDBOX_FILE_READ, json!({"path": git_path}))?;
@@ -232,15 +236,158 @@ fn git_metadata_write_is_dropped_with_publish_lane_reason() -> Result<()> {
     );
     let read_ignored = lease.call_ok(catalog::SANDBOX_FILE_READ, json!({"path": ignored_path}))?;
     ensure!(
-        as_bool(&read_ignored, "exists")?,
-        "ignored output should remain publishable when git metadata is dropped: {read_ignored}"
-    );
-    ensure!(
-        as_str(&read_ignored, "content")? == "ignored",
-        "ignored output content should publish unchanged: {read_ignored}"
+        !as_bool(&read_ignored, "exists")?,
+        "ignored output must not publish when git metadata rejects: {read_ignored}"
     );
     wait_for_command_count(&lease, 0)?;
     wait_for_active_leases(&lease, 0)?;
+    Ok(())
+}
+
+#[test]
+fn git_add_without_commit_rejects_durable_staged_index() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let lease = pool.acquire()?;
+    seed_real_git_workspace(&lease)?;
+    let before = manifest_version(&lease)?;
+
+    let wire = lease.call(
+        catalog::SANDBOX_COMMAND_EXEC,
+        json!({
+            "cmd": "printf staged > staged.txt && git add staged.txt",
+            "yield_time_ms": 8000,
+            "timeout_seconds": 10,
+        }),
+    )?;
+    let result = finalize_foreground_command(
+        &lease,
+        wire.clone(),
+        Instant::now() + Duration::from_secs(30),
+    )?;
+    ensure_git_publish_rejected(
+        &lease,
+        &wire,
+        &result,
+        "git_index_staged_state",
+        before,
+        "git add without commit must reject durable staged index state",
+    )?;
+    let read = lease.call_ok(catalog::SANDBOX_FILE_READ, json!({"path": "staged.txt"}))?;
+    ensure!(
+        !as_bool(&read, "exists")?,
+        "source file from rejected git add must not publish: {read}"
+    );
+    Ok(())
+}
+
+#[test]
+fn git_leftover_lock_rejects_publish() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let lease = pool.acquire()?;
+    seed_real_git_workspace(&lease)?;
+    let before = manifest_version(&lease)?;
+
+    let wire = lease.call(
+        catalog::SANDBOX_COMMAND_EXEC,
+        json!({
+            "cmd": "printf lock > .git/index.lock",
+            "yield_time_ms": 8000,
+            "timeout_seconds": 10,
+        }),
+    )?;
+    let result = finalize_foreground_command(
+        &lease,
+        wire.clone(),
+        Instant::now() + Duration::from_secs(30),
+    )?;
+    ensure_git_publish_rejected(
+        &lease,
+        &wire,
+        &result,
+        "git_lock_file",
+        before,
+        "leftover git lock must reject publish",
+    )?;
+    Ok(())
+}
+
+#[test]
+fn git_hook_write_rejects_publish() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let lease = pool.acquire()?;
+    seed_real_git_workspace(&lease)?;
+    let before = manifest_version(&lease)?;
+
+    let wire = lease.call(
+        catalog::SANDBOX_COMMAND_EXEC,
+        json!({
+            "cmd": "printf '#!/bin/sh\\nexit 0\\n' > .git/hooks/pre-commit",
+            "yield_time_ms": 8000,
+            "timeout_seconds": 10,
+        }),
+    )?;
+    let result = finalize_foreground_command(
+        &lease,
+        wire.clone(),
+        Instant::now() + Duration::from_secs(30),
+    )?;
+    ensure_git_publish_rejected(
+        &lease,
+        &wire,
+        &result,
+        "git_hook_write",
+        before,
+        "git hook writes must reject publish",
+    )?;
+    Ok(())
+}
+
+#[test]
+fn deleting_git_head_and_object_rejects_publish() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let lease = pool.acquire()?;
+    let object_path = seed_real_git_workspace_with_loose_object(&lease)?;
+    let before = manifest_version(&lease)?;
+
+    let wire = lease.call(
+        catalog::SANDBOX_COMMAND_EXEC,
+        json!({
+            "cmd": format!("rm -f .git/HEAD {object_path}"),
+            "yield_time_ms": 8000,
+            "timeout_seconds": 10,
+        }),
+    )?;
+    let result = finalize_foreground_command(
+        &lease,
+        wire.clone(),
+        Instant::now() + Duration::from_secs(30),
+    )?;
+    ensure_git_publish_rejected(
+        &lease,
+        &wire,
+        &result,
+        "git_metadata_delete",
+        before,
+        "deleting HEAD or objects must reject publish",
+    )?;
+    let head = lease.call_ok(catalog::SANDBOX_FILE_READ, json!({"path": ".git/HEAD"}))?;
+    ensure!(
+        as_bool(&head, "exists")?,
+        "rejected .git/HEAD deletion must leave shared HEAD visible: {head}"
+    );
+    let object = lease.call_ok(catalog::SANDBOX_FILE_READ, json!({"path": object_path}))?;
+    ensure!(
+        as_bool(&object, "exists")?,
+        "rejected object deletion must leave shared object visible: {object}"
+    );
     Ok(())
 }
 
@@ -1453,6 +1600,102 @@ fn assert_command_publish_lanes_trace(
         ),
         "{failure_message}: {record:?}"
     );
+    Ok(())
+}
+
+fn seed_real_git_workspace(lease: &e2e_test::NodeLease<'_>) -> Result<()> {
+    seed_real_git_workspace_inner(lease, false).map(|_| ())
+}
+
+fn seed_real_git_workspace_with_loose_object(lease: &e2e_test::NodeLease<'_>) -> Result<String> {
+    seed_real_git_workspace_inner(lease, true)
+}
+
+fn seed_real_git_workspace_inner(
+    lease: &e2e_test::NodeLease<'_>,
+    create_object: bool,
+) -> Result<String> {
+    let mut script = format!(
+        "set -e\ncd {root}\ngit init -q\ngit config user.email e2e@example.invalid\ngit config user.name 'E2E Test'\n",
+        root = lease.workspace_root()
+    );
+    if create_object {
+        script.push_str(
+            "printf seed > object-seed.txt\nsha=$(git hash-object -w object-seed.txt)\nprintf '%s' \"$sha\"\n",
+        );
+    }
+    let output = lease.container().exec(&["sh", "-lc", &script])?;
+    lease.call_ok(
+        catalog::SANDBOX_CHECKPOINT_BUILD_BASE,
+        json!({
+            "workspace_root": lease.workspace_root(),
+            "reset": true,
+        }),
+    )?;
+    let sha = output.trim();
+    if create_object {
+        ensure!(
+            sha.len() >= 3,
+            "git hash-object returned invalid sha: {output:?}"
+        );
+        Ok(format!(".git/objects/{}/{}", &sha[..2], &sha[2..]))
+    } else {
+        Ok(String::new())
+    }
+}
+
+fn manifest_version(lease: &e2e_test::NodeLease<'_>) -> Result<i64> {
+    let metrics = lease.call_ok(catalog::SANDBOX_CHECKPOINT_LAYER_METRICS, json!({}))?;
+    as_i64(&metrics, "manifest_version")
+}
+
+fn ensure_git_publish_rejected(
+    lease: &e2e_test::NodeLease<'_>,
+    initial_response: &Value,
+    result: &Value,
+    reason: &str,
+    before_manifest_version: i64,
+    context: &str,
+) -> Result<()> {
+    ensure!(
+        as_str(result, "status")? == "ok",
+        "{context}: command should exit successfully and fail only publish: {result}"
+    );
+    ensure!(
+        !as_bool(result, "success")?,
+        "{context}: workspace mutation must fail: {result}"
+    );
+    ensure!(
+        result["publish_lanes"]["routing"]["drop_reason_counts"][reason]
+            .as_i64()
+            .unwrap_or_default()
+            >= 1,
+        "{context}: publish_lanes must carry {reason}: {result}"
+    );
+    ensure!(
+        array(result, "changed_paths")?.is_empty(),
+        "{context}: rejected git metadata must publish no paths: {result}"
+    );
+    let after = manifest_version(lease)?;
+    ensure!(
+        after == before_manifest_version,
+        "{context}: manifest must not advance on git metadata rejection; before={before_manifest_version}, after={after}"
+    );
+    assert_command_publish_lanes_trace(
+        lease,
+        initial_response,
+        running_command_id_from_response(initial_response)?.as_deref(),
+        Instant::now() + Duration::from_secs(10),
+        |details| {
+            details["routing"]["drop_reason_counts"][reason]
+                .as_i64()
+                .unwrap_or_default()
+                >= 1
+        },
+        context,
+    )?;
+    wait_for_command_count(lease, 0)?;
+    wait_for_active_leases(lease, 0)?;
     Ok(())
 }
 

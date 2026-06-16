@@ -12,8 +12,9 @@ use crate::capture::{
 };
 use crate::commit::{
     capture_route_stats_for_manifest_with_protected_drops,
+    publish_command_decisions_for_manifest_with_protected_drops,
     publish_decisions_for_manifest_with_protected_drops, CaptureRouteStats, ChangesetResult,
-    CommitError, CommitOptions, CommitWriter, PublishDecision, Route,
+    CommitError, CommitOptions, CommitWriter, PublishDecision, Route, RouteDropReason,
 };
 use crate::{LayerStack, LayerStackError};
 
@@ -310,7 +311,7 @@ pub fn publish_command_capture_lane_aware(
     options: CommitOptions,
 ) -> Result<ChangesetResult, CommitError> {
     let manifest = snapshot_manifest(root, snapshot_manifest_version, snapshot_layer_paths)?;
-    let decisions = publish_decisions_for_manifest_with_protected_drops(
+    let decisions = publish_command_decisions_for_manifest_with_protected_drops(
         root,
         &manifest,
         changes,
@@ -338,9 +339,9 @@ pub fn capture_upperdir_for_snapshot_with_options(
     let placeholder_changes = metadata
         .entries
         .iter()
-        .map(CapturedUpperdirEntry::placeholder_change)
-        .collect::<Vec<_>>();
-    let decisions = publish_decisions_for_manifest_with_protected_drops(
+        .map(command_route_probe_change)
+        .collect::<Result<Vec<_>, CommitError>>()?;
+    let decisions = publish_command_decisions_for_manifest_with_protected_drops(
         root,
         &manifest,
         &placeholder_changes,
@@ -382,6 +383,40 @@ pub fn capture_upperdir_for_snapshot_with_options(
         metadata_path_count: metadata.entries.len(),
         spool_dir,
     })
+}
+
+fn command_route_probe_change(entry: &CapturedUpperdirEntry) -> Result<LayerChange, CommitError> {
+    if command_git_metadata_probe_needs_payload(entry.path()) && entry.regular_file_size().is_some()
+    {
+        entry
+            .materialize_in_memory(MAX_CAPTURE_FILE_BYTES)
+            .map_err(CommitError::from)
+    } else {
+        Ok(entry.placeholder_change())
+    }
+}
+
+fn command_git_metadata_probe_needs_payload(path: &LayerPath) -> bool {
+    let Some(parts) = git_metadata_relative_parts(path) else {
+        return false;
+    };
+    parts == ["index"]
+        || parts
+            .first()
+            .is_some_and(|part| matches!(*part, "logs" | "objects"))
+}
+
+fn git_metadata_relative_parts(path: &LayerPath) -> Option<Vec<&str>> {
+    let mut parts = Vec::new();
+    let mut found_git = false;
+    for part in path.as_str().split('/') {
+        if found_git {
+            parts.push(part);
+        } else if part == ".git" {
+            found_git = true;
+        }
+    }
+    found_git.then_some(parts)
 }
 
 pub fn capture_route_stats_for_snapshot_with_protected_drops(
@@ -491,10 +526,21 @@ fn materialize_bounded_capture_changes(
                     spool_direct_writes,
                 )?);
             }
+            Route::Drop if materialize_dropped_command_entry(entry, decision) => {
+                changes.push(entry.materialize_in_memory(MAX_CAPTURE_FILE_BYTES)?);
+            }
             Route::Drop => changes.push(entry.placeholder_change()),
         }
     }
     Ok(changes)
+}
+
+fn materialize_dropped_command_entry(
+    entry: &CapturedUpperdirEntry,
+    decision: &PublishDecision,
+) -> bool {
+    entry.regular_file_size().is_some()
+        && decision.drop_reason == Some(RouteDropReason::GitIndexStatRefresh)
 }
 
 fn materialize_direct_entry(

@@ -1154,11 +1154,12 @@ mod tests {
     }
 
     #[test]
-    fn successful_ephemeral_command_reports_git_metadata_drop_without_publishing() -> TestResult {
-        let fixture = EphemeralFinalizeFixture::new("git-metadata-drop")?;
+    fn successful_ephemeral_command_rejects_unsupported_git_metadata_without_publishing(
+    ) -> TestResult {
+        let fixture = EphemeralFinalizeFixture::new("git-metadata-reject")?;
         let snapshot = service::acquire_snapshot(&fixture.root, "test-command")?;
         let workspace =
-            EphemeralWorkspace::create(&fixture.scratch, "command", "git-metadata-drop")?;
+            EphemeralWorkspace::create(&fixture.scratch, "command", "git-metadata-reject")?;
         write_upperdir_file(
             &workspace,
             ".git/config",
@@ -1177,14 +1178,14 @@ mod tests {
                 exit_code: Some(0),
                 stdout: "stdout".to_owned(),
                 stderr: String::new(),
-                command_id: Some("cmd_git_metadata_drop".to_owned()),
+                command_id: Some("cmd_git_metadata_reject".to_owned()),
             },
         )?;
         service::release_lease(&fixture.root, &snapshot.lease_id)?;
 
         let wire = response.to_wire_value();
         assert_eq!(wire["status"], "ok");
-        assert_eq!(wire["success"], true);
+        assert_eq!(wire["success"], false);
         assert_eq!(wire["changed_paths"], serde_json::json!([]));
         assert_eq!(wire["publish_lanes"]["source"]["publish_status"], "empty");
         assert_eq!(wire["publish_lanes"]["ignored"]["publish_status"], "empty");
@@ -1197,6 +1198,9 @@ mod tests {
             wire["publish_lanes"]["routing"]["drop_reason_counts"],
             serde_json::json!({"git_metadata_unsupported": 1})
         );
+        assert_eq!(wire["conflict"]["conflict_file"], ".git/config");
+        assert_eq!(wire["conflict"]["reason"], "failed");
+        assert_eq!(wire["conflict_reason"], "git_metadata_unsupported");
         assert_eq!(
             wire["publish_lanes"]["routing"]["route_manifest_version"],
             snapshot.manifest_version
@@ -1206,13 +1210,180 @@ mod tests {
                 .read_active_manifest()?
                 .version,
             snapshot.manifest_version,
-            ".git-only dropped command must not advance the manifest"
+            ".git-only rejected command must not advance the manifest"
         );
         let (_bytes, exists) = LayerStack::open(fixture.root.clone())?.read_bytes(".git/config")?;
         assert!(
             !exists,
             ".git metadata must not publish through command finalize"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn successful_ephemeral_command_drops_git_index_stat_refresh() -> TestResult {
+        let fixture = EphemeralFinalizeFixture::new("git-index-stat-refresh")?;
+        let base_index = git_index_with_entry("src/main.rs", 1, 10);
+        LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+            path: layerstack::LayerPath::parse(".git/index")?,
+            content: base_index,
+        }])?;
+        let snapshot = service::acquire_snapshot(&fixture.root, "test-command")?;
+        let workspace =
+            EphemeralWorkspace::create(&fixture.scratch, "command", "git-index-stat-refresh")?;
+        write_upperdir_file(
+            &workspace,
+            ".git/index",
+            &git_index_with_entry("src/main.rs", 1, 99),
+        )?;
+
+        let response = finalize_ephemeral_command_with_default_capture_options(
+            &fixture.root,
+            &snapshot,
+            &workspace,
+            CommitOptions::default(),
+            FinalizeCommandRequest {
+                runner_result: None,
+                command_elapsed_s: 0.25,
+                status: CommandStatus::Ok,
+                exit_code: Some(0),
+                stdout: "stdout".to_owned(),
+                stderr: String::new(),
+                command_id: Some("cmd_git_index_stat_refresh".to_owned()),
+            },
+        )?;
+        service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+        let wire = response.to_wire_value();
+        assert_eq!(wire["status"], "ok");
+        assert_eq!(wire["success"], true);
+        assert_eq!(wire["changed_paths"], serde_json::json!([]));
+        assert_eq!(wire["publish_lanes"]["source"]["publish_status"], "empty");
+        assert_eq!(wire["publish_lanes"]["ignored"]["publish_status"], "empty");
+        assert_eq!(
+            wire["publish_lanes"]["routing"]["drop_reason_counts"],
+            serde_json::json!({"git_index_stat_refresh": 1})
+        );
+        assert!(wire["conflict"].is_null());
+        assert!(wire["conflict_reason"].is_null());
+        assert_eq!(
+            LayerStack::open(fixture.root.clone())?
+                .read_active_manifest()?
+                .version,
+            snapshot.manifest_version,
+            "stat-refresh-only command must not advance the manifest"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn successful_ephemeral_command_reports_large_path_only_git_reject_reason() -> TestResult {
+        let fixture = EphemeralFinalizeFixture::new("large-git-hook-reject")?;
+        let snapshot = service::acquire_snapshot(&fixture.root, "test-command")?;
+        let workspace =
+            EphemeralWorkspace::create(&fixture.scratch, "command", "large-git-hook-reject")?;
+        write_upperdir_sparse_file(&workspace, ".git/hooks/pre-commit", (8 * 1024 * 1024) + 1)?;
+
+        let response = finalize_ephemeral_command_with_default_capture_options(
+            &fixture.root,
+            &snapshot,
+            &workspace,
+            CommitOptions::default(),
+            FinalizeCommandRequest {
+                runner_result: None,
+                command_elapsed_s: 0.25,
+                status: CommandStatus::Ok,
+                exit_code: Some(0),
+                stdout: "stdout".to_owned(),
+                stderr: String::new(),
+                command_id: Some("cmd_large_git_hook_reject".to_owned()),
+            },
+        )?;
+        service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+        let wire = response.to_wire_value();
+        assert_eq!(wire["status"], "ok");
+        assert_eq!(wire["success"], false);
+        assert_eq!(wire["changed_paths"], serde_json::json!([]));
+        assert_eq!(
+            wire["publish_lanes"]["routing"]["drop_reason_counts"],
+            serde_json::json!({"git_hook_write": 1})
+        );
+        assert_eq!(wire["conflict"]["conflict_file"], ".git/hooks/pre-commit");
+        assert_eq!(wire["conflict_reason"], "git_hook_write");
+        let timings = &response
+            .finalized
+            .as_ref()
+            .expect("finalized response")
+            .core
+            .timings;
+        assert!(
+            timings
+                .get("command_exec.capture_upperdir_error")
+                .and_then(Value::as_str)
+                .is_none(),
+            "path-only Git reject should not read the oversized hook payload: {timings:?}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn rejected_git_metadata_prevents_source_and_ignored_lanes() -> TestResult {
+        let fixture = EphemeralFinalizeFixture::new("git-metadata-rejects-all")?;
+        LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
+            path: layerstack::LayerPath::parse(".gitignore")?,
+            content: b"ignored/\n".to_vec(),
+        }])?;
+        let snapshot = service::acquire_snapshot(&fixture.root, "test-command")?;
+        let workspace =
+            EphemeralWorkspace::create(&fixture.scratch, "command", "git-metadata-rejects-all")?;
+        write_upperdir_file(&workspace, ".git/index.lock", b"lock")?;
+        write_upperdir_file(&workspace, "src/main.rs", b"source")?;
+        write_upperdir_file(&workspace, "ignored/cache.txt", b"ignored")?;
+
+        let response = finalize_ephemeral_command_with_default_capture_options(
+            &fixture.root,
+            &snapshot,
+            &workspace,
+            CommitOptions::default(),
+            FinalizeCommandRequest {
+                runner_result: None,
+                command_elapsed_s: 0.25,
+                status: CommandStatus::Ok,
+                exit_code: Some(0),
+                stdout: "stdout".to_owned(),
+                stderr: String::new(),
+                command_id: Some("cmd_git_metadata_rejects_all".to_owned()),
+            },
+        )?;
+        service::release_lease(&fixture.root, &snapshot.lease_id)?;
+
+        let wire = response.to_wire_value();
+        assert_eq!(wire["status"], "ok");
+        assert_eq!(wire["success"], false);
+        assert_eq!(wire["changed_paths"], serde_json::json!([]));
+        assert_eq!(wire["publish_lanes"]["source"]["path_count"], 1);
+        assert_eq!(wire["publish_lanes"]["source"]["publish_status"], "failed");
+        assert_eq!(wire["publish_lanes"]["ignored"]["path_count"], 1);
+        assert_eq!(wire["publish_lanes"]["ignored"]["publish_status"], "failed");
+        assert_eq!(
+            wire["publish_lanes"]["routing"]["drop_reason_counts"],
+            serde_json::json!({"git_lock_file": 1})
+        );
+        assert_eq!(
+            LayerStack::open(fixture.root.clone())?
+                .read_active_manifest()?
+                .version,
+            snapshot.manifest_version,
+            "git metadata rejection must not advance the manifest"
+        );
+        for path in ["src/main.rs", "ignored/cache.txt", ".git/index.lock"] {
+            let (_bytes, exists) = LayerStack::open(fixture.root.clone())?.read_bytes(path)?;
+            assert!(
+                !exists,
+                "{path} must not publish after git metadata rejection"
+            );
+        }
         Ok(())
     }
 
@@ -2246,6 +2417,33 @@ mod tests {
         }
         let file = std::fs::File::create(path)?;
         file.set_len(len)
+    }
+
+    fn git_index_with_entry(path: &str, object_byte: u8, stat_seed: u32) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"DIRC");
+        bytes.extend_from_slice(&2_u32.to_be_bytes());
+        bytes.extend_from_slice(&1_u32.to_be_bytes());
+        bytes.extend_from_slice(&stat_seed.to_be_bytes());
+        bytes.extend_from_slice(&0_u32.to_be_bytes());
+        bytes.extend_from_slice(&stat_seed.saturating_add(1).to_be_bytes());
+        bytes.extend_from_slice(&0_u32.to_be_bytes());
+        bytes.extend_from_slice(&stat_seed.saturating_add(2).to_be_bytes());
+        bytes.extend_from_slice(&stat_seed.saturating_add(3).to_be_bytes());
+        bytes.extend_from_slice(&0o100644_u32.to_be_bytes());
+        bytes.extend_from_slice(&0_u32.to_be_bytes());
+        bytes.extend_from_slice(&0_u32.to_be_bytes());
+        bytes.extend_from_slice(&12_u32.to_be_bytes());
+        bytes.extend_from_slice(&[object_byte; 20]);
+        let path_len = u16::try_from(path.len()).expect("test path fits index flags");
+        bytes.extend_from_slice(&path_len.to_be_bytes());
+        bytes.extend_from_slice(path.as_bytes());
+        bytes.push(0);
+        while bytes.len() % 8 != 0 {
+            bytes.push(0);
+        }
+        bytes.extend_from_slice(&[0; 20]);
+        bytes
     }
 
     fn write_upperdir_opaque_marker(

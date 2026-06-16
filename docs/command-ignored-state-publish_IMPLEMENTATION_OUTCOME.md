@@ -897,8 +897,9 @@ Results:
 
 ### Remaining Risks And Review Focus
 
-- Command Git OCC remains future work; command-produced `.git` metadata is
-  still dropped with `git_metadata_unsupported`.
+- Command Git OCC has since advanced to the sandbox floor described below.
+  Clean commit acceptance, frame-shift classification, quiet-stack behavior,
+  and broader Git maintenance remain future work.
 - Source regular-file payloads still use the existing in-memory capture limit.
   The spool path remains scoped to accepted ignored command output.
 - Spool-backed payloads are copied into LayerStack layers rather than reflinked
@@ -911,12 +912,124 @@ Results:
   decoding and ACKing trace batches; it does not assert audit-store ingestion of
   those trace records.
 
+## Command Git OCC Floor Outcome And Handoff
+
+This iteration implemented the first sandbox-side Command Git OCC floor after
+ignored-state Milestone 5. It did not add agent hooks, daemon admission policy,
+command-text parsing, frame-shift quiet-stack behavior, ref deletion support, or
+Git GC/pruning support.
+
+### Scope Completed
+
+- Command-produced `.git/**` paths now use command-specific Git metadata
+  classification instead of the legacy blanket `git_metadata_unsupported` drop.
+- Generic publish/file/edit/plugin-style paths keep the previous unsupported
+  `.git` drop behavior; the new classifier is used by
+  `sandbox.command.exec` finalization only.
+- Accepted Git metadata currently publishes only through gated OCC, never the
+  ignored/direct LWW lane.
+- Rejected Git metadata marks the route decision as publish-rejecting, so the
+  existing atomic worker drops the whole command result: source lane, ignored
+  lane, and Git metadata all remain unpublished.
+- `.gitignore` still cannot route `.git/**` to ordinary ignored/direct output.
+- No-op and stat-cache-only index refreshes are normalized away with
+  `git_index_stat_refresh`, so they do not conflict and do not publish durable
+  staged state.
+- Semantic `.git/index` changes reject with `git_index_staged_state`.
+- `.git/**/*.lock`, incomplete operation markers, hook writes, Git metadata
+  deletions, `.git` root opaque replacement, ref writes, object rewrites, and
+  reflog rewrites reject with stable closed codes.
+- New Git object writes and append-only reflog writes are accepted through
+  gated OCC.
+- Response `publish_lanes.routing.drop_reason_counts` and command finalize
+  traces expose the Git reason codes.
+
+### Files Updated
+
+- `docs/command-git-occ-policy_SPEC.md`
+  - Added the current sandbox floor code set, including the non-rejecting
+    `git_index_stat_refresh` normalization code.
+- `crates/daemon/layerstack/src/commit/mod.rs`
+  - Added command-specific Git metadata policy mode and closed reason codes.
+  - Added explicit command Git decisions for index refresh/staged state, locks,
+    incomplete operation markers, hooks, destructive deletes, ref writes, object
+    rewrites, and reflog append/rewrite checks.
+  - Preserved legacy generic `.git` drop behavior outside command finalization.
+- `crates/daemon/layerstack/src/service.rs`
+  - Uses command Git decisions for command capture and command lane-aware
+    publish.
+  - Reads only Git metadata payloads needed for routing during the metadata
+    pass; ignored payload capture remains metadata-first and bounded.
+- `crates/daemon/layerstack/tests/unit/route.rs`
+  - Added focused route tests for `.git` classification, rejection codes,
+    append-only reflog acceptance, lock/control/hook/delete rejection,
+    no-op index refresh, staged index rejection, object rewrite rejection, and
+    `.gitignore` bypass prevention.
+- `crates/daemon/operation/src/command/finalize.rs`
+  - Updated operation coverage for rejected Git metadata and all-or-nothing
+    source/ignored lane drops.
+- `crates/e2e-test/tests/workspace-runtime-command/command_error_and_backpressure.rs`
+  - Updated `.gitignore`/`.git` routing live coverage to expect whole-publish
+    rejection.
+  - Added live real-Git command coverage for `git add` without commit, leftover
+    locks, hook writes, and deleting `HEAD` plus object metadata.
+
+### Verification
+
+Commands run:
+
+```sh
+cargo fmt --check
+CARGO_TARGET_DIR=/tmp/ephemeral-os-target cargo test -p layerstack route_tests
+CARGO_TARGET_DIR=/tmp/ephemeral-os-target cargo test -p layerstack
+CARGO_TARGET_DIR=/tmp/ephemeral-os-target cargo test -p operation command::
+CARGO_TARGET_DIR=/tmp/ephemeral-os-target cargo test -p operation --all-targets
+CARGO_TARGET_DIR=/tmp/ephemeral-os-target cargo test -p daemon --no-run
+CARGO_TARGET_DIR=/tmp/ephemeral-os-target cargo test -p e2e-test --no-run
+cargo run -p xtask -- package
+CARGO_TARGET_DIR=/tmp/ephemeral-os-target cargo run -p e2e-test --bin e2e-runner -- --suites workspace-runtime-command --max-parallel 5 --container-weight-cap 10 --heavy-test-threads 4
+git diff --check
+```
+
+Results:
+
+- `cargo fmt --check` passed.
+- Focused LayerStack route tests passed 45/45.
+- Full `layerstack` package tests passed.
+- Focused `operation command::` tests passed 54/54.
+- Full `operation --all-targets` passed.
+- `daemon --no-run` passed.
+- `e2e-test --no-run` passed.
+- `xtask package` passed and rebuilt `dist/eosd-linux-amd64` with SHA
+  `5b1e493a90338706e2ad433b26c5ee18d331f9ab44f9e14f7b5701542fa58e82`.
+- Live `workspace-runtime-command` passed 74/74 with the new Git floor cases.
+- `git diff --check` passed.
+
+Final live E2E report root:
+
+```text
+crates/e2e-test/test-reports/runs/e2e-run-1781631871630
+```
+
+### Remaining Git OCC Work
+
+- Clean `git add && git commit` acceptance still needs final index-to-HEAD tree
+  validation and repository health checks.
+- Ref fast-forward support, HEAD relabel support, frame-shift classification,
+  and quiet-stack merge rules remain future work.
+- Reflog union-merge, clean index regeneration, ref deletion, and Git GC/pruning
+  remain intentionally deferred.
+- The current index semantic parser covers v2/v3 SHA-1 indexes for stat-refresh
+  normalization; broader hash algorithms and index formats should be added with
+  explicit tests before accepting more workflows.
+
 ## Remaining Work
 
 The following spec areas are intentionally left for later iterations:
 
-- Command Git OCC remains future work; until then, command-produced `.git`
-  metadata is dropped with `git_metadata_unsupported`.
+- Later Command Git OCC milestones remain: clean commit acceptance, ref
+  fast-forward/frame-shift classification, quiet-stack merging, repository
+  health validation, and deferred Git maintenance policies.
 - Audit-store ingestion assertions for publish-lane trace records.
 - Configurable response/trace byte limits for ignored-lane metadata.
 - Contract expansion for later milestones once those behaviors exist.
@@ -930,8 +1043,9 @@ The following spec areas are intentionally left for later iterations:
   gated, ignored output is direct LWW only after source eligibility is known,
   and mixed success is submitted atomically.
 - The 2A Git metadata handling is route/drop reporting, not command Git OCC.
-  Dropped `.git` paths are visible in metadata; they are not semantically merged
-  or published.
+  This has now been superseded for `sandbox.command.exec` by the command Git OCC
+  floor above; generic non-command publish paths still keep the unsupported
+  `.git` drop behavior.
 - Invalid captured layer paths now become protected drop facts when the capture
   path itself is the invalid part; unrelated payload failures such as oversized
   file reads and non-UTF-8 symlink targets remain capture errors.
