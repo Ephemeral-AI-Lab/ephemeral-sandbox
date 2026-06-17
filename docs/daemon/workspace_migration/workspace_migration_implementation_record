@@ -4,11 +4,13 @@ Date: 2026-06-17
 Repo: `/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os`
 Scope: Unified workspace refactor Phase 1 public model scaffold, Phase 2
 workspace root resolution, Phase 3 host lifecycle ownership, and Phase 4
-central routing.
+central routing, Phase 5 explicit non-publishing capture changes, and Phase 6
+target folder structure.
 
 ## Phase Status
 
-Phase 1 is done. Phase 2 is done. Phase 3 is done. Phase 4 is done.
+Phase 1 is done. Phase 2 is done. Phase 3 is done. Phase 4 is done. Phase 5
+is done. Phase 6 is done.
 
 The Phase 1 scaffold adds the unified public workspace vocabulary beside the
 existing isolated-workspace exports.
@@ -43,6 +45,33 @@ command start. File adapters parse wire args, record returned route metadata,
 invoke the selected direct or isolated backend, and ask the runtime to complete
 isolated liveness touches after successful isolated file operations.
 
+The Phase 5 slice adds explicit non-publishing capture in `WorkspaceRuntime`.
+Host capture reads the runtime-owned `HostWorkspaceLifecycle` upperdir. Isolated
+capture resolves a unified public handle to the active isolated binding and
+reads that handle's upperdir. Both paths hold the existing workspace mode gate,
+reject nonzero active command counts before walking the upperdir, return changed
+paths, changed path kinds, protected drops, and optional stats, and never call
+LayerStack publish/OCC APIs. Metadata-only capture now honors
+`materialize_payloads: false` without reading regular-file payload bodies. Host
+capture remains lifecycle-scoped until public Host create/handle custody exists.
+No public wire adapter was added in this slice because the current catalog has
+no `capture_changes` op and `ops.json` regeneration is explicitly forbidden.
+
+The Phase 6 slice moves workspace crate code into the responsibility-based
+folder structure without changing behavior. Shared overlay primitives now live
+under `overlay/`; isolated workspace create/destroy/recovery/lease helpers live
+under `lifecycle/`; remount state, report/plan, and apply logic live under
+`lifecycle/remount/`; holder control, setns-runner prep, FD mapping, cgroup
+creation, and namespace plan types live under `namespace/`; Host and isolated
+mode exports route through thin `network_mode/` adapters; and veth/IP-pool,
+rtnetlink, and netfilter dedicated-network setup/cleanup internals live under
+`isolated_network_setup/`. Legacy root `capture`, `dirs`, and `tree` modules,
+plus isolated-workspace namespace/network modules, remain only as thin
+re-export shims. No Phase 7 holder/setns-only execution changes, Host
+holder-backed namespace creation, Phase 8 legacy export retirement, publish
+behavior change, capture behavior change, packaging, live E2E, or `ops.json`
+regeneration was implemented.
+
 ## Files Changed
 
 - `crates/daemon/workspace/src/model.rs`
@@ -54,6 +83,9 @@ isolated liveness touches after successful isolated file operations.
   - Added workspace-local `CommandStatus`, `ChangedPathKind`,
     `ProtectedPathDropReason`, and `ProtectedPathDrop` variants to avoid a
     dependency cycle with `operation`.
+  - Added conversions from LayerStack captured changes and protected drops into
+    the Phase 1 public capture DTO vocabulary for Phase 5 runtime capture
+    results.
   - Added conversions from the legacy isolated handle and
     `IsolatedWorkspaceBinding` into the new unified public handle.
   - Added focused tests for borrowed and owned isolated handle conversion,
@@ -74,6 +106,64 @@ isolated liveness touches after successful isolated file operations.
   - Preserved existing root `workspace::WorkspaceHandle` compatibility for the
     legacy isolated handle and exposed the new unified scaffold handle as
     `workspace::model::WorkspaceHandle` and `workspace::UnifiedWorkspaceHandle`.
+  - Exposed the metadata-aware upperdir capture helper for Phase 5 runtime
+    capture.
+  - Added Phase 6 module roots for `overlay`, `lifecycle`, `namespace`,
+    `network_mode`, and `isolated_network_setup`, while preserving legacy public
+    root exports through narrow re-export adapters.
+- `crates/daemon/workspace/src/capture.rs`
+  - Added a payload-aware upperdir capture entrypoint. `materialize_payloads:
+    false` uses LayerStack metadata capture so Phase 5 metadata-only capture can
+    report paths, kinds, protected drops, and stats without reading regular-file
+    bodies.
+  - Became a thin compatibility re-export of `overlay::capture` in Phase 6.
+- `crates/daemon/workspace/src/dirs.rs`
+  - Became a thin compatibility re-export of `overlay::dirs` in Phase 6.
+- `crates/daemon/workspace/src/tree.rs`
+  - Became a thin compatibility re-export of `overlay::tree` in Phase 6.
+- `crates/daemon/workspace/src/overlay/{capture.rs,dirs.rs,tree.rs}`
+  - Own the shared upperdir capture, overlay directory allocation, and tree
+    resource-stat primitives previously stored as root workspace modules.
+- `crates/daemon/workspace/src/lifecycle/{create.rs,destroy.rs,recovery.rs,leases.rs}`
+  - Own isolated workspace create/wiring, destroy/eviction teardown, persisted
+    recovery/orphan cleanup, and handle identity/time helpers after the Phase 6
+    move.
+- `crates/daemon/workspace/src/lifecycle/remount/{state.rs,plan.rs,apply.rs}`
+  - Own remount state, remount report/probe/result DTOs, and remount apply
+    methods after the Phase 6 move.
+- `crates/daemon/workspace/src/namespace/{holder.rs,setns_runner.rs,fds.rs,cgroup.rs,plan.rs}`
+  - Own holder process control, setns-runner request prep, namespace FD mapping,
+    cgroup creation, and namespace plan types after the Phase 6 move.
+- `crates/daemon/workspace/src/network_mode/{host.rs,isolated_network.rs}`
+  - Added thin mode adapter exports for Host and isolated workspace mode
+    surfaces without changing behavior.
+- `crates/daemon/workspace/src/isolated_network_setup/`
+  - Owns dedicated-network setup/cleanup internals after the Phase 6 move,
+    including veth/IP-pool manager code, `rtnl.rs`, and `netfilter/*`.
+- `crates/daemon/workspace/src/isolated_workspace/{namespace,network}/mod.rs`
+  - Became thin internal re-export shims for current isolated-workspace callers
+    that still use the old module paths.
+- `crates/daemon/layerstack/src/capture.rs`
+  - Added `capture_upperdir_metadata_with_stats`, which returns placeholder
+    write changes and capture stats from one upperdir walk without
+    materializing regular-file payloads.
+- `crates/daemon/workspace/src/isolated_workspace/manager/lifecycle.rs`
+  - Remount updates now persist the retargeted manifest version and root hash
+    together with the new layer paths, so later status/capture DTOs report a
+    coherent base revision after compact remount.
+  - Moved into `lifecycle/create.rs`, `lifecycle/destroy.rs`, and
+    `lifecycle/remount/apply.rs` in Phase 6.
+- `crates/daemon/workspace/src/isolated_workspace/manager/recovery.rs`
+  - Moved into `lifecycle/recovery.rs` in Phase 6.
+- `crates/daemon/workspace/src/isolated_workspace/remount.rs`
+  - Moved into `lifecycle/remount/plan.rs` and `lifecycle/remount/state.rs` in
+    Phase 6.
+- `crates/daemon/workspace/src/isolated_workspace/namespace/*`
+  - Moved into `namespace/` in Phase 6, with the old namespace module retained
+    as a thin re-export shim.
+- `crates/daemon/workspace/src/isolated_workspace/network/*`
+  - Moved into `isolated_network_setup/` in Phase 6, with the old network
+    module retained as a thin re-export shim.
 - `crates/daemon/operation/src/isolation/contract.rs`
   - Added `WorkspaceRootInput` so isolation enter and compact-remount test
     inputs accept `workspace_root` while rejecting ambiguous dual-root input.
@@ -112,6 +202,13 @@ isolated liveness touches after successful isolated file operations.
   - Preserves isolated file liveness touches through a runtime completion hook.
   - Restored disabled-isolation precedence so `feature_disabled` wins before
     legacy root validation when isolation is off.
+  - Added Phase 5 explicit capture APIs. Host capture reads the
+    `HostWorkspaceLifecycle` upperdir and reports the leased base revision.
+    Isolated capture resolves a unified public handle to the active isolated
+    binding and reports that binding's base revision. Both paths reject active
+    command counts before upperdir walking, return changed paths/kinds,
+    protected drops, and optional stats, honor metadata-only capture requests,
+    and do not publish.
 - `crates/daemon/core/src/op_adapter/files.rs`
   - Parses file wire args and delegates isolated vs direct/Host route selection
     to `WorkspaceRuntime`.
@@ -154,6 +251,11 @@ isolated liveness touches after successful isolated file operations.
   - Added Phase 4 routing coverage for command isolated/Host selection, file
     isolated/direct selection, missing-root compatibility, stable route facts,
     isolated file liveness touch, and Host route lease release on drop.
+  - Added Phase 5 capture coverage for Host capture without publish, isolated
+    capture without publish, optional stats, protected drops, stale-handle
+    `NotOpen`, active-command rejection shaping, metadata-only large-file
+    capture, non-write path kinds, and compact-remount base-revision
+    consistency.
 - `crates/daemon/operation/tests/command/service.rs`
   - Added focused exact-once, last-owner drop, pre-start rejection, and
     finalization coverage for the Host lease release handle.
@@ -164,9 +266,12 @@ isolated liveness touches after successful isolated file operations.
   - Marked Phase 2 root resolution done.
   - Marked Phase 3 host lifecycle ownership done.
   - Marked Phase 4 central routing done.
-  - Appended Phase 1, Phase 2, Phase 3, and Phase 4 evidence rows, including
-    intermediate fixed failures, final passing gates, skipped gates, residual
-    blockers, and the handle-collision decision.
+  - Marked Phase 5 capture changes API done.
+  - Marked Phase 6 target folder structure done.
+  - Appended Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, and Phase 6 evidence
+    rows, including intermediate fixed failures, final passing gates, skipped
+    gates, residual blockers, and the handle-collision/capture-adapter/module
+    compatibility decisions.
 - `docs/daemon/unified-workspace-refactor_SPEC.md`
   - Was already dirty before Phase 0 per the roadmap evidence log; kept as the
     current source spec for this implementation record.
@@ -229,7 +334,8 @@ central route authority.
 - Host command execution still uses the existing ephemeral/FreshNs preparation
   path. Holder/setns-only Host execution remains deferred to Phase 7.
 - Host command capture/publish behavior is unchanged. The explicit
-  non-publishing `capture_changes` API remains deferred to Phase 5.
+  non-publishing `capture_changes` API is now implemented separately in
+  `WorkspaceRuntime`; command finalization still owns its legacy publish path.
 
 ## Central Routing
 
@@ -259,9 +365,58 @@ Phase 4 centralizes command and file route choice in `WorkspaceRuntime`.
   namespace FDs, holder PID, cgroup path, veth data, DNS details, or netfilter
   details. Legacy `layer_stack_root` wire inputs remain compatibility inputs
   where current contracts require them.
-- Phase 5 `capture_changes`, Phase 6 file moves, Phase 7 holder/setns-only
-  execution changes, Phase 8 legacy-name retirement, publish behavior changes,
-  and `ops.json` regeneration are intentionally deferred.
+- Phase 7 holder/setns-only execution changes, Phase 8 legacy-name retirement,
+  publish behavior changes, and `ops.json` regeneration are intentionally
+  deferred.
+
+## Capture Changes
+
+Phase 5 adds explicit non-publishing capture in `WorkspaceRuntime`.
+
+- Host capture reads the `HostWorkspaceLifecycle` upperdir created by the
+  Phase 3 Host lifecycle path. The result uses the lifecycle's internal
+  workspace id and leased base revision but does not expose storage paths.
+- The generic unified-handle `capture_changes` method currently accepts
+  isolated handles only. Host capture remains bound to the runtime-owned
+  lifecycle object until public Host create/handle custody is introduced.
+- Isolated capture accepts the unified public `workspace::model::WorkspaceHandle`,
+  checks it against the active isolated binding, reads that binding's upperdir,
+  and touches isolated liveness only after successful capture.
+- Both paths hold the runtime mode gate and reject nonzero active command counts
+  before upperdir walking.
+- Both paths return changed paths, changed path kinds, protected drops, and
+  stats only when `include_stats` is true.
+- `materialize_payloads: false` is metadata-only and does not read regular-file
+  payload bodies. `materialize_payloads: true` preserves the existing
+  materializing capture behavior, though the current public result shape still
+  exposes path metadata rather than payload bodies.
+- `capture_changes` never calls LayerStack publish/OCC. Publish remains owned
+  by explicit LayerStack operations and existing command/file finalization paths.
+- No wire adapter was added because there is no current cataloged capture op and
+  this phase forbids `ops.json` regeneration. A later catalog/wire slice should
+  add the public operation contract when create/Host handle wiring is ready.
+
+## Target Folder Structure
+
+Phase 6 is a behavior-preserving physical module move.
+
+- Root `capture.rs`, `dirs.rs`, and `tree.rs` are now one-line compatibility
+  re-exports. Their implementations live under `overlay/`.
+- Isolated create/wiring, destroy/eviction, persisted recovery, and lease/time
+  helper code lives under `lifecycle/`.
+- Remount state, report/probe/result types, and remount apply methods live
+  under `lifecycle/remount/`.
+- Namespace holder control, FD mapping, setns-runner request prep, cgroup
+  creation, and namespace plan types live under `namespace/`.
+- Host and isolated mode adapters live under `network_mode/` and only re-export
+  the existing mode-specific surfaces.
+- Dedicated-network setup/cleanup internals live under
+  `isolated_network_setup/`. `rtnl.rs` and `netfilter/*` kept their mechanism
+  names. The veth/IP-pool manager remains in `isolated_network_setup/mod.rs`
+  because the file is small and further splitting would add churn without
+  behavior value in this phase.
+- Compatibility shims remain intentionally thin. Phase 8 legacy export
+  retirement is still deferred.
 
 ## Verification
 
@@ -338,6 +493,38 @@ Phase 4 verification used
 | `cargo test -p daemon --test phase3_write_paths` | Pass | 6 write-path tests passed, covering direct file write/edit behavior and OCC/drop compatibility. |
 | `git diff --check` | Pass | No whitespace errors. |
 
+Phase 5 verification used
+`CARGO_TARGET_DIR=/tmp/eos-unified-workspace-phase5-target`.
+
+| Command | Result | Notes |
+|---|---|---|
+| `cargo fmt` | Pass | Formatted Phase 5 runtime, model, tests, and docs edits. |
+| `cargo test -p daemon workspace_runtime` | Pass | 26 focused runtime tests passed, including Host capture without publish, isolated capture without publish, optional stats, protected drops, stale-handle `NotOpen`, active-command rejection shaping, Phase 2 root resolution, Phase 3 Host lease exact-once behavior, and Phase 4 route metadata coverage. |
+| `CARGO_TARGET_DIR=/tmp/eos-phase5-fix-target cargo test -p daemon workspace_runtime --no-fail-fast` | Pass | 28 focused runtime tests passed after adversarial-review fixes, including metadata-only large-file capture, non-write path kinds, and compact-remount base-revision consistency. A live-command active-rejection integration test was attempted but dropped because this macOS unit harness fails before command registration with a runner ack broken pipe; active-command shaping remains covered at the helper boundary. |
+| `cargo test -p workspace` | Pass | 24 workspace unit tests passed; doc tests 0 passed, 0 failed. |
+| `CARGO_TARGET_DIR=/tmp/eos-phase5-fix-target cargo test -p workspace` | Pass | 24 workspace unit tests passed after metadata-only capture and remount-base updates; doc tests 0 passed, 0 failed. |
+| `CARGO_TARGET_DIR=/tmp/eos-phase5-fix-target cargo test -p layerstack capture` | Pass | 22 focused layerstack capture/route tests passed, including existing no-payload-read bounded capture coverage. |
+| `cargo test -p operation file` | Pass | 14 operation file tests passed with checkpoint and contract targets compiling/filtering cleanly. |
+| `cargo test -p operation command` | Pass | 66 command unit tests plus focused checkpoint/contract command targets passed. |
+| `cargo test -p daemon --test phase2_read_paths` | Pass | 15 read-path/dispatch tests passed, preserving Phase 2 workspace-root behavior and route metadata coverage. |
+| `cargo test -p daemon --test phase3_write_paths` | Pass | 6 write-path tests passed, preserving Phase 3/4 direct file write/edit/OCC behavior. |
+| `git diff --check` | Pass | No whitespace errors. |
+
+Phase 6 verification used
+`CARGO_TARGET_DIR=/tmp/eos-unified-workspace-phase6-target`.
+
+| Command | Result | Notes |
+|---|---|---|
+| `cargo fmt` | Pass | Formatted Phase 6 module moves and docs. |
+| `cargo test -p workspace` | Pass | 25 workspace unit tests passed; doc tests 0 passed, 0 failed. |
+| `cargo test -p daemon workspace_runtime` | Pass | 28 focused runtime tests passed, preserving route, capture, root-resolution, Host lease, and compact-remount behavior after the file moves. |
+| `cargo test -p operation file` | Pass | 14 operation file tests passed with checkpoint and contract targets compiling/filtering cleanly. |
+| `cargo test -p operation command` | Pass | 66 operation command unit tests plus one checkpoint command test and one command contract test passed. |
+| `cargo test -p daemon --test phase2_read_paths` | Pass | 15 read-path/dispatch tests passed. |
+| `cargo test -p daemon --test phase3_write_paths` | Pass | 6 write-path tests passed. |
+| Optional `workspace_read_paths`/`workspace_write_paths`/`workspace_command_paths` gate | Skipped | These test files are not present in this checkout. |
+| `git diff --check` | Pass | No whitespace errors. |
+
 Cleanup pass:
 
 - Removed the unused `WorkspaceRootInput::as_path` helper and its stale `Path`
@@ -370,6 +557,13 @@ Intermediate fixed issues:
   isolation enter resolved a missing legacy root before returning
   `feature_disabled`. The fix restores disabled-mode precedence before root
   validation while leaving enabled root-validation behavior unchanged.
+- The first Phase 6 `cargo fmt` run failed because the moved netfilter exprs
+  test fixture still used the old relative `#[path]` depth. The path was
+  adjusted from the new `isolated_network_setup/netfilter` location.
+- The first Phase 6 `cargo test -p workspace` run failed because lifecycle and
+  namespace impls moved out from under private `isolated_workspace` modules.
+  The fix made those modules crate-visible only, corrected one moved test helper
+  import, and kept external exports unchanged.
 
 ## Skipped Gates And Known Baseline Blockers
 
@@ -377,7 +571,7 @@ Skipped by current slice scope:
 
 - Live Docker/Linux E2E.
 - `cargo run -p xtask -- package`.
-- Optional Phase 5+ target tests:
+- Optional Phase 7+ target tests:
   `cargo test -p daemon --test workspace_read_paths --test workspace_write_paths --test workspace_command_paths`.
 - `cargo run -p xtask -- check-contract`.
 - `cargo clippy -p daemon --all-targets --locked -- -D warnings`.
@@ -393,8 +587,8 @@ Known Phase 0 baseline blockers remain:
 
 These blockers were not fixed because they do not directly block the Phase 1
 public model scaffold, Phase 2 root-resolution slice, Phase 3 Host lifecycle
-ownership slice, or Phase 4 central-routing slice and are outside this slice's
-scope. Packaging, live E2E, ops.json regeneration, and Phase 5+
-workspace-read/write/command path gates were also skipped because the Phase 4
-instructions explicitly excluded them or made them optional only if those
-target tests were created or touched.
+ownership slice, Phase 4 central-routing slice, Phase 5 capture slice, or Phase
+6 target folder structure slice and are outside this slice's scope. Packaging,
+live E2E, ops.json regeneration, and Phase 7+ workspace-read/write/command path
+gates were also skipped because the Phase 6 instructions explicitly excluded
+them or made them optional only if those target tests were created or touched.

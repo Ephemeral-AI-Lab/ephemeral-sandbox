@@ -12,9 +12,16 @@ use operation::command::CommandOps;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use std::time::Duration;
+use workspace::model::{
+    CallerId, CaptureChangesRequest, ChangedPathKind, ProtectedPathDropReason,
+    WorkspaceHandle as UnifiedWorkspaceHandle,
+};
 use workspace::RemountProbe;
 
-use super::{WorkspaceFileRouteContext, WorkspaceRemountCompactionAttempt, WorkspaceRuntime};
+use super::{
+    capture_active_command_rejection, WorkspaceFileRouteContext, WorkspaceRemountCompactionAttempt,
+    WorkspaceRuntime,
+};
 
 type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
@@ -313,6 +320,334 @@ fn workspace_runtime_host_release_is_exact_once() -> TestResult {
 }
 
 #[test]
+fn workspace_runtime_host_capture_returns_changes_without_publishing() -> TestResult {
+    let root = test_root("host-capture-non-publish");
+    let scratch = root.join("scratch");
+    let host_scratch = root.join("host-scratch");
+    let stack_root = root.join("stack");
+    let workspace_root = root.join("workspace");
+    seed_workspace_base(&stack_root, &workspace_root)?;
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+    let host = runtime
+        .create_host_workspace_for_legacy_layer_stack_root_with_scratch_root_for_test(
+            "caller-host-capture",
+            "invoke-host-capture",
+            &stack_root,
+            &host_scratch,
+        )?;
+    std::fs::create_dir_all(host.workspace.dirs().upperdir.join("src"))?;
+    std::fs::write(
+        host.workspace.dirs().upperdir.join("src/main.rs"),
+        "fn main() {}\n",
+    )?;
+
+    let captured = runtime.capture_host_workspace_changes(
+        &host,
+        CaptureChangesRequest {
+            materialize_payloads: false,
+            include_stats: true,
+        },
+    )?;
+
+    assert_eq!(captured.workspace_id, host.workspace_id);
+    assert_eq!(captured.changed_paths, vec!["src/main.rs".to_owned()]);
+    assert_eq!(
+        captured.changed_path_kinds.get("src/main.rs"),
+        Some(&ChangedPathKind::Write)
+    );
+    assert!(
+        captured
+            .stats
+            .as_ref()
+            .is_some_and(|stats| stats.bytes >= 13),
+        "requested stats should include upperdir byte counts: {:?}",
+        captured.stats
+    );
+    assert_eq!(
+        LayerStack::open(stack_root.clone())?
+            .read_active_manifest()?
+            .depth(),
+        1,
+        "capture_changes must not publish a new layer"
+    );
+    assert_eq!(
+        LayerStack::open(stack_root.clone())?.active_lease_count(),
+        1,
+        "host capture must not release the runtime-owned lease"
+    );
+    let release = host.lease.release();
+    assert_eq!(release.released, Some(true));
+    drop(host);
+    assert_eq!(
+        LayerStack::open(stack_root.clone())?.active_lease_count(),
+        0
+    );
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[test]
+fn workspace_runtime_isolated_capture_returns_changes_without_publishing() -> TestResult {
+    let root = test_root("isolated-capture-non-publish");
+    let scratch = root.join("scratch");
+    let stack_root = root.join("stack");
+    let workspace_root = root.join("workspace");
+    seed_workspace_base(&stack_root, &workspace_root)?;
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+    let entered = runtime.enter("caller-isolated-capture", &workspace_root)?;
+    let public_handle = UnifiedWorkspaceHandle::from(&entered);
+    std::fs::create_dir_all(entered.dirs.upperdir.join("src"))?;
+    std::fs::write(entered.dirs.upperdir.join("src/lib.rs"), "pub fn ok() {}\n")?;
+
+    let without_stats = runtime.capture_changes(
+        &public_handle,
+        CaptureChangesRequest {
+            materialize_payloads: false,
+            include_stats: false,
+        },
+    )?;
+
+    assert_eq!(without_stats.workspace_id, public_handle.id);
+    assert_eq!(without_stats.changed_paths, vec!["src/lib.rs".to_owned()]);
+    assert_eq!(without_stats.stats, None);
+    assert_eq!(
+        without_stats.changed_path_kinds.get("src/lib.rs"),
+        Some(&ChangedPathKind::Write)
+    );
+    assert_eq!(
+        LayerStack::open(stack_root.clone())?
+            .read_active_manifest()?
+            .depth(),
+        1,
+        "isolated capture_changes must not publish a new layer"
+    );
+    assert_eq!(
+        LayerStack::open(stack_root.clone())?.active_lease_count(),
+        1
+    );
+
+    let with_stats = runtime.capture_changes(
+        &public_handle,
+        CaptureChangesRequest {
+            materialize_payloads: true,
+            include_stats: true,
+        },
+    )?;
+
+    assert!(
+        with_stats
+            .stats
+            .as_ref()
+            .is_some_and(|stats| stats.bytes >= 14),
+        "requested stats should be returned: {:?}",
+        with_stats.stats
+    );
+    runtime.exit("caller-isolated-capture", None)?;
+    let _ = runtime.test_reset();
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[test]
+fn workspace_runtime_capture_without_payloads_allows_large_changed_files() -> TestResult {
+    let root = test_root("capture-large-file-metadata-only");
+    let scratch = root.join("scratch");
+    let host_scratch = root.join("host-scratch");
+    let stack_root = root.join("stack");
+    let workspace_root = root.join("workspace");
+    seed_workspace_base(&stack_root, &workspace_root)?;
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+    let host = runtime
+        .create_host_workspace_for_legacy_layer_stack_root_with_scratch_root_for_test(
+            "caller-large-capture",
+            "invoke-large-capture",
+            &stack_root,
+            &host_scratch,
+        )?;
+    let large_file = host.workspace.dirs().upperdir.join("large.bin");
+    std::fs::write(&large_file, vec![b'x'; (8 * 1024 * 1024) + 1])?;
+
+    let metadata_only = runtime.capture_host_workspace_changes(
+        &host,
+        CaptureChangesRequest {
+            materialize_payloads: false,
+            include_stats: true,
+        },
+    )?;
+
+    assert_eq!(metadata_only.changed_paths, vec!["large.bin".to_owned()]);
+    assert_eq!(
+        metadata_only.changed_path_kinds.get("large.bin"),
+        Some(&ChangedPathKind::Write)
+    );
+    assert!(
+        metadata_only
+            .stats
+            .as_ref()
+            .is_some_and(|stats| stats.bytes > 8 * 1024 * 1024),
+        "metadata-only capture should keep stats without reading payloads: {:?}",
+        metadata_only.stats
+    );
+
+    let materialized = runtime
+        .capture_host_workspace_changes(
+            &host,
+            CaptureChangesRequest {
+                materialize_payloads: true,
+                include_stats: false,
+            },
+        )
+        .expect_err("materializing the oversized payload should still fail");
+    assert!(matches!(
+        materialized,
+        workspace::WorkspaceError::Capture { .. }
+    ));
+    let _ = host.lease.release();
+    drop(host);
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn workspace_runtime_capture_reports_non_write_path_kinds() -> TestResult {
+    let root = test_root("capture-non-write-kinds");
+    let scratch = root.join("scratch");
+    let host_scratch = root.join("host-scratch");
+    let stack_root = root.join("stack");
+    let workspace_root = root.join("workspace");
+    seed_workspace_base(&stack_root, &workspace_root)?;
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+    let host = runtime
+        .create_host_workspace_for_legacy_layer_stack_root_with_scratch_root_for_test(
+            "caller-path-kinds",
+            "invoke-path-kinds",
+            &stack_root,
+            &host_scratch,
+        )?;
+    let upperdir = host.workspace.dirs().upperdir.clone();
+    std::fs::write(upperdir.join(".wh.deleted.txt"), b"")?;
+    std::os::unix::fs::symlink("target.txt", upperdir.join("link.txt"))?;
+    std::fs::create_dir_all(upperdir.join("opaque"))?;
+    std::fs::write(upperdir.join("opaque/.wh..wh..opq"), b"")?;
+
+    let captured = runtime.capture_host_workspace_changes(
+        &host,
+        CaptureChangesRequest {
+            materialize_payloads: false,
+            include_stats: false,
+        },
+    )?;
+
+    assert_eq!(
+        captured.changed_path_kinds.get("deleted.txt"),
+        Some(&ChangedPathKind::Delete)
+    );
+    assert_eq!(
+        captured.changed_path_kinds.get("link.txt"),
+        Some(&ChangedPathKind::Symlink)
+    );
+    assert_eq!(
+        captured.changed_path_kinds.get("opaque"),
+        Some(&ChangedPathKind::OpaqueDir)
+    );
+    let _ = host.lease.release();
+    drop(host);
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[test]
+fn workspace_runtime_capture_reports_protected_drops() -> TestResult {
+    let root = test_root("capture-protected-drops");
+    let scratch = root.join("scratch");
+    let host_scratch = root.join("host-scratch");
+    let stack_root = root.join("stack");
+    let workspace_root = root.join("workspace");
+    seed_workspace_base(&stack_root, &workspace_root)?;
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+    let host = runtime
+        .create_host_workspace_for_legacy_layer_stack_root_with_scratch_root_for_test(
+            "caller-protected-drop",
+            "invoke-protected-drop",
+            &stack_root,
+            &host_scratch,
+        )?;
+    std::fs::write(host.workspace.dirs().upperdir.join(".wh..."), b"")?;
+
+    let captured = runtime.capture_host_workspace_changes(
+        &host,
+        CaptureChangesRequest {
+            materialize_payloads: false,
+            include_stats: false,
+        },
+    )?;
+
+    assert!(captured.changed_paths.is_empty());
+    assert_eq!(captured.protected_drops.len(), 1);
+    assert_eq!(
+        captured.protected_drops[0].reason,
+        ProtectedPathDropReason::InvalidLayerPath
+    );
+    assert!(captured.protected_drops[0]
+        .path
+        .starts_with(".invalid-layer-path/"));
+    let _ = host.lease.release();
+    drop(host);
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[test]
+fn workspace_runtime_capture_missing_handle_remains_not_open() -> TestResult {
+    let root = test_root("capture-stale-handle");
+    let scratch = root.join("scratch");
+    let stack_root = root.join("stack");
+    let workspace_root = root.join("workspace");
+    seed_workspace_base(&stack_root, &workspace_root)?;
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+    let entered = runtime.enter("caller-stale-capture", &workspace_root)?;
+    let public_handle = UnifiedWorkspaceHandle::from(&entered);
+    runtime.exit("caller-stale-capture", None)?;
+
+    let error = runtime
+        .capture_changes(
+            &public_handle,
+            CaptureChangesRequest {
+                materialize_payloads: false,
+                include_stats: false,
+            },
+        )
+        .expect_err("stale handle should not capture after exit");
+
+    assert!(matches!(
+        error,
+        workspace::WorkspaceError::NotOpen { owner }
+            if owner == public_handle.owner
+    ));
+    let _ = runtime.test_reset();
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[test]
+fn workspace_runtime_capture_rejects_active_command_count() -> TestResult {
+    let owner = CallerId("caller-active-capture".to_owned());
+
+    let error = capture_active_command_rejection(&owner, 2)
+        .expect_err("active capture count should reject capture");
+
+    assert!(matches!(
+        error,
+        workspace::WorkspaceError::ActiveCommands {
+            owner: rejected_owner,
+            active_commands: 2,
+        } if rejected_owner == owner
+    ));
+    Ok(())
+}
+
+#[test]
 fn workspace_runtime_command_route_selects_isolated_when_caller_has_active_handle() -> TestResult {
     let root = test_root("command-route-isolated");
     let scratch = root.join("scratch");
@@ -500,8 +835,19 @@ fn workspace_runtime_compact_remount_for_test_resolves_workspace_root() -> TestR
     let stack_root = root.join("stack");
     let workspace_root = root.join("workspace");
     seed_workspace_base(&stack_root, &workspace_root)?;
+    LayerStack::open(stack_root.clone())?.publish_layer(&[LayerChange::Write {
+        path: LayerPath::parse("layer-two.txt")?,
+        content: b"two\n".to_vec(),
+    }])?;
+    LayerStack::open(stack_root.clone())?.publish_layer(&[LayerChange::Write {
+        path: LayerPath::parse("layer-three.txt")?,
+        content: b"three\n".to_vec(),
+    }])?;
     let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
     runtime.enter("caller-remount", &workspace_root)?;
+    let before_status = runtime
+        .status("caller-remount")?
+        .ok_or("open handle before compact remount")?;
 
     let attempt = runtime.compact_remount_open_workspace_for_test(
         "caller-remount",
@@ -521,6 +867,21 @@ fn workspace_runtime_compact_remount_for_test_resolves_workspace_root() -> TestR
             panic!("remount should not be blocked without active commands: {report:?}");
         }
     }
+    let status = runtime
+        .status("caller-remount")?
+        .ok_or("open handle after compact remount")?;
+    assert_ne!(status.manifest_root_hash, before_status.manifest_root_hash);
+    assert_eq!(status.layer_paths.len(), 1);
+    let captured = runtime.capture_changes(
+        &UnifiedWorkspaceHandle::from(&status),
+        CaptureChangesRequest {
+            materialize_payloads: false,
+            include_stats: false,
+        },
+    )?;
+    assert_eq!(captured.base_revision.version, status.manifest_version);
+    assert_eq!(captured.base_revision.root_hash, status.manifest_root_hash);
+    assert_eq!(captured.base_revision.layer_count, status.layer_paths.len());
     runtime.exit("caller-remount", None)?;
     let _ = runtime.test_reset();
     let _ = std::fs::remove_dir_all(&root);

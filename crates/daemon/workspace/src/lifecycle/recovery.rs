@@ -2,15 +2,15 @@ use std::io::Write;
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 
+use crate::isolated_network_setup::VethAllocation;
 use crate::isolated_workspace::caps::{HANDLE_PREFIX, PERSISTED_HANDLES_SCHEMA_VERSION};
 use crate::isolated_workspace::error::IsolatedError;
-use crate::isolated_workspace::network::VethAllocation;
 use serde_json::{json, Value};
 
-use super::{IsolatedManager, OrphanCleanupReport};
+use crate::isolated_workspace::manager::{IsolatedManager, OrphanCleanupReport};
 
 impl IsolatedManager {
-    pub(super) fn reap_persisted_orphans(&mut self) -> Result<OrphanCleanupReport, IsolatedError> {
+    pub(crate) fn reap_persisted_orphans(&mut self) -> Result<OrphanCleanupReport, IsolatedError> {
         let rows = self.read_persisted_handle_rows();
         self.handles.clear();
         self.by_caller.clear();
@@ -92,7 +92,7 @@ impl IsolatedManager {
         None
     }
 
-    pub(super) fn reap_named_orphans(&mut self) -> Option<String> {
+    pub(crate) fn reap_named_orphans(&mut self) -> Option<String> {
         let mut cleanup_error = None;
         record_cleanup_error(&mut cleanup_error, self.reap_named_veth_orphans());
         record_cleanup_error(&mut cleanup_error, self.reap_named_cgroup_orphans());
@@ -157,7 +157,7 @@ impl IsolatedManager {
         self.scratch_root.join("manager.json")
     }
 
-    pub(super) fn persist_handles(&self) -> Result<(), IsolatedError> {
+    pub(crate) fn persist_handles(&self) -> Result<(), IsolatedError> {
         std::fs::create_dir_all(&self.scratch_root).map_err(|err| IsolatedError::SetupFailed {
             step: format!("manager_root: {err}"),
         })?;
@@ -236,7 +236,7 @@ impl IsolatedManager {
                 .is_some_and(is_workspace_id_shape)
     }
 
-    pub(super) fn read_persisted_handle_rows(&self) -> Vec<Value> {
+    pub(crate) fn read_persisted_handle_rows(&self) -> Vec<Value> {
         let Ok(raw) = std::fs::read(self.persisted_handles_path()) else {
             return Vec::new();
         };

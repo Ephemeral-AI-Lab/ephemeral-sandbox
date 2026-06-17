@@ -34,10 +34,15 @@ use layerstack::{
 use operation::command::{CommandOps, CommandRemountInspection, ExecTarget, HostCommandWorkspace};
 use operation::isolation::contract::IsolationTestRemountFault;
 use serde_json::Value;
-use workspace::IsolatedWorkspaceBinding;
+use workspace::model::{
+    BaseRevision, CallerId, CaptureChangesRequest, CaptureChangesResult, ChangedPathKind,
+    NetworkMode, ProtectedPathDrop, WorkspaceHandle as UnifiedWorkspaceHandle, WorkspaceId,
+};
+use workspace::{capture_upperdir_with_payloads, IsolatedWorkspaceBinding};
 use workspace::{
     EphemeralWorkspace, IsolatedError, IsolatedManager, IsolatedSnapshot, RemountProbe,
-    ResourceCaps, Rfc1918Egress as RuntimeRfc1918Egress, WorkspaceError, WorkspaceHandle,
+    ResourceCaps, Rfc1918Egress as RuntimeRfc1918Egress, WorkspaceError,
+    WorkspaceHandle as IsolatedWorkspaceHandle,
 };
 
 const PERSISTED_HANDLES_SCHEMA_VERSION: u64 = 1;
@@ -204,6 +209,10 @@ pub(crate) struct LeasedBaseRevision {
 
 #[derive(Debug)]
 pub(crate) struct HostWorkspaceLifecycle {
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub caller_id: String,
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub workspace_id: WorkspaceId,
     pub layer_stack_root: PathBuf,
     pub workspace_root: PathBuf,
     pub leased_base: LeasedBaseRevision,
@@ -320,9 +329,15 @@ impl BoundState {
             &handle.layer_paths,
         )
         .map_err(setup_error)?;
-        let remounted =
-            self.manager
-                .remount_with_layers(caller_id, compaction.layer_paths.clone(), probe)?;
+        let compact_manifest_version = compaction.manifest.version;
+        let compact_manifest_root_hash = layerstack::manifest_root_hash(&compaction.manifest);
+        let remounted = self.manager.remount_with_layers(
+            caller_id,
+            compact_manifest_version,
+            compact_manifest_root_hash,
+            compaction.layer_paths.clone(),
+            probe,
+        )?;
         let mount_verified = remounted.handle.layer_paths == compaction.layer_paths
             && remounted.remount.mount_verified;
         let lease_retargeted = self
@@ -505,7 +520,7 @@ pub(crate) struct IdleWorkspaceEviction {
 }
 
 pub(crate) struct WorkspaceEnterOutcome {
-    pub handle: WorkspaceHandle,
+    pub handle: IsolatedWorkspaceHandle,
     pub recovery: WorkspaceRecoveryReport,
     pub snapshot_normalization: SnapshotNormalization,
 }
@@ -656,7 +671,7 @@ impl WorkspaceRuntime {
         &self,
         caller_id: &str,
         workspace_root: &Path,
-    ) -> Result<WorkspaceHandle, WorkspaceEnterError> {
+    ) -> Result<IsolatedWorkspaceHandle, WorkspaceEnterError> {
         self.enter_with_report(caller_id, workspace_root)
             .map(|outcome| outcome.handle)
     }
@@ -737,7 +752,10 @@ impl WorkspaceRuntime {
     /// # Errors
     ///
     /// Returns [`IsolatedError::FeatureDisabled`] when isolation is disabled.
-    pub fn status(&self, caller_id: &str) -> Result<Option<WorkspaceHandle>, IsolatedError> {
+    pub fn status(
+        &self,
+        caller_id: &str,
+    ) -> Result<Option<IsolatedWorkspaceHandle>, IsolatedError> {
         self.with_state(|state| Ok(state.manager.get_handle(caller_id)))
     }
 
@@ -920,6 +938,56 @@ impl WorkspaceRuntime {
         }
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn capture_changes(
+        &self,
+        handle: &UnifiedWorkspaceHandle,
+        request: CaptureChangesRequest,
+    ) -> Result<CaptureChangesResult, WorkspaceError> {
+        let _mode_guard = self.lock_mode_gate();
+        self.reject_capture_active_commands(&handle.owner)?;
+        match handle.network {
+            NetworkMode::Isolated => {
+                let binding = self.command_binding_for(&handle.owner.0).ok_or_else(|| {
+                    WorkspaceError::NotOpen {
+                        owner: handle.owner.clone(),
+                    }
+                })?;
+                ensure_isolated_capture_handle_matches(handle, &binding)?;
+                let result = capture_upperdir_result(
+                    &binding.upperdir,
+                    WorkspaceId(binding.workspace_handle_id.clone()),
+                    base_revision_from_isolated_binding(&binding),
+                    request,
+                )?;
+                self.touch(&binding.caller_id);
+                Ok(result)
+            }
+            NetworkMode::Host => Err(WorkspaceError::InvalidRequest {
+                field: "handle",
+                message: "host capture requires the runtime-owned Host workspace lifecycle"
+                    .to_owned(),
+            }),
+        }
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn capture_host_workspace_changes(
+        &self,
+        host: &HostWorkspaceLifecycle,
+        request: CaptureChangesRequest,
+    ) -> Result<CaptureChangesResult, WorkspaceError> {
+        let _mode_guard = self.lock_mode_gate();
+        let owner = CallerId(host.caller_id.clone());
+        self.reject_capture_active_commands(&owner)?;
+        capture_upperdir_result(
+            &host.workspace.dirs().upperdir,
+            host.workspace_id.clone(),
+            base_revision_from_host(host),
+            request,
+        )
+    }
+
     #[cfg(test)]
     pub(crate) fn create_host_workspace_for_legacy_layer_stack_root_with_scratch_root_for_test(
         &self,
@@ -961,6 +1029,8 @@ impl WorkspaceRuntime {
             }
         };
         Ok(HostWorkspaceLifecycle {
+            caller_id: caller_id.to_owned(),
+            workspace_id: WorkspaceId(format!("host-{invocation_id}")),
             layer_stack_root: resolved.layer_stack_root.clone(),
             workspace_root: resolved.workspace_root.clone(),
             leased_base,
@@ -1404,6 +1474,12 @@ impl WorkspaceRuntime {
         Ok(())
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn reject_capture_active_commands(&self, owner: &CallerId) -> Result<(), WorkspaceError> {
+        let active_commands = self.command.count_by_caller(Some(owner.0.as_str()));
+        capture_active_command_rejection(owner, active_commands)
+    }
+
     fn reject_disabled(&self) -> Result<(), WorkspaceEnterError> {
         if self.config.enabled {
             Ok(())
@@ -1427,9 +1503,23 @@ impl WorkspaceRuntime {
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+fn capture_active_command_rejection(
+    owner: &CallerId,
+    active_commands: usize,
+) -> Result<(), WorkspaceError> {
+    if active_commands > 0 {
+        return Err(WorkspaceError::ActiveCommands {
+            owner: owner.clone(),
+            active_commands,
+        });
+    }
+    Ok(())
+}
+
 fn command_binding_from(
     layer_stack_root: &Path,
-    handle: WorkspaceHandle,
+    handle: IsolatedWorkspaceHandle,
 ) -> IsolatedWorkspaceBinding {
     IsolatedWorkspaceBinding {
         caller_id: handle.caller_id,
@@ -1444,6 +1534,85 @@ fn command_binding_from(
         layer_paths: handle.layer_paths,
         ns_fds: handle.ns_fds,
         cgroup_path: handle.cgroup_path,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn ensure_isolated_capture_handle_matches(
+    handle: &UnifiedWorkspaceHandle,
+    binding: &IsolatedWorkspaceBinding,
+) -> Result<(), WorkspaceError> {
+    if binding.workspace_handle_id != handle.id.0 {
+        return Err(WorkspaceError::NotOpen {
+            owner: handle.owner.clone(),
+        });
+    }
+    if !paths_match(&binding.workspace_root, &handle.workspace_root) {
+        return Err(WorkspaceError::InvalidRequest {
+            field: "workspace_root",
+            message: format!(
+                "workspace_root does not match open workspace handle: expected {}, got {}",
+                binding.workspace_root.display(),
+                handle.workspace_root.display()
+            ),
+        });
+    }
+    Ok(())
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn capture_upperdir_result(
+    upperdir: &Path,
+    workspace_id: WorkspaceId,
+    base_revision: BaseRevision,
+    request: CaptureChangesRequest,
+) -> Result<CaptureChangesResult, WorkspaceError> {
+    let captured = capture_upperdir_with_payloads(upperdir, request.materialize_payloads).map_err(
+        |error| WorkspaceError::Capture {
+            message: error.to_string(),
+        },
+    )?;
+    let changed_path_kinds = captured
+        .changes
+        .iter()
+        .map(|change| {
+            (
+                change.path().as_str().to_owned(),
+                ChangedPathKind::from(change),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let changed_paths = changed_path_kinds.keys().cloned().collect();
+    let protected_drops = captured
+        .protected_drops
+        .iter()
+        .map(ProtectedPathDrop::from)
+        .collect();
+    Ok(CaptureChangesResult {
+        workspace_id,
+        base_revision,
+        changed_paths,
+        changed_path_kinds,
+        protected_drops,
+        stats: request.include_stats.then_some(captured.stats),
+    })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn base_revision_from_host(host: &HostWorkspaceLifecycle) -> BaseRevision {
+    BaseRevision {
+        version: host.leased_base.version,
+        root_hash: host.leased_base.root_hash.clone(),
+        layer_count: host.leased_base.layer_paths.len(),
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn base_revision_from_isolated_binding(binding: &IsolatedWorkspaceBinding) -> BaseRevision {
+    BaseRevision {
+        version: binding.manifest_version,
+        root_hash: binding.manifest_root_hash.clone(),
+        layer_count: binding.layer_paths.len(),
     }
 }
 

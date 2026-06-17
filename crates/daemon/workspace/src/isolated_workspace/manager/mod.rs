@@ -3,21 +3,19 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::dirs::OverlayDirs;
+use crate::isolated_network_setup::{IsolatedNetwork, VethAllocation};
 use crate::isolated_workspace::caps::ResourceCaps;
 use crate::isolated_workspace::error::IsolatedError;
-use crate::isolated_workspace::namespace::NamespaceRuntime;
-use crate::isolated_workspace::network::{IsolatedNetwork, VethAllocation};
+use crate::lifecycle::monotonic_seconds;
+use crate::namespace::NamespaceRuntime;
+use crate::overlay::dirs::OverlayDirs;
 
-use self::lifecycle::monotonic_seconds;
-
-mod lifecycle;
-mod recovery;
 #[cfg(test)]
 #[path = "../../../tests/unit/isolated_workspace_sessions.rs"]
 mod tests;
 
-pub use lifecycle::ExitOutcome;
+pub use crate::lifecycle::remount::WorkspaceRemountState;
+pub use crate::lifecycle::ExitOutcome;
 
 const HOST_BUDGET_FALLBACK_BYTES: u64 = 1_u64 << 62;
 const KIB_BYTES: u64 = 1_024;
@@ -38,23 +36,6 @@ pub struct IsolatedSnapshot {
 pub struct DnsConfiguration {
     pub fallback_applied: bool,
     pub previous_first_nameserver: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum WorkspaceRemountState {
-    #[default]
-    Active,
-    Pending,
-}
-
-impl WorkspaceRemountState {
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Active => "active",
-            Self::Pending => "remount_pending",
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -80,12 +61,12 @@ pub struct WorkspaceHandle {
 }
 
 pub struct IsolatedManager {
-    caps: ResourceCaps,
-    runtime: NamespaceRuntime,
-    network: IsolatedNetwork,
-    scratch_root: PathBuf,
-    handles: HashMap<IsolatedWorkspaceId, WorkspaceHandle>,
-    by_caller: HashMap<String, IsolatedWorkspaceId>,
+    pub(crate) caps: ResourceCaps,
+    pub(crate) runtime: NamespaceRuntime,
+    pub(crate) network: IsolatedNetwork,
+    pub(crate) scratch_root: PathBuf,
+    pub(crate) handles: HashMap<IsolatedWorkspaceId, WorkspaceHandle>,
+    pub(crate) by_caller: HashMap<String, IsolatedWorkspaceId>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -105,7 +86,11 @@ impl IsolatedManager {
         Self::with_runtime(caps, scratch_root, NamespaceRuntime::stubbed())
     }
 
-    fn with_runtime(caps: ResourceCaps, scratch_root: PathBuf, runtime: NamespaceRuntime) -> Self {
+    pub(crate) fn with_runtime(
+        caps: ResourceCaps,
+        scratch_root: PathBuf,
+        runtime: NamespaceRuntime,
+    ) -> Self {
         let network = IsolatedNetwork::new(caps.rfc1918_egress);
         Self {
             caps,
@@ -117,7 +102,7 @@ impl IsolatedManager {
         }
     }
 
-    fn check_host_capacity(&self) -> Result<(), IsolatedError> {
+    pub(crate) fn check_host_capacity(&self) -> Result<(), IsolatedError> {
         check_host_capacity_against_budget(
             self.handles.len(),
             self.caps.upperdir_bytes,
@@ -163,7 +148,7 @@ impl IsolatedManager {
         self.reap_named_orphans()
     }
 
-    fn owned_scratch_root(&self) -> PathBuf {
+    pub(crate) fn owned_scratch_root(&self) -> PathBuf {
         self.scratch_root.join(OWNED_SCRATCH_DIR)
     }
 }

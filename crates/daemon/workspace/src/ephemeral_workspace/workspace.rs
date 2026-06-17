@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use super::EphemeralWorkspaceError;
-use crate::dirs::{allocate_overlay_dirs, OverlayDirs};
+use crate::overlay::dirs::{allocate_overlay_dirs, OverlayDirs};
 
 /// One overlay transaction's scratch dirs.
 ///
@@ -43,7 +43,7 @@ impl EphemeralWorkspace {
         kind: &str,
         token: &str,
     ) -> Result<Self, EphemeralWorkspaceError> {
-        let dirs = crate::dirs::overlay_run_dirs(kind, token)?;
+        let dirs = crate::overlay::dirs::overlay_run_dirs(kind, token)?;
         Ok(Self { dirs })
     }
 

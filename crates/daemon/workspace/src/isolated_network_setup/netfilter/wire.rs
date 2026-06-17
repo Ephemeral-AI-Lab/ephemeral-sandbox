@@ -2,8 +2,8 @@ use netlink_sys::{Socket as NlSocket, SocketAddr as NlSocketAddr};
 
 use std::net::Ipv4Addr;
 
+use crate::isolated_network_setup::network_error_at;
 use crate::isolated_workspace::error::IsolatedError;
-use crate::isolated_workspace::network::network_error_at;
 
 use super::exprs::NFTA_DATA_VALUE;
 

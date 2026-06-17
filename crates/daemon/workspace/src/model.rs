@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use crate::isolated_workspace::{
     IsolatedWorkspaceBinding, WorkspaceHandle as IsolatedWorkspaceHandle,
 };
-use crate::tree::TreeResourceStats;
+use crate::overlay::tree::TreeResourceStats;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WorkspaceId(pub String);
@@ -99,16 +99,49 @@ pub enum ChangedPathKind {
     OpaqueDir,
 }
 
+impl From<&layerstack::LayerChange> for ChangedPathKind {
+    fn from(change: &layerstack::LayerChange) -> Self {
+        match change {
+            layerstack::LayerChange::Write { .. } | layerstack::LayerChange::WriteFile { .. } => {
+                Self::Write
+            }
+            layerstack::LayerChange::Delete { .. } => Self::Delete,
+            layerstack::LayerChange::Symlink { .. } => Self::Symlink,
+            layerstack::LayerChange::OpaqueDir { .. } => Self::OpaqueDir,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProtectedPathDropReason {
     UnsupportedSpecialFile,
     InvalidLayerPath,
 }
 
+impl From<layerstack::ProtectedPathDropReason> for ProtectedPathDropReason {
+    fn from(reason: layerstack::ProtectedPathDropReason) -> Self {
+        match reason {
+            layerstack::ProtectedPathDropReason::UnsupportedSpecialFile => {
+                Self::UnsupportedSpecialFile
+            }
+            layerstack::ProtectedPathDropReason::InvalidLayerPath => Self::InvalidLayerPath,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProtectedPathDrop {
     pub path: String,
     pub reason: ProtectedPathDropReason,
+}
+
+impl From<&layerstack::ProtectedPathDrop> for ProtectedPathDrop {
+    fn from(drop: &layerstack::ProtectedPathDrop) -> Self {
+        Self {
+            path: drop.path.as_str().to_owned(),
+            reason: ProtectedPathDropReason::from(drop.reason),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -207,8 +240,8 @@ impl From<IsolatedWorkspaceBinding> for WorkspaceHandle {
 mod tests {
     use std::collections::{BTreeMap, HashMap};
 
-    use crate::dirs::OverlayDirs;
     use crate::isolated_workspace::{DnsConfiguration, IsolatedWorkspaceId, WorkspaceRemountState};
+    use crate::overlay::dirs::OverlayDirs;
 
     use super::*;
 

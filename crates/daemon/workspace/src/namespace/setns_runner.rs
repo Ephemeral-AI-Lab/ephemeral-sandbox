@@ -1,19 +1,181 @@
+#![cfg_attr(not(target_os = "linux"), allow(dead_code))]
+
 use std::io::{Read, Write};
 use std::os::unix::process::CommandExt;
+use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Output, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
+#[cfg(target_os = "linux")]
+use ::linux_namespace_subprocess::protocol::{RunMode, RunnerVerb, ToolCall, WorkspaceRoot};
 use ::linux_namespace_subprocess::protocol::{RunRequest, RunResult};
 use nix::sys::signal::{kill, Signal};
 use nix::unistd::Pid;
+#[cfg(target_os = "linux")]
+use serde_json::json;
 use serde_json::Value;
 
+#[cfg(target_os = "linux")]
+use crate::isolated_network_setup::{BRIDGE_PREFIX_LEN, GATEWAY};
 use crate::isolated_workspace::error::IsolatedError;
 use crate::isolated_workspace::manager::DnsConfiguration;
-use crate::isolated_workspace::RemountOverlayReport;
+use crate::isolated_workspace::manager::WorkspaceHandle;
+use crate::lifecycle::remount::{RemountOverlayReport, RemountProbe};
 
-use super::setup_error;
+#[cfg(target_os = "linux")]
+use super::fds::{expect_line, ns_fds_from_map, write_all_fd};
+#[cfg(target_os = "linux")]
+use super::holder::ns_holder_runtime_error;
+use super::{setup_error, NamespaceRuntime};
+
+impl NamespaceRuntime {
+    pub(crate) fn mount_overlay(
+        &self,
+        handle: &WorkspaceHandle,
+        layer_paths: &[PathBuf],
+        setup_timeout_s: f64,
+    ) -> Result<(), IsolatedError> {
+        if self.stub || handle.holder_pid <= 0 {
+            return Ok(());
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = (handle, layer_paths, setup_timeout_s);
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let request = ns_runner_request(
+                handle,
+                "mount",
+                "setns_overlay_mount",
+                json!({}),
+                layer_paths.to_vec(),
+            );
+            mount_overlay_child(&request, setup_timeout_s)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn remount_overlay(
+        &self,
+        handle: &WorkspaceHandle,
+        layer_paths: &[PathBuf],
+        probe: &RemountProbe,
+        setup_timeout_s: f64,
+    ) -> Result<RemountOverlayReport, IsolatedError> {
+        if self.stub || handle.holder_pid <= 0 {
+            return Ok(RemountOverlayReport::verified_stub(layer_paths.len()));
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = (handle, layer_paths, probe, setup_timeout_s);
+            Ok(RemountOverlayReport::default())
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let request = ns_runner_request(
+                handle,
+                "remount",
+                "remount_overlay",
+                json!({
+                    "probe_path": probe
+                        .path
+                        .as_ref()
+                        .map(|path| path.to_string_lossy().into_owned()),
+                    "probe_content": probe.expected_content.as_deref(),
+                }),
+                layer_paths.to_vec(),
+            );
+            remount_overlay_child(&request, setup_timeout_s)
+        }
+    }
+
+    pub(crate) fn configure_dns(
+        &self,
+        handle: &WorkspaceHandle,
+        fallback_dns: &str,
+        setup_timeout_s: f64,
+    ) -> Result<DnsConfiguration, IsolatedError> {
+        if self.stub || handle.holder_pid <= 0 {
+            return Ok(DnsConfiguration::default());
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = (handle, fallback_dns, setup_timeout_s);
+            Ok(DnsConfiguration::default())
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let request = ns_runner_request(
+                handle,
+                "configure-dns",
+                "configure_dns",
+                json!({"fallback_dns": fallback_dns}),
+                Vec::new(),
+            );
+            configure_dns_child(&request, setup_timeout_s)
+        }
+    }
+
+    pub(crate) fn signal_net_ready(
+        &self,
+        handle: &WorkspaceHandle,
+        setup_timeout_s: f64,
+    ) -> Result<(), IsolatedError> {
+        if self.stub || handle.holder_pid <= 0 {
+            return Ok(());
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = (handle, setup_timeout_s);
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let payload = handle.veth.as_ref().map_or_else(
+                || "net-ready\n".to_owned(),
+                |veth| {
+                    format!(
+                        "net-ready {} {} {} {}\n",
+                        veth.ns_name, veth.ns_ip, BRIDGE_PREFIX_LEN, GATEWAY
+                    )
+                },
+            );
+            write_all_fd(handle.control_fd, payload.as_bytes())?;
+            if let Err(error) = expect_line(handle.readiness_fd, b"ready", setup_timeout_s) {
+                return Err(ns_holder_runtime_error(error, handle.holder_pid)?);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn ns_runner_request(
+    handle: &WorkspaceHandle,
+    invocation: &str,
+    verb: &str,
+    args: serde_json::Value,
+    layer_paths: Vec<PathBuf>,
+) -> RunRequest {
+    RunRequest {
+        mode: RunMode::SetNs,
+        tool_call: ToolCall {
+            invocation_id: format!("isolated-{invocation}-{}", handle.workspace_id.0),
+            caller_id: handle.caller_id.clone(),
+            verb: RunnerVerb::from(verb),
+            args,
+            background: false,
+        },
+        workspace_root: WorkspaceRoot(PathBuf::from(&handle.workspace_root)),
+        layer_paths,
+        upperdir: Some(handle.dirs.upperdir.clone()),
+        workdir: Some(handle.dirs.workdir.clone()),
+        ns_fds: ns_fds_from_map(&handle.ns_fds),
+        cgroup_path: handle.cgroup_path.clone(),
+        timeout_seconds: None,
+    }
+}
 
 pub(super) fn mount_overlay_child(
     request: &RunRequest,

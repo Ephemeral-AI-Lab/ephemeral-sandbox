@@ -246,6 +246,27 @@ pub fn capture_upperdir_with_stats(upperdir: &Path) -> Result<CapturedUpperdir> 
     })
 }
 
+/// Walk the overlay `upperdir` once, returning placeholder changes and resource
+/// stats without reading regular file payloads.
+///
+/// # Errors
+///
+/// Returns [`CaptureError`] when upperdir traversal, path normalization, xattr
+/// probing, or symlink target reads fail.
+pub fn capture_upperdir_metadata_with_stats(upperdir: &Path) -> Result<CapturedUpperdir> {
+    let metadata = capture_upperdir_metadata(upperdir)?;
+    let changes = metadata
+        .entries
+        .iter()
+        .map(CapturedUpperdirEntry::placeholder_change)
+        .collect();
+    Ok(CapturedUpperdir {
+        changes,
+        protected_drops: metadata.protected_drops,
+        stats: metadata.stats,
+    })
+}
+
 pub(crate) fn capture_layer_dir_unbounded(layer_dir: &Path) -> Result<Vec<LayerChange>> {
     let metadata = capture_upperdir_metadata(layer_dir)?;
     if let Some(drop) = metadata.protected_drops.first() {

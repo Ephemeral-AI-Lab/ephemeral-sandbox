@@ -4,7 +4,6 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
 
-use super::lifecycle::next_handle_id;
 use super::{
     check_host_capacity_against_budget, host_capacity_budget_bytes_from_memavailable_kib,
     parse_memavailable_kib, required_host_capacity_bytes, IsolatedManager, IsolatedSnapshot,
@@ -12,6 +11,7 @@ use super::{
 use crate::isolated_workspace::caps::ResourceCaps;
 use crate::isolated_workspace::error::IsolatedError;
 use crate::isolated_workspace::namespace::NamespaceRuntime;
+use crate::lifecycle::leases::next_handle_id;
 
 #[test]
 fn parses_memavailable_from_proc_meminfo() {

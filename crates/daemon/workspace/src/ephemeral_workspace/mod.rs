@@ -13,14 +13,14 @@
 
 mod workspace;
 
-pub use crate::capture::{capture_upperdir, CapturedChanges};
-pub use crate::dirs::{OverlayDirs, OverlayDirsGuard};
-pub use crate::tree::TreeResourceStats;
+pub use crate::overlay::capture::{capture_upperdir, CapturedChanges};
+pub use crate::overlay::dirs::{OverlayDirs, OverlayDirsGuard};
+pub use crate::overlay::tree::TreeResourceStats;
 pub use workspace::EphemeralWorkspace;
 
 use std::path::PathBuf;
 
-use crate::dirs;
+use crate::overlay::dirs;
 use thiserror::Error;
 
 /// Errors raised by the overlay-transaction lifecycle.
