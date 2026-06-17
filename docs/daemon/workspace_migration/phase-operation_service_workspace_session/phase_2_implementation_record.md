@@ -39,6 +39,8 @@ Rules:
   - `crates/daemon/operation_service/tests/service_graph.rs`
   - `docs/daemon/workspace_migration/phase-operation_service_workspace_session/phase_2_implementation_record.md`
 - Verification:
+  - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo check -p command`:
+    passed.
   - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo check -p operation_service`:
     passed.
   - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p operation_service --test service_graph`:
@@ -174,7 +176,8 @@ Rules:
 
 ## Milestone 3: Exec Some/None Flows And Caller Ownership
 
-- Status: Complete.
+- Status: Partial. Ownership/admission and Some/None mode selection are
+  implemented; real process launch and yield waiting remain open.
 - Files changed:
   - `crates/daemon/operation_service/src/command/contract.rs`
   - `crates/daemon/operation_service/src/command/error.rs`
@@ -187,6 +190,8 @@ Rules:
   - `crates/daemon/operation_service/src/workspace_manager/service.rs`
   - `crates/daemon/operation_service/tests/command_exec.rs`
   - `crates/daemon/operation_service/tests/command_ownership.rs`
+  - `crates/daemon/operation_service/tests/command_process_store.rs`
+  - `crates/daemon/operation_service/tests/service_graph.rs`
   - `crates/daemon/operation_service/tests/support/mod.rs`
   - `docs/daemon/workspace_migration/phase-operation_service_workspace_session/phase_2_command_service_IMPLEMENTATION_PLAN.md`
   - `docs/daemon/workspace_migration/phase-operation_service_workspace_session/phase_2_implementation_record.md`
@@ -194,40 +199,46 @@ Rules:
   - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo check -p operation_service`:
     passed.
   - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p operation_service command_exec`:
-    passed, 3 matching integration tests.
+    passed, 8 matching tests including rollback/root-mismatch unit coverage.
   - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p operation_service command_ownership`:
-    passed, 4 matching integration tests.
+    passed, 6 matching tests across active and completed ownership paths.
   - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p operation_service`:
-    passed, 38 tests.
+    passed, 48 tests.
   - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo clippy -p operation_service --all-targets --no-deps -- -D warnings`:
     passed.
   - `cargo fmt --check`: passed.
   - `git diff --check`: passed.
   - `rg -n "WorkspaceRuntime|CommandOps|ExecTarget|InternalHostOneShot|StartCommand|CollectCompleted|layer_stack_root|request_id|trace_id|invocation_id|remountable|trace::TraceId|trace::RequestId|RequestId|TraceId|collect_completed|count_by_caller|count_commands|advance_active_commands_once|by_workspace|by_caller|workspace_index|caller_index" crates/daemon/operation_service/src/command crates/daemon/operation_service/tests/command_exec.rs crates/daemon/operation_service/tests/command_ownership.rs`:
     no matches.
-- Deviations: Milestone 3 active records use `command::CommandProcess::new`
+- Deviations: Milestone 3 active records still use `command::CommandProcess::new`
   instead of real process spawning. The current `WorkspaceSessionHandler` only
   exposes the resource-facing workspace handle and snapshot paths, not the
   policy-free namespace/overlay launch material needed to spawn through the
   low-level command crate without importing old `operation::command` routing
-  policy. This milestone still allocates command ids, reserves admission slots,
-  binds active commands in `CommandRegistry`, inserts `ActiveCommandProcess`
-  records, and returns running command yields.
-- Unresolved issues: None for the implemented Milestone 3 ownership/admission
-  surface.
+  policy. The M3 plan is no longer marked complete until a policy-free launch
+  context and `command::yield_wait_loop` integration are added.
+- Unresolved issues: Real launch/yield behavior is still open. Ownership,
+  rollback, active/completed authorization, and private one-shot id exposure
+  findings from the M3 adversarial review have been remediated.
 - Cleanup notes: Replaced the host-specific
   `WorkspaceManagerService::create_private_host_workspace` helper with generic
   `create_private_workspace(caller_id, workspace_root, network)` so the
   workspace manager does not imply a missing isolated twin. Removed the unused
   local exec yield-time binding left over from the not-yet-implemented real
   spawn/yield wait path. Updated the Phase 2 implementation-plan checklist for
-  completed Milestone 3 items and marked launch preparation/yield waiting as
-  deferred to Milestone 4.
+  completed Milestone 3 items while keeping the milestone itself open for launch
+  preparation/yield waiting. Added start-failure one-shot cleanup, direct
+  command-service root-mismatch validation, active-to-completed ownership
+  validation, service-owned completion/unbind coordination, and removed public
+  service registry/process-store accessors so one-shot workspace ids are not
+  recoverable through the command service.
 - Handoff notes: Milestone 4 should replace the process-free active record path
   with the scoped finalization-aware launch/finalization flow once the service
   has a policy-free launch adapter. The completed-record authorization path is
   ready for read/poll behavior: service methods authorize active records first,
-  then retained completed records by `CompletedCommandRecord.caller_id`.
+  then retained completed records by `CompletedCommandRecord.caller_id`, and
+  completion now validates caller/workspace ownership against the active record
+  before retaining the completed record.
   One-shot commands call `WorkspaceManagerService::create_private_workspace`
   with `NetworkMode::Host`, which keeps the temporary workspace-create adapter
   out of command-service contracts without adding a host-specific workspace

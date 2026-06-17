@@ -224,7 +224,7 @@ capture result shape.
 
 - [x] Milestone 1: Operation-service scaffolding and contracts.
 - [x] Milestone 2: Command service registry/process-store split.
-- [x] Milestone 3: Exec Some/None flows and caller ownership.
+- [ ] Milestone 3: Exec Some/None flows and caller ownership.
 - [ ] Milestone 4: One-shot finalization and persistent-session finalization semantics.
 - [ ] Milestone 5: Local OS row projection.
 - [ ] Milestone 6: `WorkspaceRemountService` and remount-pending state.
@@ -811,6 +811,11 @@ git diff --check
   caller mismatches for active and completed records.
 - [x] No `ExecCommandInput` request correlation identifiers or `remountable` field
   are introduced.
+
+M3 remains open until the command service has a policy-free launch context and
+uses `command::CommandProcess::spawn` plus the yield wait loop. The implemented
+ownership/admission surface is complete, but process-free active records are not
+the final M3 launch behavior.
 
 ## Milestone 4: One-Shot Finalization And Persistent-Session Semantics
 

@@ -145,7 +145,7 @@ fn finalize_policy(is_session_command: bool, workspace_id: &WorkspaceId) -> Comm
 #[cfg(test)]
 mod tests {
     use std::collections::VecDeque;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
     use std::time::Instant;
 
@@ -330,19 +330,21 @@ mod tests {
     }
 
     fn session_handler(workspace_id: &str, caller_id: &str) -> WorkspaceSessionHandler {
-        let handle = workspace_handle(
+        let workspace_root = PathBuf::from("/workspace/session");
+        let fake = Arc::new(FakeWorkspaceService::new());
+        fake.push_create_result(Ok(workspace_handle(
             workspace_id,
             caller_id,
-            PathBuf::from("/workspace/session"),
-        );
-        WorkspaceSessionHandler {
-            workspace_id: handle.id.clone(),
-            layer_stack_root: PathBuf::from("/layers"),
-            lease_id: handle.snapshot.lease_id.clone(),
-            snapshot: handle.snapshot.clone(),
-            layer_paths: handle.snapshot.layer_paths.clone(),
-            handle,
-        }
+            workspace_root.clone(),
+        )));
+        let workspace = WorkspaceManagerService::new(fake);
+        workspace
+            .create_private_workspace(
+                CallerId(caller_id.to_owned()),
+                workspace_root,
+                NetworkMode::Host,
+            )
+            .expect("test session create succeeds")
     }
 
     fn active_record(command_id: CommandId, workspace_id: WorkspaceId) -> ActiveCommandProcess {
@@ -383,8 +385,8 @@ mod tests {
         assert!(matches!(
             error,
             CommandServiceError::WorkspaceRootMismatch { expected, actual }
-                if expected == PathBuf::from("/workspace/session")
-                    && actual == PathBuf::from("/workspace/other")
+                if expected.as_path() == Path::new("/workspace/session")
+                    && actual.as_path() == Path::new("/workspace/other")
         ));
         assert_eq!(
             service.process_store().allocate_command_id(),

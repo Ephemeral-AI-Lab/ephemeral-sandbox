@@ -1,16 +1,150 @@
-mod support;
-
+use std::collections::VecDeque;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use operation_service::command::{
     CancelCommandInput, CommandCallContext, CommandId, CommandServiceError, CommandStatus,
     ExecCommandInput, OperationTraceContext, PollCommandInput, ReadCommandLinesInput,
     WriteStdinInput,
 };
-use workspace::{CallerId, NetworkMode};
+use operation_service::workspace_manager::WorkspaceManagerService;
+use operation_service::workspace_remount::{WorkspaceRemountOptions, WorkspaceRemountService};
+use operation_service::OperationServices;
+use workspace::{
+    BaseRevision, CallerId, CaptureChangesRequest, CapturedWorkspaceChanges,
+    CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, LatestSnapshotRequest,
+    LayerStackSnapshotRef, LeaseId, NetworkMode, ReadonlySnapshotHandle, RemountWorkspaceRequest,
+    RemountWorkspaceResult, WorkspaceError, WorkspaceHandle, WorkspaceService,
+};
 
-use support::{build_services, workspace_handle, FakeWorkspaceService, TestServices};
+struct TestServices {
+    command: Arc<operation_service::CommandOperationService>,
+    services: OperationServices,
+}
+
+struct FakeWorkspaceService {
+    create_results: Mutex<VecDeque<Result<WorkspaceHandle, WorkspaceError>>>,
+}
+
+impl FakeWorkspaceService {
+    fn new() -> Self {
+        Self {
+            create_results: Mutex::new(VecDeque::new()),
+        }
+    }
+
+    fn push_create_result(&self, result: Result<WorkspaceHandle, WorkspaceError>) {
+        self.create_results
+            .lock()
+            .expect("test operation succeeds")
+            .push_back(result);
+    }
+}
+
+impl WorkspaceService for FakeWorkspaceService {
+    fn create_workspace(
+        &self,
+        _request: CreateWorkspaceRequest,
+    ) -> Result<WorkspaceHandle, WorkspaceError> {
+        self.create_results
+            .lock()
+            .expect("test operation succeeds")
+            .pop_front()
+            .unwrap_or_else(|| {
+                Err(WorkspaceError::Setup {
+                    step: "create result not configured".to_owned(),
+                })
+            })
+    }
+
+    fn capture_changes(
+        &self,
+        _handle: &WorkspaceHandle,
+        _request: CaptureChangesRequest,
+    ) -> Result<CapturedWorkspaceChanges, WorkspaceError> {
+        Err(WorkspaceError::Capture {
+            message: "capture result not configured".to_owned(),
+        })
+    }
+
+    fn remount_workspace(
+        &self,
+        _handle: &WorkspaceHandle,
+        _request: RemountWorkspaceRequest,
+    ) -> Result<RemountWorkspaceResult, WorkspaceError> {
+        Err(WorkspaceError::Setup {
+            step: "remount result not configured".to_owned(),
+        })
+    }
+
+    fn destroy_workspace(
+        &self,
+        handle: WorkspaceHandle,
+        _request: DestroyWorkspaceRequest,
+    ) -> Result<DestroyWorkspaceResult, WorkspaceError> {
+        Ok(DestroyWorkspaceResult {
+            workspace_id: handle.id,
+            owner: handle.owner,
+            evicted_upperdir_bytes: 0,
+            lifetime_s: 0.0,
+            lease_released: Some(true),
+            lease_release_error: None,
+            active_leases_after: 0,
+        })
+    }
+
+    fn latest_snapshot(
+        &self,
+        _request: LatestSnapshotRequest,
+    ) -> Result<ReadonlySnapshotHandle, WorkspaceError> {
+        Err(WorkspaceError::SnapshotAcquire {
+            source: "latest snapshot not configured".to_owned(),
+        })
+    }
+}
+
+fn build_services(fake: Arc<FakeWorkspaceService>) -> TestServices {
+    let workspace = Arc::new(WorkspaceManagerService::new(fake));
+    let command = Arc::new(operation_service::CommandOperationService::new(
+        Arc::clone(&workspace),
+        command::CommandConfig::default(),
+    ));
+    let remount = Arc::new(WorkspaceRemountService::new(
+        Arc::clone(&workspace),
+        Arc::clone(&command),
+        WorkspaceRemountOptions::default(),
+    ));
+    let services = OperationServices::new(workspace, Arc::clone(&command), remount);
+
+    TestServices { command, services }
+}
+
+fn workspace_handle(
+    workspace_id: &str,
+    caller_id: &str,
+    lease_id: &str,
+    workspace_root: PathBuf,
+    network: NetworkMode,
+) -> WorkspaceHandle {
+    let snapshot = LayerStackSnapshotRef {
+        lease_id: LeaseId(lease_id.to_owned()),
+        manifest_version: 1,
+        root_hash: "root".to_owned(),
+        layer_paths: vec![PathBuf::from("/lower/one")],
+    };
+    WorkspaceHandle {
+        id: workspace::WorkspaceId(workspace_id.to_owned()),
+        owner: CallerId(caller_id.to_owned()),
+        workspace_root,
+        network,
+        base_revision: BaseRevision {
+            version: 1,
+            root_hash: "root".to_owned(),
+            layer_count: 1,
+        },
+        snapshot,
+    }
+}
 
 fn context(caller_id: &str) -> CommandCallContext {
     CommandCallContext {

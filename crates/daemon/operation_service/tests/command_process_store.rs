@@ -271,10 +271,10 @@ fn command_process_store_rejects_completed_record_with_mismatched_owner() {
         .expect("active insert succeeds");
 
     let error = match store.complete_active(completed_record(
-            command_id.clone(),
-            caller_id("caller-other"),
-            workspace_id,
-        )) {
+        command_id.clone(),
+        caller_id("caller-other"),
+        workspace_id,
+    )) {
         Err(error) => error,
         Ok(_) => panic!("completed record cannot rewrite caller ownership"),
     };
@@ -311,10 +311,10 @@ fn command_process_store_rejects_completed_record_with_mismatched_workspace() {
 
     let rewritten_workspace_id = workspace_id("workspace-other");
     let error = match store.complete_active(completed_record(
-            command_id.clone(),
-            caller_id,
-            rewritten_workspace_id.clone(),
-        )) {
+        command_id.clone(),
+        caller_id,
+        rewritten_workspace_id.clone(),
+    )) {
         Err(error) => error,
         Ok(_) => panic!("completed record cannot rewrite workspace ownership"),
     };

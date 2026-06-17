@@ -88,8 +88,8 @@ impl CommandOperationService {
     #[cfg_attr(
         not(test),
         expect(
-        dead_code,
-        reason = "Milestone 4 finalizer will call this internal active-to-completed transition"
+            dead_code,
+            reason = "Milestone 4 finalizer will call this internal active-to-completed transition"
         )
     )]
     pub(crate) fn complete_active_command(
