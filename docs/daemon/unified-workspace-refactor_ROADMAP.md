@@ -1,6 +1,6 @@
 # Unified Workspace Refactor Implementation Roadmap
 
-Status: Phase 3 host lifecycle ownership done
+Status: Phase 4 central routing done
 Date: 2026-06-17
 Owner: `crates/daemon`
 Source spec: `docs/daemon/unified-workspace-refactor_SPEC.md`
@@ -13,7 +13,7 @@ Source spec: `docs/daemon/unified-workspace-refactor_SPEC.md`
 | 1. Public model scaffold | Done | `crates/daemon/workspace` | New DTOs compile beside legacy exports |
 | 2. Workspace root resolution | Done | runtime/root binding | New code accepts `workspace_root`; legacy `layer_stack_root` stays compatibility-only |
 | 3. Host lifecycle ownership | Done | `WorkspaceRuntime`, `CommandOps` | Host workspace create/destroy is explicit and lease-safe |
-| 4. Central routing | Not started | runtime adapters | Command/file route choice lives in `WorkspaceRuntime` |
+| 4. Central routing | Done | runtime adapters | Command/file route choice lives in `WorkspaceRuntime` |
 | 5. Capture changes API | Not started | workspace/runtime | Host and isolated capture are explicit and non-publishing |
 | 6. Target folder structure | Not started | `crates/daemon/workspace/src` | Shared lifecycle and isolated network setup are physically separated |
 | 7. Holder/setns-only workspace execution | Not started | namespace subprocess, command prep | Workspace commands cannot use `FreshNs` |
@@ -136,18 +136,30 @@ Goal: make `WorkspaceRuntime` the route authority for command and file operation
 
 Tasks:
 
-- [ ] Move command route decision logic from op adapters into `WorkspaceRuntime`.
-- [ ] Move file route decision logic from op adapters into `WorkspaceRuntime`.
-- [ ] Add route context types for host and isolated network modes.
-- [ ] Keep op adapters responsible for wire parsing, trace recording, and response shaping.
-- [ ] Keep operation crates responsible for concrete file/command behavior after route selection.
-- [ ] Add tests for host routes, isolated routes, missing workspace, and active handle routing.
+- [x] Move command route decision logic from op adapters into `WorkspaceRuntime`.
+- [x] Move file route decision logic from op adapters into `WorkspaceRuntime`.
+- [x] Add route context types for host and isolated network modes.
+- [x] Keep op adapters responsible for wire parsing, trace recording, and response shaping.
+- [x] Keep operation crates responsible for concrete file/command behavior after route selection.
+- [x] Add tests for host routes, isolated routes, missing workspace, and active handle routing.
 
 Exit criteria:
 
-- [ ] Op adapters do not choose host vs isolated behavior directly.
-- [ ] Route metadata remains wire-stable.
-- [ ] Route decisions do not expose internal storage roots to callers.
+- [x] Op adapters do not choose host vs isolated behavior directly.
+- [x] Route metadata remains wire-stable.
+- [x] Route decisions do not expose internal storage roots to callers.
+
+Phase 4 is closed for central routing. `WorkspaceRuntime` now returns command
+and file route contexts with stable route trace facts. Command adapters parse
+wire args, record the returned route metadata, and call `CommandOps` with the
+returned execution target while the runtime-owned mode gate remains held during
+command start. File adapters parse wire args, record the returned route
+metadata, invoke the selected direct or isolated backend, and ask the runtime to
+complete isolated file-route liveness touches after successful isolated file
+operations. Operation crates still own concrete command/file behavior. No Phase
+5 capture API, Phase 6 file moves, Phase 7 holder/setns changes, Phase 8
+legacy-name retirement, publish behavior changes, or `ops.json` regeneration
+were implemented.
 
 ## Phase 5: Capture Changes API
 
@@ -417,3 +429,14 @@ Append one row per meaningful gate or phase closeout.
 | 2026-06-17 | 3 | `CARGO_TARGET_DIR=/tmp/eos-host-lease-fix-target cargo test -p daemon workspace_runtime` | Pass | Exit 0; 15 focused runtime tests passed after the Host lease RAII fix. |
 | 2026-06-17 | 3 | `CARGO_TARGET_DIR=/tmp/eos-host-lease-cleanup-target cargo test -p operation command` | Pass | Exit 0; 66 command tests plus filtered checkpoint/contract targets passed after moving Host lease custody into LayerStack service. |
 | 2026-06-17 | 3 | `CARGO_TARGET_DIR=/tmp/eos-host-lease-cleanup-target cargo test -p daemon workspace_runtime` | Pass | Exit 0; 15 focused runtime tests passed after removing the dead runtime destroy shim. |
+| 2026-06-17 | 4 | Phase 4 implementation review | Done | Added runtime-owned command/file route context APIs and stable route facts. Command adapters now call `WorkspaceRuntime::route_command_context` and keep the returned mode-gate context alive while invoking `CommandOps`. File adapters now call `WorkspaceRuntime::route_file_context` or the runtime direct legacy helper, then invoke the selected operation backend. No capture, holder/setns, file-move, publish, legacy-retirement, ops.json, or E2E work was implemented. |
+| 2026-06-17 | 4 | `cargo fmt` | Pass | Formatted Phase 4 runtime, adapter, test, and docs edits. |
+| 2026-06-17 | 4 | `CARGO_TARGET_DIR=/tmp/eos-unified-workspace-phase4-target cargo test -p daemon workspace_runtime` | Pass | Exit 0; 21 focused runtime tests passed, including command Host/isolated routing, file direct/isolated routing, missing root compatibility, route facts, isolated file liveness touch, Phase 2 root-resolution coverage, and Phase 3 Host lease exact-once coverage. |
+| 2026-06-17 | 4 | `CARGO_TARGET_DIR=/tmp/eos-unified-workspace-phase4-target cargo test -p operation command` | Pass | Exit 0; 66 command unit tests plus focused checkpoint/contract command targets passed. Command process lifecycle and Host lease release behavior remain in `CommandOps`/LayerStack after route centralization. |
+| 2026-06-17 | 4 | `CARGO_TARGET_DIR=/tmp/eos-unified-workspace-phase4-target cargo test -p operation file` | Pass | Exit 0; 14 operation file tests passed with checkpoint/contract targets compiling and filtering cleanly. Direct and isolated file backends still own concrete read/write/edit behavior. |
+| 2026-06-17 | 4 | `CARGO_TARGET_DIR=/tmp/eos-unified-workspace-phase4-target cargo test -p workspace` | Pass | Exit 0; 24 workspace unit tests passed; doc tests 0 passed, 0 failed. |
+| 2026-06-17 | 4 | `CARGO_TARGET_DIR=/tmp/eos-unified-workspace-phase4-target cargo test -p daemon --test phase2_read_paths` | Fail then Pass | Initial full run failed because disabled isolation enter returned `invalid_argument` before `feature_disabled` when given a missing legacy root. Fixed disabled-mode precedence before root resolution; rerun passed 15 tests, including file fast-path route trace metadata. |
+| 2026-06-17 | 4 | `CARGO_TARGET_DIR=/tmp/eos-unified-workspace-phase4-target cargo test -p daemon --test phase3_write_paths` | Pass | Exit 0; 6 write-path tests passed, covering direct file write/edit behavior and OCC/drop compatibility. |
+| 2026-06-17 | 4 | `git diff --check` | Pass | Exit 0; no whitespace errors. |
+| 2026-06-17 | 4 | Phase 4 skipped gates review | Skipped | Live Docker/Linux E2E, `cargo run -p xtask -- package`, ops.json regeneration, optional `workspace_read_paths`/`workspace_write_paths`/`workspace_command_paths`, `cargo run -p xtask -- check-contract`, and daemon clippy were not run. Packaging, live E2E, ops regeneration, and Phase 5+ target tests are outside this slice. `xtask check-contract` and daemon clippy remain covered by the Phase 0 baseline blockers: stale `crates/daemon/operation/ops.json` and pre-existing `clippy::double_must_use` in `crates/daemon/layerstack/src/lease_aware.rs:97`. |
+| 2026-06-17 | 4 | Phase 4 closeout | Done | Command/file route choice lives in `WorkspaceRuntime`; adapters only parse wire args, record returned traces, invoke selected operation backends, map errors, and shape responses. Route metadata remains compatible, caller-facing storage details remain unexposed, and Phase 5+ work is intentionally deferred. |

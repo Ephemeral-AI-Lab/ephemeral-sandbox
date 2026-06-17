@@ -13,7 +13,7 @@ use operation::command::contract::{
 };
 use operation::command::{
     CommandExecError, CommandExecOutcome, CommandOps, CommandProgressTraceFacts,
-    CommandStdinTraceFacts, CommandTraceEvent, ExecTarget,
+    CommandStdinTraceFacts, CommandTraceEvent,
 };
 use operation::control::contract::CallerCountInput;
 use serde_json::{json, Value};
@@ -21,6 +21,7 @@ use thiserror::Error;
 
 use crate::error::DaemonError;
 use crate::response::u64_to_f64_saturating;
+use crate::runtime::workspace_runtime::WorkspaceRouteTraceFacts;
 use crate::{DispatchContext, WorkspaceRuntime};
 
 use super::to_wire_value;
@@ -50,12 +51,23 @@ enum CommandOpError {
     Command(#[from] CommandExecError),
 }
 
+impl CommandOpError {
+    fn from_workspace(error: workspace::WorkspaceError) -> Self {
+        if is_missing_layer_stack_root(&error) {
+            Self::MissingLayerStackRoot
+        } else {
+            Self::Workspace(error)
+        }
+    }
+}
+
 /// `sandbox.command.exec` - command start contract.
 pub(crate) fn op_exec_command(
     input: ExecCommandInput,
     context: DispatchContext<'_>,
 ) -> Result<Value, DaemonError> {
-    let command_ops = &context.require_services()?.command;
+    let services = context.require_services()?;
+    let command_ops = &services.command;
     let command_config = command_ops.config();
     let timeout_seconds = Some(exec_timeout_seconds(&input, command_config));
     let yield_time_ms = input
@@ -64,7 +76,7 @@ pub(crate) fn op_exec_command(
     let outcome = match exec_command(
         &context,
         command_ops,
-        context.services().map(|services| &services.workspace),
+        &services.workspace,
         ExecCommandRequest {
             invocation_id: input.invocation_id.to_string(),
             caller_id: input.caller.to_string(),
@@ -103,7 +115,7 @@ fn exec_timeout_seconds(input: &ExecCommandInput, config: &CommandConfig) -> f64
 fn exec_command(
     context: &DispatchContext<'_>,
     command_ops: &CommandOps,
-    workspace: Option<&WorkspaceRuntime>,
+    workspace: &WorkspaceRuntime,
     request: ExecCommandRequest,
 ) -> Result<CommandExecOutcome, CommandOpError> {
     let ExecCommandRequest {
@@ -119,73 +131,46 @@ fn exec_command(
         remountable,
     } = request;
 
-    let _mode_guard = workspace.map(WorkspaceRuntime::lock_mode_gate);
-    if let Some(binding) = workspace.and_then(|workspace| workspace.command_binding_for(&caller_id))
-    {
-        context.record_trace_event(
-            "workspace.route",
-            "route_selected",
-            json!({
-                "kind": "isolated_workspace",
-                "reason": "caller_has_open_isolated_workspace",
-            }),
-        );
-        return command_ops
-            .exec_command_with_trace(
+    let route = workspace
+        .route_command_context(&caller_id, &invocation_id, layer_stack_root)
+        .map_err(CommandOpError::from_workspace)?;
+    record_route_selected(context, route.trace_facts());
+    let command_caller_id = route.caller_id().to_owned();
+    let command_remountable = route.remountable(remountable);
+    route
+        .with_exec_target(command_ops.scratch_root(), |target| {
+            command_ops.exec_command_with_trace(
                 StartCommand {
                     invocation_id,
-                    caller_id: binding.caller_id.clone(),
+                    caller_id: command_caller_id,
                     cmd,
                     trace_id,
                     request_id,
                     timeout_seconds,
                     yield_time_ms,
                     cwd,
-                    remountable,
+                    remountable: command_remountable,
                 },
-                ExecTarget::Isolated {
-                    binding: Box::new(binding),
-                },
+                target,
             )
-            .map_err(CommandOpError::Command);
-    }
-
-    let root = layer_stack_root.ok_or(CommandOpError::MissingLayerStackRoot)?;
-    let workspace_runtime = workspace.ok_or(CommandOpError::MissingLayerStackRoot)?;
-    let host_workspace = workspace_runtime
-        .create_host_workspace_for_legacy_layer_stack_root_locked(
-            &caller_id,
-            &invocation_id,
-            &root,
-        )?;
-    context.record_trace_event(
-        "workspace.route",
-        "route_selected",
-        json!({
-            "kind": "ephemeral_workspace",
-            "reason": "no_isolated_workspace_for_caller",
-            "layer_stack_root": &root,
-        }),
-    );
-    command_ops
-        .exec_command_with_trace(
-            StartCommand {
-                invocation_id,
-                caller_id,
-                cmd,
-                trace_id,
-                request_id,
-                timeout_seconds,
-                yield_time_ms,
-                cwd,
-                remountable: false,
-            },
-            ExecTarget::Ephemeral {
-                workspace: Box::new(host_workspace.into_command_workspace()),
-                scratch_root: command_ops.scratch_root(),
-            },
-        )
+        })
         .map_err(CommandOpError::Command)
+}
+
+fn record_route_selected(context: &DispatchContext<'_>, facts: &WorkspaceRouteTraceFacts) {
+    let details = if let Some(layer_stack_root) = &facts.layer_stack_root {
+        json!({
+            "kind": facts.kind,
+            "reason": facts.reason,
+            "layer_stack_root": layer_stack_root,
+        })
+    } else {
+        json!({
+            "kind": facts.kind,
+            "reason": facts.reason,
+        })
+    };
+    context.record_trace_event("workspace.route", "route_selected", details);
 }
 
 pub(crate) fn op_command_collect_completed(
@@ -306,6 +291,14 @@ fn command_op_error(error: CommandOpError) -> DaemonError {
         CommandOpError::Workspace(error) => DaemonError::InvalidRequest(error.to_string()),
         CommandOpError::Command(error) => command_error(error.into_error()),
     }
+}
+
+fn is_missing_layer_stack_root(error: &workspace::WorkspaceError) -> bool {
+    matches!(
+        error,
+        workspace::WorkspaceError::InvalidRequest { field, message }
+            if *field == "layer_stack_root" && message == "layer_stack_root is required"
+    )
 }
 
 fn collect_completed_request(input: CollectCompletedInput) -> CollectCompleted {

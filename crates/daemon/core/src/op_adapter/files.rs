@@ -16,18 +16,13 @@ use thiserror::Error;
 use workspace::IsolatedWorkspaceBinding;
 
 use crate::error::DaemonError;
+use crate::runtime::workspace_runtime::{WorkspaceFileRouteContext, WorkspaceRouteTraceFacts};
 use crate::{DispatchContext, WorkspaceRuntime};
 
 use super::{ok_envelope, to_wire_value};
 
-#[derive(Debug, Clone)]
-enum FileRoute {
-    Direct { layer_stack_root: PathBuf },
-    Isolated,
-}
-
 struct RoutedFileOutcome<T> {
-    route: FileRoute,
+    route: WorkspaceFileRouteContext,
     outcome: T,
 }
 
@@ -43,7 +38,19 @@ enum FileOpError {
     #[error("layer_stack_root is required")]
     MissingLayerStackRoot,
     #[error(transparent)]
+    Workspace(#[from] workspace::WorkspaceError),
+    #[error(transparent)]
     File(#[from] FileOpsError),
+}
+
+impl FileOpError {
+    fn from_workspace(error: workspace::WorkspaceError) -> Self {
+        if is_missing_layer_stack_root(&error) {
+            Self::MissingLayerStackRoot
+        } else {
+            Self::Workspace(error)
+        }
+    }
 }
 
 /// `sandbox.file.read` — shared public read op, routed by active workspace mode.
@@ -71,8 +78,8 @@ pub(crate) fn op_read_file(
     .map_err(file_op_error)?;
     record_file_route(&context, &routed.route);
     let mut outcome = routed.outcome;
-    if let FileRoute::Direct { layer_stack_root } = routed.route {
-        enrich_direct_timings(&layer_stack_root, &mut outcome.timings, 0);
+    if let Some(layer_stack_root) = routed.route.direct_layer_stack_root() {
+        enrich_direct_timings(layer_stack_root, &mut outcome.timings, 0);
         record_resource_stats_from_timings(&context, "after", &outcome.timings);
     }
     record_read_finished(&context, &outcome);
@@ -112,9 +119,9 @@ pub(crate) fn op_write_file(
     .map_err(file_op_error)?;
     record_file_route(&context, &routed.route);
     let mut outcome = routed.outcome;
-    if let FileRoute::Direct { layer_stack_root } = routed.route {
+    if let Some(layer_stack_root) = routed.route.direct_layer_stack_root() {
         enrich_direct_timings(
-            &layer_stack_root,
+            layer_stack_root,
             &mut outcome.core.timings,
             outcome.core.changed_paths.len(),
         );
@@ -161,9 +168,9 @@ pub(crate) fn op_edit_file(
     .map_err(file_op_error)?;
     record_file_route(&context, &routed.route);
     let mut mutation = routed.outcome;
-    if let FileRoute::Direct { layer_stack_root } = routed.route {
+    if let Some(layer_stack_root) = routed.route.direct_layer_stack_root() {
         enrich_direct_timings(
-            &layer_stack_root,
+            layer_stack_root,
             &mut mutation.core.timings,
             mutation.core.changed_paths.len(),
         );
@@ -189,26 +196,24 @@ fn file_context<'a, 'ctx: 'a>(
     }
 }
 
-fn record_file_route(context: &DispatchContext<'_>, route: &FileRoute) {
-    match route {
-        FileRoute::Direct { layer_stack_root } => context.record_trace_event(
-            "workspace.route",
-            "route_selected",
-            json!({
-                "kind": "fast_path",
-                "reason": "no_isolated_workspace_for_caller",
-                "layer_stack_root": layer_stack_root,
-            }),
-        ),
-        FileRoute::Isolated => context.record_trace_event(
-            "workspace.route",
-            "route_selected",
-            json!({
-                "kind": "isolated_workspace",
-                "reason": "caller_has_open_isolated_workspace",
-            }),
-        ),
-    }
+fn record_file_route(context: &DispatchContext<'_>, route: &WorkspaceFileRouteContext) {
+    record_route_selected(context, &route.trace_facts());
+}
+
+fn record_route_selected(context: &DispatchContext<'_>, facts: &WorkspaceRouteTraceFacts) {
+    let details = if let Some(layer_stack_root) = &facts.layer_stack_root {
+        json!({
+            "kind": facts.kind,
+            "reason": facts.reason,
+            "layer_stack_root": layer_stack_root,
+        })
+    } else {
+        json!({
+            "kind": facts.kind,
+            "reason": facts.reason,
+        })
+    };
+    context.record_trace_event("workspace.route", "route_selected", details);
 }
 
 fn record_file_event(context: &DispatchContext<'_>, name: &'static str, details: Value) {
@@ -369,26 +374,24 @@ fn route_file_op<T>(
     isolated: impl FnOnce(&IsolatedWorkspaceBinding) -> Result<T, FileOpsError>,
     direct: impl FnOnce(PathBuf) -> Result<T, FileOpsError>,
 ) -> Result<RoutedFileOutcome<T>, FileOpError> {
-    if let Some(workspace) = context.workspace {
-        if let Some(binding) = workspace.command_binding_for(context.caller_id) {
-            let outcome = isolated(&binding)?;
-            workspace.touch(&binding.caller_id);
-            return Ok(RoutedFileOutcome {
-                route: FileRoute::Isolated,
-                outcome,
-            });
+    let route = match context.workspace {
+        Some(workspace) => workspace
+            .route_file_context(context.caller_id, context.layer_stack_root.as_deref())
+            .map_err(FileOpError::from_workspace)?,
+        None => WorkspaceRuntime::direct_file_context(context.layer_stack_root.as_deref())
+            .map_err(FileOpError::from_workspace)?,
+    };
+    let outcome = match &route {
+        WorkspaceFileRouteContext::Isolated { binding } => {
+            let outcome = isolated(binding)?;
+            if let Some(workspace) = context.workspace {
+                workspace.complete_file_route(&route);
+            }
+            outcome
         }
-    }
-    let root = context
-        .layer_stack_root
-        .ok_or(FileOpError::MissingLayerStackRoot)?;
-    let outcome = direct(root.clone())?;
-    Ok(RoutedFileOutcome {
-        route: FileRoute::Direct {
-            layer_stack_root: root,
-        },
-        outcome,
-    })
+        WorkspaceFileRouteContext::Direct { layer_stack_root } => direct(layer_stack_root.clone())?,
+    };
+    Ok(RoutedFileOutcome { route, outcome })
 }
 
 fn isolated_backend(binding: &IsolatedWorkspaceBinding) -> IsolatedBackend {
@@ -440,6 +443,15 @@ fn file_op_error(error: FileOpError) -> DaemonError {
         FileOpError::MissingLayerStackRoot => {
             DaemonError::InvalidRequest("layer_stack_root is required".to_owned())
         }
+        FileOpError::Workspace(error) => DaemonError::InvalidRequest(error.to_string()),
         FileOpError::File(error) => DaemonError::InvalidRequest(error.to_string()),
     }
+}
+
+fn is_missing_layer_stack_root(error: &workspace::WorkspaceError) -> bool {
+    matches!(
+        error,
+        workspace::WorkspaceError::InvalidRequest { field, message }
+            if *field == "layer_stack_root" && message == "layer_stack_root is required"
+    )
 }

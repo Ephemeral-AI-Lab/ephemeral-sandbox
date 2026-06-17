@@ -11,9 +11,10 @@ use layerstack::{
 use operation::command::CommandOps;
 use serde_json::{json, Value};
 use std::sync::Arc;
+use std::time::Duration;
 use workspace::RemountProbe;
 
-use super::{WorkspaceRemountCompactionAttempt, WorkspaceRuntime};
+use super::{WorkspaceFileRouteContext, WorkspaceRemountCompactionAttempt, WorkspaceRuntime};
 
 type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
@@ -307,6 +308,187 @@ fn workspace_runtime_host_release_is_exact_once() -> TestResult {
         layerstack::LayerStack::open(stack_root.clone())?.active_lease_count(),
         0
     );
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[test]
+fn workspace_runtime_command_route_selects_isolated_when_caller_has_active_handle() -> TestResult {
+    let root = test_root("command-route-isolated");
+    let scratch = root.join("scratch");
+    let stack_root = root.join("stack");
+    let workspace_root = root.join("workspace");
+    seed_workspace_base(&stack_root, &workspace_root)?;
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+    runtime.enter("caller-route", &workspace_root)?;
+
+    let route = runtime.route_command_context("caller-route", "invoke-route", None)?;
+
+    assert_eq!(route.trace_facts().kind, "isolated_workspace");
+    assert_eq!(
+        route.trace_facts().reason,
+        "caller_has_open_isolated_workspace"
+    );
+    assert_eq!(route.trace_facts().layer_stack_root, None);
+    assert_eq!(route.caller_id(), "caller-route");
+    assert!(route.remountable(true));
+    drop(route);
+    runtime.exit("caller-route", None)?;
+    let _ = runtime.test_reset();
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[test]
+fn workspace_runtime_command_route_selects_host_when_no_active_handle() -> TestResult {
+    let root = test_root("command-route-host");
+    let scratch = root.join("scratch");
+    let host_scratch = root.join("host-scratch");
+    let stack_root = root.join("stack");
+    let workspace_root = root.join("workspace");
+    seed_workspace_base(&stack_root, &workspace_root)?;
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+
+    let route = runtime.route_command_context_with_scratch_root_for_test(
+        "caller-route",
+        "invoke-route-host",
+        Some(stack_root.clone()),
+        &host_scratch,
+    )?;
+
+    assert_eq!(route.trace_facts().kind, "ephemeral_workspace");
+    assert_eq!(
+        route.trace_facts().reason,
+        "no_isolated_workspace_for_caller"
+    );
+    assert_eq!(
+        route.trace_facts().layer_stack_root,
+        Some(stack_root.clone())
+    );
+    assert_eq!(route.caller_id(), "caller-route");
+    assert!(!route.remountable(true));
+    assert_eq!(
+        layerstack::LayerStack::open(stack_root.clone())?.active_lease_count(),
+        1
+    );
+    drop(route);
+    assert_eq!(
+        layerstack::LayerStack::open(stack_root.clone())?.active_lease_count(),
+        0
+    );
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[test]
+fn workspace_runtime_command_route_missing_root_stays_compatible() -> TestResult {
+    let root = test_root("command-route-missing-root");
+    let scratch = root.join("scratch");
+    let host_scratch = root.join("host-scratch");
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+
+    let Err(error) = runtime.route_command_context_with_scratch_root_for_test(
+        "caller-route",
+        "invoke-route-missing-root",
+        None,
+        &host_scratch,
+    ) else {
+        return Err("missing command route root unexpectedly succeeded".into());
+    };
+
+    assert!(matches!(
+        error,
+        workspace::WorkspaceError::InvalidRequest { field, ref message }
+            if field == "layer_stack_root" && message == "layer_stack_root is required"
+    ));
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[test]
+fn workspace_runtime_file_route_selects_direct_when_no_active_handle() -> TestResult {
+    let root = test_root("file-route-direct");
+    let scratch = root.join("scratch");
+    let stack_root = root.join("stack");
+    let workspace_root = root.join("workspace");
+    seed_workspace_base(&stack_root, &workspace_root)?;
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+
+    let route = runtime.route_file_context("caller-file", Some(&stack_root))?;
+
+    match &route {
+        WorkspaceFileRouteContext::Direct { layer_stack_root } => {
+            assert_eq!(layer_stack_root, &stack_root);
+        }
+        WorkspaceFileRouteContext::Isolated { .. } => {
+            return Err("file route should be direct without an active handle".into());
+        }
+    }
+    let facts = route.trace_facts();
+    assert_eq!(facts.kind, "fast_path");
+    assert_eq!(facts.reason, "no_isolated_workspace_for_caller");
+    assert_eq!(facts.layer_stack_root, Some(stack_root.clone()));
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[test]
+fn workspace_runtime_file_route_selects_isolated_when_caller_has_active_handle() -> TestResult {
+    let root = test_root("file-route-isolated");
+    let scratch = root.join("scratch");
+    let stack_root = root.join("stack");
+    let workspace_root = root.join("workspace");
+    seed_workspace_base(&stack_root, &workspace_root)?;
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+    runtime.enter("caller-file", &workspace_root)?;
+    let before = runtime
+        .status("caller-file")?
+        .ok_or("open handle before file route")?
+        .last_activity;
+
+    let route = runtime.route_file_context("caller-file", None)?;
+
+    match &route {
+        WorkspaceFileRouteContext::Isolated { binding } => {
+            assert_eq!(binding.caller_id, "caller-file");
+            assert_eq!(binding.layer_stack_root, stack_root.canonicalize()?);
+        }
+        WorkspaceFileRouteContext::Direct { .. } => {
+            return Err("file route should be isolated with an active handle".into());
+        }
+    }
+    let facts = route.trace_facts();
+    assert_eq!(facts.kind, "isolated_workspace");
+    assert_eq!(facts.reason, "caller_has_open_isolated_workspace");
+    assert_eq!(facts.layer_stack_root, None);
+    std::thread::sleep(Duration::from_millis(2));
+    runtime.complete_file_route(&route);
+    let after = runtime
+        .status("caller-file")?
+        .ok_or("open handle after file route")?
+        .last_activity;
+    assert!(after >= before);
+    runtime.exit("caller-file", None)?;
+    let _ = runtime.test_reset();
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+#[test]
+fn workspace_runtime_file_route_missing_root_stays_compatible() -> TestResult {
+    let root = test_root("file-route-missing-root");
+    let scratch = root.join("scratch");
+    let runtime = isolated_runtime(&scratch, Path::new("/testbed"));
+
+    let Err(error) = runtime.route_file_context("caller-file", None) else {
+        return Err("missing file route root unexpectedly succeeded".into());
+    };
+
+    assert!(matches!(
+        error,
+        workspace::WorkspaceError::InvalidRequest { field, ref message }
+            if field == "layer_stack_root" && message == "layer_stack_root is required"
+    ));
     let _ = std::fs::remove_dir_all(&root);
     Ok(())
 }

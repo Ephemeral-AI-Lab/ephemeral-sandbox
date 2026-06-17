@@ -31,7 +31,7 @@ use layerstack::{
     },
     LayerStack, LeaseAwareCopyThroughOutcome, WorkspaceBinding, WORKSPACE_BINDING_FILE,
 };
-use operation::command::{CommandOps, CommandRemountInspection, HostCommandWorkspace};
+use operation::command::{CommandOps, CommandRemountInspection, ExecTarget, HostCommandWorkspace};
 use operation::isolation::contract::IsolationTestRemountFault;
 use serde_json::Value;
 use workspace::IsolatedWorkspaceBinding;
@@ -92,6 +92,106 @@ pub(crate) struct ResolvedWorkspaceRoot {
     pub workspace_root: PathBuf,
     pub layer_stack_root: PathBuf,
     pub binding: WorkspaceBinding,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WorkspaceRouteTraceFacts {
+    pub kind: &'static str,
+    pub reason: &'static str,
+    pub layer_stack_root: Option<PathBuf>,
+}
+
+pub(crate) struct WorkspaceCommandRouteContext<'a> {
+    route: WorkspaceCommandRoute,
+    trace: WorkspaceRouteTraceFacts,
+    _mode_guard: MutexGuard<'a, ()>,
+}
+
+enum WorkspaceCommandRoute {
+    Host {
+        caller_id: String,
+        workspace: HostWorkspaceLifecycle,
+    },
+    Isolated {
+        binding: IsolatedWorkspaceBinding,
+    },
+}
+
+impl WorkspaceCommandRouteContext<'_> {
+    #[must_use]
+    pub(crate) fn trace_facts(&self) -> &WorkspaceRouteTraceFacts {
+        &self.trace
+    }
+
+    #[must_use]
+    pub(crate) fn caller_id(&self) -> &str {
+        match &self.route {
+            WorkspaceCommandRoute::Host { caller_id, .. } => caller_id,
+            WorkspaceCommandRoute::Isolated { binding } => &binding.caller_id,
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn remountable(&self, requested: bool) -> bool {
+        match &self.route {
+            WorkspaceCommandRoute::Host { .. } => false,
+            WorkspaceCommandRoute::Isolated { .. } => requested,
+        }
+    }
+
+    pub(crate) fn with_exec_target<T>(
+        self,
+        scratch_root: PathBuf,
+        exec: impl FnOnce(ExecTarget) -> T,
+    ) -> T {
+        let Self {
+            route,
+            trace: _trace,
+            _mode_guard,
+        } = self;
+        let target = match route {
+            WorkspaceCommandRoute::Host { workspace, .. } => ExecTarget::Ephemeral {
+                workspace: Box::new(workspace.into_command_workspace()),
+                scratch_root,
+            },
+            WorkspaceCommandRoute::Isolated { binding } => ExecTarget::Isolated {
+                binding: Box::new(binding),
+            },
+        };
+        exec(target)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum WorkspaceFileRouteContext {
+    Direct { layer_stack_root: PathBuf },
+    Isolated { binding: IsolatedWorkspaceBinding },
+}
+
+impl WorkspaceFileRouteContext {
+    #[must_use]
+    pub(crate) fn trace_facts(&self) -> WorkspaceRouteTraceFacts {
+        match self {
+            Self::Direct { layer_stack_root } => WorkspaceRouteTraceFacts {
+                kind: "fast_path",
+                reason: "no_isolated_workspace_for_caller",
+                layer_stack_root: Some(layer_stack_root.clone()),
+            },
+            Self::Isolated { .. } => WorkspaceRouteTraceFacts {
+                kind: "isolated_workspace",
+                reason: "caller_has_open_isolated_workspace",
+                layer_stack_root: None,
+            },
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn direct_layer_stack_root(&self) -> Option<&Path> {
+        match self {
+            Self::Direct { layer_stack_root } => Some(layer_stack_root),
+            Self::Isolated { .. } => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -567,6 +667,7 @@ impl WorkspaceRuntime {
         workspace_root: &Path,
     ) -> Result<WorkspaceEnterOutcome, WorkspaceEnterError> {
         let _mode_guard = self.lock_mode_gate();
+        self.reject_disabled()?;
         self.reject_active_commands(caller_id)?;
         let resolved = self.resolve_workspace_root(workspace_root)?;
         self.enter_resolved_locked(caller_id, &resolved)
@@ -578,6 +679,7 @@ impl WorkspaceRuntime {
         layer_stack_root: &Path,
     ) -> Result<WorkspaceEnterOutcome, WorkspaceEnterError> {
         let _mode_guard = self.lock_mode_gate();
+        self.reject_disabled()?;
         self.reject_active_commands(caller_id)?;
         let resolved = self.resolve_legacy_layer_stack_root(layer_stack_root)?;
         self.enter_resolved_locked(caller_id, &resolved)
@@ -707,6 +809,115 @@ impl WorkspaceRuntime {
             EphemeralWorkspace::create_runtime_overlay("sandbox-overlay", invocation_id)
                 .map_err(host_workspace_setup_error)
         })
+    }
+
+    pub(crate) fn route_command_context<'a>(
+        &'a self,
+        caller_id: &str,
+        invocation_id: &str,
+        layer_stack_root: Option<PathBuf>,
+    ) -> Result<WorkspaceCommandRouteContext<'a>, WorkspaceError> {
+        self.route_command_context_with_host_creator(
+            caller_id,
+            invocation_id,
+            layer_stack_root,
+            |runtime, caller_id, invocation_id, layer_stack_root| {
+                runtime.create_host_workspace_for_legacy_layer_stack_root_locked(
+                    caller_id,
+                    invocation_id,
+                    layer_stack_root,
+                )
+            },
+        )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn route_command_context_with_scratch_root_for_test<'a>(
+        &'a self,
+        caller_id: &str,
+        invocation_id: &str,
+        layer_stack_root: Option<PathBuf>,
+        scratch_root: &'a Path,
+    ) -> Result<WorkspaceCommandRouteContext<'a>, WorkspaceError> {
+        self.route_command_context_with_host_creator(
+            caller_id,
+            invocation_id,
+            layer_stack_root,
+            move |runtime, caller_id, invocation_id, layer_stack_root| {
+                let resolved = runtime.resolve_legacy_layer_stack_root(layer_stack_root)?;
+                runtime.create_host_workspace(caller_id, invocation_id, &resolved, || {
+                    EphemeralWorkspace::create(scratch_root, "sandbox-overlay", invocation_id)
+                        .map_err(host_workspace_setup_error)
+                })
+            },
+        )
+    }
+
+    fn route_command_context_with_host_creator<'a>(
+        &'a self,
+        caller_id: &str,
+        invocation_id: &str,
+        layer_stack_root: Option<PathBuf>,
+        create_host_workspace: impl FnOnce(
+            &Self,
+            &str,
+            &str,
+            &Path,
+        ) -> Result<HostWorkspaceLifecycle, WorkspaceError>,
+    ) -> Result<WorkspaceCommandRouteContext<'a>, WorkspaceError> {
+        let mode_guard = self.lock_mode_gate();
+        if let Some(binding) = self.command_binding_for(caller_id) {
+            return Ok(WorkspaceCommandRouteContext {
+                route: WorkspaceCommandRoute::Isolated { binding },
+                trace: WorkspaceRouteTraceFacts {
+                    kind: "isolated_workspace",
+                    reason: "caller_has_open_isolated_workspace",
+                    layer_stack_root: None,
+                },
+                _mode_guard: mode_guard,
+            });
+        }
+
+        let requested_root = layer_stack_root.ok_or_else(missing_layer_stack_root_error)?;
+        let workspace = create_host_workspace(self, caller_id, invocation_id, &requested_root)?;
+        Ok(WorkspaceCommandRouteContext {
+            route: WorkspaceCommandRoute::Host {
+                caller_id: caller_id.to_owned(),
+                workspace,
+            },
+            trace: WorkspaceRouteTraceFacts {
+                kind: "ephemeral_workspace",
+                reason: "no_isolated_workspace_for_caller",
+                layer_stack_root: Some(requested_root),
+            },
+            _mode_guard: mode_guard,
+        })
+    }
+
+    pub(crate) fn route_file_context(
+        &self,
+        caller_id: &str,
+        layer_stack_root: Option<&Path>,
+    ) -> Result<WorkspaceFileRouteContext, WorkspaceError> {
+        if let Some(binding) = self.command_binding_for(caller_id) {
+            return Ok(WorkspaceFileRouteContext::Isolated { binding });
+        }
+        Self::direct_file_context(layer_stack_root)
+    }
+
+    pub(crate) fn direct_file_context(
+        layer_stack_root: Option<&Path>,
+    ) -> Result<WorkspaceFileRouteContext, WorkspaceError> {
+        let layer_stack_root = layer_stack_root
+            .ok_or_else(missing_layer_stack_root_error)?
+            .to_path_buf();
+        Ok(WorkspaceFileRouteContext::Direct { layer_stack_root })
+    }
+
+    pub(crate) fn complete_file_route(&self, route: &WorkspaceFileRouteContext) {
+        if let WorkspaceFileRouteContext::Isolated { binding } = route {
+            self.touch(&binding.caller_id);
+        }
     }
 
     #[cfg(test)]
@@ -1193,6 +1404,16 @@ impl WorkspaceRuntime {
         Ok(())
     }
 
+    fn reject_disabled(&self) -> Result<(), WorkspaceEnterError> {
+        if self.config.enabled {
+            Ok(())
+        } else {
+            Err(WorkspaceEnterError::Isolated(
+                IsolatedError::FeatureDisabled,
+            ))
+        }
+    }
+
     fn reset_test_manager_file(&self) {
         let scratch_root = &self.config.scratch_root;
         let _ = std::fs::remove_dir_all(scratch_root);
@@ -1410,6 +1631,13 @@ fn host_create_failed_error(
         (None, None) => {}
     }
     WorkspaceError::Setup { step }
+}
+
+fn missing_layer_stack_root_error() -> WorkspaceError {
+    WorkspaceError::InvalidRequest {
+        field: "layer_stack_root",
+        message: "layer_stack_root is required".to_owned(),
+    }
 }
 
 fn workspace_error_as_isolated_error(error: WorkspaceError) -> IsolatedError {
