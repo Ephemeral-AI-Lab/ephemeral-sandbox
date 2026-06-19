@@ -145,7 +145,7 @@ fn publish_route_stats_for_manifest(
     let decisions = publish_decisions_for_manifest(root, manifest, changes)?;
     let mut stats = PublishRouteStats::default();
     for (index, decision) in decisions.iter().enumerate() {
-        match decision.route {
+        match decision.route() {
             Route::Gated => stats.gated_path_count += 1,
             Route::Direct => {
                 stats.direct_path_count += 1;
@@ -157,7 +157,7 @@ fn publish_route_stats_for_manifest(
             }
             Route::Drop => {
                 stats.drop_path_count += 1;
-                if let Some(reason) = decision.drop_reason {
+                if let Some(reason) = decision.drop_reason() {
                     stats.record_drop_reason(reason.as_str());
                 }
             }
@@ -258,18 +258,18 @@ fn git_metadata_drop_decisions_use_stable_reason_code() -> TestResult {
         ],
     )?;
 
-    assert_eq!(decisions[0].route, Route::Drop);
+    assert_eq!(decisions[0].route(), Route::Drop);
     assert_eq!(
-        decisions[0].drop_reason.map(|reason| reason.as_str()),
+        decisions[0].drop_reason().map(|reason| reason.as_str()),
         Some(GIT_METADATA_OPAQUE_REPLACE_REJECT_REASON)
     );
-    assert_eq!(decisions[1].route, Route::Drop);
+    assert_eq!(decisions[1].route(), Route::Drop);
     assert_eq!(
-        decisions[1].drop_reason.map(|reason| reason.as_str()),
+        decisions[1].drop_reason().map(|reason| reason.as_str()),
         Some(GIT_METADATA_UNSUPPORTED_DROP_REASON)
     );
-    assert_eq!(decisions[2].route, Route::Gated);
-    assert_eq!(decisions[2].drop_reason, None);
+    assert_eq!(decisions[2].route(), Route::Gated);
+    assert_eq!(decisions[2].drop_reason(), None);
     Ok(())
 }
 
@@ -420,10 +420,10 @@ fn command_git_rejects_locks_markers_hooks_and_ref_writes() -> TestResult {
         GIT_REF_WRITE_REJECT_REASON,
     ];
     for (decision, reason) in decisions.iter().zip(expected) {
-        assert_eq!(decision.route, Route::Drop);
-        assert!(decision.reject_publish);
+        assert_eq!(decision.route(), Route::Drop);
+        assert!(decision.reject_publish());
         assert_eq!(
-            decision.drop_reason.map(|reason| reason.as_str()),
+            decision.drop_reason().map(|reason| reason.as_str()),
             Some(reason)
         );
     }
@@ -458,10 +458,10 @@ fn command_git_extended_incomplete_operation_markers_reject() -> TestResult {
 
     let decisions = publish_decisions_for_manifest(&fixture.root, &manifest, &changes)?;
     for decision in decisions {
-        assert_eq!(decision.route, Route::Drop);
-        assert!(decision.reject_publish);
+        assert_eq!(decision.route(), Route::Drop);
+        assert!(decision.reject_publish());
         assert_eq!(
-            decision.drop_reason.map(|reason| reason.as_str()),
+            decision.drop_reason().map(|reason| reason.as_str()),
             Some(GIT_INCOMPLETE_OPERATION_REJECT_REASON)
         );
     }
@@ -496,18 +496,18 @@ fn command_git_deletions_and_opaque_root_reject() -> TestResult {
     )?;
 
     for decision in decisions.iter().take(5) {
-        assert_eq!(decision.route, Route::Drop);
-        assert!(decision.reject_publish);
+        assert_eq!(decision.route(), Route::Drop);
+        assert!(decision.reject_publish());
         assert_eq!(
-            decision.drop_reason.map(|reason| reason.as_str()),
+            decision.drop_reason().map(|reason| reason.as_str()),
             Some(GIT_METADATA_DELETE_REJECT_REASON)
         );
     }
     assert_eq!(
-        decisions[5].drop_reason.map(|reason| reason.as_str()),
+        decisions[5].drop_reason().map(|reason| reason.as_str()),
         Some(GIT_METADATA_OPAQUE_REPLACE_REJECT_REASON)
     );
-    assert!(decisions[5].reject_publish);
+    assert!(decisions[5].reject_publish());
     Ok(())
 }
 
@@ -528,8 +528,8 @@ fn command_git_reflog_append_is_gated_and_rewrite_rejects() -> TestResult {
             content: b"old\n".to_vec(),
         }],
     )?;
-    assert_eq!(exact_noop_decisions[0].route, Route::Gated);
-    assert!(!exact_noop_decisions[0].reject_publish);
+    assert_eq!(exact_noop_decisions[0].route(), Route::Gated);
+    assert!(!exact_noop_decisions[0].reject_publish());
 
     let append = publish_changes_to_layerstack(
         &fixture.root,
@@ -652,21 +652,21 @@ fn command_git_objects_are_gated_and_rewrites_reject() -> TestResult {
             },
         ],
     )?;
-    assert_eq!(decisions[0].route, Route::Gated);
-    assert!(!decisions[0].reject_publish);
-    assert_eq!(decisions[1].route, Route::Gated);
-    assert!(!decisions[1].reject_publish);
-    assert_eq!(decisions[2].route, Route::Drop);
-    assert!(decisions[2].reject_publish);
+    assert_eq!(decisions[0].route(), Route::Gated);
+    assert!(!decisions[0].reject_publish());
+    assert_eq!(decisions[1].route(), Route::Gated);
+    assert!(!decisions[1].reject_publish());
+    assert_eq!(decisions[2].route(), Route::Drop);
+    assert!(decisions[2].reject_publish());
     assert_eq!(
-        decisions[2].drop_reason.map(|reason| reason.as_str()),
+        decisions[2].drop_reason().map(|reason| reason.as_str()),
         Some(GIT_OBJECT_REWRITE_REJECT_REASON)
     );
     for decision in decisions.iter().skip(3) {
-        assert_eq!(decision.route, Route::Drop);
-        assert!(decision.reject_publish);
+        assert_eq!(decision.route(), Route::Drop);
+        assert!(decision.reject_publish());
         assert_eq!(
-            decision.drop_reason.map(|reason| reason.as_str()),
+            decision.drop_reason().map(|reason| reason.as_str()),
             Some(GIT_METADATA_UNSUPPORTED_DROP_REASON)
         );
     }
@@ -702,10 +702,10 @@ fn command_gitignore_cannot_route_git_metadata_direct_or_source() -> TestResult 
         ],
     )?;
 
-    assert_eq!(decisions[0].route, Route::Gated);
-    assert_eq!(decisions[1].route, Route::Drop);
-    assert!(decisions[1].reject_publish);
-    assert_eq!(decisions[2].route, Route::Direct);
+    assert_eq!(decisions[0].route(), Route::Gated);
+    assert_eq!(decisions[1].route(), Route::Drop);
+    assert!(decisions[1].reject_publish());
+    assert_eq!(decisions[2].route(), Route::Direct);
     Ok(())
 }
 
@@ -736,23 +736,23 @@ fn protected_path_drop_decisions_use_stable_reason_codes() -> TestResult {
         ],
     )?;
 
-    assert_eq!(decisions[0].route, Route::Drop);
+    assert_eq!(decisions[0].route(), Route::Drop);
     assert_eq!(
-        decisions[0].drop_reason.map(|reason| reason.as_str()),
+        decisions[0].drop_reason().map(|reason| reason.as_str()),
         Some(DAEMON_CONTROL_PATH_DROP_REASON)
     );
-    assert_eq!(decisions[1].route, Route::Drop);
+    assert_eq!(decisions[1].route(), Route::Drop);
     assert_eq!(
-        decisions[1].drop_reason.map(|reason| reason.as_str()),
+        decisions[1].drop_reason().map(|reason| reason.as_str()),
         Some(DAEMON_CONTROL_PATH_DROP_REASON)
     );
-    assert_eq!(decisions[2].route, Route::Drop);
+    assert_eq!(decisions[2].route(), Route::Drop);
     assert_eq!(
-        decisions[2].drop_reason.map(|reason| reason.as_str()),
+        decisions[2].drop_reason().map(|reason| reason.as_str()),
         Some(COMMAND_SCRATCH_PATH_DROP_REASON)
     );
-    assert_eq!(decisions[3].route, Route::Direct);
-    assert_eq!(decisions[3].drop_reason, None);
+    assert_eq!(decisions[3].route(), Route::Direct);
+    assert_eq!(decisions[3].drop_reason(), None);
     Ok(())
 }
 
@@ -1354,10 +1354,10 @@ fn opaque_dir_expansion_limit_rejects_publish() -> TestResult {
     let decision =
         publish_decision_for_opaque_dir(&fixture.root, &source, &view, &manifest, &lp("big")?, 2)?;
 
-    assert_eq!(decision.route, Route::Drop);
-    assert!(decision.reject_publish);
+    assert_eq!(decision.route(), Route::Drop);
+    assert!(decision.reject_publish());
     assert_eq!(
-        decision.drop_reason.map(|reason| reason.as_str()),
+        decision.drop_reason().map(|reason| reason.as_str()),
         Some(OPAQUE_DIR_EXPANSION_LIMIT_DROP_REASON)
     );
     Ok(())

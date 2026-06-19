@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use crate::commit::route::{hash_current, PublishDecision, Route};
-use crate::commit::worker::auto_squash::run_auto_squash;
 use crate::commit::worker::{CommitTransaction, PreparedChangeset};
 use crate::commit::CommitStatus;
 use crate::model::LayerChange;
+use crate::stack::squash::run_auto_squash;
 use crate::test_fixture::{lp, Fixture, TestResult};
 use crate::{CommitOptions, LayerPath, LayerStack, LayerStackError, Manifest, MergedView};
 
@@ -66,13 +66,11 @@ fn publish_decision(
     route: Route,
     base_hash: Option<String>,
 ) -> TestResult<PublishDecision> {
-    Ok(PublishDecision {
-        path: lp(path)?,
-        route,
-        base_hash,
-        drop_reason: None,
-        reject_publish: false,
-        validation_base_hashes: None,
+    let path = lp(path)?;
+    Ok(match route {
+        Route::Gated => PublishDecision::gated(path, base_hash),
+        Route::Direct => PublishDecision::direct(path),
+        Route::Drop => PublishDecision::dropped(path, None),
     })
 }
 
@@ -134,7 +132,7 @@ fn gated_stale_base_aborts_without_publish() -> TestResult {
 
     let result = transaction(&fixture)
         .revalidate_and_publish(&PreparedChangeset {
-            path_groups: vec![publish_decision("README.md", Route::Gated, Some(old_hash))?],
+            decisions: vec![publish_decision("README.md", Route::Gated, Some(old_hash))?],
             changes: vec![LayerChange::Write {
                 path: lp("README.md")?,
                 content: b"# mine\n".to_vec(),
@@ -175,7 +173,7 @@ fn direct_route_ignores_stale_base_and_publishes() -> TestResult {
 
     let result = transaction(&fixture)
         .revalidate_and_publish(&PreparedChangeset {
-            path_groups: vec![publish_decision(
+            decisions: vec![publish_decision(
                 "target/out.txt",
                 Route::Direct,
                 Some("stale".to_owned()),
@@ -332,7 +330,7 @@ fn gated_symlink_change_validates_and_publishes() -> TestResult {
     let fixture = Fixture::new("gated_symlink")?;
     let result = transaction(&fixture)
         .revalidate_and_publish(&PreparedChangeset {
-            path_groups: vec![publish_decision("link.txt", Route::Gated, None)?],
+            decisions: vec![publish_decision("link.txt", Route::Gated, None)?],
             changes: vec![LayerChange::Symlink {
                 path: lp("link.txt")?,
                 source_path: "target.txt".to_owned(),
@@ -364,7 +362,7 @@ fn atomic_mixed_validation_failure_drops_accepted_paths() -> TestResult {
 
     let result = transaction(&fixture)
         .revalidate_and_publish(&PreparedChangeset {
-            path_groups: vec![
+            decisions: vec![
                 publish_decision("README.md", Route::Gated, Some(old_hash))?,
                 publish_decision("target/out.txt", Route::Direct, None)?,
             ],

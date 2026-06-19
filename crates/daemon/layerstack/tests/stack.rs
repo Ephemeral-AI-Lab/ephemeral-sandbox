@@ -585,8 +585,8 @@ fn delete_layer_hides_files_in_reads_and_projection() -> TestResult {
     assert_eq!(stack.read_text("dir/a.txt")?, (String::new(), false));
     assert_eq!(stack.read_text("dir/b.txt")?, ("two\n".to_owned(), true));
 
-    std::fs::create_dir_all(&fixture.workspace)?;
-    let _ = stack.commit_to_workspace(&fixture.workspace)?;
+    let manifest = stack.read_active_manifest()?;
+    MergedView::new(fixture.root.clone()).project(&fixture.workspace, &manifest)?;
     assert!(!fixture.workspace.join("dir/a.txt").exists());
     assert_eq!(
         std::fs::read_to_string(fixture.workspace.join("dir/b.txt"))?,
@@ -613,41 +613,6 @@ fn read_bytes_limited_rejects_oversized_file() -> TestResult {
         matches!(error, LayerStackError::FileTooLarge { size: 6, limit: 2 }),
         "{error:?}"
     );
-    Ok(())
-}
-
-#[test]
-fn commit_to_workspace_projects_active_manifest_and_rebuilds_base() -> TestResult {
-    let fixture = Fixture::new("commit_workspace");
-    std::fs::create_dir_all(fixture.workspace.join(".git"))?;
-    std::fs::write(fixture.workspace.join(".git/config"), "[core]\n")?;
-    std::fs::write(fixture.workspace.join("tracked.txt"), "base\n")?;
-    build_workspace_base(&fixture.root, &fixture.workspace, false)?;
-
-    let mut stack = LayerStack::open(fixture.root.clone())?;
-    publish_text(&mut stack, "tracked.txt", "overlay\n")?;
-    publish_text(&mut stack, "new.txt", "new\n")?;
-
-    let (manifest, timings) = stack.commit_to_workspace(&fixture.workspace)?;
-
-    assert_eq!(manifest.version, 1);
-    assert_eq!(
-        std::fs::read_to_string(fixture.workspace.join("tracked.txt"))?,
-        "overlay\n"
-    );
-    assert_eq!(
-        std::fs::read_to_string(fixture.workspace.join("new.txt"))?,
-        "new\n"
-    );
-    assert_eq!(
-        std::fs::read_to_string(fixture.workspace.join(".git/config"))?,
-        "[core]\n"
-    );
-    assert!(timings.contains_key("layer_stack.commit_to_workspace.project_s"));
-    assert!(timings.contains_key("layer_stack.commit_to_workspace.replace_workspace_s"));
-    assert!(timings.contains_key("layer_stack.commit_to_workspace.rebuild_base_s"));
-    assert!(timings.contains_key("layer_stack.commit_to_workspace.total_s"));
-    assert_eq!(stack.read_text("tracked.txt")?.0, "overlay\n");
     Ok(())
 }
 

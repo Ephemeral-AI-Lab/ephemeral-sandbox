@@ -1,13 +1,13 @@
 use std::io::ErrorKind;
 
-use super::layer_write::write_layer_changes;
-use super::LayerStack;
 use crate::error::LayerStackError;
 use crate::fs::{
     allocate_layer_dirs, fsync_dir, fsync_tree_files, layer_digest_path, remove_path,
     write_layer_digest, write_manifest,
 };
 use crate::model::{try_layer_digest, LayerChange, LayerRef, Manifest};
+use crate::stack::layer::write_layer_changes;
+use crate::stack::LayerStack;
 use crate::{ACTIVE_MANIFEST_FILE, LAYERS_DIR, LAYER_METADATA_DIR};
 
 const FAIL_NEXT_PUBLISH_MARKER_FILE: &str = "fail-next-publish";

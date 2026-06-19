@@ -1,23 +1,21 @@
 use std::collections::BTreeMap;
 
-use super::layer_read::read_layer_dir;
-use super::layer_write::write_layer_changes;
-use super::lease_cleanup::remove_unreferenced_layer_candidates_locked;
-use super::leases::lock_shared_registry;
-use super::reclaim_unpinned_layers::{
+use super::{
     plan_reclaim_unpinned_layers, LeaseParentCompactionOutcome,
     ReclaimUnpinnedLayersCheckpointMode, ReclaimUnpinnedLayersCopyThroughOutcome,
     ReclaimUnpinnedLayersOutcome, ReclaimUnpinnedLayersPlanEntry, ReclaimingInterval,
 };
-use super::squash::{CheckpointSegment, LayerCheckpointSquasher};
-use super::view::layer_has_boundary_markers;
-use super::LayerStack;
 use crate::error::LayerStackError;
 use crate::fs::{
     allocate_layer_dirs, fsync_dir, fsync_tree_files, layer_digest_path, remove_path,
     resolve_layer_path, storage_bytes, write_layer_digest, write_manifest,
 };
 use crate::model::{layer_digest, LayerChange, LayerPath, LayerRef, Manifest};
+use crate::stack::layer::{read_layer_dir, write_layer_changes};
+use crate::stack::lease::{lock_shared_registry, remove_unreferenced_layer_candidates_locked};
+use crate::stack::projection::layer_has_boundary_markers;
+use crate::stack::squash::{CheckpointSegment, LayerCheckpointSquasher};
+use crate::stack::LayerStack;
 use crate::{ACTIVE_MANIFEST_FILE, LAYERS_DIR};
 
 impl LayerStack {

@@ -1,6 +1,6 @@
 use std::sync::mpsc;
 
-use crate::commit::route::{PublishDecision, Route};
+use crate::commit::route::PublishDecision;
 use crate::commit::worker::queue::{
     cas_exhaustion_result, disjoint_batches, PublishConflict, WorkItem, MAX_OCC_CAS_RETRIES,
 };
@@ -12,21 +12,15 @@ type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 fn prepared(path: &str, atomic: bool) -> TestResult<PreparedChangeset> {
     let path = LayerPath::parse(path)?;
-    Ok(PreparedChangeset {
-        path_groups: vec![PublishDecision {
-            path: path.clone(),
-            route: Route::Gated,
-            base_hash: None,
-            drop_reason: None,
-            reject_publish: false,
-            validation_base_hashes: None,
-        }],
-        changes: vec![crate::model::LayerChange::Write {
-            path,
-            content: b"x".to_vec(),
-        }],
+    let changes = vec![crate::model::LayerChange::Write {
+        path: path.clone(),
+        content: b"x".to_vec(),
+    }];
+    Ok(PreparedChangeset::try_new(
+        &changes,
+        vec![PublishDecision::gated(path, None)],
         atomic,
-    })
+    )?)
 }
 
 fn item(path: &str, atomic: bool) -> TestResult<WorkItem> {

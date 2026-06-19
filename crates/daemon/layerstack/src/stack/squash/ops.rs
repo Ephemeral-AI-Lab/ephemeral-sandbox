@@ -1,12 +1,11 @@
-use super::lease_cleanup::release_lease_locked;
-use super::leases::lock_shared_registry;
-use super::squash::{
+use super::{
     manifest_prefix_before_plan, LayerCheckpointSquasher, SquashPlanDecision, SquashPlanEntry,
 };
-use super::{LayerStack, SquashOutcome};
 use crate::error::LayerStackError;
 use crate::fs::{next_unique, write_manifest};
 use crate::model::{LayerRef, Manifest};
+use crate::stack::lease::{lock_shared_registry, release_lease_locked};
+use crate::stack::{LayerStack, SquashOutcome};
 use crate::ACTIVE_MANIFEST_FILE;
 
 impl LayerStack {

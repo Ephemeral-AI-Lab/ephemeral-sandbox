@@ -18,7 +18,7 @@ use protected_paths::is_git_metadata_path;
 use snapshot::snapshot_base_hash;
 
 pub(crate) use ignore::{IgnoreSource, ManifestIgnoreSource};
-pub(crate) use model::{PublishDecision, Route};
+pub(crate) use model::{PublishDecision, Route, ValidationBase};
 pub(crate) use opaque_dir::publish_decision_for_opaque_dir;
 pub(crate) use protected_paths::route_decision_for_path_from_source;
 pub(crate) use snapshot::hash_current;

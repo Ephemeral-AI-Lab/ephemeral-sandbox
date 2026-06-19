@@ -164,6 +164,83 @@ fn helper() {}
 }
 
 #[test]
+fn rejects_recommended_broad_allow_lints_in_source() {
+    for lint in [
+        "unsafe_code",
+        "unused_must_use",
+        "unreachable_code",
+        "unused_variables",
+        "unused_mut",
+        "unused_assignments",
+        "clippy::pedantic",
+        "clippy::nursery",
+        "clippy::restriction",
+        "clippy::unwrap_used",
+        "clippy::expect_used",
+        "clippy::panic",
+        "clippy::todo",
+        "clippy::unimplemented",
+        "clippy::dbg_macro",
+    ] {
+        let root = temp_root(&format!(
+            "source-broad-allow-{}",
+            lint.replace("::", "-").replace('_', "-")
+        ));
+        let src = root.join("crate/src");
+        fs::create_dir_all(&src).expect("create source dir");
+        fs::write(
+            src.join("lib.rs"),
+            format!(
+                r#"
+#[allow({lint})]
+fn helper() {{}}
+"#
+            ),
+        )
+        .expect("write source file");
+
+        let output = run_check(&root);
+
+        fs::remove_dir_all(&root).expect("remove temp root");
+        assert!(
+            !output.status.success(),
+            "allow({lint}) should fail in production source"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("broad lint suppression"), "{stderr}");
+    }
+}
+
+#[test]
+fn rejects_cfg_attr_wrapped_broad_allow_in_source() {
+    let root = temp_root("source-cfg-attr-broad-allow");
+    let src = root.join("crate/src");
+    fs::create_dir_all(&src).expect("create source dir");
+    fs::write(
+        src.join("lib.rs"),
+        r#"
+#![cfg_attr(
+    any(test, feature = "e2e-support"),
+    allow(unused_must_use)
+)]
+
+fn helper() {}
+"#,
+    )
+    .expect("write source file");
+
+    let output = run_check(&root);
+
+    fs::remove_dir_all(&root).expect("remove temp root");
+    assert!(
+        !output.status.success(),
+        "cfg_attr-wrapped allow attrs should fail"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("broad lint suppression"), "{stderr}");
+}
+
+#[test]
 fn rejects_module_layout_escape_hatches_in_source() {
     let root = temp_root("source-module-layout-attribute");
     let src = root.join("crate/src");

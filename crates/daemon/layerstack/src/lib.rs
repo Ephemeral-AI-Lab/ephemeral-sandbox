@@ -2,6 +2,7 @@
 
 mod commit;
 mod error;
+mod git_index;
 mod model;
 pub mod service;
 mod stack;

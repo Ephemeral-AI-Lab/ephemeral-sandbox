@@ -13,7 +13,6 @@ mod trace_ops;
 mod types;
 mod utils;
 
-#[cfg_attr(test, allow(unused_imports))]
 pub use forward::ForwardError;
 pub use types::{ForwardTraceContext, HostConfig, HostForwardRequest, SandboxHost, SandboxStatus};
 

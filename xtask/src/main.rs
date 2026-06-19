@@ -478,35 +478,84 @@ fn collect_inline_test_policy_violations(
     violations: &mut Vec<InlineTestPolicyViolation>,
 ) -> Result<()> {
     let body = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    let mut pending_attribute: Option<(usize, String, String)> = None;
     for (line_index, line) in body.lines().enumerate() {
-        let Some(kind) = line_inline_test_policy_violation_kind(line) else {
+        if let Some((start_line, raw_attribute, compact_attribute)) = &mut pending_attribute {
+            raw_attribute.push(' ');
+            raw_attribute.push_str(line.trim());
+            compact_attribute.push_str(&compact_attribute_text(line));
+            if compact_attribute.contains(']') {
+                push_inline_test_policy_violation(
+                    root,
+                    path,
+                    *start_line,
+                    raw_attribute,
+                    compact_attribute,
+                    violations,
+                );
+                pending_attribute = None;
+            }
             continue;
-        };
-        if !inline_test_policy_exception_allowed(root, path, &kind) {
-            violations.push(InlineTestPolicyViolation {
-                path: path.to_path_buf(),
-                line_number: line_index + 1,
-                line: line.to_owned(),
-                kind,
-            });
+        }
+
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("//") || !is_attribute_start(trimmed) {
+            continue;
+        }
+        let raw_attribute = trimmed.to_owned();
+        let compact_attribute = compact_attribute_text(trimmed);
+        if compact_attribute.contains(']') {
+            push_inline_test_policy_violation(
+                root,
+                path,
+                line_index + 1,
+                &raw_attribute,
+                &compact_attribute,
+                violations,
+            );
+        } else {
+            pending_attribute = Some((line_index + 1, raw_attribute, compact_attribute));
         }
     }
     Ok(())
 }
 
-fn line_inline_test_policy_violation_kind(line: &str) -> Option<InlineTestPolicyViolationKind> {
-    let trimmed = line.trim_start();
-    if trimmed.starts_with("//") {
-        return None;
+fn push_inline_test_policy_violation(
+    root: &Path,
+    path: &Path,
+    line_number: usize,
+    raw_attribute: &str,
+    compact_attribute: &str,
+    violations: &mut Vec<InlineTestPolicyViolation>,
+) {
+    let Some(kind) = compact_attribute_violation_kind(compact_attribute) else {
+        return;
+    };
+    if !inline_test_policy_exception_allowed(root, path, &kind) {
+        violations.push(InlineTestPolicyViolation {
+            path: path.to_path_buf(),
+            line_number,
+            line: raw_attribute.to_owned(),
+            kind,
+        });
     }
-    let compact = trimmed
-        .chars()
+}
+
+fn is_attribute_start(trimmed: &str) -> bool {
+    trimmed.starts_with("#[") || trimmed.starts_with("#![")
+}
+
+fn compact_attribute_text(line: &str) -> String {
+    line.chars()
         .filter(|ch| !ch.is_whitespace())
-        .collect::<String>();
+        .collect::<String>()
+}
+
+fn compact_attribute_violation_kind(compact: &str) -> Option<InlineTestPolicyViolationKind> {
     if compact.starts_with("#[cfg(test)]") || compact.starts_with("#![cfg(test)]") {
         Some(InlineTestPolicyViolationKind::CfgTest)
     } else {
-        attribute_violation_kind(&compact)
+        attribute_violation_kind(compact)
     }
 }
 
@@ -573,17 +622,69 @@ fn is_bench_attribute(path: &str) -> bool {
 }
 
 fn is_broad_allow_attribute(path: &str, args: Option<&str>) -> bool {
-    if path != "allow" {
-        return false;
+    match path {
+        "allow" => args.is_some_and(allow_args_contain_forbidden_lint),
+        "cfg_attr" => args.is_some_and(cfg_attr_args_contain_forbidden_allow),
+        _ => false,
     }
-    args.is_some_and(|args| {
-        args.split(',').any(|lint| {
-            matches!(
-                lint,
-                "warnings" | "unused" | "dead_code" | "unused_imports" | "clippy::all"
-            )
-        })
-    })
+}
+
+fn cfg_attr_args_contain_forbidden_allow(args: &str) -> bool {
+    let mut rest = args;
+    while let Some(index) = rest.find("allow(") {
+        let allow_args = &rest[index + "allow(".len()..];
+        let Some(end) = matching_close_paren_index(allow_args) else {
+            return false;
+        };
+        if allow_args_contain_forbidden_lint(&allow_args[..end]) {
+            return true;
+        }
+        rest = &allow_args[end..];
+    }
+    false
+}
+
+fn matching_close_paren_index(args: &str) -> Option<usize> {
+    let mut depth = 0_usize;
+    for (index, ch) in args.char_indices() {
+        match ch {
+            '(' => depth = depth.saturating_add(1),
+            ')' if depth == 0 => return Some(index),
+            ')' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn allow_args_contain_forbidden_lint(args: &str) -> bool {
+    args.split(',').any(is_forbidden_allow_lint)
+}
+
+fn is_forbidden_allow_lint(lint: &str) -> bool {
+    matches!(
+        lint,
+        "warnings"
+            | "unused"
+            | "unused_imports"
+            | "unused_variables"
+            | "unused_mut"
+            | "unused_assignments"
+            | "unused_must_use"
+            | "dead_code"
+            | "unreachable_code"
+            | "unsafe_code"
+            | "clippy::all"
+            | "clippy::pedantic"
+            | "clippy::nursery"
+            | "clippy::restriction"
+            | "clippy::unwrap_used"
+            | "clippy::expect_used"
+            | "clippy::panic"
+            | "clippy::todo"
+            | "clippy::unimplemented"
+            | "clippy::dbg_macro"
+    )
 }
 
 fn is_abi_linkage_attribute(path: &str, args: Option<&str>) -> bool {

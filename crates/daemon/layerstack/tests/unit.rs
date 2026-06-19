@@ -6,6 +6,8 @@ mod commit;
 mod error;
 #[path = "../src/storage/fs.rs"]
 pub(crate) mod fs;
+#[path = "../src/git_index.rs"]
+mod git_index;
 #[path = "../src/storage/lock.rs"]
 pub(crate) mod lock;
 #[path = "../src/model/mod.rs"]
@@ -59,7 +61,6 @@ pub(crate) use lock::*;
 pub(crate) use model::*;
 pub(crate) use service::*;
 pub(crate) use stack::squash::*;
-pub(crate) use stack::*;
 
 #[path = "unit/test_fixture.rs"]
 mod test_fixture;

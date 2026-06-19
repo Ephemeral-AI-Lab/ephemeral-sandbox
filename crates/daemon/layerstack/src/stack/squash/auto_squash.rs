@@ -4,9 +4,8 @@ use std::time::Instant;
 use serde_json::json;
 use trace::usize_to_f64_saturating;
 
+use crate::commit::OccTraceEvent;
 use crate::LayerStack;
-
-use super::super::OccTraceEvent;
 
 pub(crate) struct AutoSquashTrace {
     pub(crate) timings: BTreeMap<String, f64>,

@@ -6,9 +6,9 @@ use crate::fs::{layer_digest_path, read_manifest, remove_path, validate_layer_re
 use crate::model::{LayerRef, Manifest};
 use crate::ACTIVE_MANIFEST_FILE;
 
-use super::leases::LeaseRegistry;
+use super::registry::LeaseRegistry;
 
-pub(super) fn release_lease_locked(
+pub(in crate::stack) fn release_lease_locked(
     storage_root: &Path,
     leases: &mut LeaseRegistry,
     lease_id: &str,
@@ -22,7 +22,7 @@ pub(super) fn release_lease_locked(
     Ok(true)
 }
 
-pub(super) fn retarget_lease_locked(
+pub(in crate::stack) fn retarget_lease_locked(
     storage_root: &Path,
     leases: &mut LeaseRegistry,
     lease_id: &str,
@@ -37,7 +37,7 @@ pub(super) fn retarget_lease_locked(
     Ok(true)
 }
 
-pub(super) fn remove_unreferenced_layer_candidates_locked(
+pub(in crate::stack) fn remove_unreferenced_layer_candidates_locked(
     storage_root: &Path,
     leases: &LeaseRegistry,
     candidates: &[LayerRef],

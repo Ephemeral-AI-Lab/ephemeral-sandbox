@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::io;
 use std::path::Path;
 
+use crate::error::LayerStackError;
 use crate::fs::resolve_layer_path;
 use crate::model::LayerPath;
 use crate::whiteout::{is_kernel_whiteout_meta, LOGICAL_WHITEOUT_PREFIX, OPAQUE_MARKER};
@@ -32,7 +33,9 @@ pub(crate) fn publish_decision_for_opaque_dir(
         ));
     }
 
-    let hidden = match visible_paths_hidden_by_opaque_dir(root, manifest, path, expansion_limit)? {
+    let hidden = match visible_paths_hidden_by_opaque_dir(root, manifest, path, expansion_limit)
+        .map_err(|err| CommitError::RoutePreparation(err.to_string()))?
+    {
         OpaqueDirExpansion::Complete(paths) => paths,
         OpaqueDirExpansion::LimitExceeded => {
             return Ok(rejected_drop_decision(
@@ -45,11 +48,11 @@ pub(crate) fn publish_decision_for_opaque_dir(
     if hidden.is_empty() {
         let (route, drop_reason) = route_decision_for_path_from_source(source, path)
             .map_err(|err| CommitError::RoutePreparation(err.to_string()))?;
-        let mut decision = publish_decision(path.clone(), route, None, drop_reason);
-        if route == Route::Gated {
-            decision.validation_base_hashes = Some(Vec::new());
-        }
-        return Ok(decision);
+        return Ok(if route == Route::Gated {
+            PublishDecision::gated_paths(path.clone(), Vec::new())
+        } else {
+            publish_decision(path.clone(), route, None, drop_reason)
+        });
     }
 
     let mut gated_paths = Vec::new();
@@ -89,9 +92,10 @@ pub(crate) fn publish_decision_for_opaque_dir(
             ))
         })
         .collect::<Result<Vec<_>, CommitError>>()?;
-    let mut decision = publish_decision(path.clone(), Route::Gated, None, None);
-    decision.validation_base_hashes = Some(validation_base_hashes);
-    Ok(decision)
+    Ok(PublishDecision::gated_paths(
+        path.clone(),
+        validation_base_hashes,
+    ))
 }
 
 enum OpaqueDirExpansion {
@@ -104,13 +108,13 @@ fn visible_paths_hidden_by_opaque_dir(
     manifest: &Manifest,
     opaque_path: &LayerPath,
     expansion_limit: usize,
-) -> Result<OpaqueDirExpansion, CommitError> {
+) -> Result<OpaqueDirExpansion, LayerStackError> {
     let mut visible = BTreeSet::new();
     let mut blockers = Vec::<String>::new();
     for layer in &manifest.layers {
         let layer_dir = resolve_layer_path(root, &layer.path);
         if !layer_dir.is_dir() {
-            return Err(CommitError::RoutePreparation(format!(
+            return Err(LayerStackError::Storage(format!(
                 "manifest references missing layer {}: {}",
                 layer.layer_id, layer.path
             )));
@@ -137,7 +141,7 @@ fn collect_opaque_hidden_paths_from_layer(
     older_blockers: &[String],
     visible: &mut BTreeSet<LayerPath>,
     layer_blockers: &mut Vec<String>,
-) -> Result<(), CommitError> {
+) -> Result<(), LayerStackError> {
     if path_is_blocked(opaque_path, older_blockers) {
         return Ok(());
     }
@@ -152,7 +156,7 @@ fn collect_opaque_hidden_paths_from_layer(
         return Ok(());
     }
     if meta.file_type().is_symlink() || meta.is_file() {
-        insert_visible_hidden_path(visible, opaque_path)?;
+        visible.insert(LayerPath::parse(opaque_path)?);
         layer_blockers.push(opaque_path.to_owned());
         return Ok(());
     }
@@ -162,8 +166,7 @@ fn collect_opaque_hidden_paths_from_layer(
 
     let mut stack = vec![target];
     while let Some(dir) = stack.pop() {
-        let mut entries = read_sorted_dir(&dir)?;
-        for entry in entries.drain(..) {
+        for entry in read_sorted_dir(&dir)? {
             let path = entry.path();
             let rel = layer_relative_string(layer_dir, &path)?;
             if !is_equal_or_descendant(&rel, opaque_path) {
@@ -173,8 +176,7 @@ fn collect_opaque_hidden_paths_from_layer(
                 .file_name()
                 .and_then(|name| name.to_str())
                 .unwrap_or("");
-            let meta = std::fs::symlink_metadata(&path)
-                .map_err(|err| CommitError::RoutePreparation(err.to_string()))?;
+            let meta = std::fs::symlink_metadata(&path)?;
             if name == OPAQUE_MARKER {
                 if let Some(target) = parent_rel(&rel) {
                     layer_blockers.push(target);
@@ -193,7 +195,7 @@ fn collect_opaque_hidden_paths_from_layer(
                 continue;
             }
             if meta.file_type().is_symlink() || meta.is_file() {
-                insert_visible_hidden_path(visible, &rel)?;
+                visible.insert(LayerPath::parse(&rel)?);
                 layer_blockers.push(rel);
             } else if meta.is_dir() {
                 stack.push(path);
@@ -224,31 +226,20 @@ fn collect_logical_whiteout_for_exact_path(
     }
 }
 
-fn read_sorted_dir(dir: &Path) -> Result<Vec<std::fs::DirEntry>, CommitError> {
-    let mut entries = std::fs::read_dir(dir)
-        .map_err(|err| CommitError::RoutePreparation(err.to_string()))?
-        .collect::<io::Result<Vec<_>>>()
-        .map_err(|err| CommitError::RoutePreparation(err.to_string()))?;
+fn read_sorted_dir(dir: &Path) -> Result<Vec<std::fs::DirEntry>, LayerStackError> {
+    let mut entries = std::fs::read_dir(dir)?.collect::<io::Result<Vec<_>>>()?;
     entries.sort_by_key(std::fs::DirEntry::path);
     Ok(entries)
 }
 
-fn insert_visible_hidden_path(
-    visible: &mut BTreeSet<LayerPath>,
-    path: &str,
-) -> Result<(), CommitError> {
-    visible.insert(LayerPath::parse(path)?);
-    Ok(())
-}
-
-fn layer_relative_string(layer_dir: &Path, path: &Path) -> Result<String, CommitError> {
+fn layer_relative_string(layer_dir: &Path, path: &Path) -> Result<String, LayerStackError> {
     let rel = path
         .strip_prefix(layer_dir)
-        .map_err(|err| CommitError::RoutePreparation(err.to_string()))?;
+        .map_err(|err| LayerStackError::Storage(err.to_string()))?;
     let mut parts = Vec::new();
     for component in rel.components() {
         let part = component.as_os_str().to_str().ok_or_else(|| {
-            CommitError::RoutePreparation(format!(
+            LayerStackError::Storage(format!(
                 "layer path component is not valid UTF-8: {:?}",
                 component.as_os_str().as_encoded_bytes()
             ))

@@ -60,7 +60,7 @@ pub struct OverlayMount {
     /// The mountpoint this overlay was moved onto (`move_mount` destination).
     #[cfg_attr(
         not(target_os = "linux"),
-        allow(dead_code, reason = "workspace_root is read by linux Drop unmount")
+        expect(dead_code, reason = "workspace_root is read by linux Drop unmount")
     )]
     workspace_root: Option<PathBuf>,
 }

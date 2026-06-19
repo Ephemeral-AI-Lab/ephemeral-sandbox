@@ -57,7 +57,7 @@ pub fn build_workspace_base(
     )
 }
 
-pub(crate) fn build_workspace_base_from_snapshot(
+fn build_workspace_base_from_snapshot(
     layer_stack_root: impl AsRef<Path>,
     binding_layer_stack_root: impl AsRef<Path>,
     binding_workspace_root: impl AsRef<Path>,

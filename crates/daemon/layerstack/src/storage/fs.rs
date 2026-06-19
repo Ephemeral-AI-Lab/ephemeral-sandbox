@@ -1,12 +1,10 @@
 use std::collections::BTreeMap;
-use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 use crate::error::LayerStackError;
-use crate::lock::STORAGE_WRITER_LOCK_FILE;
 use crate::model::{LayerRef, Manifest, MANIFEST_SCHEMA_VERSION};
 use crate::{LAYERS_DIR, LAYER_METADATA_DIR, STAGING_DIR};
 use serde::Deserialize;
@@ -149,79 +147,6 @@ pub(crate) fn resolve_layer_path(storage_root: &Path, path: &str) -> PathBuf {
     } else {
         storage_root.join(path)
     }
-}
-
-pub(crate) fn replace_workspace_contents(
-    destination: &Path,
-    source: &Path,
-) -> Result<(), LayerStackError> {
-    std::fs::create_dir_all(destination)?;
-    for child in std::fs::read_dir(destination)? {
-        remove_path(&child?.path())?;
-    }
-    for child in std::fs::read_dir(source)? {
-        let child = child?;
-        move_path(&child.path(), &destination.join(child.file_name()))?;
-    }
-    Ok(())
-}
-
-fn move_path(source: &Path, destination: &Path) -> Result<(), LayerStackError> {
-    match std::fs::rename(source, destination) {
-        Ok(()) => Ok(()),
-        Err(err) if err.raw_os_error() == Some(18) => {
-            copy_path(source, destination)?;
-            remove_path(source)
-        }
-        Err(err) => Err(err.into()),
-    }
-}
-
-pub(crate) fn copy_path(source: &Path, destination: &Path) -> Result<(), LayerStackError> {
-    let meta = std::fs::symlink_metadata(source)?;
-    if meta.file_type().is_symlink() {
-        if let Some(parent) = destination.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let target = std::fs::read_link(source)?;
-        remove_path(destination)?;
-        std::os::unix::fs::symlink(target, destination)?;
-    } else if meta.is_dir() {
-        std::fs::create_dir_all(destination)?;
-        for child in std::fs::read_dir(source)? {
-            let child = child?;
-            copy_path(&child.path(), &destination.join(child.file_name()))?;
-        }
-    } else if meta.is_file() {
-        if let Some(parent) = destination.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        remove_path(destination)?;
-        std::fs::copy(source, destination)?;
-    }
-    Ok(())
-}
-
-pub(crate) fn clear_storage_root_preserving_lock_and_names(
-    storage_root: &Path,
-    preserved_names: &[&str],
-) -> Result<(), LayerStackError> {
-    std::fs::create_dir_all(storage_root)?;
-    for child in std::fs::read_dir(storage_root)? {
-        let child = child?;
-        if should_preserve_storage_child(&child.file_name(), preserved_names) {
-            continue;
-        }
-        remove_path(&child.path())?;
-    }
-    Ok(())
-}
-
-fn should_preserve_storage_child(file_name: &OsStr, preserved_names: &[&str]) -> bool {
-    file_name == OsStr::new(STORAGE_WRITER_LOCK_FILE)
-        || preserved_names
-            .iter()
-            .any(|name| file_name == OsStr::new(name))
 }
 
 pub(crate) fn write_atomic(path: impl AsRef<Path>, bytes: &[u8]) -> Result<(), LayerStackError> {

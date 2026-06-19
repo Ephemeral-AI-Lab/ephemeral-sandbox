@@ -1,5 +1,5 @@
-use super::LayerStack;
 use crate::error::LayerStackError;
+use crate::stack::LayerStack;
 
 impl LayerStack {
     pub fn read_bytes(&self, path: &str) -> Result<(Option<Vec<u8>>, bool), LayerStackError> {

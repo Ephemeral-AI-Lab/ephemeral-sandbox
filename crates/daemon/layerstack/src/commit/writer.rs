@@ -31,46 +31,12 @@ impl CommitWriter {
         changes: &[LayerChange],
         snapshot_version: Option<u64>,
         atomic: bool,
-        path_groups: Vec<PublishDecision>,
+        decisions: Vec<PublishDecision>,
     ) -> Result<ChangesetResult, CommitError> {
-        if changes.len() > path_groups.len() {
-            return Err(CommitError::RoutePreparation(format!(
-                "changeset has more payload changes than route decisions: {} changes, {} decisions",
-                changes.len(),
-                path_groups.len()
-            )));
-        }
-        for (change, group) in changes.iter().zip(path_groups.iter()) {
-            if change.path() != &group.path {
-                return Err(CommitError::RoutePreparation(format!(
-                    "changeset decision path mismatch: change {}, decision {}",
-                    change.path().as_str(),
-                    group.path.as_str()
-                )));
-            }
-        }
-        if let Some(group) = path_groups
-            .iter()
-            .skip(changes.len())
-            .find(|group| group.route != Route::Drop)
-        {
-            return Err(CommitError::RoutePreparation(format!(
-                "payload-less route decision must be dropped: {}",
-                group.path.as_str()
-            )));
-        }
-        let publishable = changes
-            .iter()
-            .zip(path_groups.iter())
-            .filter(|(_, group)| group.route != Route::Drop)
-            .map(|(change, _)| change.clone())
-            .collect::<Vec<_>>();
-        let handoff_event = worker_handoff_event(&path_groups, publishable.len(), atomic);
-        let receiver = self.commit_queue.submit(PreparedChangeset {
-            path_groups,
-            changes: publishable,
-            atomic,
-        })?;
+        let prepared = PreparedChangeset::try_new(changes, decisions, atomic)?;
+        let handoff_event =
+            worker_handoff_event(&prepared.decisions, prepared.changes.len(), prepared.atomic);
+        let receiver = self.commit_queue.submit(prepared)?;
         let mut result = receiver
             .recv()
             .map_err(|_| CommitError::ReplyDisconnected)??;
@@ -90,9 +56,9 @@ impl CommitWriter {
         &self,
         changes: &[LayerChange],
         snapshot_version: Option<u64>,
-        path_groups: Vec<PublishDecision>,
+        decisions: Vec<PublishDecision>,
     ) -> Result<ChangesetResult, CommitError> {
-        self.apply_changeset_with_decisions(changes, snapshot_version, true, path_groups)
+        self.apply_changeset_with_decisions(changes, snapshot_version, true, decisions)
     }
 }
 
@@ -103,7 +69,7 @@ impl Drop for CommitWriter {
 }
 
 fn worker_handoff_event(
-    path_groups: &[PublishDecision],
+    decisions: &[PublishDecision],
     publishable_change_count: usize,
     atomic: bool,
 ) -> OccTraceEvent {
@@ -111,13 +77,13 @@ fn worker_handoff_event(
     let mut direct_path_count = 0;
     let mut drop_path_count = 0;
     let mut drop_reason_counts: BTreeMap<String, usize> = BTreeMap::new();
-    for group in path_groups {
-        match group.route {
+    for decision in decisions {
+        match decision.route() {
             Route::Gated => gated_path_count += 1,
             Route::Direct => direct_path_count += 1,
             Route::Drop => {
                 drop_path_count += 1;
-                if let Some(reason) = group.drop_reason {
+                if let Some(reason) = decision.drop_reason() {
                     *drop_reason_counts
                         .entry(reason.as_str().to_owned())
                         .or_default() += 1;
@@ -129,7 +95,7 @@ fn worker_handoff_event(
         "occ",
         "worker_handoff",
         json!({
-            "path_count": path_groups.len(),
+            "path_count": decisions.len(),
             "publishable_change_count": publishable_change_count,
             "atomic": atomic,
             "gated_path_count": gated_path_count,

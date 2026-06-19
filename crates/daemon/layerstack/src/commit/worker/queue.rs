@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{mpsc, Mutex};
 use std::time::Duration;
 
@@ -8,6 +8,7 @@ use super::super::model::{ChangesetResult, CommitStatus, FileResult, OccTraceEve
 use super::super::route::{PublishDecision, Route};
 use super::super::CommitError;
 use super::transaction::{commit_timings, CommitTransaction};
+use crate::model::LayerChange;
 
 pub(crate) const COMMIT_QUEUE_THREAD_NAME: &str = "occ-commit-queue";
 
@@ -19,9 +20,55 @@ pub(crate) const MAX_OCC_CAS_RETRIES: u32 = 3;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PreparedChangeset {
-    pub(crate) path_groups: Vec<PublishDecision>,
-    pub(crate) changes: Vec<crate::model::LayerChange>,
+    pub(crate) decisions: Vec<PublishDecision>,
+    pub(crate) changes: Vec<LayerChange>,
     pub(crate) atomic: bool,
+}
+
+impl PreparedChangeset {
+    pub(crate) fn try_new(
+        changes: &[LayerChange],
+        decisions: Vec<PublishDecision>,
+        atomic: bool,
+    ) -> Result<Self, CommitError> {
+        if changes.len() > decisions.len() {
+            return Err(CommitError::RoutePreparation(format!(
+                "changeset has more payload changes than route decisions: {} changes, {} decisions",
+                changes.len(),
+                decisions.len()
+            )));
+        }
+        for (change, decision) in changes.iter().zip(decisions.iter()) {
+            if change.path() != decision.path() {
+                return Err(CommitError::RoutePreparation(format!(
+                    "changeset decision path mismatch: change {}, decision {}",
+                    change.path().as_str(),
+                    decision.path().as_str()
+                )));
+            }
+        }
+        if let Some(decision) = decisions
+            .iter()
+            .skip(changes.len())
+            .find(|decision| decision.is_publishable())
+        {
+            return Err(CommitError::RoutePreparation(format!(
+                "payload-less route decision must be dropped: {}",
+                decision.path().as_str()
+            )));
+        }
+        let changes = changes
+            .iter()
+            .zip(decisions.iter())
+            .filter(|(_, decision)| decision.is_publishable())
+            .map(|(change, _)| change.clone())
+            .collect();
+        Ok(Self {
+            decisions,
+            changes,
+            atomic,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -182,15 +229,20 @@ fn commit_batch(transaction: &CommitTransaction, batch: Vec<WorkItem>) {
             "worker_batch_finished",
             json!({
                 "batch_item_count": batch.len(),
-                "combined_path_count": combined.path_groups.len(),
+                "combined_path_count": combined.decisions.len(),
                 "combined_change_count": combined.changes.len(),
                 "atomic": combined.atomic,
                 "cas_retry_count": attempts,
             }),
         ),
     );
+    let files_by_path = result
+        .files
+        .iter()
+        .map(|file| (file.path.as_str(), file))
+        .collect::<HashMap<_, _>>();
     for item in batch {
-        let files = result_files_for_item(&result, &item.prepared);
+        let files = result_files_for_item(&files_by_path, &item.prepared);
         let _ = item.reply.send(Ok(ChangesetResult {
             files,
             published_manifest_version: result.published_manifest_version,
@@ -221,9 +273,9 @@ pub(crate) fn disjoint_batches(items: Vec<WorkItem>) -> Vec<Vec<WorkItem>> {
         .map(|item| {
             let paths = item
                 .prepared
-                .path_groups
+                .decisions
                 .iter()
-                .map(|group| group.path.as_str().to_owned())
+                .map(|decision| decision.path().as_str().to_owned())
                 .collect();
             (item, paths)
         })
@@ -258,9 +310,9 @@ fn combine_prepared<'a>(
     let first = items.first()?;
     debug_assert!(items.len() == 1 || !items.iter().any(|prepared| prepared.atomic));
     Some(PreparedChangeset {
-        path_groups: items
+        decisions: items
             .iter()
-            .flat_map(|prepared| prepared.path_groups.iter().cloned())
+            .flat_map(|prepared| prepared.decisions.iter().cloned())
             .collect(),
         changes: items
             .iter()
@@ -270,19 +322,17 @@ fn combine_prepared<'a>(
     })
 }
 
-fn result_files_for_item(
-    result: &ChangesetResult,
+fn result_files_for_item<'a>(
+    files_by_path: &HashMap<&'a str, &'a FileResult>,
     prepared: &PreparedChangeset,
 ) -> Vec<FileResult> {
     prepared
-        .path_groups
+        .decisions
         .iter()
-        .filter_map(|group| {
-            result
-                .files
-                .iter()
-                .find(|file| file.path == group.path)
-                .cloned()
+        .filter_map(|decision| {
+            files_by_path
+                .get(decision.path().as_str())
+                .map(|file| (*file).clone())
         })
         .collect()
 }
@@ -297,39 +347,19 @@ pub(crate) fn cas_exhaustion_result(
         conflict.observed_version
     );
     let files = prepared
-        .path_groups
+        .decisions
         .iter()
-        .map(|group| {
-            let (status, message) = match group.route {
-                Route::Drop => (
-                    if group.reject_publish {
-                        CommitStatus::Failed
-                    } else {
-                        CommitStatus::Dropped
-                    },
-                    group
-                        .drop_reason
-                        .map_or_else(String::new, |reason| reason.as_str().to_owned()),
-                ),
-                Route::Direct | Route::Gated => (CommitStatus::AbortedVersion, message.clone()),
-            };
-            let observed_version = if group.route == Route::Drop {
-                None
-            } else {
-                conflict.observed_version
-            };
-            let observed_state = if group.route == Route::Drop {
-                group.reject_publish.then(|| "route_rejected".to_owned())
-            } else {
-                Some("manifest_conflict".to_owned())
-            };
-            FileResult {
-                path: group.path.clone(),
-                status,
-                message,
-                observed_version,
-                observed_state,
-            }
+        .map(|decision| match decision.route() {
+            Route::Drop => decision
+                .drop_file_result_with_default("")
+                .expect("drop route has drop file result"),
+            Route::Direct | Route::Gated => FileResult {
+                path: decision.path().clone(),
+                status: CommitStatus::AbortedVersion,
+                message: message.clone(),
+                observed_version: conflict.observed_version,
+                observed_state: Some("manifest_conflict".to_owned()),
+            },
         })
         .collect();
     ChangesetResult {

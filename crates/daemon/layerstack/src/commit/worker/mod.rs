@@ -1,4 +1,3 @@
-pub(crate) mod auto_squash;
 pub(crate) mod queue;
 pub(crate) mod transaction;
 

@@ -6,6 +6,13 @@ use crate::error::LayerStackError;
 use crate::fs::{allocate_layer_dirs, check_layer_path, fsync_dir, resolve_layer_path};
 use crate::{MergedView, LAYERS_DIR};
 
+mod auto_squash;
+mod ops;
+mod planning;
+
+pub(crate) use auto_squash::{run_auto_squash, AutoSquashTrace};
+use planning::segment_around_lease_heads;
+
 pub(crate) const CHECKPOINT_ID_PREFIX: char = 'B';
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -281,37 +288,4 @@ pub(crate) fn manifest_prefix_before_plan<'m>(
         return None;
     }
     Some(&manifest.layers[..split])
-}
-
-fn segment_around_lease_heads(
-    layers: &[LayerRef],
-    lease_head_layers: &[LayerRef],
-) -> Result<Vec<SquashPlanEntry>, LayerStackError> {
-    let mut entries = Vec::new();
-    let mut run = Vec::new();
-    for layer in layers {
-        if lease_head_layers.contains(layer) {
-            flush_run(&mut entries, &mut run)?;
-            entries.push(SquashPlanEntry::Keep(layer.clone()));
-        } else {
-            run.push(layer.clone());
-        }
-    }
-    flush_run(&mut entries, &mut run)?;
-    Ok(entries)
-}
-
-fn flush_run(
-    entries: &mut Vec<SquashPlanEntry>,
-    run: &mut Vec<LayerRef>,
-) -> Result<(), LayerStackError> {
-    match run.len() {
-        0 => {}
-        1 => entries.push(SquashPlanEntry::Keep(run[0].clone())),
-        _ => entries.push(SquashPlanEntry::Segment(CheckpointSegment::new(
-            std::mem::take(run),
-        )?)),
-    }
-    run.clear();
-    Ok(())
 }

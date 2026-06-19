@@ -9,9 +9,9 @@ use crate::model::{LayerChange, LayerPath, Manifest};
 use crate::{CommitOptions, LayerStack, MergedView};
 
 use super::super::model::{ChangesetResult, CommitStatus, FileResult, OccTraceEvent};
-use super::super::route::{hash_current, PublishDecision, Route};
-use super::auto_squash::{run_auto_squash, AutoSquashTrace};
+use super::super::route::{hash_current, PublishDecision, Route, ValidationBase};
 use super::queue::{PreparedChangeset, PublishConflict};
+use crate::stack::squash::{run_auto_squash, AutoSquashTrace};
 use trace::usize_to_f64_saturating;
 
 #[derive(Clone)]
@@ -262,26 +262,15 @@ fn validate_prepared(
 ) -> Vec<FileResult> {
     let mut parent_absent_cache = HashMap::new();
     prepared
-        .path_groups
+        .decisions
         .iter()
-        .map(|group| match group.route {
-            Route::Drop => FileResult {
-                path: group.path.clone(),
-                status: if group.reject_publish {
-                    CommitStatus::Failed
-                } else {
-                    CommitStatus::Dropped
-                },
-                message: group.drop_reason.map_or_else(
-                    || "change dropped".to_owned(),
-                    |reason| reason.as_str().to_owned(),
-                ),
-                observed_version: None,
-                observed_state: group.reject_publish.then(|| "route_rejected".to_owned()),
-            },
-            Route::Direct => accepted_file(&group.path),
+        .map(|decision| match decision.route() {
+            Route::Drop => decision
+                .drop_file_result()
+                .expect("drop route has drop file result"),
+            Route::Direct => accepted_file(decision.path()),
             Route::Gated => {
-                validate_gated_group(root, view, manifest, group, &mut parent_absent_cache)
+                validate_gated_group(root, view, manifest, decision, &mut parent_absent_cache)
             }
         })
         .collect()
@@ -304,41 +293,43 @@ fn validate_gated_group(
     group: &PublishDecision,
     parent_absent_cache: &mut HashMap<String, bool>,
 ) -> FileResult {
-    if let Some(validation_base_hashes) = &group.validation_base_hashes {
-        for (path, base_hash) in validation_base_hashes {
-            let result = validate_gated_path(
-                root,
-                view,
-                manifest,
-                path,
-                base_hash.as_deref(),
-                parent_absent_cache,
-            );
-            if !result.status.is_non_conflicting() {
-                return FileResult {
-                    path: group.path.clone(),
-                    status: result.status,
-                    message: format!(
-                        "opaque directory descendant {}: {}",
-                        path.as_str(),
-                        result.conflict_message(result.status.wire_str())
-                    ),
-                    observed_version: result.observed_version,
-                    observed_state: result.observed_state,
-                };
+    match group.validation_base() {
+        Some(ValidationBase::Paths(validation_base_hashes)) => {
+            for (path, base_hash) in validation_base_hashes {
+                let result = validate_gated_path(
+                    root,
+                    view,
+                    manifest,
+                    path,
+                    base_hash.as_deref(),
+                    parent_absent_cache,
+                );
+                if !result.status.is_non_conflicting() {
+                    return FileResult {
+                        path: group.path().clone(),
+                        status: result.status,
+                        message: format!(
+                            "opaque directory descendant {}: {}",
+                            path.as_str(),
+                            result.conflict_message(result.status.wire_str())
+                        ),
+                        observed_version: result.observed_version,
+                        observed_state: result.observed_state,
+                    };
+                }
             }
+            accepted_file(group.path())
         }
-        return accepted_file(&group.path);
+        Some(ValidationBase::Path(base_hash)) => validate_gated_path(
+            root,
+            view,
+            manifest,
+            group.path(),
+            base_hash.as_deref(),
+            parent_absent_cache,
+        ),
+        None => accepted_file(group.path()),
     }
-
-    validate_gated_path(
-        root,
-        view,
-        manifest,
-        &group.path,
-        group.base_hash.as_deref(),
-        parent_absent_cache,
-    )
 }
 
 fn validate_gated_path(
@@ -408,10 +399,10 @@ fn failed_changeset_with_timings(
 ) -> ChangesetResult {
     ChangesetResult {
         files: prepared
-            .path_groups
+            .decisions
             .iter()
             .map(|group| FileResult {
-                path: group.path.clone(),
+                path: group.path().clone(),
                 status: CommitStatus::Failed,
                 message: message.to_owned(),
                 observed_version: None,
@@ -438,9 +429,9 @@ pub(crate) fn commit_timings(
         "occ.commit.gated_path_count".to_owned(),
         usize_to_f64_saturating(
             prepared
-                .path_groups
+                .decisions
                 .iter()
-                .filter(|group| group.route == Route::Gated)
+                .filter(|group| group.route() == Route::Gated)
                 .count(),
         ),
     );
@@ -448,9 +439,9 @@ pub(crate) fn commit_timings(
         "occ.commit.direct_path_count".to_owned(),
         usize_to_f64_saturating(
             prepared
-                .path_groups
+                .decisions
                 .iter()
-                .filter(|group| group.route == Route::Direct)
+                .filter(|group| group.route() == Route::Direct)
                 .count(),
         ),
     );

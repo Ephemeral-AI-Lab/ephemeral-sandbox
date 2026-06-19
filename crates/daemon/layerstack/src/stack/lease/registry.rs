@@ -8,20 +8,20 @@ use crate::fs::{canonical_key, next_unique};
 use crate::model::{LayerRef, Manifest};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct LayerStackLeaseRecord {
-    pub(super) lease_id: String,
-    pub(super) manifest: Manifest,
+pub(in crate::stack) struct LayerStackLeaseRecord {
+    pub(in crate::stack) lease_id: String,
+    pub(in crate::stack) manifest: Manifest,
 }
 
 #[derive(Debug, Default)]
-pub(super) struct LeaseRegistry {
+pub(in crate::stack) struct LeaseRegistry {
     leases: HashMap<String, LayerStackLeaseRecord>,
     refcounts: BTreeMap<LayerRef, usize>,
 }
 
-pub(super) type SharedLeaseRegistry = Arc<Mutex<LeaseRegistry>>;
+pub(in crate::stack) type SharedLeaseRegistry = Arc<Mutex<LeaseRegistry>>;
 
-pub(super) fn shared_registry_for_root(
+pub(in crate::stack) fn shared_registry_for_root(
     storage_root: &Path,
 ) -> Result<SharedLeaseRegistry, LayerStackError> {
     let key = canonical_key(storage_root);
@@ -34,7 +34,7 @@ pub(super) fn shared_registry_for_root(
         .clone())
 }
 
-pub(super) fn lock_shared_registry(
+pub(in crate::stack) fn lock_shared_registry(
     registry: &SharedLeaseRegistry,
 ) -> Result<MutexGuard<'_, LeaseRegistry>, LayerStackError> {
     registry
@@ -42,7 +42,7 @@ pub(super) fn lock_shared_registry(
         .map_err(|_| LayerStackError::LockPoisoned("lease registry"))
 }
 
-pub(super) fn lock_shared_registry_recover(
+pub(in crate::stack) fn lock_shared_registry_recover(
     registry: &SharedLeaseRegistry,
 ) -> MutexGuard<'_, LeaseRegistry> {
     registry
@@ -51,7 +51,7 @@ pub(super) fn lock_shared_registry_recover(
 }
 
 impl LeaseRegistry {
-    pub(super) fn acquire(
+    pub(in crate::stack) fn acquire(
         &mut self,
         manifest: Manifest,
         owner_request_id: &str,
@@ -70,13 +70,13 @@ impl LeaseRegistry {
         Ok(lease)
     }
 
-    pub(super) fn release(&mut self, lease_id: &str) -> Option<LayerStackLeaseRecord> {
+    pub(in crate::stack) fn release(&mut self, lease_id: &str) -> Option<LayerStackLeaseRecord> {
         let lease = self.leases.remove(lease_id)?;
         self.decrement_layers(&lease.manifest.layers);
         Some(lease)
     }
 
-    pub(super) fn retarget(
+    pub(in crate::stack) fn retarget(
         &mut self,
         lease_id: &str,
         manifest: Manifest,
@@ -89,17 +89,17 @@ impl LeaseRegistry {
         Some(old)
     }
 
-    pub(super) fn manifest(&self, lease_id: &str) -> Option<Manifest> {
+    pub(in crate::stack) fn manifest(&self, lease_id: &str) -> Option<Manifest> {
         self.leases
             .get(lease_id)
             .map(|lease| lease.manifest.clone())
     }
 
-    pub(super) fn leased_layers(&self) -> Vec<LayerRef> {
+    pub(in crate::stack) fn leased_layers(&self) -> Vec<LayerRef> {
         self.refcounts.keys().cloned().collect()
     }
 
-    pub(super) fn lease_head_layers(&self) -> Vec<LayerRef> {
+    pub(in crate::stack) fn lease_head_layers(&self) -> Vec<LayerRef> {
         self.leases
             .values()
             .filter_map(|lease| lease.manifest.layers.first())
@@ -109,7 +109,7 @@ impl LeaseRegistry {
             .collect()
     }
 
-    pub(super) fn active_count(&self) -> usize {
+    pub(in crate::stack) fn active_count(&self) -> usize {
         self.leases.len()
     }
 

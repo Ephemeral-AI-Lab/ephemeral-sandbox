@@ -1,21 +1,21 @@
-use super::LayerStack;
 use crate::error::LayerStackError;
 use crate::fs::{
     allocate_layer_dirs, fsync_dir, fsync_tree_files, resolve_layer_path, storage_bytes,
     write_layer_digest,
 };
 use crate::model::{manifest_root_hash, LayerRef, Manifest};
+use crate::stack::LayerStack;
 use crate::LAYERS_DIR;
 
 impl LayerStack {
-    pub(super) fn build_copy_through_checkpoint(
+    pub(in crate::stack) fn build_copy_through_checkpoint(
         &self,
         manifest: &Manifest,
     ) -> Result<LayerRef, LayerStackError> {
         self.build_projected_checkpoint(manifest)
     }
 
-    pub(super) fn build_projected_checkpoint(
+    pub(in crate::stack) fn build_projected_checkpoint(
         &self,
         manifest: &Manifest,
     ) -> Result<LayerRef, LayerStackError> {
@@ -44,7 +44,10 @@ impl LayerStack {
         })
     }
 
-    pub(super) fn layer_payload_sum(&self, layers: &[LayerRef]) -> Result<u64, LayerStackError> {
+    pub(in crate::stack) fn layer_payload_sum(
+        &self,
+        layers: &[LayerRef],
+    ) -> Result<u64, LayerStackError> {
         layers.iter().try_fold(0_u64, |total, layer| {
             Ok(total + storage_bytes(&resolve_layer_path(&self.storage_root, &layer.path))?)
         })

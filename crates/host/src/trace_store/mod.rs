@@ -1,5 +1,3 @@
-#![cfg_attr(any(test, feature = "e2e-support"), allow(dead_code))]
-
 use std::path::Path;
 #[cfg(any(test, feature = "e2e-support"))]
 use std::path::PathBuf;

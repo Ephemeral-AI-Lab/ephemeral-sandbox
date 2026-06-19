@@ -6,7 +6,7 @@ use crate::model::{aggregate_layer_changes, LayerChange};
 
 use crate::whiteout::{write_kernel_whiteout, OPAQUE_MARKER};
 
-pub(super) fn write_layer_changes(
+pub(in crate::stack) fn write_layer_changes(
     layer_dir: &Path,
     changes: &[LayerChange],
 ) -> Result<(), LayerStackError> {

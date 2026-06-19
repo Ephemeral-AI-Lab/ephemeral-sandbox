@@ -6,31 +6,21 @@ use crate::lock::StorageWriterLockLease;
 use crate::model::{manifest_root_hash, LayerRef, Manifest};
 use crate::{ACTIVE_MANIFEST_FILE, LAYERS_DIR, STAGING_DIR};
 
-mod checkpoint;
-mod layer_read;
-mod layer_write;
-mod lease_cleanup;
-mod leases;
-mod publish;
-mod read;
+mod io;
+mod layer;
+mod lease;
+mod projection;
 pub(crate) mod reclaim_unpinned_layers;
-mod reclaim_unpinned_layers_ops;
 pub(crate) mod squash;
-mod squash_ops;
-mod view;
-mod workspace_commit;
 
-use lease_cleanup::{release_lease_locked, retarget_lease_locked};
-pub(crate) use leases::reset_shared_registries_for_tests;
-use leases::{
+pub(crate) use lease::reset_shared_registries_for_tests;
+use lease::{
     lock_shared_registry, lock_shared_registry_recover, shared_registry_for_root,
     SharedLeaseRegistry,
 };
-use workspace_commit::recover_commit_to_workspace;
-#[allow(unused_imports)]
-pub(crate) use workspace_commit::*;
+use lease::{release_lease_locked, retarget_lease_locked};
 
-pub use view::MergedView;
+pub use projection::MergedView;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lease {
@@ -67,7 +57,6 @@ impl LayerStack {
         std::fs::create_dir_all(storage_root.join(LAYERS_DIR))?;
         std::fs::create_dir_all(storage_root.join(STAGING_DIR))?;
         let writer_lock = StorageWriterLockLease::acquire(&storage_root)?;
-        recover_commit_to_workspace(&storage_root)?;
         let leases = shared_registry_for_root(&storage_root)?;
         let view = MergedView::new(storage_root.clone());
         Ok(Self {
