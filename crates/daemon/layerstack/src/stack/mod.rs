@@ -3,7 +3,6 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use crate::capture::capture_layer_dir_unbounded;
 use crate::lease_aware::{
     plan_lease_aware_gaps, LeaseAwareCheckpointMode, LeaseAwareCopyThroughOutcome,
     LeaseAwarePlanEntry, LeaseAwareReclaimOutcome, LeaseParentCompactionOutcome,
@@ -27,12 +26,14 @@ use crate::squash::{
 use crate::workspace::build_workspace_base_from_snapshot;
 use crate::{ACTIVE_MANIFEST_FILE, LAYERS_DIR, LAYER_METADATA_DIR, STAGING_DIR};
 
+mod layer_read;
 mod layer_write;
 mod lease_cleanup;
 mod leases;
 mod view;
 mod workspace_commit;
 
+use layer_read::capture_layer_dir_unbounded;
 use layer_write::write_layer_changes;
 use lease_cleanup::{
     release_lease_locked, remove_unreferenced_layer_candidates_locked, retarget_lease_locked,
@@ -62,12 +63,6 @@ pub struct Lease {
 pub struct SquashOutcome {
     pub manifest: Option<Manifest>,
     pub lease_release_error: Option<LayerStackError>,
-}
-
-#[derive(Debug)]
-pub struct BoundedCommandSnapshot {
-    pub lease: Lease,
-    pub copy_through: LeaseAwareCopyThroughOutcome,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -671,20 +666,6 @@ impl LayerStack {
             protected_pinned_bytes,
             active_depth_before,
             active_depth_after: 1,
-        })
-    }
-
-    #[doc(hidden)]
-    pub fn acquire_bounded_snapshot_for_command(
-        &mut self,
-        owner_request_id: &str,
-        max_depth: usize,
-    ) -> Result<BoundedCommandSnapshot, LayerStackError> {
-        let copy_through = self.copy_through_active_for_depth_guard(max_depth)?;
-        let lease = self.acquire_snapshot(owner_request_id)?;
-        Ok(BoundedCommandSnapshot {
-            lease,
-            copy_through,
         })
     }
 

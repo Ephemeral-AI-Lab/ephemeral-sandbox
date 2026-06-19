@@ -1,6 +1,5 @@
 #![forbid(unsafe_code)]
 
-mod capture;
 mod commit;
 mod error;
 pub(crate) mod fs;
@@ -18,7 +17,6 @@ pub use model::{
     LayerRef, Manifest, MANIFEST_SCHEMA_VERSION,
 };
 
-pub use capture::{CaptureError, CaptureStats, ProtectedPathDrop, ProtectedPathDropReason};
 pub use commit::{
     CaptureRouteStats, ChangesetResult, CommitError, CommitOptions, CommitStatus, FileResult,
     OccTraceEvent,
@@ -27,7 +25,7 @@ pub use error::LayerStackError;
 pub use lease_aware::{
     LeaseAwareCopyThroughOutcome, LeaseAwareReclaimOutcome, LeaseParentCompactionOutcome,
 };
-pub use stack::{BoundedCommandSnapshot, LayerStack, Lease, MergedView, SquashOutcome};
+pub use stack::{LayerStack, Lease, MergedView, SquashOutcome};
 pub use workspace::{
     build_workspace_base, ensure_workspace_base, read_workspace_binding, require_workspace_binding,
     WorkspaceBinding, WORKSPACE_BINDING_FILE,

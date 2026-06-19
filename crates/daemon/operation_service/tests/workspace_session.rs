@@ -394,10 +394,6 @@ fn workspace_session_rejects_stale_handler_before_raw_capture() {
         .capture_session_changes(
             &handler,
             CaptureChangesRequest {
-                bounds: layerstack::service::BoundedCaptureOptions {
-                    materialize_payloads: false,
-                    ..layerstack::service::BoundedCaptureOptions::default()
-                },
                 include_stats: false,
             },
         )
@@ -423,10 +419,6 @@ fn workspace_session_uses_canonical_handle_for_capture() {
         .capture_session_changes(
             &handler,
             CaptureChangesRequest {
-                bounds: layerstack::service::BoundedCaptureOptions {
-                    materialize_payloads: false,
-                    ..layerstack::service::BoundedCaptureOptions::default()
-                },
                 include_stats: false,
             },
         )
@@ -453,10 +445,6 @@ fn workspace_session_capture_updates_handler_snapshot_consistently() {
         .capture_session_changes(
             &handler,
             CaptureChangesRequest {
-                bounds: layerstack::service::BoundedCaptureOptions {
-                    materialize_payloads: false,
-                    ..layerstack::service::BoundedCaptureOptions::default()
-                },
                 include_stats: false,
             },
         )
@@ -553,10 +541,6 @@ fn workspace_session_capture_rejects_pending_remount_before_raw_capture() {
         .capture_session_changes(
             &handler,
             CaptureChangesRequest {
-                bounds: layerstack::service::BoundedCaptureOptions {
-                    materialize_payloads: false,
-                    ..layerstack::service::BoundedCaptureOptions::default()
-                },
                 include_stats: false,
             },
         )

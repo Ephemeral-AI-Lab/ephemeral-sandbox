@@ -565,39 +565,6 @@ fn lease_aware_copy_through_reports_pinned_bytes_without_reclaiming_protected_la
 }
 
 #[test]
-fn lease_aware_command_admission_acquires_bounded_snapshot_despite_legacy_lease() -> TestResult {
-    let fixture = Fixture::new("lease_aware_command_admission");
-    let mut stack = LayerStack::open(fixture.root.clone())?;
-    for index in 1..=6 {
-        publish_blob(&mut stack, "blob.bin", 1 << 20, index)?;
-    }
-    let legacy = stack.acquire_snapshot("legacy-running-command")?;
-
-    let admitted = stack.acquire_bounded_snapshot_for_command("new-command", 1)?;
-
-    assert_eq!(admitted.copy_through.checkpoint_count, 1);
-    assert_eq!(admitted.copy_through.protected_layer_count, 6);
-    assert_eq!(admitted.copy_through.protected_pinned_bytes, 6 << 20);
-    assert_eq!(admitted.copy_through.bytes_added, 1 << 20);
-    assert_eq!(admitted.copy_through.active_depth_before, 6);
-    assert_eq!(admitted.copy_through.active_depth_after, 1);
-    assert_eq!(admitted.lease.manifest.depth(), 1);
-    assert_eq!(admitted.lease.layer_paths.len(), 1);
-    assert_eq!(stack.read_active_manifest()?.depth(), 1);
-    assert_eq!(payload_bytes(&fixture.root.join("layers"))?, 7 << 20);
-
-    assert!(stack.release_lease(&admitted.lease.lease_id)?);
-    assert_eq!(
-        payload_bytes(&fixture.root.join("layers"))?,
-        7 << 20,
-        "legacy lease still pins the original chain"
-    );
-    assert!(stack.release_lease(&legacy.lease_id)?);
-    assert_eq!(payload_bytes(&fixture.root.join("layers"))?, 1 << 20);
-    Ok(())
-}
-
-#[test]
 fn delete_layer_hides_files_in_reads_and_projection() -> TestResult {
     let fixture = Fixture::new("delete_hides");
     let mut stack = LayerStack::open(fixture.root.clone())?;

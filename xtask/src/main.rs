@@ -30,7 +30,9 @@ fn main() -> Result<()> {
         .as_deref()
     {
         Some("package") => package(&PackageArgs::parse(args)?),
-        Some("check-inline-cfg-test") => check_inline_cfg_test(&InlineCfgTestArgs::parse(args)?),
+        Some("check-inline-cfg-test" | "check-inline-tests") => {
+            check_inline_test_policy(&InlineTestPolicyArgs::parse(args)?)
+        }
         Some("help" | "--help" | "-h") | None => {
             print_help();
             Ok(())
@@ -40,18 +42,25 @@ fn main() -> Result<()> {
 }
 
 #[derive(Debug)]
-struct InlineCfgTestArgs {
+struct InlineTestPolicyArgs {
     roots: Vec<PathBuf>,
 }
 
 #[derive(Debug)]
-struct InlineCfgTestViolation {
+struct InlineTestPolicyViolation {
     path: PathBuf,
     line_number: usize,
     line: String,
+    kind: InlineTestPolicyViolationKind,
 }
 
-impl InlineCfgTestArgs {
+#[derive(Debug)]
+enum InlineTestPolicyViolationKind {
+    CfgTest,
+    TestAttribute,
+}
+
+impl InlineTestPolicyArgs {
     fn parse<I>(args: I) -> Result<Self>
     where
         I: IntoIterator<Item = OsString>,
@@ -68,7 +77,7 @@ impl InlineCfgTestArgs {
                     print_help();
                     std::process::exit(0);
                 }
-                other => bail!("unknown check-inline-cfg-test option {other:?}"),
+                other => bail!("unknown inline test policy option {other:?}"),
             }
         }
         if roots.is_empty() {
@@ -158,7 +167,7 @@ impl PackageArgs {
     }
 }
 
-fn check_inline_cfg_test(args: &InlineCfgTestArgs) -> Result<()> {
+fn check_inline_test_policy(args: &InlineTestPolicyArgs) -> Result<()> {
     let root = workspace_root()?;
     let mut violations = Vec::new();
     for scan_root in &args.roots {
@@ -170,73 +179,111 @@ fn check_inline_cfg_test(args: &InlineCfgTestArgs) -> Result<()> {
                 .file_type()
                 .is_some_and(|file_type| file_type.is_file())
                 || !is_rust_source(path)
-                || is_under_tests_dir(path)
+                || is_under_crate_tests_dir(path)
             {
                 continue;
             }
-            collect_inline_cfg_test_violations(path, &mut violations)?;
+            collect_inline_test_policy_violations(path, &mut violations)?;
         }
     }
 
     if violations.is_empty() {
-        println!("no inline #[cfg(test)] attributes found in non-test Rust sources");
+        println!("no inline test-only attributes found in non-test Rust sources");
         return Ok(());
     }
 
     eprintln!(
-        "inline #[cfg(test)] attributes are forbidden in non-test Rust sources; \
+        "inline #[cfg(test)] and #[test] attributes are forbidden in non-test Rust sources; \
 move tests to crate tests/ modules and keep production code test-neutral."
     );
     for violation in &violations {
         eprintln!(
-            "{}:{}: {}",
+            "{}:{}: {} ({})",
             relative_to(&root, &violation.path).display(),
             violation.line_number,
-            violation.line.trim()
+            violation.line.trim(),
+            violation.kind.label()
         );
     }
     bail!(
-        "found {} forbidden inline #[cfg(test)] attributes",
+        "found {} forbidden inline test-only attributes",
         violations.len()
     )
 }
 
-fn collect_inline_cfg_test_violations(
+fn collect_inline_test_policy_violations(
     path: &Path,
-    violations: &mut Vec<InlineCfgTestViolation>,
+    violations: &mut Vec<InlineTestPolicyViolation>,
 ) -> Result<()> {
     let body = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
     for (line_index, line) in body.lines().enumerate() {
-        if line_has_inline_cfg_test(line) {
-            violations.push(InlineCfgTestViolation {
+        if let Some(kind) = line_inline_test_policy_violation_kind(line) {
+            violations.push(InlineTestPolicyViolation {
                 path: path.to_path_buf(),
                 line_number: line_index + 1,
                 line: line.to_owned(),
+                kind,
             });
         }
     }
     Ok(())
 }
 
-fn line_has_inline_cfg_test(line: &str) -> bool {
+fn line_inline_test_policy_violation_kind(line: &str) -> Option<InlineTestPolicyViolationKind> {
     let trimmed = line.trim_start();
     if trimmed.starts_with("//") {
-        return false;
+        return None;
     }
     let compact = trimmed
         .chars()
         .filter(|ch| !ch.is_whitespace())
         .collect::<String>();
-    compact.starts_with("#[cfg(test)]") || compact.starts_with("#![cfg(test)]")
+    if compact.starts_with("#[cfg(test)]") || compact.starts_with("#![cfg(test)]") {
+        Some(InlineTestPolicyViolationKind::CfgTest)
+    } else if line_has_test_attribute(&compact) {
+        Some(InlineTestPolicyViolationKind::TestAttribute)
+    } else {
+        None
+    }
+}
+
+fn line_has_test_attribute(compact_line: &str) -> bool {
+    let Some(attribute) = compact_line.strip_prefix("#[") else {
+        return false;
+    };
+    let Some(attribute) = attribute.strip_suffix(']').or_else(|| {
+        attribute
+            .split_once(']')
+            .map(|(attribute, _rest)| attribute)
+    }) else {
+        return false;
+    };
+    let path = attribute
+        .split_once('(')
+        .map_or(attribute, |(path, _args)| path);
+    path == "test" || path.ends_with("::test")
+}
+
+impl InlineTestPolicyViolationKind {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::CfgTest => "inline cfg(test)",
+            Self::TestAttribute => "inline test attribute",
+        }
+    }
 }
 
 fn is_rust_source(path: &Path) -> bool {
     path.extension().is_some_and(|extension| extension == "rs")
 }
 
-fn is_under_tests_dir(path: &Path) -> bool {
-    path.components()
-        .any(|component| component.as_os_str() == "tests")
+fn is_under_crate_tests_dir(path: &Path) -> bool {
+    path.ancestors().any(|ancestor| {
+        ancestor.file_name().is_some_and(|name| name == "tests")
+            && ancestor
+                .parent()
+                .is_some_and(|parent| parent.join("Cargo.toml").is_file())
+    })
 }
 
 fn relative_to<'a>(root: &Path, path: &'a Path) -> &'a Path {
@@ -509,8 +556,9 @@ fn print_help() {
     println!(
         "\
 xtask commands:
-  check-inline-cfg-test [--root <path> ...]
-          fail if non-test Rust sources contain inline #[cfg(test)] attributes
+  check-inline-tests [--root <path> ...]
+          fail if non-test Rust sources contain inline #[cfg(test)] or #[test] attributes
+          alias: check-inline-cfg-test
   package [--target <triple>] [--out-dir <dir>] [--builder rust-lld|cargo|cross]
           [--profile <name> | --fast] [--no-build] [--sign --minisign-key <path>]
 

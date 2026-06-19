@@ -9,7 +9,6 @@ use crate::workspace_session::WorkspaceSessionService;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CommandFinalizationOptions {
-    pub one_shot_capture: layerstack::service::BoundedCaptureOptions,
     pub one_shot_publish: layerstack::CommitOptions,
 }
 

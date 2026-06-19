@@ -7,7 +7,6 @@ mod launch;
 pub mod process_store;
 #[path = "service/registry.rs"]
 pub mod registry;
-#[path = "service/remount/mod.rs"]
 pub(crate) mod remount;
 pub mod service;
 #[path = "service/transcript.rs"]

@@ -85,17 +85,16 @@ fn commit_direct_trace_events_include_worker_handoff_and_batch_facts() -> TestRe
         .map(|layer| fixture.root.join(&layer.path))
         .collect::<Vec<_>>();
 
-    let result = service::publish_command_capture_lane_aware(
-        &fixture.root,
-        manifest.version,
-        &layer_paths,
-        &[LayerChange::Write {
+    let result = service::publish_changes_to_layerstack(service::PublishChangesRequest {
+        root: &fixture.root,
+        snapshot_manifest_version: manifest.version,
+        snapshot_layer_paths: &layer_paths,
+        changes: &[LayerChange::Write {
             path: lp("README.md")?,
             content: b"# updated\n".to_vec(),
         }],
-        &[],
-        CommitOptions::default(),
-    )?;
+        options: CommitOptions::default(),
+    })?;
 
     assert!(result.success());
     let events = result.trace_events();
@@ -127,7 +126,7 @@ fn process_state_reset_clears_service_cache_and_lease_registry() -> TestResult {
     let _state_guard = process_state_test_lock();
     reset_process_state_for_tests();
     let fixture = Fixture::new("process_state_reset")?;
-    let _snapshot = service::acquire_snapshot(&fixture.root, "reset-test")?;
+    let _snapshot = service::acquire_snapshot_with_lease(&fixture.root, "reset-test")?;
     {
         let stack = LayerStack::open(fixture.root.clone())?;
         assert_eq!(stack.active_lease_count(), 1, "lease registry has snapshot");
@@ -139,17 +138,16 @@ fn process_state_reset_clears_service_cache_and_lease_registry() -> TestResult {
         .iter()
         .map(|layer| fixture.root.join(&layer.path))
         .collect::<Vec<_>>();
-    let result = service::publish_command_capture_lane_aware(
-        &fixture.root,
-        manifest.version,
-        &layer_paths,
-        &[LayerChange::Write {
+    let result = service::publish_changes_to_layerstack(service::PublishChangesRequest {
+        root: &fixture.root,
+        snapshot_manifest_version: manifest.version,
+        snapshot_layer_paths: &layer_paths,
+        changes: &[LayerChange::Write {
             path: lp("README.md")?,
             content: b"# reset\n".to_vec(),
         }],
-        &[],
-        CommitOptions::default(),
-    )?;
+        options: CommitOptions::default(),
+    })?;
     assert!(result.success(), "commit creates a cached per-root writer");
     assert!(service_cache_contains_root_for_tests(&fixture.root));
 
@@ -172,17 +170,17 @@ fn compact_snapshot_for_remount_retargets_active_lease_to_one_layer() -> TestRes
             content: format!("value-{index}\n").into_bytes(),
         }])?;
     }
-    let snapshot = service::acquire_snapshot(&fixture.root, "lease-compaction")?;
+    let snapshot = service::acquire_snapshot_with_lease(&fixture.root, "lease-compaction")?;
     assert!(
         snapshot.layer_paths.len() > 1,
         "test requires a retained multi-layer snapshot"
     );
 
-    let compaction = service::compact_snapshot_for_remount(
-        &fixture.root,
-        snapshot.manifest_version,
-        &snapshot.layer_paths,
-    )?;
+    let compaction = service::compact_snapshot_layers(service::CompactSnapshotLayersRequest {
+        root: &fixture.root,
+        snapshot_manifest_version: snapshot.manifest_version,
+        snapshot_layer_paths: &snapshot.layer_paths,
+    })?;
     assert_eq!(compaction.before_layer_count, snapshot.layer_paths.len());
     assert_eq!(compaction.after_layer_count, 1);
     assert_eq!(compaction.layer_paths.len(), 1);
@@ -200,48 +198,6 @@ fn compact_snapshot_for_remount_retargets_active_lease_to_one_layer() -> TestRes
         stack.leased_layers().len(),
         1,
         "lease now pins only the compact checkpoint"
-    );
-    Ok(())
-}
-
-#[test]
-fn acquire_bounded_snapshot_for_command_normalizes_before_lease() -> TestResult {
-    let _state_guard = process_state_test_lock();
-    reset_process_state_for_tests();
-    let fixture = Fixture::new("bounded_command_snapshot")?;
-    for index in 0..5 {
-        LayerStack::open(fixture.root.clone())?.publish_layer(&[LayerChange::Write {
-            path: lp("large.txt")?,
-            content: vec![u8::try_from(index)?; 1024],
-        }])?;
-    }
-
-    let command_snapshot =
-        service::acquire_bounded_snapshot_for_command(&fixture.root, "command-launch", 2)?;
-
-    assert!(
-        command_snapshot.normalization.triggered,
-        "depth above max must normalize before the command lease is acquired"
-    );
-    assert!(
-        command_snapshot.normalization.active_depth_before > 2,
-        "test must start above the configured max depth"
-    );
-    assert_eq!(command_snapshot.normalization.active_depth_after, 1);
-    assert_eq!(command_snapshot.normalization.checkpoint_count, 1);
-    assert_eq!(command_snapshot.snapshot.layer_paths.len(), 1);
-
-    let stack = LayerStack::open(fixture.root.clone())?;
-    assert_eq!(
-        stack.read_active_manifest()?.depth(),
-        1,
-        "active generation is bounded before command launch"
-    );
-    assert_eq!(stack.active_lease_count(), 1);
-    assert_eq!(
-        stack.leased_layers().len(),
-        1,
-        "new command lease points at the compact generation"
     );
     Ok(())
 }

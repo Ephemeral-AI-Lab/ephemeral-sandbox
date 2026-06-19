@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use crate::capture::{ProtectedPathDrop, ProtectedPathDropReason};
 use crate::fs::resolve_layer_path;
 use crate::model::{hex_lower, CasError, LayerChange, LayerPath};
 use crate::whiteout::{is_kernel_whiteout_meta, LOGICAL_WHITEOUT_PREFIX, OPAQUE_MARKER};
@@ -33,8 +32,6 @@ pub(crate) const GIT_OBJECT_REWRITE_REJECT_REASON: &str = "git_object_rewrite";
 pub(crate) const GIT_REFLOG_REWRITE_REJECT_REASON: &str = "git_reflog_rewrite";
 pub(crate) const DAEMON_CONTROL_PATH_DROP_REASON: &str = "daemon_control_path";
 pub(crate) const COMMAND_SCRATCH_PATH_DROP_REASON: &str = "command_scratch_path";
-pub(crate) const UNSUPPORTED_SPECIAL_FILE_DROP_REASON: &str = "unsupported_special_file";
-pub(crate) const INVALID_LAYER_PATH_DROP_REASON: &str = "invalid_layer_path";
 pub(crate) const OPAQUE_DIR_PROTECTED_DESCENDANT_DROP_REASON: &str =
     "opaque_dir_protected_descendant";
 pub(crate) const OPAQUE_DIR_MIXED_ROUTES_DROP_REASON: &str = "opaque_dir_mixed_routes";
@@ -57,8 +54,6 @@ pub(crate) enum RouteDropReason {
     GitReflogRewrite,
     DaemonControlPath,
     CommandScratchPath,
-    UnsupportedSpecialFile,
-    InvalidLayerPath,
     OpaqueDirProtectedDescendant,
     OpaqueDirMixedRoutes,
     OpaqueDirExpansionLimit,
@@ -80,20 +75,9 @@ impl RouteDropReason {
             Self::GitReflogRewrite => GIT_REFLOG_REWRITE_REJECT_REASON,
             Self::DaemonControlPath => DAEMON_CONTROL_PATH_DROP_REASON,
             Self::CommandScratchPath => COMMAND_SCRATCH_PATH_DROP_REASON,
-            Self::UnsupportedSpecialFile => UNSUPPORTED_SPECIAL_FILE_DROP_REASON,
-            Self::InvalidLayerPath => INVALID_LAYER_PATH_DROP_REASON,
             Self::OpaqueDirProtectedDescendant => OPAQUE_DIR_PROTECTED_DESCENDANT_DROP_REASON,
             Self::OpaqueDirMixedRoutes => OPAQUE_DIR_MIXED_ROUTES_DROP_REASON,
             Self::OpaqueDirExpansionLimit => OPAQUE_DIR_EXPANSION_LIMIT_DROP_REASON,
-        }
-    }
-}
-
-impl From<ProtectedPathDropReason> for RouteDropReason {
-    fn from(reason: ProtectedPathDropReason) -> Self {
-        match reason {
-            ProtectedPathDropReason::UnsupportedSpecialFile => Self::UnsupportedSpecialFile,
-            ProtectedPathDropReason::InvalidLayerPath => Self::InvalidLayerPath,
         }
     }
 }
@@ -124,9 +108,6 @@ pub enum CommitError {
 
     #[error(transparent)]
     Cas(#[from] CasError),
-
-    #[error(transparent)]
-    Capture(#[from] crate::capture::CaptureError),
 
     #[error(transparent)]
     Storage(#[from] crate::LayerStackError),
@@ -254,7 +235,7 @@ impl CaptureRouteStats {
         self.drop_reason_counts.get(reason).copied().unwrap_or(0)
     }
 
-    pub(crate) fn record_drop_reason(&mut self, reason: &str) {
+    pub fn record_drop_reason(&mut self, reason: &str) {
         *self
             .drop_reason_counts
             .entry(reason.to_owned())
@@ -457,7 +438,7 @@ impl CommitWriter {
         Ok(result)
     }
 
-    pub(crate) fn apply_command_lane_aware_changeset(
+    pub(crate) fn apply_layerstack_changeset(
         &self,
         changes: &[LayerChange],
         snapshot_version: Option<u64>,
@@ -511,27 +492,17 @@ fn worker_handoff_event(
     )
 }
 
-pub(crate) fn publish_command_decisions_for_manifest_with_protected_drops(
+pub(crate) fn publish_decisions_for_manifest(
     root: &Path,
     manifest: &Manifest,
     changes: &[LayerChange],
-    protected_drops: &[ProtectedPathDrop],
-) -> Result<Vec<PublishDecision>, CommitError> {
-    publish_decisions_for_manifest_with_protected_drops(root, manifest, changes, protected_drops)
-}
-
-pub(crate) fn publish_decisions_for_manifest_with_protected_drops(
-    root: &Path,
-    manifest: &Manifest,
-    changes: &[LayerChange],
-    protected_drops: &[ProtectedPathDrop],
 ) -> Result<Vec<PublishDecision>, CommitError> {
     let view = MergedView::new(root.to_path_buf());
     let source = ManifestIgnoreSource {
         view: &view,
         manifest,
     };
-    let mut decisions = changes
+    changes
         .iter()
         .map(|change| {
             if let LayerChange::OpaqueDir { path } = change {
@@ -547,13 +518,7 @@ pub(crate) fn publish_decisions_for_manifest_with_protected_drops(
                 publish_decision_for_change(&source, &view, manifest, change)
             }
         })
-        .collect::<std::result::Result<Vec<_>, CommitError>>()?;
-    decisions.extend(
-        protected_drops
-            .iter()
-            .map(publish_decision_for_protected_drop),
-    );
-    Ok(decisions)
+        .collect::<std::result::Result<Vec<_>, CommitError>>()
 }
 
 fn publish_decision_for_change(
@@ -575,23 +540,6 @@ fn publish_decision_for_change(
         None
     };
     Ok(publish_decision(path, route, base_hash, drop_reason))
-}
-
-fn publish_decision_for_protected_drop(drop: &ProtectedPathDrop) -> PublishDecision {
-    if is_git_metadata_path(&drop.path) {
-        return rejected_drop_decision(
-            drop.path.clone(),
-            command_git_protected_drop_reason(&drop.path),
-        );
-    }
-    PublishDecision {
-        path: drop.path.clone(),
-        route: Route::Drop,
-        base_hash: None,
-        drop_reason: Some(RouteDropReason::from(drop.reason)),
-        reject_publish: false,
-        validation_base_hashes: None,
-    }
 }
 
 fn publish_decision(
@@ -832,13 +780,6 @@ fn git_object_write_decision(
         path.clone(),
         RouteDropReason::GitObjectRewrite,
     ))
-}
-
-fn command_git_protected_drop_reason(path: &LayerPath) -> RouteDropReason {
-    let Some(parts) = parts_after_git_dir(path) else {
-        return RouteDropReason::GitMetadataUnsupported;
-    };
-    restricted_git_metadata_reason(&parts).unwrap_or(RouteDropReason::GitMetadataUnsupported)
 }
 
 fn reflog_write_is_append_only(

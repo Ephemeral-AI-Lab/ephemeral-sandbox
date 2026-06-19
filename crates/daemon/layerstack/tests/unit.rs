@@ -1,7 +1,5 @@
 #![forbid(unsafe_code)]
 
-#[path = "../src/capture.rs"]
-mod capture;
 #[path = "../src/commit/mod.rs"]
 mod commit;
 #[path = "../src/error.rs"]
@@ -25,7 +23,6 @@ mod whiteout;
 #[path = "../src/workspace.rs"]
 mod workspace;
 
-pub use capture::{CaptureError, CaptureStats, ProtectedPathDrop, ProtectedPathDropReason};
 pub(crate) use commit::{
     CaptureRouteStats, ChangesetResult, CommitError, CommitOptions, CommitStatus,
 };
@@ -37,7 +34,7 @@ pub use model::{
     aggregate_layer_changes, layer_digest, manifest_root_hash, CasError, LayerChange, LayerPath,
     LayerRef, Manifest, MANIFEST_SCHEMA_VERSION,
 };
-pub use stack::{BoundedCommandSnapshot, LayerStack, Lease, MergedView, SquashOutcome};
+pub use stack::{LayerStack, Lease, MergedView, SquashOutcome};
 pub use workspace::{
     build_workspace_base, ensure_workspace_base, read_workspace_binding, require_workspace_binding,
     WorkspaceBinding, WORKSPACE_BINDING_FILE,
@@ -63,7 +60,6 @@ pub(crate) fn process_state_test_lock() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-pub(crate) use capture::*;
 pub(crate) use commit::worker::auto_squash::*;
 pub(crate) use commit::worker::queue::*;
 pub(crate) use commit::worker::transaction::*;
@@ -77,8 +73,6 @@ pub(crate) use stack::*;
 #[path = "unit/test_fixture.rs"]
 mod test_fixture;
 
-#[path = "unit/capture.rs"]
-mod capture_tests;
 #[path = "unit/commit/queue.rs"]
 mod commit_queue_tests;
 #[path = "unit/commit/transaction.rs"]

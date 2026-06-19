@@ -2,7 +2,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::path::PathBuf;
 
-use layerstack::service::BoundedCaptureOptions;
 use layerstack::CaptureRouteStats;
 use namespace_process::runner::protocol::{Fd, NsFds};
 
@@ -23,6 +22,44 @@ pub struct BaseRevision {
     pub version: i64,
     pub root_hash: String,
     pub layer_count: usize,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct LayerStackSnapshotView {
+    pub manifest_version: i64,
+    pub root_hash: String,
+    pub layer_paths: Vec<PathBuf>,
+}
+
+impl fmt::Debug for LayerStackSnapshotView {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LayerStackSnapshotView")
+            .field("manifest_version", &self.manifest_version)
+            .field("root_hash", &self.root_hash)
+            .field("layer_count", &self.layer_paths.len())
+            .finish()
+    }
+}
+
+impl LayerStackSnapshotView {
+    #[must_use]
+    pub fn base_revision(&self) -> BaseRevision {
+        BaseRevision {
+            version: self.manifest_version,
+            root_hash: self.root_hash.clone(),
+            layer_count: self.layer_paths.len(),
+        }
+    }
+}
+
+impl From<layerstack::service::Snapshot> for LayerStackSnapshotView {
+    fn from(snapshot: layerstack::service::Snapshot) -> Self {
+        Self {
+            manifest_version: snapshot.manifest_version,
+            root_hash: snapshot.root_hash,
+            layer_paths: snapshot.layer_paths,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -55,8 +92,8 @@ impl LayerStackSnapshotRef {
     }
 }
 
-impl From<layerstack::service::Snapshot> for LayerStackSnapshotRef {
-    fn from(snapshot: layerstack::service::Snapshot) -> Self {
+impl From<layerstack::service::LeasedSnapshot> for LayerStackSnapshotRef {
+    fn from(snapshot: layerstack::service::LeasedSnapshot) -> Self {
         Self {
             lease_id: LeaseId(snapshot.lease_id),
             manifest_version: snapshot.manifest_version,
@@ -387,7 +424,6 @@ pub struct CreateWorkspaceRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureChangesRequest {
-    pub bounds: BoundedCaptureOptions,
     pub include_stats: bool,
 }
 
@@ -418,30 +454,10 @@ pub enum ProtectedPathDropReason {
     InvalidLayerPath,
 }
 
-impl From<layerstack::ProtectedPathDropReason> for ProtectedPathDropReason {
-    fn from(reason: layerstack::ProtectedPathDropReason) -> Self {
-        match reason {
-            layerstack::ProtectedPathDropReason::UnsupportedSpecialFile => {
-                Self::UnsupportedSpecialFile
-            }
-            layerstack::ProtectedPathDropReason::InvalidLayerPath => Self::InvalidLayerPath,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProtectedPathDrop {
     pub path: String,
     pub reason: ProtectedPathDropReason,
-}
-
-impl From<&layerstack::ProtectedPathDrop> for ProtectedPathDrop {
-    fn from(drop: &layerstack::ProtectedPathDrop) -> Self {
-        Self {
-            path: drop.path.as_str().to_owned(),
-            reason: ProtectedPathDropReason::from(drop.reason),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -478,7 +494,7 @@ pub struct LatestSnapshotRequest {
 pub struct ReadonlySnapshotHandle {
     pub view_root: PathBuf,
     pub generation_key: String,
-    pub snapshot: LayerStackSnapshotRef,
+    pub snapshot: LayerStackSnapshotView,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]

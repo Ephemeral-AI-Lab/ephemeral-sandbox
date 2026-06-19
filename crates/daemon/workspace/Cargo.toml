@@ -8,10 +8,11 @@ license.workspace = true
 [dependencies]
 layerstack.workspace = true
 namespace-process.workspace = true
+nix = { workspace = true, features = ["process", "signal", "fs"] }
+rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-nix = { workspace = true, features = ["process", "signal", "fs"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc.workspace = true

@@ -35,7 +35,7 @@ impl WorkspaceRuntimeService {
 
         let release = layerstack::service::release_lease(&layer_stack_root, &outcome.lease_id);
         let (lease_released, mut lease_release_error) = match release {
-            Ok(released) => (Some(released), None),
+            Ok(()) => (Some(true), None),
             Err(error) => (None, Some(error.to_string())),
         };
         let active_leases_after = match layerstack::LayerStack::open(layer_stack_root) {

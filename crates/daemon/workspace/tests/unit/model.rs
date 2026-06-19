@@ -4,9 +4,10 @@ use std::path::PathBuf;
 use workspace::model::{
     BaseRevision, CallerId, CaptureChangesRequest, CapturedWorkspaceChanges, ChangedPathKind,
     CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, LatestSnapshotRequest,
-    LayerStackSnapshotRef, LeaseId, ProtectedPathDrop, ProtectedPathDropReason,
-    ReadonlySnapshotHandle, RemountWorkspaceRequest, RemountWorkspaceResult, WorkspaceEntry,
-    WorkspaceEntryFds, WorkspaceHandle, WorkspaceId, WorkspaceProfile,
+    LayerStackSnapshotRef, LayerStackSnapshotView, LeaseId, ProtectedPathDrop,
+    ProtectedPathDropReason, ReadonlySnapshotHandle, RemountWorkspaceRequest,
+    RemountWorkspaceResult, WorkspaceEntry, WorkspaceEntryFds, WorkspaceHandle, WorkspaceId,
+    WorkspaceProfile,
 };
 use workspace::overlay::dirs::OverlayDirs;
 use workspace::overlay::tree::TreeResourceStats;
@@ -216,10 +217,6 @@ fn public_dto_debug_does_not_expose_internal_storage_or_namespace_fields() {
         format!(
             "{:?}",
             CaptureChangesRequest {
-                bounds: layerstack::service::BoundedCaptureOptions {
-                    materialize_payloads: false,
-                    ..layerstack::service::BoundedCaptureOptions::default()
-                },
                 include_stats: true,
             }
         ),
@@ -274,8 +271,7 @@ fn public_dto_debug_does_not_expose_internal_storage_or_namespace_fields() {
             ReadonlySnapshotHandle {
                 view_root: "/view".into(),
                 generation_key: "generation".to_owned(),
-                snapshot: LayerStackSnapshotRef {
-                    lease_id: LeaseId("lease".to_owned()),
+                snapshot: LayerStackSnapshotView {
                     manifest_version: 1,
                     root_hash: "root".to_owned(),
                     layer_paths: vec!["/lower/one".into()],
@@ -360,7 +356,6 @@ fn public_dtos_construct_clone_and_compare() {
         cgroup_path: Some("/sys/fs/cgroup/eos".into()),
     };
     let capture_request = CaptureChangesRequest {
-        bounds: layerstack::service::BoundedCaptureOptions::default(),
         include_stats: true,
     };
     let capture = CapturedWorkspaceChanges {
@@ -401,7 +396,11 @@ fn public_dtos_construct_clone_and_compare() {
     let readonly_snapshot = ReadonlySnapshotHandle {
         view_root: "/view".into(),
         generation_key: "generation".to_owned(),
-        snapshot: handle.snapshot.clone(),
+        snapshot: LayerStackSnapshotView {
+            manifest_version: handle.snapshot.manifest_version,
+            root_hash: handle.snapshot.root_hash.clone(),
+            layer_paths: handle.snapshot.layer_paths.clone(),
+        },
     };
     let destroy = DestroyWorkspaceResult {
         workspace_id: WorkspaceId("workspace".to_owned()),

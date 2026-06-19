@@ -84,18 +84,17 @@ impl CommandOperationService {
             let captured = self.workspace().capture_session_changes(
                 &handler,
                 CaptureChangesRequest {
-                    bounds: self.finalization_options().one_shot_capture,
                     include_stats: true,
                 },
             )?;
-            let protected_drops = layerstack_protected_drops(&captured.protected_drops);
-            let publish_result = layerstack::service::publish_command_capture_lane_aware(
-                &handler.layer_stack_root,
-                handler.handle.snapshot.manifest_version,
-                &handler.handle.snapshot.layer_paths,
-                &captured.changes,
-                &protected_drops,
-                self.finalization_options().one_shot_publish,
+            let publish_result = layerstack::service::publish_changes_to_layerstack(
+                layerstack::service::PublishChangesRequest {
+                    root: &handler.layer_stack_root,
+                    snapshot_manifest_version: handler.handle.snapshot.manifest_version,
+                    snapshot_layer_paths: &handler.handle.snapshot.layer_paths,
+                    changes: &captured.changes,
+                    options: self.finalization_options().one_shot_publish,
+                },
             );
             let spool_dir_cleaned = cleanup_spool_dir(captured.spool_dir.as_deref());
             let publish_result =
@@ -288,27 +287,6 @@ fn cleanup_spool_dir(spool_dir: Option<&Path>) -> bool {
         Some(path) => std::fs::remove_dir_all(path).is_ok() || !path.exists(),
         None => false,
     }
-}
-
-fn layerstack_protected_drops(
-    drops: &[crate::workspace_crate::ProtectedPathDrop],
-) -> Vec<layerstack::ProtectedPathDrop> {
-    drops
-        .iter()
-        .filter_map(|drop| {
-            Some(layerstack::ProtectedPathDrop {
-                path: layerstack::LayerPath::parse(&drop.path).ok()?,
-                reason: match drop.reason {
-                    crate::workspace_crate::ProtectedPathDropReason::UnsupportedSpecialFile => {
-                        layerstack::ProtectedPathDropReason::UnsupportedSpecialFile
-                    }
-                    crate::workspace_crate::ProtectedPathDropReason::InvalidLayerPath => {
-                        layerstack::ProtectedPathDropReason::InvalidLayerPath
-                    }
-                },
-            })
-        })
-        .collect()
 }
 
 fn retained_finalized_metadata(state: &FinalizationState) -> Option<CommandFinalizedMetadata> {

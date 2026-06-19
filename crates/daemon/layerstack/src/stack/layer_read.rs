@@ -1,11 +1,10 @@
-//! Layer changes captured from a snapshot overlay upperdir.
+//! Layer changes materialized from stored layer directories.
 //!
-//! Capture walks ONLY the overlay `upperdir`: capture + publish is one atomic
-//! unit per op, so a consumer never observes a partial write set. Other agents
-//! never see a half-captured upperdir.
+//! This helper is intentionally crate-private to the stack. Workspace upperdir
+//! capture lives in the workspace crate.
 
 use std::collections::HashSet;
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
@@ -14,8 +13,6 @@ use thiserror::Error;
 
 use crate::whiteout::{LOGICAL_WHITEOUT_PREFIX, OPAQUE_MARKER};
 use crate::{CasError, LayerChange, LayerPath};
-
-pub(crate) const MAX_CAPTURE_FILE_BYTES: usize = 8 * 1024 * 1024;
 
 /// Failures raised while capturing layer changes from an overlay upperdir.
 #[derive(Debug, Error)]
@@ -47,29 +44,10 @@ impl CaptureError {
             source,
         }
     }
-
-    #[must_use]
-    pub fn failing_path(&self) -> Option<&Path> {
-        match self {
-            Self::Capture { path, .. } => Some(path.as_path()),
-            _ => None,
-        }
-    }
 }
 
 /// Crate result alias for upperdir capture.
 type Result<T> = std::result::Result<T, CaptureError>;
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct CaptureStats {
-    pub files: u64,
-    pub dirs: u64,
-    pub symlinks: u64,
-    pub bytes: u64,
-    pub truncated: bool,
-    pub read_error_count: u64,
-    pub first_error_path: Option<String>,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProtectedPathDropReason {
@@ -87,7 +65,6 @@ pub struct ProtectedPathDrop {
 pub(crate) struct CapturedUpperdirMetadata {
     pub(crate) entries: Vec<CapturedUpperdirEntry>,
     pub(crate) protected_drops: Vec<ProtectedPathDrop>,
-    pub(crate) stats: CaptureStats,
 }
 
 #[derive(Debug)]
@@ -110,37 +87,6 @@ pub(crate) enum CapturedUpperdirEntry {
 }
 
 impl CapturedUpperdirEntry {
-    pub(crate) fn path(&self) -> &LayerPath {
-        match self {
-            Self::Write { path, .. }
-            | Self::Delete { path }
-            | Self::Symlink { path, .. }
-            | Self::OpaqueDir { path } => path,
-        }
-    }
-
-    pub(crate) fn regular_file_size(&self) -> Option<u64> {
-        match self {
-            Self::Write { meta, .. } => Some(meta.len),
-            Self::Delete { .. } | Self::Symlink { .. } | Self::OpaqueDir { .. } => None,
-        }
-    }
-
-    pub(crate) fn placeholder_change(&self) -> LayerChange {
-        match self {
-            Self::Write { path, .. } => LayerChange::Write {
-                path: path.clone(),
-                content: Vec::new(),
-            },
-            Self::Delete { path } => LayerChange::Delete { path: path.clone() },
-            Self::Symlink { path, source_path } => LayerChange::Symlink {
-                path: path.clone(),
-                source_path: source_path.clone(),
-            },
-            Self::OpaqueDir { path } => LayerChange::OpaqueDir { path: path.clone() },
-        }
-    }
-
     pub(crate) fn materialize_in_memory(&self, max_bytes: usize) -> Result<LayerChange> {
         match self {
             Self::Write {
@@ -157,30 +103,6 @@ impl CapturedUpperdirEntry {
                 source_path: source_path.clone(),
             }),
             Self::OpaqueDir { path } => Ok(LayerChange::OpaqueDir { path: path.clone() }),
-        }
-    }
-
-    pub(crate) fn materialize_spooled(
-        &self,
-        spool_path: &Path,
-        max_bytes: usize,
-    ) -> Result<LayerChange> {
-        match self {
-            Self::Write {
-                path,
-                source_path,
-                meta,
-            } => {
-                let size = copy_regular_file_to_spool(source_path, meta, spool_path, max_bytes)?;
-                Ok(LayerChange::WriteFile {
-                    path: path.clone(),
-                    source_path: spool_path.to_path_buf(),
-                    size,
-                })
-            }
-            Self::Delete { .. } | Self::Symlink { .. } | Self::OpaqueDir { .. } => {
-                self.materialize_in_memory(max_bytes)
-            }
         }
     }
 }
@@ -222,22 +144,16 @@ pub(crate) fn capture_upperdir_metadata(upperdir: &Path) -> Result<CapturedUpper
     let mut emitted_opaque_dirs = HashSet::new();
     let mut entries = Vec::new();
     let mut protected_drops = Vec::new();
-    let mut stats = CaptureStats {
-        dirs: 1,
-        ..CaptureStats::default()
-    };
     walk_upperdir(
         upperdir,
         upperdir,
         &mut emitted_opaque_dirs,
         &mut entries,
         &mut protected_drops,
-        &mut stats,
     )?;
     Ok(CapturedUpperdirMetadata {
         entries,
         protected_drops,
-        stats,
     })
 }
 
@@ -247,7 +163,6 @@ fn walk_upperdir(
     emitted_opaque_dirs: &mut HashSet<String>,
     entries: &mut Vec<CapturedUpperdirEntry>,
     protected_drops: &mut Vec<ProtectedPathDrop>,
-    stats: &mut CaptureStats,
 ) -> Result<()> {
     let mut dir_entries = std::fs::read_dir(dir)
         .map_err(|err| CaptureError::capture(dir, err))?
@@ -263,10 +178,8 @@ fn walk_upperdir(
             std::fs::symlink_metadata(&path).map_err(|err| CaptureError::capture(&path, err))?;
         let file_type = meta.file_type();
         if file_type.is_dir() {
-            stats.dirs = stats.dirs.saturating_add(1);
             dirs.push(path);
         } else {
-            record_file_stats(stats, &meta);
             files.push((path, meta));
         }
     }
@@ -288,14 +201,7 @@ fn walk_upperdir(
                 push_opaque_dir(opaque_path, emitted_opaque_dirs, entries);
             }
         }
-        walk_upperdir(
-            root,
-            &entry,
-            emitted_opaque_dirs,
-            entries,
-            protected_drops,
-            stats,
-        )?;
+        walk_upperdir(root, &entry, emitted_opaque_dirs, entries, protected_drops)?;
     }
     Ok(())
 }
@@ -356,16 +262,6 @@ pub(crate) fn capture_file_entry_metadata(
     Ok(())
 }
 
-fn record_file_stats(stats: &mut CaptureStats, meta: &std::fs::Metadata) {
-    let file_type = meta.file_type();
-    if file_type.is_symlink() {
-        stats.symlinks = stats.symlinks.saturating_add(1);
-    } else if file_type.is_file() {
-        stats.files = stats.files.saturating_add(1);
-        stats.bytes = stats.bytes.saturating_add(meta.len());
-    }
-}
-
 fn push_opaque_dir(
     path: LayerPath,
     emitted_opaque_dirs: &mut HashSet<String>,
@@ -407,42 +303,6 @@ pub(crate) fn read_regular_file(
         ));
     }
     Ok(content)
-}
-
-fn copy_regular_file_to_spool(
-    entry: &Path,
-    expected_meta: &RegularFileCaptureMeta,
-    spool_path: &Path,
-    max_bytes: usize,
-) -> Result<u64> {
-    ensure_capture_file_size(entry, expected_meta.len, max_bytes)?;
-    let file =
-        open_regular_file_no_follow(entry).map_err(|err| CaptureError::capture(entry, err))?;
-    let actual_meta = file
-        .metadata()
-        .map_err(|err| CaptureError::capture(entry, err))?;
-    if !actual_meta.is_file() || !same_file(expected_meta, &actual_meta) {
-        return Err(changed_during_capture(entry));
-    }
-    ensure_capture_file_size(entry, actual_meta.len(), max_bytes)?;
-    if let Some(parent) = spool_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|err| CaptureError::capture(parent, err))?;
-    }
-    let mut output =
-        std::fs::File::create(spool_path).map_err(|err| CaptureError::capture(spool_path, err))?;
-    let limit = u64::try_from(max_bytes)
-        .unwrap_or(u64::MAX)
-        .saturating_add(1);
-    let copied = io::copy(&mut file.take(limit), &mut output)
-        .map_err(|err| CaptureError::capture(entry, err))?;
-    if copied > u64::try_from(max_bytes).unwrap_or(u64::MAX) {
-        let _ = std::fs::remove_file(spool_path);
-        return Err(capture_file_too_large(entry, copied, max_bytes));
-    }
-    output
-        .flush()
-        .map_err(|err| CaptureError::capture(spool_path, err))?;
-    Ok(copied)
 }
 
 fn ensure_capture_file_size(entry: &Path, size: u64, max_bytes: usize) -> Result<()> {

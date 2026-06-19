@@ -114,10 +114,6 @@ fn command_service_retains_one_shot_finalization_options() {
     let workspace = workspace_session();
     let config = command::CommandConfig::default();
     let options = CommandFinalizationOptions {
-        one_shot_capture: layerstack::service::BoundedCaptureOptions {
-            materialize_payloads: false,
-            ..layerstack::service::BoundedCaptureOptions::default()
-        },
         one_shot_publish: layerstack::CommitOptions::new(3),
     };
 

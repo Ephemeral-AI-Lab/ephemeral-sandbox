@@ -29,11 +29,13 @@ impl WorkspaceRuntimeService {
             });
         }
 
-        let snapshot =
-            layerstack::service::acquire_snapshot(&request.layer_stack_root, &request.caller_id.0)
-                .map_err(|error| WorkspaceError::SnapshotAcquire {
-                    source: error.to_string(),
-                })?;
+        let snapshot = layerstack::service::acquire_snapshot_with_lease(
+            &request.layer_stack_root,
+            &request.caller_id.0,
+        )
+        .map_err(|error| WorkspaceError::SnapshotAcquire {
+            source: error.to_string(),
+        })?;
         let lease_id = snapshot.lease_id.clone();
         let mode_snapshot = mode_snapshot_from_layerstack(snapshot);
         let mode_handle = match state.manager.enter_with_profile(

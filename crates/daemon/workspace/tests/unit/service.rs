@@ -13,7 +13,7 @@ use workspace::WorkspaceRuntimeService;
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[test]
-fn latest_snapshot_acquires_readonly_handle() -> TestResult {
+fn latest_snapshot_returns_readonly_handle_without_lease() -> TestResult {
     let fixture = Fixture::new("latest-snapshot")?;
     let service = fixture.service();
 
@@ -26,10 +26,10 @@ fn latest_snapshot_acquires_readonly_handle() -> TestResult {
     assert_eq!(readonly.snapshot.manifest_version, 1);
     assert_eq!(readonly.snapshot.layer_paths.len(), 1);
     assert!(readonly.generation_key.starts_with("1:"));
-    assert!(layerstack::service::release_lease(
-        &readonly.view_root,
-        &readonly.snapshot.lease_id.0
-    )?);
+    assert_eq!(
+        layerstack::LayerStack::open(readonly.view_root.clone())?.active_lease_count(),
+        0
+    );
     Ok(())
 }
 
