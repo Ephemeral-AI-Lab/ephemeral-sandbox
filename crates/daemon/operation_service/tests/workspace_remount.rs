@@ -18,11 +18,10 @@ use operation_service::workspace_remount::{
 };
 use operation_service::OperationServices;
 use workspace::{
-    BaseRevision, CallerId, CaptureChangesRequest, CapturedWorkspaceChanges,
-    CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, LatestSnapshotRequest,
-    LayerStackSnapshotRef, LeaseId, ReadonlySnapshotHandle, RemountWorkspaceRequest,
-    RemountWorkspaceResult, WorkspaceError, WorkspaceHandle, WorkspaceId, WorkspaceProfile,
-    WorkspaceService,
+    CallerId, CaptureChangesRequest, CapturedWorkspaceChanges, CreateWorkspaceRequest,
+    DestroyWorkspaceRequest, DestroyWorkspaceResult, LatestSnapshotRequest, LayerStackSnapshotRef,
+    LeaseId, ReadonlySnapshotHandle, RemountWorkspaceRequest, RemountWorkspaceResult,
+    WorkspaceError, WorkspaceHandle, WorkspaceId, WorkspaceProfile, WorkspaceService,
 };
 
 struct TestServices {

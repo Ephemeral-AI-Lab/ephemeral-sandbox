@@ -8,11 +8,10 @@ mod envelope_meta;
 mod sidecar;
 mod spool;
 
-pub(crate) use sidecar::{
-    attach_request_sidecar, attach_request_sidecar_with_events, push_transport_failure_from_sidecar,
-};
+pub(crate) use sidecar::{attach_request_sidecar, push_transport_failure_from_sidecar};
 #[cfg(test)]
 pub(crate) use spool::{
     ack_background_export, lease_background_records, now_ms, push_background_record,
+    RequestTraceEvent,
 };
-pub(crate) use spool::{next_connection_id, RequestTraceEvent, RequestTraceFacts};
+pub(crate) use spool::{next_connection_id, RequestTraceFacts};

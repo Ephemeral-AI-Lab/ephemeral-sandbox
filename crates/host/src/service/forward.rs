@@ -20,7 +20,6 @@ use crate::daemon_wire::{
     TraceWireContext, TransportAuth,
 };
 use crate::service::registry::SandboxRecord;
-use crate::service::trace_drain::TraceExportDrainer;
 use crate::service::{ForwardTraceContext, HostConfig};
 use crate::trace_store::{RequestStartInput, TraceStore, TraceStoreError};
 use trace::{sha256_hex, RequestId, TraceId};
@@ -39,7 +38,6 @@ pub(crate) struct ForwardRequestInput<'a> {
     pub(crate) record: Arc<SandboxRecord>,
     pub(crate) config: &'a HostConfig,
     pub(crate) trace_store: &'a Arc<TraceStore>,
-    pub(crate) trace_drainer: &'a TraceExportDrainer,
     pub(crate) trace_context: ForwardTraceContext,
     pub(crate) mutates_state: bool,
     pub(crate) op: &'a str,
@@ -52,7 +50,6 @@ pub(crate) fn forward_request(input: ForwardRequestInput<'_>) -> Result<Value, F
         record,
         config,
         trace_store,
-        trace_drainer,
         trace_context,
         mutates_state,
         op,
@@ -126,7 +123,6 @@ pub(crate) fn forward_request(input: ForwardRequestInput<'_>) -> Result<Value, F
                 json!({"op": op, "status": response_status(response)}),
             );
             refresh_response_trace_receipt(&attempt, response);
-            trace_drainer.schedule(Arc::clone(&record), config, Arc::clone(trace_store));
         }
         Err(err) => record_event(
             &attempt,

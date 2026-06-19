@@ -2,8 +2,6 @@
 //! legacy operation adapter.
 
 use serde_json::{json, Value};
-#[cfg(test)]
-use std::path::PathBuf;
 
 use crate::wire::{ErrorKind, Request};
 

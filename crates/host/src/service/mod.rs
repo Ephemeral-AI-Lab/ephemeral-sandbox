@@ -21,7 +21,6 @@ use trace::{RequestId, TraceId};
 
 mod forward;
 mod registry;
-mod trace_drain;
 
 pub use forward::ForwardError;
 
@@ -29,7 +28,6 @@ use forward::{forward_request, ForwardRequestInput};
 use registry::{
     SandboxRecord, SandboxRegistry, CREATED_BY_LABEL, SANDBOX_ID_LABEL, TCP_PORT_LABEL,
 };
-use trace_drain::TraceExportDrainer;
 
 const TRACE_SHOW_DEFAULT_SECTION_LIMIT: usize = 1_000;
 const TRACE_SHOW_MAX_SECTION_LIMIT: usize = 5_000;
@@ -150,7 +148,6 @@ pub struct SandboxHost {
     config_yaml: String,
     registry: Arc<SandboxRegistry>,
     trace_store: Arc<TraceStore>,
-    trace_drainer: TraceExportDrainer,
 }
 
 impl SandboxHost {
@@ -164,18 +161,11 @@ impl SandboxHost {
         let registry = Arc::new(SandboxRegistry::open(config.state_dir.clone())?);
         registry.rebuild_from_docker();
         let trace_store = Arc::new(TraceStore::open(&config.state_dir)?);
-        let trace_drainer = TraceExportDrainer::default();
-        trace_drainer.spawn_periodic(
-            Arc::clone(&registry),
-            config.clone(),
-            Arc::clone(&trace_store),
-        );
         Ok(Self {
             config,
             config_yaml,
             registry,
             trace_store,
-            trace_drainer,
         })
     }
 
@@ -862,7 +852,6 @@ impl SandboxHost {
             record,
             config: &self.config,
             trace_store: &self.trace_store,
-            trace_drainer: &self.trace_drainer,
             trace_context: trace,
             mutates_state,
             op,

@@ -430,11 +430,11 @@ mod tests {
         FinalizationState, OperationTraceContext,
     };
     use crate::workspace_crate::{
-        BaseRevision, CallerId, CaptureChangesRequest, CapturedWorkspaceChanges,
-        CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult,
-        LatestSnapshotRequest, LayerStackSnapshotRef, LeaseId, ReadonlySnapshotHandle,
-        RemountWorkspaceRequest, RemountWorkspaceResult, WorkspaceError, WorkspaceHandle,
-        WorkspaceId, WorkspaceProfile, WorkspaceService,
+        CallerId, CaptureChangesRequest, CapturedWorkspaceChanges, CreateWorkspaceRequest,
+        DestroyWorkspaceRequest, DestroyWorkspaceResult, LatestSnapshotRequest,
+        LayerStackSnapshotRef, LeaseId, ReadonlySnapshotHandle, RemountWorkspaceRequest,
+        RemountWorkspaceResult, WorkspaceError, WorkspaceHandle, WorkspaceId, WorkspaceProfile,
+        WorkspaceService,
     };
     use crate::workspace_manager::{WorkspaceManagerService, WorkspaceSessionHandler};
 

@@ -1,9 +1,11 @@
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
-use trace::{BootId, ExportId, SpanUid, TraceExportBatch, TraceRecord, TraceSpool};
+use trace::{BootId, SpanUid, TraceRecord, TraceSpool};
+#[cfg(test)]
+use trace::{ExportId, TraceExportBatch};
 
 static CONNECTION_SEQ: AtomicU64 = AtomicU64::new(1);
 static BACKGROUND_SPOOL: OnceLock<Mutex<TraceSpool>> = OnceLock::new();
@@ -37,6 +39,7 @@ pub(crate) struct RequestTraceEvent {
 }
 
 impl RequestTraceEvent {
+    #[cfg(test)]
     pub(crate) fn operation(
         module: impl Into<String>,
         name: impl Into<String>,
@@ -48,25 +51,6 @@ impl RequestTraceEvent {
             module: module.into(),
             details,
         }
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub(crate) struct RequestTraceEventSink {
-    events: Arc<Mutex<Vec<RequestTraceEvent>>>,
-}
-
-impl RequestTraceEventSink {
-    pub(crate) fn push(&self, event: RequestTraceEvent) {
-        if let Ok(mut events) = self.events.lock() {
-            events.push(event);
-        }
-    }
-
-    pub(crate) fn drain(&self) -> Vec<RequestTraceEvent> {
-        self.events
-            .lock()
-            .map_or_else(|_| Vec::new(), |mut events| events.drain(..).collect())
     }
 }
 
@@ -84,6 +68,7 @@ pub(crate) fn push_background_record(record: TraceRecord) {
     let _ = spool.push(record);
 }
 
+#[cfg(test)]
 pub(crate) fn lease_background_records(max_records: usize) -> TraceExportBatch {
     let Ok(mut spool) = background_spool().lock() else {
         return empty_trace_export_batch();
@@ -91,6 +76,7 @@ pub(crate) fn lease_background_records(max_records: usize) -> TraceExportBatch {
     spool.lease_batch(max_records, Some(daemon_boot_id().to_string()))
 }
 
+#[cfg(test)]
 pub(crate) fn ack_background_export(
     export_id: &ExportId,
     batch_sha256: &str,
@@ -101,6 +87,7 @@ pub(crate) fn ack_background_export(
         .is_ok_and(|mut spool| spool.ack_batch(export_id, batch_sha256, record_count))
 }
 
+#[cfg(test)]
 fn empty_trace_export_batch() -> TraceExportBatch {
     TraceExportBatch {
         export_id: None,
@@ -122,30 +109,4 @@ pub(crate) fn now_ms() -> u64 {
         .unwrap_or_default()
         .as_millis();
     u64::try_from(millis).unwrap_or(u64::MAX)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn request_trace_event_sink_degrades_when_lock_is_poisoned() {
-        let sink = RequestTraceEventSink::default();
-        let poisoned = sink.clone();
-        let _ = std::panic::catch_unwind(move || {
-            let _guard = poisoned.events.lock().expect("trace sink lock");
-            panic!("poison trace sink");
-        });
-
-        sink.push(RequestTraceEvent::operation(
-            "trace.test",
-            "after_poison",
-            serde_json::json!({}),
-        ));
-
-        assert!(
-            sink.drain().is_empty(),
-            "poisoned trace sink should drop events instead of panicking"
-        );
-    }
 }

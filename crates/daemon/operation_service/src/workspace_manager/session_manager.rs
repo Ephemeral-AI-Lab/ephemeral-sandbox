@@ -238,9 +238,7 @@ impl WorkspaceSessionManager {
 
 #[cfg(test)]
 mod tests {
-    use crate::workspace_crate::{
-        BaseRevision, LayerStackSnapshotRef, WorkspaceHandle, WorkspaceProfile,
-    };
+    use crate::workspace_crate::{LayerStackSnapshotRef, WorkspaceHandle, WorkspaceProfile};
 
     use super::*;
 
