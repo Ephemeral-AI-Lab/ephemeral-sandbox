@@ -2,13 +2,13 @@ use std::collections::BTreeMap;
 
 use super::layer_read::read_layer_dir;
 use super::layer_write::write_layer_changes;
-use super::lease_aware::{
-    plan_lease_aware_gaps, LeaseAwareCheckpointMode, LeaseAwareCopyThroughOutcome,
-    LeaseAwarePlanEntry, LeaseAwareReclaimOutcome, LeaseParentCompactionOutcome,
-    ReclaimingInterval,
-};
 use super::lease_cleanup::remove_unreferenced_layer_candidates_locked;
 use super::leases::lock_shared_registry;
+use super::reclaim_unpinned_layers::{
+    plan_reclaim_unpinned_layers, LeaseParentCompactionOutcome,
+    ReclaimUnpinnedLayersCheckpointMode, ReclaimUnpinnedLayersCopyThroughOutcome,
+    ReclaimUnpinnedLayersOutcome, ReclaimUnpinnedLayersPlanEntry, ReclaimingInterval,
+};
 use super::squash::{CheckpointSegment, LayerCheckpointSquasher};
 use super::view::layer_has_boundary_markers;
 use super::LayerStack;
@@ -22,34 +22,37 @@ use crate::{ACTIVE_MANIFEST_FILE, LAYERS_DIR};
 
 impl LayerStack {
     #[doc(hidden)]
-    pub fn reclaim_lease_aware_view_checkpoints(
+    pub fn reclaim_unpinned_layers_with_view_checkpoints(
         &mut self,
         min_reclaiming_interval_layers: usize,
-    ) -> Result<LeaseAwareReclaimOutcome, LayerStackError> {
-        self.reclaim_lease_aware_checkpoints_inner(min_reclaiming_interval_layers, false)
+    ) -> Result<ReclaimUnpinnedLayersOutcome, LayerStackError> {
+        self.reclaim_unpinned_layers_inner(min_reclaiming_interval_layers, false)
     }
 
     #[doc(hidden)]
-    pub fn reclaim_lease_aware_checkpoints(
+    pub fn reclaim_unpinned_layers(
         &mut self,
         min_reclaiming_interval_layers: usize,
-    ) -> Result<LeaseAwareReclaimOutcome, LayerStackError> {
-        self.reclaim_lease_aware_checkpoints_inner(min_reclaiming_interval_layers, true)
+    ) -> Result<ReclaimUnpinnedLayersOutcome, LayerStackError> {
+        self.reclaim_unpinned_layers_inner(min_reclaiming_interval_layers, true)
     }
 
-    fn reclaim_lease_aware_checkpoints_inner(
+    fn reclaim_unpinned_layers_inner(
         &mut self,
         min_reclaiming_interval_layers: usize,
         allow_delta_checkpoints: bool,
-    ) -> Result<LeaseAwareReclaimOutcome, LayerStackError> {
+    ) -> Result<ReclaimUnpinnedLayersOutcome, LayerStackError> {
         let _guard = self.writer_lock.exclusive()?;
         let active = self.read_active_manifest_unlocked()?;
         let protected_layers = {
             let leases = lock_shared_registry(&self.leases)?;
             leases.leased_layers()
         };
-        let plan =
-            plan_lease_aware_gaps(&active, &protected_layers, min_reclaiming_interval_layers)?;
+        let plan = plan_reclaim_unpinned_layers(
+            &active,
+            &protected_layers,
+            min_reclaiming_interval_layers,
+        )?;
         let squasher = LayerCheckpointSquasher::new(self.storage_root.clone());
         let mut checkpoints = Vec::new();
         let mut new_layers = Vec::with_capacity(active.layers.len());
@@ -62,11 +65,11 @@ impl LayerStack {
         let outcome = (|| {
             for entry in &plan.entries {
                 match entry {
-                    LeaseAwarePlanEntry::KeepProtected(layer)
-                    | LeaseAwarePlanEntry::KeepUnleased(layer) => {
+                    ReclaimUnpinnedLayersPlanEntry::KeepProtected(layer)
+                    | ReclaimUnpinnedLayersPlanEntry::KeepUnleased(layer) => {
                         new_layers.push(layer.clone());
                     }
-                    LeaseAwarePlanEntry::ReclaimingInterval(interval)
+                    ReclaimUnpinnedLayersPlanEntry::ReclaimingInterval(interval)
                         if self.interval_can_use_view_checkpoint(interval)? =>
                     {
                         let segment = CheckpointSegment::new(interval.layers.clone())?;
@@ -76,7 +79,7 @@ impl LayerStack {
                         removable_candidates.extend(interval.layers.clone());
                         view_checkpoint_count += 1;
                     }
-                    LeaseAwarePlanEntry::ReclaimingInterval(interval)
+                    ReclaimUnpinnedLayersPlanEntry::ReclaimingInterval(interval)
                         if allow_delta_checkpoints =>
                     {
                         let checkpoint = self.build_delta_checkpoint(interval, active.version)?;
@@ -85,7 +88,7 @@ impl LayerStack {
                         removable_candidates.extend(interval.layers.clone());
                         delta_checkpoint_count += 1;
                     }
-                    LeaseAwarePlanEntry::ReclaimingInterval(interval) => {
+                    ReclaimUnpinnedLayersPlanEntry::ReclaimingInterval(interval) => {
                         skipped_delta_interval_count += 1;
                         new_layers.extend(interval.layers.clone());
                     }
@@ -93,7 +96,7 @@ impl LayerStack {
             }
 
             if view_checkpoint_count + delta_checkpoint_count == 0 {
-                return Ok(LeaseAwareReclaimOutcome {
+                return Ok(ReclaimUnpinnedLayersOutcome {
                     manifest: None,
                     protected_layer_count: plan.protected_layer_count,
                     planned_reclaiming_interval_count: plan.reclaiming_interval_count,
@@ -127,7 +130,7 @@ impl LayerStack {
                 )?
             };
 
-            Ok(LeaseAwareReclaimOutcome {
+            Ok(ReclaimUnpinnedLayersOutcome {
                 manifest: Some(manifest.clone()),
                 protected_layer_count: plan.protected_layer_count,
                 planned_reclaiming_interval_count: plan.reclaiming_interval_count,
@@ -206,7 +209,7 @@ impl LayerStack {
         &self,
         interval: &ReclaimingInterval,
     ) -> Result<bool, LayerStackError> {
-        if interval.checkpoint_mode == LeaseAwareCheckpointMode::View {
+        if interval.checkpoint_mode == ReclaimUnpinnedLayersCheckpointMode::View {
             return Ok(true);
         }
         for layer in &interval.layers {
@@ -356,7 +359,7 @@ impl LayerStack {
     pub fn copy_through_active_for_depth_guard(
         &mut self,
         max_depth: usize,
-    ) -> Result<LeaseAwareCopyThroughOutcome, LayerStackError> {
+    ) -> Result<ReclaimUnpinnedLayersCopyThroughOutcome, LayerStackError> {
         if max_depth == 0 {
             return Err(LayerStackError::InvalidSquashPlan(
                 "max_depth must be positive".to_owned(),
@@ -371,7 +374,7 @@ impl LayerStack {
         };
         let protected_pinned_bytes = self.layer_payload_sum(&protected_layers)?;
         if active_depth_before <= max_depth || active.layers.is_empty() {
-            return Ok(LeaseAwareCopyThroughOutcome {
+            return Ok(ReclaimUnpinnedLayersCopyThroughOutcome {
                 manifest: None,
                 protected_layer_count: protected_layers.len(),
                 checkpoint_count: 0,
@@ -405,7 +408,7 @@ impl LayerStack {
                 &active.layers,
             )?
         };
-        Ok(LeaseAwareCopyThroughOutcome {
+        Ok(ReclaimUnpinnedLayersCopyThroughOutcome {
             manifest: Some(manifest),
             protected_layer_count: protected_layers.len(),
             checkpoint_count: 1,

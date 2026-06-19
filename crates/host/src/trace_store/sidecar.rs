@@ -54,6 +54,7 @@ impl TraceStore {
         Ok(())
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn recover_pending_sidecars(&self) -> Result<usize, TraceStoreError> {
         self.recover_pending_sidecars_with_limit(usize::MAX)
     }

@@ -18,8 +18,9 @@ pub use model::{
 pub use commit::model::FileResult;
 pub use commit::{ChangesetResult, CommitError, CommitOptions, CommitStatus, OccTraceEvent};
 pub use error::LayerStackError;
-pub use stack::lease_aware::{
-    LeaseAwareCopyThroughOutcome, LeaseAwareReclaimOutcome, LeaseParentCompactionOutcome,
+pub use stack::reclaim_unpinned_layers::{
+    LeaseParentCompactionOutcome, ReclaimUnpinnedLayersCopyThroughOutcome,
+    ReclaimUnpinnedLayersOutcome,
 };
 pub use stack::{LayerStack, Lease, MergedView, SquashOutcome};
 pub use workspace_base::{

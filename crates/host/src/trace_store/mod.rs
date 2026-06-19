@@ -1,5 +1,11 @@
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+#![cfg_attr(any(test, feature = "e2e-support"), allow(dead_code))]
+
+use std::path::Path;
+#[cfg(any(test, feature = "e2e-support"))]
+use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+#[cfg(any(test, feature = "e2e-support"))]
+use std::sync::atomic::Ordering;
 use std::sync::{Mutex, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -21,6 +27,7 @@ mod sidecar;
 mod types;
 
 pub use error::TraceStoreError;
+#[cfg(any(test, feature = "e2e-support"))]
 pub use query::SqlitePosture;
 pub use query::{
     TraceAuditEntryRow, TraceEventRow, TraceLinkRow, TraceRequestRow, TraceResourceRow,
@@ -36,6 +43,7 @@ pub use types::{
 const HOST_SANDBOX_ID: &str = "_host";
 
 pub struct TraceStore {
+    #[cfg(any(test, feature = "e2e-support"))]
     db_path: PathBuf,
     conn: Mutex<Connection>,
     host_boot_id: BootId,
@@ -71,6 +79,7 @@ impl TraceStore {
         }
 
         let store = Self {
+            #[cfg(any(test, feature = "e2e-support"))]
             db_path,
             conn: Mutex::new(conn),
             host_boot_id: BootId::new(),
@@ -86,33 +95,40 @@ impl TraceStore {
     }
 
     #[must_use]
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn startup_pending_sidecar_recovery_limit_for_tests() -> usize {
         sidecar::MAX_STARTUP_PENDING_SIDECAR_RECOVERY
     }
 
     #[must_use]
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn db_path(&self) -> &Path {
         &self.db_path
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn fail_next_request_start_for_tests(&self) {
         self.fail_next_request_start.store(true, Ordering::SeqCst);
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn fail_next_response_persisted_for_tests(&self) {
         self.fail_next_response_persisted
             .store(true, Ordering::SeqCst);
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn fail_next_trace_batch_ingest_for_tests(&self) {
         self.fail_next_trace_batch_ingest
             .store(true, Ordering::SeqCst);
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn fail_next_trace_event_for_tests(&self) {
         self.fail_next_trace_event.store(true, Ordering::SeqCst);
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn pending_sidecar_count_for_tests(&self) -> Result<usize, TraceStoreError> {
         let count: i64 =
             self.lock()

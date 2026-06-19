@@ -18,11 +18,11 @@ fn manifest(ids: &[&str]) -> Result<Manifest, crate::model::CasError> {
     )
 }
 
-fn interval_ids(plan: &LeaseAwarePlan) -> Vec<Vec<&str>> {
+fn interval_ids(plan: &ReclaimUnpinnedLayersPlan) -> Vec<Vec<&str>> {
     plan.entries
         .iter()
         .filter_map(|entry| {
-            if let LeaseAwarePlanEntry::ReclaimingInterval(interval) = entry {
+            if let ReclaimUnpinnedLayersPlanEntry::ReclaimingInterval(interval) = entry {
                 Some(
                     interval
                         .layers
@@ -37,23 +37,22 @@ fn interval_ids(plan: &LeaseAwarePlan) -> Vec<Vec<&str>> {
         .collect()
 }
 
-fn protected_ids(plan: &LeaseAwarePlan) -> Vec<&str> {
+fn protected_ids(plan: &ReclaimUnpinnedLayersPlan) -> Vec<&str> {
     plan.entries
         .iter()
         .filter_map(|entry| match entry {
-            LeaseAwarePlanEntry::KeepProtected(layer) => Some(layer.layer_id.as_str()),
-            LeaseAwarePlanEntry::KeepUnleased(_) | LeaseAwarePlanEntry::ReclaimingInterval(_) => {
-                None
-            }
+            ReclaimUnpinnedLayersPlanEntry::KeepProtected(layer) => Some(layer.layer_id.as_str()),
+            ReclaimUnpinnedLayersPlanEntry::KeepUnleased(_)
+            | ReclaimUnpinnedLayersPlanEntry::ReclaimingInterval(_) => None,
         })
         .collect()
 }
 
-fn checkpoint_modes(plan: &LeaseAwarePlan) -> Vec<LeaseAwareCheckpointMode> {
+fn checkpoint_modes(plan: &ReclaimUnpinnedLayersPlan) -> Vec<ReclaimUnpinnedLayersCheckpointMode> {
     plan.entries
         .iter()
         .filter_map(|entry| {
-            if let LeaseAwarePlanEntry::ReclaimingInterval(interval) = entry {
+            if let ReclaimUnpinnedLayersPlanEntry::ReclaimingInterval(interval) = entry {
                 Some(interval.checkpoint_mode)
             } else {
                 None
@@ -72,7 +71,7 @@ fn fully_leased_stack_has_no_reclaiming_intervals() -> TestResult {
     let manifest = manifest(&id_refs)?;
     let protected = manifest.layers.clone();
 
-    let plan = plan_lease_aware_gaps(&manifest, &protected, 2)?;
+    let plan = plan_reclaim_unpinned_layers(&manifest, &protected, 2)?;
 
     assert_eq!(plan.active_layer_count, 50);
     assert_eq!(plan.protected_layer_count, 50);
@@ -97,7 +96,7 @@ fn unleased_prefix_compacts_above_protected_suffix() -> TestResult {
         .map(|index| layer(&format!("P{index}")))
         .collect::<Vec<_>>();
 
-    let plan = plan_lease_aware_gaps(&manifest, &protected, 2)?;
+    let plan = plan_reclaim_unpinned_layers(&manifest, &protected, 2)?;
 
     assert_eq!(plan.protected_layer_count, 50);
     assert_eq!(plan.kept_unleased_layer_count, 0);
@@ -111,7 +110,7 @@ fn unleased_prefix_compacts_above_protected_suffix() -> TestResult {
     );
     assert_eq!(
         checkpoint_modes(&plan),
-        [LeaseAwareCheckpointMode::DeltaRequired]
+        [ReclaimUnpinnedLayersCheckpointMode::DeltaRequired]
     );
     assert_eq!(plan.entries.len(), 51);
     Ok(())
@@ -122,7 +121,7 @@ fn same_file_gap_plans_around_single_protected_layer() -> TestResult {
     let manifest = manifest(&["n6", "n5", "l4", "n3", "n2", "n1"])?;
     let protected = vec![layer("l4")];
 
-    let plan = plan_lease_aware_gaps(&manifest, &protected, 2)?;
+    let plan = plan_reclaim_unpinned_layers(&manifest, &protected, 2)?;
 
     assert_eq!(plan.protected_layer_count, 1);
     assert_eq!(plan.kept_unleased_layer_count, 0);
@@ -135,8 +134,8 @@ fn same_file_gap_plans_around_single_protected_layer() -> TestResult {
     assert_eq!(
         checkpoint_modes(&plan),
         [
-            LeaseAwareCheckpointMode::DeltaRequired,
-            LeaseAwareCheckpointMode::View
+            ReclaimUnpinnedLayersCheckpointMode::DeltaRequired,
+            ReclaimUnpinnedLayersCheckpointMode::View
         ]
     );
     assert_eq!(protected_ids(&plan), ["l4"]);
@@ -152,7 +151,7 @@ fn mounted_l4_lease_keeps_lower_prefix_until_normalized_or_released() -> TestRes
         .map(|id| layer(id))
         .collect::<Vec<_>>();
 
-    let plan = plan_lease_aware_gaps(&manifest, &protected, 2)?;
+    let plan = plan_reclaim_unpinned_layers(&manifest, &protected, 2)?;
 
     assert_eq!(plan.protected_layer_count, 4);
     assert_eq!(plan.reclaiming_interval_count, 1);
@@ -171,7 +170,7 @@ fn mounted_l4_lease_after_parent_normalization_keeps_compact_parent() -> TestRes
         .map(|id| layer(id))
         .collect::<Vec<_>>();
 
-    let plan = plan_lease_aware_gaps(&manifest, &protected, 2)?;
+    let plan = plan_reclaim_unpinned_layers(&manifest, &protected, 2)?;
 
     assert_eq!(plan.protected_layer_count, 2);
     assert_eq!(plan.reclaiming_interval_count, 1);
@@ -190,7 +189,7 @@ fn alternating_single_unleased_layers_are_kept_by_minimum_interval() -> TestResu
         .map(|id| layer(id))
         .collect::<Vec<_>>();
 
-    let plan = plan_lease_aware_gaps(&manifest, &protected, 2)?;
+    let plan = plan_reclaim_unpinned_layers(&manifest, &protected, 2)?;
 
     assert_eq!(plan.protected_layer_count, 3);
     assert_eq!(plan.kept_unleased_layer_count, 3);

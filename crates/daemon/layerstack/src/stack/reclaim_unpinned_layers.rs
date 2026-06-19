@@ -4,7 +4,7 @@ use crate::error::LayerStackError;
 use crate::model::{LayerRef, Manifest};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum LeaseAwareCheckpointMode {
+pub(crate) enum ReclaimUnpinnedLayersCheckpointMode {
     View,
     DeltaRequired,
 }
@@ -12,29 +12,29 @@ pub(crate) enum LeaseAwareCheckpointMode {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ReclaimingInterval {
     pub(crate) layers: Vec<LayerRef>,
-    pub(crate) checkpoint_mode: LeaseAwareCheckpointMode,
+    pub(crate) checkpoint_mode: ReclaimUnpinnedLayersCheckpointMode,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum LeaseAwarePlanEntry {
+pub(crate) enum ReclaimUnpinnedLayersPlanEntry {
     KeepProtected(LayerRef),
     KeepUnleased(LayerRef),
     ReclaimingInterval(ReclaimingInterval),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct LeaseAwarePlan {
+pub(crate) struct ReclaimUnpinnedLayersPlan {
     pub(crate) active_version: i64,
     pub(crate) active_layer_count: usize,
     pub(crate) protected_layer_count: usize,
     pub(crate) kept_unleased_layer_count: usize,
     pub(crate) reclaiming_interval_count: usize,
     pub(crate) reclaiming_layer_count: usize,
-    pub(crate) entries: Vec<LeaseAwarePlanEntry>,
+    pub(crate) entries: Vec<ReclaimUnpinnedLayersPlanEntry>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LeaseAwareReclaimOutcome {
+pub struct ReclaimUnpinnedLayersOutcome {
     pub manifest: Option<Manifest>,
     pub protected_layer_count: usize,
     pub planned_reclaiming_interval_count: usize,
@@ -47,7 +47,7 @@ pub struct LeaseAwareReclaimOutcome {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LeaseAwareCopyThroughOutcome {
+pub struct ReclaimUnpinnedLayersCopyThroughOutcome {
     pub manifest: Option<Manifest>,
     pub protected_layer_count: usize,
     pub checkpoint_count: usize,
@@ -72,11 +72,11 @@ pub struct LeaseParentCompactionOutcome {
     pub active_depth_after: usize,
 }
 
-pub(crate) fn plan_lease_aware_gaps(
+pub(crate) fn plan_reclaim_unpinned_layers(
     active_manifest: &Manifest,
     protected_layers: &[LayerRef],
     min_reclaiming_interval_layers: usize,
-) -> Result<LeaseAwarePlan, LayerStackError> {
+) -> Result<ReclaimUnpinnedLayersPlan, LayerStackError> {
     if min_reclaiming_interval_layers == 0 {
         return Err(LayerStackError::InvalidSquashPlan(
             "min_reclaiming_interval_layers must be positive".to_owned(),
@@ -106,7 +106,7 @@ pub(crate) fn plan_lease_aware_gaps(
                 &mut reclaiming_interval_count,
                 &mut reclaiming_layer_count,
             );
-            entries.push(LeaseAwarePlanEntry::KeepProtected(layer.clone()));
+            entries.push(ReclaimUnpinnedLayersPlanEntry::KeepProtected(layer.clone()));
         } else {
             run.push(layer.clone());
         }
@@ -121,7 +121,7 @@ pub(crate) fn plan_lease_aware_gaps(
         &mut reclaiming_layer_count,
     );
 
-    Ok(LeaseAwarePlan {
+    Ok(ReclaimUnpinnedLayersPlan {
         active_version: active_manifest.version,
         active_layer_count: active_manifest.layers.len(),
         protected_layer_count: active_protected,
@@ -133,7 +133,7 @@ pub(crate) fn plan_lease_aware_gaps(
 }
 
 fn flush_unleased_run(
-    entries: &mut Vec<LeaseAwarePlanEntry>,
+    entries: &mut Vec<ReclaimUnpinnedLayersPlanEntry>,
     run: &mut Vec<LayerRef>,
     min_reclaiming_interval_layers: usize,
     has_kept_lower_layer: bool,
@@ -146,20 +146,23 @@ fn flush_unleased_run(
     }
     if run.len() < min_reclaiming_interval_layers {
         *kept_unleased_layer_count += run.len();
-        entries.extend(run.drain(..).map(LeaseAwarePlanEntry::KeepUnleased));
+        entries.extend(
+            run.drain(..)
+                .map(ReclaimUnpinnedLayersPlanEntry::KeepUnleased),
+        );
         return;
     }
 
     let layers = std::mem::take(run);
     *reclaiming_interval_count += 1;
     *reclaiming_layer_count += layers.len();
-    entries.push(LeaseAwarePlanEntry::ReclaimingInterval(
+    entries.push(ReclaimUnpinnedLayersPlanEntry::ReclaimingInterval(
         ReclaimingInterval {
             layers,
             checkpoint_mode: if has_kept_lower_layer {
-                LeaseAwareCheckpointMode::DeltaRequired
+                ReclaimUnpinnedLayersCheckpointMode::DeltaRequired
             } else {
-                LeaseAwareCheckpointMode::View
+                ReclaimUnpinnedLayersCheckpointMode::View
             },
         },
     ));

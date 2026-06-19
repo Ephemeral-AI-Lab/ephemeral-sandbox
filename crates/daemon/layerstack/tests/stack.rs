@@ -97,8 +97,9 @@ fn cross_instance_lease_retains_squashed_layers_until_reopened_release() -> Test
 }
 
 #[test]
-fn lease_aware_view_reclaim_compacts_same_file_gap_around_single_protected_layer() -> TestResult {
-    let fixture = Fixture::new("lease_aware_view_reclaim_l4");
+fn reclaim_unpinned_layers_view_reclaim_compacts_same_file_gap_around_single_protected_layer(
+) -> TestResult {
+    let fixture = Fixture::new("reclaim_unpinned_layers_view_reclaim_l4");
     let mut stack = LayerStack::open(fixture.root.clone())?;
     for index in 1..=6 {
         publish_blob(&mut stack, "blob.bin", 1 << 20, index)?;
@@ -115,7 +116,7 @@ fn lease_aware_view_reclaim_compacts_same_file_gap_around_single_protected_layer
     assert!(stack.retarget_lease_manifest(&lease.lease_id, protected_manifest)?);
 
     assert_eq!(payload_bytes(&fixture.root.join("layers"))?, 6 << 20);
-    let outcome = stack.reclaim_lease_aware_view_checkpoints(2)?;
+    let outcome = stack.reclaim_unpinned_layers_with_view_checkpoints(2)?;
 
     let manifest = outcome.manifest.expect("view checkpoints should commit");
     assert_eq!(outcome.planned_reclaiming_interval_count, 2);
@@ -154,8 +155,9 @@ fn lease_aware_view_reclaim_compacts_same_file_gap_around_single_protected_layer
 }
 
 #[test]
-fn lease_aware_parent_prefix_compaction_keeps_live_l4_lease_but_reclaims_prefix() -> TestResult {
-    let fixture = Fixture::new("lease_aware_live_l4_parent_prefix");
+fn reclaim_unpinned_layers_parent_prefix_compaction_keeps_live_l4_lease_but_reclaims_prefix(
+) -> TestResult {
+    let fixture = Fixture::new("reclaim_unpinned_layers_live_l4_parent_prefix");
     let mut stack = LayerStack::open(fixture.root.clone())?;
     for index in 1..=4 {
         publish_blob(&mut stack, "blob.bin", 1 << 20, index)?;
@@ -199,7 +201,7 @@ fn lease_aware_parent_prefix_compaction_keeps_live_l4_lease_but_reclaims_prefix(
     assert_eq!(lease_bytes.unwrap_or_default()[0], 4);
     assert_eq!(stack.read_bytes("blob.bin")?.0.unwrap_or_default()[0], 6);
 
-    let reclaimed = stack.reclaim_lease_aware_view_checkpoints(2)?;
+    let reclaimed = stack.reclaim_unpinned_layers_with_view_checkpoints(2)?;
 
     assert_eq!(reclaimed.view_checkpoint_count, 1);
     assert_eq!(reclaimed.removed_layer_count, 2);
@@ -220,8 +222,9 @@ fn lease_aware_parent_prefix_compaction_keeps_live_l4_lease_but_reclaims_prefix(
 }
 
 #[test]
-fn lease_aware_large_parent_prefix_compaction_preserves_large_file_integrity() -> TestResult {
-    let fixture = Fixture::new("lease_aware_large_l4_parent_prefix");
+fn reclaim_unpinned_layers_large_parent_prefix_compaction_preserves_large_file_integrity(
+) -> TestResult {
+    let fixture = Fixture::new("reclaim_unpinned_layers_large_l4_parent_prefix");
     let mut stack = LayerStack::open(fixture.root.clone())?;
     let large_file_bytes = 4 << 20;
     let large_file_bytes_u64 = large_file_bytes as u64;
@@ -260,7 +263,7 @@ fn lease_aware_large_parent_prefix_compaction_preserves_large_file_integrity() -
     assert_eq!(active_bytes.len(), large_file_bytes);
     assert_eq!(active_bytes[0], 6);
 
-    let reclaimed = stack.reclaim_lease_aware_view_checkpoints(2)?;
+    let reclaimed = stack.reclaim_unpinned_layers_with_view_checkpoints(2)?;
     assert_eq!(reclaimed.view_checkpoint_count, 1);
     assert_eq!(reclaimed.removed_layer_count, 2);
     assert_eq!(
@@ -282,8 +285,9 @@ fn lease_aware_large_parent_prefix_compaction_preserves_large_file_integrity() -
 }
 
 #[test]
-fn lease_aware_multi_lease_parent_normalization_reclaims_only_unpinned_layers() -> TestResult {
-    let fixture = Fixture::new("lease_aware_multi_lease_parent_prefix");
+fn reclaim_unpinned_layers_multi_lease_parent_normalization_reclaims_only_unpinned_layers(
+) -> TestResult {
+    let fixture = Fixture::new("reclaim_unpinned_layers_multi_lease_parent_prefix");
     let mut stack = LayerStack::open(fixture.root.clone())?;
     for index in 1..=4 {
         publish_blob(&mut stack, "blob.bin", 1 << 20, index)?;
@@ -342,7 +346,7 @@ fn lease_aware_multi_lease_parent_normalization_reclaims_only_unpinned_layers() 
     assert_eq!(mid_bytes.unwrap_or_default()[0], 8);
     assert_eq!(stack.read_bytes("blob.bin")?.0.unwrap_or_default()[0], 12);
 
-    let reclaimed = stack.reclaim_lease_aware_view_checkpoints(2)?;
+    let reclaimed = stack.reclaim_unpinned_layers_with_view_checkpoints(2)?;
     assert_eq!(reclaimed.view_checkpoint_count, 1);
     assert_eq!(reclaimed.removed_layer_count, 4);
     assert_eq!(reclaimed.active_depth_before, 6);
@@ -363,8 +367,9 @@ fn lease_aware_multi_lease_parent_normalization_reclaims_only_unpinned_layers() 
 }
 
 #[test]
-fn lease_aware_many_historical_leases_reclaim_top_gap_and_preserve_snapshots() -> TestResult {
-    let fixture = Fixture::new("lease_aware_many_historical_leases");
+fn reclaim_unpinned_layers_many_historical_leases_reclaim_top_gap_and_preserve_snapshots(
+) -> TestResult {
+    let fixture = Fixture::new("reclaim_unpinned_layers_many_historical_leases");
     let mut stack = LayerStack::open(fixture.root.clone())?;
     for index in 1..=4 {
         publish_blob(&mut stack, "blob.bin", 1 << 20, index)?;
@@ -386,7 +391,7 @@ fn lease_aware_many_historical_leases_reclaim_top_gap_and_preserve_snapshots() -
     assert_eq!(stack.leased_layers().len(), 12);
     assert_eq!(payload_bytes(&fixture.root.join("layers"))?, 20 << 20);
 
-    let reclaimed = stack.reclaim_lease_aware_view_checkpoints(2)?;
+    let reclaimed = stack.reclaim_unpinned_layers_with_view_checkpoints(2)?;
     assert_eq!(reclaimed.planned_reclaiming_interval_count, 1);
     assert_eq!(reclaimed.view_checkpoint_count, 1);
     assert_eq!(reclaimed.removed_layer_count, 8);
@@ -422,8 +427,8 @@ fn lease_aware_many_historical_leases_reclaim_top_gap_and_preserve_snapshots() -
 }
 
 #[test]
-fn lease_aware_view_reclaim_skips_delete_gap_until_delta_checkpoint() -> TestResult {
-    let fixture = Fixture::new("lease_aware_view_reclaim_delete_skip");
+fn reclaim_unpinned_layers_view_reclaim_skips_delete_gap_until_delta_checkpoint() -> TestResult {
+    let fixture = Fixture::new("reclaim_unpinned_layers_view_reclaim_delete_skip");
     let mut stack = LayerStack::open(fixture.root.clone())?;
     publish_blob(&mut stack, "a.txt", 1 << 20, 1)?;
     let lease = stack.acquire_snapshot("protect-lower-file")?;
@@ -434,7 +439,7 @@ fn lease_aware_view_reclaim_skips_delete_gap_until_delta_checkpoint() -> TestRes
     assert_eq!(stack.read_text("a.txt")?, (String::new(), false));
     let before = stack.read_active_manifest()?;
     let before_payload = payload_bytes(&fixture.root.join("layers"))?;
-    let outcome = stack.reclaim_lease_aware_view_checkpoints(1)?;
+    let outcome = stack.reclaim_unpinned_layers_with_view_checkpoints(1)?;
 
     assert!(outcome.manifest.is_none());
     assert_eq!(outcome.planned_reclaiming_interval_count, 1);
@@ -449,8 +454,9 @@ fn lease_aware_view_reclaim_skips_delete_gap_until_delta_checkpoint() -> TestRes
 }
 
 #[test]
-fn lease_aware_delta_reclaim_preserves_delete_above_protected_lower_file() -> TestResult {
-    let fixture = Fixture::new("lease_aware_delta_delete");
+fn reclaim_unpinned_layers_delta_reclaim_preserves_delete_above_protected_lower_file() -> TestResult
+{
+    let fixture = Fixture::new("reclaim_unpinned_layers_delta_delete");
     let mut stack = LayerStack::open(fixture.root.clone())?;
     publish_blob(&mut stack, "a.txt", 1 << 20, 1)?;
     let lease = stack.acquire_snapshot("protect-lower-file")?;
@@ -460,7 +466,7 @@ fn lease_aware_delta_reclaim_preserves_delete_above_protected_lower_file() -> Te
 
     assert_eq!(stack.read_text("a.txt")?, (String::new(), false));
     let before_payload = payload_bytes(&fixture.root.join("layers"))?;
-    let outcome = stack.reclaim_lease_aware_checkpoints(1)?;
+    let outcome = stack.reclaim_unpinned_layers(1)?;
 
     let manifest = outcome.manifest.expect("delta checkpoint should commit");
     assert_eq!(outcome.view_checkpoint_count, 0);
@@ -479,8 +485,9 @@ fn lease_aware_delta_reclaim_preserves_delete_above_protected_lower_file() -> Te
 }
 
 #[test]
-fn lease_aware_delta_reclaim_preserves_opaque_dir_above_protected_lower_entries() -> TestResult {
-    let fixture = Fixture::new("lease_aware_delta_opaque");
+fn reclaim_unpinned_layers_delta_reclaim_preserves_opaque_dir_above_protected_lower_entries(
+) -> TestResult {
+    let fixture = Fixture::new("reclaim_unpinned_layers_delta_opaque");
     let mut stack = LayerStack::open(fixture.root.clone())?;
     publish_blob(&mut stack, "dir/protected.txt", 1 << 20, 1)?;
     let lease = stack.acquire_snapshot("protect-lower-dir")?;
@@ -499,7 +506,7 @@ fn lease_aware_delta_reclaim_preserves_opaque_dir_above_protected_lower_entries(
     );
     assert_eq!(payload_bytes(&fixture.root.join("layers"))?, 2 << 20);
 
-    let outcome = stack.reclaim_lease_aware_checkpoints(2)?;
+    let outcome = stack.reclaim_unpinned_layers(2)?;
 
     let manifest = outcome.manifest.expect("delta checkpoint should commit");
     assert_eq!(outcome.view_checkpoint_count, 0);
@@ -528,9 +535,9 @@ fn lease_aware_delta_reclaim_preserves_opaque_dir_above_protected_lower_entries(
 }
 
 #[test]
-fn lease_aware_copy_through_reports_pinned_bytes_without_reclaiming_protected_layers() -> TestResult
-{
-    let fixture = Fixture::new("lease_aware_copy_through");
+fn reclaim_unpinned_layers_copy_through_reports_pinned_bytes_without_reclaiming_protected_layers(
+) -> TestResult {
+    let fixture = Fixture::new("reclaim_unpinned_layers_copy_through");
     let mut stack = LayerStack::open(fixture.root.clone())?;
     for index in 1..=6 {
         publish_blob(&mut stack, "blob.bin", 1 << 20, index)?;

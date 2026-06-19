@@ -10,6 +10,7 @@ use super::{
 };
 
 impl TraceStore {
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn events_for_trace(&self, trace_id: &str) -> Result<Vec<TraceEventRow>, TraceStoreError> {
         query::events_for_trace(&self.lock(), trace_id)
     }
@@ -31,6 +32,7 @@ impl TraceStore {
         Ok(usize::try_from(count).unwrap_or(usize::MAX))
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn request_by_id(
         &self,
         request_id: &str,
@@ -38,6 +40,7 @@ impl TraceStore {
         query::request_by_id(&self.lock(), request_id)
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn trace_ids_for_link(
         &self,
         link_kind: &str,
@@ -62,6 +65,7 @@ impl TraceStore {
         query::requests_for_trace_limited(&self.lock(), trace_id, limit)
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn spans_for_trace(&self, trace_id: &str) -> Result<Vec<TraceSpanRow>, TraceStoreError> {
         query::spans_for_trace(&self.lock(), trace_id)
     }
@@ -74,6 +78,7 @@ impl TraceStore {
         query::spans_for_trace_limited(&self.lock(), trace_id, limit)
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn resources_for_trace(
         &self,
         trace_id: &str,
@@ -89,6 +94,7 @@ impl TraceStore {
         query::resources_for_trace_limited(&self.lock(), trace_id, limit)
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn links_for_trace(&self, trace_id: &str) -> Result<Vec<TraceLinkRow>, TraceStoreError> {
         query::links_for_trace(&self.lock(), trace_id)
     }
@@ -204,10 +210,12 @@ impl TraceStore {
         })
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn query_plan_for(&self, sql: &str) -> Result<Vec<String>, TraceStoreError> {
         query::query_plan_for(&self.lock(), sql)
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn resource_span_ids_for_request(
         &self,
         request_id: &str,
@@ -215,6 +223,7 @@ impl TraceStore {
         query::resource_span_ids_for_request(&self.lock(), request_id)
     }
 
+    #[cfg(any(test, feature = "e2e-support"))]
     pub fn sqlite_posture(&self) -> Result<super::SqlitePosture, TraceStoreError> {
         query::sqlite_posture(&self.lock())
     }

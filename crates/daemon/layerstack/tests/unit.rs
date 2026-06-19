@@ -25,8 +25,9 @@ pub use model::{
     aggregate_layer_changes, layer_digest, manifest_root_hash, CasError, LayerChange, LayerPath,
     LayerRef, Manifest, MANIFEST_SCHEMA_VERSION,
 };
-pub(crate) use stack::lease_aware::{
-    plan_lease_aware_gaps, LeaseAwareCheckpointMode, LeaseAwarePlan, LeaseAwarePlanEntry,
+pub(crate) use stack::reclaim_unpinned_layers::{
+    plan_reclaim_unpinned_layers, ReclaimUnpinnedLayersCheckpointMode, ReclaimUnpinnedLayersPlan,
+    ReclaimUnpinnedLayersPlanEntry,
 };
 pub use stack::{LayerStack, Lease, MergedView, SquashOutcome};
 pub use workspace_base::{
@@ -67,10 +68,10 @@ mod test_fixture;
 mod commit_queue_tests;
 #[path = "unit/commit/transaction.rs"]
 mod commit_transaction_tests;
-#[path = "unit/lease_aware.rs"]
-mod lease_aware_tests;
 #[path = "unit/model.rs"]
 mod model_tests;
+#[path = "unit/reclaim_unpinned_layers.rs"]
+mod reclaim_unpinned_layers_tests;
 #[path = "unit/route.rs"]
 mod route_tests;
 #[path = "unit/service.rs"]
