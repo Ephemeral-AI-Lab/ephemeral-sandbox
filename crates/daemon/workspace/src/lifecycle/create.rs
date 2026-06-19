@@ -4,9 +4,8 @@ use crate::lifecycle::leases::{monotonic_seconds, next_handle_id};
 use crate::model::NetworkMode;
 use crate::overlay::dirs::create_overlay_dirs;
 use crate::profile::common::{
-    new_workspace_handle, teardown_workspace, wire_workspace, WorkspaceHandleSpec,
+    new_workspace_handle, teardown_workspace, wire_workspace, WorkspaceHandleSpec, WorkspaceProfile,
 };
-use crate::profile::isolated::IsolatedProfile;
 use crate::profile::manager::IsolatedNetworkError;
 use crate::profile::{
     WorkspaceModeHandle, WorkspaceModeId, WorkspaceModeManager, WorkspaceModeSnapshot,
@@ -18,7 +17,8 @@ impl WorkspaceModeManager {
         handle: &mut WorkspaceModeHandle,
     ) -> Result<HashMap<String, f64>, IsolatedNetworkError> {
         let layer_paths = handle.layer_paths.clone();
-        let mut profile = IsolatedProfile::new(
+        let mut profile = WorkspaceProfile::for_mode(
+            handle.network,
             &mut self.network,
             &self.caps.fallback_dns,
             self.caps.setup_timeout_s,
@@ -33,7 +33,8 @@ impl WorkspaceModeManager {
     }
 
     pub(crate) fn rollback_partial(&mut self, handle: &WorkspaceModeHandle) {
-        let mut profile = IsolatedProfile::new(
+        let mut profile = WorkspaceProfile::for_mode(
+            handle.network,
             &mut self.network,
             &self.caps.fallback_dns,
             self.caps.setup_timeout_s,
@@ -45,6 +46,15 @@ impl WorkspaceModeManager {
         &mut self,
         caller_id: &str,
         snapshot: WorkspaceModeSnapshot,
+    ) -> Result<WorkspaceModeHandle, IsolatedNetworkError> {
+        self.enter_with_network(caller_id, snapshot, NetworkMode::Isolated)
+    }
+
+    pub fn enter_with_network(
+        &mut self,
+        caller_id: &str,
+        snapshot: WorkspaceModeSnapshot,
+        network: NetworkMode,
     ) -> Result<WorkspaceModeHandle, IsolatedNetworkError> {
         if !self.caps.enabled {
             return Err(IsolatedNetworkError::FeatureDisabled);
@@ -86,7 +96,7 @@ impl WorkspaceModeManager {
         let now = monotonic_seconds();
         let mut handle = new_workspace_handle(WorkspaceHandleSpec {
             workspace_id: workspace_id.clone(),
-            network: NetworkMode::Isolated,
+            network,
             caller_id: caller_id.to_owned(),
             lease_id: snapshot.lease_id,
             manifest_version: snapshot.manifest_version,

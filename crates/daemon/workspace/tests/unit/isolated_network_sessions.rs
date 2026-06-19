@@ -10,9 +10,12 @@ use super::{
     WorkspaceModeSnapshot,
 };
 use crate::lifecycle::leases::next_handle_id;
+use crate::model::{NetworkMode, WorkspaceHandle};
 use crate::namespace::NamespaceRuntime;
+use crate::overlay::dirs::create_overlay_dirs;
+use crate::profile::common::{new_workspace_handle, WorkspaceHandleSpec};
 use crate::profile::IsolatedNetworkError;
-use crate::profile::ResourceCaps;
+use crate::profile::{ResourceCaps, WorkspaceModeId};
 
 #[test]
 fn parses_memavailable_from_proc_meminfo() {
@@ -193,6 +196,105 @@ fn remount_pending_state_is_persisted_and_cleared() -> Result<(), Box<dyn std::e
 }
 
 #[test]
+fn enter_with_network_profiles_project_common_launch_shape(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let host_scratch = unique_temp_dir("host-profile-enter");
+    let isolated_scratch = unique_temp_dir("isolated-profile-enter");
+    let mut host_sessions = WorkspaceModeManager::stubbed(enabled_caps(), host_scratch.clone());
+    let mut isolated_sessions =
+        WorkspaceModeManager::stubbed(enabled_caps(), isolated_scratch.clone());
+
+    let host = host_sessions.enter_with_network("host", snapshot(), NetworkMode::Host)?;
+    let isolated =
+        isolated_sessions.enter_with_network("isolated", snapshot(), NetworkMode::Isolated)?;
+
+    assert_eq!(host.network, NetworkMode::Host);
+    assert_eq!(isolated.network, NetworkMode::Isolated);
+    assert_common_launch_shape(&WorkspaceHandle::from(&host), NetworkMode::Host);
+    assert_common_launch_shape(&WorkspaceHandle::from(&isolated), NetworkMode::Isolated);
+
+    host_sessions.exit("host", Some(0.0))?;
+    isolated_sessions.exit("isolated", Some(0.0))?;
+    let _ = std::fs::remove_dir_all(host_scratch);
+    let _ = std::fs::remove_dir_all(isolated_scratch);
+    Ok(())
+}
+
+#[test]
+fn wire_handle_runs_common_cgroup_phase_for_host_and_isolated(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let scratch_root = unique_temp_dir("profile-common-cgroup-create");
+    let mut host_sessions = WorkspaceModeManager::stubbed(enabled_caps(), scratch_root.clone());
+    let mut isolated_sessions = WorkspaceModeManager::stubbed(enabled_caps(), scratch_root.clone());
+    let mut host = unwired_handle(&scratch_root, "host", NetworkMode::Host)?;
+    let mut isolated = unwired_handle(&scratch_root, "isolated", NetworkMode::Isolated)?;
+
+    let host_phases = host_sessions.wire_handle(&mut host)?;
+    let isolated_phases = isolated_sessions.wire_handle(&mut isolated)?;
+
+    for phases in [&host_phases, &isolated_phases] {
+        assert!(phases.contains_key("spawn_ns_holder"));
+        assert!(phases.contains_key("open_ns_fds"));
+        assert!(phases.contains_key("mount_overlay"));
+        assert!(phases.contains_key("create_cgroup"));
+        assert!(phases.contains_key("join_holder_cgroup"));
+    }
+    assert!(!host_phases.contains_key("install_veth"));
+    assert!(isolated_phases.contains_key("install_veth"));
+
+    host_sessions.rollback_partial(&host);
+    isolated_sessions.rollback_partial(&isolated);
+    let _ = std::fs::remove_dir_all(scratch_root);
+    Ok(())
+}
+
+#[test]
+fn join_holder_cgroup_writes_holder_pid() -> Result<(), Box<dyn std::error::Error>> {
+    let scratch_root = unique_temp_dir("profile-common-holder-cgroup-join");
+    let cgroup_path = scratch_root.join("cgroup");
+    std::fs::create_dir_all(&cgroup_path)?;
+    let mut handle = unwired_handle(&scratch_root, "holder", NetworkMode::Host)?;
+    handle.holder_pid = 4242;
+    handle.cgroup_path = Some(cgroup_path.clone());
+    let runtime = NamespaceRuntime::stubbed();
+
+    runtime.join_holder_cgroup(&handle)?;
+
+    assert_eq!(
+        std::fs::read_to_string(cgroup_path.join("cgroup.procs"))?,
+        "4242\n"
+    );
+    let _ = std::fs::remove_dir_all(scratch_root);
+    Ok(())
+}
+
+#[test]
+fn teardown_handle_removes_cgroup_for_host_and_isolated() -> Result<(), Box<dyn std::error::Error>>
+{
+    let scratch_root = unique_temp_dir("profile-common-cgroup-teardown");
+    for network in [NetworkMode::Host, NetworkMode::Isolated] {
+        let mut sessions = WorkspaceModeManager::stubbed(enabled_caps(), scratch_root.clone());
+        let mut handle = unwired_handle(&scratch_root, network_label(network), network)?;
+        let cgroup_path = scratch_root.join(format!("cgroup-{}", network_label(network)));
+        std::fs::create_dir_all(&cgroup_path)?;
+        handle.cgroup_path = Some(cgroup_path.clone());
+
+        let (_inspection, phases) = sessions.teardown_handle(&handle, 0.0);
+
+        assert!(
+            phases.contains_key("cgroup_rmdir"),
+            "{network:?} teardown should record common cgroup removal"
+        );
+        assert!(
+            !cgroup_path.exists(),
+            "{network:?} teardown should remove common cgroup directory"
+        );
+    }
+    let _ = std::fs::remove_dir_all(scratch_root);
+    Ok(())
+}
+
+#[test]
 fn enter_persistence_failure_rolls_back_holder_and_state() -> Result<(), Box<dyn std::error::Error>>
 {
     let scratch_root = unique_temp_dir("isolated-enter-persist-fail");
@@ -275,6 +377,54 @@ fn recovery_reaps_only_owned_scratch_directories() -> Result<(), Box<dyn std::er
 }
 
 #[test]
+fn recovery_reaps_persisted_cgroups_for_host_and_isolated_profiles(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let scratch_root = unique_temp_dir("isolated-persisted-cgroups");
+    std::fs::create_dir_all(&scratch_root)?;
+    let host_cgroup = scratch_root.join("cgroup-host");
+    let isolated_cgroup = scratch_root.join("cgroup-isolated");
+    std::fs::create_dir_all(&host_cgroup)?;
+    std::fs::create_dir_all(&isolated_cgroup)?;
+    std::fs::write(
+        scratch_root.join("manager.json"),
+        serde_json::json!({
+            "schema_version": 1,
+            "handles": [
+                {
+                    "lease_id": "lease-host",
+                    "network": "host",
+                    "cgroup_path": host_cgroup.to_string_lossy()
+                },
+                {
+                    "lease_id": "lease-isolated",
+                    "network": "isolated",
+                    "cgroup_path": isolated_cgroup.to_string_lossy()
+                }
+            ]
+        })
+        .to_string(),
+    )?;
+    let mut sessions = WorkspaceModeManager::stubbed(enabled_caps(), scratch_root.clone());
+
+    let report = sessions.reap_persisted_orphans()?;
+
+    assert_eq!(
+        report.orphan_lease_ids,
+        vec!["lease-host".to_owned(), "lease-isolated".to_owned()]
+    );
+    assert!(
+        !host_cgroup.exists(),
+        "host-compatible cgroup should be reaped"
+    );
+    assert!(
+        !isolated_cgroup.exists(),
+        "isolated cgroup should be reaped"
+    );
+    let _ = std::fs::remove_dir_all(scratch_root);
+    Ok(())
+}
+
+#[test]
 fn recovery_kills_persisted_holder_pid() -> Result<(), Box<dyn std::error::Error>> {
     let scratch_root = unique_temp_dir("isolated-persisted-holder");
     std::fs::create_dir_all(&scratch_root)?;
@@ -326,4 +476,50 @@ fn persisted_remount_state(
         .and_then(|handle| handle.get("remount_state"))
         .and_then(Value::as_str)
         .map(str::to_owned))
+}
+
+fn assert_common_launch_shape(handle: &WorkspaceHandle, network: NetworkMode) {
+    assert_eq!(handle.network, network);
+    let launch = handle
+        .launch
+        .as_ref()
+        .expect("manager-created workspace projects launch context");
+    assert!(launch.upperdir.ends_with("upper"));
+    assert!(launch.workdir.ends_with("work"));
+    let fds = launch
+        .namespace_fds
+        .expect("manager-created workspace projects namespace fds");
+    assert!(fds.user.is_some());
+    assert!(fds.mnt.is_some());
+    assert!(fds.pid.is_some());
+    assert_eq!(fds.net.is_some(), network == NetworkMode::Isolated);
+}
+
+fn unwired_handle(
+    scratch_root: &std::path::Path,
+    label: &str,
+    network: NetworkMode,
+) -> Result<crate::profile::WorkspaceModeHandle, Box<dyn std::error::Error>> {
+    let workspace_id = WorkspaceModeId(format!("{}{}", "0".repeat(16), label));
+    let dirs = create_overlay_dirs(scratch_root.join(format!("run-{label}")))?;
+    Ok(new_workspace_handle(WorkspaceHandleSpec {
+        workspace_id,
+        network,
+        caller_id: format!("caller-{label}"),
+        lease_id: format!("lease-{label}"),
+        manifest_version: 7,
+        manifest_root_hash: "root-hash".to_owned(),
+        workspace_root: "/workspace".to_owned(),
+        dirs,
+        layer_paths: vec![PathBuf::from("/lower")],
+        created_at: 1.0,
+        last_activity: 1.0,
+    }))
+}
+
+const fn network_label(network: NetworkMode) -> &'static str {
+    match network {
+        NetworkMode::Host => "host",
+        NetworkMode::Isolated => "isolated",
+    }
 }

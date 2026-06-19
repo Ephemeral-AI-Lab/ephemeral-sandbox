@@ -195,6 +195,13 @@ impl CommandOperationService {
                 .ok_or_else(|| CommandServiceError::InvalidCommand {
                     message: "resolved workspace lacks command launch material".to_owned(),
                 })?;
+        let namespace_fds =
+            launch
+                .namespace_fds
+                .ok_or_else(|| CommandServiceError::InvalidCommand {
+                    message: "holder-backed workspace command requires namespace FDs".to_owned(),
+                })?;
+        validate_namespace_fds(handler.handle.network, namespace_fds)?;
         let command_dir = self.config().scratch_root.join(&command_id.0);
         fs::create_dir_all(&command_dir).map_err(|error| CommandServiceError::CommandIo {
             command_id: command_id.clone(),
@@ -210,7 +217,7 @@ impl CommandOperationService {
             layer_paths: handler.layer_paths.clone(),
             upperdir: launch.upperdir.clone(),
             workdir: launch.workdir.clone(),
-            namespace_fds: launch.namespace_fds.map(command_namespace_fds),
+            namespace_fds: Some(command_namespace_fds(namespace_fds)),
             cgroup_path: launch.cgroup_path.clone(),
         })
         .map_err(|error| CommandServiceError::CommandIo {
@@ -430,6 +437,34 @@ fn command_namespace_fds(fds: WorkspaceLaunchNamespaceFds) -> command::CommandLa
         pid: fds.pid,
         net: fds.net,
     }
+}
+
+fn validate_namespace_fds(
+    network: NetworkMode,
+    fds: WorkspaceLaunchNamespaceFds,
+) -> Result<(), CommandServiceError> {
+    let mut missing = Vec::new();
+    if fds.user.is_none() {
+        missing.push("user");
+    }
+    if fds.mnt.is_none() {
+        missing.push("mnt");
+    }
+    if fds.pid.is_none() {
+        missing.push("pid");
+    }
+    if network == NetworkMode::Isolated && fds.net.is_none() {
+        missing.push("net");
+    }
+    if missing.is_empty() {
+        return Ok(());
+    }
+    Err(CommandServiceError::InvalidCommand {
+        message: format!(
+            "holder-backed {network:?} workspace command requires namespace FDs: {}",
+            missing.join(", ")
+        ),
+    })
 }
 
 #[cfg(test)]
@@ -692,7 +727,12 @@ mod tests {
         WorkspaceLaunchContext {
             upperdir: root.join("upper"),
             workdir: root.join("work"),
-            namespace_fds: None,
+            namespace_fds: Some(crate::workspace_crate::WorkspaceLaunchNamespaceFds {
+                user: Some(10),
+                mnt: Some(11),
+                pid: Some(12),
+                net: None,
+            }),
             cgroup_path: None,
         }
     }

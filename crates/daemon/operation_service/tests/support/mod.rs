@@ -18,7 +18,7 @@ use workspace::{
     CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, LatestSnapshotRequest,
     LayerStackSnapshotRef, LeaseId, NetworkMode, ReadonlySnapshotHandle, RemountWorkspaceRequest,
     RemountWorkspaceResult, WorkspaceError, WorkspaceHandle, WorkspaceLaunchContext,
-    WorkspaceService,
+    WorkspaceLaunchNamespaceFds, WorkspaceService,
 };
 
 pub struct TestServices {
@@ -361,7 +361,12 @@ fn test_launch_context() -> WorkspaceLaunchContext {
     WorkspaceLaunchContext {
         upperdir: root.join("upper"),
         workdir: root.join("work"),
-        namespace_fds: None,
+        namespace_fds: Some(WorkspaceLaunchNamespaceFds {
+            user: Some(10),
+            mnt: Some(11),
+            pid: Some(12),
+            net: None,
+        }),
         cgroup_path: None,
     }
 }

@@ -2,8 +2,9 @@
 //!
 //! The manager owns admission policy, quotas, caller indexing, persistence, and
 //! orphan cleanup. Profile-specific environment setup lives in
-//! `profile::isolated`; shared holder/overlay lifecycle lives in
-//! `profile::common`.
+//! `profile::host_compatible` and `profile::isolated`; shared holder, overlay,
+//! cgroup, teardown, and recovery lifecycle lives in `profile::common` and the
+//! lifecycle modules.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -172,7 +173,6 @@ impl WorkspaceModeManager {
         if !self.caps.enabled {
             return Err(IsolatedNetworkError::FeatureDisabled);
         }
-        self.network.initialize()?;
         std::fs::create_dir_all(&self.scratch_root).map_err(|err| {
             IsolatedNetworkError::SetupFailed {
                 step: format!("scratch_root: {err}"),

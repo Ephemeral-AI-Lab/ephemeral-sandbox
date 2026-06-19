@@ -900,27 +900,102 @@ Rules:
 
 ## Milestone 6.6: Workspace Profile Symmetry
 
-- Status: Spec added; implementation not started.
+- Status: Complete.
 - Spec:
   `docs/daemon/workspace_migration/phase-operation_service_workspace_session/phase_2_milestone_6_6_workspace_profile_symmetry_SPEC.md`
 - Files changed:
+  - `crates/daemon/workspace/src/isolated_network_setup/mod.rs`
+  - `crates/daemon/workspace/src/lib.rs`
+  - `crates/daemon/workspace/src/lifecycle/create.rs`
+  - `crates/daemon/workspace/src/lifecycle/destroy.rs`
+  - `crates/daemon/workspace/src/profile/common.rs`
+  - `crates/daemon/workspace/src/profile/host_compatible.rs`
+  - `crates/daemon/workspace/src/profile/isolated.rs`
+  - `crates/daemon/workspace/src/profile/manager.rs`
+  - `crates/daemon/workspace/tests/unit/isolated_network_sessions.rs`
+  - `crates/daemon/operation_service/src/command/exec.rs`
+  - `crates/daemon/operation_service/tests/command_exec.rs`
+  - `crates/daemon/operation_service/tests/command_remount.rs`
+  - `crates/daemon/operation_service/tests/support/mod.rs`
+  - `crates/daemon/operation_service/tests/workspace_remount.rs`
+  - `docs/daemon/workspace_migration/phase-operation_service_workspace_session/phase_2_implementation_record.md`
+- Starting state:
+  - `git status --short --untracked-files=all`: staged milestone docs and
+    implementation-plan updates were present before code edits.
+  - `git diff --stat`: no unstaged diff.
+  - `git diff --check`: passed with no unstaged whitespace errors.
 - Verification:
+  - Required static scan:
+    `rg -n "HostWorkspace|HostNamespaceWorkspaceRequest|WorkspaceModeContext|WorkspaceModeManager|ExecTarget::Host|ExecTarget::IsolatedNetwork|IsolatedNetworkError|network_mode" crates/daemon/workspace/src crates/daemon/operation/src crates/daemon/operation_service/src crates/daemon/core/src`
+    returned 363 matches. Classification: target workspace profile/manager
+    names and errors; temporary `HostWorkspace` compatibility exports and
+    legacy callers in `WorkspaceRuntime`/old `operation::command`; compatibility
+    `network_mode` module exports; daemon file routing through `WorkspaceRuntime`
+    left for Milestone 7/M8.
+  - Required static scan:
+    `rg -n "one.shot|one_shot|publish|published|remountable|cgroup|ResourcePolicy" crates/daemon/workspace/src/profile crates/daemon/operation/src/command crates/daemon/operation_service/src/command`
+    returned 455 matches. Classification: operation-service command
+    publish/one-shot policy is the intended owner; old `operation::command`
+    publish/remountable matches are legacy; workspace profile cgroup matches now
+    live in `profile::common` and `profile::resource_control`, with no
+    `IsolatedProfile` cgroup ownership remaining.
+  - Required static scan:
+    `rg -n "FreshNs|namespace_fds: None|NetworkMode::Host" crates/daemon/command/src crates/daemon/operation_service/src crates/daemon/core/src`
+    returned 9 matches. Classification: `command::launch` still supports
+    policy-free `FreshNs` for non holder-backed substrate callers; operation
+    service uses `NetworkMode::Host` only for explicit one-shot workspace
+    creation and tests; missing namespace FD matches are tests/fixtures, while
+    production holder-backed launch now rejects missing FDs before spawn.
+  - Focused cgroup ownership scan:
+    `rg -n "resource_control|create_cgroup|remove_cgroup|cgroup" crates/daemon/workspace/src/profile/isolated.rs crates/daemon/workspace/src/profile/common.rs crates/daemon/workspace/src/profile/resource_control.rs`:
+    cgroup create/remove matches only in common lifecycle and resource-control
+    helper files.
+  - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo check -p workspace`:
+    passed.
+  - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p workspace`:
+    passed, 26 tests.
+  - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo check -p operation_service`:
+    passed.
+  - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p operation_service command_exec`:
+    passed, 7 matching unit tests and 13 matching integration tests.
+  - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p operation_service command_remount`:
+    passed, 7 matching unit tests and 5 matching integration tests.
+  - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p operation_service workspace_remount`:
+    passed, 1 matching service-graph test and 5 matching integration tests.
+  - `CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo check -p daemon`:
+    passed.
+  - `cargo fmt --check`: passed.
+  - `git diff --check`: passed.
 - Deviations:
+  - `HostWorkspace` remains as a hidden temporary compatibility export because
+    legacy `WorkspaceRuntime` and old `operation::command` callers are explicitly
+    Milestone 7/M8 cleanup work. The export now carries removal criteria and
+    holder-backed host-compatible manager creation goes through the common
+    profile handle path.
+  - The lower-level `command` crate still supports `FreshNs` for policy-free
+    non-workspace launch DTO construction. Operation-service holder-backed
+    workspace launch now rejects missing namespace FDs before calling that
+    helper, so workspace-session commands no longer silently fall back.
+  - Stubbed `NamespaceRuntime` now causes isolated profile veth setup/teardown to
+    use synthetic allocation/release instead of privileged netlink calls. This
+    keeps workspace unit tests local while preserving live isolated behavior for
+    non-stub runtimes.
 - Unresolved issues:
-  - Current code must still prove that cgroup lifecycle is common and
-    profile-neutral instead of owned by isolated profile setup/teardown.
-  - Current code must still remove or quarantine `HostWorkspace` as a permanent
-    public target abstraction.
-  - Current code must still ensure holder-backed workspace command launch does
-    not silently fall back to fresh namespace launch when namespace FDs are
-    missing.
-  - Current code must still define file-operation routing outside profile
-    implementations.
+  - File-operation routing is not encoded in `WorkspaceProfile`, but daemon core
+    still routes file operations through `WorkspaceRuntime` and
+    `WorkspaceModeContext`. Moving that routing onto operation-service/session
+    owners remains a Milestone 7/M8 blocker.
+  - Old `operation::command` and `WorkspaceRuntime` still contain host/isolated
+    target vocabulary and remountable command compatibility. Those are legacy
+    dispatch paths outside this milestone.
+  - Daemon dispatch migration away from `WorkspaceRuntime` remains Milestone 7
+    and is intentionally out of scope for Milestone 6.6.
 - Handoff notes:
-  - Milestone 7 daemon dispatch migration should not start from a target
-    architecture where host-compatible and isolated profile behavior differs by
-    holder, namespace FD, scratch, cgroup, caller-owned lifetime, capture/publish,
-    command lifecycle, remountability, or file-routing policy.
+  - Milestone 7 daemon dispatch migration should route command and file
+    operations through operation-service owners using profile-neutral workspace
+    session handles. It should not treat `HostWorkspace`,
+    `operation::command::ExecTarget`, or `WorkspaceRuntime` as target
+    architecture.
 
 ## Milestone 7: Daemon Dispatch Migration Away From WorkspaceRuntime
 

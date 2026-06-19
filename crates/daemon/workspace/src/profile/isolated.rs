@@ -2,11 +2,13 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::isolated_network_setup::IsolatedNetwork;
+use crate::model::NetworkMode;
 use crate::namespace::{NamespacePlan, NamespaceRuntime};
-use crate::profile::common::{record_phase_ms, ProfileHooks};
+use crate::profile::common::{
+    record_phase_ms, ProfileHooks, WorkspaceProfileNetworkContext,
+    WorkspaceProfileNetworkTeardownContext,
+};
 use crate::profile::manager::IsolatedNetworkError;
-use crate::profile::resource_control;
-use crate::profile::WorkspaceModeHandle;
 
 pub(crate) struct IsolatedProfile<'a> {
     network: &'a mut IsolatedNetwork,
@@ -29,51 +31,59 @@ impl<'a> IsolatedProfile<'a> {
 }
 
 impl ProfileHooks for IsolatedProfile<'_> {
+    fn kind(&self) -> NetworkMode {
+        NetworkMode::Isolated
+    }
+
     fn namespace_plan(&self) -> NamespacePlan {
         NamespacePlan::isolated_network()
     }
 
-    fn setup_after_namespace(
+    fn setup_network_after_namespace(
         &mut self,
-        _runtime: &NamespaceRuntime,
-        handle: &mut WorkspaceModeHandle,
+        runtime: &NamespaceRuntime,
+        context: &mut WorkspaceProfileNetworkContext<'_>,
         phases_ms: &mut HashMap<String, f64>,
     ) -> Result<(), IsolatedNetworkError> {
         let phase_start = Instant::now();
-        self.network.initialize()?;
-        handle.veth = Some(
+        let veth = if runtime.stub {
+            self.network.install_stub_veth(&context.workspace_id().0)?
+        } else {
+            self.network.initialize()?;
             self.network
-                .install_veth(&handle.workspace_id.0, handle.holder_pid)?,
-        );
+                .install_veth(&context.workspace_id().0, context.holder_pid())?
+        };
+        context.set_veth(veth);
         record_phase_ms(phases_ms, "install_veth", phase_start);
         Ok(())
     }
 
-    fn setup_after_mount(
+    fn setup_network_after_mount(
         &mut self,
         runtime: &NamespaceRuntime,
-        handle: &mut WorkspaceModeHandle,
+        context: &mut WorkspaceProfileNetworkContext<'_>,
         phases_ms: &mut HashMap<String, f64>,
     ) -> Result<(), IsolatedNetworkError> {
         let phase_start = Instant::now();
-        handle.dns_configuration =
-            runtime.configure_dns(handle, self.fallback_dns, self.setup_timeout_s)?;
+        context.configure_dns(runtime, self.fallback_dns, self.setup_timeout_s)?;
         record_phase_ms(phases_ms, "configure_dns", phase_start);
-        runtime.signal_net_ready(handle, self.setup_timeout_s)?;
-        resource_control::create_cgroup(runtime, handle, phases_ms)
+        context.signal_net_ready(runtime, self.setup_timeout_s)
     }
 
-    fn teardown_environment(
+    fn teardown_network(
         &mut self,
-        _runtime: &NamespaceRuntime,
-        handle: &WorkspaceModeHandle,
+        runtime: &NamespaceRuntime,
+        context: &WorkspaceProfileNetworkTeardownContext<'_>,
         phases_ms: &mut HashMap<String, f64>,
     ) {
         let phase_start = Instant::now();
-        if let Some(veth) = handle.veth.as_ref() {
-            self.network.teardown_veth(veth);
+        if let Some(veth) = context.veth() {
+            if runtime.stub {
+                self.network.release_stub_veth(veth);
+            } else {
+                self.network.teardown_veth(veth);
+            }
         }
         record_phase_ms(phases_ms, "teardown_veth", phase_start);
-        let _ = resource_control::remove_cgroup(handle, phases_ms);
     }
 }

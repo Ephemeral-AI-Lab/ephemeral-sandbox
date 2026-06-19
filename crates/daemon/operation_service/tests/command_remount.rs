@@ -23,7 +23,7 @@ use workspace::{
     CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, LatestSnapshotRequest,
     LayerStackSnapshotRef, LeaseId, NetworkMode, ReadonlySnapshotHandle, RemountWorkspaceRequest,
     RemountWorkspaceResult, WorkspaceError, WorkspaceHandle, WorkspaceId, WorkspaceLaunchContext,
-    WorkspaceService,
+    WorkspaceLaunchNamespaceFds, WorkspaceService,
 };
 
 struct TestServices {
@@ -249,11 +249,19 @@ fn build_services_with_launch_driver(
 }
 
 fn create_request(caller_id: &str, workspace_root: PathBuf) -> CreateWorkspaceRequest {
+    create_request_with_network(caller_id, workspace_root, NetworkMode::Host)
+}
+
+fn create_request_with_network(
+    caller_id: &str,
+    workspace_root: PathBuf,
+    network: NetworkMode,
+) -> CreateWorkspaceRequest {
     CreateWorkspaceRequest {
         caller_id: CallerId(caller_id.to_owned()),
         workspace_root,
         layer_stack_root: PathBuf::from("/layers"),
-        network: NetworkMode::Host,
+        network,
     }
 }
 
@@ -282,6 +290,22 @@ fn workspace_handle(
     lease_id: &str,
     workspace_root: PathBuf,
 ) -> WorkspaceHandle {
+    workspace_handle_with_network(
+        workspace_id,
+        caller_id,
+        lease_id,
+        workspace_root,
+        NetworkMode::Host,
+    )
+}
+
+fn workspace_handle_with_network(
+    workspace_id: &str,
+    caller_id: &str,
+    lease_id: &str,
+    workspace_root: PathBuf,
+    network: NetworkMode,
+) -> WorkspaceHandle {
     let snapshot = LayerStackSnapshotRef {
         lease_id: LeaseId(lease_id.to_owned()),
         manifest_version: 1,
@@ -292,7 +316,7 @@ fn workspace_handle(
         id: WorkspaceId(workspace_id.to_owned()),
         owner: CallerId(caller_id.to_owned()),
         workspace_root,
-        network: NetworkMode::Host,
+        network,
         base_revision: BaseRevision {
             version: 1,
             root_hash: "root".to_owned(),
@@ -302,7 +326,12 @@ fn workspace_handle(
         launch: Some(WorkspaceLaunchContext {
             upperdir: PathBuf::from("/tmp/command-remount-upper"),
             workdir: PathBuf::from("/tmp/command-remount-work"),
-            namespace_fds: None,
+            namespace_fds: Some(WorkspaceLaunchNamespaceFds {
+                user: Some(10),
+                mnt: Some(11),
+                pid: Some(12),
+                net: (network == NetworkMode::Isolated).then_some(13),
+            }),
             cgroup_path: None,
         }),
     }
@@ -354,6 +383,46 @@ fn command_config() -> command::CommandConfig {
 fn unique_suffix() -> u64 {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     COUNTER.fetch_add(1, Ordering::Relaxed)
+}
+
+#[test]
+fn command_remount_start_rejects_for_pending_isolated_workspace() {
+    let fake = Arc::new(PendingGuardWorkspaceService::default());
+    let services = build_services(Arc::clone(&fake));
+    let workspace_root = PathBuf::from("/workspace");
+    fake.push_create_result(Ok(workspace_handle_with_network(
+        "workspace-1",
+        "caller-1",
+        "lease-1",
+        workspace_root.clone(),
+        NetworkMode::Isolated,
+    )));
+    let handler = services
+        .workspace
+        .create(create_request_with_network(
+            "caller-1",
+            workspace_root.clone(),
+            NetworkMode::Isolated,
+        ))
+        .expect("create isolated workspace session succeeds");
+    services
+        .workspace
+        .begin_remount(handler.workspace_id.clone())
+        .expect("begin remount succeeds");
+
+    let error = services
+        .command
+        .exec_command(
+            exec_input(handler.workspace_id.clone(), workspace_root),
+            context("caller-1"),
+        )
+        .expect_err("exec rejects pending isolated remount");
+
+    assert!(matches!(
+        error,
+        CommandServiceError::WorkspaceRemountPending { workspace_id }
+            if workspace_id == WorkspaceId("workspace-1".to_owned())
+    ));
 }
 
 #[test]

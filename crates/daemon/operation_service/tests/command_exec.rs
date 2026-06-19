@@ -364,6 +364,52 @@ fn command_exec_passes_launch_material_to_runner_request_and_spawn_paths() {
 }
 
 #[test]
+fn command_exec_host_compatible_launch_uses_setns_without_net_fd() {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    let workspace_root = PathBuf::from("/workspace/one-shot");
+    let launch = WorkspaceLaunchContext {
+        upperdir: PathBuf::from("/upper/host"),
+        workdir: PathBuf::from("/work/host"),
+        namespace_fds: Some(WorkspaceLaunchNamespaceFds {
+            user: Some(20),
+            mnt: Some(21),
+            pid: Some(22),
+            net: None,
+        }),
+        cgroup_path: Some(PathBuf::from("/sys/fs/cgroup/eos-host")),
+    };
+    fake.push_create_result(Ok(workspace_handle_with_launch(
+        "workspace-one-shot",
+        "caller-1",
+        "lease-1",
+        workspace_root.clone(),
+        NetworkMode::Host,
+        Some(launch),
+    )));
+    let launch_driver = Arc::new(FakeLaunchDriver::new());
+    let env = build_services_with_launch_driver(Arc::clone(&fake), launch_driver.clone());
+
+    let output = env
+        .services
+        .exec_command(
+            exec_input("caller-1", workspace_root, None),
+            OperationTraceContext,
+        )
+        .expect("host-compatible one-shot command exec succeeds");
+
+    assert_eq!(output.command_id, Some(CommandId("cmd_1".to_owned())));
+    let observations = launch_driver.spawn_observations();
+    assert_eq!(observations.len(), 1);
+    let request = &observations[0].run_request;
+    assert_eq!(request["mode"], "set_ns");
+    assert_eq!(request["ns_fds"]["user"], 20);
+    assert_eq!(request["ns_fds"]["mnt"], 21);
+    assert_eq!(request["ns_fds"]["pid"], 22);
+    assert!(request["ns_fds"]["net"].is_null());
+    assert_eq!(request["cgroup_path"], "/sys/fs/cgroup/eos-host");
+}
+
+#[test]
 fn command_exec_missing_launch_material_destroys_one_shot_without_spawn() {
     let fake = Arc::new(FakeWorkspaceService::new());
     let workspace_root = PathBuf::from("/workspace/one-shot");
@@ -400,6 +446,115 @@ fn command_exec_missing_launch_material_destroys_one_shot_without_spawn() {
         !env.command.config().scratch_root.join("cmd_1").exists(),
         "missing launch material should not leave command artifacts"
     );
+}
+
+#[test]
+fn command_exec_missing_namespace_fds_destroys_one_shot_without_spawn() {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    let workspace_root = PathBuf::from("/workspace/one-shot");
+    let launch = WorkspaceLaunchContext {
+        upperdir: PathBuf::from("/upper/missing-fds"),
+        workdir: PathBuf::from("/work/missing-fds"),
+        namespace_fds: None,
+        cgroup_path: None,
+    };
+    fake.push_create_result(Ok(workspace_handle_with_launch(
+        "workspace-one-shot",
+        "caller-1",
+        "lease-1",
+        workspace_root.clone(),
+        NetworkMode::Host,
+        Some(launch),
+    )));
+    let launch_driver = Arc::new(FakeLaunchDriver::new());
+    let env = build_services_with_launch_driver(Arc::clone(&fake), launch_driver.clone());
+
+    let error = env
+        .services
+        .exec_command(
+            exec_input("caller-1", workspace_root, None),
+            OperationTraceContext,
+        )
+        .expect_err("missing namespace fds reject holder-backed workspace exec");
+
+    assert!(matches!(
+        error,
+        CommandServiceError::InvalidCommand { message }
+            if message.contains("requires namespace FDs")
+    ));
+    assert!(launch_driver.spawn_observations().is_empty());
+    assert_eq!(
+        fake.destroy_calls(),
+        vec![WorkspaceId("workspace-one-shot".to_owned())]
+    );
+    assert!(
+        !env.command.config().scratch_root.join("cmd_1").exists(),
+        "missing namespace fds should not leave command artifacts"
+    );
+}
+
+#[test]
+fn command_exec_partial_namespace_fds_destroy_one_shot_without_spawn() {
+    for (network, namespace_fds, missing_name) in [
+        (
+            NetworkMode::Host,
+            WorkspaceLaunchNamespaceFds {
+                user: Some(10),
+                mnt: None,
+                pid: Some(12),
+                net: None,
+            },
+            "mnt",
+        ),
+        (
+            NetworkMode::Isolated,
+            WorkspaceLaunchNamespaceFds {
+                user: Some(10),
+                mnt: Some(11),
+                pid: Some(12),
+                net: None,
+            },
+            "net",
+        ),
+    ] {
+        let fake = Arc::new(FakeWorkspaceService::new());
+        let workspace_root = PathBuf::from(format!("/workspace/{network:?}"));
+        let launch = WorkspaceLaunchContext {
+            upperdir: PathBuf::from("/upper/partial-fds"),
+            workdir: PathBuf::from("/work/partial-fds"),
+            namespace_fds: Some(namespace_fds),
+            cgroup_path: None,
+        };
+        fake.push_create_result(Ok(workspace_handle_with_launch(
+            "workspace-one-shot",
+            "caller-1",
+            "lease-1",
+            workspace_root.clone(),
+            network,
+            Some(launch),
+        )));
+        let launch_driver = Arc::new(FakeLaunchDriver::new());
+        let env = build_services_with_launch_driver(Arc::clone(&fake), launch_driver.clone());
+
+        let error = env
+            .services
+            .exec_command(
+                exec_input("caller-1", workspace_root, None),
+                OperationTraceContext,
+            )
+            .expect_err("partial namespace fds reject holder-backed workspace exec");
+
+        assert!(matches!(
+            error,
+            CommandServiceError::InvalidCommand { message }
+                if message.contains("requires namespace FDs") && message.contains(missing_name)
+        ));
+        assert!(launch_driver.spawn_observations().is_empty());
+        assert_eq!(
+            fake.destroy_calls(),
+            vec![WorkspaceId("workspace-one-shot".to_owned())]
+        );
+    }
 }
 
 #[test]

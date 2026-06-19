@@ -17,6 +17,9 @@ pub(crate) fn create_cgroup(
     if !cgroup_path.as_os_str().is_empty() {
         handle.cgroup_path = Some(cgroup_path);
     }
+    let phase_start = Instant::now();
+    runtime.join_holder_cgroup(handle)?;
+    record_phase_ms(phases_ms, "join_holder_cgroup", phase_start);
     Ok(())
 }
 

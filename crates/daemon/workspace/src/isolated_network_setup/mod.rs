@@ -159,8 +159,26 @@ impl IsolatedNetwork {
         })
     }
 
+    pub(crate) fn install_stub_veth(
+        &mut self,
+        workspace_handle_id: &str,
+    ) -> Result<VethAllocation, IsolatedNetworkError> {
+        self.initialized = true;
+        let (host_name, ns_name) = veth_names(workspace_handle_id);
+        let ns_ip = self.pool.allocate()?;
+        Ok(VethAllocation {
+            host_name,
+            ns_name,
+            ns_ip,
+        })
+    }
+
     pub fn teardown_veth(&mut self, allocation: &VethAllocation) {
         self.teardown_host_veth(&allocation.host_name);
+        self.pool.free(allocation.ns_ip);
+    }
+
+    pub(crate) fn release_stub_veth(&mut self, allocation: &VethAllocation) {
         self.pool.free(allocation.ns_ip);
     }
 

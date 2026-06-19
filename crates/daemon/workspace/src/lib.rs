@@ -9,9 +9,10 @@
 //! `profile::host_compatible` is the host-compatible profile: it keeps the private
 //! workspace overlay and holder namespace stack while preserving host network
 //! access. `profile::isolated` is the fully isolated profile: it
-//! adds a dedicated network boundary with veth, DNS, policy, and cgroup
-//! resources. `overlay` holds the filesystem and telemetry contracts both
-//! profiles share.
+//! adds a dedicated network boundary with veth, DNS, and network policy.
+//! `overlay` holds the filesystem and telemetry contracts both profiles share,
+//! while common lifecycle code owns holder, namespace FD, scratch, and cgroup
+//! behavior.
 #![forbid(unsafe_code)]
 
 pub mod error;
