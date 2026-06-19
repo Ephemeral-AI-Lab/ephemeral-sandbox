@@ -898,6 +898,30 @@ Rules:
   `OperationServices::exec_command` shim should be removed or explicitly
   justified during Milestone 8 cleanup.
 
+## Milestone 6.6: Workspace Profile Symmetry
+
+- Status: Spec added; implementation not started.
+- Spec:
+  `docs/daemon/workspace_migration/phase-operation_service_workspace_session/phase_2_milestone_6_6_workspace_profile_symmetry_SPEC.md`
+- Files changed:
+- Verification:
+- Deviations:
+- Unresolved issues:
+  - Current code must still prove that cgroup lifecycle is common and
+    profile-neutral instead of owned by isolated profile setup/teardown.
+  - Current code must still remove or quarantine `HostWorkspace` as a permanent
+    public target abstraction.
+  - Current code must still ensure holder-backed workspace command launch does
+    not silently fall back to fresh namespace launch when namespace FDs are
+    missing.
+  - Current code must still define file-operation routing outside profile
+    implementations.
+- Handoff notes:
+  - Milestone 7 daemon dispatch migration should not start from a target
+    architecture where host-compatible and isolated profile behavior differs by
+    holder, namespace FD, scratch, cgroup, caller-owned lifetime, capture/publish,
+    command lifecycle, remountability, or file-routing policy.
+
 ## Milestone 7: Daemon Dispatch Migration Away From WorkspaceRuntime
 
 - Status: Not started

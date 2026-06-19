@@ -235,6 +235,7 @@ reviewed independently without the new capture result shape.
 - [x] Milestone 6: `WorkspaceRemountService` and remount-pending state.
 - [x] Milestone 6.5: Exec command boundary migration to
   `CommandOperationService`.
+- [ ] Milestone 6.6: Workspace profile symmetry.
 - [ ] Milestone 7: Daemon dispatch migration away from `WorkspaceRuntime`.
 - [ ] Milestone 8: Compatibility wrapper cleanup and final gates.
 
@@ -1488,11 +1489,174 @@ migration. It keeps daemon dispatch itself out of scope and may retain
 
 ### Milestone 7 Handoff
 
+Milestone 6.6 must run before Milestone 7 so daemon dispatch does not migrate
+onto a host-compatible versus isolated profile asymmetry. After Milestone 6.6,
 Milestone 7 daemon exec dispatch should call:
 
 ```rust
 RuntimeServices.operation.command.exec_command(exec_input, command_call_context)
 ```
+
+## Milestone 6.6: Workspace Profile Symmetry
+
+Spec:
+`docs/daemon/workspace_migration/phase-operation_service_workspace_session/phase_2_milestone_6_6_workspace_profile_symmetry_SPEC.md`
+
+### Objective
+
+Make host-compatible and isolated workspaces symmetric for every concern except
+network setup. The only allowed profile-specific difference is:
+
+```text
+HostCompatibleProfile
+  host network access
+  no isolated veth, DNS rewrite, or isolated net-ready setup
+
+IsolatedProfile
+  private network namespace
+  veth, DNS rewrite, and isolated net-ready setup
+```
+
+Holder lifecycle, namespace FD ownership/projection, scratch lifecycle, cgroup
+lifecycle, caller-owned lifetime, capture/publish policy, command lifecycle,
+remountability, and file-operation routing must be common and profile-neutral.
+
+### Implementation Record Workflow
+
+- [ ] Before starting, read
+  `docs/daemon/workspace_migration/phase-operation_service_workspace_session/phase_2_implementation_record.md`
+  and carry forward unresolved notes from Milestone 6.5 and the 6.6 adversarial
+  review.
+- [ ] At start, create or update the Milestone 6.6 entry in the implementation
+  record.
+- [ ] Before marking this milestone complete, update that entry with files
+  changed, verification commands/results, design deviations, unresolved issues,
+  and handoff notes for Milestone 7.
+
+### Files And Modules Expected To Change
+
+- `crates/daemon/workspace/src/model.rs`
+- `crates/daemon/workspace/src/profile/common.rs`
+- `crates/daemon/workspace/src/profile/host_compatible.rs`
+- `crates/daemon/workspace/src/profile/isolated.rs`
+- `crates/daemon/workspace/src/profile/host_workspace.rs`
+- `crates/daemon/workspace/src/profile/handle.rs`
+- `crates/daemon/workspace/src/profile/manager.rs`
+- `crates/daemon/workspace/src/profile/resource_control.rs`
+- `crates/daemon/workspace/src/lifecycle/create.rs`
+- `crates/daemon/workspace/src/lifecycle/destroy.rs`
+- `crates/daemon/workspace/src/lifecycle/recovery.rs`
+- `crates/daemon/workspace/src/lifecycle/remount/*`
+- `crates/daemon/operation_service/src/workspace_manager/*`
+- `crates/daemon/operation_service/src/command/exec.rs`
+- `crates/daemon/operation_service/src/command/remount.rs`
+- `crates/daemon/operation_service/src/command/finalize.rs`
+- `crates/daemon/core/src/op_adapter/files.rs`
+- focused tests under `workspace`, `operation_service`, and `daemon/core`
+
+### Target Ownership Table
+
+| Concern | Owner | Profile must not own |
+| --- | --- | --- |
+| Holder lifecycle | common workspace lifecycle | spawn, kill, readiness, teardown policy |
+| Namespace FD ownership/projection | common workspace lifecycle and launch projection | command/file routing policy |
+| Scratch lifecycle | common workspace lifecycle | allocation, rollback, recovery cleanup |
+| Cgroup lifecycle | common resource-control lifecycle | create, holder join, command join, remove, recovery |
+| Caller-owned lifetime | `WorkspaceManagerService` / session manager | one-shot/session selection |
+| Capture/publish policy | `CommandOperationService` and layerstack publish policy | publish/discard/snapshot refresh |
+| Command lifecycle | `CommandOperationService` and command crate substrate | start/finalize/cancel policy |
+| Remountability | `WorkspaceRemountService` and workspace remount primitives | remount eligibility by profile kind |
+| File-operation routing | daemon/operation-service file routing owner | direct versus session routing |
+| Network setup | `HostCompatibleProfile` / `IsolatedProfile` | non-network lifecycle behavior |
+
+### Implementation Steps
+
+- [ ] Add or adapt a profile-neutral workspace create path so host-compatible and
+  isolated handles are created through the same managed lifecycle.
+- [ ] Narrow `WorkspaceProfile` or profile hooks so profile implementations can
+  mutate only profile-owned network state.
+- [ ] Move cgroup creation, holder join, command join, teardown, and recovery
+  cleanup out of `IsolatedProfile` into common lifecycle/resource-control code.
+- [ ] Stop treating `HostWorkspace` as a permanent public target abstraction;
+  keep it private/temporary or replace it with the common handle path.
+- [ ] Route one-shot host-compatible workspaces through the same handle/context
+  shape as persistent host-compatible workspaces. One-shot versus persistent
+  remains command/workspace policy, not profile policy.
+- [ ] Require holder namespace FDs for holder-backed workspace command launch;
+  missing FDs are an error, not a silent fresh-namespace fallback.
+- [ ] Keep remount eligibility and command quiesce decisions profile-neutral.
+- [ ] Define file-operation routing so policy is outside profile implementations.
+- [ ] Add focused host-compatible and isolated tests for the same lifecycle,
+  command, remount, teardown, recovery, and file-routing contracts where platform
+  support permits.
+
+### Explicit Exclusions
+
+- No daemon dispatch migration. That remains Milestone 7.
+- No new publish mode or command lifecycle mode.
+- No per-command remount opt-in.
+- No fake `IsolatedWorkspace` adapter added only for naming symmetry.
+- No permanent public `HostWorkspace` target abstraction.
+- No new code that uses the compatibility `network_mode` module path.
+- No encoding of one-shot/session lifetime, capture/publish, command lifecycle,
+  remount eligibility, or file routing in `WorkspaceProfile`.
+
+### Tests And Verification Commands
+
+```text
+rg -n "HostWorkspace|HostNamespaceWorkspaceRequest|WorkspaceModeContext|WorkspaceModeManager|ExecTarget::Host|ExecTarget::IsolatedNetwork|IsolatedNetworkError|network_mode" crates/daemon/workspace/src crates/daemon/operation/src crates/daemon/operation_service/src crates/daemon/core/src
+rg -n "one.shot|one_shot|publish|published|remountable|cgroup|ResourcePolicy" crates/daemon/workspace/src/profile crates/daemon/operation/src/command crates/daemon/operation_service/src/command
+rg -n "FreshNs|namespace_fds: None|NetworkMode::Host" crates/daemon/command/src crates/daemon/operation_service/src crates/daemon/core/src
+CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo check -p workspace
+CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p workspace
+CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo check -p operation_service
+CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p operation_service command_exec
+CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p operation_service command_remount
+CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo test -p operation_service workspace_remount
+CARGO_TARGET_DIR=/tmp/eos-phase2-command-service-target cargo check -p daemon
+cargo fmt --check
+git diff --check
+```
+
+The `rg` commands are evidence scans. Every remaining match must be classified as
+target code, temporary compatibility, test fixture, or bug before acceptance.
+
+### Risks And Rollback Notes
+
+- Risk: moving cgroup behavior out of `IsolatedProfile` changes launch ordering.
+  Roll back by preserving the existing ordering while extracting ownership into a
+  common helper with identical behavior.
+- Risk: removing host-only lifecycle shortcuts breaks one-shot command creation.
+  Roll back by keeping a private compatibility adapter that returns the common
+  handle/context shape and records its removal criteria.
+- Risk: file-operation routing is too large for this milestone. Roll back by
+  defining the profile-neutral routing invariant and adding a Milestone 7/M8
+  blocker; do not leave routing as an implicit profile asymmetry.
+
+### Acceptance Criteria
+
+- [ ] Host-compatible and isolated workspaces share one create/setup/teardown
+  sequence.
+- [ ] Both profiles produce one handle/context shape.
+- [ ] Cgroup create, holder join, command join, teardown, and recovery cleanup
+  are common and profile-neutral.
+- [ ] `WorkspaceProfile` or profile hooks cannot mutate common lifecycle policy
+  directly.
+- [ ] `HostWorkspace` is not a permanent public target abstraction.
+- [ ] One-shot versus persistent lifetime is owned outside profiles.
+- [ ] Capture/publish policy is owned outside profiles.
+- [ ] Command lifecycle is owned outside profiles.
+- [ ] Remount eligibility is owned outside profiles.
+- [ ] File-operation routing policy is owned outside profiles.
+- [ ] The only accepted profile-specific difference is host network access versus
+  isolated network namespace, veth, DNS rewrite, and isolated net-ready setup.
+
+### Milestone 7 Handoff
+
+Milestone 7 daemon dispatch migration must not depend on `HostWorkspace`,
+`operation::command::ExecTarget`, or `WorkspaceRuntime` profile routing as target
+architecture. It should call operation-service command/file/remount owners with
+profile-neutral workspace session handles.
 
 ## Milestone 7: Daemon Dispatch Migration Away From WorkspaceRuntime
 
@@ -1843,6 +2007,8 @@ M1 scaffolding
   -> M4 finalization
   -> M5 row projection
   -> M6 remount orchestration
+  -> M6.5 exec command boundary
+  -> M6.6 workspace profile symmetry
   -> M7 daemon dispatch migration
   -> M8 cleanup/final gates
 ```
@@ -1855,8 +2021,11 @@ Detailed dependencies:
 - M4 depends on M3 exec records and M2 completion store.
 - M5 depends on M2/M4 transcript retention and completed record ownership.
 - M6 depends on M2 registry workspace scans and M3 command-id lifecycle state.
-- M7 depends on M3/M4 command behavior and M6 if remount/pending errors are
-  visible through daemon commands.
+- M6.5 depends on M6 remount admission and command-service state.
+- M6.6 depends on M6.5 command-service ownership and the workspace profile
+  lifecycle surface.
+- M7 depends on M3/M4 command behavior, M6 remount behavior, and M6.6 profile
+  symmetry if workspace sessions are visible through daemon commands.
 - M8 depends on M7 dispatch migration and all target behavior passing focused
   tests.
 
@@ -1889,6 +2058,12 @@ Architecture gates:
 - Phase 2 remount uses full mounted-snapshot compaction and
   `RemountCancellationToken` prevents cancellation from killing a stopped
   process group before the remount guard resumes it.
+- Host-compatible and isolated workspace profiles differ only by network setup:
+  host network access versus isolated network namespace, veth, DNS rewrite, and
+  isolated net-ready setup.
+- Holder, namespace FD, scratch, cgroup, caller-owned lifetime,
+  capture/publish, command lifecycle, remountability, and file routing concerns
+  are common and profile-neutral.
 - `collect_completed`, `count_commands`/`count_by_caller`, and
   `advance_active_commands_once` are not public Phase 2 command-service APIs.
 - `WorkspaceRuntime`, `daemon/core/runtime`, and
