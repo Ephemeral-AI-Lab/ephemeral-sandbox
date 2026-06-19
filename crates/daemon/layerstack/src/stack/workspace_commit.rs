@@ -1,17 +1,23 @@
+use std::collections::BTreeMap;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
 use crate::error::LayerStackError;
 use crate::fs::{
     clear_storage_root_preserving_lock_and_names, copy_path, fsync_dir, fsync_tree_files,
-    next_unique, read_manifest, remove_path, replace_workspace_contents, write_atomic,
+    next_unique, read_manifest, record_elapsed, remove_path, replace_workspace_contents,
+    write_atomic,
 };
 use crate::lock::STORAGE_WRITER_LOCK_FILE;
+use crate::model::Manifest;
+use crate::workspace_base::build_workspace_base_from_snapshot;
 use crate::ACTIVE_MANIFEST_FILE;
 
-use super::MergedView;
+use super::leases::lock_shared_registry;
+use super::{LayerStack, MergedView};
 
 pub(crate) const COMMIT_WORKSPACE_JOURNAL_FILE: &str = "commit_to_workspace.json";
 
@@ -186,4 +192,130 @@ pub(crate) fn staged_storage_name_prefix(storage_root: &Path) -> String {
         .and_then(|name| name.to_str())
         .unwrap_or("layerstack");
     format!(".{name}.commit-storage-")
+}
+
+impl LayerStack {
+    pub fn commit_to_workspace(
+        &mut self,
+        workspace_root: &Path,
+    ) -> Result<(Manifest, BTreeMap<String, f64>), LayerStackError> {
+        let _guard = self.writer_lock.exclusive()?;
+        let total_start = Instant::now();
+        if !workspace_root.is_dir() {
+            return Err(LayerStackError::WorkspaceBinding(format!(
+                "workspace_root does not exist: {}",
+                workspace_root.display()
+            )));
+        }
+        if lock_shared_registry(&self.leases)?.active_count() > 0 {
+            return Err(LayerStackError::Storage(
+                "commit_to_workspace blocked by active leases".to_owned(),
+            ));
+        }
+
+        let active = self.read_active_manifest_unlocked()?;
+        let projection = self.commit_projection_dir()?;
+        let staged_storage = self.commit_staged_storage_dir()?;
+        let mut timings = BTreeMap::new();
+        let storage_root = self.storage_root.clone();
+        let view = &mut self.view;
+        let mut journal_requires_recovery = false;
+        let outcome = (|| {
+            let workspace_root_for_journal = workspace_root
+                .canonicalize()
+                .unwrap_or_else(|_| workspace_root.to_path_buf());
+            let project_start = Instant::now();
+            view.project(&projection, &active)?;
+            record_elapsed(
+                &mut timings,
+                "layer_stack.commit_to_workspace.project_s",
+                project_start,
+            );
+
+            let rebuild_start = Instant::now();
+            let _ = build_workspace_base_from_snapshot(
+                &staged_storage,
+                &storage_root,
+                workspace_root,
+                &projection,
+                false,
+            )?;
+            write_commit_workspace_journal(
+                &storage_root,
+                CommitWorkspacePhase::Staged,
+                &staged_storage,
+            )?;
+
+            write_commit_workspace_journal(
+                &storage_root,
+                CommitWorkspacePhase::ReplacingWorkspace {
+                    workspace_root: workspace_root_for_journal.to_string_lossy().into_owned(),
+                },
+                &staged_storage,
+            )?;
+            journal_requires_recovery = true;
+            let replace_start = Instant::now();
+            replace_workspace_contents(workspace_root, &projection)?;
+            record_elapsed(
+                &mut timings,
+                "layer_stack.commit_to_workspace.replace_workspace_s",
+                replace_start,
+            );
+            write_commit_workspace_journal(
+                &storage_root,
+                CommitWorkspacePhase::WorkspaceReplaced,
+                &staged_storage,
+            )?;
+            journal_requires_recovery = true;
+
+            install_staged_workspace_commit(&storage_root, &staged_storage)?;
+            journal_requires_recovery = false;
+            *view = MergedView::new(storage_root.clone());
+            let new_manifest = read_manifest(storage_root.join(ACTIVE_MANIFEST_FILE))?;
+            record_elapsed(
+                &mut timings,
+                "layer_stack.commit_to_workspace.rebuild_base_s",
+                rebuild_start,
+            );
+            record_elapsed(
+                &mut timings,
+                "layer_stack.commit_to_workspace.total_s",
+                total_start,
+            );
+            Ok(new_manifest)
+        })();
+        let _ = remove_path(&projection);
+        if outcome.is_err() && !journal_requires_recovery {
+            let _ = remove_path(&staged_storage);
+            let _ = remove_path(&commit_workspace_journal_path(&storage_root));
+        }
+        outcome.map(|manifest| (manifest, timings))
+    }
+
+    fn commit_projection_dir(&self) -> Result<PathBuf, LayerStackError> {
+        allocate_commit_projection_dir(&self.storage_root, "projected")
+    }
+
+    pub(crate) fn commit_staged_storage_dir(&self) -> Result<PathBuf, LayerStackError> {
+        let parent = self.storage_root.parent().ok_or_else(|| {
+            LayerStackError::Storage(format!(
+                "storage root has no parent: {}",
+                self.storage_root.display()
+            ))
+        })?;
+        std::fs::create_dir_all(parent)?;
+        let prefix = staged_storage_name_prefix(&self.storage_root);
+        for _ in 0..100 {
+            let candidate =
+                parent.join(format!("{prefix}{}-{}", std::process::id(), next_unique()));
+            match std::fs::create_dir(&candidate) {
+                Ok(()) => return Ok(candidate),
+                Err(err) if err.kind() == ErrorKind::AlreadyExists => continue,
+                Err(err) => return Err(err.into()),
+            }
+        }
+        Err(LayerStackError::Storage(
+            "could not allocate staged commit storage directory".to_owned(),
+        ))
+    }
 }

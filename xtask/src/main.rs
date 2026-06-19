@@ -339,6 +339,8 @@ fn check_mod_lib_size_policy(args: &ModLibSizePolicyArgs) -> Result<()> {
                 .file_type()
                 .is_some_and(|file_type| file_type.is_file())
                 || !is_mod_or_lib_source(path)
+                || is_under_crate_dir(path, "tests")
+                || is_under_crate_dir(path, "benches")
             {
                 continue;
             }

@@ -73,3 +73,26 @@ fn ignores_other_large_rust_files() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+#[test]
+fn ignores_oversized_mod_rs_under_crate_tests() {
+    let root = temp_root("oversized-test-mod-rs");
+    let crate_root = root.join("crate");
+    let tests = crate_root.join("tests/support");
+    fs::create_dir_all(&tests).expect("create tests support dir");
+    fs::write(
+        crate_root.join("Cargo.toml"),
+        "[package]\nname = \"fixture\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+    )
+    .expect("write fixture manifest");
+    fs::write(tests.join("mod.rs"), body_with_lines(4)).expect("write test mod file");
+
+    let output = run_check(&root, "3");
+
+    fs::remove_dir_all(&root).expect("remove temp root");
+    assert!(
+        output.status.success(),
+        "test support mod.rs files should be ignored: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
