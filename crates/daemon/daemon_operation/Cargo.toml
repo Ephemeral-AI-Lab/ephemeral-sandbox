@@ -7,7 +7,6 @@ license.workspace = true
 
 [dependencies]
 command.workspace = true
-layerstack.workspace = true
 protocol.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

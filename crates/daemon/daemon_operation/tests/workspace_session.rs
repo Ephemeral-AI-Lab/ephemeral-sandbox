@@ -632,9 +632,6 @@ fn workspace_session_files_do_not_import_command_service() {
         include_str!("../src/internal/workspace_session/service/impls/create_workspace_session.rs");
     let destroy_session =
         include_str!("../src/internal/workspace_session/service/impls/destroy_session.rs");
-    let finalize_one_shot_session = include_str!(
-        "../src/internal/workspace_session/service/impls/finalize_one_shot_session.rs"
-    );
     let resolve_session =
         include_str!("../src/internal/workspace_session/service/impls/resolve_session.rs");
     let remount_apply_and_finish =
@@ -652,7 +649,6 @@ fn workspace_session_files_do_not_import_command_service() {
         capture_session_changes,
         create_workspace_session,
         destroy_session,
-        finalize_one_shot_session,
         resolve_session,
         remount_apply_and_finish,
         remount_begin,

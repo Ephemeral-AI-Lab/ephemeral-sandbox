@@ -1,5 +1,4 @@
-use crate::workspace_crate::{ChangedPathKind, WorkspaceSessionId};
-use std::collections::BTreeMap;
+use crate::workspace_crate::WorkspaceSessionId;
 
 pub use command::{CommandStream, CommandTranscriptRow};
 
@@ -51,55 +50,8 @@ pub struct CommandOutputSnapshot {
     pub stdout: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CommandFinalizedMetadata {
-    pub policy: CommandFinalizedPolicy,
-    pub outcome: CommandFinalizationOutcome,
-    pub changed_paths: Vec<String>,
-    pub changed_path_kinds: BTreeMap<String, ChangedPathKind>,
-    pub protected_drop_count: usize,
-    pub captured_change_count: usize,
-    pub metadata_path_count: usize,
-    pub published_manifest_version: Option<u64>,
-    pub destroy: Option<CommandWorkspaceDestroyMetadata>,
-}
-
-impl Default for CommandFinalizedMetadata {
-    fn default() -> Self {
-        Self {
-            policy: CommandFinalizedPolicy::Session,
-            outcome: CommandFinalizationOutcome::SessionComplete,
-            changed_paths: Vec::new(),
-            changed_path_kinds: BTreeMap::new(),
-            protected_drop_count: 0,
-            captured_change_count: 0,
-            metadata_path_count: 0,
-            published_manifest_version: None,
-            destroy: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CommandFinalizedPolicy {
-    Session,
-    OneShotPublishThenDestroy,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CommandFinalizationOutcome {
-    SessionComplete,
-    Published,
-    Discarded,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CommandWorkspaceDestroyMetadata {
-    pub evicted_upperdir_bytes: u64,
-    pub lease_released: Option<bool>,
-    pub lease_release_error: Option<String>,
-    pub active_leases_after: usize,
-}
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CommandFinalizedMetadata;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandYield {

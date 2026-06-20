@@ -10,9 +10,6 @@ pub enum CommandServiceError {
     #[error(transparent)]
     WorkspaceSession(#[from] crate::workspace_session::WorkspaceSessionError),
 
-    #[error("workspace root mismatch: expected {expected:?}, actual {actual:?}")]
-    WorkspaceRootMismatch { expected: PathBuf, actual: PathBuf },
-
     #[error("invalid command request: {message}")]
     InvalidCommand { message: String },
 
@@ -70,15 +67,6 @@ pub enum CommandServiceError {
 
     #[error("command reservation belongs to a different process store")]
     ReservationStoreMismatch,
-
-    #[error(
-        "one-shot workspace cleanup failed for {command_session_id:?} after command start failure: command error: {command_error}; cleanup error: {cleanup_error}"
-    )]
-    OneShotWorkspaceCleanupFailed {
-        command_session_id: CommandSessionId,
-        command_error: Box<CommandServiceError>,
-        cleanup_error: crate::workspace_session::WorkspaceSessionError,
-    },
 
     #[error(
         "command artifact cleanup failed for {command_session_id:?} after command start failure at {artifact_dir:?}: command error: {command_error}; cleanup error: {cleanup_error}"

@@ -4,12 +4,11 @@ mod poll;
 mod read_command_lines;
 mod write_command_stdin;
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 
 use crate::command::{
-    CommandFinalizationOutcome, CommandFinalizedMetadata, CommandFinalizedPolicy,
-    CommandLinesOutput, CommandPollOutput, CommandServiceError, CommandStatus, CommandStream,
-    CommandTranscriptRow, CommandWorkspaceDestroyMetadata, CommandYield,
+    CommandFinalizedMetadata, CommandLinesOutput, CommandPollOutput, CommandServiceError,
+    CommandStatus, CommandStream, CommandTranscriptRow, CommandYield,
 };
 use crate::operation::{OperationEntry, OperationRequest, OperationResponse, OperationSpec};
 
@@ -126,52 +125,10 @@ fn stream_name(stream: CommandStream) -> &'static str {
 }
 
 fn finalized_value(finalized: Option<&CommandFinalizedMetadata>) -> Value {
-    finalized.map_or(Value::Null, |metadata| {
+    finalized.map_or(Value::Null, |_| {
         json!({
-            "policy": finalized_policy_name(metadata.policy),
-            "outcome": finalization_outcome_name(metadata.outcome),
-            "changed_paths": &metadata.changed_paths,
-            "changed_path_kinds": changed_path_kinds_value(metadata),
-            "protected_drop_count": metadata.protected_drop_count,
-            "captured_change_count": metadata.captured_change_count,
-            "metadata_path_count": metadata.metadata_path_count,
-            "published_manifest_version": metadata.published_manifest_version,
-            "destroy": destroy_value(metadata.destroy.as_ref()),
-        })
-    })
-}
-
-fn finalized_policy_name(policy: CommandFinalizedPolicy) -> &'static str {
-    match policy {
-        CommandFinalizedPolicy::Session => "session",
-        CommandFinalizedPolicy::OneShotPublishThenDestroy => "one_shot_publish_then_destroy",
-    }
-}
-
-fn finalization_outcome_name(outcome: CommandFinalizationOutcome) -> &'static str {
-    match outcome {
-        CommandFinalizationOutcome::SessionComplete => "session_complete",
-        CommandFinalizationOutcome::Published => "published",
-        CommandFinalizationOutcome::Discarded => "discarded",
-    }
-}
-
-fn changed_path_kinds_value(metadata: &CommandFinalizedMetadata) -> Value {
-    metadata
-        .changed_path_kinds
-        .iter()
-        .map(|(path, kind)| (path.clone(), Value::String(format!("{kind:?}"))))
-        .collect::<Map<_, _>>()
-        .into()
-}
-
-fn destroy_value(destroy: Option<&CommandWorkspaceDestroyMetadata>) -> Value {
-    destroy.map_or(Value::Null, |destroy| {
-        json!({
-            "evicted_upperdir_bytes": destroy.evicted_upperdir_bytes,
-            "lease_released": destroy.lease_released,
-            "lease_release_error": &destroy.lease_release_error,
-            "active_leases_after": destroy.active_leases_after,
+            "policy": "session",
+            "outcome": "session_complete",
         })
     })
 }

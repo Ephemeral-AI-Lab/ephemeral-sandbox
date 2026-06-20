@@ -8,17 +8,15 @@ pub use crate::workspace_remount::{
 pub use error::CommandServiceError;
 pub use service::{
     ActiveCommandProcess, ActiveCommandRef, CancellationState, CommandCompletionStore,
-    CommandFinalizePolicy, CommandLaunchDriver, CommandLifecycleState, CommandProcessStore,
-    CommandReservation, CommandTerminalResult, CommandTranscriptStore, CompletedCommandRecord,
-    FinalizationState, RealCommandLaunchDriver, RetainedCommandTranscript,
-    DEFAULT_MAX_ACTIVE_COMMANDS,
+    CommandLaunchDriver, CommandLifecycleState, CommandProcessStore, CommandReservation,
+    CommandTerminalResult, CommandTranscriptStore, CompletedCommandRecord, FinalizationState,
+    RealCommandLaunchDriver, RetainedCommandTranscript, DEFAULT_MAX_ACTIVE_COMMANDS,
 };
 pub use service::{
-    CancelCommandInput, CommandFinalizationOutcome, CommandFinalizedMetadata,
-    CommandFinalizedPolicy, CommandLinesOutput, CommandOperationService, CommandOutputSnapshot,
-    CommandPollOutput, CommandSessionId, CommandStatus, CommandStream, CommandTranscriptRow,
-    CommandWorkspaceDestroyMetadata, CommandYield, ExecCommandInput, PollCommandInput,
-    ReadCommandLinesInput, WriteCommandStdinInput,
+    CancelCommandInput, CommandFinalizedMetadata, CommandLinesOutput, CommandOperationService,
+    CommandOutputSnapshot, CommandPollOutput, CommandSessionId, CommandStatus, CommandStream,
+    CommandTranscriptRow, CommandYield, ExecCommandInput, PollCommandInput, ReadCommandLinesInput,
+    WriteCommandStdinInput,
 };
 
 pub(crate) fn operation_entries() -> &'static [crate::operation::OperationEntry] {

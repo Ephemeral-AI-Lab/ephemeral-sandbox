@@ -59,7 +59,6 @@ It owns:
 - `resolve_session`
 - `capture_session_changes`
 - `destroy_session`
-- `finalize_one_shot_session`
 - remount state transitions through dedicated workspace-session service impls
 
 This layer is where command-facing workflows become workspace-runtime calls.

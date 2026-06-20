@@ -7,9 +7,9 @@ use command::yield_wait_loop::WaitOutcome;
 
 use super::command_yield_response;
 use crate::command::{
-    ActiveCommandProcess, CancellationState, CommandFinalizePolicy, CommandLifecycleState,
-    CommandOutputSnapshot, CommandServiceError, CommandSessionId, CommandTranscriptStore,
-    CommandYield, ExecCommandInput, FinalizationState,
+    ActiveCommandProcess, CancellationState, CommandLifecycleState, CommandOutputSnapshot,
+    CommandServiceError, CommandSessionId, CommandTranscriptStore, CommandYield, ExecCommandInput,
+    FinalizationState,
 };
 use crate::operation::{
     ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationFamily, OperationRequest, OperationResponse,
@@ -278,19 +278,16 @@ struct ResolvedExecWorkspace {
     handler: WorkspaceSessionHandler,
     workspace_session_id: WorkspaceSessionId,
     workspace_root: PathBuf,
-    finalize_policy: CommandFinalizePolicy,
 }
 
 impl ResolvedExecWorkspace {
     fn new(handler: WorkspaceSessionHandler) -> Self {
         let workspace_session_id = handler.workspace_session_id.clone();
         let workspace_root = handler.handle.workspace_root.clone();
-        let finalize_policy = finalize_policy(&workspace_session_id);
         Self {
             handler,
             workspace_session_id,
             workspace_root,
-            finalize_policy,
         }
     }
 
@@ -333,7 +330,6 @@ impl StartedCommand {
             transcript: CommandTranscriptStore {
                 transcript_path: self.transcript_path,
             },
-            finalize_policy: workspace.finalize_policy.clone(),
             lifecycle_state: CommandLifecycleState::Running,
             cancellation: CancellationState::None,
             remount_cancellation: None,
@@ -358,11 +354,5 @@ fn cleanup_process_artifacts_after_start_failure(
             artifact_dir: process.artifact_dir(),
             cleanup_error: cleanup_error.to_string(),
         },
-    }
-}
-
-fn finalize_policy(workspace_session_id: &WorkspaceSessionId) -> CommandFinalizePolicy {
-    CommandFinalizePolicy::Session {
-        workspace_session_id: workspace_session_id.clone(),
     }
 }

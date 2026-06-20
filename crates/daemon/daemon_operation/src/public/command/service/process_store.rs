@@ -239,7 +239,6 @@ pub struct ActiveCommandProcess {
     pub workspace_root: PathBuf,
     pub process: Arc<::command::CommandProcess>,
     pub transcript: CommandTranscriptStore,
-    pub finalize_policy: CommandFinalizePolicy,
     pub lifecycle_state: CommandLifecycleState,
     pub cancellation: CancellationState,
     pub remount_cancellation: Option<RemountCancellationToken>,
@@ -249,23 +248,12 @@ pub struct ActiveCommandProcess {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CommandFinalizePolicy {
-    Session {
-        workspace_session_id: WorkspaceSessionId,
-    },
-    OneShotPublishThenDestroy {
-        workspace_session_id: WorkspaceSessionId,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandLifecycleState {
     Running,
     QuiescedForRemount,
     Finalizing,
     Cancelled,
     FinalizationFailed,
-    DestroyPending,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -278,12 +266,6 @@ pub enum CancellationState {
 pub enum FinalizationState {
     NotStarted,
     InProgress,
-    ResponseBuffered {
-        finalized: CommandFinalizedMetadata,
-    },
-    WorkspaceDestroyPending {
-        finalized: CommandFinalizedMetadata,
-    },
     Complete,
     Failed {
         error: String,

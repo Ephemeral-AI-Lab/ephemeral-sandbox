@@ -3,10 +3,10 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use daemon_operation::command::{
-    ActiveCommandProcess, CancellationState, CommandCompletionStore, CommandFinalizePolicy,
-    CommandFinalizedMetadata, CommandLifecycleState, CommandProcessStore, CommandServiceError,
-    CommandSessionId, CommandStatus, CommandTerminalResult, CommandTranscriptStore,
-    CompletedCommandRecord, FinalizationState, RetainedCommandTranscript,
+    ActiveCommandProcess, CancellationState, CommandCompletionStore, CommandFinalizedMetadata,
+    CommandLifecycleState, CommandProcessStore, CommandServiceError, CommandSessionId,
+    CommandStatus, CommandTerminalResult, CommandTranscriptStore, CompletedCommandRecord,
+    FinalizationState, RetainedCommandTranscript,
 };
 use workspace::WorkspaceSessionId;
 
@@ -39,9 +39,6 @@ fn active_record(
         transcript: CommandTranscriptStore {
             transcript_path: Some(PathBuf::from("/tmp/transcript.jsonl")),
         },
-        finalize_policy: CommandFinalizePolicy::Session {
-            workspace_session_id,
-        },
         lifecycle_state: CommandLifecycleState::Running,
         cancellation: CancellationState::None,
         remount_cancellation: None,
@@ -67,7 +64,7 @@ fn completed_record(
             transcript_path: Some(PathBuf::from("/tmp/retained-transcript.jsonl")),
         },
         finalization: FinalizationState::Complete,
-        finalized: Some(CommandFinalizedMetadata::default()),
+        finalized: Some(CommandFinalizedMetadata),
         completed_at: Instant::now(),
     }
 }
@@ -132,12 +129,6 @@ fn command_process_store_active_records_are_command_session_id_keyed() {
         let active = store.active(&cmd_id).expect("active command exists");
         assert_eq!(active.command_session_id, cmd_id);
         assert_eq!(active.workspace_session_id, ws_id);
-        assert_eq!(
-            active.finalize_policy,
-            CommandFinalizePolicy::Session {
-                workspace_session_id: workspace_session_id("workspace-1")
-            }
-        );
     }
 
     let removed = store

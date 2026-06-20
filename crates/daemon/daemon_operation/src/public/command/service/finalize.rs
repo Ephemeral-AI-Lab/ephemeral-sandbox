@@ -1,13 +1,11 @@
 use std::time::Instant;
 
 use crate::command::{
-    CommandFinalizationOutcome, CommandFinalizePolicy, CommandFinalizedMetadata,
-    CommandFinalizedPolicy, CommandLifecycleState, CommandServiceError, CommandSessionId,
-    CommandStatus, CommandTerminalResult, CommandTranscriptStore, CommandWorkspaceDestroyMetadata,
-    CompletedCommandRecord, FinalizationState, RetainedCommandTranscript,
+    CommandFinalizedMetadata, CommandLifecycleState, CommandServiceError, CommandSessionId,
+    CommandStatus, CommandTerminalResult, CommandTranscriptStore, CompletedCommandRecord,
+    FinalizationState, RetainedCommandTranscript,
 };
-use crate::workspace_crate::{DestroyWorkspaceResult, WorkspaceSessionId};
-use crate::workspace_session::{OneShotSessionFinalization, PublishedSessionChanges};
+use crate::workspace_crate::WorkspaceSessionId;
 
 use super::CommandOperationService;
 
@@ -16,7 +14,6 @@ pub(crate) struct ActiveFinalizationRecord {
     command_session_id: CommandSessionId,
     workspace_session_id: WorkspaceSessionId,
     transcript: CommandTranscriptStore,
-    finalize_policy: CommandFinalizePolicy,
 }
 
 impl CommandOperationService {
@@ -27,14 +24,7 @@ impl CommandOperationService {
     ) -> Result<CommandTerminalResult, CommandServiceError> {
         let record = self.begin_finalization(&command_session_id)?;
         let result = terminal_result(&process_exit);
-        let finalized = match record.finalize_policy.clone() {
-            CommandFinalizePolicy::Session { .. } => {
-                self.finalize_session_command(&record, &process_exit)
-            }
-            CommandFinalizePolicy::OneShotPublishThenDestroy { .. } => {
-                self.finalize_one_shot_command(&record, &process_exit)
-            }
-        };
+        let finalized = self.finalize_session_command(&record, &process_exit);
 
         let finalized = match finalized {
             Ok(finalized) => finalized,
@@ -54,42 +44,9 @@ impl CommandOperationService {
         _record: &ActiveFinalizationRecord,
         _process_exit: &::command::process::CommandProcessExit,
     ) -> Result<CommandFinalizedMetadata, CommandServiceError> {
-        Ok(CommandFinalizedMetadata {
-            policy: CommandFinalizedPolicy::Session,
-            outcome: CommandFinalizationOutcome::SessionComplete,
-            ..CommandFinalizedMetadata::default()
-        })
+        Ok(CommandFinalizedMetadata)
     }
 
-    fn finalize_one_shot_command(
-        &self,
-        record: &ActiveFinalizationRecord,
-        process_exit: &::command::process::CommandProcessExit,
-    ) -> Result<CommandFinalizedMetadata, CommandServiceError> {
-        let handler = self
-            .workspace()
-            .resolve_session(record.workspace_session_id.clone())?;
-        let finalized = metadata_from_one_shot_finalization(
-            self.workspace()
-                .finalize_one_shot_session(handler, process_exit_succeeded(process_exit))?,
-        );
-
-        self.mark_active_finalization(
-            &record.command_session_id,
-            CommandLifecycleState::Finalizing,
-            FinalizationState::ResponseBuffered {
-                finalized: finalized.clone(),
-            },
-        )?;
-        self.mark_active_finalization(
-            &record.command_session_id,
-            CommandLifecycleState::DestroyPending,
-            FinalizationState::WorkspaceDestroyPending {
-                finalized: finalized.clone(),
-            },
-        )?;
-        Ok(finalized)
-    }
     fn begin_finalization(
         &self,
         command_session_id: &CommandSessionId,
@@ -111,7 +68,6 @@ impl CommandOperationService {
             command_session_id: active.command_session_id.clone(),
             workspace_session_id: active.workspace_session_id.clone(),
             transcript: active.transcript.clone(),
-            finalize_policy: active.finalize_policy.clone(),
         };
         drop(active);
 
@@ -201,48 +157,8 @@ fn process_exit_succeeded(process_exit: &::command::process::CommandProcessExit)
     process_exit.kill.is_none() && process_exit.exit_code == 0
 }
 
-fn metadata_from_one_shot_finalization(
-    finalization: OneShotSessionFinalization,
-) -> CommandFinalizedMetadata {
-    let mut finalized = match finalization.published {
-        Some(published) => metadata_from_published_session(published),
-        None => CommandFinalizedMetadata {
-            policy: CommandFinalizedPolicy::OneShotPublishThenDestroy,
-            outcome: CommandFinalizationOutcome::Discarded,
-            ..CommandFinalizedMetadata::default()
-        },
-    };
-    finalized.destroy = Some(destroy_metadata(finalization.destroy));
-    finalized
-}
-
-fn metadata_from_published_session(published: PublishedSessionChanges) -> CommandFinalizedMetadata {
-    CommandFinalizedMetadata {
-        policy: CommandFinalizedPolicy::OneShotPublishThenDestroy,
-        outcome: CommandFinalizationOutcome::Published,
-        changed_paths: published.changed_paths,
-        changed_path_kinds: published.changed_path_kinds,
-        protected_drop_count: published.protected_drop_count,
-        captured_change_count: published.captured_change_count,
-        metadata_path_count: published.metadata_path_count,
-        published_manifest_version: published.published_manifest_version,
-        destroy: None,
-    }
-}
-
-fn destroy_metadata(result: DestroyWorkspaceResult) -> CommandWorkspaceDestroyMetadata {
-    CommandWorkspaceDestroyMetadata {
-        evicted_upperdir_bytes: result.evicted_upperdir_bytes,
-        lease_released: result.lease_released,
-        lease_release_error: result.lease_release_error,
-        active_leases_after: result.active_leases_after,
-    }
-}
-
 fn retained_finalized_metadata(state: &FinalizationState) -> Option<CommandFinalizedMetadata> {
     match state {
-        FinalizationState::ResponseBuffered { finalized }
-        | FinalizationState::WorkspaceDestroyPending { finalized } => Some(finalized.clone()),
         FinalizationState::Failed { finalized, .. } => finalized.clone(),
         FinalizationState::NotStarted
         | FinalizationState::InProgress
