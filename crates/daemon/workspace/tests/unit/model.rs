@@ -118,7 +118,7 @@ fn public_handle_debug_marks_launch_available_without_exposing_internals() {
 }
 
 #[test]
-fn host_compatible_entry_uses_holder_launch_without_network_fd() {
+fn shared_network_entry_uses_holder_launch_without_network_fd() {
     let snapshot = LayerStackSnapshotRef {
         lease_id: LeaseId("lease-1".to_owned()),
         manifest_version: 1,
@@ -126,28 +126,28 @@ fn host_compatible_entry_uses_holder_launch_without_network_fd() {
         layer_paths: vec!["/lower/one".into()],
     };
     let handle = WorkspaceHandle::holder_backed_for_test(
-        WorkspaceSessionId("host-handle".to_owned()),
+        WorkspaceSessionId("shared-handle".to_owned()),
         "/workspace".into(),
-        WorkspaceProfile::HostCompatible,
+        WorkspaceProfile::SharedNetwork,
         snapshot,
-        "/upper/host".into(),
-        "/work/host".into(),
-        Some("/sys/fs/cgroup/eos-host".into()),
+        "/upper/shared".into(),
+        "/work/shared".into(),
+        Some("/sys/fs/cgroup/eos-shared".into()),
     );
 
-    let entry = handle.entry().expect("host-compatible launch is valid");
+    let entry = handle.entry().expect("shared-network launch is valid");
 
     assert_eq!(entry.ns_fds.user, 10);
     assert_eq!(entry.ns_fds.mnt, 11);
     assert_eq!(entry.ns_fds.pid, 12);
     assert_eq!(entry.ns_fds.net, None);
-    assert_eq!(entry.cgroup_path, Some("/sys/fs/cgroup/eos-host".into()));
+    assert_eq!(entry.cgroup_path, Some("/sys/fs/cgroup/eos-shared".into()));
 }
 
 #[test]
 fn entry_rejects_incomplete_holder_launch() {
     let mut missing_mount = workspace_mode_handle();
-    missing_mount.profile = WorkspaceProfile::HostCompatible;
+    missing_mount.profile = WorkspaceProfile::SharedNetwork;
     missing_mount.ns_fds.mnt = None;
 
     let mut missing_net = workspace_mode_handle();
@@ -176,7 +176,7 @@ fn public_dto_debug_does_not_expose_internal_storage_or_namespace_fields() {
             CreateWorkspaceRequest {
                 workspace_root: "/workspace".into(),
                 layer_stack_root: "/layers".into(),
-                profile: WorkspaceProfile::HostCompatible,
+                profile: WorkspaceProfile::SharedNetwork,
             }
         ),
         format!(
@@ -184,7 +184,7 @@ fn public_dto_debug_does_not_expose_internal_storage_or_namespace_fields() {
             WorkspaceHandle::without_launch_for_test(
                 WorkspaceSessionId("workspace".to_owned()),
                 "/workspace".into(),
-                WorkspaceProfile::HostCompatible,
+                WorkspaceProfile::SharedNetwork,
                 LayerStackSnapshotRef {
                     lease_id: LeaseId("lease".to_owned()),
                     manifest_version: 1,
@@ -241,7 +241,7 @@ fn public_dto_debug_does_not_expose_internal_storage_or_namespace_fields() {
                 handle: WorkspaceHandle::without_launch_for_test(
                     WorkspaceSessionId("workspace".to_owned()),
                     "/workspace".into(),
-                    WorkspaceProfile::HostCompatible,
+                    WorkspaceProfile::SharedNetwork,
                     LayerStackSnapshotRef {
                         lease_id: LeaseId("lease".to_owned()),
                         manifest_version: 1,
@@ -318,12 +318,12 @@ fn public_dtos_construct_clone_and_compare() {
     let create = CreateWorkspaceRequest {
         workspace_root: "/workspace".into(),
         layer_stack_root: "/layers".into(),
-        profile: WorkspaceProfile::HostCompatible,
+        profile: WorkspaceProfile::SharedNetwork,
     };
     let handle = WorkspaceHandle::without_launch_for_test(
         WorkspaceSessionId("workspace".to_owned()),
         "/workspace".into(),
-        WorkspaceProfile::HostCompatible,
+        WorkspaceProfile::SharedNetwork,
         LayerStackSnapshotRef {
             lease_id: LeaseId("lease".to_owned()),
             manifest_version: 1,

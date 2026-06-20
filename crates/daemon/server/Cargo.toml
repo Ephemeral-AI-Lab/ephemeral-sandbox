@@ -7,7 +7,7 @@ license.workspace = true
 
 [dependencies]
 daemon_operation.workspace = true
-daemon_rpc_protocol.workspace = true
+sandbox-protocol.workspace = true
 # preserve_order keeps incoming operation arguments in caller order while this
 # crate still accepts raw JSON requests.
 serde_json = { workspace = true, features = ["preserve_order"] }

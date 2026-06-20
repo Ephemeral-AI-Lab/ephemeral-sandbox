@@ -12,7 +12,7 @@ pub(crate) const TEST_HARNESS_ENV: &str = "EOS_ISOLATED_WORKSPACE_TEST_HARNESS";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum NamespaceNetwork {
-    Host,
+    Shared,
     IsolatedNetwork,
 }
 
@@ -20,7 +20,7 @@ impl NamespaceNetwork {
     #[cfg(target_os = "linux")]
     pub(crate) const fn holder_arg(self) -> &'static str {
         match self {
-            Self::Host => "host",
+            Self::Shared => "shared",
             Self::IsolatedNetwork => "isolated",
         }
     }
@@ -56,9 +56,9 @@ pub(crate) struct NamespacePlan {
 }
 
 impl NamespacePlan {
-    pub(crate) const fn host_workspace() -> Self {
+    pub(crate) const fn shared_network() -> Self {
         Self {
-            network: NamespaceNetwork::Host,
+            network: NamespaceNetwork::Shared,
         }
     }
 

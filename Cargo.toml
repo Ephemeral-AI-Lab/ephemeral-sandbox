@@ -6,7 +6,7 @@ members = [
     "crates/daemon/config",
     "crates/daemon/eosd",
     "crates/daemon/server",
-    "crates/daemon/rpc_protocol",
+    "crates/sandbox-protocol",
     "crates/daemon/workspace",
     "crates/daemon/namespace-process",
     "crates/daemon/layerstack",
@@ -54,7 +54,7 @@ command = { path = "crates/daemon/command" }
 config = { path = "crates/daemon/config" }
 layerstack = { path = "crates/daemon/layerstack" }
 daemon_operation = { path = "crates/daemon/operation" }
-daemon_rpc_protocol = { path = "crates/daemon/rpc_protocol" }
+sandbox-protocol = { path = "crates/sandbox-protocol" }
 overlay = { path = "crates/daemon/overlay" }
 namespace-process = { path = "crates/daemon/namespace-process" }
 daemon = { path = "crates/daemon/server" }

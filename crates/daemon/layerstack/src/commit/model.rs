@@ -20,7 +20,7 @@ pub enum CommitStatus {
 
 impl CommitStatus {
     #[must_use]
-    pub const fn wire_str(self) -> &'static str {
+    pub const fn status_str(self) -> &'static str {
         match self {
             Self::Accepted => "accepted",
             Self::Committed => "committed",

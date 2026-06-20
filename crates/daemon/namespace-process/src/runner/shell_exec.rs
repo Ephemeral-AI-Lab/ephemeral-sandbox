@@ -99,7 +99,7 @@ pub(crate) fn execute_shell(
         exit_code,
         payload: serde_json::json!({
             "success": exit_code == 0,
-            "workspace": "host",
+            "workspace": "shared",
             "timings": timings.into_json(run_start),
             "conflict": null,
             "conflict_reason": null,

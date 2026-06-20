@@ -44,7 +44,7 @@ impl DaemonServer {
 }
 
 fn encode_response(response: &serde_json::Value) -> Vec<u8> {
-    daemon_rpc_protocol::response_line(response)
+    sandbox_protocol::response_line(response)
 }
 
 async fn read_request_line<R>(reader: &mut R) -> Result<Vec<u8>, DaemonError>

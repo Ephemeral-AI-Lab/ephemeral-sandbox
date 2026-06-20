@@ -21,7 +21,7 @@ pub const TEST_HOLDER_CRASH_ENV: &str = "EOS_ISOLATED_WORKSPACE_TEST_HOLDER_CRAS
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NamespaceNetwork {
-    Host,
+    Shared,
     Isolated,
 }
 

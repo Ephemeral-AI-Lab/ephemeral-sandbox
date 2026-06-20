@@ -250,7 +250,7 @@ fn validate_gated_group(
                     message: format!(
                         "opaque directory descendant {}: {}",
                         path.as_str(),
-                        result.conflict_message(result.status.wire_str())
+                        result.conflict_message(result.status.status_str())
                     ),
                     observed_version: result.observed_version,
                     observed_state: result.observed_state,

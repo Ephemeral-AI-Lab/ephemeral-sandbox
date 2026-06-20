@@ -1,4 +1,4 @@
-use daemon_rpc_protocol::{decode_request_object, ArgsPresence};
+use sandbox_protocol::{decode_request_object, ArgsPresence};
 use serde_json::json;
 
 #[test]

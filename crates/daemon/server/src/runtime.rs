@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use daemon_operation::DaemonOperations;
-pub(crate) use daemon_rpc_protocol::{MAX_REQUEST_BYTES, REQUEST_READ_TIMEOUT_S};
+pub(crate) use sandbox_protocol::{MAX_REQUEST_BYTES, REQUEST_READ_TIMEOUT_S};
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
@@ -45,11 +45,7 @@ pub(crate) fn error_response(
     message: impl Into<String>,
     details: Value,
 ) -> Value {
-    daemon_rpc_protocol::response::error_response_with_details(
-        kind,
-        message,
-        fault_details(details),
-    )
+    sandbox_protocol::response::error_response_with_details(kind, message, fault_details(details))
 }
 
 fn fault_details(details: Value) -> Value {

@@ -277,7 +277,7 @@ pub fn create_request(workspace_root: PathBuf) -> CreateWorkspaceRequest {
     CreateWorkspaceRequest {
         workspace_root,
         layer_stack_root: PathBuf::from("/layers"),
-        profile: WorkspaceProfile::HostCompatible,
+        profile: WorkspaceProfile::SharedNetwork,
     }
 }
 

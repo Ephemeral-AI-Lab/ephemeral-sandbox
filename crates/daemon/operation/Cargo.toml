@@ -7,7 +7,7 @@ license.workspace = true
 
 [dependencies]
 command.workspace = true
-daemon_rpc_protocol.workspace = true
+sandbox-protocol.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 workspace.workspace = true

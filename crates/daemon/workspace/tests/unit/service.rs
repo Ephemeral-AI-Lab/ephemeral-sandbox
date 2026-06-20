@@ -40,11 +40,11 @@ fn runtime_service_create_and_destroy_are_backed_by_impl_files() -> TestResult {
     let handle = service.create_workspace(CreateWorkspaceRequest {
         workspace_root: fixture.workspace_root.clone(),
         layer_stack_root: fixture.layer_stack_root.clone(),
-        profile: WorkspaceProfile::HostCompatible,
+        profile: WorkspaceProfile::SharedNetwork,
     })?;
 
     assert_eq!(handle.workspace_root, fixture.workspace_root);
-    assert_eq!(handle.profile, WorkspaceProfile::HostCompatible);
+    assert_eq!(handle.profile, WorkspaceProfile::SharedNetwork);
     assert_eq!(handle.snapshot.manifest_version, 1);
     assert_eq!(
         layerstack::LayerStack::open(fixture.layer_stack_root.clone())?.active_lease_count(),

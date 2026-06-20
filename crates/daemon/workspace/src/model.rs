@@ -91,15 +91,15 @@ impl From<layerstack::service::LeasedSnapshot> for LayerStackSnapshotRef {
 /// Workspace environment profile for a private mounted workspace.
 ///
 /// The selector reflects the current concrete split: whether the workspace
-/// preserves host-compatible network access or adds a dedicated network
-/// boundary. It does not encode lifecycle length, publication behavior, or
+/// uses the shared network path or adds a dedicated network boundary. It does
+/// not encode lifecycle length, publication behavior, or
 /// whether the caller is running a one-shot operation. Those decisions belong
 /// to the runtime or operation layer that owns the workspace handle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorkspaceProfile {
-    /// Host-compatible profile: private overlay and holder namespace stack with
-    /// host network access.
-    HostCompatible,
+    /// Shared-network profile: private overlay and holder namespace stack with
+    /// shared network access.
+    SharedNetwork,
     /// Fully isolated profile: private overlay and holder namespace stack plus
     /// a dedicated network boundary.
     Isolated,
@@ -109,7 +109,7 @@ impl WorkspaceProfile {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::HostCompatible => "host_compatible",
+            Self::SharedNetwork => "shared_network",
             Self::Isolated => "isolated",
         }
     }

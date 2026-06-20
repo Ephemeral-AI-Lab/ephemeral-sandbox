@@ -201,7 +201,7 @@ fn create_request() -> CreateWorkspaceRequest {
     CreateWorkspaceRequest {
         workspace_root: PathBuf::from("/workspace"),
         layer_stack_root: PathBuf::from("/layers"),
-        profile: WorkspaceProfile::HostCompatible,
+        profile: WorkspaceProfile::SharedNetwork,
     }
 }
 
@@ -215,7 +215,7 @@ fn workspace_handle(workspace_session_id: &str, lease_id: &str) -> WorkspaceHand
     WorkspaceHandle::without_launch_for_test(
         WorkspaceSessionId(workspace_session_id.to_owned()),
         PathBuf::from("/workspace"),
-        WorkspaceProfile::HostCompatible,
+        WorkspaceProfile::SharedNetwork,
         snapshot,
     )
 }

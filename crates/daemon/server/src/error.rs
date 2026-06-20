@@ -1,6 +1,6 @@
 //! Daemon error algebra and response-kind mapping.
 
-use daemon_rpc_protocol::error_kind;
+use sandbox_protocol::error_kind;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

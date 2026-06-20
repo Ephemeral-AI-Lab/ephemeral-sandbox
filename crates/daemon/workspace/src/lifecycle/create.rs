@@ -15,13 +15,13 @@ use crate::profile::{
 };
 
 impl WorkspaceModeManager {
-    pub(crate) fn wire_handle(
+    pub(crate) fn initialize_handle(
         &mut self,
         handle: &mut WorkspaceModeHandle,
     ) -> Result<HashMap<String, f64>, IsolatedNetworkError> {
         let layer_paths = handle.layer_paths.clone();
         let namespace_plan = match handle.profile {
-            WorkspaceProfile::HostCompatible => NamespacePlan::host_workspace(),
+            WorkspaceProfile::SharedNetwork => NamespacePlan::shared_network(),
             WorkspaceProfile::Isolated => NamespacePlan::isolated(),
         };
         let mut phases_ms = HashMap::new();
@@ -144,7 +144,7 @@ impl WorkspaceModeManager {
             last_activity: now,
         };
 
-        if let Err(err) = self.wire_handle(&mut handle) {
+        if let Err(err) = self.initialize_handle(&mut handle) {
             self.rollback_partial(&handle);
             return Err(err);
         }

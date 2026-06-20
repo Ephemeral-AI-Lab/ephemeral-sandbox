@@ -17,7 +17,7 @@ be structural, not inferred from a loose operation family tag.
 
 ## Target Workspace Shape
 
-First target, optimized for a reviewable migration:
+Target shape:
 
 ```text
 crates/
@@ -25,64 +25,76 @@ crates/
   sandbox-manager/
   sandbox-gateway-cli/
   sandbox-daemon/
-  sandbox-daemon-operation/
 
-  daemon/command/
-  daemon/workspace/
-  daemon/namespace-process/
-  daemon/layerstack/
-  daemon/overlay/
-  daemon/config/
+  sandbox-runtime/
+    operation/          # package: sandbox-runtime
+    command/
+    workspace/
+    namespace-process/
+    layerstack/
+    overlay/
+    config/
 ```
 
-The remaining `crates/daemon/*` runtime crates are support crates for the first
-split. They can be renamed in a later mechanical wave after the authority split
-is stable.
+The `sandbox-runtime/*` crates are runtime support crates for the in-sandbox
+daemon. They are grouped together because they implement daemon behavior, but
+only the `sandbox-runtime` package owns the daemon operation catalog.
 
-Longer-term optional shape:
+Do not collapse the support crates into the `sandbox-runtime` facade package.
+Keep them as separate packages under the shared folder so dependency direction
+stays explicit.
+
+Top-level crate specs live in:
 
 ```text
-crates/
-  sandbox-protocol/
-  sandbox-manager/
-  sandbox-gateway-cli/
-  sandbox-daemon/
-  sandbox-daemon-operation/
-  sandbox-command/
-  sandbox-workspace/
-  sandbox-namespace-process/
-  sandbox-layerstack/
-  sandbox-overlay/
-  sandbox-config/
+docs/refactoring/sandbox-protocol.md
+docs/refactoring/sandbox-manager.md
+docs/refactoring/sandbox-gateway-cli.md
+docs/refactoring/sandbox-daemon.md
 ```
 
-Do not perform the longer-term runtime crate rename in the same batch as the
-manager/daemon split.
+Grouped runtime crate specs live in:
+
+```text
+docs/refactoring/sandbox-runtime.md
+```
+
+The phase-by-phase implementation guide lives in:
+
+```text
+docs/refactoring/sandbox-implementation-guide.md
+```
 
 ## Naming Decisions
 
 | Current | Target | Notes |
 |---|---|---|
 | `daemon_rpc_protocol` | `sandbox-protocol` | Shared process contract, not daemon-owned behavior. |
-| `daemon_operation` | `sandbox-daemon-operation` | Concrete daemon operation catalog and dispatch. |
+| `daemon_operation` | `sandbox-runtime` | Concrete daemon/runtime operation catalog and dispatch. |
 | `daemon` server crate | `sandbox-daemon` | In-sandbox RPC server and daemon binary entrypoint. |
 | `eosd` binary crate | part of `sandbox-daemon` | Keep `eosd` as a compatibility bin during migration. |
+| `command` | `sandbox-runtime-command` | Command process, PTY, transcript, and lifecycle primitives. |
+| `workspace` | `sandbox-runtime-workspace` | Workspace lifecycle, handles, capture, destroy, remount. |
+| `namespace-process` | `sandbox-runtime-namespace-process` | `ns-holder` and `ns-runner` subprocess bodies. |
+| `layerstack` | `sandbox-runtime-layerstack` | Layer/CAS/manifest storage and publish mechanics. |
+| `overlay` | `sandbox-runtime-overlay` | Low-level overlayfs mount primitives. |
+| `config` | `sandbox-runtime-config` | Runtime config loading and schemas. |
 | gateway concept | `sandbox-gateway-cli` | Crate is CLI-specific; installed binary can be `sandbox`. |
 
 Package names should use hyphens. Rust crate imports use underscores:
 
 ```rust
 use sandbox_protocol::{Request, Response};
-use sandbox_daemon_operation::operation_specs;
+use sandbox_runtime::operation_specs;
 ```
 
 ## Authority Boundary
 
-The manager and daemon expose separate operation catalogs.
+The manager and daemon runtime expose separate operation catalogs.
 
 ```text
 sandbox_manager::operation_specs()
-sandbox_daemon_operation::operation_specs()
+sandbox_runtime::operation_specs()
 ```
 
 Do not merge these into one catalog with a `Manager` or `Daemon` family. An
@@ -214,10 +226,11 @@ sandbox-daemon ns-holder
 During migration, keep a compatibility binary named `eosd` that dispatches to
 the same implementation.
 
-`sandbox-daemon-operation` owns daemon operation semantics:
+The `sandbox-runtime` package owns daemon operation semantics:
 
 ```text
-sandbox-daemon-operation/
+sandbox-runtime/operation/
+  Cargo.toml          # package: sandbox-runtime
   src/lib.rs
   src/operation.rs
   src/public/command/
@@ -357,31 +370,32 @@ cargo check -p sandbox-protocol -p daemon_operation -p daemon
 cargo test -p sandbox-protocol -p daemon_operation
 ```
 
-### 2. Split Daemon Operation Catalog
+### 2. Split Runtime Operation Catalog
 
 Module order:
 
-1. Rename `daemon_operation` package to `sandbox-daemon-operation`.
-2. Rename imports to `sandbox_daemon_operation`.
-3. Keep current module shape:
+1. Move `crates/daemon/operation` to `crates/sandbox-runtime/operation`.
+2. Rename `daemon_operation` package to `sandbox-runtime`.
+3. Rename imports to `sandbox_runtime`.
+4. Keep current module shape:
    - `public/command`
    - `internal/workspace_session`
    - `internal/workspace_remount`
-4. Rename aggregate types only when the crate compiles:
+5. Rename aggregate types only when the crate compiles:
    - `DaemonOperations` -> `SandboxDaemonOperations`
    - `OperationRequest` aliases continue to point at `sandbox_protocol`.
-5. Export daemon operation catalog:
-   - `sandbox_daemon_operation::operation_specs()`
-   - `sandbox_daemon_operation::operation_catalog()`
+6. Export daemon operation catalog:
+   - `sandbox_runtime::operation_specs()`
+   - `sandbox_runtime::operation_catalog()`
 
 Do not add manager operations to this crate.
 
 Verification:
 
 ```sh
-cargo fmt --check -p sandbox-daemon-operation
-cargo check -p sandbox-daemon-operation --tests
-cargo test -p sandbox-daemon-operation
+cargo fmt --check -p sandbox-runtime
+cargo check -p sandbox-runtime --tests
+cargo test -p sandbox-runtime
 ```
 
 ### 3. Rename Server/Binary Into `sandbox-daemon`
@@ -418,9 +432,9 @@ Module order:
 Verification:
 
 ```sh
-cargo fmt --check -p sandbox-daemon -p sandbox-daemon-operation
-cargo check -p sandbox-daemon -p sandbox-daemon-operation
-cargo test -p sandbox-daemon -p sandbox-daemon-operation
+cargo fmt --check -p sandbox-daemon -p sandbox-runtime
+cargo check -p sandbox-daemon -p sandbox-runtime
+cargo test -p sandbox-daemon -p sandbox-runtime
 ```
 
 ### 4. Create `sandbox-manager` Model And Catalog
@@ -554,8 +568,8 @@ Only after all new names work:
 
    ```sh
    cargo fmt --check
-   cargo check -p sandbox-protocol -p sandbox-daemon-operation -p sandbox-daemon -p sandbox-manager -p sandbox-gateway-cli
-   cargo test -p sandbox-protocol -p sandbox-daemon-operation -p sandbox-daemon -p sandbox-manager -p sandbox-gateway-cli
+   cargo check -p sandbox-protocol -p sandbox-manager -p sandbox-gateway-cli -p sandbox-daemon -p sandbox-runtime -p sandbox-runtime-command -p sandbox-runtime-workspace -p sandbox-runtime-namespace-process -p sandbox-runtime-layerstack -p sandbox-runtime-overlay -p sandbox-runtime-config
+   cargo test -p sandbox-protocol -p sandbox-manager -p sandbox-gateway-cli -p sandbox-daemon -p sandbox-runtime -p sandbox-runtime-command -p sandbox-runtime-workspace -p sandbox-runtime-namespace-process -p sandbox-runtime-layerstack -p sandbox-runtime-overlay -p sandbox-runtime-config
    ```
 
 ## Non-Goals
@@ -570,6 +584,7 @@ Only after all new names work:
 ## Success Criteria
 
 - `sandbox-manager` and `sandbox-daemon` have separate operation catalogs.
+- `sandbox-runtime` owns the daemon catalog exposed by `sandbox-daemon`.
 - `sandbox-gateway-cli` can generate/manual-render both catalogs separately.
 - `sandbox-manager` can route a daemon operation to a selected sandbox daemon.
 - `sandbox-daemon` can execute existing command operations unchanged in meaning.

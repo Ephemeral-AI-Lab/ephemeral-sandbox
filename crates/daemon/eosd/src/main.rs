@@ -61,7 +61,7 @@ fn main() -> Result<()> {
     }
 }
 
-/// `eosd ns-holder <readiness_fd> <control_fd> [host|isolated]` — become the
+/// `eosd ns-holder <readiness_fd> <control_fd> [shared|isolated]` — become the
 /// single-threaded child that creates and pins a workspace namespace stack and
 /// runs the readiness handshake, then `pause()`s until `SIGTERM`.
 ///
@@ -105,9 +105,9 @@ fn parse_holder_network(
 ) -> Result<namespace_process::holder::NamespaceNetwork> {
     match value.as_deref() {
         None | Some("isolated") => Ok(namespace_process::holder::NamespaceNetwork::Isolated),
-        Some("host") => Ok(namespace_process::holder::NamespaceNetwork::Host),
+        Some("shared") => Ok(namespace_process::holder::NamespaceNetwork::Shared),
         Some(other) => Err(anyhow!(
-            "invalid ns-holder network mode {other:?}; expected host or isolated"
+            "invalid ns-holder network mode {other:?}; expected shared or isolated"
         )),
     }
 }

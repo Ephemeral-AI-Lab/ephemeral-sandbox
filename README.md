@@ -1,7 +1,7 @@
 # EphemeralOS Sandbox
 
 EphemeralOS is now centered on the in-container daemon and its runtime crates.
-The former host fleet manager and sandbox gateway crates have been removed.
+The former fleet manager and sandbox gateway crates have been removed.
 
 ```
 RPC caller

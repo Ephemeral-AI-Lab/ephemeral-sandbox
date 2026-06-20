@@ -3,7 +3,7 @@ use std::sync::Arc;
 use super::DaemonServer;
 use crate::error::DaemonError;
 use daemon_operation::OperationRequest;
-use daemon_rpc_protocol::{decode_request_object, error_kind, ArgsPresence, DAEMON_AUTH_FIELD};
+use sandbox_protocol::{decode_request_object, error_kind, ArgsPresence, DAEMON_AUTH_FIELD};
 use serde_json::{Map, Value};
 
 impl DaemonServer {

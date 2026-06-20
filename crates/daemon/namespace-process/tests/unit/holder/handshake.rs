@@ -71,7 +71,7 @@ fn finish_ready_writes_ready_token() -> TestResult {
     let handshake = Handshake::new(
         readiness_write.as_raw_fd(),
         control_write.as_raw_fd(),
-        NamespaceNetwork::Host,
+        NamespaceNetwork::Shared,
         held_namespaces_for_test()?,
     );
 

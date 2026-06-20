@@ -270,7 +270,7 @@ fn build_services_with_launch_driver(
 }
 
 fn create_request(workspace_root: PathBuf) -> CreateWorkspaceRequest {
-    create_request_with_profile(workspace_root, WorkspaceProfile::HostCompatible)
+    create_request_with_profile(workspace_root, WorkspaceProfile::SharedNetwork)
 }
 
 fn create_request_with_profile(
@@ -302,7 +302,7 @@ fn workspace_handle(
         workspace_session_id,
         lease_id,
         workspace_root,
-        WorkspaceProfile::HostCompatible,
+        WorkspaceProfile::SharedNetwork,
     )
 }
 

@@ -1,5 +1,5 @@
 [package]
-name = "daemon_rpc_protocol"
+name = "sandbox-protocol"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

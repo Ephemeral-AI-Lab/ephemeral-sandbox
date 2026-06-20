@@ -6,8 +6,8 @@
 //! `WorkspaceProfile` selects the isolation profile applied to that workspace; higher
 //! layers decide when a workspace is created, destroyed, captured, or published.
 //!
-//! The host-compatible profile keeps the private workspace overlay and holder
-//! namespace stack while preserving host network access. The isolated profile
+//! The shared-network profile keeps the private workspace overlay and holder
+//! namespace stack while preserving shared network access. The isolated profile
 //! adds a dedicated network boundary with veth, DNS, and network policy.
 //! `overlay` holds the filesystem and telemetry contracts both profiles share,
 //! while common lifecycle code owns holder, namespace FD, scratch, and cgroup
