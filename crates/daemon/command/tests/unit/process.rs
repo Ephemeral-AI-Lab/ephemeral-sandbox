@@ -198,7 +198,6 @@ fn process_spawn_cleanup_removes_prepared_artifacts() -> Result<(), Box<dyn std:
     ));
     let config = CommandConfig {
         scratch_root: root.clone(),
-        ..CommandConfig::default()
     };
     let spawn = CommandProcessSpawn::prepare("cmd_8", workspace_entry(), &config)?;
     std::fs::write(&spawn.transcript_path, b"partial output")?;

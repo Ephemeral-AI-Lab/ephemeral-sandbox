@@ -361,7 +361,6 @@ fn test_command_config() -> command::CommandConfig {
             std::process::id(),
             unique_suffix()
         )),
-        ..command::CommandConfig::default()
     }
 }
 
