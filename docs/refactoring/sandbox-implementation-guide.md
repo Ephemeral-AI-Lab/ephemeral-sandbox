@@ -540,6 +540,12 @@ Exit criteria:
 
 ## Phase 6: Add `sandbox-gateway-cli`
 
+Prompt:
+
+```text
+docs/refactoring/sandbox-phase-6-gateway-cli-prompt.md
+```
+
 Goal:
 
 - Add the human-facing command line.

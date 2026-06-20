@@ -8,6 +8,8 @@ pub struct SandboxResponse {
     value: Value,
 }
 
+pub type Response = SandboxResponse;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResponseStatus {

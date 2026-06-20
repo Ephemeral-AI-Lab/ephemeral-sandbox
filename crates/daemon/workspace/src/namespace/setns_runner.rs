@@ -40,7 +40,7 @@ impl NamespaceRuntime {
         layer_paths: &[PathBuf],
         setup_timeout_s: f64,
     ) -> Result<(), IsolatedNetworkError> {
-        if self.stub || handle.holder_pid <= 0 {
+        if self.bypasses_kernel_setup() || handle.holder_pid <= 0 {
             return Ok(());
         }
         #[cfg(not(target_os = "linux"))]
@@ -62,7 +62,7 @@ impl NamespaceRuntime {
         probe: &RemountProbe,
         setup_timeout_s: f64,
     ) -> Result<RemountOverlayReport, IsolatedNetworkError> {
-        if self.stub || handle.holder_pid <= 0 {
+        if self.bypasses_kernel_setup() || handle.holder_pid <= 0 {
             return Ok(RemountOverlayReport::verified_stub(layer_paths.len()));
         }
         #[cfg(not(target_os = "linux"))]
@@ -93,7 +93,7 @@ impl NamespaceRuntime {
         handle: &WorkspaceModeHandle,
         setup_timeout_s: f64,
     ) -> Result<(), IsolatedNetworkError> {
-        if self.stub || handle.holder_pid <= 0 {
+        if self.bypasses_kernel_setup() || handle.holder_pid <= 0 {
             return Ok(());
         }
         #[cfg(not(target_os = "linux"))]

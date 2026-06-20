@@ -96,14 +96,12 @@ impl Fixture {
     }
 
     fn service(&self) -> WorkspaceRuntimeService {
+        std::env::set_var("EOS_ISOLATED_WORKSPACE_TEST_HARNESS", "1");
         let caps = ResourceCaps {
             eos_workspace_root: self.workspace_root.to_string_lossy().into_owned(),
             ..ResourceCaps::default()
         };
-        WorkspaceRuntimeService::new(WorkspaceModeManager::stubbed(
-            caps,
-            self.scratch_root.clone(),
-        ))
+        WorkspaceRuntimeService::new(WorkspaceModeManager::new(caps, self.scratch_root.clone()))
     }
 }
 

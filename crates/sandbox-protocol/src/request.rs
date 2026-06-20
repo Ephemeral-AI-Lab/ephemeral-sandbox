@@ -1,16 +1,20 @@
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
 use crate::error_kind;
 use crate::response::SandboxResponse;
 use crate::scope::OperationScope;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SandboxRequest {
     pub op: String,
     pub request_id: String,
     pub scope: OperationScope,
     pub args: Value,
 }
+
+pub type OwnedRequest = SandboxRequest;
+pub type RpcRequest = SandboxRequest;
 
 impl SandboxRequest {
     #[must_use]

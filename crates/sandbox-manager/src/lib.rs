@@ -6,6 +6,7 @@ pub mod error;
 pub mod model;
 pub mod operation;
 pub mod runtime;
+pub mod server;
 pub mod store;
 
 pub use daemon_client::SandboxDaemonClient;
@@ -17,4 +18,5 @@ pub use operation::{
     ManagerOperationEntry, ManagerServices,
 };
 pub use runtime::SandboxRuntime;
+pub use server::{SandboxManagerServer, ServerConfig, ServerError};
 pub use store::SandboxStore;

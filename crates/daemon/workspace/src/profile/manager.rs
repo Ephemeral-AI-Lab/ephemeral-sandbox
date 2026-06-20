@@ -113,8 +113,8 @@ pub struct WorkspaceModeManager {
 
 impl WorkspaceModeManager {
     #[must_use]
-    pub fn stubbed(caps: ResourceCaps, scratch_root: PathBuf) -> Self {
-        Self::with_runtime(caps, scratch_root, NamespaceRuntime::stubbed())
+    pub fn new(caps: ResourceCaps, scratch_root: PathBuf) -> Self {
+        Self::with_runtime(caps, scratch_root, NamespaceRuntime::new())
     }
 
     pub(crate) fn with_runtime(

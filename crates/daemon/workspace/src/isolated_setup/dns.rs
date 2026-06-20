@@ -19,7 +19,7 @@ impl NamespaceRuntime {
         fallback_dns: &str,
         setup_timeout_s: f64,
     ) -> Result<DnsConfiguration, IsolatedNetworkError> {
-        if self.stub || handle.holder_pid <= 0 {
+        if self.bypasses_kernel_setup() || handle.holder_pid <= 0 {
             return Ok(DnsConfiguration::default());
         }
         #[cfg(not(target_os = "linux"))]

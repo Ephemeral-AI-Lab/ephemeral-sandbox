@@ -34,7 +34,7 @@ impl NamespaceRuntime {
         holder_pid: i32,
         plan: NamespacePlan,
     ) -> Result<WorkspaceModeFds, IsolatedNetworkError> {
-        if self.stub {
+        if self.bypasses_kernel_setup() {
             return open_stub_ns_fds(plan);
         }
         if holder_pid <= 0 {

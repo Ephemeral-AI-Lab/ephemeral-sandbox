@@ -73,7 +73,7 @@ impl WorkspaceModeManager {
         phases_ms: &mut HashMap<String, f64>,
     ) -> Result<(), IsolatedNetworkError> {
         let phase_start = Instant::now();
-        let veth = if self.runtime.stub {
+        let veth = if self.runtime.bypasses_kernel_setup() {
             self.network.install_stub_veth(&handle.workspace_id.0)?
         } else {
             self.network.initialize()?;

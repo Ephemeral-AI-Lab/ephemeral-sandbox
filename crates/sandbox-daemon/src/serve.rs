@@ -74,10 +74,7 @@ fn build_runtime_operations(
 ) -> sandbox_runtime::SandboxDaemonOperations {
     let caps = workspace_resource_caps(&config.isolated);
     let workspace_runtime = Arc::new(workspace::WorkspaceRuntimeService::new(
-        workspace::profile::WorkspaceModeManager::stubbed(
-            caps,
-            config.isolated.scratch_root.clone(),
-        ),
+        workspace::profile::WorkspaceModeManager::new(caps, config.isolated.scratch_root.clone()),
     ));
     let workspace_session = Arc::new(
         sandbox_runtime::workspace_session::WorkspaceSessionService::new(workspace_runtime),

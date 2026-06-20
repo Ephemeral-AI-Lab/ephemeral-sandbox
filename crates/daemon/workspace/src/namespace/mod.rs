@@ -94,7 +94,7 @@ pub(crate) fn test_harness_enabled() -> bool {
 }
 
 pub(crate) struct NamespaceRuntime {
-    pub(crate) stub: bool,
+    bypass_kernel_setup: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -106,7 +106,13 @@ pub(crate) struct HolderKillReport {
 }
 
 impl NamespaceRuntime {
-    pub(crate) fn stubbed() -> Self {
-        Self { stub: true }
+    pub(crate) fn new() -> Self {
+        Self {
+            bypass_kernel_setup: !cfg!(target_os = "linux") || test_harness_enabled(),
+        }
+    }
+
+    pub(crate) const fn bypasses_kernel_setup(&self) -> bool {
+        self.bypass_kernel_setup
     }
 }

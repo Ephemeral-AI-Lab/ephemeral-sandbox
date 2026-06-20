@@ -10,7 +10,7 @@ impl NamespaceRuntime {
         &self,
         handle: &WorkspaceModeHandle,
     ) -> Result<PathBuf, IsolatedNetworkError> {
-        if self.stub {
+        if self.bypasses_kernel_setup() {
             return Ok(PathBuf::new());
         }
         let path = PathBuf::from(crate::profile::CGROUP_ROOT).join(format!(

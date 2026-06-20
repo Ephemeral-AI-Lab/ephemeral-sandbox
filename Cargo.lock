@@ -865,6 +865,8 @@ dependencies = [
  "sandbox-protocol",
  "serde_json",
  "thiserror 2.0.18",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]
