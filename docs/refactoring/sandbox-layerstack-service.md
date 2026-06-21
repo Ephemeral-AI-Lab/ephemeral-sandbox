@@ -8,8 +8,14 @@ command finalization and explicit layerstack maintenance.
 Add a small `LayerStackService` under `sandbox-runtime` operation internals.
 The service owns publish and squash orchestration for one sandbox layer stack.
 It wraps `sandbox-runtime-layerstack` primitives without reintroducing the old
-commit queue, OCC routing layer, publish-time autosquash, or workspace-owned
-publication behavior.
+commit queue, publish-time autosquash, or workspace-owned publication behavior.
+The publish safety floor lives in `sandbox-runtime-layerstack`; this operation
+service only adapts command finalization to that layerstack API.
+
+Related:
+
+- `docs/refactoring/sandbox-layerstack-publish-algorithm.md` defines the
+  authoritative publish route/OCC/ignored-lane algorithm.
 
 ## Location
 
@@ -118,6 +124,8 @@ pub struct LayerStackRevision {
 
 pub struct PublishChangesRequest {
     pub expected_base: LayerStackRevision,
+    pub base_manifest: sandbox_runtime_layerstack::Manifest,
+    pub protected_drops: Vec<sandbox_runtime_layerstack::LayerProtectedDrop>,
     pub changes: Vec<sandbox_runtime_layerstack::LayerChange>,
 }
 
@@ -134,43 +142,47 @@ pub struct SquashLayerStackResult {
 }
 ```
 
-`expected_base` is required for command publication. It comes from
-`CapturedWorkspaceChanges.base_revision`. Publication must reject a stale base
-when the active manifest version or root hash no longer matches the command's
-captured base.
+`expected_base` and `base_manifest` are required for command publication. They
+come from the command's leased base snapshot. `base_manifest` is needed so
+layerstack can evaluate base-snapshot `.gitignore` rules and compute source path
+fingerprints even when the active manifest has advanced.
 
 ## Publish Changes
 
 `publish_changes` commits captured workspace changes into the sandbox layer
-stack.
+stack through the policy-enforced layerstack publish API.
 
 Algorithm:
 
 1. Open `LayerStack::open(self.layer_stack_root.clone())`.
-2. Read the active manifest.
-3. Compare active manifest version and root hash with `expected_base`.
-4. If the base is stale, return `StaleBaseRevision`.
-5. If `changes` is empty, return the current revision and layer paths without
-   writing a new layer.
-6. Call `LayerStack::publish_layer(&changes)`.
-7. Convert the returned manifest into `LayerStackRevision` and absolute layer
+2. Convert `PublishChangesRequest` into
+   `sandbox_runtime_layerstack::PublishValidatedChangesRequest`.
+3. Call `LayerStack::publish_validated_changes(...)`.
+4. Convert the returned manifest into `LayerStackRevision` and absolute layer
    paths.
-8. Return `PublishChangesResult`.
+5. Return `PublishChangesResult`.
+
+The operation wrapper must not call raw `LayerStack::publish_layer` for command
+publication.
 
 The operation must not call `squash()` after publishing. Squash is explicit
 maintenance.
 
-### Stale Base Behavior
+### Base Revision Behavior
 
-Publication is stale when either of these differ:
+The operation layer passes the command base revision and base manifest into
+layerstack. Layerstack validates that they agree:
 
 ```text
-expected_base.manifest_version != active_manifest.version
-expected_base.root_hash != manifest_root_hash(active_manifest)
+expected_base.manifest_version == base_manifest.version
+expected_base.root_hash == manifest_root_hash(base_manifest)
+expected_base.layer_count == base_manifest.layers.len()
 ```
 
-The error should include expected and actual revisions so command finalization
-can report a precise conflict.
+The active manifest is allowed to advance after the command starts. Conflict
+detection is path-level and owned by `LayerStack::publish_validated_changes`.
+The error should include enough route/conflict detail so command finalization can
+report a precise publish failure.
 
 ### Empty Changes
 
@@ -210,9 +222,12 @@ pub enum LayerStackServiceError {
         layer_stack_root: PathBuf,
         error: String,
     },
-    StaleBaseRevision {
+    InvalidBaseRevision {
         expected: LayerStackRevision,
-        actual: LayerStackRevision,
+        base: LayerStackRevision,
+    },
+    PublishRejected {
+        reason: String,
     },
     LayerStack {
         operation: &'static str,
@@ -263,7 +278,7 @@ Do not add:
 
 - `publish_changes_to_layerstack`
 - a commit queue
-- OCC route decision modules
+- old commit/worker/OCC route queue modules
 - `can_squash(max_depth)`
 - `squash(max_depth)`
 - publish-time autosquash
@@ -275,9 +290,13 @@ Do not add:
 Layerstack service tests should cover:
 
 - `new` loads and validates the binding.
-- `publish_changes` rejects stale expected base.
+- `publish_changes` rejects invalid base revision metadata.
 - `publish_changes` with empty changes returns the current revision.
 - `publish_changes` writes a new layer and returns updated layer paths.
+- `publish_changes` reports layerstack source conflicts.
+- `publish_changes` reports layerstack `.git` mutation rejection.
+- `publish_changes` publishes ignored-only changes through the layerstack
+  validated publish API.
 - `squash` returns no-op for a single-layer stack.
 - `squash` compacts multiple unleased layers.
 - `squash` respects active lease-head boundaries.
