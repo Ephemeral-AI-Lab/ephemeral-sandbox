@@ -43,7 +43,7 @@ fn config_validation_rejects_invalid_runner_values() {
 }
 
 fn prd_config() -> RunnerConfig {
-    crate::load_prd()
+    crate::load_baseline()
         .expect("prd config loads")
         .section("runner")
         .expect("runner section deserializes")

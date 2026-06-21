@@ -15,7 +15,7 @@ fn config_validation_rejects_invalid_daemon_values() {
 }
 
 fn prd_config() -> DaemonConfig {
-    crate::load_prd()
+    crate::load_baseline()
         .expect("prd config loads")
         .section("daemon")
         .expect("daemon section deserializes")

@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 use std::sync::{Arc, MutexGuard};
-use std::time::Instant;
 
 use sandbox_runtime_command::process::{CommandProcess, CommandProcessExit, CommandProcessSpec};
 use sandbox_runtime_command::yield_wait_loop::WaitOutcome;
@@ -324,7 +323,6 @@ impl StartedCommand {
             remount_cancellation: None,
             remount_switch_state: None,
             finalization: FinalizationState::NotStarted,
-            started_at: Instant::now(),
         };
         (record, process_for_rollback)
     }

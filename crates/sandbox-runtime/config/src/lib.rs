@@ -16,15 +16,6 @@ pub use document::ConfigDocument;
 pub use error::ConfigError;
 pub use paths::ConfigPath;
 
-/// Load the single production baseline at `eos-sandbox/config/prd.yml`.
-///
-/// # Errors
-/// Returns an error when the baseline path cannot be resolved, read, or parsed.
-pub fn load_prd() -> Result<ConfigDocument, ConfigError> {
-    let path = ConfigPath::prd()?;
-    ConfigDocument::read(path.as_path())
-}
-
 /// Load a runtime configuration document from an explicit path.
 ///
 /// # Errors

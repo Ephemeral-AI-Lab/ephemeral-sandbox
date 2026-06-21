@@ -57,7 +57,7 @@ src/
 Target:
 
 ```text
-sandbox-daemon serve
+sandbox-daemon serve --config-yaml PATH
 sandbox-daemon ns-runner
 sandbox-daemon ns-holder
 ```

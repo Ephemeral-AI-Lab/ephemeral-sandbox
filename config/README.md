@@ -6,7 +6,7 @@ harness defaults.
 The daemon loads the runtime config from:
 
 ```text
-<remote-config path, defaulting to eos-sandbox/config/prd.yml in local dev>
+sandbox-daemon serve --config-yaml <remote-config path>
 ```
 
 Tests may load one local override in addition to `prd.yml`:

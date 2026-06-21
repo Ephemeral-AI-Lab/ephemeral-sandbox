@@ -2,11 +2,10 @@ mod error;
 mod service;
 
 pub use error::CommandServiceError;
-pub use service::{
-    ActiveCommandProcess, ActiveCommandRef, CancellationState, CommandCompletionStore,
-    CommandLaunchDriver, CommandLifecycleState, CommandProcessStore, CommandReservation,
-    CommandTerminalResult, CommandTranscriptStore, CompletedCommandRecord, FinalizationState,
-    RealCommandLaunchDriver, RetainedCommandTranscript, DEFAULT_MAX_ACTIVE_COMMANDS,
+pub(crate) use service::{
+    ActiveCommandProcess, ActiveCommandRef, CancellationState, CommandLifecycleState,
+    CommandProcessStore, CommandTerminalResult, CommandTranscriptStore, CompletedCommandRecord,
+    FinalizationState, RetainedCommandTranscript,
 };
 pub use service::{
     CancelCommandInput, CommandFinalizedMetadata, CommandLinesOutput, CommandOperationService,
@@ -14,6 +13,7 @@ pub use service::{
     CommandTranscriptRow, CommandYield, ExecCommandInput, PollCommandInput, ReadCommandLinesInput,
     WriteCommandStdinInput,
 };
+pub use service::{CommandLaunchDriver, RealCommandLaunchDriver};
 
 pub(crate) fn operation_entries() -> &'static [crate::operation::OperationEntry] {
     service::operation_entries()

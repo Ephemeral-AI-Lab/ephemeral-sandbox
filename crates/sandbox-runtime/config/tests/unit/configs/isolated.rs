@@ -43,7 +43,7 @@ fn config_validation_rejects_invalid_isolated_values() {
 }
 
 fn prd_config() -> IsolatedNetworkConfig {
-    crate::load_prd()
+    crate::load_baseline()
         .expect("prd config loads")
         .section("isolated")
         .expect("isolated section deserializes")

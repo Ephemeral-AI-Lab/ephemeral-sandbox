@@ -17,9 +17,9 @@ pub use document::ConfigDocument;
 pub use error::ConfigError;
 pub use paths::ConfigPath;
 
-pub fn load_prd() -> Result<ConfigDocument, ConfigError> {
+pub fn load_baseline() -> Result<ConfigDocument, ConfigError> {
     let path = ConfigPath::prd()?;
-    ConfigDocument::read(path.as_path())
+    load_path(path.as_path())
 }
 
 pub fn load_path(path: impl AsRef<Path>) -> Result<ConfigDocument, ConfigError> {

@@ -9,7 +9,6 @@ use sandbox_runtime_config::configs::{
     daemon::{DaemonConfig, DaemonServerConfig},
     isolated::IsolatedNetworkConfig,
 };
-use sandbox_runtime_config::ConfigPath;
 
 const DAEMON_AUTH_TOKEN_ENV: &str = "SANDBOX_DAEMON_AUTH_TOKEN";
 const DAEMON_CONFIG_YAML_ENV: &str = "SANDBOX_DAEMON_CONFIG_YAML";
@@ -17,13 +16,14 @@ const DAEMON_CONFIG_YAML_ENV: &str = "SANDBOX_DAEMON_CONFIG_YAML";
 /// Start, spawn, or call the async RPC server.
 ///
 /// Modes:
-/// - `sandbox-daemon serve --socket PATH --pid-file PATH ...` runs the foreground server.
-/// - `sandbox-daemon serve --spawn --socket PATH --pid-file PATH ...` starts a
+/// - `sandbox-daemon serve --config-yaml PATH --socket PATH --pid-file PATH ...`
+///   runs the foreground server.
+/// - `sandbox-daemon serve --spawn --config-yaml PATH --socket PATH --pid-file PATH ...` starts a
 ///   detached foreground child and returns.
 pub(crate) fn run(args: std::env::Args) -> Result<()> {
     let args = args.collect::<Vec<_>>();
     let config_path = daemon_config_path_arg(&args)?;
-    let runtime_config = load_runtime_config(config_path.as_deref())?;
+    let runtime_config = load_runtime_config(&config_path)?;
     let daemon_config = &runtime_config.daemon;
     let config = DaemonCliConfig::parse(args, &daemon_config.server, config_path)?;
     if config.spawn {
@@ -93,13 +93,9 @@ fn build_runtime_operations(
     })
 }
 
-fn load_runtime_config(path: Option<&Path>) -> Result<DaemonRuntimeConfig> {
-    let doc = if let Some(path) = path {
-        sandbox_runtime_config::load_path(path)
-            .with_context(|| format!("load daemon config {}", path.display()))?
-    } else {
-        sandbox_runtime_config::load_prd().context("load eos-sandbox/config/prd.yml")?
-    };
+fn load_runtime_config(path: &Path) -> Result<DaemonRuntimeConfig> {
+    let doc = sandbox_runtime_config::load_path(path)
+        .with_context(|| format!("load daemon config {}", path.display()))?;
     let daemon = doc
         .section::<DaemonConfig>("daemon")
         .context("deserialize daemon config section")?;
@@ -133,12 +129,9 @@ impl DaemonCliConfig {
     pub(crate) fn parse(
         args: impl IntoIterator<Item = String>,
         server_defaults: &DaemonServerConfig,
-        explicit_config_path: Option<PathBuf>,
+        explicit_config_path: PathBuf,
     ) -> Result<Self> {
-        let mut config_yaml_path = match explicit_config_path {
-            Some(path) => path,
-            None => ConfigPath::prd()?.as_path().to_path_buf(),
-        };
+        let mut config_yaml_path = explicit_config_path;
         let mut socket_path = server_defaults.socket_path.clone();
         let mut pid_path = server_defaults.pid_path.clone();
         let mut tcp_host = None;
@@ -165,7 +158,7 @@ impl DaemonCliConfig {
                 "--spawn" => spawn = true,
                 "--help" | "-h" => {
                     println!(
-                        "usage: serve [--spawn] [--config-yaml PATH] [--socket PATH] [--pid-file PATH] [--tcp-host HOST --tcp-port PORT --auth-token TOKEN]"
+                        "usage: serve [--spawn] --config-yaml PATH [--socket PATH] [--pid-file PATH] [--tcp-host HOST --tcp-port PORT --auth-token TOKEN]"
                     );
                     std::process::exit(0);
                 }
@@ -205,17 +198,17 @@ impl DaemonCliConfig {
     }
 }
 
-pub(crate) fn daemon_config_path_arg(args: &[String]) -> Result<Option<PathBuf>> {
+pub(crate) fn daemon_config_path_arg(args: &[String]) -> Result<PathBuf> {
     let mut iter = args.iter();
     while let Some(arg) = iter.next() {
         if arg == "--config-yaml" {
             let path = iter
                 .next()
                 .ok_or_else(|| anyhow!("--config-yaml requires a value"))?;
-            return Ok(Some(PathBuf::from(path)));
+            return Ok(PathBuf::from(path));
         }
     }
-    Ok(None)
+    Err(anyhow!("serve requires --config-yaml PATH"))
 }
 
 fn required_arg(args: &mut impl Iterator<Item = String>, flag: &str) -> Result<String> {

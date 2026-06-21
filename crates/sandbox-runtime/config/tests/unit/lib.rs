@@ -8,8 +8,9 @@ use super::yaml::Value;
 use super::*;
 
 #[test]
-fn load_prd_reads_committed_baseline() {
-    let doc = load_prd().expect("prd.yml loads");
+fn load_path_reads_committed_baseline() {
+    let path = ConfigPath::prd().expect("resolve prd config");
+    let doc = load_path(path.as_path()).expect("prd.yml loads");
     let section = doc
         .section::<Value>("daemon")
         .expect("daemon section exists");

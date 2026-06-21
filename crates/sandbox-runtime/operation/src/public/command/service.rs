@@ -16,11 +16,10 @@ pub use contract::{
 };
 pub use core::CommandOperationService;
 pub use launch::{CommandLaunchDriver, RealCommandLaunchDriver};
-pub use process_store::{
-    ActiveCommandProcess, ActiveCommandRef, CancellationState, CommandCompletionStore,
-    CommandLifecycleState, CommandProcessStore, CommandReservation, CommandTerminalResult,
-    CommandTranscriptStore, CompletedCommandRecord, FinalizationState, RetainedCommandTranscript,
-    DEFAULT_MAX_ACTIVE_COMMANDS,
+pub(crate) use process_store::{
+    ActiveCommandProcess, ActiveCommandRef, CancellationState, CommandLifecycleState,
+    CommandProcessStore, CommandTerminalResult, CommandTranscriptStore, CompletedCommandRecord,
+    FinalizationState, RetainedCommandTranscript,
 };
 
 pub(crate) fn operation_entries() -> &'static [crate::operation::OperationEntry] {

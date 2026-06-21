@@ -191,7 +191,7 @@ impl fmt::Debug for CommandProcessStore {
 }
 
 #[derive(Debug)]
-pub struct CommandReservation<'a> {
+pub(crate) struct CommandReservation<'a> {
     store: &'a CommandProcessStore,
     activated: bool,
 }
@@ -244,7 +244,6 @@ pub struct ActiveCommandProcess {
     pub remount_cancellation: Option<RemountCancellationToken>,
     pub remount_switch_state: Option<RemountSwitchState>,
     pub finalization: FinalizationState,
-    pub started_at: Instant,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -291,7 +290,7 @@ pub struct CommandTerminalResult {
 }
 
 #[derive(Debug, Default)]
-pub struct CommandCompletionStore {
+struct CommandCompletionStore {
     completed: Mutex<HashMap<CommandSessionId, CompletedCommandRecord>>,
 }
 
@@ -299,17 +298,6 @@ impl CommandCompletionStore {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn insert(&self, record: CompletedCommandRecord) -> Result<(), CommandServiceError> {
-        let command_session_id = record.command_session_id.clone();
-        let mut completed = lock(&self.completed);
-        if completed.contains_key(&command_session_id) {
-            return Err(CommandServiceError::DuplicateCommandSessionId { command_session_id });
-        }
-
-        completed.insert(command_session_id, record);
-        Ok(())
     }
 
     #[must_use]
