@@ -11,7 +11,6 @@ pub mod catalog;
 pub mod error_kind;
 mod framing;
 pub mod limits;
-pub mod manual;
 pub mod operation_spec;
 pub mod request;
 pub mod response;

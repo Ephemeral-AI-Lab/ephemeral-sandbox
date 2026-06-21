@@ -10,12 +10,10 @@ use serde_json::{json, Value};
 use crate::cli::client::GatewayClient;
 use crate::cli::config::{GatewayConfig, GatewayConfigOverrides};
 use crate::cli::request_builder::{
-    build_request_from_catalog, catalog_from_response, manager_catalog_request,
-    resolve_runtime_sandbox_id, runtime_catalog_request, BuildRequestInput, RequestBuildError,
+    build_request_from_catalog, manager_catalog_document, resolve_runtime_sandbox_id,
+    runtime_catalog_document, BuildRequestInput, RequestBuildError,
 };
-use sandbox_protocol::{
-    manual::render_catalog_manual, OperationCatalogDocument, OperationExecutionSpace,
-};
+use sandbox_protocol::{OperationCatalogDocument, OperationExecutionSpace};
 
 const EXIT_SUCCESS: u8 = 0;
 const EXIT_FAILURE: u8 = 1;
@@ -38,7 +36,6 @@ struct Cli {
 enum Command {
     Manager(OperationCommand),
     Runtime(RuntimeCommand),
-    Manual(ManualCommand),
 }
 
 #[derive(Debug, Args)]
@@ -58,12 +55,6 @@ struct RuntimeCommand {
 
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     operation_argv: Vec<String>,
-}
-
-#[derive(Debug, Args)]
-struct ManualCommand {
-    #[arg(long = "sandbox-id", value_name = "SANDBOX_ID")]
-    sandbox_id: Option<String>,
 }
 
 pub async fn run_cli<I, T>(args: I) -> ExitCode
@@ -130,10 +121,12 @@ where
                     return EXIT_USAGE;
                 }
             };
-            let catalog_request = runtime_catalog_request(sandbox_id.clone());
-            let catalog = match load_catalog(&client, &catalog_request, stderr).await {
+            let catalog = match runtime_catalog_document() {
                 Ok(catalog) => catalog,
-                Err(exit_code) => return exit_code,
+                Err(error) => {
+                    let _ = render_request_error(&error, stderr);
+                    return EXIT_USAGE;
+                }
             };
             let request_input = BuildRequestInput {
                 execution_space: OperationExecutionSpace::Runtime,
@@ -151,15 +144,14 @@ where
             )
             .await;
         }
-        Command::Manual(command) => {
-            return run_manual_command(&client, command, &config, stdout, stderr).await;
-        }
     };
 
-    let catalog_request = manager_catalog_request();
-    let catalog = match load_catalog(&client, &catalog_request, stderr).await {
+    let catalog = match manager_catalog_document() {
         Ok(catalog) => catalog,
-        Err(exit_code) => return exit_code,
+        Err(error) => {
+            let _ = render_request_error(&error, stderr);
+            return EXIT_USAGE;
+        }
     };
 
     run_request_from_catalog(&client, request_input, &config, &catalog, stdout, stderr).await
@@ -194,64 +186,6 @@ where
     };
 
     render_response(&response, stdout, stderr).unwrap_or(EXIT_FAILURE)
-}
-
-async fn run_manual_command<WOut, WErr>(
-    client: &GatewayClient,
-    command: ManualCommand,
-    config: &GatewayConfig,
-    stdout: &mut WOut,
-    stderr: &mut WErr,
-) -> u8
-where
-    WOut: Write,
-    WErr: Write,
-{
-    let manager_catalog = match load_catalog(client, &manager_catalog_request(), stderr).await {
-        Ok(catalog) => catalog,
-        Err(exit_code) => return exit_code,
-    };
-    let runtime_sandbox_id = command
-        .sandbox_id
-        .or_else(|| config.default_sandbox_id.clone());
-    let runtime_catalog = match runtime_sandbox_id {
-        Some(sandbox_id) => {
-            match load_catalog(client, &runtime_catalog_request(sandbox_id), stderr).await {
-                Ok(catalog) => Some(catalog),
-                Err(exit_code) => return exit_code,
-            }
-        }
-        None => None,
-    };
-    write_manual(
-        &render_catalog_manual(&manager_catalog, runtime_catalog.as_ref()),
-        stdout,
-        stderr,
-    )
-}
-
-async fn load_catalog<WErr>(
-    client: &GatewayClient,
-    request: &sandbox_protocol::Request,
-    stderr: &mut WErr,
-) -> Result<OperationCatalogDocument, u8>
-where
-    WErr: Write,
-{
-    let response = match client.send(request).await {
-        Ok(response) => response,
-        Err(error) => {
-            let _ = render_error(error.kind(), error.to_string(), stderr);
-            return Err(EXIT_FAILURE);
-        }
-    };
-    match catalog_from_response(&response) {
-        Ok(catalog) => Ok(catalog),
-        Err(error) => {
-            let _ = render_error("protocol_error", error.to_string(), stderr);
-            Err(EXIT_FAILURE)
-        }
-    }
 }
 
 pub fn render_response<WOut, WErr>(
@@ -289,20 +223,6 @@ where
     WErr: Write,
 {
     render_error("invalid_request", error.message(), stderr)
-}
-
-fn write_manual<WOut, WErr>(manual: &str, stdout: &mut WOut, stderr: &mut WErr) -> u8
-where
-    WOut: Write,
-    WErr: Write,
-{
-    match stdout.write_all(manual.as_bytes()) {
-        Ok(()) => EXIT_SUCCESS,
-        Err(error) => {
-            let _ = render_error("output_error", error.to_string(), stderr);
-            EXIT_FAILURE
-        }
-    }
 }
 
 fn write_json_line<W>(writer: &mut W, value: &Value) -> io::Result<()>

@@ -9,10 +9,9 @@ use sandbox_gateway::cli::config::{
 };
 use sandbox_gateway::cli::output::render_response;
 use sandbox_gateway::cli::request_builder::{
-    build_request_from_catalog_with_id, catalog_from_response, manager_catalog_request,
+    build_request_from_catalog_with_id, manager_catalog_document, runtime_catalog_document,
     BuildRequestInput,
 };
-use sandbox_protocol::manual::render_catalog_manual;
 use sandbox_protocol::{
     OperationCatalogDocument, OperationExecutionSpace, OperationScope, Request,
 };
@@ -21,16 +20,6 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
 
 type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
-
-#[test]
-fn generated_request_ids_are_uuid_v4() -> TestResult {
-    let request = manager_catalog_request();
-    let parsed = uuid::Uuid::parse_str(&request.request_id)?;
-
-    assert_eq!(parsed.to_string(), request.request_id);
-    assert_eq!(parsed.get_version_num(), 4);
-    Ok(())
-}
 
 #[test]
 fn manager_operation_uses_system_scope() -> TestResult {
@@ -159,25 +148,6 @@ fn runtime_request_construction_rejects_manager_catalog() -> TestResult {
 }
 
 #[test]
-fn manual_renders_manager_and_runtime_sections_from_catalog_documents() -> TestResult {
-    let manager = manager_catalog()?;
-    let runtime = runtime_catalog()?;
-
-    let manual = render_catalog_manual(&manager, Some(&runtime));
-
-    assert!(manual.contains("Sandbox Manager Operations"));
-    assert!(manual.contains("Sandbox Runtime Operations"));
-    assert!(manual.contains(
-        "sandbox-cli manager create_sandbox --image ubuntu:24.04 --workspace-root /testbed"
-    ));
-    assert!(manual.contains(
-        "sandbox-cli runtime --sandbox-id sbox-1 exec_command --workspace-session-id ws-1 pwd"
-    ));
-    assert!(!manual.contains("Sandbox Daemon Operations"));
-    Ok(())
-}
-
-#[test]
 fn manager_execution_space_uses_system_scope_for_create_sandbox() -> TestResult {
     let request = build_manager_request(
         "create_sandbox",
@@ -288,12 +258,12 @@ fn cli_files_do_not_import_gateway_server_or_runtime_internals() {
     let output = include_str!("../src/cli/output.rs");
     let request_builder = include_str!("../src/cli/request_builder.rs");
 
-    for source in [main, client, config, output, request_builder] {
-        assert!(!source.contains("sandbox_manager::"));
+    for source in [main, client, config, output] {
         assert!(!source.contains("sandbox_daemon::"));
-        assert!(!source.contains("sandbox_runtime"));
         assert!(!source.contains("crate::gateway"));
     }
+    assert!(!request_builder.contains("sandbox_daemon::"));
+    assert!(!request_builder.contains("crate::gateway"));
 }
 
 #[tokio::test]
@@ -429,128 +399,11 @@ fn config(default_sandbox_id: Option<&str>) -> GatewayConfig {
 }
 
 fn manager_catalog() -> Result<OperationCatalogDocument, Box<dyn std::error::Error + Send + Sync>> {
-    Ok(catalog_from_response(&json!({
-        "operation_execution_space": "manager",
-        "operations": [
-            {
-                "name": "list_sandboxes",
-                "summary": "List sandbox records known to the manager.",
-                "args": [],
-                "cli": {
-                    "path": ["manager"],
-                    "usage": "sandbox-cli manager list_sandboxes",
-                    "examples": ["sandbox-cli manager list_sandboxes"]
-                }
-            },
-            {
-                "name": "create_sandbox",
-                "summary": "Create a host-side sandbox record and runtime sandbox.",
-                "args": [
-                    {
-                        "name": "image",
-                        "kind": "string",
-                        "required": true,
-                        "help": "Container image used to create the sandbox.",
-                        "default": null,
-                        "cli": {
-                            "flag": "--image",
-                            "positional": null
-                        }
-                    },
-                    {
-                        "name": "workspace_root",
-                        "kind": "path",
-                        "required": true,
-                        "help": "Absolute workspace root mounted inside this sandbox.",
-                        "default": null,
-                        "cli": {
-                            "flag": "--workspace-root",
-                            "positional": null
-                        }
-                    }
-                ],
-                "cli": {
-                    "path": ["manager"],
-                    "usage": "sandbox-cli manager create_sandbox --image IMAGE --workspace-root PATH",
-                    "examples": ["sandbox-cli manager create_sandbox --image ubuntu:24.04 --workspace-root /testbed"]
-                }
-            }
-        ]
-    }))?)
+    Ok(manager_catalog_document()?)
 }
 
 fn runtime_catalog() -> Result<OperationCatalogDocument, Box<dyn std::error::Error + Send + Sync>> {
-    Ok(catalog_from_response(&json!({
-        "operation_execution_space": "runtime",
-        "operations": [
-            {
-                "name": "exec_command",
-                "summary": "Start a command in a workspace.",
-                "args": [
-                    {
-                        "name": "workspace_session_id",
-                        "kind": "string",
-                        "required": true,
-                        "help": "Workspace session id to run inside.",
-                        "default": null,
-                        "cli": {
-                            "flag": "--workspace-session-id",
-                            "positional": null
-                        }
-                    },
-                    {
-                        "name": "cmd",
-                        "kind": "string",
-                        "required": true,
-                        "help": "Shell command text.",
-                        "default": null,
-                        "cli": {
-                            "flag": null,
-                            "positional": "COMMAND"
-                        }
-                    }
-                ],
-                "cli": {
-                    "path": ["runtime"],
-                    "usage": "sandbox-cli runtime --sandbox-id ID exec_command --workspace-session-id ID COMMAND",
-                    "examples": ["sandbox-cli runtime --sandbox-id sbox-1 exec_command --workspace-session-id ws-1 pwd"]
-                }
-            },
-            {
-                "name": "poll_command",
-                "summary": "Poll a command status and recent output.",
-                "args": [
-                    {
-                        "name": "command_session_id",
-                        "kind": "string",
-                        "required": true,
-                        "help": "Command session id returned by exec_command.",
-                        "default": null,
-                        "cli": {
-                            "flag": "--command-session-id",
-                            "positional": null
-                        }
-                    },
-                    {
-                        "name": "last_n_lines",
-                        "kind": "integer",
-                        "required": false,
-                        "help": "Limit output to the most recent line count.",
-                        "default": null,
-                        "cli": {
-                            "flag": "--last-n-lines",
-                            "positional": null
-                        }
-                    }
-                ],
-                "cli": {
-                    "path": ["runtime"],
-                    "usage": "sandbox-cli runtime --sandbox-id ID poll_command --command-session-id ID --last-n-lines N",
-                    "examples": ["sandbox-cli runtime --sandbox-id sbox-1 poll_command --command-session-id cmd-1 --last-n-lines 50"]
-                }
-            }
-        ]
-    }))?)
+    Ok(runtime_catalog_document()?)
 }
 
 fn unique_temp_dir(prefix: &str) -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {

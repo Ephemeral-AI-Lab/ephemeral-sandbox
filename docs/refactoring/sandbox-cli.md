@@ -18,7 +18,6 @@ requests, sends them to the gateway socket, and renders responses.
 - CLI config discovery and precedence.
 - Gateway client connection setup.
 - Request construction from `OperationSpec` and CLI argv.
-- Manual/help rendering for manager and runtime execution spaces.
 - Output formatting and exit-code behavior.
 
 ## Must Not Own
@@ -51,8 +50,7 @@ src/cli/
 - Manager operations use `request.scope = system`.
 - Runtime operations require `--sandbox-id SANDBOX_ID` unless config provides a
   default sandbox, and set `request.scope = sandbox`.
-- Help/manual text is generated from `OperationSpec`, not duplicated by hand.
-- Catalog responses are parsed with `sandbox-protocol` catalog document helpers.
+- Catalog documents are derived locally from manager/runtime operation specs.
 - Request construction validates that `sandbox-cli manager ...` consumes a
   manager catalog and `sandbox-cli runtime ...` consumes a runtime catalog.
 
@@ -70,15 +68,19 @@ sandbox-cli runtime --sandbox-id sbox-1 poll_command --command-session-id cmd-1
 Allowed:
 
 - `sandbox-protocol`
+- `sandbox-manager` for manager operation catalog metadata
+- `sandbox-runtime` for runtime operation catalog metadata
 - CLI parsing/output crates
 
 Forbidden:
 
 - `sandbox-daemon`
-- `sandbox-runtime-*`
-- direct sandbox runtime libraries
+- direct runtime support crates such as `sandbox-runtime-command`,
+  `sandbox-runtime-workspace`, `sandbox-runtime-layerstack`, and
+  `sandbox-runtime-overlay`
 
-The CLI talks to the gateway socket; it does not become a hidden manager.
+The CLI talks to the gateway socket for operation execution; it does not become
+a hidden manager or daemon client.
 
 ## Request Construction
 
@@ -111,17 +113,6 @@ For runtime operations:
 
 The gateway does not construct retired request wrappers or any
 manager/runtime/daemon target envelope.
-
-Manual rendering consumes manager and runtime catalog documents and keeps the
-canonical sections:
-
-```text
-Sandbox Manager Operations
-Sandbox Runtime Operations
-```
-
-Runtime manual text says `runtime`, even though the manager may fetch those
-specs through a daemon-backed operation internally.
 
 ## Verification
 

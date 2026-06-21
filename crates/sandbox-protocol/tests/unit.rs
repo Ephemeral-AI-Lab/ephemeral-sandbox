@@ -1,4 +1,3 @@
-use sandbox_protocol::manual::render_catalog_manual;
 use sandbox_protocol::{
     catalog_from_value, catalog_to_value, decode_request_value, ArgCliSpec, ArgKind, ArgSpec,
     CliSpec, OperationCatalog, OperationExecutionSpace, OperationScope, OperationSpec,
@@ -213,24 +212,6 @@ fn catalog_to_value_omits_owner_target_fields() {
     ));
 
     assert_no_forbidden_catalog_keys(&value);
-}
-
-#[test]
-fn render_catalog_manual_uses_catalog_documents() {
-    let manager = catalog_from_value(&catalog_to_value(OperationCatalog::new(
-        OperationExecutionSpace::Manager,
-        TEST_SPECS,
-    )))
-    .expect("manager catalog");
-
-    let manual = render_catalog_manual(&manager, None);
-
-    assert!(manual.contains("Sandbox Manager Operations"));
-    assert!(manual.contains("create_sandbox"));
-    assert!(manual.contains("--image: string (required)"));
-    assert!(manual.contains("--workspace-root: path (required)"));
-    assert!(manual.contains("Sandbox Runtime Operations"));
-    assert!(manual.contains("runtime catalog requires --sandbox-id"));
 }
 
 fn assert_no_forbidden_catalog_keys(value: &serde_json::Value) {

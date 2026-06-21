@@ -463,7 +463,7 @@ Protocol:
 ```text
 crates/sandbox-protocol/src/operation_spec.rs
 crates/sandbox-protocol/src/catalog.rs
-crates/sandbox-protocol/src/manual.rs -> help.rs
+crates/sandbox-protocol/src/help.rs
 crates/sandbox-protocol/src/lib.rs
 crates/sandbox-protocol/tests/unit.rs
 ```

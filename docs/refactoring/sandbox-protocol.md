@@ -26,11 +26,10 @@ Import:  sandbox_protocol
   - `ArgKind`
   - `ArgCliSpec`
   - `CliSpec`
-  - `OperationCatalog`
-  - `OperationExecutionSpace`
+- `OperationCatalog`
+- `OperationExecutionSpace`
 - Protocol-owned catalog JSON document conversion and parsing helpers for
   `OperationCatalog` and cataloged `OperationSpec` data.
-- Manual/help rendering helpers that operate on catalog/spec documents.
 
 ## Must Not Own
 
@@ -55,7 +54,6 @@ src/
   error_kind.rs
   operation_spec.rs
   catalog.rs
-  manual.rs
 ```
 
 ## Public DTO Contract
@@ -129,7 +127,7 @@ Example response:
 
 `scope` identifies the resource the operation applies to. It is not an
 implementation target and it is not the operation-execution-space selector.
-`OperationExecutionSpace` belongs in catalog/manual metadata only, for example
+`OperationExecutionSpace` belongs in catalog metadata only, for example
 `manager` vs `runtime`.
 
 Catalog JSON exposes one execution-space selector:

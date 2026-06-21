@@ -1,13 +1,10 @@
 use sandbox_protocol::{
-    catalog_from_value, ArgKind, OperationCatalogDocument, OperationExecutionSpace, OperationScope,
-    OperationSpecDocument, Request,
+    catalog_from_value, catalog_to_value, ArgKind, OperationCatalog, OperationCatalogDocument,
+    OperationExecutionSpace, OperationScope, OperationSpecDocument, Request,
 };
-use serde_json::{json, Map, Number, Value};
+use serde_json::{Map, Number, Value};
 
 use crate::cli::config::GatewayConfig;
-
-const DESCRIBE_MANAGER_OPERATIONS: &str = "describe_manager_operations";
-const DESCRIBE_DAEMON_OPERATIONS: &str = "describe_daemon_operations";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuildRequestInput {
@@ -37,22 +34,12 @@ impl std::fmt::Display for RequestBuildError {
 
 impl std::error::Error for RequestBuildError {}
 
-pub fn manager_catalog_request() -> Request {
-    Request::new(
-        DESCRIBE_MANAGER_OPERATIONS,
-        next_request_id(),
-        OperationScope::system(),
-        json!({}),
-    )
+pub fn manager_catalog_document() -> Result<OperationCatalogDocument, RequestBuildError> {
+    catalog_document(sandbox_manager::operation_catalog())
 }
 
-pub fn runtime_catalog_request(sandbox_id: impl Into<String>) -> Request {
-    Request::new(
-        DESCRIBE_DAEMON_OPERATIONS,
-        next_request_id(),
-        OperationScope::system(),
-        json!({ "sandbox_id": sandbox_id.into() }),
-    )
+pub fn runtime_catalog_document() -> Result<OperationCatalogDocument, RequestBuildError> {
+    catalog_document(sandbox_runtime::operation_catalog())
 }
 
 pub fn build_request_from_catalog(
@@ -104,15 +91,10 @@ pub fn resolve_runtime_sandbox_id(
     }
 }
 
-pub fn catalog_from_response(
-    response: &Value,
+fn catalog_document(
+    catalog: OperationCatalog,
 ) -> Result<OperationCatalogDocument, RequestBuildError> {
-    if response.get("error").is_some() {
-        return Err(build_error(format!(
-            "operation catalog request failed: {response}"
-        )));
-    }
-    catalog_from_value(response).map_err(|error| build_error(error.message()))
+    catalog_from_value(&catalog_to_value(catalog)).map_err(|error| build_error(error.message()))
 }
 
 fn build_args(spec: &OperationSpecDocument, argv: &[String]) -> Result<Value, RequestBuildError> {
