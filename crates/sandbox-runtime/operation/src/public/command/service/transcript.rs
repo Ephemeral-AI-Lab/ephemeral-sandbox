@@ -74,19 +74,6 @@ pub(crate) fn command_output_snapshot(
 }
 
 #[must_use]
-pub(crate) fn fallback_output_snapshot(start_offset: u64, output: String) -> CommandOutputSnapshot {
-    let line_count = count_rendered_lines(&output);
-    let end_offset = start_offset.saturating_add(line_count);
-    CommandOutputSnapshot {
-        start_offset,
-        end_offset,
-        total_lines: end_offset,
-        original_token_count: estimate_token_count(output.len()),
-        output,
-    }
-}
-
-#[must_use]
 pub(crate) fn estimate_token_count(chars: usize) -> u64 {
     if chars == 0 {
         0
@@ -100,11 +87,4 @@ fn render_transcript_text(rows: &[::sandbox_runtime_command::CommandTranscriptRo
         .map(|row| row.text.as_str())
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-fn count_rendered_lines(output: &str) -> u64 {
-    if output.is_empty() {
-        return 0;
-    }
-    u64::try_from(output.lines().count()).unwrap_or(u64::MAX)
 }

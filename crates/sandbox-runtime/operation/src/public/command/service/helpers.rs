@@ -12,9 +12,9 @@ impl CommandOperationService {
     pub(crate) fn running_command_yield(
         &self,
         command_session_id: CommandSessionId,
-        fallback_output: String,
+        _observed_output: String,
     ) -> Result<CommandYield, CommandServiceError> {
-        let snapshot = self.active_command_output_snapshot(&command_session_id, fallback_output)?;
+        let snapshot = self.active_command_output_snapshot(&command_session_id)?;
         Ok(command_yield(
             Some(command_session_id),
             CommandStatus::Running,
@@ -47,8 +47,7 @@ impl CommandOperationService {
         process_exit: CommandProcessExit,
         include_command_session_id: bool,
     ) -> Result<CommandYield, CommandServiceError> {
-        let snapshot =
-            self.active_command_output_snapshot(&command_session_id, process_exit.stdout.clone())?;
+        let snapshot = self.active_command_output_snapshot(&command_session_id)?;
         let result = self.complete_terminal_command(command_session_id.clone(), process_exit)?;
         let completed = self.completed_command(&command_session_id)?;
         let command_session_id =
@@ -66,18 +65,13 @@ impl CommandOperationService {
     fn active_command_output_snapshot(
         &self,
         command_session_id: &CommandSessionId,
-        fallback_output: String,
     ) -> Result<TimedCommandOutputSnapshot, CommandServiceError> {
         self.process_store()
             .update_active(command_session_id, |active| {
                 let start_offset = active.next_snapshot_offset;
                 let window = active.transcript.window(start_offset, usize::MAX);
                 let has_more_output = window.output_truncated;
-                let mut output = super::transcript::command_output_snapshot(window);
-                if output.output.is_empty() && !fallback_output.is_empty() {
-                    output =
-                        super::transcript::fallback_output_snapshot(start_offset, fallback_output);
-                }
+                let output = super::transcript::command_output_snapshot(window);
                 active.next_snapshot_offset = output.end_offset;
                 let elapsed = active.started_at.elapsed().as_secs_f64();
                 TimedCommandOutputSnapshot {

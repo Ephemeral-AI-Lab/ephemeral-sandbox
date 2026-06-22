@@ -1113,7 +1113,7 @@ fn display_name(path: &Path) -> String {
 fn effective_interval_ms(
     previous: Option<&CgroupMonitorSample>,
     sampled_at_unix_ms: u64,
-    fallback_interval_ms: u64,
+    configured_interval_ms: u64,
 ) -> u64 {
     previous
         .and_then(|sample| {
@@ -1121,7 +1121,7 @@ fn effective_interval_ms(
                 .checked_sub(sample.sampled_at_unix_ms)
                 .filter(|elapsed| *elapsed > 0)
         })
-        .unwrap_or(fallback_interval_ms)
+        .unwrap_or(configured_interval_ms)
 }
 
 fn unix_time_ms() -> u64 {
