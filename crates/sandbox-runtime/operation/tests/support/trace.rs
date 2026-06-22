@@ -112,6 +112,10 @@ impl Visit for TextVisitor {
 pub(crate) fn capture_traces(run: impl FnOnce()) -> String {
     let capture = TraceCapture::default();
     let reader = capture.clone();
-    tracing::subscriber::with_default(capture, run);
+    tracing::subscriber::with_default(capture, || {
+        tracing_core::callsite::rebuild_interest_cache();
+        run();
+    });
+    tracing_core::callsite::rebuild_interest_cache();
     reader.output()
 }

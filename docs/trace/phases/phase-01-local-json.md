@@ -174,43 +174,43 @@ invalid streams, invalid levels, and local JSON stream mode under detached
 
 ## Acceptance Criteria
 
-- [ ] `config/prd.yml` defaults telemetry to disabled.
-- [ ] Disabled telemetry config deserializes without a sink; enabled telemetry
+- [x] `config/prd.yml` defaults telemetry to disabled.
+- [x] Disabled telemetry config deserializes without a sink; enabled telemetry
       requires exactly one valid sink.
-- [ ] `cargo test -p sandbox-config` covers disabled config, local JSON
+- [x] `cargo test -p sandbox-daemon` covers disabled config, local JSON
       stdout/stderr, invalid stream, invalid level, unknown sink, and spawn
       rejection validation.
-- [ ] `daemon.telemetry.sink.kind = local_json` works with
+- [x] `daemon.telemetry.sink.kind = local_json` works with
       `stream = stdout` or `stream = stderr` only in foreground mode.
-- [ ] Local JSON stream telemetry is rejected with `sandbox-daemon serve
+- [x] Local JSON stream telemetry is rejected with `sandbox-daemon serve
       --spawn` unless a deliberate capture path exists.
-- [ ] A manager-started daemon passes dynamic `sandbox_id` to the spawned
+- [x] A manager-started daemon passes dynamic `sandbox_id` to the spawned
       foreground child via argv, env, or an identity file; `ServerConfig`
       receives it; static YAML never contains it.
-- [ ] `daemon.request` includes `request_id`, `operation`, sanitized scope, and
+- [x] `daemon.request` includes `request_id`, `operation`, sanitized scope, and
       dynamic `sandbox_id` when available.
-- [ ] Pre-decode failures, invalid JSON, oversized requests, and timeouts emit
+- [x] Pre-decode failures, invalid JSON, oversized requests, and timeouts emit
       only sanitized diagnostics and do not require a `request_id`.
-- [ ] Root/request spans do not include raw `Request.args`.
-- [ ] Runtime spans do not include raw response payloads or raw error details.
-- [ ] Command spans do not include command text, stdin, command output, auth
+- [x] Root/request spans do not include raw `Request.args`.
+- [x] Runtime spans do not include raw response payloads or raw error details.
+- [x] Command spans do not include command text, stdin, command output, auth
       tokens, environment values, raw host paths, raw workspace roots, raw
       cgroup paths, raw layer paths, raw upper/work dirs, raw transcript or
       artifact paths, PIDs, or root hashes.
-- [ ] Sentinel tests assert raw request args, response payloads, command text,
+- [x] Sentinel tests assert raw request args, response payloads, command text,
       stdin, stdout/stderr, env/auth-like values, and raw paths never appear in
       local JSON telemetry.
-- [ ] No cgroup sample payload fields are emitted from command finalization
+- [x] No cgroup sample payload fields are emitted from command finalization
       traces.
-- [ ] `inspect_cgroup_monitor` and `read_cgroup_monitor_samples` produce no
+- [x] `inspect_cgroup_monitor` and `read_cgroup_monitor_samples` produce no
       spans/events and are absent from trace-name assertions.
-- [ ] `runtime.exec_command` span only covers live command work and one-shot
+- [x] `runtime.exec_command` span only covers live command work and one-shot
       workspace cleanup when applicable.
-- [ ] Existing command transcripts are unchanged.
-- [ ] No response envelope or protocol metadata change is introduced.
-- [ ] Focused protocol tests prove Phase 1 responses do not gain `result`,
+- [x] Existing command transcripts are unchanged.
+- [x] No response envelope or protocol metadata change is introduced.
+- [x] Focused protocol tests prove Phase 1 responses do not gain `result`,
       `meta`, `trace_id`, or telemetry metadata wrappers.
-- [ ] Forbidden-path/module guard passes for `crates/sandbox-runtime-trace/` and
+- [x] Forbidden-path/module guard passes for `crates/sandbox-runtime-trace/` and
       `crates/sandbox-runtime/operation/src/internal/telemetry.rs`.
-- [ ] `cargo fmt --check` passes.
-- [ ] `cargo test -p sandbox-daemon -p sandbox-runtime -p sandbox-config -p sandbox-protocol` passes.
+- [x] `cargo fmt --check` passes.
+- [x] `cargo test -p sandbox-daemon -p sandbox-runtime -p sandbox-config -p sandbox-protocol` passes.

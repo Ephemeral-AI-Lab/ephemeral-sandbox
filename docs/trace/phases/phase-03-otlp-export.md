@@ -50,18 +50,19 @@ crates/sandbox-config/tests/unit/configs/
   daemon.rs
 
 observability/
-  docker-compose.yml          # collector, tempo, grafana; no loki
-  otel-collector.yaml         # trace pipeline only
-  tempo.yaml
-  grafana/
-    provisioning/
-      datasources/
-        tempo.yaml
+  phase-03-traces/
+    docker-compose.yml        # collector, tempo, grafana; no loki
+    otel-collector.yaml       # trace pipeline only
+    tempo.yaml
+    grafana/
+      provisioning/
+        datasources/
+          tempo.yaml
 ```
 
-Phase 3 creates the shared `observability/` tree with the trace-only services
-and provisioning needed for OTLP trace validation. Later phases extend these
-same files instead of adding phase-specific observability directories.
+Phase 3 creates `observability/phase-03-traces/` with the trace-only services
+and provisioning needed for OTLP trace validation. Later phases must not add
+Loki, log exporters, or trace-to-logs configuration to this Phase 3 stack.
 
 Do not add file appenders, Loki, log exporters, or manager/gateway RPC
 telemetry transport.
@@ -162,14 +163,14 @@ IDs, cgroup paths, or other per-request/per-workspace high-cardinality values.
 - [x] OTLP resource attributes include `service.name`, `service.instance.id`,
       and `sandbox.id`, and exclude raw paths, root hashes, request IDs,
       command IDs, workspace session IDs, cgroup paths, and error strings.
-- [ ] Validation environment includes OpenTelemetry Collector, Tempo, and
-      Grafana with a Tempo data source.
-- [ ] The Phase 3 validation environment does not include Loki, log exporters,
+- [x] Validation environment includes OpenTelemetry Collector, Tempo, and
+      Grafana with a Tempo data source under `observability/phase-03-traces/`.
+- [x] The Phase 3 validation environment does not include Loki, log exporters,
       or Grafana trace-to-logs configuration.
 - [x] Invalid telemetry config fails daemon startup.
 - [x] Collector unreachable after valid exporter construction does not alter
       runtime protocol responses.
-- [ ] Exporter timeout, queue/drop behavior, and flush error behavior are
+- [x] Exporter timeout, queue/drop behavior, and flush error behavior are
       bounded and covered by tests.
 - [x] Normal daemon shutdown drains or cancels tracked request/connection tasks
       before flushing or shutting down the telemetry provider.

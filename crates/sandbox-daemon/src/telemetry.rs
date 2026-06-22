@@ -21,6 +21,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
 
 const OTLP_SHUTDOWN_TIMEOUT_MS: u64 = 5_000;
+const TELEMETRY_SHUTDOWN_ERROR_MAX_CHARS: usize = 512;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -268,12 +269,28 @@ fn init_otlp_subscriber(
     Ok(TelemetryGuard::new(provider))
 }
 
-fn otlp_batch_config(queue_size: usize, scheduled_delay: Duration) -> BatchConfig {
+pub(crate) fn otlp_batch_config(queue_size: usize, scheduled_delay: Duration) -> BatchConfig {
+    let limits = otlp_batch_limits(queue_size, scheduled_delay);
     BatchConfigBuilder::default()
-        .with_max_queue_size(queue_size)
-        .with_max_export_batch_size(queue_size.clamp(1, 512))
-        .with_scheduled_delay(scheduled_delay)
+        .with_max_queue_size(limits.max_queue_size)
+        .with_max_export_batch_size(limits.max_export_batch_size)
+        .with_scheduled_delay(limits.scheduled_delay)
         .build()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OtlpBatchLimits {
+    pub(crate) max_queue_size: usize,
+    pub(crate) max_export_batch_size: usize,
+    pub(crate) scheduled_delay: Duration,
+}
+
+pub(crate) fn otlp_batch_limits(queue_size: usize, scheduled_delay: Duration) -> OtlpBatchLimits {
+    OtlpBatchLimits {
+        max_queue_size: queue_size,
+        max_export_batch_size: queue_size.clamp(1, 512),
+        scheduled_delay,
+    }
 }
 
 pub(crate) fn otlp_resource(service_name: &str, sandbox_id: &str) -> Resource {
@@ -364,7 +381,7 @@ impl TelemetryGuard {
         };
         provider
             .shutdown_with_timeout(self.shutdown_timeout)
-            .map_err(|err| TelemetryShutdownError::Provider(err.to_string()))
+            .map_err(|err| TelemetryShutdownError::Provider(bounded_shutdown_error(err)))
     }
 
     #[cfg(test)]
@@ -375,6 +392,19 @@ impl TelemetryGuard {
             shutdown_timeout: timeout,
         }
     }
+}
+
+fn bounded_shutdown_error(error: impl std::fmt::Display) -> String {
+    let message = error.to_string();
+    let mut chars = message.chars();
+    let mut bounded = chars
+        .by_ref()
+        .take(TELEMETRY_SHUTDOWN_ERROR_MAX_CHARS)
+        .collect::<String>();
+    if chars.next().is_some() {
+        bounded.push_str("...");
+    }
+    bounded
 }
 
 impl Drop for TelemetryGuard {

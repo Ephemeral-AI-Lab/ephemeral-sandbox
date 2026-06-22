@@ -42,6 +42,7 @@ uuid = { version = "1", default-features = false, features = ["v4"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 tracing = "0.1"
+tracing-core = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "json", "std"] }
 # Phase 3 trace export uses OTLP over HTTP/protobuf only. Keep these exact
 # generation-matched versions together.

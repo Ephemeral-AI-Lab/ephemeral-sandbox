@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use sandbox_manager::LocalSandboxDaemonInstaller;
 use sandbox_manager::{
     CreateSandboxRequest, CreateSandboxResult, ManagerError, ManagerServices, SandboxDaemonClient,
     SandboxDaemonEndpoint, SandboxDaemonInstaller, SandboxId, SandboxRecord, SandboxRuntime,
@@ -253,6 +254,45 @@ fn create_list_inspect_destroy_sandbox_with_fake_runtime() {
         installer.stopped.lock().expect("stopped lock").as_slice(),
         ["container-1"]
     );
+}
+
+#[test]
+fn local_daemon_installer_launch_spec_passes_dynamic_sandbox_id() {
+    let installer = LocalSandboxDaemonInstaller::new(
+        "/bin/sandbox-daemon",
+        "/etc/eos/prd.yml",
+        "/tmp/eos-daemons",
+        Some("secret-token".to_owned()),
+    );
+    let record = SandboxRecord::new(
+        id("container-1"),
+        PathBuf::from("/testbed"),
+        SandboxState::Ready,
+    );
+
+    let spec = installer
+        .launch_spec(&record)
+        .expect("launch spec builds from record");
+
+    assert_eq!(spec.executable, PathBuf::from("/bin/sandbox-daemon"));
+    assert_eq!(
+        spec.socket_path,
+        PathBuf::from("/tmp/eos-daemons/container-1/runtime.sock")
+    );
+    assert_eq!(
+        spec.pid_path,
+        PathBuf::from("/tmp/eos-daemons/container-1/runtime.pid")
+    );
+    assert!(spec
+        .args
+        .windows(2)
+        .any(|window| window[0] == "--sandbox-id" && window[1] == "container-1"));
+    assert!(spec
+        .args
+        .windows(2)
+        .any(|window| window[0] == "--workspace-root" && window[1] == "/testbed"));
+    assert!(!spec.args.iter().any(|arg| arg == "secret-token"));
+    assert_eq!(spec.auth_token.as_deref(), Some("secret-token"));
 }
 
 #[test]

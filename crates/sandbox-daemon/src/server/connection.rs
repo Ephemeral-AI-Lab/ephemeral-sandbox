@@ -42,7 +42,7 @@ impl SandboxDaemonServer {
         let span = tracing::info_span!(
             "daemon.request",
             sandbox_id = field::Empty,
-            request_id_present = field::Empty,
+            request_id = field::Empty,
             operation = field::Empty,
             scope_kind = field::Empty,
             transport = if is_tcp { "tcp" } else { "unix" },

@@ -1,17 +1,21 @@
 use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use opentelemetry::Key;
-use opentelemetry_sdk::error::OTelSdkResult;
-use opentelemetry_sdk::trace::{SdkTracerProvider, SpanData, SpanExporter};
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry_sdk::error::{OTelSdkError, OTelSdkResult};
+use opentelemetry_sdk::trace::{BatchSpanProcessor, SdkTracerProvider, SpanData, SpanExporter};
 use serde_json::{json, Value};
 use tokio::runtime::Runtime;
+use tokio::time::timeout;
 use tracing_subscriber::fmt::MakeWriter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::Layer;
 
 use crate::server::{SandboxDaemonServer, ServerConfig};
 use crate::telemetry::{
@@ -56,7 +60,7 @@ fn local_json_telemetry_formats_span_close_records() -> Result<()> {
 }
 
 #[test]
-fn daemon_request_span_records_dynamic_sandbox_id() -> Result<()> {
+fn daemon_request_span_records_dynamic_sandbox_id_and_request_id() -> Result<()> {
     let writer = CaptureWriter::default();
     let runtime = Runtime::new()?;
     let server = test_server(Some("dynamic-sbox"));
@@ -76,12 +80,9 @@ fn daemon_request_span_records_dynamic_sandbox_id() -> Result<()> {
 
     let output = writer.output();
     assert!(output.contains("dynamic-sbox"), "{output}");
+    assert!(output.contains("REQUEST_ID_SECRET_SENTINEL"), "{output}");
     assert!(output.contains("unknown_op"), "{output}");
     assert!(output.contains("sandbox"), "{output}");
-    assert!(
-        !output.contains("REQUEST_ID_SECRET_SENTINEL"),
-        "raw request_id must not appear in telemetry: {output}"
-    );
     assert!(
         !output.contains("unknown_op_OPERATION_SECRET_SENTINEL"),
         "raw unknown operation must not appear in telemetry: {output}"
@@ -450,6 +451,21 @@ fn otlp_resource_contains_only_daemon_and_sandbox_identity() {
 }
 
 #[test]
+fn otlp_batch_limits_apply_bounded_queue_batch_and_timeout() {
+    let delay = Duration::from_millis(750);
+
+    let limits = crate::telemetry::otlp_batch_limits(2_048, delay);
+
+    assert_eq!(limits.max_queue_size, 2_048);
+    assert_eq!(limits.max_export_batch_size, 512);
+    assert_eq!(limits.scheduled_delay, delay);
+
+    let small_limits = crate::telemetry::otlp_batch_limits(7, delay);
+    assert_eq!(small_limits.max_queue_size, 7);
+    assert_eq!(small_limits.max_export_batch_size, 7);
+}
+
+#[test]
 fn otlp_unreachable_collector_does_not_change_protocol_response() -> Result<()> {
     let runtime = Runtime::new()?;
     let server = test_server(Some("sbox-otlp"));
@@ -473,6 +489,78 @@ fn otlp_unreachable_collector_does_not_change_protocol_response() -> Result<()> 
 }
 
 #[test]
+fn otlp_queue_full_drop_does_not_block_protocol_responses() -> Result<()> {
+    let runtime = Runtime::new()?;
+    let exporter_state = Arc::new(BlockingExporterState::new());
+    let processor = BatchSpanProcessor::builder(BlockingExporter {
+        state: Arc::clone(&exporter_state),
+    })
+    .with_batch_config(crate::telemetry::otlp_batch_config(
+        1,
+        Duration::from_secs(60),
+    ))
+    .build();
+    let provider = SdkTracerProvider::builder()
+        .with_span_processor(processor)
+        .build();
+    let tracer = provider.tracer("sandbox-daemon");
+    let subscriber = tracing_subscriber::registry().with(
+        tracing_opentelemetry::layer()
+            .with_tracer(tracer)
+            .with_filter(tracing_subscriber::filter::LevelFilter::INFO),
+    );
+    let server = test_server(Some("sbox-queue-drop"));
+
+    let run_result = tracing::subscriber::with_default(subscriber, || -> Result<()> {
+        let first_response = runtime.block_on(server.dispatch_bytes(
+            unknown_operation_request_bytes("req-queue-prime"),
+            false,
+        ));
+        anyhow::ensure!(
+            first_response["error"]["kind"] == "unknown_op",
+            "unexpected prime response: {first_response}"
+        );
+        anyhow::ensure!(
+            exporter_state.wait_for_started(Duration::from_secs(1)),
+            "blocking exporter did not receive the priming span"
+        );
+
+        runtime.block_on(async {
+            for index in 0..32 {
+                let request_id = format!("req-queue-drop-{index}");
+                let response = match timeout(
+                    Duration::from_millis(100),
+                    server.dispatch_bytes(unknown_operation_request_bytes(&request_id), false),
+                )
+                .await
+                {
+                    Ok(response) => response,
+                    Err(_) => {
+                        anyhow::bail!(
+                            "queue-full/drop path blocked daemon response for {request_id}"
+                        );
+                    }
+                };
+                anyhow::ensure!(
+                    response["error"]["kind"] == "unknown_op",
+                    "unexpected response while queue was full: {response}"
+                );
+            }
+            Ok(())
+        })
+    });
+
+    exporter_state.release();
+    let mut guard =
+        crate::telemetry::TelemetryGuard::from_provider_for_test(provider, Duration::from_secs(1));
+    let shutdown_result = guard.shutdown();
+
+    run_result?;
+    shutdown_result.expect("blocked exporter shuts down after release");
+    Ok(())
+}
+
+#[test]
 fn telemetry_guard_shutdown_calls_provider() {
     let shutdown_called = Arc::new(AtomicBool::new(false));
     let exporter = ShutdownExporter {
@@ -487,6 +575,32 @@ fn telemetry_guard_shutdown_calls_provider() {
     guard.shutdown().expect("provider shutdown succeeds");
 
     assert!(shutdown_called.load(Ordering::SeqCst));
+}
+
+#[test]
+fn telemetry_guard_shutdown_surfaces_bounded_provider_error() {
+    let provider = SdkTracerProvider::builder()
+        .with_simple_exporter(FailingShutdownExporter {
+            message: "shutdown flush failed ".repeat(80),
+        })
+        .build();
+    let mut guard =
+        crate::telemetry::TelemetryGuard::from_provider_for_test(provider, Duration::from_millis(5));
+
+    let err = guard
+        .shutdown()
+        .expect_err("provider shutdown failure is surfaced");
+
+    let crate::telemetry::TelemetryShutdownError::Provider(message) = err;
+    assert!(
+        message.contains("shutdown flush failed"),
+        "shutdown error should include provider context: {message}"
+    );
+    assert!(
+        message.len() <= 515,
+        "shutdown error should be bounded: len={} message={message}",
+        message.len()
+    );
 }
 
 #[derive(Clone, Default)]
@@ -583,6 +697,16 @@ fn json_lines(output: &str) -> Vec<Value> {
         .collect()
 }
 
+fn unknown_operation_request_bytes(request_id: &str) -> Vec<u8> {
+    serde_json::to_vec(&json!({
+        "op": "unknown_op",
+        "request_id": request_id,
+        "scope": { "kind": "sandbox", "sandbox_id": "scope-sbox" },
+        "args": {}
+    }))
+    .expect("unknown operation request serializes")
+}
+
 fn test_server(sandbox_id: Option<&str>) -> SandboxDaemonServer {
     SandboxDaemonServer::new(
         ServerConfig {
@@ -635,6 +759,65 @@ fn test_operations() -> sandbox_runtime::SandboxRuntimeOperations {
 }
 
 #[derive(Debug)]
+struct BlockingExporter {
+    state: Arc<BlockingExporterState>,
+}
+
+#[derive(Debug)]
+struct BlockingExporterState {
+    started: (Mutex<usize>, Condvar),
+    released: (Mutex<bool>, Condvar),
+}
+
+impl BlockingExporterState {
+    fn new() -> Self {
+        Self {
+            started: (Mutex::new(0), Condvar::new()),
+            released: (Mutex::new(false), Condvar::new()),
+        }
+    }
+
+    fn mark_started(&self) {
+        let (lock, condvar) = &self.started;
+        let mut count = lock.lock().expect("export start lock");
+        *count += 1;
+        condvar.notify_all();
+    }
+
+    fn wait_for_started(&self, timeout: Duration) -> bool {
+        let (lock, condvar) = &self.started;
+        let count = lock.lock().expect("export start lock");
+        let (count, _) = condvar
+            .wait_timeout_while(count, timeout, |count| *count == 0)
+            .expect("export start condvar");
+        *count > 0
+    }
+
+    fn wait_until_released(&self) {
+        let (lock, condvar) = &self.released;
+        let mut released = lock.lock().expect("export release lock");
+        while !*released {
+            released = condvar.wait(released).expect("export release condvar");
+        }
+    }
+
+    fn release(&self) {
+        let (lock, condvar) = &self.released;
+        let mut released = lock.lock().expect("export release lock");
+        *released = true;
+        condvar.notify_all();
+    }
+}
+
+impl SpanExporter for BlockingExporter {
+    async fn export(&self, _batch: Vec<SpanData>) -> OTelSdkResult {
+        self.state.mark_started();
+        self.state.wait_until_released();
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
 struct ShutdownExporter {
     shutdown_called: Arc<AtomicBool>,
 }
@@ -647,6 +830,21 @@ impl SpanExporter for ShutdownExporter {
     fn shutdown_with_timeout(&self, _timeout: Duration) -> OTelSdkResult {
         self.shutdown_called.store(true, Ordering::SeqCst);
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct FailingShutdownExporter {
+    message: String,
+}
+
+impl SpanExporter for FailingShutdownExporter {
+    async fn export(&self, _batch: Vec<SpanData>) -> OTelSdkResult {
+        Ok(())
+    }
+
+    fn shutdown_with_timeout(&self, _timeout: Duration) -> OTelSdkResult {
+        Err(OTelSdkError::InternalFailure(self.message.clone()))
     }
 }
 
