@@ -1,7 +1,117 @@
-#!/usr/bin/env sh
+#!/bin/sh
 set -eu
 
 script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
 repo_root=$(CDPATH= cd "$script_dir/.." && pwd)
 
-exec cargo run --quiet --manifest-path "$repo_root/Cargo.toml" -p sandbox-gateway -- serve "$@"
+default_socket=${SANDBOX_GATEWAY_SOCKET:-/tmp/eos-gateway.sock}
+pid_file=/tmp/eos-gateway.pid
+socket_path=$default_socket
+target_dir=${CARGO_TARGET_DIR:-$repo_root/target}
+case "$target_dir" in
+    /*) ;;
+    *) target_dir=$(pwd)/$target_dir ;;
+esac
+gateway_bin=$target_dir/debug/sandbox-gateway
+
+previous_flag=
+for arg in "$@"; do
+    if [ "$previous_flag" = "pid-file" ]; then
+        pid_file=$arg
+        previous_flag=
+        continue
+    fi
+    if [ "$previous_flag" = "gateway-socket" ]; then
+        socket_path=$arg
+        previous_flag=
+        continue
+    fi
+
+    case "$arg" in
+        -h|--help)
+            if [ -x "$gateway_bin" ]; then
+                exec "$gateway_bin" serve "$@"
+            fi
+            exec cargo run --quiet --manifest-path "$repo_root/Cargo.toml" -p sandbox-gateway -- serve "$@"
+            ;;
+        --pid-file)
+            previous_flag=pid-file
+            ;;
+        --pid-file=*)
+            pid_file=${arg#--pid-file=}
+            ;;
+        --gateway-socket)
+            previous_flag=gateway-socket
+            ;;
+        --gateway-socket=*)
+            socket_path=${arg#--gateway-socket=}
+            ;;
+    esac
+done
+
+printf 'building sandbox-gateway binary\n'
+cargo build --quiet --manifest-path "$repo_root/Cargo.toml" -p sandbox-gateway --bin sandbox-gateway
+if [ ! -x "$gateway_bin" ]; then
+    printf 'built sandbox-gateway binary not found at %s\n' "$gateway_bin" >&2
+    exit 1
+fi
+
+log_file=${SANDBOX_GATEWAY_LOG:-${pid_file%.*}.log}
+if [ "$log_file" = "$pid_file" ]; then
+    log_file=$pid_file.log
+fi
+
+stop_existing_gateway() {
+    [ -f "$pid_file" ] || return 0
+
+    old_pid=$(sed -n '1p' "$pid_file" 2>/dev/null || true)
+    case "$old_pid" in
+        ''|*[!0-9]*)
+            rm -f "$pid_file" "$socket_path"
+            return 0
+            ;;
+    esac
+
+    if ! kill -0 "$old_pid" 2>/dev/null; then
+        rm -f "$pid_file" "$socket_path"
+        return 0
+    fi
+
+    process_name=$(ps -p "$old_pid" -o comm= 2>/dev/null || true)
+    case "$process_name" in
+        *sandbox-gateway*) ;;
+        *)
+            printf 'stale pid file %s points at non-gateway process %s; not killing\n' "$pid_file" "$old_pid" >&2
+            rm -f "$pid_file"
+            return 0
+            ;;
+    esac
+
+    printf 'stopping existing sandbox-gateway pid %s\n' "$old_pid"
+    kill "$old_pid" 2>/dev/null || true
+
+    count=0
+    while kill -0 "$old_pid" 2>/dev/null && [ "$count" -lt 50 ]; do
+        sleep 0.1
+        count=$((count + 1))
+    done
+
+    if kill -0 "$old_pid" 2>/dev/null; then
+        printf 'existing sandbox-gateway pid %s did not stop; killing forcefully\n' "$old_pid" >&2
+        kill -KILL "$old_pid" 2>/dev/null || true
+    fi
+
+    rm -f "$pid_file" "$socket_path"
+}
+
+stop_existing_gateway
+
+mkdir -p "$(dirname "$pid_file")" "$(dirname "$socket_path")" "$(dirname "$log_file")"
+
+nohup "$gateway_bin" serve "$@" >>"$log_file" 2>&1 &
+launcher_pid=$!
+
+printf 'sandbox-gateway starting in background via launcher pid %s\n' "$launcher_pid"
+printf 'pid file: %s\n' "$pid_file"
+printf 'socket: %s\n' "$socket_path"
+printf 'log: %s\n' "$log_file"

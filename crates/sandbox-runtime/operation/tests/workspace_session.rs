@@ -4,11 +4,11 @@ use std::sync::{Arc, Mutex};
 
 use sandbox_runtime::workspace_session::{WorkspaceSessionError, WorkspaceSessionService};
 use sandbox_runtime_workspace::{
-    BaseRevision, CaptureChangesRequest, CapturedWorkspaceChanges, CreateWorkspaceRequest,
-    DestroyWorkspaceRequest, DestroyWorkspaceResult, LayerStackSnapshotRef, LeaseId,
-    ReadonlySnapshotHandle, RemountWorkspaceRequest, RemountWorkspaceResult, WorkspaceError,
-    WorkspaceHandle, WorkspaceProfile, WorkspaceRuntimeHooks, WorkspaceRuntimeService,
-    WorkspaceSessionId,
+    BaseRevision, CaptureChangesRequest, CapturedWorkspaceChanges, CgroupMonitorConfig,
+    CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, LayerStackSnapshotRef,
+    LeaseId, ReadonlySnapshotHandle, RemountWorkspaceRequest, RemountWorkspaceResult,
+    WorkspaceError, WorkspaceHandle, WorkspaceProfile, WorkspaceRuntimeHooks,
+    WorkspaceRuntimeService, WorkspaceSessionId,
 };
 
 struct FakeWorkspaceService {
@@ -167,6 +167,13 @@ fn manager_with(fake: &Arc<FakeWorkspaceService>) -> WorkspaceSessionService {
     WorkspaceSessionService::new(fake_workspace_runtime(fake))
 }
 
+fn manager_with_cgroup_config(
+    fake: &Arc<FakeWorkspaceService>,
+    cgroup_monitor: CgroupMonitorConfig,
+) -> WorkspaceSessionService {
+    WorkspaceSessionService::with_cgroup_monitor(fake_workspace_runtime(fake), cgroup_monitor)
+}
+
 fn fake_workspace_runtime(fake: &Arc<FakeWorkspaceService>) -> Arc<WorkspaceRuntimeService> {
     Arc::new(WorkspaceRuntimeService::from_hooks_for_test(
         WorkspaceRuntimeHooks {
@@ -226,6 +233,32 @@ fn workspace_handle(workspace_session_id: &str, lease_id: &str) -> WorkspaceHand
         WorkspaceProfile::HostCompatible,
         snapshot,
     )
+}
+
+fn cgroup_workspace_handle(
+    workspace_session_id: &str,
+    lease_id: &str,
+    root: &std::path::Path,
+) -> WorkspaceHandle {
+    WorkspaceHandle::holder_backed_for_test(
+        WorkspaceSessionId(workspace_session_id.to_owned()),
+        root.join("workspace"),
+        WorkspaceProfile::HostCompatible,
+        test_manifest_snapshot(lease_id),
+        root.join("upper"),
+        root.join("work"),
+        Some(root.join("cgroup")),
+    )
+}
+
+fn test_manifest_snapshot(lease_id: &str) -> LayerStackSnapshotRef {
+    LayerStackSnapshotRef {
+        lease_id: LeaseId(lease_id.to_owned()),
+        manifest_version: 1,
+        root_hash: "root".to_owned(),
+        manifest: test_manifest(),
+        layer_paths: vec![PathBuf::from("/lower/one")],
+    }
 }
 
 fn destroy_result(handle: &WorkspaceHandle) -> DestroyWorkspaceResult {
@@ -331,6 +364,48 @@ fn workspace_session_destroy_failure_retains_session() {
     assert!(manager
         .resolve_session(WorkspaceSessionId("workspace-1".to_owned()))
         .is_ok());
+}
+
+#[test]
+fn workspace_session_destroy_failure_keeps_cgroup_monitor_active(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = temp_root("destroy-cgroup-failure")?;
+    std::fs::create_dir_all(root.join("cgroup"))?;
+    std::fs::create_dir_all(root.join("upper"))?;
+    std::fs::create_dir_all(root.join("work"))?;
+    write_cgroup_files(&root.join("cgroup"))?;
+    let fake = Arc::new(FakeWorkspaceService::new());
+    fake.push_create_result(Ok(cgroup_workspace_handle("workspace-1", "lease-1", &root)));
+    fake.push_destroy_result(Err(WorkspaceError::Setup {
+        step: "destroy failed".to_owned(),
+    }));
+    let manager = manager_with_cgroup_config(&fake, CgroupMonitorConfig::default());
+    let handler = manager.create_workspace_session(create_request())?;
+
+    let error = manager
+        .destroy_session(handler, DestroyWorkspaceRequest::default())
+        .expect_err("test operation fails");
+
+    assert!(matches!(
+        error,
+        WorkspaceSessionError::Workspace(WorkspaceError::Setup { .. })
+    ));
+    assert!(manager
+        .resolve_session(WorkspaceSessionId("workspace-1".to_owned()))
+        .is_ok());
+    let snapshot = manager
+        .cgroup_monitor()
+        .inspect(&WorkspaceSessionId("workspace-1".to_owned()), None)
+        .expect("session cgroup target is retained");
+    assert!(!snapshot.cleanup.final_sample_recorded);
+    assert_eq!(snapshot.cleanup.cgroup_exists_after_destroy, None);
+    assert_eq!(
+        snapshot.latest.as_ref().map(|sample| sample.sample_kind),
+        Some(sandbox_runtime_workspace::CgroupSampleKind::Periodic)
+    );
+
+    let _ = std::fs::remove_dir_all(root);
+    Ok(())
 }
 
 #[test]
@@ -762,4 +837,49 @@ fn workspace_session_duplicate_destroy_does_not_call_raw_destroy_twice() {
         fake.destroy_calls(),
         vec![WorkspaceSessionId("workspace-1".to_owned())]
     );
+}
+
+fn write_cgroup_files(cgroup: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    std::fs::write(
+        cgroup.join("cpu.stat"),
+        "usage_usec 1200\nuser_usec 800\nsystem_usec 400\n",
+    )?;
+    std::fs::write(cgroup.join("memory.current"), "4096\n")?;
+    std::fs::write(cgroup.join("memory.peak"), "8192\n")?;
+    std::fs::write(
+        cgroup.join("memory.stat"),
+        "anon 100\nfile 200\nkernel 300\n",
+    )?;
+    std::fs::write(cgroup.join("memory.events"), "oom 0\noom_kill 0\n")?;
+    std::fs::write(
+        cgroup.join("io.stat"),
+        "8:0 rbytes=10 wbytes=20 rios=1 wios=2\n",
+    )?;
+    std::fs::write(cgroup.join("pids.current"), "1\n")?;
+    std::fs::write(cgroup.join("pids.peak"), "2\n")?;
+    std::fs::write(cgroup.join("cgroup.procs"), "123\n")?;
+    std::fs::write(
+        cgroup.join("cpu.pressure"),
+        "some avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+    )?;
+    std::fs::write(
+        cgroup.join("memory.pressure"),
+        "some avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+    )?;
+    std::fs::write(
+        cgroup.join("io.pressure"),
+        "some avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+    )?;
+    std::fs::write(cgroup.join("cgroup.events"), "populated 1\nfrozen 0\n")?;
+    Ok(())
+}
+
+fn temp_root(label: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    Ok(std::env::temp_dir().join(format!(
+        "sandbox-runtime-workspace-session-{label}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_nanos()
+    )))
 }

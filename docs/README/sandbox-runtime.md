@@ -34,9 +34,7 @@ The external runtime operation surface is the `Command` family:
 
 - `exec_command`
 - `write_command_stdin`
-- `poll_command`
 - `read_command_lines`
-- `cancel_command`
 
 Catalog help is rendered from protocol metadata:
 

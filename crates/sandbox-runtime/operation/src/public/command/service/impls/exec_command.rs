@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::sync::{Arc, MutexGuard};
+use std::time::Instant;
 
 use sandbox_runtime_command::process::{CommandProcess, CommandProcessSpec};
 
@@ -23,14 +24,12 @@ pub(crate) const SPEC: OperationSpec = OperationSpec {
     name: "exec_command",
     family: "command",
     summary: "Start a command in a workspace.",
-    description: "Start a shell command inside an existing workspace session when workspace_session_id is provided, otherwise create a one-shot host-compatible workspace and destroy it when the command reaches terminal state. If the command is still running after the initial wait, the response includes a command_session_id that can be used with poll_command, write_command_stdin, read_command_lines, or cancel_command.",
+    description: "Start a shell command inside an existing workspace session when workspace_session_id is provided, otherwise create a one-shot host-compatible workspace and destroy it when the command reaches terminal state. If the command is still running after the initial wait, the response includes a command_session_id that can be used with write_command_stdin or read_command_lines.",
     args: EXEC_COMMAND_ARGS,
     cli: Some(EXEC_COMMAND_CLI),
     related: &[
-        "poll_command",
         "write_command_stdin",
         "read_command_lines",
-        "cancel_command",
     ],
 };
 
@@ -55,12 +54,12 @@ const EXEC_COMMAND_ARGS: &[ArgSpec] = &[
         }),
     ),
     ArgSpec::optional(
-        "timeout_seconds",
-        ArgKind::Float,
-        "Command timeout in seconds.",
+        "timeout_ms",
+        ArgKind::Integer,
+        "Command timeout in milliseconds.",
         None,
         Some(ArgCliSpec {
-            flag: Some("--timeout-seconds"),
+            flag: Some("--timeout-ms"),
             positional: None,
         }),
     ),
@@ -101,7 +100,7 @@ fn parse_input(request: &Request) -> Result<ExecCommandInput, Response> {
             .filter(|workspace_session_id| !workspace_session_id.is_empty())
             .map(WorkspaceSessionId),
         cmd: request.required_string("cmd")?,
-        timeout_seconds: request.optional_f64("timeout_seconds")?,
+        timeout_ms: request.optional_u64("timeout_ms")?,
         yield_time_ms: request.optional_u64("yield_time_ms")?,
     })
 }
@@ -228,7 +227,7 @@ impl CommandOperationService {
                 id: command_session_id.0.clone(),
                 command: input.cmd.clone(),
                 cwd: None,
-                timeout_seconds: input.timeout_seconds,
+                timeout_seconds: input.timeout_ms.map(timeout_ms_to_seconds),
             },
             workspace.entry()?,
             self.config(),
@@ -252,7 +251,7 @@ impl CommandOperationService {
             .launch_driver()
             .wait_for_initial_yield(process.as_ref(), wait_ms, 0);
 
-        self.command_yield_from_wait_outcome(command_session_id, outcome)
+        self.command_yield_from_wait_outcome(command_session_id, outcome, false)
     }
 
     fn cleanup_workspace_start_failure(
@@ -348,10 +347,12 @@ impl StartedCommand {
             workspace_session_id: workspace.workspace_session_id.clone(),
             workspace_ownership: workspace.ownership.clone(),
             workspace_root: workspace.workspace_root.clone(),
+            started_at: Instant::now(),
             process,
             transcript: CommandTranscriptStore {
                 transcript_path: self.transcript_path,
             },
+            next_snapshot_offset: 0,
             lifecycle_state: CommandLifecycleState::Running,
             cancellation: CancellationState::None,
             remount_cancellation: None,
@@ -360,6 +361,10 @@ impl StartedCommand {
         };
         (record, process_for_rollback)
     }
+}
+
+fn timeout_ms_to_seconds(timeout_ms: u64) -> f64 {
+    timeout_ms as f64 / 1000.0
 }
 
 fn cleanup_process_artifacts_after_start_failure(

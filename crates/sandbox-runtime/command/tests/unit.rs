@@ -18,7 +18,7 @@ mod transcript;
 pub mod yield_wait_loop;
 
 pub use config::CommandConfig;
-pub use contract::{tail_lines, CommandError};
+pub use contract::CommandError;
 pub use process::{CommandProcess, CommandProcessSpec};
 
 pub(crate) use process::*;
@@ -26,8 +26,6 @@ pub(crate) use pty::*;
 pub(crate) use transcript::*;
 pub(crate) use yield_wait_loop::*;
 
-#[path = "unit/contract.rs"]
-mod contract_tests;
 #[path = "unit/process.rs"]
 mod process_tests;
 #[path = "unit/pty.rs"]

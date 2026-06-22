@@ -199,16 +199,18 @@ fn exec_command_maps_command_without_workspace_session_id() -> TestResult {
 }
 
 #[test]
-fn poll_command_maps_command_session_id_flag_and_last_n_lines() -> TestResult {
+fn read_command_lines_maps_command_session_id_start_offset_and_limit_flags() -> TestResult {
     let catalog = runtime_catalog()?;
     let request = build_request_from_catalog_with_id(
         BuildRequestInput {
             execution_space: OperationExecutionSpace::Runtime,
-            operation: "poll_command".to_owned(),
+            operation: "read_command_lines".to_owned(),
             operation_argv: vec![
                 "--command-session-id".to_owned(),
                 "cmd-1".to_owned(),
-                "--last-n-lines".to_owned(),
+                "--start-offset".to_owned(),
+                "10".to_owned(),
+                "--limit".to_owned(),
                 "50".to_owned(),
             ],
             sandbox_id: Some("sbox-1".to_owned()),
@@ -222,7 +224,32 @@ fn poll_command_maps_command_session_id_flag_and_last_n_lines() -> TestResult {
         request.args,
         json!({
             "command_session_id": "cmd-1",
-            "last_n_lines": 50,
+            "start_offset": 10,
+            "limit": 50,
+        })
+    );
+    Ok(())
+}
+
+#[test]
+fn read_command_lines_omits_default_window_args_when_flags_are_absent() -> TestResult {
+    let catalog = runtime_catalog()?;
+    let request = build_request_from_catalog_with_id(
+        BuildRequestInput {
+            execution_space: OperationExecutionSpace::Runtime,
+            operation: "read_command_lines".to_owned(),
+            operation_argv: vec!["--command-session-id".to_owned(), "cmd-1".to_owned()],
+            sandbox_id: Some("sbox-1".to_owned()),
+        },
+        &config(None),
+        &catalog,
+        "req-1",
+    )?;
+
+    assert_eq!(
+        request.args,
+        json!({
+            "command_session_id": "cmd-1",
         })
     );
     Ok(())

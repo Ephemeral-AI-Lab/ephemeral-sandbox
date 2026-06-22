@@ -4,8 +4,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use sandbox_runtime::command::{
-    CancelCommandInput, CommandLaunchDriver, CommandOperationService, CommandServiceError,
-    ExecCommandInput,
+    CommandLaunchDriver, CommandOperationService, CommandServiceError, ExecCommandInput,
+    WriteCommandStdinInput,
 };
 use sandbox_runtime::workspace_remount::{
     CommandRemountCoordinator, ProcessGroupController, ProcessGroupInspection,
@@ -323,7 +323,7 @@ fn exec_input(workspace_session_id: WorkspaceSessionId) -> ExecCommandInput {
     ExecCommandInput {
         workspace_session_id: Some(workspace_session_id),
         cmd: "echo ok".to_owned(),
-        timeout_seconds: None,
+        timeout_ms: None,
         yield_time_ms: Some(0),
     }
 }
@@ -571,8 +571,10 @@ fn workspace_remount_cancel_during_critical_switch_still_applies_and_resumes() {
     let command = Arc::clone(&services.command);
     fake.on_remount(Arc::new(move || {
         command
-            .cancel_command(CancelCommandInput {
+            .write_command_stdin(WriteCommandStdinInput {
                 command_session_id: command_session_id.clone(),
+                stdin: "\u{3}".to_owned(),
+                yield_time_ms: Some(0),
             })
             .expect("cancel during remount is accepted");
     }));

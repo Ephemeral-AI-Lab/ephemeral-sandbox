@@ -181,6 +181,7 @@ impl CommandProcessStore {
             CompletedCommandRecord {
                 command_session_id: command_session_id.clone(),
                 workspace_session_id: active_record.workspace_session_id,
+                started_at: active_record.started_at,
                 result,
                 transcript: RetainedCommandTranscript {
                     transcript_path: active_record.transcript.transcript_path,
@@ -279,8 +280,10 @@ pub(crate) struct ActiveCommandProcess {
     pub(crate) workspace_session_id: WorkspaceSessionId,
     pub(crate) workspace_ownership: CommandWorkspaceOwnership,
     pub(crate) workspace_root: PathBuf,
+    pub(crate) started_at: Instant,
     pub(crate) process: Arc<::sandbox_runtime_command::CommandProcess>,
     pub(crate) transcript: CommandTranscriptStore,
+    pub(crate) next_snapshot_offset: u64,
     pub(crate) lifecycle_state: CommandLifecycleState,
     pub(crate) cancellation: CancellationState,
     pub(crate) remount_cancellation: Option<RemountCancellationToken>,
@@ -331,11 +334,12 @@ pub(crate) struct RetainedCommandTranscript {
     pub(crate) transcript_path: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct CommandTerminalResult {
     pub(crate) status: CommandStatus,
     pub(crate) exit_code: Option<i64>,
     pub(crate) stdout: String,
+    pub(crate) command_total_time_seconds: f64,
 }
 
 #[derive(Debug, Default)]
@@ -355,10 +359,11 @@ impl CommandCompletionStore {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct CompletedCommandRecord {
     pub(crate) command_session_id: CommandSessionId,
     pub(crate) workspace_session_id: WorkspaceSessionId,
+    pub(crate) started_at: Instant,
     pub(crate) result: CommandTerminalResult,
     pub(crate) transcript: RetainedCommandTranscript,
     pub(crate) finalization: FinalizationState,

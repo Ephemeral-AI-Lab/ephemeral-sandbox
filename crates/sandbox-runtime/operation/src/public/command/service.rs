@@ -9,10 +9,9 @@ mod status_lookup;
 pub(crate) mod transcript;
 
 pub use contract::{
-    CancelCommandInput, CommandFinalizedMetadata, CommandLinesOutput, CommandOutputSnapshot,
-    CommandPollOutput, CommandPublishFinalization, CommandPublishStatus, CommandSessionId,
-    CommandStatus, CommandStream, CommandTranscriptRow, CommandYield, ExecCommandInput,
-    PollCommandInput, ReadCommandLinesInput, WriteCommandStdinInput,
+    CommandFinalizedMetadata, CommandLinesOutput, CommandOutputSnapshot,
+    CommandPublishFinalization, CommandPublishStatus, CommandSessionId, CommandStatus,
+    CommandYield, ExecCommandInput, ReadCommandLinesInput, WriteCommandStdinInput,
 };
 pub use core::CommandOperationService;
 pub use launch::{CommandLaunchDriver, RealCommandLaunchDriver};

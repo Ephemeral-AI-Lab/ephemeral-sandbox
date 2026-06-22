@@ -1,4 +1,6 @@
-use crate::command::{CommandLinesOutput, CommandServiceError, CommandSessionId, CommandStatus};
+use crate::command::{
+    CommandLinesOutput, CommandOutputSnapshot, CommandServiceError, CommandSessionId, CommandStatus,
+};
 
 use super::process_store::{CommandTranscriptStore, RetainedCommandTranscript};
 
@@ -39,16 +41,70 @@ pub(crate) fn command_lines_output(
     command_session_id: CommandSessionId,
     status: CommandStatus,
     exit_code: Option<i64>,
+    wall_time_seconds: f64,
+    command_total_time_seconds: f64,
 ) -> CommandLinesOutput {
+    let output = command_output_snapshot(window);
     CommandLinesOutput {
         command_session_id,
         status,
         exit_code,
+        wall_time_seconds,
+        command_total_time_seconds,
+        start_offset: output.start_offset,
+        end_offset: output.end_offset,
+        total_lines: output.total_lines,
+        original_token_count: output.original_token_count,
+        output: output.output,
+    }
+}
+
+#[must_use]
+pub(crate) fn command_output_snapshot(
+    window: ::sandbox_runtime_command::CommandTranscriptWindow,
+) -> CommandOutputSnapshot {
+    let output = render_transcript_text(&window.output);
+    CommandOutputSnapshot {
         start_offset: window.offset,
         end_offset: window.next_offset,
         total_lines: window.total_lines,
-        truncated_before: window.truncated_before,
-        output_truncated: window.output_truncated,
-        output: window.output,
+        original_token_count: estimate_token_count(output.len()),
+        output,
     }
+}
+
+#[must_use]
+pub(crate) fn fallback_output_snapshot(start_offset: u64, output: String) -> CommandOutputSnapshot {
+    let line_count = count_rendered_lines(&output);
+    let end_offset = start_offset.saturating_add(line_count);
+    CommandOutputSnapshot {
+        start_offset,
+        end_offset,
+        total_lines: end_offset,
+        original_token_count: estimate_token_count(output.len()),
+        output,
+    }
+}
+
+#[must_use]
+pub(crate) fn estimate_token_count(chars: usize) -> u64 {
+    if chars == 0 {
+        0
+    } else {
+        u64::try_from(chars.div_ceil(4)).unwrap_or(u64::MAX)
+    }
+}
+
+fn render_transcript_text(rows: &[::sandbox_runtime_command::CommandTranscriptRow]) -> String {
+    rows.iter()
+        .map(|row| row.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn count_rendered_lines(output: &str) -> u64 {
+    if output.is_empty() {
+        return 0;
+    }
+    u64::try_from(output.lines().count()).unwrap_or(u64::MAX)
 }

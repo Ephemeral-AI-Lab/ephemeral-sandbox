@@ -141,15 +141,6 @@ impl From<WorkspaceResourceCaps> for crate::workspace_crate::profile::ResourceCa
     }
 }
 
-impl From<CommandRuntimeConfig> for ::sandbox_runtime_command::CommandConfig {
-    fn from(config: CommandRuntimeConfig) -> Self {
-        Self {
-            scratch_root: config.scratch_root,
-            cgroup_monitor: ::sandbox_runtime_workspace::CgroupMonitorConfig::default(),
-        }
-    }
-}
-
 impl From<CgroupMonitorRuntimeConfig> for ::sandbox_runtime_workspace::CgroupMonitorConfig {
     fn from(config: CgroupMonitorRuntimeConfig) -> Self {
         Self {

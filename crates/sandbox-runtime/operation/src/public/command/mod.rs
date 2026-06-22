@@ -10,19 +10,17 @@ pub(crate) use service::{
     CompletedCommandRecord, FinalizationState, RetainedCommandTranscript,
 };
 pub use service::{
-    CancelCommandInput, CommandFinalizedMetadata, CommandLinesOutput, CommandOperationService,
-    CommandOutputSnapshot, CommandPollOutput, CommandPublishFinalization, CommandPublishStatus,
-    CommandSessionId, CommandStatus, CommandStream, CommandTranscriptRow, CommandYield,
-    ExecCommandInput, PollCommandInput, ReadCommandLinesInput, WriteCommandStdinInput,
+    CommandFinalizedMetadata, CommandLinesOutput, CommandOperationService, CommandOutputSnapshot,
+    CommandPublishFinalization, CommandPublishStatus, CommandSessionId, CommandStatus,
+    CommandYield, ExecCommandInput, ReadCommandLinesInput, WriteCommandStdinInput,
 };
 pub use service::{CommandLaunchDriver, RealCommandLaunchDriver};
 
 pub(crate) const COMMAND_FAMILY: OperationFamilySpec = OperationFamilySpec {
     id: "command",
     title: "Command",
-    summary: "Run, interact with, inspect, and cancel commands.",
-    description:
-        "Run, interact with, inspect, and cancel commands inside the active sandbox runtime.",
+    summary: "Run, interact with, and inspect commands.",
+    description: "Run, interact with, and inspect commands inside the active sandbox runtime.",
 };
 
 const FAMILIES: &[&OperationFamilySpec] = &[&COMMAND_FAMILY];

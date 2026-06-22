@@ -62,7 +62,7 @@ live in `crates/sandbox-runtime/operation`; CAS fixtures live with
 # expose repo-local sandbox tools for this shell
 export PATH="$PWD/bin:$PATH"
 
-# start the public gateway socket; Ctrl-C stops it
+# start or restart the public gateway in the background
 start-sandbox-gateway
 
 # in another shell, use the gateway client directly

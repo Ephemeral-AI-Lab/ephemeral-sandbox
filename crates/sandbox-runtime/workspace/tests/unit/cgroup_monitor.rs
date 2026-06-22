@@ -307,6 +307,62 @@ fn cgroup_monitor_public_reads_do_not_resample_finalized_targets(
 }
 
 #[test]
+fn cgroup_monitor_command_final_uses_retained_previous_cpu(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = temp_root("command-final-cpu")?;
+    let cgroup = root.join("cgroup");
+    let upper = root.join("upper");
+    std::fs::create_dir_all(&cgroup)?;
+    std::fs::create_dir_all(&upper)?;
+    write_complete_cgroup_files(&cgroup)?;
+    let registry = CgroupMonitorRegistry::new(CgroupMonitorConfig {
+        retained_samples_per_target: 10,
+        include_disk: false,
+        ..CgroupMonitorConfig::default()
+    });
+    let workspace_session_id = WorkspaceSessionId("ws-final-cpu".to_owned());
+    registry.register_command(
+        workspace_session_id.clone(),
+        "cmd-final-cpu",
+        cgroup.clone(),
+        upper,
+    );
+    std::fs::write(
+        cgroup.join("cpu.stat"),
+        "usage_usec 2200\nuser_usec 1800\nsystem_usec 400\n",
+    )?;
+    let final_sample = build_cgroup_monitor_sample(CgroupSampleRequest {
+        cgroup_path: &cgroup,
+        upperdir: None,
+        sample_kind: CgroupSampleKind::CommandFinal,
+        interval_ms: 1000,
+        previous: None,
+        config: registry.config(),
+    });
+
+    registry.record_command_final(
+        &workspace_session_id,
+        "cmd-final-cpu",
+        Some(final_sample),
+        None,
+    );
+
+    let samples = registry
+        .read_samples(&workspace_session_id, Some("cmd-final-cpu"), 10)
+        .expect("registered target has samples")
+        .samples;
+    let final_sample = samples.last().expect("final sample is retained");
+    assert_eq!(final_sample.sample_kind, CgroupSampleKind::CommandFinal);
+    assert_eq!(final_sample.cpu.usage_usec, Some(2200));
+    assert_eq!(final_sample.cpu.delta_usage_usec, Some(1000));
+    assert!(final_sample.cpu.percent_over_interval.is_some());
+
+    drop(registry);
+    let _ = std::fs::remove_dir_all(root);
+    Ok(())
+}
+
+#[test]
 fn cgroup_monitor_session_final_marks_cleanup_state() -> Result<(), Box<dyn std::error::Error>> {
     let root = temp_root("session-final")?;
     let cgroup = root.join("cgroup");
@@ -333,6 +389,58 @@ fn cgroup_monitor_session_final_marks_cleanup_state() -> Result<(), Box<dyn std:
         .inspect(&WorkspaceSessionId("ws-session-final".to_owned()), None)
         .expect("session target is retained");
     assert!(snapshot.cleanup.final_sample_recorded);
+    assert_eq!(
+        snapshot.latest.as_ref().map(|sample| sample.sample_kind),
+        Some(CgroupSampleKind::SessionFinal)
+    );
+
+    drop(registry);
+    let _ = std::fs::remove_dir_all(root);
+    Ok(())
+}
+
+#[test]
+fn cgroup_monitor_cleanup_state_does_not_evict_final_sample_when_retention_is_one(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = temp_root("session-final-retention-one")?;
+    let cgroup = root.join("cgroup");
+    let upper = root.join("upper");
+    let work = root.join("work");
+    std::fs::create_dir_all(&cgroup)?;
+    std::fs::create_dir_all(&upper)?;
+    std::fs::create_dir_all(&work)?;
+    write_complete_cgroup_files(&cgroup)?;
+    let handle = WorkspaceHandle::holder_backed_for_test(
+        WorkspaceSessionId("ws-session-retention-one".to_owned()),
+        PathBuf::from("/workspace"),
+        WorkspaceProfile::HostCompatible,
+        test_snapshot(),
+        upper,
+        work,
+        Some(cgroup),
+    );
+    let registry = CgroupMonitorRegistry::new(CgroupMonitorConfig {
+        retained_samples_per_target: 1,
+        ..CgroupMonitorConfig::default()
+    });
+    registry.register_session_from_handle(&handle);
+    registry.record_session_final_from_handle(&handle);
+    registry.record_cleanup(
+        &WorkspaceSessionId("ws-session-retention-one".to_owned()),
+        None,
+        Some(false),
+        None,
+    );
+
+    let snapshot = registry
+        .inspect(
+            &WorkspaceSessionId("ws-session-retention-one".to_owned()),
+            None,
+        )
+        .expect("session target is retained");
+    assert_eq!(snapshot.monitor.retained_samples, 1);
+    assert!(snapshot.cleanup.final_sample_recorded);
+    assert_eq!(snapshot.cleanup.cgroup_exists_after_destroy, Some(false));
     assert_eq!(
         snapshot.latest.as_ref().map(|sample| sample.sample_kind),
         Some(CgroupSampleKind::SessionFinal)

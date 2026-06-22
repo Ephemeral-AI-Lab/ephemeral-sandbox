@@ -108,7 +108,7 @@ fn command_contract_keeps_session_selector_in_exec_input() {
     let input = ExecCommandInput {
         workspace_session_id: Some(WorkspaceSessionId("workspace-1".to_owned())),
         cmd: "pwd".to_owned(),
-        timeout_seconds: None,
+        timeout_ms: None,
         yield_time_ms: Some(100),
     };
 
@@ -144,9 +144,7 @@ fn service_graph_operation_catalog_exports_runtime_command_and_cgroup_monitor_op
         [
             "exec_command",
             "write_command_stdin",
-            "poll_command",
             "read_command_lines",
-            "cancel_command",
             "inspect_cgroup_monitor",
             "read_cgroup_monitor_samples"
         ]

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use sandbox_runtime::command::{
-    CommandServiceError, CommandSessionId, CommandStatus, ExecCommandInput, PollCommandInput,
+    CommandServiceError, CommandSessionId, CommandStatus, ExecCommandInput, ReadCommandLinesInput,
     WriteCommandStdinInput,
 };
 use sandbox_runtime_command::yield_wait_loop::WaitOutcome;
@@ -20,7 +20,7 @@ fn exec_input(workspace_session_id: WorkspaceSessionId) -> ExecCommandInput {
     ExecCommandInput {
         workspace_session_id: Some(workspace_session_id),
         cmd: "printf ok".to_owned(),
-        timeout_seconds: None,
+        timeout_ms: None,
         yield_time_ms: Some(0),
     }
 }
@@ -29,7 +29,7 @@ fn one_shot_exec_input() -> ExecCommandInput {
     ExecCommandInput {
         workspace_session_id: None,
         cmd: "printf ok".to_owned(),
-        timeout_seconds: None,
+        timeout_ms: None,
         yield_time_ms: Some(0),
     }
 }
@@ -77,15 +77,16 @@ fn exec_command_uses_resolved_session_without_workspace_create_or_destroy() {
     assert_eq!(output.status, CommandStatus::Running);
     assert_eq!(fake.create_requests().len(), create_count_before_exec);
     assert!(fake.destroy_calls().is_empty());
-    let poll = env
+    let lines = env
         .command
-        .poll_command(PollCommandInput {
+        .read_command_lines(ReadCommandLinesInput {
             command_session_id: command_session_id.clone(),
-            last_n_lines: Some(10),
+            start_offset: Some(0),
+            limit: Some(10),
         })
-        .expect("session command can be polled");
-    assert_eq!(poll.command_session_id, command_session_id);
-    assert_eq!(poll.status, CommandStatus::Running);
+        .expect("session command can be read");
+    assert_eq!(lines.command_session_id, command_session_id);
+    assert_eq!(lines.status, CommandStatus::Running);
 }
 
 #[test]
@@ -126,15 +127,51 @@ fn exec_command_without_workspace_session_creates_and_destroys_one_shot_on_compl
         .exec_command(one_shot_exec_input())
         .expect("one-shot command completes");
 
-    assert_eq!(output.status, CommandStatus::Completed);
+    assert_eq!(output.status, CommandStatus::Ok);
     assert_eq!(output.exit_code, Some(0));
-    assert_eq!(output.output.stdout, "one-shot done\n");
-    assert!(output.finalized.is_none());
+    assert_eq!(output.output, "one-shot done");
+    assert!(output.command_session_id.is_none());
     assert_eq!(fake.create_requests(), vec![create_request()]);
     assert_eq!(
         fake.destroy_calls(),
         vec![WorkspaceSessionId("one-shot-session".to_owned())]
     );
+}
+
+#[test]
+fn exec_command_terminal_output_returns_command_session_id_when_more_output_remains() {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    fake.push_create_result(Ok(workspace_handle(
+        "one-shot-session",
+        "lease-1",
+        PathBuf::from("/workspace/one-shot"),
+        WorkspaceProfile::HostCompatible,
+    )));
+    let launch_driver = Arc::new(FakeLaunchDriver::new());
+    let stdout = format!("{}\nkept\n", "x".repeat(1024 * 1024 + 128));
+    launch_driver.push_outcome(WaitOutcome::Completed(success_exit(&stdout)));
+    let env = build_services_with_launch_driver(Arc::clone(&fake), launch_driver);
+
+    let output = env
+        .command
+        .exec_command(one_shot_exec_input())
+        .expect("one-shot command completes");
+
+    let command_session_id = output
+        .command_session_id
+        .expect("truncated terminal output keeps command session id");
+    assert_eq!(output.status, CommandStatus::Ok);
+    assert_eq!(output.output, "kept");
+
+    let lines = env
+        .command
+        .read_command_lines(ReadCommandLinesInput {
+            command_session_id,
+            start_offset: None,
+            limit: None,
+        })
+        .expect("completed command output remains readable");
+    assert_eq!(lines.output, "kept");
 }
 
 #[test]
@@ -168,21 +205,22 @@ fn exec_command_without_workspace_session_keeps_one_shot_until_terminal_completi
         })
         .expect("one-shot command completes after stdin write");
 
-    assert_eq!(output.status, CommandStatus::Completed);
+    assert_eq!(output.status, CommandStatus::Ok);
     assert_eq!(output.exit_code, Some(0));
-    assert!(output.finalized.is_none());
+    assert_eq!(output.command_session_id, Some(command_session_id.clone()));
     assert_eq!(
         fake.destroy_calls(),
         vec![WorkspaceSessionId("one-shot-session".to_owned())]
     );
-    let poll = env
+    let lines = env
         .command
-        .poll_command(PollCommandInput {
+        .read_command_lines(ReadCommandLinesInput {
             command_session_id,
-            last_n_lines: None,
+            start_offset: Some(0),
+            limit: Some(10),
         })
-        .expect("completed one-shot command can be polled");
-    assert_eq!(poll.status, CommandStatus::Completed);
+        .expect("completed one-shot command can be read");
+    assert_eq!(lines.status, CommandStatus::Ok);
 }
 
 #[test]
@@ -294,7 +332,7 @@ fn exec_command_passes_workspace_entry_to_spawn_paths() {
         WorkspaceProfile::Isolated,
     );
     let mut input = exec_input(workspace_session_id);
-    input.timeout_seconds = Some(2.5);
+    input.timeout_ms = Some(2500);
 
     let output = env
         .command
@@ -455,7 +493,9 @@ fn exec_command_initial_running_yield_returns_wait_loop_output() {
         .expect("exec returns initial running yield");
 
     assert_eq!(output.status, CommandStatus::Running);
-    assert_eq!(output.output.stdout, "hello from wait\n");
+    assert_eq!(output.output, "hello from wait");
+    assert_eq!(output.start_offset, 0);
+    assert_eq!(output.end_offset, 1);
 }
 
 #[test]
@@ -477,25 +517,11 @@ fn exec_command_initial_completed_session_does_not_finalize_workspace() {
         .exec_command(exec_input(workspace_session_id))
         .expect("session command completes during initial yield");
 
-    let command_session_id = output
-        .command_session_id
-        .expect("command session id is returned");
-    assert_eq!(output.status, CommandStatus::Completed);
+    assert!(output.command_session_id.is_none());
+    assert_eq!(output.status, CommandStatus::Ok);
     assert_eq!(output.exit_code, Some(0));
-    assert_eq!(output.output.stdout, "session done\n");
-    assert!(output.finalized.is_none());
+    assert_eq!(output.output, "session done");
     assert!(fake.destroy_calls().is_empty());
-
-    let poll = env
-        .command
-        .poll_command(PollCommandInput {
-            command_session_id: command_session_id.clone(),
-            last_n_lines: None,
-        })
-        .expect("completed session command can be polled");
-    assert_eq!(poll.command_session_id, command_session_id);
-    assert_eq!(poll.status, CommandStatus::Completed);
-    assert!(poll.finalized.is_none());
 }
 
 #[test]
@@ -529,7 +555,7 @@ fn write_command_stdin_waits_for_output_after_write() {
         .expect("stdin write waits for output");
 
     assert_eq!(output.status, CommandStatus::Running);
-    assert_eq!(output.output.stdout, "after input\n");
+    assert_eq!(output.output, "after input");
 }
 
 #[test]
@@ -562,18 +588,18 @@ fn write_command_stdin_finalizes_when_command_completes_after_write() {
         })
         .expect("stdin write finalizes completed command");
 
-    assert_eq!(output.status, CommandStatus::Completed);
+    assert_eq!(output.status, CommandStatus::Ok);
     assert_eq!(output.exit_code, Some(0));
-    assert_eq!(output.output.stdout, "done\n");
-    assert!(output.finalized.is_none());
+    assert_eq!(output.output, "done");
+    assert_eq!(output.command_session_id, Some(command_session_id.clone()));
 
-    let poll = env
+    let lines = env
         .command
-        .poll_command(PollCommandInput {
+        .read_command_lines(ReadCommandLinesInput {
             command_session_id,
-            last_n_lines: None,
+            start_offset: Some(0),
+            limit: Some(10),
         })
-        .expect("completed command can still be polled");
-    assert_eq!(poll.status, CommandStatus::Completed);
-    assert!(poll.finalized.is_none());
+        .expect("completed command can still be read");
+    assert_eq!(lines.status, CommandStatus::Ok);
 }

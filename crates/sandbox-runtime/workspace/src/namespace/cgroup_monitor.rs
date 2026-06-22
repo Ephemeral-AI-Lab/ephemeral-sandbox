@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
+use std::sync::{Arc, Mutex, PoisonError, Weak};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -191,7 +191,7 @@ pub struct CgroupSampleRequest<'a> {
 pub struct CgroupMonitorRegistry {
     config: CgroupMonitorConfig,
     records: Arc<Mutex<HashMap<CgroupTargetKey, RetainedTarget>>>,
-    sampler_started: OnceLock<()>,
+    sampler_started: Mutex<bool>,
 }
 
 impl CgroupMonitorRegistry {
@@ -200,7 +200,7 @@ impl CgroupMonitorRegistry {
         Self {
             config,
             records: Arc::new(Mutex::new(HashMap::new())),
-            sampler_started: OnceLock::new(),
+            sampler_started: Mutex::new(false),
         }
     }
 
@@ -299,8 +299,33 @@ impl CgroupMonitorRegistry {
     }
 
     pub fn record_session_final_from_handle(&self, handle: &WorkspaceHandle) {
+        let sample = self.session_final_sample_from_handle(handle);
+        self.record_session_final_sample(&handle.id, sample);
+    }
+
+    pub fn session_final_sample_from_handle(
+        &self,
+        handle: &WorkspaceHandle,
+    ) -> Option<CgroupMonitorSample> {
         let key = CgroupTargetKey::session(handle.id.clone());
-        self.sample_target(&key, CgroupSampleKind::SessionFinal, true);
+        self.build_sample_for_key(&key, CgroupSampleKind::SessionFinal)
+    }
+
+    pub fn record_session_final_sample(
+        &self,
+        workspace_session_id: &WorkspaceSessionId,
+        sample: Option<CgroupMonitorSample>,
+    ) {
+        let Some(sample) = sample else {
+            return;
+        };
+        let key = CgroupTargetKey::session(workspace_session_id.clone());
+        let mut records = self.records.lock().unwrap_or_else(PoisonError::into_inner);
+        let Some(record) = records.get_mut(&key) else {
+            return;
+        };
+        record.push_sample(sample, &self.config);
+        record.cleanup.final_sample_recorded = true;
     }
 
     pub fn record_command_final(
@@ -316,7 +341,8 @@ impl CgroupMonitorRegistry {
             return;
         };
         if self.config.enabled {
-            if let Some(sample) = sample {
+            if let Some(mut sample) = sample {
+                enrich_final_cpu_sample(&mut sample, record.samples.back(), &self.config);
                 record.push_sample(sample, &self.config);
                 record.cleanup.final_sample_recorded = true;
             }
@@ -335,14 +361,10 @@ impl CgroupMonitorRegistry {
         last_cleanup_error: Option<String>,
     ) {
         let key = CgroupTargetKey::new(workspace_session_id.clone(), command_session_id);
-        let sample = self.build_sample_for_key(&key, CgroupSampleKind::Cleanup);
         let mut records = self.records.lock().unwrap_or_else(PoisonError::into_inner);
         let Some(record) = records.get_mut(&key) else {
             return;
         };
-        if let Some(sample) = sample {
-            record.push_sample(sample, &self.config);
-        }
         record.cleanup.cgroup_exists_after_destroy = cgroup_exists_after_destroy;
         record.cleanup.last_cleanup_error = last_cleanup_error;
     }
@@ -367,14 +389,23 @@ impl CgroupMonitorRegistry {
         if !self.config.enabled {
             return;
         }
+        let mut sampler_started = self
+            .sampler_started
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if *sampler_started {
+            return;
+        }
         let interval = Duration::from_millis(self.config.sample_interval_ms.max(1));
         let records = Arc::downgrade(&self.records);
         let config = self.config.clone();
-        self.sampler_started.get_or_init(move || {
-            let _ = thread::Builder::new()
-                .name("eos-cgroup-monitor".to_owned())
-                .spawn(move || sampler_loop(records, config, interval));
-        });
+        if thread::Builder::new()
+            .name("eos-cgroup-monitor".to_owned())
+            .spawn(move || sampler_loop(records, config, interval))
+            .is_ok()
+        {
+            *sampler_started = true;
+        }
     }
 
     fn sample_target(
@@ -582,6 +613,35 @@ fn build_sample_from_plan(
         previous: plan.previous.as_ref(),
         config,
     })
+}
+
+fn enrich_final_cpu_sample(
+    sample: &mut CgroupMonitorSample,
+    previous: Option<&CgroupMonitorSample>,
+    config: &CgroupMonitorConfig,
+) {
+    if !matches!(
+        sample.sample_kind,
+        CgroupSampleKind::CommandFinal | CgroupSampleKind::SessionFinal
+    ) {
+        return;
+    }
+    let interval_ms = effective_interval_ms(
+        previous,
+        sample.sampled_at_unix_ms,
+        config.sample_interval_ms,
+    );
+    let delta_usage_usec = sample.cpu.usage_usec.and_then(|usage| {
+        previous
+            .and_then(|previous| previous.cpu.usage_usec)
+            .map(|previous_usage| usage.saturating_sub(previous_usage))
+    });
+    sample.interval_ms = interval_ms;
+    sample.cpu.delta_usage_usec = delta_usage_usec;
+    sample.cpu.percent_over_interval = delta_usage_usec.and_then(|delta| {
+        let interval_usec = interval_ms.saturating_mul(1000);
+        (interval_usec > 0).then(|| (delta as f64 / interval_usec as f64) * 100.0)
+    });
 }
 
 #[must_use]

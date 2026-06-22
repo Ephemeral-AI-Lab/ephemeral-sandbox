@@ -1,14 +1,12 @@
-mod cancel_command;
 mod exec_command;
-mod poll_command;
 mod read_command_lines;
 mod write_command_stdin;
 
 use serde_json::{json, Value};
 
 use crate::command::{
-    CommandFinalizedMetadata, CommandLinesOutput, CommandPollOutput, CommandPublishStatus,
-    CommandServiceError, CommandStatus, CommandStream, CommandTranscriptRow, CommandYield,
+    CommandFinalizedMetadata, CommandLinesOutput, CommandPublishStatus, CommandServiceError,
+    CommandStatus, CommandYield,
 };
 use crate::operation::{OperationEntry, OperationSpec};
 use sandbox_protocol::Response;
@@ -16,17 +14,13 @@ use sandbox_protocol::Response;
 pub(crate) const OPERATIONS: &[OperationEntry] = &[
     OperationEntry::new(&exec_command::SPEC, exec_command::dispatch),
     OperationEntry::new(&write_command_stdin::SPEC, write_command_stdin::dispatch),
-    OperationEntry::new(&poll_command::SPEC, poll_command::dispatch),
     OperationEntry::new(&read_command_lines::SPEC, read_command_lines::dispatch),
-    OperationEntry::new(&cancel_command::SPEC, cancel_command::dispatch),
 ];
 
 pub(crate) const SPECS: &[&OperationSpec] = &[
     &exec_command::SPEC,
     &write_command_stdin::SPEC,
-    &poll_command::SPEC,
     &read_command_lines::SPEC,
-    &cancel_command::SPEC,
 ];
 
 pub(super) fn command_yield_response(
@@ -37,18 +31,6 @@ pub(super) fn command_yield_response(
             Response::running(command_yield_value(output))
         }
         Ok(output) => Response::ok(command_yield_value(output)),
-        Err(error) => command_service_error_response(error),
-    }
-}
-
-pub(super) fn command_poll_response(
-    result: Result<CommandPollOutput, CommandServiceError>,
-) -> Response {
-    match result {
-        Ok(output) if output.status == CommandStatus::Running => {
-            Response::running(command_poll_value(output))
-        }
-        Ok(output) => Response::ok(command_poll_value(output)),
         Err(error) => command_service_error_response(error),
     }
 }
@@ -94,23 +76,21 @@ fn command_error_details(error: &CommandServiceError) -> Value {
 }
 
 fn command_yield_value(output: CommandYield) -> Value {
-    json!({
-        "command_session_id": output.command_session_id.map(|command_session_id| command_session_id.0),
+    let mut value = json!({
         "status": status_name(output.status),
         "exit_code": output.exit_code,
-        "output": { "stdout": output.output.stdout },
-        "finalized": finalized_value(output.finalized.as_ref()),
-    })
-}
-
-fn command_poll_value(output: CommandPollOutput) -> Value {
-    json!({
-        "command_session_id": output.command_session_id.0,
-        "status": status_name(output.status),
-        "exit_code": output.exit_code,
-        "output": { "stdout": output.output.stdout },
-        "finalized": finalized_value(output.finalized.as_ref()),
-    })
+        "wall_time_seconds": output.wall_time_seconds,
+        "command_total_time_seconds": output.command_total_time_seconds,
+        "start_offset": output.start_offset,
+        "end_offset": output.end_offset,
+        "total_lines": output.total_lines,
+        "original_token_count": output.original_token_count,
+        "output": output.output,
+    });
+    if let Some(command_session_id) = output.command_session_id {
+        value["command_session_id"] = Value::String(command_session_id.0);
+    }
+    value
 }
 
 fn command_lines_value(output: CommandLinesOutput) -> Value {
@@ -118,35 +98,23 @@ fn command_lines_value(output: CommandLinesOutput) -> Value {
         "command_session_id": output.command_session_id.0,
         "status": status_name(output.status),
         "exit_code": output.exit_code,
+        "wall_time_seconds": output.wall_time_seconds,
+        "command_total_time_seconds": output.command_total_time_seconds,
         "start_offset": output.start_offset,
         "end_offset": output.end_offset,
         "total_lines": output.total_lines,
-        "truncated_before": output.truncated_before,
-        "output_truncated": output.output_truncated,
-        "output": output.output.into_iter().map(transcript_row_value).collect::<Vec<_>>(),
+        "original_token_count": output.original_token_count,
+        "output": output.output,
     })
 }
 
 fn status_name(status: CommandStatus) -> &'static str {
     match status {
         CommandStatus::Running => "running",
-        CommandStatus::Completed => "completed",
-        CommandStatus::Failed => "failed",
-    }
-}
-
-fn transcript_row_value(row: CommandTranscriptRow) -> Value {
-    json!({
-        "offset": row.offset,
-        "stream": stream_name(row.stream),
-        "text": row.text,
-    })
-}
-
-fn stream_name(stream: CommandStream) -> &'static str {
-    match stream {
-        CommandStream::Stdout => "stdout",
-        CommandStream::Stderr => "stderr",
+        CommandStatus::Ok => "ok",
+        CommandStatus::Error => "error",
+        CommandStatus::TimedOut => "timed_out",
+        CommandStatus::Cancelled => "cancelled",
     }
 }
 

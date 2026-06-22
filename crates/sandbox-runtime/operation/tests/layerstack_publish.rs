@@ -72,7 +72,7 @@ fn exec_input(workspace_session_id: WorkspaceSessionId) -> ExecCommandInput {
     ExecCommandInput {
         workspace_session_id: Some(workspace_session_id),
         cmd: "printf ok".to_owned(),
-        timeout_seconds: None,
+        timeout_ms: None,
         yield_time_ms: Some(0),
     }
 }
@@ -152,8 +152,7 @@ fn existing_session_command_completion_does_not_publish_or_remount(
 
     let output = env.command.exec_command(exec_input(workspace_session_id))?;
 
-    assert_eq!(output.status, CommandStatus::Completed);
-    assert!(output.finalized.is_none());
+    assert_eq!(output.status, CommandStatus::Ok);
     assert!(fake.capture_calls().is_empty());
     assert!(fake.remount_calls().is_empty());
     assert!(fake.destroy_calls().is_empty());

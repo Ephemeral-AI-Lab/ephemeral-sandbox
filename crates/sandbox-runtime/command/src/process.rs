@@ -18,7 +18,7 @@ use crate::cgroup::{CommandCgroup, CommandCgroupTarget};
 use crate::pty::{
     spawn_current_exe_ns_runner, CommandCompletionStatus, PtyProcess, PtyProcessExit,
 };
-use crate::transcript::{read_full_transcript_stdout, read_transcript_since, read_transcript_tail};
+use crate::transcript::{read_full_transcript_stdout, read_transcript_since};
 use crate::yield_wait_loop::CommandWaitTarget;
 use crate::{CommandConfig, CommandError};
 
@@ -254,11 +254,6 @@ impl CommandProcess {
     pub fn cancel_process(&self) {
         *lock(&self.runtime.kill) = Some(KillReason::Cancelled);
         self.runtime.process.terminate();
-    }
-
-    #[must_use]
-    pub fn read_recent_output(&self, last_n_lines: usize) -> String {
-        read_transcript_tail(&self.runtime.transcript_path, last_n_lines)
     }
 
     #[must_use]

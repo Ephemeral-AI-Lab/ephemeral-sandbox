@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use sandbox_runtime::command::{
     CommandLaunchDriver, CommandOperationService, CommandServiceError, ExecCommandInput,
-    PollCommandInput, ReadCommandLinesInput, WriteCommandStdinInput,
+    ReadCommandLinesInput, WriteCommandStdinInput,
 };
 use sandbox_runtime::workspace_remount::{
     CommandRemountCoordinator, RemountWorkspaceSession, WorkspaceRemountService,
@@ -278,7 +278,7 @@ fn exec_input(workspace_session_id: WorkspaceSessionId) -> ExecCommandInput {
     ExecCommandInput {
         workspace_session_id: Some(workspace_session_id),
         cmd: "echo ok".to_owned(),
-        timeout_seconds: None,
+        timeout_ms: None,
         yield_time_ms: Some(0),
     }
 }
@@ -561,7 +561,7 @@ fn command_remount_stdin_rejects_for_active_command_when_workspace_becomes_pendi
 }
 
 #[test]
-fn command_remount_read_lines_and_poll_remain_allowed_while_pending() {
+fn command_remount_read_lines_remains_allowed_while_pending() {
     let (services, workspace_session_id, command_session_id) = create_session_and_command();
     services
         .workspace
@@ -572,24 +572,13 @@ fn command_remount_read_lines_and_poll_remain_allowed_while_pending() {
         .command
         .read_command_lines(ReadCommandLinesInput {
             command_session_id: command_session_id.clone(),
-            start_offset: 0,
-            limit: 10,
+            start_offset: Some(0),
+            limit: Some(10),
         })
         .expect("read lines remains allowed");
-    let poll = services
-        .command
-        .poll_command(PollCommandInput {
-            command_session_id,
-            last_n_lines: Some(5),
-        })
-        .expect("poll remains allowed");
 
     assert_eq!(
         rows.status,
-        sandbox_runtime::command::CommandStatus::Running
-    );
-    assert_eq!(
-        poll.status,
         sandbox_runtime::command::CommandStatus::Running
     );
 }

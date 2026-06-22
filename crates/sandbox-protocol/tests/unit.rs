@@ -293,7 +293,7 @@ fn catalog_from_value_rejects_missing_related_operation() {
         "operation_execution_space": "runtime",
         "families": [family_value("command", "Command")],
         "operations": [
-            operation_value("exec_command", "command", "Start a command.", ["poll_command"])
+            operation_value("exec_command", "command", "Start a command.", ["missing_command_status"])
         ]
     });
 
@@ -301,7 +301,7 @@ fn catalog_from_value_rejects_missing_related_operation() {
 
     assert_eq!(
         error.message(),
-        "operation exec_command references unknown related operation: poll_command"
+        "operation exec_command references unknown related operation: missing_command_status"
     );
 }
 
@@ -314,8 +314,8 @@ fn render_catalog_help_groups_operations_by_family() {
             family_value("file", "File")
         ],
         "operations": [
-            operation_value("exec_command", "command", "Start a command.", ["poll_command"]),
-            operation_value("poll_command", "command", "Poll a command.", []),
+            operation_value("exec_command", "command", "Start a command.", ["read_command_lines"]),
+            operation_value("read_command_lines", "command", "Read command output.", []),
             operation_value("read_file", "file", "Read a file.", [])
         ]
     }))
@@ -329,7 +329,9 @@ fn render_catalog_help_groups_operations_by_family() {
     );
     assert!(
         help.find("exec_command").expect("exec operation")
-            < help.find("poll_command").expect("poll operation")
+            < help
+                .find("read_command_lines")
+                .expect("read command lines operation")
     );
     assert!(help.contains("sandbox-cli runtime help OPERATION"));
 }

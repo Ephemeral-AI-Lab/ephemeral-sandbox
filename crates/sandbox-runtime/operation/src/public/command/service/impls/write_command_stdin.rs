@@ -1,10 +1,14 @@
 use std::sync::Arc;
+use std::time::Instant;
 
 use sandbox_runtime_command::yield_wait_loop::WaitOutcome;
 
 use super::command_yield_response;
 use crate::command::service::CommandOperationService;
-use crate::command::{CommandServiceError, CommandSessionId, CommandYield, WriteCommandStdinInput};
+use crate::command::{
+    CancellationState, CommandLifecycleState, CommandServiceError, CommandSessionId, CommandYield,
+    WriteCommandStdinInput,
+};
 use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationSpec};
 use crate::SandboxRuntimeOperations;
 use sandbox_protocol::{Request, Response};
@@ -18,9 +22,7 @@ pub(crate) const SPEC: OperationSpec = OperationSpec {
     cli: Some(WRITE_STDIN_CLI),
     related: &[
         "exec_command",
-        "poll_command",
         "read_command_lines",
-        "cancel_command",
     ],
 };
 
@@ -91,25 +93,47 @@ impl CommandOperationService {
                 active.workspace_session_id.clone(),
             )
         };
-        self.ensure_workspace_session_not_remount_pending(&workspace_session_id)?;
+        let is_kill_input = is_kill_input(&input.stdin);
+        if !is_kill_input {
+            self.ensure_workspace_session_not_remount_pending(&workspace_session_id)?;
+        }
         let start_offset = process.transcript_len();
-        process.write_process_stdin(&input.stdin).map_err(|error| {
-            CommandServiceError::CommandIo {
-                command_session_id: command_session_id.clone(),
-                error: error.to_string(),
-            }
-        })?;
+        if is_kill_input {
+            self.process_store()
+                .update_active(&command_session_id, |active| {
+                    active.process.cancel_process();
+                    active.lifecycle_state = CommandLifecycleState::Cancelled;
+                    active.cancellation = CancellationState::Requested {
+                        requested_at: Instant::now(),
+                    };
+                })
+                .ok_or_else(|| CommandServiceError::CommandNotFound {
+                    command_session_id: command_session_id.clone(),
+                })?;
+        } else {
+            process.write_process_stdin(&input.stdin).map_err(|error| {
+                CommandServiceError::CommandIo {
+                    command_session_id: command_session_id.clone(),
+                    error: error.to_string(),
+                }
+            })?;
+        }
 
-        let outcome = if yield_time_ms == 0 {
+        let wait_time_ms = if is_kill_input { 1000 } else { yield_time_ms };
+        let outcome = if wait_time_ms == 0 {
             WaitOutcome::Running(String::new())
         } else {
             self.launch_driver().wait_for_initial_yield(
                 process.as_ref(),
-                yield_time_ms,
+                wait_time_ms,
                 start_offset,
             )
         };
 
-        self.command_yield_from_wait_outcome(command_session_id, outcome)
+        self.command_yield_from_wait_outcome(command_session_id, outcome, true)
     }
+}
+
+fn is_kill_input(stdin: &str) -> bool {
+    stdin.contains('\u{3}') || stdin.contains('\u{4}')
 }

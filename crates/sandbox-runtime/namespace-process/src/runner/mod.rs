@@ -20,7 +20,7 @@ pub(crate) mod shell_exec;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum RunnerError {
-    #[error("namespace syscall failed")]
+    #[error("namespace syscall failed: {0}")]
     Syscall(#[source] std::io::Error),
     #[error("invalid namespace runner request: {0}")]
     InvalidRequest(String),

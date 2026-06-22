@@ -90,14 +90,16 @@ fn cgroup_monitor_read_samples_uses_optional_limit_without_offsets(
     let fixture = CgroupFixture::new("read-samples")?;
     write_cgroup_files(&fixture.cgroup)?;
     let env = services_with_session(&fixture)?;
+    let command_cgroup = fixture.cgroup.join("commands").join("cmd-1");
+    std::fs::create_dir_all(&command_cgroup)?;
+    write_cgroup_files(&command_cgroup)?;
 
     env.workspace.cgroup_monitor().register_command(
         WorkspaceSessionId("ws-cgroup".to_owned()),
         "cmd-1",
-        fixture.cgroup.join("commands").join("cmd-1"),
+        command_cgroup,
         fixture.upper.clone(),
     );
-    std::fs::create_dir_all(fixture.cgroup.join("commands").join("cmd-1"))?;
 
     let output =
         SandboxRuntimeOperations::new(Arc::clone(&env.command), layerstack_service(&fixture.root)?)
@@ -113,6 +115,12 @@ fn cgroup_monitor_read_samples_uses_optional_limit_without_offsets(
         Some(CommandSessionId("cmd-1".to_owned()))
     );
     assert_eq!(output.samples.len(), 1);
+    assert!(
+        output.samples[0].state.read_error.is_none(),
+        "command cgroup sample should be readable: {:?}",
+        output.samples[0].state.read_error
+    );
+    assert_eq!(output.samples[0].cpu.usage_usec, Some(1200));
     assert_eq!(
         output.target.kind,
         sandbox_runtime_workspace::CgroupMonitorTargetKind::Command
@@ -187,7 +195,7 @@ fn cgroup_monitor_retained_session_cleanup_remains_readable_after_destroy(
     assert_eq!(output.cleanup.cgroup_exists_after_destroy, Some(true));
     assert_eq!(
         output.latest.as_ref().map(|sample| sample.sample_kind),
-        Some(sandbox_runtime_workspace::CgroupSampleKind::Cleanup)
+        Some(sandbox_runtime_workspace::CgroupSampleKind::SessionFinal)
     );
 
     let _ = std::fs::remove_dir_all(fixture.root);

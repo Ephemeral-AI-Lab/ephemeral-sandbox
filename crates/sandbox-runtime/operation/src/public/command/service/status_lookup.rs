@@ -47,12 +47,4 @@ impl CommandOperationService {
                 command_session_id: command_session_id.clone(),
             })
     }
-
-    pub(crate) fn ensure_active_command(
-        &self,
-        command_session_id: &crate::command::CommandSessionId,
-    ) -> Result<(), CommandServiceError> {
-        drop(self.active_command(command_session_id)?);
-        Ok(())
-    }
 }

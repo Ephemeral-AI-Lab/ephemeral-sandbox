@@ -172,11 +172,7 @@ fn operation_catalog_contains_only_manager_operations() {
     );
     assert!(catalog.operations.iter().all(|spec| !matches!(
         spec.name,
-        "exec_command"
-            | "write_command_stdin"
-            | "poll_command"
-            | "read_command_lines"
-            | "cancel_command"
+        "exec_command" | "write_command_stdin" | "read_command_lines"
     )));
     assert!(catalog
         .operations

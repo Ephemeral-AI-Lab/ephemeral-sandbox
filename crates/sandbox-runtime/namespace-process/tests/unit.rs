@@ -30,6 +30,21 @@ mod holder_network_tests {
     ));
 }
 
+mod runner_error_tests {
+    #[test]
+    fn runner_syscall_error_display_includes_source_context() {
+        let error = super::runner::RunnerError::Syscall(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "join cgroup /sys/fs/cgroup/eos/sessions/ws-1/commands/cmd-1 via cgroup.procs failed",
+        ));
+
+        let message = error.to_string();
+        assert!(message.contains("namespace syscall failed"));
+        assert!(message.contains("/sys/fs/cgroup/eos/sessions/ws-1/commands/cmd-1"));
+        assert!(message.contains("cgroup.procs"));
+    }
+}
+
 #[cfg(target_os = "linux")]
 mod runner_setns_tests {
     include!(concat!(

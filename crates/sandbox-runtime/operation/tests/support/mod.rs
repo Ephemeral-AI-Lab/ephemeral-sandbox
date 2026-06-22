@@ -120,15 +120,21 @@ impl CommandLaunchDriver for FakeLaunchDriver {
 
     fn wait_for_initial_yield(
         &self,
-        _process: &CommandProcess,
+        process: &CommandProcess,
         _yield_time_ms: u64,
         _start_offset: u64,
     ) -> WaitOutcome<CommandProcessExit> {
-        self.outcomes
+        let outcome = self
+            .outcomes
             .lock()
             .expect("test operation succeeds")
             .pop_front()
-            .unwrap_or_else(|| WaitOutcome::Running(String::new()))
+            .unwrap_or_else(|| WaitOutcome::Running(String::new()));
+        match &outcome {
+            WaitOutcome::Running(output) => write_transcript_output(process, output),
+            WaitOutcome::Completed(exit) => write_transcript_output(process, &exit.stdout),
+        }
+        outcome
     }
 }
 
@@ -417,7 +423,7 @@ pub(crate) fn destroy_result(handle: &WorkspaceHandle) -> DestroyWorkspaceResult
 
 pub(crate) fn success_exit(stdout: &str) -> CommandProcessExit {
     CommandProcessExit {
-        status: "completed".to_owned(),
+        status: "ok".to_owned(),
         exit_code: 0,
         signal: None,
         stdout: stdout.to_owned(),
@@ -425,6 +431,26 @@ pub(crate) fn success_exit(stdout: &str) -> CommandProcessExit {
         kill: None,
         cgroup_final_sample: None,
         cgroup_cleanup: None,
+    }
+}
+
+fn write_transcript_output(process: &CommandProcess, output: &str) {
+    if output.is_empty() {
+        return;
+    }
+    let Some(path) = process.transcript_path() else {
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        use std::io::Write as _;
+        let _ = file.write_all(output.as_bytes());
     }
 }
 

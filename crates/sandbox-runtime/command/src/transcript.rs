@@ -4,8 +4,6 @@ use std::path::Path;
 
 use time::OffsetDateTime;
 
-use crate::contract::tail_lines;
-
 pub(crate) const MAX_TRANSCRIPT_READ_BYTES: u64 = 1024 * 1024;
 pub(crate) const TRANSCRIPT_TRUNCATED_NOTICE: &str =
     "[eos: transcript truncated to last 1048576 bytes]\n";
@@ -54,20 +52,12 @@ pub(crate) fn format_timestamp_prefix_at(now: OffsetDateTime) -> String {
     )
 }
 
-pub(crate) fn read_transcript_stdout(path: &Path) -> String {
-    read_transcript_bytes(path, 0).unwrap_or_default()
-}
-
 pub(crate) fn read_full_transcript_stdout(path: &Path) -> String {
     read_full_transcript_bytes(path).unwrap_or_default()
 }
 
 pub(crate) fn read_transcript_since(path: &Path, offset: u64) -> String {
     read_transcript_bytes(path, offset).unwrap_or_default()
-}
-
-pub(crate) fn read_transcript_tail(path: &Path, last_n_lines: usize) -> String {
-    tail_lines(&read_transcript_stdout(path), last_n_lines)
 }
 
 fn read_transcript_bytes(path: &Path, offset: u64) -> Option<String> {

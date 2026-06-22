@@ -12,6 +12,7 @@ pub(crate) struct ActiveCompletionRecord {
     command_session_id: CommandSessionId,
     workspace_session_id: WorkspaceSessionId,
     workspace_ownership: CommandWorkspaceOwnership,
+    started_at: std::time::Instant,
     transcript: CommandTranscriptStore,
 }
 
@@ -82,6 +83,7 @@ impl CommandOperationService {
             command_session_id: active.command_session_id.clone(),
             workspace_session_id: active.workspace_session_id.clone(),
             workspace_ownership: active.workspace_ownership.clone(),
+            started_at: active.started_at,
             transcript: active.transcript.clone(),
         };
         drop(active);
@@ -104,6 +106,7 @@ impl CommandOperationService {
         let completed = CompletedCommandRecord {
             command_session_id: command_session_id.clone(),
             workspace_session_id: record.workspace_session_id,
+            started_at: record.started_at,
             result,
             transcript: RetainedCommandTranscript {
                 transcript_path: record.transcript.transcript_path,
@@ -138,7 +141,7 @@ impl CommandOperationService {
         mut result: CommandTerminalResult,
         finalized_override: Option<CommandFinalizedMetadata>,
     ) -> Result<T, CommandServiceError> {
-        result.status = CommandStatus::Failed;
+        result.status = CommandStatus::Error;
         let finalized = finalized_override.or_else(|| {
             self.process_store()
                 .active(command_session_id)
@@ -162,20 +165,22 @@ fn terminal_result(
     process_exit: &::sandbox_runtime_command::process::CommandProcessExit,
 ) -> CommandTerminalResult {
     CommandTerminalResult {
-        status: if process_exit_succeeded(process_exit) {
-            CommandStatus::Completed
-        } else {
-            CommandStatus::Failed
-        },
+        status: terminal_status(process_exit),
         exit_code: Some(process_exit.exit_code),
         stdout: process_exit.stdout.clone(),
+        command_total_time_seconds: process_exit.elapsed_s,
     }
 }
 
-fn process_exit_succeeded(
+fn terminal_status(
     process_exit: &::sandbox_runtime_command::process::CommandProcessExit,
-) -> bool {
-    process_exit.kill.is_none() && process_exit.exit_code == 0
+) -> CommandStatus {
+    match process_exit.status.as_str() {
+        "ok" => CommandStatus::Ok,
+        "timed_out" => CommandStatus::TimedOut,
+        "cancelled" => CommandStatus::Cancelled,
+        _ => CommandStatus::Error,
+    }
 }
 
 fn retained_finalized_metadata(state: &FinalizationState) -> Option<CommandFinalizedMetadata> {

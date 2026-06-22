@@ -57,7 +57,7 @@ fn transcript_reads_are_bounded_to_a_suffix() -> Result<(), Box<dyn std::error::
     bytes.extend_from_slice(b"end\n");
     std::fs::write(&path, bytes)?;
 
-    let output = read_transcript_stdout(&path);
+    let output = read_transcript_since(&path, 0);
 
     assert!(
         output.starts_with(TRANSCRIPT_TRUNCATED_NOTICE),
