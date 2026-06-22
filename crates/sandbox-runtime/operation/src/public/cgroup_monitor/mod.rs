@@ -25,6 +25,6 @@ pub(crate) const fn operation_families() -> &'static [&'static OperationFamilySp
     FAMILIES
 }
 
-pub(crate) fn operation_specs() -> &'static [&'static crate::operation::OperationSpec] {
+pub(crate) fn operation_specs() -> &'static [&'static crate::operation::CliOperationSpec] {
     service::operation_specs()
 }

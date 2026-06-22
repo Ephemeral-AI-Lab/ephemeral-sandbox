@@ -7,8 +7,8 @@ use sandbox_manager::{
     SandboxRuntime, SandboxState, SandboxStore,
 };
 use sandbox_protocol::{
-    error_kind, OperationCatalog, OperationExecutionSpace, OperationFamilySpec, OperationScope,
-    OperationSpec, Request, Response,
+    error_kind, CliOperationSpec, OperationCatalog, OperationExecutionSpace, OperationFamilySpec,
+    OperationScope, Request, Response,
 };
 use serde_json::{json, Value};
 
@@ -20,7 +20,7 @@ static TEST_DAEMON_FAMILY: OperationFamilySpec = OperationFamilySpec {
 };
 
 static TEST_DAEMON_FAMILIES: &[&OperationFamilySpec] = &[&TEST_DAEMON_FAMILY];
-static TEST_DAEMON_SPECS: &[&OperationSpec] = &[];
+static TEST_DAEMON_SPECS: &[&CliOperationSpec] = &[];
 
 #[derive(Default)]
 struct FakeRuntime;

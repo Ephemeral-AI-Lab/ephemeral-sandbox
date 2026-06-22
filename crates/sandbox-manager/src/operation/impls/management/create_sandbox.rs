@@ -1,9 +1,9 @@
 use crate::{CreateSandboxRequest, ManagerError, SandboxState};
 
 use super::{image, record_value, workspace_root};
-use sandbox_protocol::{ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationSpec};
+use sandbox_protocol::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
 
-pub(crate) const SPEC: OperationSpec = OperationSpec {
+pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "create_sandbox",
     family: "management",
     summary: "Create a host-side sandbox record and runtime sandbox.",

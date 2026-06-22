@@ -1,6 +1,6 @@
-mod report;
+mod result;
 mod state;
 mod transaction;
 
-pub use report::{RemountOverlayReport, RemountProbe};
+pub use result::{RemountOverlayResult, RemountProbe};
 pub use state::WorkspaceRemountState;

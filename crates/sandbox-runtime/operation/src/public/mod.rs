@@ -4,7 +4,7 @@ pub mod command;
 use std::sync::OnceLock;
 
 use crate::internal::services::SandboxRuntimeOperations;
-use crate::operation::{OperationFamilySpec, OperationSpec};
+use crate::operation::{CliOperationSpec, OperationFamilySpec};
 
 pub(crate) fn operation_families() -> &'static [&'static OperationFamilySpec] {
     static FAMILIES: OnceLock<Box<[&'static OperationFamilySpec]>> = OnceLock::new();
@@ -20,8 +20,8 @@ pub(crate) fn operation_families() -> &'static [&'static OperationFamilySpec] {
         .as_ref()
 }
 
-pub(crate) fn operation_specs() -> &'static [&'static OperationSpec] {
-    static SPECS: OnceLock<Box<[&'static OperationSpec]>> = OnceLock::new();
+pub(crate) fn operation_specs() -> &'static [&'static CliOperationSpec] {
+    static SPECS: OnceLock<Box<[&'static CliOperationSpec]>> = OnceLock::new();
     SPECS
         .get_or_init(|| {
             command::operation_specs()

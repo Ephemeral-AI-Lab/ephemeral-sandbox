@@ -15,7 +15,7 @@ pub use crate::profile::{
     WorkspaceModeFds, WorkspaceModeHandle, WorkspaceModeId, WorkspaceModeSnapshot,
 };
 
-pub use crate::lifecycle::remount::{RemountOverlayReport, RemountProbe, WorkspaceRemountState};
+pub use crate::lifecycle::remount::{RemountOverlayResult, RemountProbe, WorkspaceRemountState};
 pub use crate::lifecycle::ExitOutcome;
 
 pub(crate) const PERSISTED_HANDLES_SCHEMA_VERSION: u32 = 1;

@@ -25,6 +25,6 @@ pub(crate) fn operation_entries() -> &'static [crate::operation::OperationEntry]
     impls::OPERATIONS
 }
 
-pub(crate) fn operation_specs() -> &'static [&'static crate::operation::OperationSpec] {
+pub(crate) fn operation_specs() -> &'static [&'static crate::operation::CliOperationSpec] {
     impls::SPECS
 }

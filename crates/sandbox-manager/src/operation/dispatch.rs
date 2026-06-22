@@ -4,7 +4,7 @@ use crate::{SandboxDaemonClient, SandboxDaemonInstaller, SandboxRuntime, Sandbox
 
 #[derive(Clone, Copy)]
 pub(crate) struct ManagerOperationEntry {
-    pub(crate) spec: &'static sandbox_protocol::OperationSpec,
+    pub(crate) spec: &'static sandbox_protocol::CliOperationSpec,
     pub(crate) dispatch:
         fn(&ManagerServices, &sandbox_protocol::Request) -> sandbox_protocol::Response,
 }
@@ -12,7 +12,7 @@ pub(crate) struct ManagerOperationEntry {
 impl ManagerOperationEntry {
     #[must_use]
     pub(crate) const fn new(
-        spec: &'static sandbox_protocol::OperationSpec,
+        spec: &'static sandbox_protocol::CliOperationSpec,
         dispatch: fn(&ManagerServices, &sandbox_protocol::Request) -> sandbox_protocol::Response,
     ) -> Self {
         Self { spec, dispatch }

@@ -1,5 +1,5 @@
 use super::dispatch::ManagerOperationEntry;
-use sandbox_protocol::{OperationFamilySpec, OperationSpec};
+use sandbox_protocol::{CliOperationSpec, OperationFamilySpec};
 
 mod management;
 
@@ -7,7 +7,7 @@ pub(crate) const fn operation_families() -> &'static [&'static OperationFamilySp
     management::operation_families()
 }
 
-pub(crate) const fn operation_specs() -> &'static [&'static OperationSpec] {
+pub(crate) const fn operation_specs() -> &'static [&'static CliOperationSpec] {
     management::operation_specs()
 }
 

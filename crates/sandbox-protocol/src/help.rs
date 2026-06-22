@@ -1,7 +1,7 @@
 use crate::catalog::catalog_arg_kind_name;
 use crate::{
-    operation_execution_space_name, ArgSpecDocument, OperationCatalogDocument,
-    OperationExecutionSpace, OperationFamilyDocument, OperationSpecDocument,
+    operation_execution_space_name, ArgSpecDocument, CliOperationSpecDocument,
+    OperationCatalogDocument, OperationExecutionSpace, OperationFamilyDocument,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,7 +125,7 @@ pub fn search_operation_help(
 
 fn render_operation_page(
     family: Option<&OperationFamilyDocument>,
-    spec: &OperationSpecDocument,
+    spec: &CliOperationSpecDocument,
 ) -> String {
     let mut output = String::new();
     output.push_str(&spec.name);
@@ -200,7 +200,7 @@ fn push_argument(output: &mut String, arg: &ArgSpecDocument) {
 
 fn operation_matches_query(
     catalog: &OperationCatalogDocument,
-    operation: &OperationSpecDocument,
+    operation: &CliOperationSpecDocument,
     query: &str,
 ) -> bool {
     contains_query(&operation.name, query)
@@ -229,7 +229,7 @@ fn operation_matches_query(
 fn operations_for_family<'a>(
     catalog: &'a OperationCatalogDocument,
     family_id: &str,
-) -> Vec<&'a OperationSpecDocument> {
+) -> Vec<&'a CliOperationSpecDocument> {
     catalog
         .operations
         .iter()

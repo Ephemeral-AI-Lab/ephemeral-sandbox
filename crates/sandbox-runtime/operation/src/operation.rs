@@ -1,13 +1,13 @@
 use crate::internal::services::SandboxRuntimeOperations;
 
 pub use sandbox_protocol::{
-    ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationCatalog, OperationExecutionSpace,
-    OperationFamilySpec, OperationSpec,
+    ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec, OperationCatalog,
+    OperationExecutionSpace, OperationFamilySpec,
 };
 
 #[derive(Clone, Copy)]
 pub(crate) struct OperationEntry {
-    pub(crate) spec: &'static OperationSpec,
+    pub(crate) spec: &'static CliOperationSpec,
     pub(crate) dispatch:
         fn(&SandboxRuntimeOperations, &sandbox_protocol::Request) -> sandbox_protocol::Response,
 }
@@ -15,7 +15,7 @@ pub(crate) struct OperationEntry {
 impl OperationEntry {
     #[must_use]
     pub(crate) const fn new(
-        spec: &'static OperationSpec,
+        spec: &'static CliOperationSpec,
         dispatch: fn(
             &SandboxRuntimeOperations,
             &sandbox_protocol::Request,

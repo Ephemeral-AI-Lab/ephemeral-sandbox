@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 
 use crate::operation::dispatch::ManagerOperationEntry;
 use crate::{ManagerError, SandboxDaemonEndpoint, SandboxId, SandboxRecord};
-use sandbox_protocol::{OperationFamilySpec, OperationSpec};
+use sandbox_protocol::{CliOperationSpec, OperationFamilySpec};
 
 pub(crate) const MANAGEMENT_FAMILY: OperationFamilySpec = OperationFamilySpec {
     id: "management",
@@ -20,7 +20,7 @@ pub(crate) const MANAGEMENT_FAMILY: OperationFamilySpec = OperationFamilySpec {
 
 const FAMILIES: &[&OperationFamilySpec] = &[&MANAGEMENT_FAMILY];
 
-const SPECS: &[&OperationSpec] = &[
+const SPECS: &[&CliOperationSpec] = &[
     &create_sandbox::SPEC,
     &destroy_sandbox::SPEC,
     &list_sandboxes::SPEC,
@@ -38,7 +38,7 @@ pub(crate) const fn operation_families() -> &'static [&'static OperationFamilySp
     FAMILIES
 }
 
-pub(crate) const fn operation_specs() -> &'static [&'static OperationSpec] {
+pub(crate) const fn operation_specs() -> &'static [&'static CliOperationSpec] {
     SPECS
 }
 

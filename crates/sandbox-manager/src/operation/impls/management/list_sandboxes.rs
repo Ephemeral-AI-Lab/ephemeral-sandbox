@@ -1,7 +1,7 @@
 use super::records_value;
-use sandbox_protocol::{CliSpec, OperationSpec};
+use sandbox_protocol::{CliOperationSpec, CliSpec};
 
-pub(crate) const SPEC: OperationSpec = OperationSpec {
+pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "list_sandboxes",
     family: "management",
     summary: "List sandbox records known to the manager.",

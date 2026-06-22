@@ -84,6 +84,35 @@ fn spawned_foreground_args_omit_auth_token() -> Result<()> {
 }
 
 #[test]
+fn tcp_listener_requires_configured_auth_token() {
+    let result = DaemonCliConfig::parse(
+        vec![
+            "--config-yaml".to_owned(),
+            "/eos/custom/prd.yml".to_owned(),
+            "--workspace-root".to_owned(),
+            "/testbed".to_owned(),
+            "--tcp-host".to_owned(),
+            "0.0.0.0".to_owned(),
+            "--tcp-port".to_owned(),
+            "37777".to_owned(),
+            "--auth-token".to_owned(),
+            String::new(),
+        ],
+        &server_defaults(),
+        PathBuf::from("/eos/custom/prd.yml"),
+    );
+    let error = match result {
+        Ok(_) => panic!("tcp listener without a non-empty auth token is rejected"),
+        Err(error) => error,
+    };
+
+    assert_eq!(
+        error.to_string(),
+        "serve TCP listener requires --auth-token or SANDBOX_DAEMON_AUTH_TOKEN"
+    );
+}
+
+#[test]
 fn config_yaml_preparse_returns_explicit_path() -> Result<()> {
     assert_eq!(
         daemon_config_path_arg(&[

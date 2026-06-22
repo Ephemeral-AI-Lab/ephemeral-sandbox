@@ -4,11 +4,11 @@ use crate::command::service::CommandOperationService;
 use crate::command::{
     CommandLinesOutput, CommandServiceError, CommandSessionId, CommandStatus, ReadCommandLinesInput,
 };
-use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationSpec};
+use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
 use crate::SandboxRuntimeOperations;
 use sandbox_protocol::{Request, Response};
 
-pub(crate) const SPEC: OperationSpec = OperationSpec {
+pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "read_command_lines",
     family: "command",
     summary: "Read command output by line offset.",

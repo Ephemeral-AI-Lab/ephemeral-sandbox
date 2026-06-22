@@ -4,12 +4,12 @@ use crate::cgroup_monitor::{
     InspectCgroupMonitorOutput,
 };
 use crate::command::CommandSessionId;
-use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationSpec};
+use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
 use crate::workspace_crate::WorkspaceSessionId;
 use crate::SandboxRuntimeOperations;
 use sandbox_protocol::{Request, Response};
 
-pub(crate) const SPEC: OperationSpec = OperationSpec {
+pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "inspect_cgroup_monitor",
     family: "cgroup_monitor",
     summary: "Inspect the latest cgroup monitor state.",

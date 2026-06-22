@@ -4,12 +4,12 @@ use crate::cgroup_monitor::{
     ReadCgroupMonitorSamplesOutput,
 };
 use crate::command::CommandSessionId;
-use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationSpec};
+use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
 use crate::workspace_crate::WorkspaceSessionId;
 use crate::SandboxRuntimeOperations;
 use sandbox_protocol::{Request, Response};
 
-pub(crate) const SPEC: OperationSpec = OperationSpec {
+pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "read_cgroup_monitor_samples",
     family: "cgroup_monitor",
     summary: "Read retained cgroup monitor samples.",

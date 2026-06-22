@@ -1,9 +1,9 @@
 use crate::{ManagerError, SandboxState};
 
 use super::{record_value, sandbox_id};
-use sandbox_protocol::{ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationSpec};
+use sandbox_protocol::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
 
-pub(crate) const SPEC: OperationSpec = OperationSpec {
+pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "destroy_sandbox",
     family: "management",
     summary: "Destroy a host-side sandbox and remove it from the registry.",

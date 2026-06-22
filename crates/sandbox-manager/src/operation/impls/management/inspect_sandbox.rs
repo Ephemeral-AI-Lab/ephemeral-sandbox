@@ -1,7 +1,7 @@
 use super::{record_value, sandbox_id};
-use sandbox_protocol::{ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationSpec};
+use sandbox_protocol::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
 
-pub(crate) const SPEC: OperationSpec = OperationSpec {
+pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "inspect_sandbox",
     family: "management",
     summary: "Inspect one sandbox record.",

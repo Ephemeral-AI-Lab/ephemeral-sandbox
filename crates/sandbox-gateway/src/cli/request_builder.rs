@@ -1,6 +1,6 @@
 use sandbox_protocol::{
-    catalog_from_value, catalog_to_value, ArgKind, OperationCatalog, OperationCatalogDocument,
-    OperationExecutionSpace, OperationScope, OperationSpecDocument, Request,
+    catalog_from_value, catalog_to_value, ArgKind, CliOperationSpecDocument, OperationCatalog,
+    OperationCatalogDocument, OperationExecutionSpace, OperationScope, Request,
 };
 use serde_json::{Map, Number, Value};
 
@@ -68,7 +68,7 @@ pub fn build_request_from_catalog_with_id(
             "help is reserved and cannot be used as an operation name",
         ));
     }
-    let spec = find_operation_spec(catalog, &input.operation)?;
+    let spec = find_cli_operation_spec(catalog, &input.operation)?;
     let args = build_args(spec, &input.operation_argv)?;
     let scope = match input.execution_space {
         OperationExecutionSpace::Manager => OperationScope::system(),
@@ -102,7 +102,10 @@ fn catalog_document(
     catalog_from_value(&catalog_to_value(catalog)).map_err(|error| build_error(error.message()))
 }
 
-fn build_args(spec: &OperationSpecDocument, argv: &[String]) -> Result<Value, RequestBuildError> {
+fn build_args(
+    spec: &CliOperationSpecDocument,
+    argv: &[String],
+) -> Result<Value, RequestBuildError> {
     let mut values = Map::new();
     let positional_args = spec
         .args
@@ -199,7 +202,7 @@ fn parse_arg_value(
 }
 
 fn find_flag_arg<'a>(
-    spec: &'a OperationSpecDocument,
+    spec: &'a CliOperationSpecDocument,
     flag: &str,
 ) -> Result<&'a sandbox_protocol::ArgSpecDocument, RequestBuildError> {
     spec.args
@@ -208,10 +211,10 @@ fn find_flag_arg<'a>(
         .ok_or_else(|| build_error(format!("unknown flag for {}: {flag}", spec.name)))
 }
 
-fn find_operation_spec<'a>(
+fn find_cli_operation_spec<'a>(
     catalog: &'a OperationCatalogDocument,
     operation: &str,
-) -> Result<&'a OperationSpecDocument, RequestBuildError> {
+) -> Result<&'a CliOperationSpecDocument, RequestBuildError> {
     catalog
         .operations
         .iter()

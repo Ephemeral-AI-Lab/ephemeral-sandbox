@@ -186,6 +186,15 @@ impl DaemonCliConfig {
                 workspace_root.display()
             ));
         }
+        let resolved_auth_token = auth_token.or_else(|| std::env::var(DAEMON_AUTH_TOKEN_ENV).ok());
+        if tcp_host.is_some()
+            && tcp_port.is_some()
+            && !has_configured_token(resolved_auth_token.as_deref())
+        {
+            return Err(anyhow!(
+                "serve TCP listener requires --auth-token or SANDBOX_DAEMON_AUTH_TOKEN"
+            ));
+        }
         Ok(Self {
             config_yaml_path,
             workspace_root,
@@ -193,7 +202,7 @@ impl DaemonCliConfig {
             pid_path,
             tcp_host,
             tcp_port,
-            auth_token: auth_token.or_else(|| std::env::var(DAEMON_AUTH_TOKEN_ENV).ok()),
+            auth_token: resolved_auth_token,
             spawn,
         })
     }
@@ -220,6 +229,10 @@ impl DaemonCliConfig {
         }
         args
     }
+}
+
+fn has_configured_token(token: Option<&str>) -> bool {
+    token.is_some_and(|token| !token.is_empty())
 }
 
 pub(crate) fn daemon_config_path_arg(args: &[String]) -> Result<PathBuf> {

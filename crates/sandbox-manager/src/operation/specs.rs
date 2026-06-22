@@ -1,5 +1,5 @@
 use sandbox_protocol::{
-    OperationCatalog, OperationExecutionSpace, OperationFamilySpec, OperationSpec,
+    CliOperationSpec, OperationCatalog, OperationExecutionSpace, OperationFamilySpec,
 };
 
 use super::impls;
@@ -10,7 +10,7 @@ pub const fn operation_families() -> &'static [&'static OperationFamilySpec] {
 }
 
 #[must_use]
-pub const fn operation_specs() -> &'static [&'static OperationSpec] {
+pub const fn operation_specs() -> &'static [&'static CliOperationSpec] {
     impls::operation_specs()
 }
 

@@ -8,8 +8,8 @@ mod public;
 
 pub use internal::{layerstack, workspace_remount, workspace_session};
 pub use operation::{
-    ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationCatalog, OperationExecutionSpace,
-    OperationFamilySpec, OperationSpec,
+    ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec, OperationCatalog,
+    OperationExecutionSpace, OperationFamilySpec,
 };
 pub use public::{cgroup_monitor, command};
 
@@ -21,7 +21,7 @@ pub use internal::services::{
 };
 
 #[must_use]
-pub fn operation_specs() -> &'static [&'static OperationSpec] {
+pub fn operation_specs() -> &'static [&'static CliOperationSpec] {
     public::operation_specs()
 }
 

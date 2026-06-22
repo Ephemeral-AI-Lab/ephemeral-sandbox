@@ -9,11 +9,11 @@ use crate::command::{
     CancellationState, CommandLifecycleState, CommandServiceError, CommandSessionId, CommandYield,
     WriteCommandStdinInput,
 };
-use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationSpec};
+use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
 use crate::SandboxRuntimeOperations;
 use sandbox_protocol::{Request, Response};
 
-pub(crate) const SPEC: OperationSpec = OperationSpec {
+pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "write_command_stdin",
     family: "command",
     summary: "Write text to a running command stdin.",

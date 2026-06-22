@@ -8,7 +8,7 @@ use crate::command::{
     CommandFinalizedMetadata, CommandLinesOutput, CommandPublishStatus, CommandServiceError,
     CommandStatus, CommandYield,
 };
-use crate::operation::{OperationEntry, OperationSpec};
+use crate::operation::{CliOperationSpec, OperationEntry};
 use sandbox_protocol::Response;
 
 pub(crate) const OPERATIONS: &[OperationEntry] = &[
@@ -17,7 +17,7 @@ pub(crate) const OPERATIONS: &[OperationEntry] = &[
     OperationEntry::new(&read_command_lines::SPEC, read_command_lines::dispatch),
 ];
 
-pub(crate) const SPECS: &[&OperationSpec] = &[
+pub(crate) const SPECS: &[&CliOperationSpec] = &[
     &exec_command::SPEC,
     &write_command_stdin::SPEC,
     &read_command_lines::SPEC,

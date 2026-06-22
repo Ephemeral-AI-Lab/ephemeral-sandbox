@@ -1,0 +1,131 @@
+# Phase 4b: Cgroup Telemetry Cutover
+
+## Goal
+
+After Phase 4a proves metrics and dashboards no longer need direct cgroup
+monitor read operations, remove the CLI/catalog-facing cgroup monitor operation
+surface and keep cgroup stats on the telemetry path.
+
+This is intentionally a compatibility-breaking cleanup phase. Do not hide it
+inside tracing setup, OTLP export, or dashboard work.
+
+## Scope
+
+- Move `crates/sandbox-runtime/operation/src/public/cgroup_monitor` to an
+  internal service, or collapse the remaining code into internal workspace and
+  command telemetry adapters.
+- Remove `inspect_cgroup_monitor` and `read_cgroup_monitor_samples` from runtime
+  `operation_specs`, operation families, operation entries, and manager/gateway
+  catalog output.
+- Remove gateway CLI mappings and help text for cgroup monitor operations.
+- Replace public operation tests with internal registry/metrics tests.
+- Keep `CgroupMonitorSample` as an internal typed source for metrics, final
+  summaries, cleanup state, and anomaly detection.
+
+## File And Folder Structure Changes
+
+```text
+crates/sandbox-runtime/operation/src/
+  public/
+    mod.rs                         # drop cgroup_monitor family/spec/entry chains
+    cgroup_monitor/                # remove or move
+  internal/
+    services.rs                    # refer to internal cgroup monitor service
+    cgroup_monitor/                # new internal home, if a service module remains
+      core.rs
+      error.rs
+      service/
+        contract.rs                # private, only if still useful for tests
+        types.rs                   # private, only if still useful for tests
+
+crates/sandbox-runtime/operation/src/lib.rs
+  # stop re-exporting public cgroup_monitor and public CgroupMonitorOperationService
+
+crates/sandbox-runtime/operation/tests/
+  cgroup_monitor_operations.rs     # remove public operation/catalog tests
+  cgroup_monitor_metrics.rs        # new or focused internal metrics tests
+  service_graph.rs                 # update expected public runtime operations
+
+crates/sandbox-gateway/tests/
+  gateway_cli.rs                   # remove cgroup monitor CLI catalog mappings
+
+docs/trace/
+  README.md
+  phases/phase-04b-cgroup-telemetry-cutover.md
+```
+
+Do not remove workspace/command cgroup lifecycle recording. The cutover only
+removes the public operation-spec read surface.
+
+## Struct/Class And Field Changes
+
+Public operation DTOs removed from the runtime crate export surface:
+
+```rust
+pub struct InspectCgroupMonitorInput { /* removed from public API */ }
+pub struct ReadCgroupMonitorSamplesInput { /* removed from public API */ }
+pub struct InspectCgroupMonitorOutput { /* removed from public API */ }
+pub struct ReadCgroupMonitorSamplesOutput { /* removed from public API */ }
+```
+
+Internal data that remains:
+
+```rust
+pub(crate) struct CgroupMonitorOperationService {
+    /* internal service, if still useful */
+}
+
+// From sandbox-runtime-workspace, still used as the typed metrics source.
+pub struct CgroupMonitorSample {
+    /* existing fields */
+}
+```
+
+No `sandbox_protocol::Response` changes are required. The operations disappear
+from the catalog instead of returning a new response shape.
+
+## Cutover Rules
+
+- Phase 4b starts only after Phase 4a dashboards read cgroup stats from
+  telemetry metrics.
+- Do not remove `CgroupMonitorRegistry`, session final samples, command final
+  samples, cleanup state, or retained internal samples needed for metrics.
+- Do not leave `inspect_cgroup_monitor` or `read_cgroup_monitor_samples` in
+  `operation_specs` as hidden compatibility aliases.
+- If a direct debug read surface is still required, define it as a separate
+  product/debug API outside the telemetry stats path before deleting the old
+  operation specs.
+- Gateway help and catalog mapping must no longer advertise cgroup monitor
+  operations after this phase.
+
+## LOC Estimate
+
+| Area | Net LOC |
+| --- | ---: |
+| Move or collapse operation cgroup monitor modules | -80 to +80 |
+| Public export/catalog removal | -40 to -90 |
+| Gateway CLI mapping/help cleanup | -40 to -90 |
+| Test rewrite from public operations to internal metrics/registry behavior | 180 to 320 |
+| Docs/spec updates | 20 to 40 |
+| Total | 300 to 560 |
+
+The net LOC may be lower if most public operation tests are deleted instead of
+replaced, but the implementation should still prove metrics/final samples remain
+correct.
+
+## Acceptance Criteria
+
+- [ ] `inspect_cgroup_monitor` is absent from runtime `operation_specs`,
+      operation families, operation entries, manager catalog output, and gateway
+      CLI help.
+- [ ] `read_cgroup_monitor_samples` is absent from runtime `operation_specs`,
+      operation families, operation entries, manager catalog output, and gateway
+      CLI help.
+- [ ] `sandbox_runtime::cgroup_monitor` is no longer exported as a public
+      operation module.
+- [ ] Existing workspace/session/command cgroup lifecycle recording still works.
+- [ ] Command final samples and session final cleanup state still feed metrics.
+- [ ] Phase 4a dashboards continue to work without calling runtime operations.
+- [ ] No fallback compatibility alias is left for the old cgroup monitor
+      operation names.
+- [ ] `cargo test -p sandbox-runtime -p sandbox-gateway` passes.

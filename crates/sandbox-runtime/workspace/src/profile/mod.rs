@@ -11,6 +11,6 @@ pub(crate) use handle::CGROUP_ROOT;
 pub use handle::{WorkspaceModeFds, WorkspaceModeHandle, WorkspaceModeId, WorkspaceModeSnapshot};
 pub(crate) use manager::validate_workspace_root;
 pub use manager::{
-    ExitOutcome, RemountOverlayReport, RemountProbe, ResourceCaps, Rfc1918Egress,
+    ExitOutcome, RemountOverlayResult, RemountProbe, ResourceCaps, Rfc1918Egress,
     WorkspaceModeError, WorkspaceModeManager, WorkspaceRemountState,
 };

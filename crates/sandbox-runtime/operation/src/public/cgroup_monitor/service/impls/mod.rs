@@ -7,7 +7,7 @@ use crate::cgroup_monitor::{
     CgroupMonitorServiceError, InspectCgroupMonitorOutput, ReadCgroupMonitorSamplesOutput,
 };
 use crate::command::CommandSessionId;
-use crate::operation::{OperationEntry, OperationSpec};
+use crate::operation::{CliOperationSpec, OperationEntry};
 use crate::workspace_crate::WorkspaceSessionId;
 use sandbox_protocol::Response;
 
@@ -22,7 +22,7 @@ pub(crate) const OPERATIONS: &[OperationEntry] = &[
     ),
 ];
 
-pub(crate) const SPECS: &[&OperationSpec] = &[
+pub(crate) const SPECS: &[&CliOperationSpec] = &[
     &inspect_cgroup_monitor::SPEC,
     &read_cgroup_monitor_samples::SPEC,
 ];

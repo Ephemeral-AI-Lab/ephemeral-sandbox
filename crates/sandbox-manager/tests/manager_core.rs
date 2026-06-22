@@ -7,8 +7,8 @@ use sandbox_manager::{
     SandboxState, SandboxStore,
 };
 use sandbox_protocol::{
-    ArgKind, OperationCatalog, OperationExecutionSpace, OperationFamilySpec, OperationScope,
-    OperationSpec, Request, Response,
+    ArgKind, CliOperationSpec, OperationCatalog, OperationExecutionSpace, OperationFamilySpec,
+    OperationScope, Request, Response,
 };
 use serde_json::{json, Value};
 
@@ -19,7 +19,7 @@ static TEST_RUNTIME_FAMILY: OperationFamilySpec = OperationFamilySpec {
     description: "Test runtime operations.",
 };
 
-static TEST_RUNTIME_SPEC: OperationSpec = OperationSpec {
+static TEST_RUNTIME_SPEC: CliOperationSpec = CliOperationSpec {
     name: "runtime_test_operation",
     family: "test",
     summary: "Test runtime operation.",
@@ -30,7 +30,7 @@ static TEST_RUNTIME_SPEC: OperationSpec = OperationSpec {
 };
 
 static TEST_RUNTIME_FAMILIES: &[&OperationFamilySpec] = &[&TEST_RUNTIME_FAMILY];
-static TEST_RUNTIME_SPECS: &[&OperationSpec] = &[&TEST_RUNTIME_SPEC];
+static TEST_RUNTIME_SPECS: &[&CliOperationSpec] = &[&TEST_RUNTIME_SPEC];
 
 #[derive(Default)]
 struct FakeRuntime {

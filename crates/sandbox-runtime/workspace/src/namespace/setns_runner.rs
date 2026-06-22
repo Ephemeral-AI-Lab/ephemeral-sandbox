@@ -27,7 +27,7 @@ use serde_json::json;
 
 #[cfg(target_os = "linux")]
 use crate::isolated_setup::{BRIDGE_PREFIX_LEN, GATEWAY};
-use crate::lifecycle::remount::{RemountOverlayReport, RemountProbe};
+use crate::lifecycle::remount::{RemountOverlayResult, RemountProbe};
 use crate::profile::WorkspaceModeError;
 use crate::profile::WorkspaceModeHandle;
 
@@ -64,11 +64,11 @@ impl NamespaceRuntime {
         layer_paths: &[PathBuf],
         probe: &RemountProbe,
         setup_timeout_s: f64,
-    ) -> Result<RemountOverlayReport, WorkspaceModeError> {
+    ) -> Result<RemountOverlayResult, WorkspaceModeError> {
         #[cfg(not(target_os = "linux"))]
         {
             let _ = (handle, layer_paths, probe, setup_timeout_s);
-            Ok(RemountOverlayReport::default())
+            Ok(RemountOverlayResult::default())
         }
         #[cfg(target_os = "linux")]
         {
@@ -159,7 +159,7 @@ pub(super) fn mount_overlay_child(
 pub(super) fn remount_overlay_child(
     request: &NamespaceCommandRequest,
     setup_timeout_s: f64,
-) -> Result<RemountOverlayReport, WorkspaceModeError> {
+) -> Result<RemountOverlayResult, WorkspaceModeError> {
     let output = run_child(request, "--remount-overlay", setup_timeout_s)?;
     if output.status.success() {
         let result = serde_json::from_slice::<RunResult>(&output.stdout).map_err(|err| {
@@ -167,7 +167,7 @@ pub(super) fn remount_overlay_child(
                 step: format!("invalid ns-runner remount overlay output: {err}"),
             }
         })?;
-        return Ok(RemountOverlayReport::from_payload(&result.payload));
+        return Ok(RemountOverlayResult::from_payload(&result.payload));
     }
     Err(WorkspaceModeError::SetupFailed {
         step: format!(

@@ -1,7 +1,8 @@
 use sandbox_protocol::{
     catalog_from_value, catalog_to_value, decode_request_value, render_catalog_help,
-    render_operation_help, ArgCliSpec, ArgKind, ArgSpec, CliSpec, OperationCatalog,
-    OperationExecutionSpace, OperationFamilySpec, OperationScope, OperationSpec, DAEMON_AUTH_FIELD,
+    render_operation_help, ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec,
+    OperationCatalog, OperationExecutionSpace, OperationFamilySpec, OperationScope,
+    DAEMON_AUTH_FIELD,
 };
 use serde_json::{json, Value};
 
@@ -33,7 +34,7 @@ static TEST_FAMILY: OperationFamilySpec = OperationFamilySpec {
     description: "Create, destroy, list, and inspect sandbox records.",
 };
 
-static TEST_SPEC: OperationSpec = OperationSpec {
+static TEST_SPEC: CliOperationSpec = CliOperationSpec {
     name: "create_sandbox",
     family: "management",
     summary: "Create a sandbox.",
@@ -50,7 +51,7 @@ static TEST_SPEC: OperationSpec = OperationSpec {
 };
 
 static TEST_FAMILIES: &[&OperationFamilySpec] = &[&TEST_FAMILY];
-static TEST_SPECS: &[&OperationSpec] = &[&TEST_SPEC];
+static TEST_SPECS: &[&CliOperationSpec] = &[&TEST_SPEC];
 
 #[test]
 fn daemon_auth_field_uses_sandbox_name() {
