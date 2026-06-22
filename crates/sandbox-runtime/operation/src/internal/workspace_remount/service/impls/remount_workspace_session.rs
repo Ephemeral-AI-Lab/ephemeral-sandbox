@@ -3,9 +3,33 @@ use crate::workspace_remount::{
     RemountBlockReason, RemountSwitchState, WorkspaceRemountError, WorkspaceRemountOutcome,
     WorkspaceRemountService,
 };
+use tracing::{field, Span};
 
 impl WorkspaceRemountService {
     pub fn remount_workspace_session(
+        &self,
+        workspace_session_id: WorkspaceSessionId,
+    ) -> Result<WorkspaceRemountOutcome, WorkspaceRemountError> {
+        let span = tracing::info_span!(
+            "workspace.remount",
+            status = field::Empty,
+            error_kind = field::Empty,
+            remounted = field::Empty,
+            blocked_reason = field::Empty,
+            active_commands = field::Empty,
+            process_count = field::Empty,
+            quiesced_process_count = field::Empty,
+            inspected = field::Empty,
+            quiesce_attempted = field::Empty,
+            resumed = field::Empty,
+        );
+        let _span_guard = span.enter();
+        let result = self.remount_workspace_session_inner(workspace_session_id);
+        record_remount_result(&span, &result);
+        result
+    }
+
+    fn remount_workspace_session_inner(
         &self,
         workspace_session_id: WorkspaceSessionId,
     ) -> Result<WorkspaceRemountOutcome, WorkspaceRemountError> {
@@ -54,5 +78,43 @@ impl WorkspaceRemountService {
                 Err(WorkspaceRemountError::WorkspaceSession(error))
             }
         }
+    }
+}
+
+fn record_remount_result(
+    span: &Span,
+    result: &Result<WorkspaceRemountOutcome, WorkspaceRemountError>,
+) {
+    match result {
+        Ok(outcome) => {
+            span.record("status", "ok");
+            span.record("remounted", outcome.remounted);
+            if let Some(reason) = outcome.blocked_reason.as_deref() {
+                span.record("blocked_reason", bounded_remount_block_reason(reason));
+            }
+            let inspection = &outcome.command_inspection;
+            span.record("active_commands", inspection.active_commands as u64);
+            span.record("process_count", inspection.process_count as u64);
+            span.record(
+                "quiesced_process_count",
+                inspection.quiesced_process_count as u64,
+            );
+            span.record("inspected", inspection.inspected);
+            span.record("quiesce_attempted", inspection.quiesce_attempted);
+            span.record("resumed", inspection.resumed);
+        }
+        Err(error) => {
+            span.record("status", "error");
+            span.record("error_kind", error.kind());
+        }
+    }
+}
+
+fn bounded_remount_block_reason(reason: &str) -> &'static str {
+    match reason {
+        "active_command_missing" => "active_command_missing",
+        "process_group_unavailable" => "process_group_unavailable",
+        "remount_cancelled_before_switch" => "remount_cancelled_before_switch",
+        _ => "process_group_blocked",
     }
 }

@@ -29,3 +29,19 @@ pub enum LayerStackServiceError {
         error: sandbox_runtime_layerstack::LayerStackError,
     },
 }
+
+impl LayerStackServiceError {
+    pub(crate) fn kind(&self) -> &'static str {
+        match self {
+            Self::Init { .. } => "init",
+            Self::InvalidBaseRevision { .. } => "invalid_base_revision",
+            Self::PublishRejected { .. } => "publish_rejected",
+            Self::LayerStack { operation, .. } => match *operation {
+                "open" => "open",
+                "publish" => "publish",
+                "squash" => "squash",
+                _ => "layerstack",
+            },
+        }
+    }
+}

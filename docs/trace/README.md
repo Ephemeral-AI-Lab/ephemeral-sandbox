@@ -291,7 +291,8 @@ Avoid names that mirror temporary private helper files unless the helper is a
 stable diagnostic boundary. For the initial semantic-span rollout, do not add
 spans named after private layerstack helpers such as `plan_publish`,
 `validate_source_paths`, or manifest commit internals; emit structured
-publish/OCC facts as events from the operation-level publish wrapper instead.
+publish/OCC facts as telemetry stats from the operation-level publish wrapper
+instead.
 
 ## Event Names
 
@@ -366,10 +367,11 @@ rollout does not change `sandbox_protocol::Response`; later protocol/API cleanup
 can remove or narrow response timing and resource fields only after dashboards
 and diagnostics read the telemetry backend instead.
 
-## OCC Event Model
+## OCC Telemetry Stats
 
-OCC should not be represented as one vague event. Split it into the actual
-checks:
+OCC should not be represented as a standalone event object. Split it into the
+actual checks and emit those facts as bounded fields on the normal publish
+tracing path:
 
 ```text
 layerstack.expected_base_checked
@@ -393,8 +395,8 @@ layerstack.manifest_commit_checked
   result = committed | manifest_conflict
 ```
 
-This makes publish failures diagnosable without exposing a new public
-`OccTraceEvent` API.
+This makes publish failures diagnosable without exposing a new public runtime
+trace object API.
 
 ## Collection Mode
 
@@ -754,7 +756,7 @@ Expected changed files for the combined Phases 1-3 trace rollout:
 | `crates/sandbox-runtime/operation/src/public/command/service/finalize.rs` | command finalization events and result fields | +25 to +50 |
 | `crates/sandbox-runtime/operation/src/internal/workspace_session/service/impls/*.rs` | create/capture/destroy/remount session spans/events | +60 to +100 total |
 | `crates/sandbox-runtime/operation/src/internal/workspace_remount/service/impls/remount_workspace_session.rs` | remount orchestration span/events | +20 to +40 |
-| `crates/sandbox-runtime/operation/src/internal/layerstack/service/impls/publish_changes.rs` | publish/OCC route events | +25 to +50 |
+| `crates/sandbox-runtime/operation/src/internal/layerstack/service/impls/publish_changes.rs` | publish/OCC telemetry stats | +25 to +50 |
 | `crates/sandbox-runtime/operation/src/internal/cgroup_monitor/*` | cgroup anomaly/final-summary trace events or metrics-only adapters if cgroup stats are removed from CLI operation specs | +35 to +80 total |
 | `crates/sandbox-runtime/operation/tests/*` | focused trace assertions, safe-field assertions, no periodic cgroup trace events | +220 to +380 total |
 

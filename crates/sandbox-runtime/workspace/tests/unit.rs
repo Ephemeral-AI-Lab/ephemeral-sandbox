@@ -10,3 +10,5 @@ mod overlay_tree;
 mod remount_plan;
 #[path = "unit/service.rs"]
 mod service;
+#[path = "unit/trace_capture.rs"]
+mod trace_capture;

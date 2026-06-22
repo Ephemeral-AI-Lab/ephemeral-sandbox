@@ -1,11 +1,8 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
+use crate::lifecycle::leases::{monotonic_seconds, next_handle_id};
 use crate::lifecycle::remount::WorkspaceRemountState;
-use crate::lifecycle::{
-    leases::{monotonic_seconds, next_handle_id},
-    record_phase_ms,
-};
 use crate::model::WorkspaceProfile;
 use crate::namespace::NamespacePlan;
 use crate::overlay::dirs::create_overlay_dirs;
@@ -31,13 +28,13 @@ impl WorkspaceModeManager {
         handle.holder_pid =
             self.runtime
                 .spawn_ns_holder(handle, self.caps.setup_timeout_s, namespace_plan)?;
-        record_phase_ms(&mut phases_ms, "spawn_ns_holder", phase_start);
+        record_create_phase_ms(&mut phases_ms, "spawn_ns_holder", phase_start);
 
         phase_start = Instant::now();
         handle.ns_fds = self
             .runtime
             .open_ns_fds(handle.holder_pid, namespace_plan)?;
-        record_phase_ms(&mut phases_ms, "open_ns_fds", phase_start);
+        record_create_phase_ms(&mut phases_ms, "open_ns_fds", phase_start);
 
         if handle.profile == WorkspaceProfile::Isolated {
             self.setup_isolated_network_after_namespace(handle, &mut phases_ms)?;
@@ -46,7 +43,7 @@ impl WorkspaceModeManager {
         phase_start = Instant::now();
         self.runtime
             .mount_overlay(handle, &layer_paths, self.caps.setup_timeout_s)?;
-        record_phase_ms(&mut phases_ms, "mount_overlay", phase_start);
+        record_create_phase_ms(&mut phases_ms, "mount_overlay", phase_start);
 
         if handle.profile == WorkspaceProfile::Isolated {
             self.setup_isolated_network_after_mount(handle)?;
@@ -54,13 +51,13 @@ impl WorkspaceModeManager {
 
         phase_start = Instant::now();
         let cgroup_path = self.runtime.create_cgroup(handle)?;
-        record_phase_ms(&mut phases_ms, "create_cgroup", phase_start);
+        record_create_phase_ms(&mut phases_ms, "create_cgroup", phase_start);
         if !cgroup_path.as_os_str().is_empty() {
             handle.cgroup_path = Some(cgroup_path);
         }
         phase_start = Instant::now();
         self.runtime.join_holder_cgroup(handle)?;
-        record_phase_ms(&mut phases_ms, "join_holder_cgroup", phase_start);
+        record_create_phase_ms(&mut phases_ms, "join_holder_cgroup", phase_start);
         Ok(phases_ms)
     }
 
@@ -79,7 +76,7 @@ impl WorkspaceModeManager {
             .network
             .install_veth(&handle.workspace_id.0, handle.holder_pid)?;
         handle.veth = Some(veth);
-        record_phase_ms(phases_ms, "install_veth", phase_start);
+        record_create_phase_ms(phases_ms, "install_veth", phase_start);
         Ok(())
     }
 
@@ -154,4 +151,18 @@ impl WorkspaceModeManager {
         validate_workspace_root(workspace_root)?;
         Ok(workspace_root.to_owned())
     }
+}
+
+fn record_create_phase_ms(
+    phases_ms: &mut HashMap<String, f64>,
+    phase: &'static str,
+    started_at: Instant,
+) {
+    let duration_ms = started_at.elapsed().as_secs_f64() * 1000.0;
+    phases_ms.insert(phase.to_owned(), duration_ms);
+    tracing::info!(
+        name: "workspace_create_phase_finished",
+        phase = phase,
+        duration_ms = duration_ms,
+    );
 }

@@ -3,6 +3,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+#[path = "support/trace.rs"]
+mod trace;
+
 use sandbox_runtime::command::{
     CommandLaunchDriver, CommandOperationService, CommandServiceError, ExecCommandInput,
     WriteCommandStdinInput,
@@ -489,6 +492,62 @@ fn workspace_remount_no_active_command_path_succeeds_and_clears_pending() {
     assert!(!services
         .workspace
         .is_remount_pending(&WorkspaceSessionId("workspace-1".to_owned())));
+}
+
+#[test]
+fn workspace_remount_span_records_bounded_result_facts() {
+    let fake = Arc::new(RemountWorkspaceServiceFake::default());
+    let services = build_services(Arc::clone(&fake));
+    let workspace_root = PathBuf::from("/workspace/REMOUNT_PATH_SECRET");
+    let mut remounted = workspace_handle("workspace-1", "lease-2", workspace_root.clone());
+    remounted.snapshot.manifest_version = 2;
+    remounted.snapshot.root_hash = "REMOUNT_ROOT_HASH_SECRET".to_owned();
+    remounted.snapshot.layer_paths = vec![PathBuf::from("/lower/REMOUNT_LAYER_SECRET")];
+    remounted.base_revision = remounted.snapshot.base_revision();
+    fake.push_create_result(Ok(workspace_handle(
+        "workspace-1",
+        "lease-1",
+        workspace_root,
+    )));
+    fake.push_remount_result(Ok(RemountWorkspaceResult { handle: remounted }));
+    let handler = services
+        .workspace
+        .create_workspace_session(create_request())
+        .expect("create workspace session succeeds");
+
+    let traces = trace::capture_traces(|| {
+        let outcome = services
+            .workspace_remount
+            .remount_workspace_session(handler.workspace_session_id.clone())
+            .expect("remount succeeds");
+        assert!(outcome.remounted);
+        assert_eq!(outcome.command_inspection.active_commands, 0);
+    });
+
+    for expected in [
+        "span workspace.remount",
+        "remounted=true",
+        "active_commands=0",
+        "process_count=0",
+    ] {
+        assert!(traces.contains(expected), "missing {expected} in {traces}");
+    }
+    for forbidden in [
+        "workspace-1",
+        "lease-1",
+        "lease-2",
+        "REMOUNT_PATH_SECRET",
+        "REMOUNT_ROOT_HASH_SECRET",
+        "REMOUNT_LAYER_SECRET",
+        "/workspace/",
+        "/lower/",
+        "WorkspaceRemountOutcome",
+    ] {
+        assert!(
+            !traces.contains(forbidden),
+            "forbidden value {forbidden} appeared in traces: {traces}"
+        );
+    }
 }
 
 #[test]

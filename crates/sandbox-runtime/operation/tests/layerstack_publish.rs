@@ -12,7 +12,7 @@ use sandbox_runtime_workspace::{
 
 use support::{
     build_services_with_launch_driver_and_layerstack, create_request, success_exit,
-    FakeLaunchDriver, FakeWorkspaceService,
+    trace::capture_traces, FakeLaunchDriver, FakeWorkspaceService,
 };
 
 struct PublishFixture {
@@ -299,6 +299,120 @@ fn layerstack_service_ignored_only_publish_preserves_route_summary(
         read_text(&fixture, "out.log")?,
         Some("ignored\n".to_owned())
     );
+    Ok(())
+}
+
+#[test]
+fn layerstack_publish_span_records_route_result_without_payload_leaks(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = PublishFixture::new("trace-route-result")?;
+    std::fs::write(fixture.workspace.join("README.md"), "base\n")?;
+    let base = fixture.build_base()?;
+    let service = fixture.service()?;
+    let revision = sandbox_runtime::layerstack::LayerStackRevision {
+        manifest_version: base.version,
+        root_hash: sandbox_runtime_layerstack::manifest_root_hash(&base),
+        layer_count: base.layers.len(),
+    };
+
+    let traces = capture_traces(|| {
+        service
+            .publish_changes(sandbox_runtime::layerstack::PublishChangesRequest {
+                expected_base: revision,
+                base_manifest: base,
+                protected_drops: Vec::new(),
+                changes: vec![sandbox_runtime_layerstack::LayerChange::Write {
+                    path: lp("publish/SECRET_PATH_SENTINEL.txt"),
+                    content: b"CONTENT_SECRET_SENTINEL".to_vec(),
+                }],
+            })
+            .expect("publish succeeds");
+    });
+
+    for expected in [
+        "span layerstack.publish_changes",
+        "status=ok",
+        "route_source_count=1",
+        "route_ignored_count=0",
+        "no_op=false",
+        "result_layer_count=2",
+    ] {
+        assert!(traces.contains(expected), "missing {expected} in {traces}");
+    }
+    for forbidden in [
+        "SECRET_PATH_SENTINEL",
+        "CONTENT_SECRET_SENTINEL",
+        "PublishChangesResult",
+        "LayerPath",
+        "layers/",
+    ] {
+        assert!(
+            !traces.contains(forbidden),
+            "forbidden value {forbidden} appeared in traces: {traces}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn layerstack_publish_span_records_occ_and_rejection_facts_without_trace_objects(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = PublishFixture::new("trace-occ-reject")?;
+    std::fs::write(fixture.workspace.join("README.md"), "base\n")?;
+    let base = fixture.build_base()?;
+    let service = fixture.service()?;
+    let valid_revision = sandbox_runtime::layerstack::LayerStackRevision {
+        manifest_version: base.version,
+        root_hash: sandbox_runtime_layerstack::manifest_root_hash(&base),
+        layer_count: base.layers.len(),
+    };
+
+    let traces = capture_traces(|| {
+        let _ = service.publish_changes(sandbox_runtime::layerstack::PublishChangesRequest {
+            expected_base: sandbox_runtime::layerstack::LayerStackRevision {
+                manifest_version: base.version,
+                root_hash: "ROOT_HASH_SECRET_SENTINEL".to_owned(),
+                layer_count: base.layers.len(),
+            },
+            base_manifest: base.clone(),
+            protected_drops: Vec::new(),
+            changes: Vec::new(),
+        });
+        let _ = service.publish_changes(sandbox_runtime::layerstack::PublishChangesRequest {
+            expected_base: valid_revision,
+            base_manifest: base,
+            protected_drops: Vec::new(),
+            changes: vec![sandbox_runtime_layerstack::LayerChange::Write {
+                path: lp(".git/SECRET_PATH_SENTINEL"),
+                content: b"CONTENT_SECRET_SENTINEL".to_vec(),
+            }],
+        });
+    });
+
+    for expected in [
+        "span layerstack.publish_changes",
+        "error_kind=invalid_base_revision",
+        "root_hash_matched=false",
+        "error_kind=publish_rejected",
+        "rejection_reason=git_mutation_forbidden",
+        "rejection_has_path=true",
+    ] {
+        assert!(traces.contains(expected), "missing {expected} in {traces}");
+    }
+    for forbidden in [
+        "ROOT_HASH_SECRET_SENTINEL",
+        "SECRET_PATH_SENTINEL",
+        "CONTENT_SECRET_SENTINEL",
+        "PublishReject",
+        "PublishChangesResult",
+        "plan_publish",
+        "validate_source_paths",
+    ] {
+        assert!(
+            !traces.contains(forbidden),
+            "forbidden value {forbidden} appeared in traces: {traces}"
+        );
+    }
     Ok(())
 }
 

@@ -14,3 +14,12 @@ impl From<crate::command::CommandServiceError> for WorkspaceRemountError {
         Self::Command(Box::new(error))
     }
 }
+
+impl WorkspaceRemountError {
+    pub(crate) fn kind(&self) -> &'static str {
+        match self {
+            Self::WorkspaceSession(error) => error.kind(),
+            Self::Command(error) => error.kind(),
+        }
+    }
+}

@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub(crate) mod trace;
+
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};

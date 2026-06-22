@@ -39,6 +39,16 @@ pub enum CgroupMonitorTargetKind {
     Command,
 }
 
+impl CgroupMonitorTargetKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Session => "session",
+            Self::Command => "command",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CgroupSampleKind {
@@ -46,6 +56,18 @@ pub enum CgroupSampleKind {
     CommandFinal,
     SessionFinal,
     Cleanup,
+}
+
+impl CgroupSampleKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Periodic => "periodic",
+            Self::CommandFinal => "command_final",
+            Self::SessionFinal => "session_final",
+            Self::Cleanup => "cleanup",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -326,6 +348,12 @@ impl CgroupMonitorRegistry {
         };
         record.push_sample(sample, &self.config);
         record.cleanup.final_sample_recorded = true;
+        emit_cgroup_final_summary(
+            "session_final",
+            record.target.kind,
+            record.samples.back(),
+            &record.cleanup,
+        );
     }
 
     pub fn record_command_final(
@@ -351,6 +379,12 @@ impl CgroupMonitorRegistry {
             record.cleanup.cgroup_exists_after_destroy = cleanup.cgroup_exists_after_destroy;
             record.cleanup.last_cleanup_error = cleanup.last_cleanup_error;
         }
+        emit_cgroup_final_summary(
+            "command_final",
+            record.target.kind,
+            record.samples.back(),
+            &record.cleanup,
+        );
     }
 
     pub fn record_cleanup(
@@ -367,6 +401,12 @@ impl CgroupMonitorRegistry {
         };
         record.cleanup.cgroup_exists_after_destroy = cgroup_exists_after_destroy;
         record.cleanup.last_cleanup_error = last_cleanup_error;
+        emit_cgroup_final_summary(
+            "cleanup",
+            record.target.kind,
+            record.samples.back(),
+            &record.cleanup,
+        );
     }
 
     fn register_target(
@@ -534,6 +574,7 @@ impl RetainedTarget {
     fn push_sample(&mut self, sample: CgroupMonitorSample, config: &CgroupMonitorConfig) {
         if sample.state.read_error.is_some() {
             self.read_error_count = self.read_error_count.saturating_add(1);
+            emit_cgroup_anomaly(&self.target, &sample, self.read_error_count);
         }
         self.samples.push_back(sample);
         while self.samples.len() > config.retained_samples_per_target {
@@ -557,6 +598,73 @@ impl RetainedTarget {
             latest: self.samples.back().cloned(),
             cleanup: self.cleanup.clone(),
         }
+    }
+}
+
+fn emit_cgroup_anomaly(
+    target: &CgroupMonitorTarget,
+    sample: &CgroupMonitorSample,
+    read_error_count: u64,
+) {
+    tracing::warn!(
+        name: "cgroup_monitor.anomaly",
+        target_kind = target.kind.as_str(),
+        sample_kind = sample.sample_kind.as_str(),
+        anomaly_class = cgroup_anomaly_class(sample),
+        cgroup_exists = sample.state.cgroup_exists,
+        cgroup_populated = sample.state.cgroup_populated.unwrap_or(false),
+        cgroup_populated_present = sample.state.cgroup_populated.is_some(),
+        frozen = sample.state.frozen.unwrap_or(false),
+        frozen_present = sample.state.frozen.is_some(),
+        read_error_count = read_error_count,
+    );
+}
+
+fn emit_cgroup_final_summary(
+    boundary: &'static str,
+    target_kind: CgroupMonitorTargetKind,
+    sample: Option<&CgroupMonitorSample>,
+    cleanup: &CgroupCleanupState,
+) {
+    tracing::info!(
+        name: "cgroup_monitor.final_summary",
+        boundary = boundary,
+        target_kind = target_kind.as_str(),
+        sample_available = sample.is_some(),
+        sample_kind = sample
+            .map(|sample| sample.sample_kind.as_str())
+            .unwrap_or("none"),
+        cgroup_exists = sample
+            .map(|sample| sample.state.cgroup_exists)
+            .unwrap_or(false),
+        read_error = sample
+            .map(|sample| sample.state.read_error.is_some())
+            .unwrap_or(false),
+        cpu_delta_available = sample
+            .and_then(|sample| sample.cpu.delta_usage_usec)
+            .is_some(),
+        memory_current_available = sample
+            .and_then(|sample| sample.memory.current_bytes)
+            .is_some(),
+        final_sample_recorded = cleanup.final_sample_recorded,
+        cgroup_exists_after_destroy = cleanup.cgroup_exists_after_destroy.unwrap_or(false),
+        cgroup_exists_after_destroy_present = cleanup.cgroup_exists_after_destroy.is_some(),
+        cleanup_error = cleanup.last_cleanup_error.is_some(),
+    );
+}
+
+fn cgroup_anomaly_class(sample: &CgroupMonitorSample) -> &'static str {
+    let Some(error) = sample.state.read_error.as_deref() else {
+        return "none";
+    };
+    if !sample.state.cgroup_exists {
+        "cgroup_missing"
+    } else if error.contains("malformed") {
+        "malformed_cgroup_file"
+    } else if error.contains("No such file") || error.contains("not found") {
+        "missing_cgroup_file"
+    } else {
+        "read_error"
     }
 }
 

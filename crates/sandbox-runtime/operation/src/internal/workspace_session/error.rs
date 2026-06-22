@@ -65,4 +65,21 @@ impl WorkspaceSessionError {
             workspace_session_id: workspace_session_id.clone(),
         }
     }
+
+    pub(crate) const fn kind(&self) -> &'static str {
+        match self {
+            Self::Workspace(error) => error.kind(),
+            Self::LockPoisoned => "lock_poisoned",
+            Self::DuplicateWorkspaceSessionId { .. } => "duplicate_workspace_session_id",
+            Self::NotFound { .. } => "not_found",
+            Self::RemountAlreadyPending { .. } => "remount_already_pending",
+            Self::RemountBlocked { .. } => "remount_blocked",
+            Self::RemountNotPending { .. } => "remount_not_pending",
+            Self::RemountWorkspaceSessionIdMismatch { .. } => {
+                "remount_workspace_session_id_mismatch"
+            }
+            Self::PublishCapturedChanges { .. } => "publish_captured_changes",
+            Self::CreateRollbackFailed { .. } => "create_rollback_failed",
+        }
+    }
 }

@@ -48,6 +48,20 @@ impl CommandOperationService {
         process_exit: ::sandbox_runtime_command::process::CommandProcessExit,
     ) -> Result<CommandTerminalResult, CommandServiceError> {
         let record = self.begin_terminal_completion(&command_session_id)?;
+        tracing::info!(
+            name: "cgroup_monitor.final_summary",
+            boundary = "command_finalization_handoff",
+            target_kind = "command",
+            sample_available = process_exit.cgroup_final_sample.is_some(),
+            cleanup_available = process_exit.cgroup_cleanup.is_some(),
+            cleanup_error = process_exit
+                .cgroup_cleanup
+                .as_ref()
+                .and_then(|cleanup| cleanup.last_cleanup_error.as_ref())
+                .is_some(),
+            exit_code = process_exit.exit_code,
+            killed = process_exit.kill.is_some(),
+        );
         self.workspace().cgroup_monitor().record_command_final(
             &record.workspace_session_id,
             &command_session_id.0,

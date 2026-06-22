@@ -9,6 +9,8 @@ use sandbox_runtime_workspace::model::{
 use sandbox_runtime_workspace::profile::{ResourceCaps, WorkspaceModeManager};
 use sandbox_runtime_workspace::WorkspaceRuntimeService;
 
+use crate::trace_capture::capture_traces;
+
 #[test]
 fn latest_snapshot_returns_readonly_handle_without_lease(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -57,6 +59,56 @@ fn runtime_service_create_and_destroy_are_backed_by_impl_files(
     assert_eq!(destroyed.lease_released, Some(true));
     assert_eq!(destroyed.lease_release_error, None);
     assert_eq!(destroyed.active_leases_after, 0);
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires real Linux namespace, cgroup, mount, and network privileges"
+)]
+fn runtime_service_create_emits_existing_phase_timing_events(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = Fixture::new("trace-create-phases")?;
+    let service = fixture.service();
+
+    let traces = capture_traces(|| {
+        let handle = service
+            .create_workspace(CreateWorkspaceRequest {
+                profile: WorkspaceProfile::HostCompatible,
+            })
+            .expect("create workspace succeeds");
+        service
+            .destroy_workspace(handle, DestroyWorkspaceRequest::default())
+            .expect("destroy workspace succeeds");
+    });
+
+    for phase in [
+        "spawn_ns_holder",
+        "open_ns_fds",
+        "mount_overlay",
+        "create_cgroup",
+        "join_holder_cgroup",
+    ] {
+        assert!(
+            traces.contains("event workspace_create_phase_finished")
+                && traces.contains(&format!("phase={phase}"))
+                && traces.contains("duration_ms="),
+            "missing create phase {phase} in {traces}"
+        );
+    }
+    for forbidden in [
+        "WorkspaceHandle",
+        "WorkspaceEntry",
+        "/workspace",
+        "/layer-stack",
+        "manifest.json",
+    ] {
+        assert!(
+            !traces.contains(forbidden),
+            "forbidden value {forbidden} appeared in traces: {traces}"
+        );
+    }
     Ok(())
 }
 

@@ -4,9 +4,26 @@ use crate::workspace_crate::{CreateWorkspaceRequest, DestroyWorkspaceRequest};
 use crate::workspace_session::{WorkspaceSessionError, WorkspaceSessionService};
 
 use super::super::model::{WorkspaceSession, WorkspaceSessionHandler};
+use tracing::{field, Span};
 
 impl WorkspaceSessionService {
     pub fn create_workspace_session(
+        &self,
+        request: CreateWorkspaceRequest,
+    ) -> Result<WorkspaceSessionHandler, WorkspaceSessionError> {
+        let span = tracing::info_span!(
+            "workspace.create_session",
+            profile = request.profile.as_str(),
+            status = field::Empty,
+            error_kind = field::Empty,
+        );
+        let _span_guard = span.enter();
+        let result = self.create_workspace_session_inner(request);
+        record_create_session_result(&span, &result);
+        result
+    }
+
+    fn create_workspace_session_inner(
         &self,
         request: CreateWorkspaceRequest,
     ) -> Result<WorkspaceSessionHandler, WorkspaceSessionError> {
@@ -44,5 +61,20 @@ impl WorkspaceSessionService {
         self.cgroup_monitor().register_session_from_handle(&handle);
 
         Ok(handler)
+    }
+}
+
+fn record_create_session_result(
+    span: &Span,
+    result: &Result<WorkspaceSessionHandler, WorkspaceSessionError>,
+) {
+    match result {
+        Ok(_) => {
+            span.record("status", "ok");
+        }
+        Err(error) => {
+            span.record("status", "error");
+            span.record("error_kind", error.kind());
+        }
     }
 }

@@ -81,3 +81,22 @@ impl std::fmt::Display for WorkspaceError {
 }
 
 impl std::error::Error for WorkspaceError {}
+
+impl WorkspaceError {
+    #[must_use]
+    pub const fn kind(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest { .. } => "invalid_request",
+            Self::NotOpen => "not_open",
+            Self::ActiveCommands { .. } => "active_commands",
+            Self::QuotaExceeded { .. } => "quota_exceeded",
+            Self::ResourcePressure { .. } => "resource_pressure",
+            Self::SnapshotAcquire { .. } => "snapshot_acquire",
+            Self::Setup { .. } => "setup",
+            Self::Network { .. } => "network",
+            Self::Command { .. } => "command",
+            Self::Capture { .. } => "capture",
+            Self::Publish { .. } => "publish",
+        }
+    }
+}

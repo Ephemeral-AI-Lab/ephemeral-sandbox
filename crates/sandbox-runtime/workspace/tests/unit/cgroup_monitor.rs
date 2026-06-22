@@ -6,6 +6,8 @@ use sandbox_runtime_workspace::{
     WorkspaceHandle, WorkspaceProfile, WorkspaceSessionId,
 };
 
+use crate::trace_capture::capture_traces;
+
 #[test]
 fn cgroup_monitor_session_path_uses_session_owned_tree() {
     let path = session_cgroup_path(
@@ -235,6 +237,132 @@ fn cgroup_monitor_registry_samples_without_public_reads() -> Result<(), Box<dyn 
 
     assert!(saw_background_sample);
     drop(registry);
+    let _ = std::fs::remove_dir_all(root);
+    Ok(())
+}
+
+#[test]
+fn cgroup_monitor_healthy_periodic_samples_emit_no_trace_events(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = temp_root("periodic-trace-silent")?;
+    let cgroup = root.join("cgroup");
+    let upper = root.join("upper");
+    std::fs::create_dir_all(&cgroup)?;
+    std::fs::create_dir_all(&upper)?;
+    write_complete_cgroup_files(&cgroup)?;
+
+    let traces = capture_traces(|| {
+        let registry = CgroupMonitorRegistry::new(CgroupMonitorConfig {
+            sample_interval_ms: 60_000,
+            retained_samples_per_target: 10,
+            include_disk: false,
+            ..CgroupMonitorConfig::default()
+        });
+        registry.register_command(
+            WorkspaceSessionId("ws-periodic-trace".to_owned()),
+            "cmd-periodic-trace",
+            cgroup.clone(),
+            upper,
+        );
+        assert!(registry
+            .read_samples(
+                &WorkspaceSessionId("ws-periodic-trace".to_owned()),
+                Some("cmd-periodic-trace"),
+                10,
+            )
+            .expect("registered target has samples")
+            .samples
+            .iter()
+            .all(|sample| sample.sample_kind == CgroupSampleKind::Periodic));
+    });
+
+    assert!(
+        traces.trim().is_empty(),
+        "healthy periodic samples must be trace-silent: {traces}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+    Ok(())
+}
+
+#[test]
+fn cgroup_monitor_final_and_anomaly_events_are_bounded() -> Result<(), Box<dyn std::error::Error>> {
+    let root = temp_root("bounded-final-anomaly-RAW_CGROUP_PATH_SECRET")?;
+    let cgroup = root.join("cgroup-RAW_CGROUP_PATH_SECRET");
+    let upper = root.join("upper-RAW_UPPER_PATH_SECRET");
+    std::fs::create_dir_all(&cgroup)?;
+    std::fs::create_dir_all(&upper)?;
+    std::fs::write(cgroup.join("cpu.stat"), "usage_usec nope\n")?;
+
+    let traces = capture_traces(|| {
+        let registry = CgroupMonitorRegistry::new(CgroupMonitorConfig {
+            sample_interval_ms: 60_000,
+            retained_samples_per_target: 10,
+            include_disk: false,
+            include_pids: false,
+            include_pressure: false,
+            ..CgroupMonitorConfig::default()
+        });
+        let workspace_session_id = WorkspaceSessionId("ws-final-trace".to_owned());
+        registry.register_command(
+            workspace_session_id.clone(),
+            "cmd-final-trace",
+            cgroup.clone(),
+            upper,
+        );
+        let final_sample = build_cgroup_monitor_sample(CgroupSampleRequest {
+            cgroup_path: &cgroup,
+            upperdir: None,
+            sample_kind: CgroupSampleKind::CommandFinal,
+            interval_ms: 1000,
+            previous: None,
+            config: registry.config(),
+        });
+        registry.record_command_final(
+            &workspace_session_id,
+            "cmd-final-trace",
+            Some(final_sample),
+            Some(CgroupCleanupState {
+                final_sample_recorded: false,
+                cgroup_exists_after_destroy: Some(true),
+                last_cleanup_error: Some(
+                    "RAW_CLEANUP_ERROR_SECRET /tmp/RAW_CGROUP_PATH_SECRET".to_owned(),
+                ),
+            }),
+        );
+        registry.record_cleanup(
+            &workspace_session_id,
+            Some("cmd-final-trace"),
+            Some(false),
+            Some("RAW_CLEANUP_ERROR_SECRET".to_owned()),
+        );
+    });
+
+    for expected in [
+        "event cgroup_monitor.anomaly",
+        "anomaly_class=malformed_cgroup_file",
+        "event cgroup_monitor.final_summary",
+        "boundary=command_final",
+        "boundary=cleanup",
+        "target_kind=command",
+        "sample_kind=command_final",
+        "cleanup_error=true",
+    ] {
+        assert!(traces.contains(expected), "missing {expected} in {traces}");
+    }
+    for forbidden in [
+        "RAW_CGROUP_PATH_SECRET",
+        "RAW_UPPER_PATH_SECRET",
+        "RAW_CLEANUP_ERROR_SECRET",
+        "cpu.stat malformed value",
+        "CgroupMonitorSample",
+        "CgroupCleanupState",
+    ] {
+        assert!(
+            !traces.contains(forbidden),
+            "forbidden value {forbidden} appeared in traces: {traces}"
+        );
+    }
+
     let _ = std::fs::remove_dir_all(root);
     Ok(())
 }
