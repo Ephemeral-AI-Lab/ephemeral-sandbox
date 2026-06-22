@@ -15,7 +15,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 #[cfg(target_os = "linux")]
-use ::sandbox_runtime_namespace_process::runner::protocol::{NamespaceCommandRequest, RunResult};
+use ::sandbox_runtime_namespace_process::runner::protocol::{NamespaceRunnerRequest, RunResult};
 #[cfg(target_os = "linux")]
 use nix::fcntl::OFlag;
 #[cfg(target_os = "linux")]
@@ -52,7 +52,7 @@ impl NamespaceRuntime {
         }
         #[cfg(target_os = "linux")]
         {
-            let request = ns_command_request(handle, "mount", json!({}), layer_paths.to_vec());
+            let request = ns_runner_request(handle, "mount", json!({}), layer_paths.to_vec());
             mount_overlay_child(&request, setup_timeout_s)?;
         }
         Ok(())
@@ -72,7 +72,7 @@ impl NamespaceRuntime {
         }
         #[cfg(target_os = "linux")]
         {
-            let request = ns_command_request(
+            let request = ns_runner_request(
                 handle,
                 "remount",
                 json!({
@@ -118,13 +118,13 @@ impl NamespaceRuntime {
 }
 
 #[cfg(target_os = "linux")]
-pub(crate) fn ns_command_request(
+pub(crate) fn ns_runner_request(
     handle: &WorkspaceModeHandle,
     request: &str,
     args: serde_json::Value,
     layer_paths: Vec<PathBuf>,
-) -> NamespaceCommandRequest {
-    NamespaceCommandRequest {
+) -> NamespaceRunnerRequest {
+    NamespaceRunnerRequest {
         request_id: format!("isolated-{request}-{}", handle.workspace_id.0),
         args,
         workspace_root: PathBuf::from(&handle.workspace_root),
@@ -139,7 +139,7 @@ pub(crate) fn ns_command_request(
 
 #[cfg(target_os = "linux")]
 pub(super) fn mount_overlay_child(
-    request: &NamespaceCommandRequest,
+    request: &NamespaceRunnerRequest,
     setup_timeout_s: f64,
 ) -> Result<(), WorkspaceModeError> {
     let output = run_child(request, "--mount-overlay", setup_timeout_s)?;
@@ -157,7 +157,7 @@ pub(super) fn mount_overlay_child(
 
 #[cfg(target_os = "linux")]
 pub(super) fn remount_overlay_child(
-    request: &NamespaceCommandRequest,
+    request: &NamespaceRunnerRequest,
     setup_timeout_s: f64,
 ) -> Result<RemountOverlayResult, WorkspaceModeError> {
     let output = run_child(request, "--remount-overlay", setup_timeout_s)?;
@@ -180,7 +180,7 @@ pub(super) fn remount_overlay_child(
 
 #[cfg(target_os = "linux")]
 pub(crate) fn run_child(
-    request: &NamespaceCommandRequest,
+    request: &NamespaceRunnerRequest,
     mode_arg: &str,
     setup_timeout_s: f64,
 ) -> Result<Output, WorkspaceModeError> {

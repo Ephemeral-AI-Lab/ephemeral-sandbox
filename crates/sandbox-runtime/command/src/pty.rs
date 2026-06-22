@@ -19,7 +19,7 @@ use rustix::pty::ioctl_tiocgptpeer;
 #[cfg(not(target_os = "linux"))]
 use rustix::pty::ptsname;
 use rustix::pty::{grantpt, openpt, unlockpt, OpenptFlags};
-use sandbox_runtime_namespace_process::runner::protocol::NamespaceCommandRequest;
+use sandbox_runtime_namespace_process::runner::protocol::NamespaceRunnerRequest;
 use serde_json::Value;
 
 use crate::{transcript::TranscriptTimestampPrefixer, CommandError};
@@ -316,10 +316,10 @@ impl RequestPayload {
 }
 
 pub(crate) fn spawn_current_exe_ns_runner(
-    command_request: &NamespaceCommandRequest,
+    runner_request: &NamespaceRunnerRequest,
     transcript_path: PathBuf,
 ) -> Result<PendingPtyProcess, CommandError> {
-    let request_bytes = encode_command_request(command_request)?;
+    let request_bytes = encode_runner_request(runner_request)?;
     let (request_read, request_write) = runner_request_pipe()?;
     let request_fd = request_read.as_raw_fd();
     let (result_read, result_write) = runner_result_pipe()?;
@@ -450,9 +450,9 @@ fn spawn_runner_result_reader(mut reader: File) -> mpsc::Receiver<io::Result<Vec
     done_rx
 }
 
-fn encode_command_request(request: &NamespaceCommandRequest) -> Result<Vec<u8>, CommandError> {
+fn encode_runner_request(request: &NamespaceRunnerRequest) -> Result<Vec<u8>, CommandError> {
     serde_json::to_vec(request).map_err(|error| {
-        CommandError::InvalidRequest(format!("serialize command runner request: {error}"))
+        CommandError::InvalidRequest(format!("serialize namespace runner request: {error}"))
     })
 }
 

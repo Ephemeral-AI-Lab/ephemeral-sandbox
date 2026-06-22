@@ -1,4 +1,4 @@
-use crate::runner::protocol::{Fd, NamespaceCommandRequest, NsFds};
+use crate::runner::protocol::{Fd, NamespaceRunnerRequest, NsFds};
 use std::path::Path;
 #[cfg(target_os = "linux")]
 use std::path::PathBuf;
@@ -117,8 +117,8 @@ fn lowerdir_verification_reports_only_available_kernel_proof() {
     );
 }
 
-fn request(ns_fds: Option<NsFds>) -> NamespaceCommandRequest {
-    NamespaceCommandRequest {
+fn request(ns_fds: Option<NsFds>) -> NamespaceRunnerRequest {
+    NamespaceRunnerRequest {
         request_id: "test".to_owned(),
         args: serde_json::json!({"command": "true"}),
         workspace_root: Path::new("/workspace").to_path_buf(),

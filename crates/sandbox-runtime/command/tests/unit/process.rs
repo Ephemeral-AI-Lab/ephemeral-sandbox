@@ -232,7 +232,7 @@ fn command_cgroup_final_sample_respects_disabled_monitor() -> Result<(), Box<dyn
 #[test]
 fn builds_namespace_runner_request_from_command_spec_and_workspace_entry(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let request = build_namespace_command_request(
+    let request = build_namespace_runner_request(
         &CommandProcessSpec {
             id: "cmd_1".to_owned(),
             command: "printf ok".to_owned(),

@@ -19,7 +19,7 @@ pub struct NsFds {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct NamespaceCommandRequest {
+pub struct NamespaceRunnerRequest {
     pub request_id: String,
     pub args: Value,
     pub workspace_root: PathBuf,

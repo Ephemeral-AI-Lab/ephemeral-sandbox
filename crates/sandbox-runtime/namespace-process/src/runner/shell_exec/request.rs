@@ -4,10 +4,10 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use crate::runner::protocol::NamespaceCommandRequest;
+use crate::runner::protocol::NamespaceRunnerRequest;
 use crate::runner::RunnerError;
 
-pub(crate) fn shell_argv(request: &NamespaceCommandRequest) -> Result<Vec<String>, RunnerError> {
+pub(crate) fn shell_argv(request: &NamespaceRunnerRequest) -> Result<Vec<String>, RunnerError> {
     let shell_args = &request.args;
     let Some(command) = shell_args.get("command") else {
         return Err(RunnerError::InvalidRequest(
@@ -34,7 +34,7 @@ pub(crate) fn shell_argv(request: &NamespaceCommandRequest) -> Result<Vec<String
     ))
 }
 
-pub(crate) fn shell_cwd(request: &NamespaceCommandRequest) -> Result<PathBuf, RunnerError> {
+pub(crate) fn shell_cwd(request: &NamespaceRunnerRequest) -> Result<PathBuf, RunnerError> {
     let raw = request
         .args
         .get("cwd")

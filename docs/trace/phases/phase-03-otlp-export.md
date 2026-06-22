@@ -13,17 +13,22 @@ behavior, and flushes terminal spans on daemon shutdown.
 - Export traces to one configured Collector endpoint.
 - Fail startup for invalid telemetry config or missing dynamic identity.
 - Fail open for protocol behavior after a valid exporter is constructed.
-- Flush/shut down the telemetry provider after `server.serve()` returns.
+- Track or drain in-flight connection/request tasks on normal daemon shutdown,
+  then flush/shut down the telemetry provider. A flush that runs while spawned
+  request tasks can still close spans is not sufficient.
 
 ## File And Folder Structure Changes
 
 ```text
 Cargo.toml
   [workspace.dependencies]
-    tracing-opentelemetry = "<exact version>"
-    opentelemetry = "<exact version>"
-    opentelemetry_sdk = "<exact version>"
-    opentelemetry-otlp = { version = "<exact version>", features = ["<http-or-grpc-feature>"] }
+    # Select exact compatible OpenTelemetry crate versions in the implementation
+    # Cargo change. Do not leave placeholders, wildcards, or mixed-generation
+    # OTel crates in Cargo.toml.
+    tracing-opentelemetry
+    opentelemetry
+    opentelemetry_sdk
+    opentelemetry-otlp with exactly one configured transport feature
 
 crates/sandbox-daemon/
   Cargo.toml
@@ -51,7 +56,7 @@ pub struct TelemetryConfig {
     pub enabled: bool,
     pub service_name: String,
     pub level: String,
-    pub sink: TelemetrySink,
+    pub sink: Option<TelemetrySink>,
 }
 
 pub enum TelemetrySink {
@@ -83,6 +88,11 @@ pub(crate) struct TelemetryGuard {
 
 No `sandbox_protocol::Response` metadata is added in this phase.
 
+OTLP resource attributes must include `service.name = sandbox-daemon`,
+`service.instance.id = sandbox_id`, and `sandbox.id = sandbox_id`. They must not
+include raw paths, raw root hashes, request IDs, command IDs, workspace session
+IDs, cgroup paths, or other per-request/per-workspace high-cardinality values.
+
 ## Exporter Rules
 
 - Exactly one active sink is accepted.
@@ -95,9 +105,14 @@ No `sandbox_protocol::Response` metadata is added in this phase.
 - Collector unreachable after exporter construction may drop/queue telemetry but
   must not block protocol responses.
 - Exporter queue size must be bounded.
-- Normal daemon shutdown must flush or shut down the provider.
+- Exporter timeout, queue size, and drop behavior must be explicit and tested.
+  Queue-full and collector-unreachable conditions may drop telemetry but must
+  not block protocol responses after exporter construction succeeds.
+- Normal daemon shutdown must stop accepting new requests, drain or cancel
+  tracked request/connection tasks to a defined boundary, then flush or shut
+  down the provider.
 - Do not add sampler config until there is at least one real policy beyond the
-  default first-rollout behavior. First rollout sampling is always-on by
+  initial OTLP trace rollout. Initial OTLP trace sampling is always-on by
   implementation convention, not a one-variant config enum.
 
 ## LOC Estimate
@@ -107,22 +122,30 @@ No `sandbox_protocol::Response` metadata is added in this phase.
 | OTel dependencies and feature selection | 8 to 20 |
 | Config structs, validation, tests | 120 to 200 |
 | OTLP exporter setup | 140 to 240 |
-| Shutdown guard/flush integration | 50 to 90 |
-| Exporter failure tests | 70 to 130 |
+| Shutdown task tracking and flush integration | 90 to 160 |
+| Exporter failure/drop/resource tests | 110 to 190 |
 | Docs/config examples | 32 to 80 |
-| Total | 420 to 760 |
+| Total | 520 to 910 |
 
 ## Acceptance Criteria
 
 - [ ] OTel dependencies use exact compatible versions and documented feature
-      flags.
+      flags in `Cargo.toml`; no placeholder versions, wildcard `0.x`
+      declarations, or mixed-generation OTel crates remain.
 - [ ] OTLP config accepts exactly one active sink.
 - [ ] File sink and fallback sink lists are rejected.
 - [ ] OTLP mode requires dynamic `sandbox_id` for manager-started daemons.
+- [ ] OTLP resource attributes include `service.name`, `service.instance.id`,
+      and `sandbox.id`, and exclude raw paths, root hashes, request IDs,
+      command IDs, workspace session IDs, cgroup paths, and error strings.
 - [ ] Invalid telemetry config fails daemon startup.
 - [ ] Collector unreachable after valid exporter construction does not alter
       runtime protocol responses.
-- [ ] Exporter queue/drop behavior is bounded and covered by tests.
-- [ ] Normal daemon shutdown flushes or shuts down the telemetry provider.
+- [ ] Exporter timeout, queue/drop behavior, and flush error behavior are
+      bounded and covered by tests.
+- [ ] Normal daemon shutdown drains or cancels tracked request/connection tasks
+      before flushing or shutting down the telemetry provider.
 - [ ] Stdout/stderr JSON remain foreground local/test only.
-- [ ] `cargo test -p sandbox-daemon -p sandbox-runtime-config` passes.
+- [ ] Local JSON stream mode is still rejected under detached `serve --spawn`.
+- [ ] No `sandbox_protocol::Response` metadata or envelope change is introduced.
+- [ ] `cargo test -p sandbox-daemon -p sandbox-runtime-config -p sandbox-protocol` passes.

@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 #[cfg(target_os = "linux")]
 use super::RunnerError;
 #[cfg(target_os = "linux")]
-use crate::runner::protocol::{NamespaceCommandRequest, RunResult};
+use crate::runner::protocol::{NamespaceRunnerRequest, RunResult};
 
 #[cfg(target_os = "linux")]
 pub(crate) mod request;
@@ -19,7 +19,7 @@ use request::*;
 use wait::*;
 
 #[cfg(target_os = "linux")]
-pub(crate) fn execute_shell(request: &NamespaceCommandRequest) -> Result<RunResult, RunnerError> {
+pub(crate) fn execute_shell(request: &NamespaceRunnerRequest) -> Result<RunResult, RunnerError> {
     let argv = shell_argv(request)?;
     let cwd = shell_cwd(request)?;
     // Open a handle to /proc before applying the mount mask, so scope-wait can

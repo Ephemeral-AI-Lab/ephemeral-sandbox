@@ -1,5 +1,5 @@
 use super::{normalize_lexical, shell_argv, shell_cwd};
-use crate::runner::protocol::NamespaceCommandRequest;
+use crate::runner::protocol::NamespaceRunnerRequest;
 use std::path::Path;
 
 #[test]
@@ -43,8 +43,8 @@ fn normalizes_paths_without_touching_fs() {
     );
 }
 
-fn request(args: serde_json::Value) -> NamespaceCommandRequest {
-    NamespaceCommandRequest {
+fn request(args: serde_json::Value) -> NamespaceRunnerRequest {
+    NamespaceRunnerRequest {
         request_id: "test".to_owned(),
         args,
         workspace_root: Path::new("/workspace").to_path_buf(),

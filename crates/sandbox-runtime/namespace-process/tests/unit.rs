@@ -9,8 +9,8 @@ pub(crate) use holder::network::parse_network_config;
 pub(crate) use holder::Handshake;
 #[cfg(target_os = "linux")]
 pub(crate) use runner::setns::{
-    mountinfo_lowerdir_count_matched, mountinfo_lowerdir_verified, namespace_fd_order_with_types,
-    remount_overlay, WorkspaceMountInfo,
+    join_cgroup, mountinfo_lowerdir_count_matched, mountinfo_lowerdir_verified,
+    namespace_fd_order_with_types, remount_overlay, WorkspaceMountInfo,
 };
 
 #[cfg(target_os = "linux")]

@@ -15,8 +15,8 @@ inside tracing setup, OTLP export, or dashboard work.
   internal service, or collapse the remaining code into internal workspace and
   command telemetry adapters.
 - Remove `inspect_cgroup_monitor` and `read_cgroup_monitor_samples` from runtime
-  `cli_operation_specs`, CLI operation families, operation entries, and
-  manager/gateway CLI catalog output.
+  `cli_operation_specs`, CLI operation families, operation entries,
+  daemon-described runtime catalog output, and gateway-rendered runtime help.
 - Remove gateway CLI mappings and help text for cgroup monitor operations.
 - Replace public operation tests with internal registry/metrics tests.
 - Keep `CgroupMonitorSample` as an internal typed source for metrics, final
@@ -52,6 +52,9 @@ crates/sandbox-gateway/tests/
 docs/trace/
   README.md
   phases/phase-04b-cgroup-telemetry-cutover.md
+
+docs/README/
+  sandbox-runtime.md
 ```
 
 Do not remove workspace/command cgroup lifecycle recording. The cutover only
@@ -106,32 +109,41 @@ anomalies, final summaries, cleanup status, and bounded error classes.
   operation specs.
 - Gateway help and catalog mapping must no longer advertise cgroup monitor
   operations after this phase.
+- Manager catalog output is not a cgroup-removal target because manager specs
+  describe manager operations. The relevant external surfaces are the runtime
+  catalog described by the daemon/runtime facade and gateway-rendered runtime
+  help.
 
 ## LOC Estimate
 
-| Area | Net LOC |
+| Area | Changed LOC |
 | --- | ---: |
 | Move or collapse operation cgroup monitor modules | -80 to +80 |
 | Public export/catalog removal | -40 to -90 |
 | Gateway CLI mapping/help cleanup | -40 to -90 |
 | Test rewrite from public operations to internal metrics/registry behavior | 180 to 320 |
 | Docs/spec updates | 20 to 40 |
-| Total | 300 to 560 |
+| Total churn | 300 to 560 |
 
-The net LOC may be lower if most public operation tests are deleted instead of
-replaced, but the implementation should still prove metrics/final samples remain
-correct.
+Net LOC should be negative to small positive. This is a compatibility-breaking
+deletion phase, so review changed-LOC/churn separately from net LOC. The
+implementation should still prove metrics/final samples remain correct.
 
 ## Acceptance Criteria
 
 - [ ] `inspect_cgroup_monitor` is absent from runtime `cli_operation_specs`,
-      CLI operation families, operation entries, manager CLI catalog output, and
-      gateway CLI help.
+      CLI operation families, operation entries, daemon-described runtime
+      catalog output, gateway-rendered runtime help, and gateway CLI mappings.
 - [ ] `read_cgroup_monitor_samples` is absent from runtime `cli_operation_specs`,
-      CLI operation families, operation entries, manager CLI catalog output, and
-      gateway CLI help.
+      CLI operation families, operation entries, daemon-described runtime
+      catalog output, gateway-rendered runtime help, and gateway CLI mappings.
 - [ ] `sandbox_runtime::cgroup_monitor` is no longer exported as a public
       operation module.
+- [ ] `docs/README/sandbox-runtime.md` no longer lists cgroup monitor operations
+      as an external runtime operation surface.
+- [ ] Old cgroup monitor response shapes, including raw targets, cgroup paths,
+      retained sample windows, PID lists, and cleanup error strings, are not
+      reachable through runtime operation responses.
 - [ ] Existing workspace/session/command cgroup lifecycle recording still works.
 - [ ] Command final samples and session final cleanup state still feed metrics.
 - [ ] Phase 4a dashboards continue to work without calling runtime operations.

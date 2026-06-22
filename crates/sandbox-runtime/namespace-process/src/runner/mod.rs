@@ -1,6 +1,6 @@
 //! Namespace command runner.
 
-use protocol::{NamespaceCommandRequest, RunResult};
+use protocol::{NamespaceRunnerRequest, RunResult};
 #[cfg(target_os = "linux")]
 use rustix::io::Errno;
 #[cfg(target_os = "linux")]
@@ -46,7 +46,7 @@ impl From<sandbox_runtime_overlay::OverlayError> for RunnerError {
     }
 }
 
-pub fn run(request: &NamespaceCommandRequest) -> Result<RunResult, RunnerError> {
+pub fn run(request: &NamespaceRunnerRequest) -> Result<RunResult, RunnerError> {
     setns::run_setns(request)
 }
 

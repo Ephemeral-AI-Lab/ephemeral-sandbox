@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
-use sandbox_runtime_namespace_process::runner::protocol::NamespaceCommandRequest;
+use sandbox_runtime_namespace_process::runner::protocol::NamespaceRunnerRequest;
 use sandbox_runtime_workspace::{
     CgroupCleanupState, CgroupMonitorConfig, CgroupMonitorSample, WorkspaceEntry,
 };
@@ -174,8 +174,8 @@ impl CommandProcess {
         spec: CommandProcessSpec,
         parts: CommandProcessSpawn,
     ) -> Result<Self, CommandError> {
-        let command_request = build_namespace_command_request(&spec, parts.workspace_entry);
-        let process = spawn_current_exe_ns_runner(&command_request, parts.transcript_path.clone())?;
+        let runner_request = build_namespace_runner_request(&spec, parts.workspace_entry);
+        let process = spawn_current_exe_ns_runner(&runner_request, parts.transcript_path.clone())?;
         let process = process.allow_start().map_err(|error| {
             CommandError::artifact_write("process_start_ack", &parts.transcript_path, error)
         })?;
@@ -363,17 +363,17 @@ impl CommandProcessSpawn {
     }
 }
 
-pub(crate) fn build_namespace_command_request(
+pub(crate) fn build_namespace_runner_request(
     spec: &CommandProcessSpec,
     entry: WorkspaceEntry,
-) -> NamespaceCommandRequest {
+) -> NamespaceRunnerRequest {
     let cwd = spec
         .cwd
         .as_deref()
         .unwrap_or_else(|| Path::new("."))
         .to_string_lossy()
         .into_owned();
-    NamespaceCommandRequest {
+    NamespaceRunnerRequest {
         request_id: spec.id.clone(),
         args: json!({
             "command": spec.command.clone(),

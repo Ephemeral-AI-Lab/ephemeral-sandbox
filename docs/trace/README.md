@@ -151,15 +151,15 @@ Runtime crates should depend only on `tracing` unless they have a concrete
 reason to own subscriber behavior. `sandbox-daemon` owns `tracing-subscriber`
 setup.
 
-Add these only when OTLP export is implemented, using exact compatible versions
-selected in one Cargo change:
+Add OpenTelemetry crates only when OTLP export is implemented. Select exact
+compatible versions in one Cargo change, document the chosen transport feature,
+and do not leave placeholders, wildcard `0.x` declarations, or mixed-generation
+OTel crates in `Cargo.toml`:
 
-```toml
-tracing-opentelemetry = "<exact version>"
-opentelemetry = "<exact version>"
-opentelemetry_sdk = "<exact version>"
-opentelemetry-otlp = { version = "<exact version>", features = ["<http-or-grpc-feature>"] }
-```
+Required crates are `tracing-opentelemetry`, `opentelemetry`,
+`opentelemetry_sdk`, and `opentelemetry-otlp`; the implementation PR must show
+their exact selected versions and the single selected OTLP transport feature in
+the actual manifest diff.
 
 Exact OpenTelemetry crate versions should be selected together because the Rust
 OTel crates move in lockstep. The implementation must document the selected
@@ -253,14 +253,16 @@ Runtime child spans should add the IDs they own:
 | `command_session_id` | command service |
 | `lease_id` | workspace/layerstack |
 | `manifest_version` | workspace/layerstack |
-| `root_hash` | workspace/layerstack event field only; never a metric label |
+| `root_token` | optional keyed/bounded surrogate for workspace/layerstack correlation; never a metric label |
 | `cgroup_path_present` | workspace/command |
 
 Paths should be recorded carefully. Prefer booleans, counts, hashes, redacted
-path classes, and stable IDs over full paths in all production telemetry. Full
-paths are acceptable only in explicit local/test debug modes and must never
-include auth material, environment values, command text, stdin text, command
-output, or host-private workspace roots.
+path classes, and stable IDs over full paths. Do not emit raw host paths, raw
+workspace roots, raw cgroup paths, raw layer paths, raw upper/work dirs,
+transcript/artifact paths, raw PIDs, or path-derived IDs in any telemetry mode,
+including local/test JSON. Local/test fixtures may include sentinel values only
+as inputs for negative assertions that prove those values do not appear in
+telemetry.
 
 ## Span And Semantic Event Names
 
@@ -286,10 +288,10 @@ cgroup_monitor.final_summary
 ```
 
 Avoid names that mirror temporary private helper files unless the helper is a
-stable diagnostic boundary. For the first rollout, do not add spans named after
-private layerstack helpers such as `plan_publish`, `validate_source_paths`, or
-manifest commit internals; emit structured publish/OCC facts as events from the
-operation-level publish wrapper instead.
+stable diagnostic boundary. For the initial semantic-span rollout, do not add
+spans named after private layerstack helpers such as `plan_publish`,
+`validate_source_paths`, or manifest commit internals; emit structured
+publish/OCC facts as events from the operation-level publish wrapper instead.
 
 ## Event Names
 
@@ -331,7 +333,7 @@ where they already exist:
 | workspace create | phase name, `duration_ms`, profile |
 | workspace capture | `changed_count`, `protected_drop_count`, `metadata_path_count` |
 | layerstack publish | `publish_status`, `no_op`, `source_count`, `ignored_count` |
-| OCC | `expected_base_version`, `active_version`, conflict reason, redacted or hashed path identity when needed |
+| OCC | `expected_base_version`, `active_version`, conflict reason, redacted class or keyed path/root token when needed |
 | remount | `mount_verified`, `staged_switch`, `lowerdir_count_matched`, `probe_content_matched` |
 | destroy | `lifetime_s`, `evicted_upperdir_bytes`, `lease_released`, `active_leases_after` |
 | cgroup monitor | anomaly/final-summary facts only, such as `sample_kind`, `read_error_count`, cleanup state, and threshold names; periodic CPU, memory, pids, pressure, and disk values belong to metrics |
@@ -372,8 +374,9 @@ checks:
 ```text
 layerstack.expected_base_checked
   expected_base_version
-  expected_base_root_hash
   captured_base_version
+  expected_base_root_token
+  captured_base_root_token
   result = matched | mismatch
 
 layerstack.source_paths_checked
@@ -397,11 +400,14 @@ This makes publish failures diagnosable without exposing a new public
 
 The production trace sink is OTLP.
 
-The first rollout exports traces to one configured OpenTelemetry Collector
-endpoint. The collector handles batching, resource-label normalization, and
-backend-specific forwarding to Tempo or another trace backend. Logs and metrics
-may use the same collector in later phases, but they are not part of the first
-OTLP trace rollout unless explicit log/metric exporters are added and tested.
+The implementation is intentionally phased. Phase 1 is a local JSON tracing
+rollout only. The first production OTLP trace rollout happens in Phase 3, after
+local subscriber/config behavior and safe-field tests exist. In Phase 3, traces
+export to one configured OpenTelemetry Collector endpoint. The collector
+handles batching, resource-label normalization, and backend-specific forwarding
+to Tempo or another trace backend. Logs and metrics may use the same collector
+in later phases, but they are not part of the first OTLP trace rollout unless
+explicit log/metric exporters are added and tested.
 
 Telemetry defaults to disabled in local development and tests. Stdout JSON can
 exist for explicit foreground debugging and fixtures, but it is a separate
@@ -466,7 +472,10 @@ to the same endpoint and differentiates telemetry using resource attributes:
 | `service.instance.id` | sandbox id |
 | `sandbox.id` | sandbox id |
 | `container.id` | optional alias when the sandbox backend is container-based |
-| `workspace.root_hash` | optional hash, not raw path |
+
+Do not attach per-request or per-workspace high-cardinality values such as
+request IDs, workspace session IDs, command session IDs, raw root hashes, raw
+paths, or error strings as resource attributes.
 
 Because the sandbox id is assigned during creation, the manager flow is:
 
@@ -511,7 +520,7 @@ directly. First-rollout tracing must not depend on this shape. If telemetry is
 disabled, or if a later sampling policy decides not to sample a request,
 `trace_id` is absent. Protocol results and typed errors remain authoritative.
 
-Illustrative future shape, not a first-rollout response contract:
+Illustrative future shape, not a Phase 1-3 response contract:
 
 ```json
 {
@@ -525,17 +534,21 @@ Illustrative future shape, not a first-rollout response contract:
 
 ## Cross-Process Trace Context
 
-Daemon-internal spans are enough for the first rollout. A continuous
+Daemon-internal spans are enough for Phases 1-3. A continuous
 daemon-to-runner trace requires explicit context propagation.
 
 Later, pass W3C trace context to `sandbox-daemon ns-runner` using one of:
 
-- `NamespaceCommandRequest` fields
+- `NamespaceRunnerRequest` fields
 - environment variables
 - a small sidecar/request FD payload
 
 The runner should create child spans under the daemon command span when context
 is present and should still emit standalone spans when it is absent.
+Only W3C context values such as `traceparent` and `tracestate` may cross this
+boundary as telemetry context. Do not propagate command args, cwd, stdin,
+environment, auth values, workspace roots, layer paths, cgroup paths, remount
+report JSON, or raw request/runner DTOs through telemetry context.
 
 ## Configuration Shape
 
@@ -570,8 +583,10 @@ EOS_SANDBOX_ID=<sandbox-id> sandbox-daemon serve ...
 
 Config validation rules:
 
+- `telemetry.enabled = false` must deserialize and validate without a sink.
+- `telemetry.enabled = true` requires exactly one valid sink.
 - `telemetry.level` must be a valid filter level or env-filter expression.
-- first rollout sampling is always-on by implementation convention. Do not add
+- the initial OTLP trace rollout uses always-on sampling by implementation convention. Do not add
   sampler config until there is more than one real policy; ratio, parent-based,
   and slow/error override sampling policies are deferred until response
   metadata and lookup UX exist.
@@ -589,16 +604,19 @@ Config validation rules:
 
 ## Expected Implementation Impact
 
-This section is a planning estimate for the first trace rollout. It is not a
+This section is a planning estimate for the phased trace rollout. It is not a
 license to create extra trace infrastructure.
 
-First rollout scope:
+Phase 1 local JSON scope:
 
-- daemon telemetry config, subscriber setup, local JSON stream mode, and OTLP exporter
+- daemon telemetry config, subscriber setup, and local JSON stream mode
 - daemon root request spans with dynamic `sandbox_id`
-- inline runtime spans/events at existing semantic boundaries
+- inline command runtime spans at existing semantic boundaries
 - focused tests proving config validation, local JSON timing, and operation
   instrumentation
+
+Phase 3 adds the first production OTLP exporter after Phase 1 safe-field and
+config tests exist.
 
 Deferred scope:
 
@@ -663,7 +681,7 @@ pub struct TelemetryConfig {
     pub enabled: bool,
     pub service_name: String,
     pub level: String,
-    pub sink: TelemetrySink,
+    pub sink: Option<TelemetrySink>,
 }
 
 pub enum TelemetrySink {
@@ -708,7 +726,7 @@ sandbox identity because `start_daemon(&SandboxRecord)` already receives the
 record id. The concrete daemon starter should pass that id to
 `sandbox-daemon serve --sandbox-id <sandbox-id>` or `EOS_SANDBOX_ID`.
 
-The first rollout should not change `sandbox_protocol::Response`. Trace IDs in
+Phases 1-3 should not change `sandbox_protocol::Response`. Trace IDs in
 protocol responses are a later protocol-envelope change.
 
 Expected changed files and net LOC:
@@ -740,7 +758,8 @@ Expected changed files and net LOC:
 | `crates/sandbox-runtime/operation/src/internal/cgroup_monitor/*` | cgroup anomaly/final-summary trace events or metrics-only adapters if cgroup stats are removed from CLI operation specs | +35 to +80 total |
 | `crates/sandbox-runtime/operation/tests/*` | focused trace assertions, safe-field assertions, no periodic cgroup trace events | +220 to +380 total |
 
-Expected first-rollout total: about 1,100 to 1,800 net LOC.
+Expected Phase 1 total: about 650 to 1,020 changed LOC. Expected Phases 1-3
+combined production trace rollout: about 1,300 to 2,300 changed LOC.
 
 If protocol response metadata, gateway trace lookup, and metrics dashboards are
 implemented in the same batch, expect another 500 to 900 net LOC and additional
@@ -763,11 +782,14 @@ struct/class-field changes, LOC estimates, and acceptance checklists live in
   stdout/stderr.
 - Add `daemon.request` root span around `dispatch_request`.
 - Add spans to runtime operation dispatch and command operations.
+- If a generic dispatch span is kept, name it `runtime.dispatch`; operation
+  spans keep the stable `runtime.exec_command`, `runtime.write_command_stdin`,
+  and `runtime.read_command_lines` names.
 - Make span-close timing visible in local JSON output so operation wall-clock
   duration can be inspected without a backend.
 - Assert root spans record explicit safe fields and do not record raw request
   args, response payloads, command text, stdin, output, environment values, or
-  auth tokens.
+  auth tokens, raw paths, raw PIDs, raw root hashes, or raw DTO/error strings.
 - Keep runtime instrumentation inline in existing modules; do not add
   `crates/sandbox-runtime/operation/src/internal/telemetry.rs`.
 - Enable `FmtSpan::CLOSE` or equivalent span-close timing.
@@ -781,7 +803,8 @@ struct/class-field changes, LOC estimates, and acceptance checklists live in
   while keeping `WorkspaceHandle` behavior unchanged. Preserve explicit
   `Instant` phase timers for typed reports where they exist.
 - Emit remount verification diagnostic fields as events while preserving the
-  simplified `RemountOverlayResult` correctness surface.
+  simplified `RemountOverlayResult` correctness surface. Do not project raw
+  namespace-process remount report JSON.
 - Emit layerstack publish route/OCC/publish result events from operation-level
   wrappers.
 - Emit cgroup monitor trace events only for internal anomalies and final
@@ -799,8 +822,9 @@ struct/class-field changes, LOC estimates, and acceptance checklists live in
 - Add validation that production daemon config has one sink and no fallback.
 - Add bounded exporter queue/drop policy and define collector-unreachable
   behavior as fail-open for protocol responses after config validation.
-- Flush or shut down the telemetry provider after `server.serve()` returns so
-  terminal spans/events are not lost on normal daemon shutdown.
+- Track or drain spawned request/connection tasks before flushing or shutting
+  down the telemetry provider so terminal spans/events are not lost on normal
+  daemon shutdown.
 - Add tests proving daemon startup succeeds when OTLP is disabled.
 
 ### Phase 4a: Metrics and dashboards
@@ -811,11 +835,14 @@ struct/class-field changes, LOC estimates, and acceptance checklists live in
   fields.
 - Add counters for publish rejection reasons, remount failures, command
   cancellations, and cgroup monitor read errors.
-- Before dashboards depend on command final cgroup samples, make final sample
-  recording and cleanup ordering deterministic so a post-cleanup periodic sample
-  cannot affect final CPU delta/percent enrichment.
+- Before dashboards depend on command final cgroup samples, regression-test the
+  deterministic final-sample-before-cleanup ordering so a post-cleanup periodic
+  sample cannot affect final CPU delta/percent enrichment.
 - Export cgroup monitor samples as metrics first. Periodic CPU, memory, pids,
   pressure, and disk samples should not be emitted as per-sample trace events.
+- Record cgroup metrics through a daemon-owned metrics recorder or narrow
+  injected interface, not by giving runtime crates exporter/subscriber
+  ownership and not by polling public cgroup read operations.
 - Emit trace events for cgroup anomalies and final summaries only, such as read
   failures, cleanup failures, pressure threshold crossings, and command final
   samples.
@@ -831,8 +858,8 @@ struct/class-field changes, LOC estimates, and acceptance checklists live in
   internal service, or collapse the remaining code into internal workspace and
   command telemetry adapters.
 - Remove `inspect_cgroup_monitor` and `read_cgroup_monitor_samples` from runtime
-  `cli_operation_specs`, CLI operation families, operation entries, manager CLI
-  catalog output, and gateway CLI mappings/help.
+  `cli_operation_specs`, CLI operation families, operation entries,
+  daemon-described runtime catalog output, and gateway runtime help/mappings.
 - Keep `CgroupMonitorSample`, final samples, cleanup state, and retained
   internal samples as metrics sources.
 - Do not leave hidden compatibility aliases for the old cgroup monitor
@@ -841,9 +868,12 @@ struct/class-field changes, LOC estimates, and acceptance checklists live in
 ### Phase 5: Runner context propagation
 
 - Pass trace context from daemon to `ns-runner`.
+- Cover both command launches and workspace overlay/remount setns-runner
+  launches.
 - Add runner spans for setns, cgroup join, overlay mount/remount, and command
   execution.
-- Preserve compatibility when trace context is absent.
+- Preserve compatibility when trace context is absent, invalid, or omitted from
+  older `NamespaceRunnerRequest` payloads.
 
 ## Verification
 
@@ -881,10 +911,20 @@ Trace assertions should verify:
 - explicit local JSON stream mode works only as foreground local/test mode and is
   rejected with detached `--spawn`
 - trace assertions do not contain raw request args, command text, stdin,
-  command output, environment values, auth tokens, or raw workspace roots
+  command output, environment values, auth tokens, raw host paths, raw
+  workspace roots, raw cgroup paths, raw layer paths, raw upper/work dirs,
+  transcript/artifact paths, raw PIDs, raw root hashes, raw DTO `Debug`, raw
+  response payloads, or raw `Display` error strings
+- sentinel tests inject command text, stdin, stdout/stderr, env/auth-like
+  values, and paths, then assert those values never appear in telemetry
+- protocol tests prove first trace phases do not add a `result` wrapper, `meta`
+  object, `trace_id`, or other telemetry field to `sandbox_protocol::Response`
 - gateway trace mode does not stream telemetry through gateway/manager RPC
 - cgroup periodic samples are exported as metrics, not per-sample trace events
 - cgroup trace events are limited to anomalies and final summaries
+- metric labels are allowlisted and exclude request IDs, workspace session IDs,
+  command session IDs, PIDs, path-derived IDs, raw paths, raw root hashes, and
+  free-form error strings
 - command transcript behavior is unchanged
 
 ## Resolved Decisions
@@ -896,5 +936,5 @@ Trace assertions should verify:
 | Trace IDs in protocol responses | later only, as a versioned protocol-envelope change |
 | Cgroup monitor samples | metrics primary; trace events only for anomalies/final summaries |
 | Response simplification | telemetry owns time/resource/dashboard stats; responses keep workflow data only until a later API cleanup |
-| Canonical first-rollout backend | Grafana + Tempo for traces; Loki and Prometheus-compatible metrics are later phases; Jaeger is optional trace-only smoke target |
+| Canonical production OTLP trace backend | Grafana + Tempo for traces; Loki and Prometheus-compatible metrics are later phases; Jaeger is optional trace-only smoke target |
 | Time measurement | span duration for operation latency, event timestamps for ordering, explicit `Instant` timers for typed phase reports |
