@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use sandbox_gateway::cli::client::GatewayClient;
 use sandbox_gateway::cli::config::{
@@ -20,6 +20,8 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
 
 type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
 fn manager_operation_uses_system_scope() -> TestResult {
@@ -656,7 +658,24 @@ fn runtime_catalog() -> Result<CliOperationCatalogDocument, Box<dyn std::error::
 }
 
 fn unique_temp_dir(prefix: &str) -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
-    let short_prefix = prefix.chars().take(3).collect::<String>();
-    Ok(std::env::temp_dir().join(format!("{short_prefix}-{}-{nanos:x}", std::process::id())))
+    let mut label = prefix
+        .split('-')
+        .filter_map(|segment| segment.chars().next())
+        .take(8)
+        .collect::<String>();
+    if label.is_empty() {
+        label.push_str("tmp");
+    }
+
+    for _ in 0..1024 {
+        let attempt = TEMP_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!("{label}-{}-{attempt}", std::process::id()));
+        match std::fs::create_dir(&root) {
+            Ok(()) => return Ok(root),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        }
+    }
+
+    Err(format!("failed to create unique temp dir for {prefix}").into())
 }

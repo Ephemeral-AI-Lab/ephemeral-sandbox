@@ -2,8 +2,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use sandbox_runtime_workspace::{
-    build_cgroup_monitor_sample, command_cgroup_path, CgroupCleanupState, CgroupMonitorConfig,
-    CgroupMonitorSample, CgroupSampleKind, CgroupSampleRequest,
+    build_cgroup_monitor_sample, command_cgroup_path, enable_cgroup_controllers_for_children,
+    CgroupCleanupState, CgroupMonitorConfig, CgroupMonitorSample, CgroupSampleKind,
+    CgroupSampleRequest,
 };
 
 use crate::CommandError;
@@ -80,6 +81,17 @@ fn create_child_cgroup_if_parent_exists(
             "session cgroup path does not exist: {}",
             session_cgroup_path.display()
         )));
+    }
+    enable_cgroup_controllers_for_children(session_cgroup_path).map_err(|error| {
+        CommandError::artifact_write("command_cgroup", session_cgroup_path, error)
+    })?;
+    if let Some(command_parent) = command_cgroup_path.parent() {
+        std::fs::create_dir_all(command_parent).map_err(|error| {
+            CommandError::artifact_write("command_cgroup", command_parent, error)
+        })?;
+        enable_cgroup_controllers_for_children(command_parent).map_err(|error| {
+            CommandError::artifact_write("command_cgroup", command_parent, error)
+        })?;
     }
     std::fs::create_dir_all(command_cgroup_path)
         .map_err(|error| CommandError::artifact_write("command_cgroup", command_cgroup_path, error))

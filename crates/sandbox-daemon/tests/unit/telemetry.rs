@@ -237,6 +237,25 @@ sink:
 }
 
 #[test]
+fn telemetry_otlp_http_endpoint_is_normalized_per_signal() {
+    assert_eq!(
+        crate::telemetry::otlp_http_signal_endpoint("http://collector:4318", "/v1/traces"),
+        "http://collector:4318/v1/traces"
+    );
+    assert_eq!(
+        crate::telemetry::otlp_http_signal_endpoint("http://collector:4318/", "/v1/metrics"),
+        "http://collector:4318/v1/metrics"
+    );
+    assert_eq!(
+        crate::telemetry::otlp_http_signal_endpoint(
+            "http://collector:4318/v1/traces",
+            "/v1/metrics"
+        ),
+        "http://collector:4318/v1/metrics"
+    );
+}
+
+#[test]
 fn telemetry_accepts_env_filter_level_expression() {
     let cfg = telemetry_config(
         r#"

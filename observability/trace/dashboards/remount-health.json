@@ -13,32 +13,32 @@
   "panels": [
     {
       "id": 1,
-      "title": "Remount failure rate",
+      "title": "Remount failures",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(sandbox_remount_failures_total[5m])) by (bounded_reason)",
+          "expr": "sum(sandbox_remount_failures_total) by (bounded_reason)",
           "legendFormat": "{{bounded_reason}}"
         }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "ops" },
+        "defaults": { "unit": "short" },
         "overrides": []
       },
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 }
     },
     {
       "id": 2,
-      "title": "Remount phase p95 latency",
+      "title": "Remount phase average latency",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum(rate(sandbox_workspace_phase_latency_ms_bucket{workspace_phase=\"remount_workspace\"}[5m])) by (le, status))",
-          "legendFormat": "{{status}} p95"
+          "expr": "sum by (status) (sandbox_workspace_phase_latency_ms_milliseconds_sum{workspace_phase=\"remount_workspace\"}) / sum by (status) (sandbox_workspace_phase_latency_ms_milliseconds_count{workspace_phase=\"remount_workspace\"})",
+          "legendFormat": "{{status}}"
         }
       ],
       "fieldConfig": {

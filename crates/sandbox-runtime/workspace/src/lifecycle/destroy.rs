@@ -44,7 +44,7 @@ impl WorkspaceModeManager {
         self.teardown_isolated_network(handle, &mut phases_ms);
         let phase_start = Instant::now();
         if let Some(cgroup_path) = handle.cgroup_path.as_ref() {
-            let _ = std::fs::remove_dir(cgroup_path);
+            let _ = remove_cgroup_tree(cgroup_path);
         }
         record_phase_ms(&mut phases_ms, "cgroup_rmdir", phase_start);
         let phase_start = Instant::now();
@@ -128,6 +128,20 @@ impl WorkspaceModeManager {
             inspection,
         })
     }
+}
+
+fn remove_cgroup_tree(path: &Path) -> std::io::Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    for entry in std::fs::read_dir(path)? {
+        let entry = entry?;
+        let child = entry.path();
+        if child.is_dir() {
+            remove_cgroup_tree(&child)?;
+        }
+    }
+    std::fs::remove_dir(path)
 }
 
 fn close_handle_fds(handle: &WorkspaceModeHandle) {

@@ -79,21 +79,21 @@ embedding host-specific paths, IDs, credentials, or raw cgroup paths.
 
 ## Acceptance Criteria
 
-- [ ] The shared observability stack starts from `observability/docker-compose.yml`
+- [x] The shared observability stack starts from `observability/docker-compose.yml`
       and exposes Grafana plus the metrics backend locally.
-- [ ] A live sandbox workload emits runtime latency and workspace phase metrics.
-- [ ] A live sandbox workload emits cgroup CPU, memory, pids, pressure, and disk
+- [x] A live sandbox workload emits runtime latency and workspace phase metrics.
+- [x] A live sandbox workload emits cgroup CPU, memory, pids, pressure, and disk
       metrics through telemetry.
-- [ ] Prometheus-compatible queries return non-empty live series for the required
+- [x] Prometheus-compatible queries return non-empty live series for the required
       metric families using only allowlisted labels.
-- [ ] Grafana loads the command latency, publish conflicts, remount health, and
+- [x] Grafana loads the command latency, publish conflicts, remount health, and
       cgroup resource dashboards from the provisioned metrics datasource.
-- [ ] The cgroup resource dashboard shows live data without calling
+- [x] The cgroup resource dashboard shows live data without calling
       `inspect_cgroup_monitor` or `read_cgroup_monitor_samples`.
-- [ ] Live examples or validation notes are sanitized and contain no raw paths,
+- [x] Live examples or validation notes are sanitized and contain no raw paths,
       IDs, PIDs, command text, command output, env/auth values, or raw cgroup
       paths.
-- [ ] Runtime help/catalog output still omits the removed cgroup monitor
+- [x] Runtime help/catalog output still omits the removed cgroup monitor
       operations during live validation.
-- [ ] Local cleanup steps are documented and leave no required background stack
+- [x] Local cleanup steps are documented and leave no required background stack
       running after validation.

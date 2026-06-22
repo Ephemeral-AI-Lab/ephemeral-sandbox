@@ -1,4 +1,4 @@
-mod cgroup;
+pub mod cgroup;
 pub mod cgroup_monitor;
 mod fds;
 mod holder;

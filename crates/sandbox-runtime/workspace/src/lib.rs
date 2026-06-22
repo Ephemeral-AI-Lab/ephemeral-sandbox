@@ -37,6 +37,7 @@ pub use model::{
     ReadonlySnapshotHandle, RemountWorkspaceRequest, RemountWorkspaceResult, WorkspaceEntry,
     WorkspaceEntryError, WorkspaceEntryFds, WorkspaceHandle, WorkspaceProfile, WorkspaceSessionId,
 };
+pub use namespace::cgroup::enable_cgroup_controllers_for_children;
 pub use namespace::cgroup_monitor::{
     build_cgroup_monitor_sample, command_cgroup_path, session_cgroup_path, CgroupCleanupState,
     CgroupCpuSample, CgroupDiskSample, CgroupIoSample, CgroupMemoryEvents, CgroupMemorySample,

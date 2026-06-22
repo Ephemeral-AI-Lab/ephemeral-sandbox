@@ -13,14 +13,14 @@
   "panels": [
     {
       "id": 1,
-      "title": "Runtime operation p95 latency",
+      "title": "Runtime operation average latency",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum(rate(sandbox_runtime_operation_latency_ms_bucket{operation=~\"exec_command|write_command_stdin|read_command_lines\"}[5m])) by (le, operation))",
-          "legendFormat": "{{operation}} p95"
+          "expr": "sum by (operation, status) (sandbox_runtime_operation_latency_ms_milliseconds_sum{operation=~\"exec_command|write_command_stdin|read_command_lines\"}) / sum by (operation, status) (sandbox_runtime_operation_latency_ms_milliseconds_count{operation=~\"exec_command|write_command_stdin|read_command_lines\"})",
+          "legendFormat": "{{operation}} {{status}}"
         }
       ],
       "fieldConfig": {
@@ -37,7 +37,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(sandbox_runtime_operation_latency_ms_count{operation=~\"exec_command|write_command_stdin|read_command_lines\"}[5m])) by (operation, status)",
+          "expr": "sum(rate(sandbox_runtime_operation_latency_ms_milliseconds_count{operation=~\"exec_command|write_command_stdin|read_command_lines\"}[5m])) by (operation, status)",
           "legendFormat": "{{operation}} {{status}}"
         }
       ],

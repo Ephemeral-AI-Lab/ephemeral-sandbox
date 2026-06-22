@@ -301,9 +301,11 @@ fn init_otlp_subscriber(
         .filter(|value| !value.trim().is_empty())
         .ok_or(TelemetryInstallError::MissingSandboxId)?;
     let timeout = Duration::from_millis(timeout_ms);
+    let trace_endpoint = otlp_http_signal_endpoint(endpoint, "/v1/traces");
+    let metrics_endpoint = otlp_http_signal_endpoint(endpoint, "/v1/metrics");
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()
-        .with_endpoint(endpoint.to_owned())
+        .with_endpoint(trace_endpoint)
         .with_timeout(timeout)
         .with_protocol(Protocol::HttpBinary)
         .build()
@@ -317,7 +319,7 @@ fn init_otlp_subscriber(
         .build();
     let (metrics_provider, metrics_recorder) = init_otlp_metrics(
         service_name,
-        endpoint,
+        &metrics_endpoint,
         protocol,
         timeout,
         sandbox_id,
@@ -376,6 +378,16 @@ pub(crate) fn otlp_resource(service_name: &str, sandbox_id: &str) -> Resource {
             KeyValue::new("sandbox.id", sandbox_id.to_owned()),
         ])
         .build()
+}
+
+pub(crate) fn otlp_http_signal_endpoint(endpoint: &str, signal_path: &str) -> String {
+    let trimmed = endpoint.trim_end_matches('/');
+    for existing_signal_path in ["/v1/traces", "/v1/metrics", "/v1/logs"] {
+        if let Some(base) = trimmed.strip_suffix(existing_signal_path) {
+            return format!("{base}{signal_path}");
+        }
+    }
+    format!("{trimmed}{signal_path}")
 }
 
 fn telemetry_filter(level: &str) -> Result<EnvFilter, TelemetryInstallError> {
@@ -482,10 +494,16 @@ impl TelemetryGuard {
     pub fn shutdown(&mut self) -> Result<(), TelemetryShutdownError> {
         if let Some(metrics_provider) = self.metrics_provider.take() {
             metrics_provider
+                .force_flush()
+                .map_err(|err| TelemetryShutdownError::Provider(bounded_shutdown_error(err)))?;
+            metrics_provider
                 .shutdown_with_timeout(self.shutdown_timeout)
                 .map_err(|err| TelemetryShutdownError::Provider(bounded_shutdown_error(err)))?;
         }
         if let Some(trace_provider) = self.trace_provider.take() {
+            trace_provider
+                .force_flush()
+                .map_err(|err| TelemetryShutdownError::Provider(bounded_shutdown_error(err)))?;
             trace_provider
                 .shutdown_with_timeout(self.shutdown_timeout)
                 .map_err(|err| TelemetryShutdownError::Provider(bounded_shutdown_error(err)))?;

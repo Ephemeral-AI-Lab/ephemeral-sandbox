@@ -1,6 +1,8 @@
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc, Mutex,
+};
 
 use sandbox_gateway::{GatewayConfig, SandboxGatewayServer};
 use sandbox_manager::{
@@ -18,6 +20,8 @@ use tokio::net::UnixStream;
 use tokio_util::sync::CancellationToken;
 
 type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 static TEST_DAEMON_FAMILY: CliOperationFamilySpec = CliOperationFamilySpec {
     id: "test",
@@ -349,7 +353,24 @@ async fn wait_for_path(path: &std::path::Path) -> TestResult {
 }
 
 fn unique_temp_dir(prefix: &str) -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
-    let short_prefix = prefix.chars().take(3).collect::<String>();
-    Ok(std::env::temp_dir().join(format!("{short_prefix}-{}-{nanos:x}", std::process::id())))
+    let mut label = prefix
+        .split('-')
+        .filter_map(|segment| segment.chars().next())
+        .take(8)
+        .collect::<String>();
+    if label.is_empty() {
+        label.push_str("tmp");
+    }
+
+    for _ in 0..1024 {
+        let attempt = TEMP_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!("{label}-{}-{attempt}", std::process::id()));
+        match std::fs::create_dir(&root) {
+            Ok(()) => return Ok(root),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        }
+    }
+
+    Err(format!("failed to create unique temp dir for {prefix}").into())
 }

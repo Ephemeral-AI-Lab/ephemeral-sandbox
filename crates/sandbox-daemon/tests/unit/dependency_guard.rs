@@ -159,6 +159,10 @@ fn phase4_observability_stack_configures_metrics_without_loki() {
             .expect("read collector config");
     assert!(collector.contains("metrics:"));
     assert!(collector.contains("exporters: [prometheus]"));
+    assert!(
+        !collector.contains("resource_to_telemetry_conversion"),
+        "collector must not promote resource attributes such as sandbox ids into metric labels"
+    );
     let metrics_datasource = std::fs::read_to_string(
         workspace_root.join("observability/grafana/provisioning/datasources/metrics.yaml"),
     )
