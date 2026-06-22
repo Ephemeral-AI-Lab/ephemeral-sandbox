@@ -2,14 +2,46 @@ use std::sync::Arc;
 
 use super::SandboxDaemonServer;
 use crate::server::error::SandboxDaemonError;
-use sandbox_protocol::{decode_request_value, error_kind, Request, DAEMON_AUTH_FIELD};
+use sandbox_protocol::{
+    decode_request_value, error_kind, OperationScope, Request, DAEMON_AUTH_FIELD,
+};
 use serde_json::{Map, Value};
+use tracing::{field, Instrument, Span};
 
 impl SandboxDaemonServer {
-    pub(super) async fn dispatch_bytes(&self, bytes: Vec<u8>, is_tcp: bool) -> serde_json::Value {
+    pub(crate) async fn dispatch_bytes(&self, bytes: Vec<u8>, is_tcp: bool) -> serde_json::Value {
+        let span = tracing::info_span!(
+            "daemon.request",
+            sandbox_id = field::Empty,
+            request_id = field::Empty,
+            operation = field::Empty,
+            scope_kind = field::Empty,
+            transport = if is_tcp { "tcp" } else { "unix" },
+            status = field::Empty,
+            error_kind = field::Empty,
+        );
+        if let Some(sandbox_id) = self.config.sandbox_id.as_deref() {
+            span.record("sandbox_id", sandbox_id);
+        }
+        let request_span = span.clone();
+        async move {
+            self.dispatch_bytes_in_span(bytes, is_tcp, &request_span)
+                .await
+        }
+        .instrument(span)
+        .await
+    }
+
+    async fn dispatch_bytes_in_span(
+        &self,
+        bytes: Vec<u8>,
+        is_tcp: bool,
+        span: &Span,
+    ) -> serde_json::Value {
         let value = match serde_json::from_slice::<serde_json::Value>(&bytes) {
             Ok(value) => value,
             Err(err) => {
+                record_error(span, error_kind::BAD_JSON);
                 return super::error_response(
                     error_kind::BAD_JSON,
                     format!("bad json: {err}"),
@@ -21,6 +53,7 @@ impl SandboxDaemonServer {
             match self.strip_tcp_auth(value) {
                 Ok(authenticated) => authenticated,
                 Err(err) => {
+                    record_error(span, err.response_kind());
                     return super::error_response(
                         err.response_kind(),
                         err.to_string(),
@@ -32,32 +65,46 @@ impl SandboxDaemonServer {
             value
         };
         match decode_request(value) {
-            Ok(request) => self.dispatch_request(request).await,
-            Err(response) => response,
+            Ok(request) => self.dispatch_request(request, span).await,
+            Err(response) => {
+                record_response(span, &response);
+                response
+            }
         }
     }
 
-    async fn dispatch_request(&self, request: Request) -> serde_json::Value {
+    async fn dispatch_request(&self, request: Request, span: &Span) -> serde_json::Value {
+        record_request(span, &request);
         if let Err(response) = validate_daemon_scope(&request) {
+            record_response(span, &response);
             return response;
         }
         let operations = Arc::clone(&self.operations);
+        let request_span = span.clone();
         let task = tokio::task::spawn_blocking(move || {
+            let _span_guard = request_span.enter();
             sandbox_runtime::dispatch_operation(&operations, &request).into_json_value()
         });
         let response = match task.await {
             Ok(response) => response,
-            Err(err) if err.is_cancelled() => super::error_response(
-                error_kind::INTERNAL_ERROR,
-                "daemon request cancelled",
-                serde_json::json!({}),
-            ),
-            Err(err) => super::error_response(
-                error_kind::INTERNAL_ERROR,
-                format!("daemon request failed: {err}"),
-                serde_json::json!({}),
-            ),
+            Err(err) if err.is_cancelled() => {
+                record_error(span, error_kind::INTERNAL_ERROR);
+                super::error_response(
+                    error_kind::INTERNAL_ERROR,
+                    "daemon request cancelled",
+                    serde_json::json!({}),
+                )
+            }
+            Err(err) => {
+                record_error(span, error_kind::INTERNAL_ERROR);
+                super::error_response(
+                    error_kind::INTERNAL_ERROR,
+                    format!("daemon request failed: {err}"),
+                    serde_json::json!({}),
+                )
+            }
         };
+        record_response(span, &response);
         response
     }
 
@@ -74,6 +121,40 @@ impl SandboxDaemonServer {
         }
         Ok(value)
     }
+}
+
+fn record_request(span: &Span, request: &Request) {
+    span.record("request_id", request.request_id.as_str());
+    span.record("operation", request.op.as_str());
+    span.record("scope_kind", scope_kind(&request.scope));
+}
+
+fn scope_kind(scope: &OperationScope) -> &'static str {
+    match scope {
+        OperationScope::System => "system",
+        OperationScope::Sandbox { .. } => "sandbox",
+    }
+}
+
+fn record_response(span: &Span, response: &Value) {
+    if let Some(kind) = response_error_kind(response) {
+        record_error(span, kind);
+    } else {
+        span.record("status", "ok");
+    }
+}
+
+fn record_error(span: &Span, kind: &str) {
+    span.record("status", "error");
+    span.record("error_kind", kind);
+}
+
+fn response_error_kind(response: &Value) -> Option<&str> {
+    response
+        .get("error")
+        .and_then(Value::as_object)
+        .and_then(|error| error.get("kind"))
+        .and_then(Value::as_str)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

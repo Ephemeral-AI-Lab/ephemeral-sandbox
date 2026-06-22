@@ -12,6 +12,7 @@ use crate::command::{
 use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
 use crate::SandboxRuntimeOperations;
 use sandbox_protocol::{Request, Response};
+use tracing::{field, Span};
 
 pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "write_command_stdin",
@@ -84,6 +85,26 @@ impl CommandOperationService {
         &self,
         input: WriteCommandStdinInput,
     ) -> Result<CommandYield, CommandServiceError> {
+        let span = tracing::info_span!(
+            "runtime.write_command_stdin",
+            stdin_bytes = input.stdin.len(),
+            status = field::Empty,
+            error_kind = field::Empty,
+            exit_code = field::Empty,
+            start_offset = field::Empty,
+            end_offset = field::Empty,
+            total_lines = field::Empty,
+        );
+        let _span_guard = span.enter();
+        let result = self.write_command_stdin_inner(input);
+        record_command_yield_result(&span, &result);
+        result
+    }
+
+    fn write_command_stdin_inner(
+        &self,
+        input: WriteCommandStdinInput,
+    ) -> Result<CommandYield, CommandServiceError> {
         let command_session_id = input.command_session_id;
         let yield_time_ms = input.yield_time_ms.unwrap_or(1000);
         let (process, workspace_session_id) = {
@@ -120,6 +141,13 @@ impl CommandOperationService {
         }
 
         let wait_time_ms = if is_kill_input { 1000 } else { yield_time_ms };
+        let span = tracing::info_span!(
+            "command.wait_initial_yield",
+            start_offset,
+            status = field::Empty,
+            exit_code = field::Empty,
+        );
+        let _span_guard = span.enter();
         let outcome = if wait_time_ms == 0 {
             WaitOutcome::Running(String::new())
         } else {
@@ -129,6 +157,7 @@ impl CommandOperationService {
                 start_offset,
             )
         };
+        record_wait_outcome(&span, &outcome);
 
         self.command_yield_from_wait_outcome(command_session_id, outcome, true)
     }
@@ -136,4 +165,48 @@ impl CommandOperationService {
 
 fn is_kill_input(stdin: &str) -> bool {
     stdin.contains('\u{3}') || stdin.contains('\u{4}')
+}
+
+fn record_command_yield_result(span: &Span, result: &Result<CommandYield, CommandServiceError>) {
+    match result {
+        Ok(output) => {
+            span.record("status", output.status.as_str());
+            if let Some(exit_code) = output.exit_code {
+                span.record("exit_code", exit_code);
+            }
+            span.record("start_offset", output.start_offset);
+            span.record("end_offset", output.end_offset);
+            span.record("total_lines", output.total_lines);
+        }
+        Err(error) => {
+            span.record("status", "error");
+            span.record("error_kind", error.kind());
+        }
+    }
+}
+
+fn record_wait_outcome(
+    span: &Span,
+    outcome: &sandbox_runtime_command::yield_wait_loop::WaitOutcome<
+        sandbox_runtime_command::process::CommandProcessExit,
+    >,
+) {
+    match outcome {
+        sandbox_runtime_command::yield_wait_loop::WaitOutcome::Running(_) => {
+            span.record("status", "running");
+        }
+        sandbox_runtime_command::yield_wait_loop::WaitOutcome::Completed(exit) => {
+            span.record("status", process_exit_status_name(&exit.status));
+            span.record("exit_code", exit.exit_code);
+        }
+    }
+}
+
+fn process_exit_status_name(status: &str) -> &'static str {
+    match status {
+        "ok" => "ok",
+        "timed_out" => "timed_out",
+        "cancelled" => "cancelled",
+        _ => "error",
+    }
 }

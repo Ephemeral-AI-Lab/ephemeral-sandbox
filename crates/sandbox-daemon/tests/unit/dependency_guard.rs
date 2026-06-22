@@ -11,3 +11,21 @@ fn daemon_manifest_excludes_host_store_and_sqlite_dependencies() {
         );
     }
 }
+
+#[test]
+fn forbidden_runtime_telemetry_infrastructure_is_absent() {
+    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("workspace root");
+
+    for forbidden in [
+        "crates/sandbox-runtime-trace",
+        "crates/sandbox-runtime/operation/src/internal/telemetry.rs",
+    ] {
+        assert!(
+            !workspace_root.join(forbidden).exists(),
+            "forbidden telemetry infrastructure exists: {forbidden}"
+        );
+    }
+}

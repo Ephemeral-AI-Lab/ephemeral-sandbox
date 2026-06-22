@@ -7,6 +7,7 @@ use crate::command::{
 use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
 use crate::SandboxRuntimeOperations;
 use sandbox_protocol::{Request, Response};
+use tracing::{field, Span};
 
 pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "read_command_lines",
@@ -79,6 +80,27 @@ impl CommandOperationService {
         &self,
         input: ReadCommandLinesInput,
     ) -> Result<CommandLinesOutput, CommandServiceError> {
+        let span = tracing::info_span!(
+            "runtime.read_command_lines",
+            requested_start_offset = input.start_offset.unwrap_or(0),
+            requested_limit = input.limit.unwrap_or(200),
+            status = field::Empty,
+            error_kind = field::Empty,
+            exit_code = field::Empty,
+            start_offset = field::Empty,
+            end_offset = field::Empty,
+            total_lines = field::Empty,
+        );
+        let _span_guard = span.enter();
+        let result = self.read_command_lines_inner(input);
+        record_command_lines_result(&span, &result);
+        result
+    }
+
+    fn read_command_lines_inner(
+        &self,
+        input: ReadCommandLinesInput,
+    ) -> Result<CommandLinesOutput, CommandServiceError> {
         let command_session_id = input.command_session_id;
         let start_offset = input.start_offset.unwrap_or(0);
         let limit = validate_read_limit(input.limit)?;
@@ -111,6 +133,27 @@ impl CommandOperationService {
 
         let completed = self.completed_command(&command_session_id)?;
         completed_command_lines_output(completed, command_session_id, start_offset, limit)
+    }
+}
+
+fn record_command_lines_result(
+    span: &Span,
+    result: &Result<CommandLinesOutput, CommandServiceError>,
+) {
+    match result {
+        Ok(output) => {
+            span.record("status", output.status.as_str());
+            if let Some(exit_code) = output.exit_code {
+                span.record("exit_code", exit_code);
+            }
+            span.record("start_offset", output.start_offset);
+            span.record("end_offset", output.end_offset);
+            span.record("total_lines", output.total_lines);
+        }
+        Err(error) => {
+            span.record("status", "error");
+            span.record("error_kind", error.kind());
+        }
     }
 }
 

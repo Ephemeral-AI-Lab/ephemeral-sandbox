@@ -19,6 +19,8 @@ pub struct ServerConfig {
     pub tcp_port: Option<u16>,
     /// TCP-only auth token; popped from each TCP request before dispatch.
     pub auth_token: Option<String>,
+    /// Dynamic sandbox identity supplied by the process manager or serve CLI.
+    pub sandbox_id: Option<String>,
 }
 
 /// The running sandbox daemon: request dispatch state and shutdown token.

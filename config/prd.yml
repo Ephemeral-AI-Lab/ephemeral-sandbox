@@ -15,6 +15,10 @@ daemon:
     include_pids: true
     include_pressure: true
     include_disk: true
+  telemetry:
+    enabled: false
+    service_name: sandbox-daemon
+    level: info
   idle_workspace_eviction:
     interval_ms: 500
 

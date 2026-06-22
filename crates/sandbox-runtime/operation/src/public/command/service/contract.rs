@@ -36,6 +36,19 @@ pub enum CommandStatus {
     Cancelled,
 }
 
+impl CommandStatus {
+    #[must_use]
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Running => "running",
+            Self::Ok => "ok",
+            Self::Error => "error",
+            Self::TimedOut => "timed_out",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct CommandOutputSnapshot {
     pub start_offset: u64,

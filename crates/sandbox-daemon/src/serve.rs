@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use sandbox_runtime_config::configs::{
-    daemon::{DaemonConfig, DaemonServerConfig},
+    daemon::{DaemonConfig, DaemonServeMode, DaemonServerConfig},
     runtime::RuntimeConfig,
 };
 
@@ -26,9 +26,15 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
     let runtime_config = load_runtime_config(&config_path)?;
     let daemon_config = &runtime_config.daemon;
     let config = DaemonCliConfig::parse(args, &daemon_config.server, config_path)?;
+    daemon_config
+        .telemetry
+        .validate_for_serve_mode(config.serve_mode())
+        .context("validate daemon telemetry serve mode")?;
     if config.spawn {
         return spawn_daemon(&config);
     }
+    sandbox_daemon::telemetry::install(&daemon_config.telemetry)
+        .context("install daemon telemetry")?;
     set_runner_config_env(&config.config_yaml_path);
     let workspace_root = config.workspace_root.clone();
     let server_config = sandbox_daemon::ServerConfig {
@@ -37,6 +43,7 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
         tcp_host: config.tcp_host,
         tcp_port: config.tcp_port,
         auth_token: config.auth_token,
+        sandbox_id: config.sandbox_id,
     };
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(daemon_worker_threads(
@@ -130,6 +137,7 @@ pub(crate) struct DaemonCliConfig {
     tcp_host: Option<String>,
     tcp_port: Option<u16>,
     pub(crate) auth_token: Option<String>,
+    pub(crate) sandbox_id: Option<String>,
     spawn: bool,
 }
 
@@ -146,6 +154,7 @@ impl DaemonCliConfig {
         let mut tcp_host = None;
         let mut tcp_port = None;
         let mut auth_token = None;
+        let mut sandbox_id = None;
         let mut spawn = false;
         let mut args = args.into_iter();
         while let Some(arg) = args.next() {
@@ -168,10 +177,11 @@ impl DaemonCliConfig {
                     );
                 }
                 "--auth-token" => auth_token = Some(required_arg(&mut args, "--auth-token")?),
+                "--sandbox-id" => sandbox_id = Some(required_arg(&mut args, "--sandbox-id")?),
                 "--spawn" => spawn = true,
                 "--help" | "-h" => {
                     println!(
-                        "usage: serve [--spawn] --config-yaml PATH --workspace-root PATH [--socket PATH] [--pid-file PATH] [--tcp-host HOST --tcp-port PORT --auth-token TOKEN]"
+                        "usage: serve [--spawn] --config-yaml PATH --workspace-root PATH [--socket PATH] [--pid-file PATH] [--tcp-host HOST --tcp-port PORT --auth-token TOKEN] [--sandbox-id ID]"
                     );
                     std::process::exit(0);
                 }
@@ -203,6 +213,7 @@ impl DaemonCliConfig {
             tcp_host,
             tcp_port,
             auth_token: resolved_auth_token,
+            sandbox_id: non_empty_sandbox_id(sandbox_id)?,
             spawn,
         })
     }
@@ -227,12 +238,31 @@ impl DaemonCliConfig {
             args.push("--tcp-port".to_owned());
             args.push(port.to_string());
         }
+        if let Some(sandbox_id) = &self.sandbox_id {
+            args.push("--sandbox-id".to_owned());
+            args.push(sandbox_id.clone());
+        }
         args
+    }
+
+    pub(crate) fn serve_mode(&self) -> DaemonServeMode {
+        if self.spawn {
+            DaemonServeMode::Spawn
+        } else {
+            DaemonServeMode::Foreground
+        }
     }
 }
 
 fn has_configured_token(token: Option<&str>) -> bool {
     token.is_some_and(|token| !token.is_empty())
+}
+
+fn non_empty_sandbox_id(value: Option<String>) -> Result<Option<String>> {
+    match value {
+        Some(value) if value.trim().is_empty() => Err(anyhow!("--sandbox-id must be non-empty")),
+        value => Ok(value),
+    }
 }
 
 pub(crate) fn daemon_config_path_arg(args: &[String]) -> Result<PathBuf> {

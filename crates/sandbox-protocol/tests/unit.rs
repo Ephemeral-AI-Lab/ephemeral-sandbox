@@ -2,7 +2,7 @@ use sandbox_protocol::{
     catalog_from_value, catalog_to_value, decode_request_value, render_catalog_help,
     render_operation_help, ArgCliSpec, ArgKind, ArgSpec, CliOperationCatalog,
     CliOperationFamilySpec, CliOperationSpec, CliSpec, OperationExecutionSpace, OperationScope,
-    DAEMON_AUTH_FIELD,
+    Response, DAEMON_AUTH_FIELD,
 };
 use serde_json::{json, Value};
 
@@ -56,6 +56,25 @@ static TEST_SPECS: &[&CliOperationSpec] = &[&TEST_SPEC];
 #[test]
 fn daemon_auth_field_uses_sandbox_name() {
     assert_eq!(DAEMON_AUTH_FIELD, "_sandbox_daemon_auth_token");
+}
+
+#[test]
+fn responses_do_not_gain_trace_metadata_or_envelope_fields() {
+    let ok = Response::ok(json!({
+        "status": "ok",
+        "output": "command output remains payload-owned",
+    }))
+    .into_json_value();
+    let err = Response::fault("operation_failed", "failed").into_json_value();
+
+    assert_eq!(ok["status"], "ok");
+    assert!(ok.get("result").is_none(), "{ok}");
+    assert!(ok.get("meta").is_none(), "{ok}");
+    assert!(ok.get("trace_id").is_none(), "{ok}");
+    assert_eq!(err["error"]["kind"], "operation_failed");
+    assert!(err.get("result").is_none(), "{err}");
+    assert!(err.get("meta").is_none(), "{err}");
+    assert!(err.get("trace_id").is_none(), "{err}");
 }
 
 #[test]

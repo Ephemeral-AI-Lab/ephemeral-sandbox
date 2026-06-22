@@ -19,6 +19,12 @@ mod serve_cli;
 )]
 #[path = "../src/server/mod.rs"]
 pub(crate) mod server;
+#[allow(
+    dead_code,
+    reason = "test harness path-includes daemon telemetry setup and test subscriber helper"
+)]
+#[path = "../src/telemetry.rs"]
+mod telemetry;
 
 pub(crate) use server::MAX_REQUEST_BYTES;
 
@@ -47,4 +53,11 @@ mod runner_tests {
 
 mod serve_tests {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/unit/serve.rs"));
+}
+
+mod telemetry_tests {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/unit/telemetry.rs"
+    ));
 }

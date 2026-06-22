@@ -104,3 +104,28 @@ impl From<crate::layerstack::LayerStackServiceError> for CommandServiceError {
         Self::LayerStack(Box::new(error))
     }
 }
+
+impl CommandServiceError {
+    #[must_use]
+    pub(crate) fn kind(&self) -> &'static str {
+        match self {
+            Self::WorkspaceSession(_) => "workspace_session",
+            Self::LayerStack(_) => "layerstack",
+            Self::InvalidCommand { .. } => "invalid_command",
+            Self::CommandNotFound { .. } => "command_not_found",
+            Self::CommandWorkspaceSessionMismatch { .. } => "command_workspace_session_mismatch",
+            Self::WorkspaceSessionRemountPending { .. } => "workspace_session_remount_pending",
+            Self::WorkspaceSessionRemountBlocked { .. } => "workspace_session_remount_blocked",
+            Self::CommandAlreadyCompleted { .. } => "command_already_completed",
+            Self::CommandIo { .. } => "command_io",
+            Self::MissingLayerStackService => "missing_layerstack_service",
+            Self::CommandTranscriptUnavailable { .. } => "command_transcript_unavailable",
+            Self::CommandFinalizationFailed { .. } => "command_finalization_failed",
+            Self::DuplicateCommandSessionId { .. } => "duplicate_command_session_id",
+            Self::CommandAdmissionLimit { .. } => "command_admission_limit",
+            Self::ReservationStoreMismatch => "reservation_store_mismatch",
+            Self::CommandArtifactCleanupFailed { .. } => "command_artifact_cleanup_failed",
+            Self::OneShotWorkspaceCleanupFailed { .. } => "one_shot_workspace_cleanup_failed",
+        }
+    }
+}

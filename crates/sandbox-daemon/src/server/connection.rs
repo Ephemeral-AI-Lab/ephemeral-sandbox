@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::time::timeout;
+use tracing::field;
 
 use super::{error_response, SandboxDaemonServer, MAX_REQUEST_BYTES, REQUEST_READ_TIMEOUT_S};
 use crate::server::error::SandboxDaemonError;
@@ -25,12 +26,7 @@ impl SandboxDaemonServer {
         let bytes = read_request_line(&mut reader).await;
         let response = match bytes {
             Ok(bytes) => self.dispatch_bytes(bytes, is_tcp).await,
-            Err(err @ SandboxDaemonError::RequestTooLarge { .. }) => error_response(
-                err.response_kind(),
-                format!("daemon request exceeds {MAX_REQUEST_BYTES} byte limit"),
-                serde_json::json!({"limit": MAX_REQUEST_BYTES}),
-            ),
-            Err(err) => error_response(err.response_kind(), err.to_string(), serde_json::json!({})),
+            Err(err) => self.read_error_response(err, is_tcp),
         };
         let framed = encode_response(&response);
         if let Err(err) = writer.write_all(&framed).await {
@@ -40,6 +36,31 @@ impl SandboxDaemonServer {
             return Err(SandboxDaemonError::Io(err));
         }
         Ok(())
+    }
+
+    fn read_error_response(&self, err: SandboxDaemonError, is_tcp: bool) -> serde_json::Value {
+        let span = tracing::info_span!(
+            "daemon.request",
+            sandbox_id = field::Empty,
+            request_id = field::Empty,
+            operation = field::Empty,
+            scope_kind = field::Empty,
+            transport = if is_tcp { "tcp" } else { "unix" },
+            status = "error",
+            error_kind = err.response_kind(),
+        );
+        if let Some(sandbox_id) = self.config.sandbox_id.as_deref() {
+            span.record("sandbox_id", sandbox_id);
+        }
+        let _span_guard = span.enter();
+        match err {
+            err @ SandboxDaemonError::RequestTooLarge { .. } => error_response(
+                err.response_kind(),
+                format!("daemon request exceeds {MAX_REQUEST_BYTES} byte limit"),
+                serde_json::json!({"limit": MAX_REQUEST_BYTES}),
+            ),
+            err => error_response(err.response_kind(), err.to_string(), serde_json::json!({})),
+        }
     }
 }
 

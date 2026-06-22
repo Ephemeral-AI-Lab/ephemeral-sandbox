@@ -109,13 +109,7 @@ fn command_lines_value(output: CommandLinesOutput) -> Value {
 }
 
 fn status_name(status: CommandStatus) -> &'static str {
-    match status {
-        CommandStatus::Running => "running",
-        CommandStatus::Ok => "ok",
-        CommandStatus::Error => "error",
-        CommandStatus::TimedOut => "timed_out",
-        CommandStatus::Cancelled => "cancelled",
-    }
+    status.as_str()
 }
 
 fn finalized_value(finalized: Option<&CommandFinalizedMetadata>) -> Value {

@@ -4,5 +4,6 @@
 #![forbid(unsafe_code)]
 
 pub mod server;
+pub mod telemetry;
 
 pub use server::{SandboxDaemonError, SandboxDaemonServer, ServerConfig};

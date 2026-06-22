@@ -12,6 +12,7 @@ sandbox-protocol.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 sandbox-runtime-workspace.workspace = true
+tracing.workspace = true
 
 [lints]
 workspace = true

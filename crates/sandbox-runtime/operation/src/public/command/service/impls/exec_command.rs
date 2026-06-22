@@ -19,6 +19,7 @@ use crate::workspace_crate::{
 use crate::workspace_session::WorkspaceSessionHandler;
 use crate::SandboxRuntimeOperations;
 use sandbox_protocol::{Request, Response};
+use tracing::{field, Span};
 
 pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "exec_command",
@@ -107,6 +108,26 @@ fn parse_input(request: &Request) -> Result<ExecCommandInput, Response> {
 
 impl CommandOperationService {
     pub fn exec_command(
+        &self,
+        input: ExecCommandInput,
+    ) -> Result<CommandYield, CommandServiceError> {
+        let span = tracing::info_span!(
+            "runtime.exec_command",
+            has_workspace_session = input.workspace_session_id.is_some(),
+            status = field::Empty,
+            error_kind = field::Empty,
+            exit_code = field::Empty,
+            start_offset = field::Empty,
+            end_offset = field::Empty,
+            total_lines = field::Empty,
+        );
+        let _span_guard = span.enter();
+        let result = self.exec_command_inner(input);
+        record_command_yield_result(&span, &result);
+        result
+    }
+
+    fn exec_command_inner(
         &self,
         input: ExecCommandInput,
     ) -> Result<CommandYield, CommandServiceError> {
@@ -222,17 +243,28 @@ impl CommandOperationService {
         input: &ExecCommandInput,
         workspace: &ResolvedExecWorkspace,
     ) -> Result<StartedCommand, CommandServiceError> {
-        let process = self.launch_driver().spawn(
-            CommandProcessSpec {
-                id: command_session_id.0.clone(),
-                command: input.cmd.clone(),
-                cwd: None,
-                timeout_seconds: input.timeout_ms.map(timeout_ms_to_seconds),
-            },
-            workspace.entry()?,
-            self.config(),
-        )?;
-        Ok(StartedCommand::new(process))
+        let span = tracing::info_span!(
+            "command.spawn",
+            status = field::Empty,
+            error_kind = field::Empty,
+        );
+        let _span_guard = span.enter();
+        let result = workspace.entry().and_then(|entry| {
+            self.launch_driver()
+                .spawn(
+                    CommandProcessSpec {
+                        id: command_session_id.0.clone(),
+                        command: input.cmd.clone(),
+                        cwd: None,
+                        timeout_seconds: input.timeout_ms.map(timeout_ms_to_seconds),
+                    },
+                    entry,
+                    self.config(),
+                )
+                .map(StartedCommand::new)
+        });
+        record_started_command_result(&span, &result);
+        result
     }
 
     fn initial_exec_yield(
@@ -247,13 +279,82 @@ impl CommandOperationService {
             .ok_or_else(|| CommandServiceError::CommandNotFound {
                 command_session_id: command_session_id.clone(),
             })?;
+        let span = tracing::info_span!(
+            "command.wait_initial_yield",
+            start_offset = 0_u64,
+            status = field::Empty,
+            exit_code = field::Empty,
+        );
+        let _span_guard = span.enter();
         let outcome = self
             .launch_driver()
             .wait_for_initial_yield(process.as_ref(), wait_ms, 0);
+        record_wait_outcome(&span, &outcome);
 
         self.command_yield_from_wait_outcome(command_session_id, outcome, false)
     }
+}
 
+fn record_command_yield_result(span: &Span, result: &Result<CommandYield, CommandServiceError>) {
+    match result {
+        Ok(output) => {
+            span.record("status", output.status.as_str());
+            if let Some(exit_code) = output.exit_code {
+                span.record("exit_code", exit_code);
+            }
+            span.record("start_offset", output.start_offset);
+            span.record("end_offset", output.end_offset);
+            span.record("total_lines", output.total_lines);
+        }
+        Err(error) => {
+            span.record("status", "error");
+            span.record("error_kind", error.kind());
+        }
+    }
+}
+
+fn record_started_command_result(
+    span: &Span,
+    result: &Result<StartedCommand, CommandServiceError>,
+) {
+    match result {
+        Ok(_) => {
+            span.record("status", "ok");
+        }
+        Err(error) => {
+            span.record("status", "error");
+            span.record("error_kind", error.kind());
+        }
+    }
+}
+
+fn record_wait_outcome(
+    span: &Span,
+    outcome: &sandbox_runtime_command::yield_wait_loop::WaitOutcome<
+        sandbox_runtime_command::process::CommandProcessExit,
+    >,
+) {
+    match outcome {
+        sandbox_runtime_command::yield_wait_loop::WaitOutcome::Running(_) => {
+            span.record("status", "running");
+        }
+        sandbox_runtime_command::yield_wait_loop::WaitOutcome::Completed(exit) => {
+            span.record("status", process_exit_status_name(&exit.status));
+            span.record("exit_code", exit.exit_code);
+        }
+    }
+}
+
+fn process_exit_status_name(status: &str) -> &'static str {
+    match status {
+        "ok" => "ok",
+        "timed_out" => "timed_out",
+        "cancelled" => "cancelled",
+        _ => "error",
+    }
+}
+
+impl CommandOperationService {
     fn cleanup_workspace_start_failure(
         &self,
         command_session_id: &CommandSessionId,
