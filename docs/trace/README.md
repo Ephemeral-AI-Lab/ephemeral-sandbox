@@ -367,18 +367,18 @@ rollout does not change `sandbox_protocol::Response`; later protocol/API cleanup
 can remove or narrow response timing and resource fields only after dashboards
 and diagnostics read the telemetry backend instead.
 
-## OCC Telemetry Stats
+## OCC Trace Events
 
 OCC should not be represented as a standalone event object. Split it into the
-actual checks and emit those facts as bounded fields on the normal publish
+actual checks and emit those facts as bounded events on the normal publish
 tracing path:
 
 ```text
 layerstack.expected_base_checked
   expected_base_version
   captured_base_version
-  expected_base_root_token
-  captured_base_root_token
+  root_hash_matched
+  layer_count_matched
   result = matched | mismatch
 
 layerstack.source_paths_checked

@@ -44,6 +44,7 @@ impl LayerStackService {
         request: PublishChangesRequest,
     ) -> Result<PublishChangesResult, LayerStackServiceError> {
         let base = revision_from_manifest(&request.base_manifest);
+        emit_expected_base_checked(&request.expected_base, &base);
         if request.expected_base != base {
             return Err(LayerStackServiceError::InvalidBaseRevision {
                 expected: request.expected_base,
@@ -56,7 +57,7 @@ impl LayerStackService {
                 manifest: request.base_manifest,
                 revision: sandbox_runtime_layerstack::PublishBaseRevision {
                     manifest_version: base.manifest_version,
-                    root_hash: base.root_hash,
+                    root_hash: base.root_hash.clone(),
                     layer_count: base.layer_count,
                 },
             },
@@ -68,9 +69,17 @@ impl LayerStackService {
                 operation: "open",
                 error,
             })?;
-        let published = stack
-            .publish_validated_changes(publish_request)
-            .map_err(map_publish_error)?;
+        let published = match stack.publish_validated_changes(publish_request) {
+            Ok(published) => {
+                emit_source_paths_checked(&published.route_summary);
+                emit_manifest_commit_checked(&published, base.manifest_version);
+                published
+            }
+            Err(error) => {
+                emit_occ_publish_error(&error);
+                return Err(map_publish_error(error));
+            }
+        };
         Ok(PublishChangesResult {
             revision: revision_from_manifest(&published.manifest),
             manifest: published.manifest.clone(),
@@ -78,6 +87,92 @@ impl LayerStackService {
             route_summary: published.route_summary,
             no_op: published.no_op,
         })
+    }
+}
+
+fn emit_expected_base_checked(expected: &LayerStackRevision, base: &LayerStackRevision) {
+    let manifest_version_matched = expected.manifest_version == base.manifest_version;
+    let root_hash_matched = expected.root_hash == base.root_hash;
+    let layer_count_matched = expected.layer_count == base.layer_count;
+    tracing::info!(
+        name: "layerstack.expected_base_checked",
+        result = if manifest_version_matched && root_hash_matched && layer_count_matched {
+            "matched"
+        } else {
+            "mismatch"
+        },
+        expected_base_version = expected.manifest_version,
+        captured_base_version = base.manifest_version,
+        expected_layer_count = expected.layer_count as u64,
+        captured_layer_count = base.layer_count as u64,
+        manifest_version_matched = manifest_version_matched,
+        root_hash_matched = root_hash_matched,
+        layer_count_matched = layer_count_matched,
+    );
+}
+
+fn emit_source_paths_checked(route_summary: &sandbox_runtime_layerstack::PublishRouteSummary) {
+    tracing::info!(
+        name: "layerstack.source_paths_checked",
+        result = "matched",
+        checked_count = route_summary.source_count as u64,
+        ignored_count = route_summary.ignored_count as u64,
+        source_conflict = false,
+        conflict_path_present = false,
+        expected_fingerprint_kind = "none",
+        actual_fingerprint_kind = "none",
+    );
+}
+
+fn emit_source_paths_conflict(conflict: &sandbox_runtime_layerstack::SourceConflict) {
+    tracing::info!(
+        name: "layerstack.source_paths_checked",
+        result = "conflict",
+        checked_count = 0_u64,
+        checked_count_available = false,
+        source_conflict = true,
+        conflict_path_present = true,
+        expected_fingerprint_kind = fingerprint_kind(&conflict.expected),
+        actual_fingerprint_kind = fingerprint_kind(&conflict.actual),
+    );
+}
+
+fn emit_manifest_commit_checked(
+    published: &sandbox_runtime_layerstack::PublishValidatedChangesResult,
+    expected_active_version: i64,
+) {
+    if published.no_op {
+        return;
+    }
+    tracing::info!(
+        name: "layerstack.manifest_commit_checked",
+        result = "committed",
+        expected_active_version = expected_active_version,
+        found_active_version = expected_active_version,
+        result_manifest_version = published.manifest.version,
+    );
+}
+
+fn emit_manifest_commit_conflict(expected: i64, found: i64) {
+    tracing::info!(
+        name: "layerstack.manifest_commit_checked",
+        result = "manifest_conflict",
+        expected_active_version = expected,
+        found_active_version = found,
+    );
+}
+
+fn emit_occ_publish_error(error: &sandbox_runtime_layerstack::LayerStackError) {
+    match error {
+        sandbox_runtime_layerstack::LayerStackError::PublishRejected(rejection) => {
+            if let Some(conflict) = rejection.source_conflict.as_ref() {
+                emit_source_paths_conflict(conflict);
+            }
+        }
+        sandbox_runtime_layerstack::LayerStackError::ManifestConflict { expected, found } => {
+            emit_manifest_commit_conflict(*expected, *found);
+        }
+        _ => {}
     }
 }
 

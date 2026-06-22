@@ -15,7 +15,7 @@ instrumenting private helper functions as public span names.
 - Emit remount verification events from existing `RemountOverlayResult` and
   allowlisted facts at the live setns-runner boundary. Do not project the raw
   namespace-process remount report JSON.
-- Emit layerstack publish facts and OCC telemetry stats from operation-level wrappers.
+- Emit layerstack publish facts and OCC events from operation-level wrappers.
 - Emit cgroup anomaly and final-summary events only.
 
 ## File And Folder Structure Changes
@@ -103,7 +103,7 @@ daemon-owned telemetry test support. Do not expose runtime telemetry DTOs.
   - `cgroup_monitor.final_summary`
 - Do not create spans named after private helpers such as `plan_publish`,
   `validate_source_paths`, or manifest commit internals.
-- OCC telemetry stats may include counts, versions, root-hash match booleans,
+- OCC events may include counts, versions, root-hash match booleans,
   fingerprint kinds, redacted path class, or keyed path/root tokens when
   correlation is required. They must not include raw host paths, raw root
   hashes, raw layer paths, or path-derived IDs.
@@ -133,7 +133,7 @@ daemon-owned telemetry test support. Do not expose runtime telemetry DTOs.
 | Workspace session spans/events | 80 to 140 |
 | Workspace service/lifecycle phase events | 60 to 120 |
 | Remount orchestration/result events | 90 to 170 |
-| Layerstack publish/OCC telemetry stats | 70 to 120 |
+| Layerstack publish/OCC events | 70 to 120 |
 | Cgroup anomaly/final summary events | 70 to 120 |
 | Tests | 120 to 170 |
 | Total | 500 to 800 |
@@ -147,7 +147,7 @@ daemon-owned telemetry test support. Do not expose runtime telemetry DTOs.
       allowlisted booleans/counts/statuses from the live setns-runner boundary.
 - [ ] No `lifecycle/remount/report.rs` file or replacement report DTO is
       introduced for telemetry.
-- [ ] Layerstack publish emits structured result/rejection/OCC telemetry stats
+- [ ] Layerstack publish emits structured result/rejection/OCC events
       on the normal tracing path without a runtime trace object API.
 - [ ] No span name mirrors private helper functions unless the helper has been
       promoted to a stable diagnostic boundary in the same change.
