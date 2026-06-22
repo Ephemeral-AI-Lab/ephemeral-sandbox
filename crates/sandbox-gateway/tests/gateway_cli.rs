@@ -256,59 +256,40 @@ fn read_command_lines_omits_default_window_args_when_flags_are_absent() -> TestR
 }
 
 #[test]
-fn gateway_cli_maps_cgroup_monitor_args_from_runtime_catalog() -> TestResult {
+fn gateway_cli_runtime_catalog_rejects_removed_cgroup_monitor_operations() -> TestResult {
     let catalog = runtime_catalog()?;
-    let request = build_request_from_catalog_with_id(
-        BuildRequestInput {
-            execution_space: CliOperationExecutionSpace::Runtime,
-            operation: "read_cgroup_monitor_samples".to_owned(),
-            operation_argv: vec![
-                "--workspace-session-id".to_owned(),
-                "ws-1".to_owned(),
-                "--command-session-id".to_owned(),
-                "cmd-1".to_owned(),
-                "--limit".to_owned(),
-                "50".to_owned(),
-            ],
-            sandbox_id: Some("sbox-1".to_owned()),
-        },
-        &config(None),
-        &catalog,
-        "req-1",
-    )?;
+    let names = catalog
+        .operations
+        .iter()
+        .map(|spec| spec.name.as_str())
+        .collect::<Vec<_>>();
+    let family_titles = catalog
+        .families
+        .iter()
+        .map(|family| family.title.as_str())
+        .collect::<Vec<_>>();
 
-    assert_eq!(request.op, "read_cgroup_monitor_samples");
-    assert_eq!(
-        request.args,
-        json!({
-            "workspace_session_id": "ws-1",
-            "command_session_id": "cmd-1",
-            "limit": 50,
-        })
-    );
-    assert!(request.args.get("sandbox_id").is_none());
-    Ok(())
-}
-
-#[test]
-fn gateway_cli_cgroup_monitor_catalog_usage_omits_sandbox_id() -> TestResult {
-    let catalog = runtime_catalog()?;
-    for operation in ["inspect_cgroup_monitor", "read_cgroup_monitor_samples"] {
-        let spec = catalog
-            .operations
-            .iter()
-            .find(|spec| spec.name == operation)
-            .ok_or("cgroup monitor operation missing")?;
-        let cli = spec.cli.as_ref().ok_or("cgroup monitor cli missing")?;
-        assert!(cli.usage.starts_with("sandbox-cli runtime "));
-        assert!(!cli.usage.contains("--sandbox-id"));
-        assert!(cli
-            .examples
-            .iter()
-            .all(|example| example.starts_with("sandbox-cli runtime ")
-                && !example.contains("--sandbox-id")
-                && !example.contains("daemon")
-                && !example.contains("manual")));
+    assert!(!family_titles.contains(&"Cgroup Monitor"));
+    for removed in ["inspect_cgroup_monitor", "read_cgroup_monitor_samples"] {
+        assert!(
+            !names.contains(&removed),
+            "{removed} still in runtime catalog"
+        );
+        let error = build_request_from_catalog_with_id(
+            BuildRequestInput {
+                execution_space: CliOperationExecutionSpace::Runtime,
+                operation: removed.to_owned(),
+                operation_argv: vec![],
+                sandbox_id: Some("sbox-1".to_owned()),
+            },
+            &config(None),
+            &catalog,
+            "req-1",
+        )
+        .err()
+        .ok_or("removed cgroup operation unexpectedly built a request")?;
+        let expected = format!("unknown operation: {removed}");
+        assert_eq!(error.message(), expected.as_str());
     }
     Ok(())
 }
@@ -443,9 +424,10 @@ async fn runtime_help_renders_grouped_catalog_help() -> TestResult {
     let help = String::from_utf8(stdout)?;
     assert!(help.contains("Sandbox Runtime Help"));
     assert!(help.contains("Command"));
-    assert!(help.contains("Cgroup Monitor"));
     assert!(help.contains("exec_command"));
-    assert!(help.contains("inspect_cgroup_monitor"));
+    assert!(!help.contains("Cgroup Monitor"));
+    assert!(!help.contains("inspect_cgroup_monitor"));
+    assert!(!help.contains("read_cgroup_monitor_samples"));
     assert!(!help.contains("--sandbox-id"));
     assert!(stderr.is_empty());
     Ok(())

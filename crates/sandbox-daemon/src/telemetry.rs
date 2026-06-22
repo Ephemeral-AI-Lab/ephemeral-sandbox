@@ -18,11 +18,11 @@ use sandbox_config::{ConfigDocument, ConfigError};
 use sandbox_runtime::{noop_runtime_metrics_recorder, RuntimeMetricsRecorderHandle};
 use serde::Deserialize;
 use thiserror::Error;
-use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Layer;
 
 const OTLP_SHUTDOWN_TIMEOUT_MS: u64 = 5_000;
@@ -211,18 +211,18 @@ pub fn install(
     if !config.enabled {
         return Ok(TelemetryGuard::disabled());
     }
-    let level = level_filter(&config.level)?;
+    let filter = telemetry_filter(&config.level)?;
     match config.sink.as_ref() {
         Some(TelemetrySink::LocalJson {
             stream: TelemetryOutputStream::Stdout,
         }) => {
-            init_json_subscriber(level, std::io::stdout)?;
+            init_json_subscriber(filter, std::io::stdout)?;
             Ok(TelemetryGuard::disabled())
         }
         Some(TelemetrySink::LocalJson {
             stream: TelemetryOutputStream::Stderr,
         }) => {
-            init_json_subscriber(level, std::io::stderr)?;
+            init_json_subscriber(filter, std::io::stderr)?;
             Ok(TelemetryGuard::disabled())
         }
         Some(TelemetrySink::Otlp {
@@ -231,7 +231,7 @@ pub fn install(
             timeout_ms,
             queue_size,
         }) => init_otlp_subscriber(OtlpSubscriberConfig {
-            level,
+            filter,
             service_name: &config.service_name,
             endpoint,
             protocol: *protocol,
@@ -244,17 +244,17 @@ pub fn install(
     }
 }
 
-fn init_json_subscriber<W>(level: LevelFilter, writer: W) -> Result<(), TelemetryInstallError>
+fn init_json_subscriber<W>(filter: EnvFilter, writer: W) -> Result<(), TelemetryInstallError>
 where
     W: for<'writer> MakeWriter<'writer> + Send + Sync + 'static,
 {
-    json_subscriber(level, writer)
+    json_subscriber(filter, writer)
         .try_init()
         .map_err(|_| TelemetryInstallError::SubscriberAlreadyInstalled)
 }
 
 fn json_subscriber<W>(
-    level: LevelFilter,
+    filter: EnvFilter,
     writer: W,
 ) -> impl tracing::Subscriber + Send + Sync + 'static
 where
@@ -263,7 +263,7 @@ where
     tracing_subscriber::fmt()
         .json()
         .with_writer(writer)
-        .with_max_level(level)
+        .with_env_filter(filter)
         .with_current_span(true)
         .with_span_list(true)
         .with_span_events(FmtSpan::CLOSE)
@@ -271,7 +271,7 @@ where
 }
 
 struct OtlpSubscriberConfig<'a> {
-    level: LevelFilter,
+    filter: EnvFilter,
     service_name: &'a str,
     endpoint: &'a str,
     protocol: OtlpProtocol,
@@ -285,7 +285,7 @@ fn init_otlp_subscriber(
     config: OtlpSubscriberConfig<'_>,
 ) -> Result<TelemetryGuard, TelemetryInstallError> {
     let OtlpSubscriberConfig {
-        level,
+        filter,
         service_name,
         endpoint,
         protocol,
@@ -326,7 +326,7 @@ fn init_otlp_subscriber(
     let tracer = provider.tracer(service_name.to_owned());
     let otel_layer = tracing_opentelemetry::layer()
         .with_tracer(tracer)
-        .with_filter(level);
+        .with_filter(filter);
     tracing_subscriber::registry()
         .with(otel_layer)
         .try_init()
@@ -378,15 +378,11 @@ pub(crate) fn otlp_resource(service_name: &str, sandbox_id: &str) -> Resource {
         .build()
 }
 
-fn level_filter(level: &str) -> Result<LevelFilter, TelemetryInstallError> {
-    match level {
-        "trace" => Ok(LevelFilter::TRACE),
-        "debug" => Ok(LevelFilter::DEBUG),
-        "info" => Ok(LevelFilter::INFO),
-        "warn" => Ok(LevelFilter::WARN),
-        "error" => Ok(LevelFilter::ERROR),
-        _ => Err(TelemetryInstallError::InvalidLevel),
+fn telemetry_filter(level: &str) -> Result<EnvFilter, TelemetryInstallError> {
+    if !is_supported_telemetry_filter(level) {
+        return Err(TelemetryInstallError::InvalidLevel);
     }
+    EnvFilter::try_new(level).map_err(|_| TelemetryInstallError::InvalidLevel)
 }
 
 fn validate_telemetry_sink(sink: &TelemetrySink) -> Result<(), ConfigFieldError> {
@@ -421,13 +417,23 @@ fn validate_telemetry_metrics(metrics: &TelemetryMetricsConfig) -> Result<(), Co
 }
 
 fn validate_telemetry_level(level: &str) -> Result<(), ConfigFieldError> {
-    match level {
-        "trace" | "debug" | "info" | "warn" | "error" => Ok(()),
-        _ => Err(ConfigFieldError::new(
+    if is_supported_telemetry_filter(level) && EnvFilter::try_new(level).is_ok() {
+        Ok(())
+    } else {
+        Err(ConfigFieldError::new(
             "daemon.telemetry.level",
-            "must be one of trace, debug, info, warn, error",
-        )),
+            "must be one of trace, debug, info, warn, error, off, or a valid env-filter expression",
+        ))
     }
+}
+
+fn is_supported_telemetry_filter(level: &str) -> bool {
+    matches!(level, "trace" | "debug" | "info" | "warn" | "error" | "off")
+        || looks_like_env_filter_expression(level)
+}
+
+fn looks_like_env_filter_expression(level: &str) -> bool {
+    level.contains('=') || level.contains(',') || level.contains('[') || level.contains(']')
 }
 
 fn has_dynamic_sandbox_id(value: Option<&str>) -> bool {
@@ -555,9 +561,9 @@ where
     if !config.enabled {
         return Ok(run());
     }
-    let level = level_filter(&config.level)?;
+    let filter = telemetry_filter(&config.level)?;
     Ok(tracing::subscriber::with_default(
-        json_subscriber(level, writer),
+        json_subscriber(filter, writer),
         run,
     ))
 }

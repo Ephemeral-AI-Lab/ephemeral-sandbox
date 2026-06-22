@@ -134,8 +134,6 @@ fn operation_trace_label(operation: &str) -> &'static str {
         "exec_command" => "exec_command",
         "write_command_stdin" => "write_command_stdin",
         "read_command_lines" => "read_command_lines",
-        "inspect_cgroup_monitor" => "inspect_cgroup_monitor",
-        "read_cgroup_monitor_samples" => "read_cgroup_monitor_samples",
         _ => "unknown",
     }
 }

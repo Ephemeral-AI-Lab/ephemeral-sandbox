@@ -63,6 +63,29 @@ fn local_json_telemetry_formats_span_close_records() -> Result<()> {
 }
 
 #[test]
+fn local_json_telemetry_applies_env_filter_expression() -> Result<()> {
+    let writer = CaptureWriter::default();
+    let mut cfg = local_json_telemetry(TelemetryOutputStream::Stdout);
+    cfg.level = "sandbox_daemon=debug".to_owned();
+
+    crate::telemetry::with_test_json_subscriber(&cfg, writer.clone(), || {
+        tracing::debug!(target: "sandbox_daemon", "target visible");
+        tracing::debug!(target: "sandbox_runtime", "target hidden");
+    })?;
+
+    let output = writer.output();
+    assert!(
+        output.contains("target visible"),
+        "target-specific debug event should be captured: {output}"
+    );
+    assert!(
+        !output.contains("target hidden"),
+        "non-matching target should be filtered out: {output}"
+    );
+    Ok(())
+}
+
+#[test]
 fn daemon_request_span_records_dynamic_sandbox_id_and_request_id() -> Result<()> {
     let writer = CaptureWriter::default();
     let runtime = Runtime::new()?;
@@ -211,6 +234,23 @@ sink:
     ));
     cfg.validate()
         .expect("otlp http/protobuf telemetry validates");
+}
+
+#[test]
+fn telemetry_accepts_env_filter_level_expression() {
+    let cfg = telemetry_config(
+        r#"
+enabled: true
+service_name: sandbox-daemon
+level: sandbox_daemon=debug,sandbox_runtime=info
+sink:
+  kind: local_json
+  stream: stdout
+"#,
+    );
+
+    cfg.validate()
+        .expect("env-filter telemetry level validates");
 }
 
 #[test]

@@ -58,8 +58,6 @@ pub enum RuntimeOperationName {
     ExecCommand,
     WriteCommandStdin,
     ReadCommandLines,
-    InspectCgroupMonitor,
-    ReadCgroupMonitorSamples,
 }
 
 impl RuntimeOperationName {
@@ -69,8 +67,6 @@ impl RuntimeOperationName {
             Self::ExecCommand => "exec_command",
             Self::WriteCommandStdin => "write_command_stdin",
             Self::ReadCommandLines => "read_command_lines",
-            Self::InspectCgroupMonitor => "inspect_cgroup_monitor",
-            Self::ReadCgroupMonitorSamples => "read_cgroup_monitor_samples",
         }
     }
 
@@ -80,8 +76,6 @@ impl RuntimeOperationName {
             "exec_command" => Some(Self::ExecCommand),
             "write_command_stdin" => Some(Self::WriteCommandStdin),
             "read_command_lines" => Some(Self::ReadCommandLines),
-            "inspect_cgroup_monitor" => Some(Self::InspectCgroupMonitor),
-            "read_cgroup_monitor_samples" => Some(Self::ReadCgroupMonitorSamples),
             _ => None,
         }
     }

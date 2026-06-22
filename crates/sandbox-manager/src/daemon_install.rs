@@ -2,11 +2,22 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+#[cfg(unix)]
+use nix::errno::Errno;
+#[cfg(unix)]
+use nix::sys::signal::{kill, Signal};
+#[cfg(unix)]
+use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
+#[cfg(unix)]
+use nix::unistd::Pid;
+
 use crate::{ManagerError, SandboxDaemonEndpoint, SandboxRecord};
 
 const DAEMON_AUTH_TOKEN_ENV: &str = "SANDBOX_DAEMON_AUTH_TOKEN";
 const DAEMON_READY_TIMEOUT: Duration = Duration::from_secs(2);
 const DAEMON_READY_POLL: Duration = Duration::from_millis(20);
+const DAEMON_STOP_TIMEOUT: Duration = Duration::from_secs(2);
+const DAEMON_STOP_POLL: Duration = Duration::from_millis(20);
 
 pub trait SandboxDaemonInstaller: Send + Sync {
     fn install_daemon(&self, _record: &SandboxRecord) -> Result<(), ManagerError> {
@@ -123,8 +134,20 @@ impl SandboxDaemonInstaller for LocalSandboxDaemonInstaller {
 
     fn stop_daemon(&self, record: &SandboxRecord) -> Result<(), ManagerError> {
         let spec = self.launch_spec(record)?;
-        let _ = std::fs::remove_file(spec.pid_path);
-        let _ = std::fs::remove_file(spec.socket_path);
+        if !spec.pid_path.exists() {
+            if spec.socket_path.exists() {
+                return Err(daemon_install_error(format!(
+                    "sandbox daemon socket exists without pid file: socket={} pid_file={}",
+                    spec.socket_path.display(),
+                    spec.pid_path.display()
+                )));
+            }
+            return Ok(());
+        }
+        let pid = read_daemon_pid(&spec.pid_path)?;
+        terminate_daemon_process(pid)?;
+        remove_daemon_file(&spec.pid_path)?;
+        remove_daemon_file(&spec.socket_path)?;
         Ok(())
     }
 
@@ -172,6 +195,120 @@ fn create_parent(path: &Path) -> Result<(), ManagerError> {
             parent.display()
         ))
     })
+}
+
+#[cfg(unix)]
+fn read_daemon_pid(pid_path: &Path) -> Result<Pid, ManagerError> {
+    let contents = std::fs::read_to_string(pid_path).map_err(|error| {
+        daemon_install_error(format!(
+            "failed to read daemon pid file {}: {error}",
+            pid_path.display()
+        ))
+    })?;
+    let parsed = contents.trim().parse::<i32>().map_err(|error| {
+        daemon_install_error(format!(
+            "daemon pid file {} is invalid: {error}",
+            pid_path.display()
+        ))
+    })?;
+    if parsed <= 0 {
+        return Err(daemon_install_error(format!(
+            "daemon pid file {} must contain a positive pid",
+            pid_path.display()
+        )));
+    }
+    Ok(Pid::from_raw(parsed))
+}
+
+#[cfg(unix)]
+fn terminate_daemon_process(pid: Pid) -> Result<(), ManagerError> {
+    if !daemon_process_exists(pid)? {
+        return Ok(());
+    }
+    send_signal(pid, Signal::SIGTERM, "terminate")?;
+    if wait_for_daemon_exit(pid)? {
+        return Ok(());
+    }
+    send_signal(pid, Signal::SIGKILL, "kill")?;
+    if wait_for_daemon_exit(pid)? {
+        return Ok(());
+    }
+    Err(daemon_install_error(format!(
+        "sandbox daemon pid {pid} did not exit after SIGKILL"
+    )))
+}
+
+#[cfg(unix)]
+fn send_signal(pid: Pid, signal: Signal, action: &str) -> Result<(), ManagerError> {
+    match kill(pid, Some(signal)) {
+        Ok(()) | Err(Errno::ESRCH) => Ok(()),
+        Err(error) => Err(daemon_install_error(format!(
+            "failed to {action} sandbox daemon pid {pid}: {error}"
+        ))),
+    }
+}
+
+#[cfg(unix)]
+fn wait_for_daemon_exit(pid: Pid) -> Result<bool, ManagerError> {
+    let deadline = Instant::now() + DAEMON_STOP_TIMEOUT;
+    while Instant::now() < deadline {
+        if !daemon_process_exists(pid)? {
+            return Ok(true);
+        }
+        std::thread::sleep(DAEMON_STOP_POLL);
+    }
+    Ok(!daemon_process_exists(pid)?)
+}
+
+#[cfg(unix)]
+fn daemon_process_exists(pid: Pid) -> Result<bool, ManagerError> {
+    if reap_exited_child(pid)? {
+        return Ok(false);
+    }
+    match kill(pid, None) {
+        Ok(()) | Err(Errno::EPERM) => Ok(true),
+        Err(Errno::ESRCH) => Ok(false),
+        Err(error) => Err(daemon_install_error(format!(
+            "failed to inspect sandbox daemon pid {pid}: {error}"
+        ))),
+    }
+}
+
+#[cfg(unix)]
+fn reap_exited_child(pid: Pid) -> Result<bool, ManagerError> {
+    match waitpid(pid, Some(WaitPidFlag::WNOHANG)) {
+        Ok(WaitStatus::Exited(..) | WaitStatus::Signaled(..)) => Ok(true),
+        Ok(WaitStatus::StillAlive) | Err(Errno::ECHILD) => Ok(false),
+        Ok(_) => Ok(false),
+        Err(error) => Err(daemon_install_error(format!(
+            "failed to wait for sandbox daemon pid {pid}: {error}"
+        ))),
+    }
+}
+
+#[cfg(not(unix))]
+fn read_daemon_pid(_pid_path: &Path) -> Result<u32, ManagerError> {
+    Err(daemon_install_error(
+        "local daemon stop is unsupported on this platform".to_owned(),
+    ))
+}
+
+#[cfg(not(unix))]
+fn terminate_daemon_process(_pid: u32) -> Result<(), ManagerError> {
+    Err(daemon_install_error(
+        "local daemon stop is unsupported on this platform".to_owned(),
+    ))
+}
+
+fn remove_daemon_file(path: &Path) -> Result<(), ManagerError> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(daemon_install_error(format!(
+            "failed to remove daemon file {}: {error}",
+            path.display()
+        ))),
+    }
 }
 
 fn daemon_install_error(message: String) -> ManagerError {

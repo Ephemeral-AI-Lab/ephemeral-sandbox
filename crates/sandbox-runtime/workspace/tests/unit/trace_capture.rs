@@ -105,6 +105,10 @@ impl Visit for TextVisitor {
     fn record_u64(&mut self, field: &Field, value: u64) {
         self.push_value(field, value);
     }
+
+    fn record_f64(&mut self, field: &Field, value: f64) {
+        self.push_value(field, value);
+    }
 }
 
 pub(crate) fn with_trace_capture_lock<T>(run: impl FnOnce() -> T) -> T {
@@ -116,7 +120,11 @@ pub(crate) fn capture_traces(run: impl FnOnce()) -> String {
     with_trace_capture_lock(|| {
         let capture = TraceCapture::default();
         let reader = capture.clone();
-        tracing::subscriber::with_default(capture, run);
+        tracing::subscriber::with_default(capture, || {
+            tracing::callsite::rebuild_interest_cache();
+            run();
+        });
+        tracing::callsite::rebuild_interest_cache();
         reader.output()
     })
 }

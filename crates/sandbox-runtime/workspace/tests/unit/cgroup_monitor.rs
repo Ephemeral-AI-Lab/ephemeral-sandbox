@@ -8,7 +8,7 @@ use sandbox_runtime_workspace::{
     RuntimeMetricsRecorderHandle, WorkspaceHandle, WorkspaceProfile, WorkspaceSessionId,
 };
 
-use crate::trace_capture::capture_traces;
+use crate::trace_capture::{capture_traces, with_trace_capture_lock};
 
 #[test]
 fn cgroup_monitor_session_path_uses_session_owned_tree() {
@@ -370,7 +370,7 @@ fn cgroup_monitor_final_and_anomaly_events_are_bounded() -> Result<(), Box<dyn s
 }
 
 #[test]
-fn cgroup_monitor_public_reads_do_not_resample_finalized_targets(
+fn cgroup_monitor_registry_reads_do_not_resample_finalized_targets(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let root = temp_root("final-retained")?;
     let cgroup = root.join("cgroup");
@@ -399,16 +399,18 @@ fn cgroup_monitor_public_reads_do_not_resample_finalized_targets(
         config: registry.config(),
     });
     std::fs::remove_dir_all(&cgroup)?;
-    registry.record_command_final(
-        &workspace_session_id,
-        "cmd-final",
-        Some(final_sample),
-        Some(CgroupCleanupState {
-            final_sample_recorded: false,
-            cgroup_exists_after_destroy: Some(false),
-            last_cleanup_error: None,
-        }),
-    );
+    with_trace_capture_lock(|| {
+        registry.record_command_final(
+            &workspace_session_id,
+            "cmd-final",
+            Some(final_sample),
+            Some(CgroupCleanupState {
+                final_sample_recorded: false,
+                cgroup_exists_after_destroy: Some(false),
+                last_cleanup_error: None,
+            }),
+        );
+    });
 
     let first = registry
         .inspect(&workspace_session_id, Some("cmd-final"))
@@ -470,12 +472,14 @@ fn cgroup_monitor_command_final_uses_retained_previous_cpu(
         config: registry.config(),
     });
 
-    registry.record_command_final(
-        &workspace_session_id,
-        "cmd-final-cpu",
-        Some(final_sample),
-        None,
-    );
+    with_trace_capture_lock(|| {
+        registry.record_command_final(
+            &workspace_session_id,
+            "cmd-final-cpu",
+            Some(final_sample),
+            None,
+        );
+    });
 
     let samples = registry
         .read_samples(&workspace_session_id, Some("cmd-final-cpu"), 10)
@@ -531,22 +535,24 @@ fn cgroup_monitor_metrics_use_final_sample_before_cleanup() -> Result<(), Box<dy
         config: registry.config(),
     });
     std::fs::remove_dir_all(&cgroup)?;
-    registry.record_command_final(
-        &workspace_session_id,
-        "cmd-final-metrics",
-        Some(final_sample),
-        Some(CgroupCleanupState {
-            final_sample_recorded: false,
-            cgroup_exists_after_destroy: Some(false),
-            last_cleanup_error: None,
-        }),
-    );
-    registry.record_cleanup(
-        &workspace_session_id,
-        Some("cmd-final-metrics"),
-        Some(false),
-        None,
-    );
+    with_trace_capture_lock(|| {
+        registry.record_command_final(
+            &workspace_session_id,
+            "cmd-final-metrics",
+            Some(final_sample),
+            Some(CgroupCleanupState {
+                final_sample_recorded: false,
+                cgroup_exists_after_destroy: Some(false),
+                last_cleanup_error: None,
+            }),
+        );
+        registry.record_cleanup(
+            &workspace_session_id,
+            Some("cmd-final-metrics"),
+            Some(false),
+            None,
+        );
+    });
 
     let observed = metrics.observed_samples();
     assert_eq!(
@@ -605,12 +611,14 @@ fn cgroup_monitor_read_error_metrics_use_bounded_error_kind(
         recorder,
     );
 
-    registry.register_command(
-        WorkspaceSessionId("ws-read-error-metrics".to_owned()),
-        "cmd-read-error-metrics",
-        cgroup,
-        upper,
-    );
+    with_trace_capture_lock(|| {
+        registry.register_command(
+            WorkspaceSessionId("ws-read-error-metrics".to_owned()),
+            "cmd-read-error-metrics",
+            cgroup,
+            upper,
+        );
+    });
 
     assert_eq!(
         metrics.read_errors(),
@@ -646,7 +654,9 @@ fn cgroup_monitor_session_final_marks_cleanup_state() -> Result<(), Box<dyn std:
     );
     let registry = CgroupMonitorRegistry::default();
     registry.register_session_from_handle(&handle);
-    registry.record_session_final_from_handle(&handle);
+    with_trace_capture_lock(|| {
+        registry.record_session_final_from_handle(&handle);
+    });
 
     let snapshot = registry
         .inspect(&WorkspaceSessionId("ws-session-final".to_owned()), None)
@@ -656,6 +666,73 @@ fn cgroup_monitor_session_final_marks_cleanup_state() -> Result<(), Box<dyn std:
         snapshot.latest.as_ref().map(|sample| sample.sample_kind),
         Some(CgroupSampleKind::SessionFinal)
     );
+
+    drop(registry);
+    let _ = std::fs::remove_dir_all(root);
+    Ok(())
+}
+
+#[test]
+fn cgroup_monitor_session_final_cleanup_state_remains_available_to_telemetry(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = temp_root("session-final-cleanup-telemetry")?;
+    let cgroup = root.join("cgroup");
+    let upper = root.join("upper");
+    let work = root.join("work");
+    std::fs::create_dir_all(&cgroup)?;
+    std::fs::create_dir_all(&upper)?;
+    std::fs::create_dir_all(&work)?;
+    write_complete_cgroup_files(&cgroup)?;
+    let workspace_session_id = WorkspaceSessionId("ws-session-cleanup-telemetry".to_owned());
+    let handle = WorkspaceHandle::holder_backed_for_test(
+        workspace_session_id.clone(),
+        PathBuf::from("/workspace"),
+        WorkspaceProfile::HostCompatible,
+        test_snapshot(),
+        upper,
+        work,
+        Some(cgroup),
+    );
+    let metrics = RecordingMetrics::default_handle();
+    let recorder: RuntimeMetricsRecorderHandle = metrics.clone();
+    let registry =
+        CgroupMonitorRegistry::with_metrics_recorder(CgroupMonitorConfig::default(), recorder);
+    registry.register_session_from_handle(&handle);
+
+    let traces = capture_traces(|| {
+        registry.record_session_final_from_handle(&handle);
+        registry.record_cleanup(&workspace_session_id, None, Some(false), None);
+    });
+
+    let snapshot = registry
+        .inspect(&workspace_session_id, None)
+        .expect("session target is retained");
+    assert!(snapshot.cleanup.final_sample_recorded);
+    assert_eq!(snapshot.cleanup.cgroup_exists_after_destroy, Some(false));
+    assert_eq!(
+        snapshot.latest.as_ref().map(|sample| sample.sample_kind),
+        Some(CgroupSampleKind::SessionFinal)
+    );
+    assert_eq!(
+        metrics
+            .observed_samples()
+            .iter()
+            .map(|(_, sample)| sample.sample_kind)
+            .collect::<Vec<_>>(),
+        [CgroupSampleKind::Periodic, CgroupSampleKind::SessionFinal]
+    );
+    for expected in [
+        "event cgroup_monitor.final_summary",
+        "boundary=session_final",
+        "boundary=cleanup",
+        "target_kind=session",
+        "sample_kind=session_final",
+        "final_sample_recorded=true",
+        "cgroup_exists_after_destroy=false",
+        "cgroup_exists_after_destroy_present=true",
+    ] {
+        assert!(traces.contains(expected), "missing {expected} in {traces}");
+    }
 
     drop(registry);
     let _ = std::fs::remove_dir_all(root);
@@ -687,13 +764,15 @@ fn cgroup_monitor_cleanup_state_does_not_evict_final_sample_when_retention_is_on
         ..CgroupMonitorConfig::default()
     });
     registry.register_session_from_handle(&handle);
-    registry.record_session_final_from_handle(&handle);
-    registry.record_cleanup(
-        &WorkspaceSessionId("ws-session-retention-one".to_owned()),
-        None,
-        Some(false),
-        None,
-    );
+    with_trace_capture_lock(|| {
+        registry.record_session_final_from_handle(&handle);
+        registry.record_cleanup(
+            &WorkspaceSessionId("ws-session-retention-one".to_owned()),
+            None,
+            Some(false),
+            None,
+        );
+    });
 
     let snapshot = registry
         .inspect(

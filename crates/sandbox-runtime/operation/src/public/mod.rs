@@ -1,7 +1,5 @@
-pub mod cgroup_monitor;
 pub mod command;
 
-use std::sync::OnceLock;
 use std::time::Instant;
 
 use crate::internal::services::SandboxRuntimeOperations;
@@ -9,31 +7,11 @@ use crate::operation::{CliOperationFamilySpec, CliOperationSpec};
 use crate::workspace_crate::{RuntimeMetricStatus, RuntimeOperationName};
 
 pub(crate) fn cli_operation_families() -> &'static [&'static CliOperationFamilySpec] {
-    static FAMILIES: OnceLock<Box<[&'static CliOperationFamilySpec]>> = OnceLock::new();
-    FAMILIES
-        .get_or_init(|| {
-            command::cli_operation_families()
-                .iter()
-                .chain(cgroup_monitor::cli_operation_families().iter())
-                .copied()
-                .collect::<Vec<_>>()
-                .into_boxed_slice()
-        })
-        .as_ref()
+    command::cli_operation_families()
 }
 
 pub(crate) fn cli_operation_specs() -> &'static [&'static CliOperationSpec] {
-    static SPECS: OnceLock<Box<[&'static CliOperationSpec]>> = OnceLock::new();
-    SPECS
-        .get_or_init(|| {
-            command::cli_operation_specs()
-                .iter()
-                .chain(cgroup_monitor::cli_operation_specs().iter())
-                .copied()
-                .collect::<Vec<_>>()
-                .into_boxed_slice()
-        })
-        .as_ref()
+    command::cli_operation_specs()
 }
 
 pub(crate) fn dispatch_operation(
@@ -42,7 +20,6 @@ pub(crate) fn dispatch_operation(
 ) -> sandbox_protocol::Response {
     command::operation_entries()
         .iter()
-        .chain(cgroup_monitor::operation_entries().iter())
         .find(|entry| entry.spec.name == request.op)
         .map_or_else(sandbox_protocol::Response::unknown_op, |entry| {
             let started = Instant::now();

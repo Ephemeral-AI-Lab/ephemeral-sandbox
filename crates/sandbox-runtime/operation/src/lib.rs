@@ -11,9 +11,8 @@ pub use operation::{
     ArgCliSpec, ArgKind, ArgSpec, CliOperationCatalog, CliOperationExecutionSpace,
     CliOperationFamilySpec, CliOperationSpec, CliSpec,
 };
-pub use public::{cgroup_monitor, command};
+pub use public::command;
 
-pub use cgroup_monitor::CgroupMonitorOperationService;
 pub use command::CommandOperationService;
 pub use internal::services::{
     CgroupMonitorRuntimeConfig, CommandRuntimeConfig, Rfc1918Egress, SandboxRuntimeConfig,

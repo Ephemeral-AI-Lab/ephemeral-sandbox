@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::cgroup_monitor::CgroupMonitorOperationService;
 use crate::command::CommandOperationService;
 use crate::layerstack::LayerStackService;
 use crate::workspace_crate::{
@@ -12,7 +11,6 @@ use crate::workspace_session::WorkspaceSessionService;
 #[derive(Clone)]
 pub struct SandboxRuntimeOperations {
     pub command: Arc<CommandOperationService>,
-    pub cgroup_monitor: Arc<CgroupMonitorOperationService>,
     pub layerstack: Arc<LayerStackService>,
     pub(crate) metrics: RuntimeMetricsRecorderHandle,
 }
@@ -29,12 +27,8 @@ impl SandboxRuntimeOperations {
         layerstack: Arc<LayerStackService>,
         metrics: RuntimeMetricsRecorderHandle,
     ) -> Self {
-        let cgroup_monitor = Arc::new(CgroupMonitorOperationService::new(Arc::clone(
-            command.workspace(),
-        )));
         Self {
             command,
-            cgroup_monitor,
             layerstack,
             metrics,
         }

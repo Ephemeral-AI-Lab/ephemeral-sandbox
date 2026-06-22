@@ -127,9 +127,10 @@ feed metrics.
   periodic samples from affecting retained final-sample enrichment.
 - Dashboards must read metrics from the collector/backend, not from
   `cli_operation_specs`.
-- Dashboard validation must load the JSON against a chosen Grafana environment
-  with a Prometheus-compatible metrics datasource. Tempo may be used only for
-  trace panels, not as the metrics datasource.
+- Phase 4a dashboard validation parses the JSON and verifies the configured
+  Prometheus-compatible metrics datasource. Live loading against a chosen
+  Grafana environment is deferred to Phase 4c. Tempo may be used only for trace
+  panels, not as the metrics datasource.
 - Loki is not part of Phase 4a. Do not add Grafana trace-to-logs, Loki derived
   fields, or log panels until the explicit log-export phase.
 
@@ -168,8 +169,8 @@ feed metrics.
       raw root hashes, command text, stdin, output, auth tokens, env values,
       raw workspace roots, raw cgroup paths, raw layer paths, and free-form
       error strings.
-- [x] Dashboard files load in the chosen Grafana environment with the configured
-      metrics datasource; any Tempo panels are trace-only.
+- [x] Dashboard JSON parses and references the configured metrics datasource;
+      live Grafana loading is deferred to Phase 4c.
 - [x] Phase 4a does not add Loki, log exporters, trace-to-logs configuration,
       or log panels.
 - [x] `cargo test -p sandbox-daemon -p sandbox-runtime -p sandbox-runtime-workspace -p sandbox-runtime-command`

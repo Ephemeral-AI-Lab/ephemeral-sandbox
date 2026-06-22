@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 sandbox-config.workspace = true
 sandbox-protocol.workspace = true
+nix = { workspace = true, features = ["process", "signal"] }
 serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

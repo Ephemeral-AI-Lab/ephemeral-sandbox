@@ -371,7 +371,7 @@ health, and dashboards. Do not project `sandbox_protocol::Request`,
 | workspace create/destroy phase timing maps | do not add response fields | phase events and histograms |
 | remount verification reports | keep typed success summary | booleans, counts, and bounded failure reasons |
 | publish/OCC reject payloads | keep typed correctness diagnostics | route counts, reject reason, fingerprint kind, path class/hash |
-| public cgroup monitor targets and samples | temporary direct debug/API surface | metrics and final-summary/anomaly events |
+| cgroup monitor targets and samples | no runtime response role after Phase 4b | metrics and final-summary/anomaly events |
 | cleanup or runtime error strings | typed/debug diagnostics only | bounded error kind, stage, and counters |
 
 This boundary is what lets response payloads shrink over time. The first

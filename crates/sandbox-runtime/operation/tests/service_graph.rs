@@ -83,7 +83,7 @@ fn noop_workspace_runtime() -> Arc<WorkspaceRuntimeService> {
 }
 
 #[test]
-fn service_graph_runtime_operations_exposes_command_and_cgroup_monitor_lanes(
+fn service_graph_runtime_operations_exposes_command_lane(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let workspace = workspace_session();
     let layerstack = layerstack_service()?;
@@ -123,7 +123,7 @@ fn command_contract_keeps_session_selector_in_exec_input() {
 }
 
 #[test]
-fn service_graph_cli_operation_catalog_exports_runtime_command_and_cgroup_monitor_operations() {
+fn service_graph_cli_operation_catalog_exports_runtime_command_operations_only() {
     let catalog = sandbox_runtime::cli_operation_catalog();
     let names = catalog
         .operations
@@ -141,22 +141,52 @@ fn service_graph_cli_operation_catalog_exports_runtime_command_and_cgroup_monito
             .iter()
             .map(|family| family.title)
             .collect::<Vec<_>>(),
-        ["Command", "Cgroup Monitor"]
+        ["Command"]
     );
     assert_eq!(
         names,
-        [
-            "exec_command",
-            "write_command_stdin",
-            "read_command_lines",
-            "inspect_cgroup_monitor",
-            "read_cgroup_monitor_samples"
-        ]
+        ["exec_command", "write_command_stdin", "read_command_lines"]
     );
 }
 
 #[test]
-fn runtime_operation_metrics_use_static_operation_allowlist(
+fn runtime_catalog_and_dispatch_drop_removed_cgroup_monitor_operations() {
+    let catalog = sandbox_runtime::cli_operation_catalog();
+    let names = catalog
+        .operations
+        .iter()
+        .map(|spec| spec.name)
+        .collect::<Vec<_>>();
+
+    for removed in ["inspect_cgroup_monitor", "read_cgroup_monitor_samples"] {
+        assert!(!names.contains(&removed), "{removed} still in catalog");
+        let response = sandbox_runtime::dispatch_operation(
+            &SandboxRuntimeOperations::new(
+                Arc::new(CommandOperationService::new(
+                    workspace_session(),
+                    layerstack_service().expect("layerstack service"),
+                    sandbox_runtime_command::CommandConfig::default(),
+                )),
+                layerstack_service().expect("layerstack service"),
+            ),
+            &Request::new(
+                removed,
+                "req-removed",
+                CliOperationScope::system(),
+                json!({ "workspace_session_id": "ws-missing" }),
+            ),
+        )
+        .into_json_value();
+        assert_eq!(
+            response["error"]["kind"].as_str(),
+            Some("unknown_op"),
+            "{removed} response was {response}"
+        );
+    }
+}
+
+#[test]
+fn runtime_operation_metrics_use_static_command_operation_allowlist(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let workspace = workspace_session();
     let layerstack = layerstack_service()?;
@@ -172,10 +202,10 @@ fn runtime_operation_metrics_use_static_operation_allowlist(
     let response = sandbox_runtime::dispatch_operation(
         &operations,
         &Request::new(
-            "inspect_cgroup_monitor",
+            "read_command_lines",
             "req-metrics",
             CliOperationScope::system(),
-            json!({ "workspace_session_id": "ws-missing" }),
+            json!({ "command_session_id": "cmd-missing" }),
         ),
     )
     .into_json_value();
@@ -183,7 +213,7 @@ fn runtime_operation_metrics_use_static_operation_allowlist(
     assert_eq!(
         metrics.operations(),
         [(
-            RuntimeOperationName::InspectCgroupMonitor,
+            RuntimeOperationName::ReadCommandLines,
             RuntimeMetricStatus::Error
         )]
     );
@@ -200,7 +230,7 @@ fn runtime_operation_metrics_use_static_operation_allowlist(
     assert_eq!(
         metrics.operations(),
         [(
-            RuntimeOperationName::InspectCgroupMonitor,
+            RuntimeOperationName::ReadCommandLines,
             RuntimeMetricStatus::Error
         )]
     );

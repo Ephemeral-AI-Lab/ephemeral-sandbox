@@ -135,23 +135,24 @@ implementation should still prove metrics/final samples remain correct.
 
 ## Acceptance Criteria
 
-- [ ] `inspect_cgroup_monitor` is absent from runtime `cli_operation_specs`,
+- [x] `inspect_cgroup_monitor` is absent from runtime `cli_operation_specs`,
       CLI operation families, operation entries, daemon-described runtime
       catalog output, gateway-rendered runtime help, and gateway CLI mappings.
-- [ ] `read_cgroup_monitor_samples` is absent from runtime `cli_operation_specs`,
+- [x] `read_cgroup_monitor_samples` is absent from runtime `cli_operation_specs`,
       CLI operation families, operation entries, daemon-described runtime
       catalog output, gateway-rendered runtime help, and gateway CLI mappings.
-- [ ] `sandbox_runtime::cgroup_monitor` is no longer exported as a public
+- [x] `sandbox_runtime::cgroup_monitor` is no longer exported as a public
       operation module.
-- [ ] `docs/README/sandbox-runtime.md` no longer lists cgroup monitor operations
+- [x] `docs/README/sandbox-runtime.md` no longer lists cgroup monitor operations
       as an external runtime operation surface.
-- [ ] Old cgroup monitor response shapes, including raw targets, cgroup paths,
+- [x] Old cgroup monitor response shapes, including raw targets, cgroup paths,
       retained sample windows, PID lists, and cleanup error strings, are not
       reachable through runtime operation responses.
-- [ ] Existing workspace/session/command cgroup lifecycle recording still works.
-- [ ] Command final samples and session final cleanup state still feed metrics.
-- [ ] Internal metrics/registry tests prove command final samples and session
+- [x] Existing workspace/session/command cgroup lifecycle recording still works.
+- [x] Command final samples still feed metrics, and session final cleanup state
+      still feeds bounded telemetry final summaries.
+- [x] Internal metrics/registry tests prove command final samples and session
       final cleanup state remain available to telemetry after operation removal.
-- [ ] No hidden old-name operation is left for the old cgroup monitor
+- [x] No hidden old-name operation is left for the old cgroup monitor
       operation names.
-- [ ] `cargo test -p sandbox-runtime -p sandbox-gateway` passes.
+- [x] `cargo test -p sandbox-runtime -p sandbox-gateway` passes.

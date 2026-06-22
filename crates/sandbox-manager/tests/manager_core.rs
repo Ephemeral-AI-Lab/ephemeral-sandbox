@@ -1,4 +1,6 @@
 use std::path::PathBuf;
+#[cfg(unix)]
+use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 
 use sandbox_manager::LocalSandboxDaemonInstaller;
@@ -145,6 +147,17 @@ fn dispatch(services: &ManagerServices, op: &str, args: Value) -> Value {
 
 fn id(value: &str) -> SandboxId {
     SandboxId::new(value).expect("valid sandbox id")
+}
+
+#[cfg(unix)]
+fn temp_root(label: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    Ok(std::env::temp_dir().join(format!(
+        "sandbox-manager-{label}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_nanos()
+    )))
 }
 
 #[test]
@@ -295,6 +308,79 @@ fn local_daemon_installer_launch_spec_passes_dynamic_sandbox_id() {
     assert_eq!(spec.auth_token.as_deref(), Some("secret-token"));
 }
 
+#[cfg(unix)]
+#[test]
+fn local_daemon_installer_stop_daemon_terminates_pid_file_process(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = temp_root("daemon-stop")?;
+    let workspace_root = root.join("workspace");
+    let runtime_root = root.join("runtime");
+    std::fs::create_dir_all(&workspace_root)?;
+    let installer = LocalSandboxDaemonInstaller::new(
+        "/bin/sandbox-daemon",
+        root.join("config.yml"),
+        runtime_root,
+        None,
+    );
+    let record = SandboxRecord::new(id("container-1"), workspace_root, SandboxState::Ready);
+    let spec = installer.launch_spec(&record)?;
+    std::fs::create_dir_all(spec.pid_path.parent().expect("pid path parent"))?;
+    std::fs::write(&spec.socket_path, b"socket placeholder")?;
+
+    let child = Command::new("/bin/sleep").arg("30").spawn()?;
+    let pid = child.id();
+    let _cleanup = ChildCleanup::new(child);
+    std::fs::write(&spec.pid_path, pid.to_string())?;
+
+    installer.stop_daemon(&record)?;
+
+    assert!(
+        !pid_exists(pid),
+        "daemon pid {pid} should be gone after stop_daemon"
+    );
+    assert!(!spec.pid_path.exists());
+    assert!(!spec.socket_path.exists());
+
+    let _ = std::fs::remove_dir_all(root);
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn local_daemon_installer_stop_daemon_rejects_socket_without_pid_file(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = temp_root("daemon-stop-missing-pid")?;
+    let workspace_root = root.join("workspace");
+    let runtime_root = root.join("runtime");
+    std::fs::create_dir_all(&workspace_root)?;
+    let installer = LocalSandboxDaemonInstaller::new(
+        "/bin/sandbox-daemon",
+        root.join("config.yml"),
+        runtime_root,
+        None,
+    );
+    let record = SandboxRecord::new(id("container-1"), workspace_root, SandboxState::Ready);
+    let spec = installer.launch_spec(&record)?;
+    std::fs::create_dir_all(spec.socket_path.parent().expect("socket path parent"))?;
+    std::fs::write(&spec.socket_path, b"socket placeholder")?;
+
+    let error = installer
+        .stop_daemon(&record)
+        .expect_err("socket without pid is not silently cleaned up");
+
+    assert!(
+        matches!(error, ManagerError::DaemonInstallFailed { .. }),
+        "unexpected error: {error}"
+    );
+    assert!(
+        spec.socket_path.exists(),
+        "socket artifact should remain for failed stop diagnosis"
+    );
+
+    let _ = std::fs::remove_dir_all(root);
+    Ok(())
+}
+
 #[test]
 fn store_duplicate_and_missing_sandbox_error_cases() {
     let store = SandboxStore::new();
@@ -315,4 +401,35 @@ fn store_duplicate_and_missing_sandbox_error_cases() {
         .inspect(&id("missing"))
         .expect_err("missing should fail");
     assert!(matches!(missing, ManagerError::MissingSandbox { .. }));
+}
+
+#[cfg(unix)]
+struct ChildCleanup {
+    child: Child,
+}
+
+#[cfg(unix)]
+impl ChildCleanup {
+    fn new(child: Child) -> Self {
+        Self { child }
+    }
+}
+
+#[cfg(unix)]
+impl Drop for ChildCleanup {
+    fn drop(&mut self) {
+        match self.child.try_wait() {
+            Ok(Some(_)) | Err(_) => {}
+            Ok(None) => {
+                let _ = self.child.kill();
+                let _ = self.child.wait();
+            }
+        }
+    }
+}
+
+#[cfg(unix)]
+fn pid_exists(pid: u32) -> bool {
+    let pid = nix::unistd::Pid::from_raw(pid.try_into().expect("test pid fits nix pid"));
+    nix::sys::signal::kill(pid, None).is_ok()
 }
