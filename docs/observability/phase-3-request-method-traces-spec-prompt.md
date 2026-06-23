@@ -313,6 +313,9 @@ Use this target:
 crates/sandbox-runtime non-test LOC: 70-120
 ```
 
+The implementation should aim for `75-95` runtime non-test LOC. Treat `120` as
+the hard stop that forces scope reduction.
+
 Expected split:
 
 ```text

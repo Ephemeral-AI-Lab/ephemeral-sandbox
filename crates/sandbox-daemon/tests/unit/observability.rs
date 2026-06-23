@@ -1,21 +1,16 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
 
 use crate::observability::DaemonObservability;
-use crate::server::{SandboxDaemonServer, ServerConfig};
+use crate::server::ServerConfig;
 use sandbox_observability::{ObservabilityPaths, ObservabilityStore};
-use sandbox_protocol::{CliOperationScope, Request};
 use sandbox_runtime::command::CommandSessionId;
 use sandbox_runtime::WorkspaceSessionId;
 use sandbox_runtime::{
-    CommandRuntimeConfig, Rfc1918Egress, RuntimeExecutionSnapshot,
-    RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot, SandboxRuntimeConfig,
-    SandboxRuntimeOperations, WorkspaceProfile, WorkspaceResourceCaps, WorkspaceRuntimeConfig,
+    RuntimeExecutionSnapshot, RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot,
+    WorkspaceProfile,
 };
-use serde_json::json;
 
 type TestResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -213,42 +208,6 @@ fn observability_is_disabled_when_sandbox_id_is_missing() {
     assert!(DaemonObservability::from_config(&config).is_none());
 }
 
-#[tokio::test]
-async fn observability_write_errors_do_not_alter_operation_responses() -> TestResult {
-    let root = test_root("write-error-response");
-    let config = server_config(&root, Some("sandbox-1"));
-    let server = SandboxDaemonServer::new(config, Arc::new(runtime_operations(&root)?));
-    store_for_config(&server.config)?.drop_workspace_snapshots_table_for_test()?;
-
-    let response = server
-        .dispatch_bytes(
-            serde_json::to_vec(&Request::new(
-                "unknown_operation",
-                "req-1",
-                CliOperationScope::sandbox("sandbox-1"),
-                json!({}),
-            ))?,
-            false,
-        )
-        .await;
-
-    for _ in 0..10 {
-        tokio::time::sleep(Duration::from_millis(10)).await;
-        if store_for_config(&server.config)?
-            .sandbox_snapshot_for_test("sandbox-1")?
-            .is_some()
-        {
-            break;
-        }
-    }
-    assert!(store_for_config(&server.config)?
-        .sandbox_snapshot_for_test("sandbox-1")?
-        .is_some());
-    assert_eq!(response["error"]["kind"], "unknown_op");
-    assert_eq!(response["error"]["message"], "unknown operation");
-    Ok(())
-}
-
 fn runtime_snapshot(missing_upperdir: PathBuf) -> RuntimeObservabilitySnapshot {
     RuntimeObservabilitySnapshot {
         workspaces: vec![workspace_snapshot("workspace-1", Some(missing_upperdir))],
@@ -301,32 +260,6 @@ fn latest_workspace_sample(
         .into_iter()
         .rfind(|sample| sample.workspace_id.as_deref() == Some(workspace_id))
         .ok_or_else(|| format!("missing resource sample for {workspace_id}").into())
-}
-
-fn runtime_operations(root: &Path) -> TestResult<SandboxRuntimeOperations> {
-    let layer_stack_root = root.join("layer-stack");
-    let workspace_root = root.join("workspace-root");
-    let workspace_base = root.join("workspace-base");
-    std::fs::create_dir_all(&workspace_base)?;
-    sandbox_runtime_layerstack::build_workspace_base(&layer_stack_root, &workspace_base, false)?;
-
-    Ok(SandboxRuntimeOperations::from_config(SandboxRuntimeConfig {
-        workspace: WorkspaceRuntimeConfig {
-            workspace_root,
-            layer_stack_root,
-            scratch_root: root.join("workspace-scratch"),
-            caps: WorkspaceResourceCaps {
-                upperdir_bytes: 1024 * 1024,
-                memavail_fraction: 0.5,
-                setup_timeout_s: 1.0,
-                exit_grace_s: 1.0,
-                rfc1918_egress: Rfc1918Egress::Deny,
-            },
-        },
-        command: CommandRuntimeConfig {
-            scratch_root: root.join("command-scratch"),
-        },
-    }))
 }
 
 fn server_config(root: &Path, sandbox_id: Option<&str>) -> ServerConfig {

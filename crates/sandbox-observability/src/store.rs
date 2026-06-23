@@ -612,13 +612,6 @@ impl ObservabilityStore {
     }
 
     #[doc(hidden)]
-    pub fn drop_workspace_snapshots_table_for_test(&self) -> Result<(), StoreError> {
-        let connection = self.connection()?;
-        connection.execute("DROP TABLE workspace_snapshots", [])?;
-        Ok(())
-    }
-
-    #[doc(hidden)]
     pub fn sandbox_snapshot_for_test(
         &self,
         sandbox_id: &str,

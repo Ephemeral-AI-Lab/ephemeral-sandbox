@@ -262,8 +262,10 @@ or published independently of observability.
 ## Target Table Family: Method Trace
 
 Phase 1 creates the minimal trace tables inside `observability.sqlite`. The
-larger schema below is the Phase 3/4/4.5 target shape, after request, async,
-and linked runner trace producers exist.
+larger schema below is a later target shape after request, async, hierarchy query
+paths, and linked runner trace producers exist. Phase 3 request traces use the
+existing Phase 1 `traces` and `spans` shape; they do not add hierarchy columns or
+indexes.
 
 Purpose:
 
@@ -860,6 +862,10 @@ A trace contains:
 - operation name;
 - ordered spans.
 
+Phase 3 request traces populate the existing request fields only. Optional
+`workspace_id`, `command_session_id`, correlation, and async fields are later
+query/correlation concerns and must not be added by Phase 3.
+
 A span contains:
 
 - `span_id`;
@@ -1350,7 +1356,8 @@ databases.
 - Do not add Phase 3 trace hierarchy columns or indexes.
 - Do not expand into full workspace, layerstack, command spawn,
   namespace-runner, or shell execution internals.
-- Expected `crates/sandbox-runtime` change: 70-120 non-test LOC.
+- Expected `crates/sandbox-runtime` change: 70-120 non-test LOC, with 75-95
+  preferred.
 
 ### Phase 3.5: Targeted Deep Request Spans
 
