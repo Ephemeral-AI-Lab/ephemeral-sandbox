@@ -16,19 +16,19 @@ Status: draft implementation spec
 
 Phase 3.5 adds generic, automatic, and dynamic targeted child spans under
 selected Phase 3 request-method spans. It does not add a profiler. It adds one
-small request-local span policy, one stable span-key namespace, and one child
-span measurement API so proven-slow or ambiguous parent spans can be split on
-future requests without changing operation response shape or storage schema.
+stable span-key namespace, one request-local enabled-key set, and one child span
+measurement API so proven-slow or ambiguous parent spans can be split on future
+requests without changing operation response shape or storage schema.
 
 The exact deliverable is:
 
 - keep Phase 3 root, operation-dispatch, and public service-method spans;
-- add an `OperationTracePolicy` carried by `OperationTrace`;
 - add stable `SpanKey` values for eligible deep in-process spans;
+- let `OperationTrace` directly carry enabled `SpanKey` values for the request;
 - add a `measure_if`-style API that records a child span only when the request
-  policy enables the key;
-- have daemon dispatch construct a request-local policy from daemon-local
-  in-memory state before calling `sandbox_runtime::dispatch_operation`;
+  enabled set contains the key;
+- have daemon dispatch pass a snapshot of daemon-local enabled keys into
+  `OperationTrace` before calling `sandbox_runtime::dispatch_operation`;
 - update that daemon-local enabled-key set after completed request traces show
   slow or ambiguous Phase 3 parent spans;
 - persist enabled child spans through the existing `traces` and `spans` rows.
@@ -46,9 +46,9 @@ Phase 3.5 must preserve these boundaries:
 
 Generic means future operations can reuse the same `SpanKey` plus `measure_if`
 mechanism. Automatic means each call site only names a key and closure; the API
-checks the request policy and disabled keys run the original code path. Dynamic
-means daemon-local policy can change between requests based on recently
-completed local traces.
+checks the request-local enabled set and disabled keys run the original code
+path. Dynamic means the daemon-local enabled set can change between requests
+based on recently completed local traces.
 
 ## Current Repo Grounding
 
@@ -89,9 +89,10 @@ pub struct OperationTrace {
 - start/finish Unix timestamps;
 - `duration_ms`.
 
-This is a good Phase 3.5 boundary. `OperationTrace` can accept a policy field
-without storing SQLite handles, daemon paths, request ids, sandbox ids, storage
-row ids, response JSON, command output, or `sandbox-observability` records.
+This is a good Phase 3.5 boundary. `OperationTrace` can accept an enabled
+span-key set without storing SQLite handles, daemon paths, request ids, sandbox
+ids, storage row ids, response JSON, command output, or
+`sandbox-observability` records.
 
 ### Current Runtime Span Helpers
 
@@ -184,8 +185,8 @@ not replace the parent spans.
 - ignores trace persistence failures for the user response.
 
 Phase 3.5 should keep this ownership. Daemon dispatch decides whether tracing is
-enabled and constructs the request-local policy before the blocking runtime
-call. Runtime receives only `Option<&OperationTrace>`.
+enabled and passes request-local enabled child span keys before the blocking
+runtime call. Runtime receives only `Option<&OperationTrace>`.
 
 ### Current Daemon Trace Mapping
 
@@ -204,7 +205,7 @@ call. Runtime receives only `Option<&OperationTrace>`.
 - calls `ObservabilityStore::insert_trace`.
 
 This mapping already persists arbitrary additional completed spans. Phase 3.5
-does not need daemon mapping changes beyond optional policy-state update before
+does not need daemon mapping changes beyond optional enabled-key updates before
 the completed trace is consumed.
 
 ### Current Store Shape
@@ -299,7 +300,7 @@ Phase 3.5 does not implement:
 
 ## Architecture
 
-### Generic Span Policy
+### Generic Span Keys
 
 Add a small runtime-side value model in
 `crates/sandbox-runtime/operation/src/observability.rs`.
@@ -309,11 +310,6 @@ Recommended shape:
 ```rust
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct SpanKey(&'static str);
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct OperationTracePolicy {
-    enabled: HashSet<SpanKey>,
-}
 ```
 
 `SpanKey` is a stable domain key, not a storage id and not a Rust function name.
@@ -322,7 +318,8 @@ persisted `SpanRecord.method_name`. There is no current need for a separate
 display label. If a later product UI wants friendly names, it can map stable
 keys at query/render time without changing trace rows.
 
-`OperationTracePolicy` stores only enabled `SpanKey` values. It must not store:
+`OperationTrace` directly stores the request's enabled `SpanKey` values. This
+set must not store:
 
 - SQLite handles;
 - daemon paths;
@@ -334,43 +331,36 @@ keys at query/render time without changing trace rows.
 - transcript paths or transcript rows;
 - `sandbox-observability` records.
 
-Add `policy: OperationTracePolicy` to `OperationTrace`, preferably outside the
-`RefCell<TraceState>` because it is immutable for one request. Keep
-`OperationTrace::new()` as a default empty-policy constructor for tests and add
-one explicit policy constructor:
+Add `enabled_span_keys: HashSet<SpanKey>` to `OperationTrace`, preferably
+outside the `RefCell<TraceState>` because it is immutable for one request. Keep
+`OperationTrace::new()` as a default empty-set constructor for tests and add one
+explicit constructor:
 
 ```rust
 impl OperationTrace {
     pub fn new() -> Self;
-    pub fn new_with_policy(policy: OperationTracePolicy) -> Self;
+    pub fn new_with_enabled_span_keys(keys: impl IntoIterator<Item = SpanKey>) -> Self;
 }
 ```
 
-The empty policy records Phase 3 spans but records no Phase 3.5 child spans.
+The empty enabled set records Phase 3 spans but records no Phase 3.5 child
+spans.
 
-### Policy Construction
+### Enabled-Key Construction
 
-Daemon dispatch constructs the policy. Runtime does not read daemon config,
-SQLite, observability stores, or local paths.
+Daemon dispatch snapshots the current enabled-key set. Runtime does not read
+daemon config, SQLite, observability stores, or local paths.
 
 Add daemon-local in-memory state to `DaemonObservability`:
 
 ```rust
-deep_span_policy: Mutex<DeepSpanPolicyState>
-```
-
-`DeepSpanPolicyState` should be daemon-private and small:
-
-```rust
-struct DeepSpanPolicyState {
-    enabled: HashSet<SpanKey>,
-}
+enabled_deep_span_keys: Mutex<HashSet<SpanKey>>
 ```
 
 Add a method such as:
 
 ```rust
-pub(crate) fn operation_trace_policy(&self) -> OperationTracePolicy
+pub(crate) fn enabled_deep_span_keys(&self) -> Vec<SpanKey>
 ```
 
 `SandboxDaemonServer::dispatch_request` changes trace construction from
@@ -381,14 +371,14 @@ let trace = observability
     .as_ref()
     .zip(trace_sandbox_id.as_ref())
     .map(|(observability, _)| {
-        OperationTrace::new_with_policy(observability.operation_trace_policy())
+        OperationTrace::new_with_enabled_span_keys(observability.enabled_deep_span_keys())
     });
 ```
 
 The first implementation should use recent completed local traces as the
-dynamic input. After a completed trace is available, daemon policy state
-observes Phase 3 parent spans and enables a group of child keys for future
-requests when a parent span crosses a simple constant threshold.
+dynamic input. After a completed trace is available, daemon code observes
+Phase 3 parent spans and enables a group of child keys for future requests when
+a parent span crosses a simple constant threshold.
 
 Recommended first threshold:
 
@@ -408,8 +398,8 @@ Suggested parent-to-key groups:
 The enabled set may be monotonic for the daemon process lifetime. That is enough
 for the first dynamic implementation and avoids a cache, decay worker, timer,
 or query API. If config-driven enablement is added later, it should union config
-keys with the same in-memory enabled set before constructing
-`OperationTracePolicy`; runtime call sites do not change.
+keys with the same in-memory enabled set before constructing `OperationTrace`;
+runtime call sites do not change.
 
 ### Span Key Registry
 
@@ -441,8 +431,8 @@ Candidate keys to defer from the first implementation:
 | `command.exec.spawn.spawn_current_exe_ns_runner` | Defer. The live function is in `crates/sandbox-runtime/command/src/pty.rs`; the Phase 3.5 caller-owned `command.exec.spawn.process_spawn` span covers it inclusively. |
 
 Do not register deferred keys until they have real call sites. Unknown config
-or future keys should be ignored by daemon policy construction until a key is
-present in the registry.
+or future keys should be ignored when constructing the enabled set until a key
+is present in the registry.
 
 ### Runtime API
 
@@ -455,7 +445,7 @@ impl OperationTrace {
         span_key: SpanKey,
         call: impl FnOnce() -> T,
     ) -> T {
-        if self.policy.is_enabled(span_key) {
+        if self.is_span_key_enabled(span_key) {
             self.measure(span_key.as_str(), call)
         } else {
             call()
@@ -464,7 +454,7 @@ impl OperationTrace {
 }
 ```
 
-The API records the child span only when the request policy enables the key.
+The API records the child span only when the request enabled set contains the key.
 Disabled keys must execute the closure directly. They must not allocate a span,
 reserve a call index, append a skipped span row, or alter parentage/order of
 enabled spans.
@@ -481,29 +471,30 @@ pub(crate) fn measure_optional_if<T>(
 
 This helper should simply call `trace.measure_if(span_key, call)` when a trace
 exists and call through directly when tracing is disabled. It is not a second
-policy model.
+configuration model.
 
-### Daemon Policy State
+### Daemon Enabled-Key State
 
 `DaemonObservability` owns the daemon-local enabled set. It should expose only
 two narrow methods:
 
 ```rust
-pub(crate) fn operation_trace_policy(&self) -> OperationTracePolicy;
+pub(crate) fn enabled_deep_span_keys(&self) -> Vec<SpanKey>;
 
-fn observe_completed_trace_for_deep_span_policy(
+fn update_enabled_deep_span_keys(
     &self,
     trace: &CompletedOperationTrace,
 );
 ```
 
-The observe method should inspect only completed runtime span names and
+The update method should inspect only completed runtime span names and
 durations. It should not inspect command output, transcript data, response
 payload content, SQLite state, or query results.
 
-Policy update runs in the same best-effort observability path as trace
+Enabled-key update runs in the same best-effort observability path as trace
 persistence. Lock poisoning should not fail user operations; follow the repo's
-existing pattern of recovering the inner value or skipping the policy update.
+existing pattern of recovering the inner value or skipping the enabled-key
+update.
 
 ### Storage and Response Shape
 
@@ -560,7 +551,7 @@ enablement is:
 
 ```text
 SpanKey
-OperationTracePolicy { enabled span keys }
+OperationTrace { enabled span keys }
 OperationTrace::measure_if
 DaemonObservability in-memory enabled-key set
 ```
@@ -594,14 +585,14 @@ reduced.
 
 ### Genericity
 
-The mechanism is generic because `SpanKey`, `OperationTracePolicy`, and
-`measure_if` are reusable. It is not generic because every Rust function is
-automatically instrumented.
+The mechanism is generic because `SpanKey`, `OperationTrace::measure_if`, and
+the request-local enabled set are reusable. It is not generic because every
+Rust function is automatically instrumented.
 
 A future operation adds child spans by:
 
 - adding stable `SpanKey` constants;
-- adding those keys to the daemon parent-to-key policy mapping;
+- adding those keys to the daemon parent-to-key enablement mapping;
 - wrapping selected in-process boundaries with `measure_optional_if`.
 
 It should not need operation-specific daemon persistence paths.
@@ -611,17 +602,17 @@ Span keys are stable domain names such as
 display labels, or exact function names such as `resolve_exec_workspace`, which
 may churn during refactors.
 
-The policy remains independent of SQLite, daemon paths, request ids, response
-JSON, command output, transcripts, and `sandbox-observability` records.
+The enabled-key set remains independent of SQLite, daemon paths, request ids,
+response JSON, command output, transcripts, and `sandbox-observability` records.
 
 ### Extensibility
 
 The next runtime operation can add eligible child spans with the same three-step
-pattern: define keys, add policy mapping from a Phase 3 parent span, and wrap
-in-process boundaries with `measure_optional_if`.
+pattern: define keys, add an enablement mapping from a Phase 3 parent span, and
+wrap in-process boundaries with `measure_optional_if`.
 
 Config-driven enablement and recent-trace-driven enablement compose by unioning
-keys in `DaemonObservability::operation_trace_policy`. Runtime call sites do
+keys in `DaemonObservability::enabled_deep_span_keys`. Runtime call sites do
 not change.
 
 If later phases add a product query API, no runtime change is required. The API
@@ -643,7 +634,7 @@ Reject or revise the Phase 3.5 design if implementation requires any of:
 - a profiler-like function discovery system;
 - broad `tracing` annotations;
 - a background tuning service;
-- a large trait hierarchy for span policies;
+- a large trait hierarchy for span enablement;
 - operation-specific daemon persistence paths;
 - cross-process runner internals as ordinary child spans;
 - public response-shape changes.
@@ -660,11 +651,10 @@ Keep the implementation in the existing crate layout.
 `crates/sandbox-runtime/operation/src/observability.rs`
 
 - Add `SpanKey`.
-- Add `OperationTracePolicy`.
 - Add initial span-key constants, preferably in a nested `span_keys` namespace.
-- Add `policy: OperationTracePolicy` to `OperationTrace`.
-- Keep `OperationTrace::new()` as an empty-policy constructor.
-- Add `OperationTrace::new_with_policy(policy)`.
+- Add `enabled_span_keys: HashSet<SpanKey>` to `OperationTrace`.
+- Keep `OperationTrace::new()` as an empty-enabled-set constructor.
+- Add `OperationTrace::new_with_enabled_span_keys(keys)`.
 - Add `OperationTrace::measure_if`.
 - Add crate-private `measure_optional_if` only if it keeps call sites readable.
 - Do not import `sandbox-observability`, SQLite, daemon config, request ids,
@@ -672,8 +662,7 @@ Keep the implementation in the existing crate layout.
 
 `crates/sandbox-runtime/operation/src/lib.rs`
 
-- Re-export `SpanKey` and `OperationTracePolicy` for daemon policy
-  construction.
+- Re-export `SpanKey` for daemon enabled-key construction.
 - Continue re-exporting `OperationTrace`, `CompletedOperationTrace`, and
   `CompletedOperationSpan`.
 
@@ -681,7 +670,7 @@ Keep the implementation in the existing crate layout.
 
 - No signature change is required for `dispatch_operation`.
 - Keep Phase 3 `dispatch_operation` and `<operation>::dispatch` spans.
-- Do not gate Phase 3 coarse spans with Phase 3.5 policy.
+- Do not gate Phase 3 coarse spans with Phase 3.5 enabled keys.
 
 ### Command Runtime Spans
 
@@ -781,32 +770,32 @@ Keep the implementation in the existing crate layout.
 - `spawn_current_exe_ns_runner` remains inside the lower command crate and is
   covered inclusively by `command.exec.spawn.process_spawn`.
 
-### Daemon Policy
+### Daemon Enabled Keys
 
 `crates/sandbox-daemon/src/server/dispatch.rs`
 
-- Construct `OperationTrace` with `OperationTrace::new_with_policy` when
-  observability is enabled.
+- Construct `OperationTrace` with
+  `OperationTrace::new_with_enabled_span_keys` when observability is enabled.
 - Keep `None` when observability is disabled.
 - Do not create a disabled/no-op trace object.
 - Do not change response projection or error response shape.
 
 `crates/sandbox-daemon/src/observability/service.rs`
 
-- Add daemon-local `DeepSpanPolicyState`.
-- Add `operation_trace_policy`.
-- Update policy state from `CompletedOperationTrace` before consuming it into
+- Add daemon-local `enabled_deep_span_keys: Mutex<HashSet<SpanKey>>`.
+- Add `enabled_deep_span_keys`.
+- Update enabled-key state from `CompletedOperationTrace` before consuming it into
   storage rows.
 - Keep `insert_completed_operation_trace` best-effort and request-safe.
 - Keep trace mapping to existing `TraceRecord` and `SpanRecord`.
 
 `crates/sandbox-daemon/tests/unit/observability.rs`
 
-- Add daemon policy tests:
+- Add daemon enabled-key tests:
   - missing `sandbox_id` still disables traces;
   - store failures still do not change operation responses;
   - completed slow `CommandOperationService::exec_command` enables command
-    child keys for future policies;
+    child keys for future requests;
   - completed slow `LayerStackService::squash` enables layerstack child keys;
   - successful trace insertion still writes ordinary `SpanRecord` rows.
 
@@ -814,8 +803,8 @@ Keep the implementation in the existing crate layout.
 
 `crates/sandbox-runtime/operation/tests/operation_trace.rs`
 
-- Add child policy tests:
-  - default policy disables child spans;
+- Add child span tests:
+  - default enabled set disables child spans;
   - enabled key records a child span under the current parent;
   - disabled keys do not consume `call_index`;
   - mixed enabled and disabled keys keep stable call ordering;
@@ -830,19 +819,9 @@ Expected runtime additions:
 ```rust
 pub struct SpanKey(&'static str);
 
-pub struct OperationTracePolicy {
-    enabled: HashSet<SpanKey>,
-}
-
-impl OperationTracePolicy {
-    pub fn empty() -> Self;
-    pub fn from_enabled_keys(keys: impl IntoIterator<Item = SpanKey>) -> Self;
-    pub fn is_enabled(&self, key: SpanKey) -> bool;
-}
-
 impl OperationTrace {
     pub fn new() -> Self;
-    pub fn new_with_policy(policy: OperationTracePolicy) -> Self;
+    pub fn new_with_enabled_span_keys(keys: impl IntoIterator<Item = SpanKey>) -> Self;
     pub fn measure_if<T>(&self, span_key: SpanKey, call: impl FnOnce() -> T) -> T;
 }
 ```
@@ -913,7 +892,7 @@ cutover inside this repo instead. Update call sites and tests directly.
 | `layerstack.squash.squash_layerstack` | Implement. | In-process caller-owned boundary around `LayerStack::squash`. |
 | `runner::run`, `run_setns`, `shell_exec::execute_shell` | Defer to Phase 4.5. | These are namespace-runner process internals, not Phase 3.5 request-local child spans. |
 
-## Failure Policy
+## Failure Behavior
 
 - Disabled child keys call the original code path directly.
 - Disabled child keys do not allocate spans, consume `call_index`, or alter
@@ -921,7 +900,7 @@ cutover inside this repo instead. Update call sites and tests directly.
 - Missing observability or missing `sandbox_id` still passes `None` to runtime
   dispatch and skips trace persistence.
 - Store failures still do not fail or alter user operations.
-- Policy update failures or poisoned locks must not fail user operations.
+- Enabled-key update failures or poisoned locks must not fail user operations.
 - Unknown span keys from config or future state are ignored until registered.
 - Panics keep the existing Phase 3 behavior: `SpanGuard::drop` records `panic`
   during unwind, but daemon dispatch does not add a new `catch_unwind` path in
@@ -941,10 +920,10 @@ Phase 3.5 should prefer the lower half of this range. Expected runtime
 non-test split:
 
 ```text
-span key/policy additions                     20-40
+span key/enabled-set additions                20-40
 measure_if-style runtime API                  10-20
 selected child span call-site wiring          20-50
-daemon policy creation/update                 10-25
+daemon enabled-key creation/update            10-25
 tests and small exports as needed
 ```
 
@@ -960,7 +939,6 @@ The runtime budget should stop and revise if the implementation needs more than
 If the budget is tight, keep only:
 
 - `SpanKey`;
-- `OperationTracePolicy`;
 - `OperationTrace::measure_if`;
 - command exec boundary spans;
 - layerstack open/squash spans;
@@ -991,10 +969,11 @@ Required behavior tests:
 - call index ordering remains stable with mixed enabled and disabled child
   keys;
 - existing Phase 3 coarse spans still appear;
-- daemon can create a trace policy without changing operation responses;
-- slow completed command traces enable command child keys for future policies;
+- daemon can create a trace with enabled keys without changing operation
+  responses;
+- slow completed command traces enable command child keys for future requests;
 - slow completed layerstack traces enable layerstack child keys for future
-  policies;
+  requests;
 - trace persistence uses existing `TraceRecord`, `SpanRecord`, and
   `ObservabilityStore::insert_trace`;
 - no new schema migration is required;
@@ -1009,14 +988,13 @@ Required behavior tests:
 
 Phase 3.5 is complete when:
 
-- `OperationTrace` carries an immutable request-local policy;
-- `SpanKey` and `OperationTracePolicy` are exported from
-  `sandbox-runtime/operation`;
+- `OperationTrace` carries immutable request-local enabled keys;
+- `SpanKey` is exported from `sandbox-runtime/operation`;
 - enabled child keys record spans through `measure_if`;
 - disabled child keys call through without span rows or call-index changes;
-- daemon dispatch constructs `OperationTrace` with a policy when observability
-  is enabled;
-- daemon-local policy updates from completed Phase 3 parent spans;
+- daemon dispatch constructs `OperationTrace` with enabled keys when
+  observability is enabled;
+- daemon-local enabled keys update from completed Phase 3 parent spans;
 - selected command exec and layerstack child spans are wired;
 - existing Phase 3 parent spans still appear;
 - trace persistence still uses existing `traces` and `spans`;
@@ -1029,7 +1007,7 @@ Phase 3.5 is complete when:
 - The current checkout has Phase 3 implementation files in the worktree. Before
   implementing Phase 3.5, confirm those Phase 3 changes are intended to be the
   base and are not partial local work that should be amended first.
-- The first dynamic policy uses a simple parent-span duration threshold. The
+- The first dynamic approach uses a simple parent-span duration threshold. The
   exact threshold should be validated with local traces after Phase 3 is
   exercised under real command and layerstack workloads.
 - If `command.exec.workspace_session.create_workspace_session` remains too
