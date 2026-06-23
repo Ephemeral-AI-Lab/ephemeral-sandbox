@@ -178,11 +178,8 @@ Phase 5 namespace execution DTO:
 ```rust
 pub struct NamespaceExecutionSnapshot {
     pub namespace_execution_id: String,
-    pub workspace_session_id: String,
     pub operation: String,
     pub lifecycle_state: String,
-    pub sampled_at_unix_ms: Option<i64>,
-    pub partial_errors: Vec<SnapshotPartialError>,
 }
 ```
 
@@ -190,6 +187,16 @@ There is no `ExecutionSnapshot` DTO in the public Phase 5 query API.
 `active_commands` is not a serialized field. A display client may identify
 command operations with `operation == "exec_command"`, but the wire/API shape
 remains namespace execution only.
+
+The public Phase 5 DTO intentionally omits fields that are storage mechanics or
+not backed by row-level behavior:
+
+- `workspace_session_id` is used by storage/query code to group rows, but the
+  public active namespace execution entry is nested under a `WorkspaceSnapshot`;
+- `sampled_at_unix_ms` is inherited from the containing workspace/sandbox
+  snapshot unless a future API proves per-row freshness is needed;
+- per-execution `partial_errors` are deferred until namespace execution rows can
+  actually carry row-level partial errors.
 
 ## Operation Semantics
 
@@ -258,7 +265,9 @@ generic namespace states.
 
 ## Storage Migration
 
-Add a new schema migration after the current Phase 4.5 migration:
+Add a new schema migration after the current Phase 4.5 migration. This should
+be a V5 migration, for example
+`phase_4_6_mechanical_namespace_execution_unification`:
 
 ```sql
 DROP INDEX IF EXISTS idx_execution_snapshots_workspace;
@@ -271,16 +280,13 @@ This is a hard cutover. Do not migrate rows from `execution_snapshots` into
 not durable history. Existing completed namespace execution traces already live
 in `namespace_execution_traces`.
 
-For fresh databases, the implementation may either:
-
-- remove `execution_snapshots` from the Phase 2 schema and keep the new schema
-  version as the only path, if migration checks are updated accordingly; or
-- leave the historical migration text unchanged and drop the table in the new
-  migration.
-
-Prefer the second option if checksum validation treats historical migration SQL
-as immutable. The final database schema after all migrations must not contain
-`execution_snapshots` or `idx_execution_snapshots_*`.
+Do not rewrite historical migration SQL. The current store records checksums in
+`schema_migrations`, so changing the Phase 2 migration text would break existing
+databases that have already applied it. Fresh databases should still apply the
+historical Phase 2 migration and then apply the new V5 drop migration. The final
+database schema after all migrations must not contain `execution_snapshots` or
+`idx_execution_snapshots_*`, even though historical migration text may still
+mention them.
 
 ## File Plan
 
@@ -426,6 +432,7 @@ as immutable. The final database schema after all migrations must not contain
 - Final migrated schema does not include `execution_snapshots`.
 - Final migrated schema does not include `idx_execution_snapshots_workspace` or
   `idx_execution_snapshots_command`.
+- Schema migration count increases to include the Phase 4.6 V5 drop migration.
 - Namespace execution snapshot upsert and prune tests remain.
 - Namespace execution snapshot and trace rows do not add `execution_kind`.
 - Any test helper named `execution_snapshots_for_test` is removed.
@@ -449,16 +456,17 @@ cargo test -p sandbox-observability
 cargo test -p sandbox-daemon observability
 cargo clippy -p sandbox-runtime --all-targets --no-deps -- -D warnings
 cargo clippy -p sandbox-daemon --all-targets --no-deps -- -D warnings
-rg -n "RuntimeExecutionSnapshot|ExecutionSnapshotRecord|execution_snapshots|idx_execution_snapshots" crates/sandbox-runtime/operation/src crates/sandbox-daemon/src/observability crates/sandbox-observability/src crates/sandbox-observability/tests crates/sandbox-daemon/tests
+rg -n "RuntimeExecutionSnapshot|ExecutionSnapshotRecord|upsert_execution_snapshots|prune_execution_snapshots|execution_snapshots_for_test" crates/sandbox-runtime/operation/src crates/sandbox-daemon/src/observability crates/sandbox-observability/src crates/sandbox-observability/tests crates/sandbox-daemon/tests
 rg -n "active_executions|active_commands" crates/sandbox-runtime/operation/src/observability.rs crates/sandbox-runtime/operation/src/services.rs crates/sandbox-daemon/src/observability/service.rs docs/observability/phase-5-manager-aggregation.md
 rg -n "NamespaceExecutionKind|execution_kind|namespace_execution_kind|runner_kind|execution_scope" crates/sandbox-runtime/operation/src/namespace_execution.rs crates/sandbox-daemon/src/observability/namespace_execution.rs crates/sandbox-observability/src/records.rs crates/sandbox-observability/src/store.rs
 git diff --check
 ```
 
 The `rg` commands are expected to return no production hits after
-implementation. Historical docs may still mention superseded Phase 2 names, but
-the active runtime, daemon, store, and Phase 5 DTO plan must not keep the old
-lane or add a replacement kind axis.
+implementation. Historical docs and immutable historical migration SQL may still
+mention superseded Phase 2 names, and the V5 migration must mention the dropped
+table/index names. The active runtime, daemon, store APIs/tests, and Phase 5 DTO
+plan must not keep the old lane or add a replacement kind axis.
 
 ## Completion Checklist
 

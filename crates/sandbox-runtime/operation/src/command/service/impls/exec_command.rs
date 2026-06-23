@@ -19,7 +19,7 @@ use crate::observability::{measure_optional_if, span_keys, OperationTrace};
 use crate::workspace_crate::{WorkspaceEntry, WorkspaceSessionId};
 use crate::workspace_session::WorkspaceSessionHandler;
 
-use super::core::WorkspaceLifecycleAdmission;
+use super::super::core::WorkspaceLifecycleAdmission;
 
 impl CommandOperationService {
     pub fn exec_command(

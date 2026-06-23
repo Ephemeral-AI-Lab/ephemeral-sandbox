@@ -693,11 +693,8 @@ pub struct WorkspaceSnapshot {
 
 pub struct NamespaceExecutionSnapshot {
     pub namespace_execution_id: String,
-    pub workspace_session_id: String,
     pub operation: String,
     pub lifecycle_state: String,
-    pub sampled_at_unix_ms: Option<i64>,
-    pub partial_errors: Vec<SnapshotPartialError>,
 }
 
 pub struct ResourceSnapshot {
@@ -754,6 +751,12 @@ pub struct SnapshotPartialError {
     pub message: String,
 }
 ```
+
+`NamespaceExecutionSnapshot` is intentionally smaller than the SQLite row. The
+storage/query layer uses `workspace_session_id` to group rows under a workspace,
+but the public DTO is already nested under `WorkspaceSnapshot`. It also inherits
+snapshot freshness from the containing workspace/sandbox snapshot and omits
+per-execution `partial_errors` until row-level partial errors exist.
 
 JSON field names should be stable API names, not raw SQLite column names where a
 clearer name exists. Keep existing domain ids such as `sandbox_id`,

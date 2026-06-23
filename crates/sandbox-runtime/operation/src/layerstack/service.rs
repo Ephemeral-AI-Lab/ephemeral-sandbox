@@ -1,7 +1,6 @@
 mod core;
+mod impls;
 pub mod model;
-mod publish_changes;
-mod squash;
 
 pub use core::LayerStackService;
 pub use model::{
