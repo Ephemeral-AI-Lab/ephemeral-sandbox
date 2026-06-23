@@ -16,7 +16,7 @@ const DAEMON_CONFIG_YAML_ENV: &str = "SANDBOX_DAEMON_CONFIG_YAML";
 ///
 /// This is a thin call into the `sandbox-runtime-namespace-process` runner module:
 /// read the request payload from `--request-fd <fd>`, load the runner
-/// config, dispatch the selected [`RunnerCliMode`], and write the compact
+/// config, dispatch the selected [`NsRunnerOperation`], and write the compact
 /// `RunResult` JSON to `--result-fd <fd>`.
 pub(crate) fn run(args: std::env::Args) -> Result<()> {
     let config = RunnerCliConfig::parse(args)?;
@@ -35,12 +35,12 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
 }
 
 fn dispatch_runner_mode(
-    mode: RunnerCliMode,
+    mode: NsRunnerOperation,
     request: &sandbox_runtime_namespace_process::runner::protocol::NamespaceRunnerRequest,
     runner_config: &RunnerConfig,
 ) -> Result<sandbox_runtime_namespace_process::runner::protocol::RunResult> {
     match mode {
-        RunnerCliMode::RemountOverlay => Ok(
+        NsRunnerOperation::RemountOverlay => Ok(
             sandbox_runtime_namespace_process::runner::protocol::RunResult {
                 exit_code: 0,
                 payload: sandbox_runtime_namespace_process::runner::setns::remount_overlay(
@@ -50,7 +50,7 @@ fn dispatch_runner_mode(
                 .context("ns-runner remount overlay failed")?,
             },
         ),
-        RunnerCliMode::MountOverlay => {
+        NsRunnerOperation::MountOverlay => {
             sandbox_runtime_namespace_process::runner::setns::setns_overlay_mount(
                 request,
                 &runner_config.mount_mask.hidden_paths,
@@ -58,7 +58,7 @@ fn dispatch_runner_mode(
             .context("ns-runner setns overlay mount failed")?;
             Ok(ok_result())
         }
-        RunnerCliMode::Run => {
+        NsRunnerOperation::Run => {
             sandbox_runtime_namespace_process::runner::run(request).context("ns-runner failed")
         }
     }
@@ -86,9 +86,9 @@ fn runner_config_from_document(doc: &sandbox_config::ConfigDocument) -> Result<R
     Ok(config)
 }
 
-/// Which ns-runner operation the CLI flags selected; default is command execution.
+/// Which ns-runner operation the flags selected; default is command execution.
 #[derive(Clone, Copy)]
-enum RunnerCliMode {
+enum NsRunnerOperation {
     Run,
     MountOverlay,
     RemountOverlay,
@@ -98,7 +98,7 @@ pub(crate) struct RunnerCliConfig {
     request_fd: RawFd,
     result_fd: RawFd,
     start_ack_fd: Option<RawFd>,
-    mode: RunnerCliMode,
+    mode: NsRunnerOperation,
 }
 
 impl RunnerCliConfig {
@@ -107,7 +107,7 @@ impl RunnerCliConfig {
         let mut result_fd = None;
         let mut start_ack_fd = None;
         let mut mode = None;
-        let mut set_mode = |selected: RunnerCliMode| {
+        let mut set_mode = |selected: NsRunnerOperation| {
             if mode.is_some() {
                 return Err(anyhow!(
                     "ns-runner accepts only one of --mount-overlay or --remount-overlay"
@@ -119,8 +119,8 @@ impl RunnerCliConfig {
         let mut args = args.into_iter();
         while let Some(arg) = args.next() {
             match arg.as_str() {
-                "--mount-overlay" => set_mode(RunnerCliMode::MountOverlay)?,
-                "--remount-overlay" => set_mode(RunnerCliMode::RemountOverlay)?,
+                "--mount-overlay" => set_mode(NsRunnerOperation::MountOverlay)?,
+                "--remount-overlay" => set_mode(NsRunnerOperation::RemountOverlay)?,
                 "--request-fd" => {
                     request_fd = Some(
                         args.next()
@@ -167,7 +167,7 @@ impl RunnerCliConfig {
             request_fd,
             result_fd,
             start_ack_fd,
-            mode: mode.unwrap_or(RunnerCliMode::Run),
+            mode: mode.unwrap_or(NsRunnerOperation::Run),
         })
     }
 }

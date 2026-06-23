@@ -1,10 +1,11 @@
 use serde_json::{json, Value};
 
+use crate::cli_definition::{
+    ArgCliSpec, ArgKind, ArgSpec, CliOperationFamilySpec, CliOperationSpec, CliSpec,
+};
 use crate::command::CommandSessionId;
 use crate::observability::{measure_optional, OperationTrace};
-use crate::operation::{
-    ArgCliSpec, ArgKind, ArgSpec, CliOperationFamilySpec, CliOperationSpec, CliSpec, OperationEntry,
-};
+use crate::operation::OperationEntry;
 use crate::workspace_crate::{
     CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, WorkspaceProfile,
     WorkspaceSessionId,

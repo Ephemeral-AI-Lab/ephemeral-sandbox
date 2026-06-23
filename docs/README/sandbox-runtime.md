@@ -83,7 +83,7 @@ remounts through narrow command and workspace-session ports.
 - `sandbox-runtime-overlay` owns low-level overlay mount, move, and unmount
   primitives shared by workspace and namespace process code.
 - `sandbox-config` owns sandbox YAML loading, merging, validation, and typed
-  gateway, manager, CLI, daemon, runner, and runtime config schemas.
+  gateway, CLI, daemon, runner, and runtime config schemas.
 
 ## Wiring
 

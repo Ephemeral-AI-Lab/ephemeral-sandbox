@@ -1,13 +1,11 @@
 use std::sync::OnceLock;
 
+use crate::cli_definition::{
+    command_operations, layerstack_operations, workspace_session_operations,
+    CliOperationFamilySpec, CliOperationSpec,
+};
 use crate::observability::{measure_optional, OperationTrace};
 use crate::services::SandboxRuntimeOperations;
-use crate::{command, layerstack, workspace_session_operations};
-
-pub use sandbox_protocol::{
-    ArgCliSpec, ArgKind, ArgSpec, CliOperationCatalog, CliOperationExecutionSpace,
-    CliOperationFamilySpec, CliOperationSpec, CliSpec,
-};
 
 #[derive(Clone, Copy)]
 pub(crate) struct OperationEntry {
@@ -39,9 +37,9 @@ impl OperationEntry {
 }
 
 const CLI_FAMILIES: &[&CliOperationFamilySpec] = &[
-    &command::COMMAND_FAMILY,
+    &command_operations::COMMAND_FAMILY,
     &workspace_session_operations::WORKSPACE_SESSION_FAMILY,
-    &layerstack::LAYERSTACK_FAMILY,
+    &layerstack_operations::LAYERSTACK_FAMILY,
 ];
 static CLI_SPECS: OnceLock<&'static [&'static CliOperationSpec]> = OnceLock::new();
 
@@ -89,9 +87,9 @@ pub(crate) fn known_operation_name(operation: &str) -> Option<&'static str> {
 
 fn operation_entry_groups() -> [&'static [OperationEntry]; 3] {
     [
-        command::operation_entries(),
+        command_operations::operation_entries(),
         workspace_session_operations::operation_entries(),
-        layerstack::operation_entries(),
+        layerstack_operations::operation_entries(),
     ]
 }
 

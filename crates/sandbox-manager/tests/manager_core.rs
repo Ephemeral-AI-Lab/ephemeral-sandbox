@@ -9,31 +9,8 @@ use sandbox_manager::{
     SandboxDaemonEndpoint, SandboxDaemonInstaller, SandboxId, SandboxRecord, SandboxRuntime,
     SandboxState, SandboxStore,
 };
-use sandbox_protocol::{
-    ArgKind, CliOperationCatalog, CliOperationExecutionSpace, CliOperationFamilySpec,
-    CliOperationScope, CliOperationSpec, Request, Response,
-};
+use sandbox_protocol::{ArgKind, CliOperationExecutionSpace, CliOperationScope, Request, Response};
 use serde_json::{json, Value};
-
-static TEST_RUNTIME_FAMILY: CliOperationFamilySpec = CliOperationFamilySpec {
-    id: "test",
-    title: "Test",
-    summary: "Test runtime operations.",
-    description: "Test runtime operations.",
-};
-
-static TEST_RUNTIME_SPEC: CliOperationSpec = CliOperationSpec {
-    name: "runtime_test_operation",
-    family: "test",
-    summary: "Test runtime operation.",
-    description: "Test runtime operation.",
-    args: &[],
-    cli: None,
-    related: &[],
-};
-
-static TEST_RUNTIME_FAMILIES: &[&CliOperationFamilySpec] = &[&TEST_RUNTIME_FAMILY];
-static TEST_RUNTIME_SPECS: &[&CliOperationSpec] = &[&TEST_RUNTIME_SPEC];
 
 #[derive(Default)]
 struct FakeRuntime {
@@ -71,6 +48,10 @@ struct FakeInstaller {
 }
 
 impl SandboxDaemonInstaller for FakeInstaller {
+    fn install_daemon(&self, _record: &SandboxRecord) -> Result<(), ManagerError> {
+        Ok(())
+    }
+
     fn start_daemon(&self, record: &SandboxRecord) -> Result<SandboxDaemonEndpoint, ManagerError> {
         self.started
             .lock()
@@ -89,29 +70,15 @@ impl SandboxDaemonInstaller for FakeInstaller {
             .push(record.id.as_str().to_owned());
         Ok(())
     }
+
+    fn check_daemon(&self, _endpoint: &SandboxDaemonEndpoint) -> Result<(), ManagerError> {
+        Ok(())
+    }
 }
 
-#[derive(Default)]
-struct FakeClient {
-    described: Mutex<Vec<PathBuf>>,
-}
+struct FakeClient;
 
 impl SandboxDaemonClient for FakeClient {
-    fn describe_operations(
-        &self,
-        endpoint: &SandboxDaemonEndpoint,
-    ) -> Result<CliOperationCatalog, ManagerError> {
-        self.described
-            .lock()
-            .expect("described lock")
-            .push(endpoint.socket_path.clone());
-        Ok(CliOperationCatalog::new(
-            CliOperationExecutionSpace::Runtime,
-            TEST_RUNTIME_FAMILIES,
-            TEST_RUNTIME_SPECS,
-        ))
-    }
-
     fn invoke(
         &self,
         _endpoint: &SandboxDaemonEndpoint,
@@ -130,7 +97,7 @@ fn services() -> (
     let store = Arc::new(SandboxStore::new());
     let runtime = Arc::new(FakeRuntime::default());
     let installer = Arc::new(FakeInstaller::default());
-    let client = Arc::new(FakeClient::default());
+    let client = Arc::new(FakeClient);
     let services = ManagerServices::new(
         Arc::clone(&store),
         runtime.clone(),

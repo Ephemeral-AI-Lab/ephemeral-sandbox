@@ -1026,7 +1026,6 @@ name = "sandbox-manager"
 version = "0.1.0"
 dependencies = [
  "nix 0.29.0",
- "sandbox-config",
  "sandbox-protocol",
  "serde_json",
  "thiserror 2.0.18",

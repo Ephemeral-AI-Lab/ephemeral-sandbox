@@ -9,7 +9,7 @@ use sandbox_gateway::{
 };
 use sandbox_manager::{
     CreateSandboxRequest, CreateSandboxResult, ManagerError, ManagerServices, SandboxDaemonClient,
-    SandboxDaemonEndpoint, SandboxDaemonInstaller, SandboxId, SandboxManagerRouter, SandboxRecord,
+    SandboxDaemonEndpoint, SandboxDaemonInstaller, SandboxManagerRouter, SandboxRecord,
     SandboxRuntime, SandboxStore,
 };
 use tokio_util::sync::CancellationToken;
@@ -94,32 +94,40 @@ fn install_ctrl_c_shutdown(shutdown: CancellationToken) {
 fn default_manager_services() -> Arc<ManagerServices> {
     Arc::new(ManagerServices::new(
         Arc::new(SandboxStore::new()),
-        Arc::new(NoopRuntime),
+        Arc::new(UnconfiguredRuntime),
         Arc::new(UnconfiguredDaemonInstaller),
         Arc::new(UnconfiguredDaemonClient),
     ))
 }
 
-struct NoopRuntime;
+struct UnconfiguredRuntime;
 
-impl SandboxRuntime for NoopRuntime {
+impl SandboxRuntime for UnconfiguredRuntime {
     fn create_sandbox(
         &self,
         _request: &CreateSandboxRequest,
     ) -> Result<CreateSandboxResult, ManagerError> {
-        Ok(CreateSandboxResult {
-            id: SandboxId::new(format!("noop-{}", uuid::Uuid::new_v4())).expect("valid noop id"),
+        Err(ManagerError::RuntimeFailed {
+            message: "sandbox runtime is not configured".to_owned(),
         })
     }
 
     fn destroy_sandbox(&self, _record: &SandboxRecord) -> Result<(), ManagerError> {
-        Ok(())
+        Err(ManagerError::RuntimeFailed {
+            message: "sandbox runtime is not configured".to_owned(),
+        })
     }
 }
 
 struct UnconfiguredDaemonInstaller;
 
 impl SandboxDaemonInstaller for UnconfiguredDaemonInstaller {
+    fn install_daemon(&self, _record: &SandboxRecord) -> Result<(), ManagerError> {
+        Err(ManagerError::DaemonInstallFailed {
+            message: "sandbox daemon installer is not configured".to_owned(),
+        })
+    }
+
     fn start_daemon(&self, _record: &SandboxRecord) -> Result<SandboxDaemonEndpoint, ManagerError> {
         Err(ManagerError::DaemonInstallFailed {
             message: "sandbox daemon installer is not configured".to_owned(),
@@ -129,20 +137,17 @@ impl SandboxDaemonInstaller for UnconfiguredDaemonInstaller {
     fn stop_daemon(&self, _record: &SandboxRecord) -> Result<(), ManagerError> {
         Ok(())
     }
+
+    fn check_daemon(&self, _endpoint: &SandboxDaemonEndpoint) -> Result<(), ManagerError> {
+        Err(ManagerError::DaemonInstallFailed {
+            message: "sandbox daemon installer is not configured".to_owned(),
+        })
+    }
 }
 
 struct UnconfiguredDaemonClient;
 
 impl SandboxDaemonClient for UnconfiguredDaemonClient {
-    fn describe_operations(
-        &self,
-        _endpoint: &SandboxDaemonEndpoint,
-    ) -> Result<sandbox_protocol::CliOperationCatalog, ManagerError> {
-        Err(ManagerError::ForwardingFailed {
-            message: "sandbox daemon client is not configured".to_owned(),
-        })
-    }
-
     fn invoke(
         &self,
         _endpoint: &SandboxDaemonEndpoint,

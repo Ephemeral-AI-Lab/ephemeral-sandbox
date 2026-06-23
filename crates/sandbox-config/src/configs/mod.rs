@@ -6,8 +6,6 @@ pub mod daemon;
 
 pub mod gateway;
 
-pub mod manager;
-
 pub mod validate;
 
 pub mod runner;

@@ -4,7 +4,6 @@ use std::time::Instant;
 
 use sandbox_runtime_command::process::{CommandProcess, CommandProcessSpec};
 
-use super::command_yield_response;
 use crate::command::service::CommandCompletionPromise;
 use crate::command::service::CommandOperationService;
 use crate::command::{
@@ -16,112 +15,11 @@ use crate::namespace_execution::{
     BeginNamespaceExecution, CompleteNamespaceExecution, NamespaceExecutionId,
     NamespaceExecutionTerminalStatus,
 };
-use crate::observability::{measure_optional, measure_optional_if, span_keys, OperationTrace};
-use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
+use crate::observability::{measure_optional_if, span_keys, OperationTrace};
 use crate::workspace_crate::{WorkspaceEntry, WorkspaceSessionId};
 use crate::workspace_session::WorkspaceSessionHandler;
-use crate::SandboxRuntimeOperations;
-use sandbox_protocol::{Request, Response};
 
-use super::super::core::WorkspaceLifecycleAdmission;
-
-pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
-    name: "exec_command",
-    family: "command",
-    summary: "Start a command in a workspace.",
-    description: "Start a shell command inside an existing workspace session when workspace_session_id is provided, otherwise create a one-shot host-compatible workspace and destroy it when the command reaches terminal state. If the command is still running after the initial wait, the response includes a command_session_id that can be used with write_command_stdin or read_command_lines.",
-    args: EXEC_COMMAND_ARGS,
-    cli: Some(EXEC_COMMAND_CLI),
-    related: &[
-        "write_command_stdin",
-        "read_command_lines",
-    ],
-};
-
-const EXEC_COMMAND_ARGS: &[ArgSpec] = &[
-    ArgSpec::optional(
-        "workspace_session_id",
-        ArgKind::String,
-        "Existing workspace session id to run inside. Omit to run in a one-shot workspace.",
-        None,
-        Some(ArgCliSpec {
-            flag: Some("--workspace-session-id"),
-            positional: None,
-        }),
-    ),
-    ArgSpec::required(
-        "cmd",
-        ArgKind::String,
-        "Shell command text.",
-        Some(ArgCliSpec {
-            flag: None,
-            positional: Some("COMMAND"),
-        }),
-    ),
-    ArgSpec::optional(
-        "timeout_ms",
-        ArgKind::Integer,
-        "Command timeout in milliseconds.",
-        None,
-        Some(ArgCliSpec {
-            flag: Some("--timeout-ms"),
-            positional: None,
-        }),
-    ),
-    ArgSpec::optional(
-        "yield_time_ms",
-        ArgKind::Integer,
-        "Initial output wait in milliseconds.",
-        None,
-        Some(ArgCliSpec {
-            flag: Some("--yield-time-ms"),
-            positional: None,
-        }),
-    ),
-];
-
-const EXEC_COMMAND_CLI: CliSpec = CliSpec {
-    path: &["runtime", "exec_command"],
-    usage: "sandbox-cli runtime exec_command [--workspace-session-id ID] COMMAND",
-    examples: &[
-        "sandbox-cli runtime exec_command pwd",
-        "sandbox-cli runtime exec_command --workspace-session-id ws-1 pwd",
-        "sandbox-cli runtime exec_command --workspace-session-id ws-1 --yield-time-ms 0 \"sleep 30\"",
-    ],
-};
-
-pub(crate) fn dispatch(
-    operations: &SandboxRuntimeOperations,
-    request: &Request,
-    trace: Option<&OperationTrace>,
-) -> Response {
-    let input = match parse_input(request) {
-        Ok(input) => input,
-        Err(response) => return response,
-    };
-    let origin_request_id = Some(request.request_id.clone());
-    command_yield_response(measure_optional(
-        trace,
-        "CommandOperationService::exec_command",
-        || {
-            operations
-                .command
-                .exec_command_with_origin_request_id(input, trace, origin_request_id)
-        },
-    ))
-}
-
-fn parse_input(request: &Request) -> Result<ExecCommandInput, Response> {
-    Ok(ExecCommandInput {
-        workspace_session_id: request
-            .optional_string("workspace_session_id")?
-            .filter(|workspace_session_id| !workspace_session_id.is_empty())
-            .map(WorkspaceSessionId),
-        cmd: request.required_string("cmd")?,
-        timeout_ms: request.optional_u64("timeout_ms")?,
-        yield_time_ms: request.optional_u64("yield_time_ms")?,
-    })
-}
+use super::core::WorkspaceLifecycleAdmission;
 
 impl CommandOperationService {
     pub fn exec_command(
@@ -132,7 +30,7 @@ impl CommandOperationService {
         self.exec_command_with_origin_request_id(input, trace, None)
     }
 
-    fn exec_command_with_origin_request_id(
+    pub(crate) fn exec_command_with_origin_request_id(
         &self,
         input: ExecCommandInput,
         trace: Option<&OperationTrace>,
@@ -348,7 +246,7 @@ impl CommandOperationService {
                     terminal_status: NamespaceExecutionTerminalStatus::Error,
                     exit_code: None,
                     error_kind: Some("command_start_failed".to_owned()),
-                    error_message: Some(error.to_string()),
+                    error_message: Some(namespace_start_failure_error_message(error).to_owned()),
                 },
             );
     }
@@ -468,4 +366,8 @@ fn cleanup_process_artifacts_after_start_failure(
             cleanup_error: cleanup_error.to_string(),
         },
     }
+}
+
+fn namespace_start_failure_error_message(_error: &CommandServiceError) -> &'static str {
+    "command start failed before namespace execution started"
 }

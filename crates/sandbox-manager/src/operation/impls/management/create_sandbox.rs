@@ -1,4 +1,4 @@
-use crate::{CreateSandboxRequest, ManagerError, SandboxState};
+use crate::{CreateSandboxRequest, SandboxState};
 
 use super::{image, record_value, workspace_root};
 use sandbox_protocol::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
@@ -88,9 +88,6 @@ pub(crate) fn dispatch(
                 Err(error) => error.into_response(),
             }
         }
-        Err(error) => ManagerError::RuntimeFailed {
-            message: error.to_string(),
-        }
-        .into_response(),
+        Err(error) => error.into_response(),
     }
 }

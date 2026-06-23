@@ -62,14 +62,6 @@ mod gateway_tests {
     ));
 }
 
-mod manager_tests {
-    pub(crate) use crate::configs::manager::*;
-    include!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/unit/configs/manager.rs"
-    ));
-}
-
 mod runner_tests {
     pub(crate) use crate::configs::runner::*;
     pub(crate) use std::path::PathBuf;

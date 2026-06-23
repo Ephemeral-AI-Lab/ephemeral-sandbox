@@ -314,7 +314,15 @@ fn workspace_upsert_marks_stale_rows_destroyed_and_keeps_resource_history() -> T
     store.reconcile_workspace_snapshots("sandbox-1", &["workspace-2".to_owned()], 2_000)?;
 
     let connection = Connection::open(paths.database_path())?;
-    let workspaces = workspace_rows(&connection, "sandbox-1")?;
+    let mut statement = connection.prepare(
+        "SELECT workspace_id, state, sampled_at_unix_ms
+         FROM workspace_snapshots
+         WHERE sandbox_id = 'sandbox-1'
+         ORDER BY workspace_id",
+    )?;
+    let workspaces = statement
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+        .collect::<rusqlite::Result<Vec<(String, String, i64)>>>()?;
     assert_eq!(workspaces.len(), 2);
     assert_eq!(
         workspaces[0],
@@ -347,9 +355,14 @@ fn active_execution_upsert_and_prune_tracks_current_rows() -> TestResult {
     store.prune_execution_snapshots("sandbox-1", &["exec-2".to_owned()])?;
 
     let connection = Connection::open(paths.database_path())?;
-    let executions = execution_rows(&connection, "sandbox-1")?;
-    assert_eq!(executions.len(), 1);
-    assert_eq!(executions[0], ("exec-2".to_owned(), "command".to_owned()));
+    let execution: (String, String) = connection.query_row(
+        "SELECT execution_id, execution_kind
+         FROM execution_snapshots
+         WHERE sandbox_id = 'sandbox-1'",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    assert_eq!(execution, ("exec-2".to_owned(), "command".to_owned()));
 
     Ok(())
 }
@@ -386,10 +399,15 @@ fn namespace_execution_snapshot_and_completed_trace_use_typed_tables() -> TestRe
 
     let connection = Connection::open(paths.database_path())?;
     assert_eq!(row_count(&connection, "execution_snapshots")?, 0);
-    let snapshots = namespace_execution_snapshot_rows(&connection, "sandbox-1")?;
-    assert_eq!(snapshots.len(), 1);
+    let snapshot: (String, String, String, String) = connection.query_row(
+        "SELECT namespace_execution_id, workspace_session_id, operation, lifecycle_state
+         FROM namespace_execution_snapshots
+         WHERE sandbox_id = 'sandbox-1'",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )?;
     assert_eq!(
-        snapshots[0],
+        snapshot,
         (
             "namespace_execution_2".to_owned(),
             "workspace-1".to_owned(),
@@ -397,10 +415,15 @@ fn namespace_execution_snapshot_and_completed_trace_use_typed_tables() -> TestRe
             "running".to_owned(),
         )
     );
-    let traces = namespace_execution_trace_rows(&connection, "sandbox-1")?;
-    assert_eq!(traces.len(), 1);
+    let trace: (String, String, String, Option<i64>) = connection.query_row(
+        "SELECT namespace_execution_id, workspace_session_id, status, exit_code
+         FROM namespace_execution_traces
+         WHERE sandbox_id = 'sandbox-1'",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )?;
     assert_eq!(
-        traces[0],
+        trace,
         (
             "namespace_execution_1".to_owned(),
             "workspace-1".to_owned(),
@@ -520,68 +543,6 @@ fn migration_count(connection: &Connection) -> rusqlite::Result<i64> {
 fn row_count(connection: &Connection, table: &str) -> rusqlite::Result<i64> {
     let sql = format!("SELECT COUNT(*) FROM {table}");
     connection.query_row(&sql, [], |row| row.get(0))
-}
-
-fn workspace_rows(
-    connection: &Connection,
-    sandbox_id: &str,
-) -> rusqlite::Result<Vec<(String, String, i64)>> {
-    let mut statement = connection.prepare(
-        "SELECT workspace_id, state, sampled_at_unix_ms
-         FROM workspace_snapshots
-         WHERE sandbox_id = ?1
-         ORDER BY workspace_id",
-    )?;
-    let rows = statement.query_map([sandbox_id], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-    })?;
-    rows.collect()
-}
-
-fn execution_rows(
-    connection: &Connection,
-    sandbox_id: &str,
-) -> rusqlite::Result<Vec<(String, String)>> {
-    let mut statement = connection.prepare(
-        "SELECT execution_id, execution_kind
-         FROM execution_snapshots
-         WHERE sandbox_id = ?1
-         ORDER BY execution_id",
-    )?;
-    let rows = statement.query_map([sandbox_id], |row| Ok((row.get(0)?, row.get(1)?)))?;
-    rows.collect()
-}
-
-fn namespace_execution_snapshot_rows(
-    connection: &Connection,
-    sandbox_id: &str,
-) -> rusqlite::Result<Vec<(String, String, String, String)>> {
-    let mut statement = connection.prepare(
-        "SELECT namespace_execution_id, workspace_session_id, operation, lifecycle_state
-         FROM namespace_execution_snapshots
-         WHERE sandbox_id = ?1
-         ORDER BY namespace_execution_id",
-    )?;
-    let rows = statement.query_map([sandbox_id], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-    })?;
-    rows.collect()
-}
-
-fn namespace_execution_trace_rows(
-    connection: &Connection,
-    sandbox_id: &str,
-) -> rusqlite::Result<Vec<(String, String, String, Option<i64>)>> {
-    let mut statement = connection.prepare(
-        "SELECT namespace_execution_id, workspace_session_id, status, exit_code
-         FROM namespace_execution_traces
-         WHERE sandbox_id = ?1
-         ORDER BY namespace_execution_id",
-    )?;
-    let rows = statement.query_map([sandbox_id], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-    })?;
-    rows.collect()
 }
 
 struct ResourceSampleRow {

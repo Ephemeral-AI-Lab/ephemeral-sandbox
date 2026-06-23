@@ -1,8 +1,8 @@
 //! Shared loader for the sandbox configuration document.
 //!
 //! This crate owns file loading, path validation, YAML parsing, merge semantics,
-//! and typed schemas for gateway, manager, CLI, daemon, runner, and runtime
-//! config surfaces.
+//! and typed schemas for gateway, CLI, daemon, runner, and runtime config
+//! surfaces.
 
 pub mod configs;
 mod document;

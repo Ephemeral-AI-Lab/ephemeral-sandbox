@@ -3,7 +3,9 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use crate::command::{
     CommandLaunchDriver, CommandProcessStore, CommandSessionId, RealCommandLaunchDriver,
 };
-use crate::namespace_execution::{NamespaceExecutionId, NamespaceExecutionStore};
+use crate::namespace_execution::{
+    NamespaceExecutionId, NamespaceExecutionRecord, NamespaceExecutionStore,
+};
 use crate::observability::AsyncTraceSink;
 use crate::workspace_crate::{
     CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, WorkspaceProfile,
@@ -108,8 +110,17 @@ impl CommandOperationService {
     }
 
     #[must_use]
-    pub fn namespace_execution_store(&self) -> &Arc<NamespaceExecutionStore> {
+    pub(crate) fn namespace_execution_store(&self) -> &Arc<NamespaceExecutionStore> {
         &self.namespace_execution
+    }
+
+    #[doc(hidden)]
+    pub fn drain_completed_namespace_executions_for_test(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<NamespaceExecutionRecord>, String> {
+        self.namespace_execution
+            .drain_completed_namespace_executions(limit)
     }
 
     #[must_use]

@@ -1,14 +1,16 @@
 mod completion;
 mod contract;
 mod core;
+mod exec_command;
 pub(crate) mod finalize;
 mod helpers;
-mod impls;
 mod launch;
 mod process_store;
+mod read_command_lines;
 mod status_lookup;
 pub mod test_support;
 pub(crate) mod transcript;
+mod write_command_stdin;
 
 pub use completion::{CommandCompletionPromise, CommandCompletionWaitOutcome};
 pub use contract::{
@@ -23,7 +25,3 @@ pub(crate) use process_store::{
     CommandProcessStore, CommandTerminalResult, CommandTranscriptStore, CommandWorkspaceOwnership,
     CompletedCommandRecord, FinalizationState, RetainedCommandTranscript,
 };
-
-pub(crate) fn operation_entries() -> &'static [crate::operation::OperationEntry] {
-    impls::OPERATIONS
-}

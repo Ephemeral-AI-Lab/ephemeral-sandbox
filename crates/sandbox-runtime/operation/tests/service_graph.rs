@@ -284,7 +284,7 @@ fn service_graph_workspace_session_source_boundaries_stay_private() {
         }
     }
 
-    let adapter = include_str!("../src/workspace_session_operations.rs");
+    let adapter = include_str!("../src/cli_definition/workspace_session_operations.rs");
     assert!(adapter.contains("operations.workspace_session"));
     assert!(!adapter.contains("WorkspaceDestroyAdmission"));
     assert!(!adapter.contains("begin_workspace_destroy_admission"));

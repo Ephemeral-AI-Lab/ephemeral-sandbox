@@ -387,7 +387,7 @@ fn exec_command_spawn_failure_completes_namespace_execution_error() {
     let launch_driver = Arc::new(FakeLaunchDriver::new());
     launch_driver.push_spawn_error(CommandServiceError::CommandIo {
         command_session_id: CommandSessionId("cmd_1".to_owned()),
-        error: "spawn failed".to_owned(),
+        error: "spawn failed at /tmp/secret/transcript.log".to_owned(),
     });
     let env = build_services_with_launch_driver(Arc::clone(&fake), launch_driver);
     let workspace_session_id = create_session(
@@ -405,8 +405,7 @@ fn exec_command_spawn_failure_completes_namespace_execution_error() {
 
     let completed = env
         .command
-        .namespace_execution_store()
-        .drain_completed_namespace_executions(10)
+        .drain_completed_namespace_executions_for_test(10)
         .expect("namespace completed records drain");
     assert_eq!(completed.len(), 1);
     assert_eq!(completed[0].workspace_session_id, workspace_session_id);
@@ -418,6 +417,14 @@ fn exec_command_spawn_failure_completes_namespace_execution_error() {
         completed[0].error_kind.as_deref(),
         Some("command_start_failed")
     );
+    assert_eq!(
+        completed[0].error_message.as_deref(),
+        Some("command start failed before namespace execution started")
+    );
+    let record_debug = format!("{:?}", completed[0]);
+    assert!(!record_debug.contains("cmd_1"));
+    assert!(!record_debug.contains("/tmp/secret"));
+    assert!(!record_debug.contains("transcript.log"));
 }
 
 #[test]
@@ -501,8 +508,7 @@ fn namespace_execution_terminal_status_maps_command_result_without_output_text()
 
         let completed = env
             .command
-            .namespace_execution_store()
-            .drain_completed_namespace_executions(10)
+            .drain_completed_namespace_executions_for_test(10)
             .expect("namespace completed records drain");
         assert_eq!(completed.len(), 1);
         let record = &completed[0];
@@ -553,8 +559,7 @@ fn namespace_execution_request_id_comes_from_runtime_request_not_runner_request(
     assert_eq!(response["status"], "ok");
     let completed = env
         .command
-        .namespace_execution_store()
-        .drain_completed_namespace_executions(10)
+        .drain_completed_namespace_executions_for_test(10)
         .expect("namespace completed records drain");
     assert_eq!(completed.len(), 1);
     assert_eq!(completed[0].request_id.as_deref(), Some("req-external"));

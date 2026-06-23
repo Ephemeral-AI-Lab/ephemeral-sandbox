@@ -11,7 +11,7 @@ use sandbox_runtime::{
     span_keys, BeginNamespaceExecution, CommandFinalizationTraceMetadata,
     CompleteNamespaceExecution, CompletedOperationSpan, CompletedOperationTrace,
     NamespaceExecutionId, NamespaceExecutionLifecycle, NamespaceExecutionRecord,
-    NamespaceExecutionStore, NamespaceExecutionTerminalStatus, WorkspaceSessionId,
+    NamespaceExecutionTerminalStatus, SandboxRuntimeOperations, WorkspaceSessionId,
 };
 use sandbox_runtime::{
     RuntimeExecutionSnapshot, RuntimeNamespaceExecutionSnapshot, RuntimeObservabilitySnapshot,
@@ -129,12 +129,12 @@ fn daemon_collect_acks_only_successful_namespace_trace_projection() -> TestResul
     let root = test_root("namespace-ack-success-only");
     let server = daemon_server(&root, Some("sandbox-1"))?;
     let good = seed_completed_namespace_execution(
-        server.operations.namespace_execution.as_ref(),
+        server.operations.as_ref(),
         "namespace_execution_good",
         "exec_command",
     );
     let bad = seed_completed_namespace_execution(
-        server.operations.namespace_execution.as_ref(),
+        server.operations.as_ref(),
         "namespace_execution_bad",
         "",
     );
@@ -147,8 +147,7 @@ fn daemon_collect_acks_only_successful_namespace_trace_projection() -> TestResul
 
     let pending = server
         .operations
-        .namespace_execution
-        .drain_completed_namespace_executions(10)
+        .drain_completed_namespace_executions_for_test(10)
         .expect("pending namespace records drain");
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0].namespace_execution_id, bad);
@@ -917,13 +916,13 @@ fn completed_namespace_execution(
 }
 
 fn seed_completed_namespace_execution(
-    store: &NamespaceExecutionStore,
+    operations: &SandboxRuntimeOperations,
     namespace_execution_id: &str,
     operation_name: &str,
 ) -> NamespaceExecutionId {
     let id = NamespaceExecutionId(namespace_execution_id.to_owned());
-    store
-        .begin_namespace_execution(
+    operations
+        .begin_namespace_execution_for_test(
             id.clone(),
             BeginNamespaceExecution {
                 workspace_session_id: WorkspaceSessionId("workspace-1".to_owned()),
@@ -932,8 +931,8 @@ fn seed_completed_namespace_execution(
             },
         )
         .expect("begin namespace execution succeeds");
-    store
-        .complete_namespace_execution(
+    operations
+        .complete_namespace_execution_for_test(
             &id,
             CompleteNamespaceExecution {
                 terminal_status: NamespaceExecutionTerminalStatus::Ok,

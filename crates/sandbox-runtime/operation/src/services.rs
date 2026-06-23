@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use crate::command::CommandOperationService;
 use crate::layerstack::LayerStackService;
-use crate::namespace_execution::{NamespaceExecutionId, NamespaceExecutionStore};
+use crate::namespace_execution::{
+    BeginNamespaceExecution, CompleteNamespaceExecution, NamespaceExecutionId,
+    NamespaceExecutionRecord, NamespaceExecutionStore,
+};
 use crate::observability::{AsyncTraceSink, RuntimeObservabilitySnapshot};
 use crate::workspace_crate::{profile::WorkspaceModeManager, WorkspaceRuntimeService};
 use crate::workspace_session::WorkspaceSessionService;
@@ -12,7 +15,7 @@ pub struct SandboxRuntimeOperations {
     pub command: Arc<CommandOperationService>,
     pub workspace_session: Arc<WorkspaceSessionService>,
     pub layerstack: Arc<LayerStackService>,
-    pub namespace_execution: Arc<NamespaceExecutionStore>,
+    namespace_execution: Arc<NamespaceExecutionStore>,
 }
 
 impl SandboxRuntimeOperations {
@@ -151,6 +154,35 @@ impl SandboxRuntimeOperations {
     ) -> Result<(), String> {
         self.namespace_execution
             .ack_completed_namespace_executions(namespace_execution_ids)
+    }
+
+    #[doc(hidden)]
+    pub fn begin_namespace_execution_for_test(
+        &self,
+        namespace_execution_id: NamespaceExecutionId,
+        begin: BeginNamespaceExecution,
+    ) -> Result<(), String> {
+        self.namespace_execution
+            .begin_namespace_execution(namespace_execution_id, begin)
+    }
+
+    #[doc(hidden)]
+    pub fn complete_namespace_execution_for_test(
+        &self,
+        namespace_execution_id: &NamespaceExecutionId,
+        completion: CompleteNamespaceExecution,
+    ) -> Result<NamespaceExecutionRecord, String> {
+        self.namespace_execution
+            .complete_namespace_execution(namespace_execution_id, completion)
+    }
+
+    #[doc(hidden)]
+    pub fn drain_completed_namespace_executions_for_test(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<NamespaceExecutionRecord>, String> {
+        self.namespace_execution
+            .drain_completed_namespace_executions(limit)
     }
 }
 

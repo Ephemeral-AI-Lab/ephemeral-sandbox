@@ -2,6 +2,7 @@
 
 pub(crate) extern crate sandbox_runtime_workspace as workspace_crate;
 
+mod cli_definition;
 pub mod command;
 pub mod layerstack;
 mod namespace_execution;
@@ -10,8 +11,11 @@ mod operation;
 mod services;
 pub mod workspace_remount;
 pub mod workspace_session;
-mod workspace_session_operations;
 
+pub use cli_definition::{
+    ArgCliSpec, ArgKind, ArgSpec, CliOperationCatalog, CliOperationExecutionSpace,
+    CliOperationFamilySpec, CliOperationSpec, CliSpec,
+};
 pub use command::CommandOperationService;
 pub use layerstack::LayerStackService;
 pub use namespace_execution::{
@@ -23,10 +27,6 @@ pub use observability::{
     span_keys, AsyncTraceSink, CommandFinalizationTraceMetadata, CompletedOperationSpan,
     CompletedOperationTrace, OperationTrace, RuntimeExecutionSnapshot,
     RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot, SpanKey,
-};
-pub use operation::{
-    ArgCliSpec, ArgKind, ArgSpec, CliOperationCatalog, CliOperationExecutionSpace,
-    CliOperationFamilySpec, CliOperationSpec, CliSpec,
 };
 pub use services::{
     CommandRuntimeConfig, Rfc1918Egress, SandboxRuntimeConfig, SandboxRuntimeOperations,

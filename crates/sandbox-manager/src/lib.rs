@@ -21,5 +21,4 @@ pub use operation::{
 };
 pub use router::SandboxManagerRouter;
 pub use runtime::{CreateSandboxRequest, CreateSandboxResult, SandboxRuntime};
-pub use sandbox_config::configs::manager::ManagerConfig;
 pub use store::SandboxStore;

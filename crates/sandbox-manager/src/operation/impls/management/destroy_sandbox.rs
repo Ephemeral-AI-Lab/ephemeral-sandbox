@@ -80,10 +80,7 @@ pub(crate) fn dispatch(
         }
         Err(error) => {
             let _ = services.store.set_state(&stopping.id, SandboxState::Failed);
-            ManagerError::RuntimeFailed {
-                message: error.to_string(),
-            }
-            .into_response()
+            error.into_response()
         }
     }
 }
