@@ -107,13 +107,6 @@ impl SandboxRuntimeOperations {
     #[must_use]
     pub fn observability_snapshot(&self) -> RuntimeObservabilitySnapshot {
         let (workspaces, mut partial_errors) = self.workspace_session.snapshot_workspaces();
-        let active_executions = match self.command.process_store().snapshot_active_executions() {
-            Ok(snapshots) => snapshots,
-            Err(error) => {
-                partial_errors.push(error);
-                Vec::new()
-            }
-        };
         let active_namespace_executions = match self
             .namespace_execution
             .snapshot_active_namespace_executions()
@@ -141,7 +134,6 @@ impl SandboxRuntimeOperations {
 
         RuntimeObservabilitySnapshot {
             workspaces,
-            active_executions,
             active_namespace_executions,
             completed_namespace_executions,
             partial_errors,

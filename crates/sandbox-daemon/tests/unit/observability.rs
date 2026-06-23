@@ -14,16 +14,16 @@ use sandbox_runtime::{
     NamespaceExecutionTerminalStatus, SandboxRuntimeOperations, WorkspaceSessionId,
 };
 use sandbox_runtime::{
-    RuntimeExecutionSnapshot, RuntimeNamespaceExecutionSnapshot, RuntimeObservabilitySnapshot,
-    RuntimeWorkspaceSnapshot, WorkspaceProfile,
+    RuntimeNamespaceExecutionSnapshot, RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot,
+    WorkspaceProfile,
 };
 use serde_json::{json, Value};
 
 type TestResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
 
 #[test]
-fn observability_collection_writes_phase2_live_snapshot() -> TestResult {
-    let root = test_root("collects-phase2");
+fn observability_collection_writes_namespace_only_live_snapshot() -> TestResult {
+    let root = test_root("collects-namespace-only");
     let config = server_config(&root, Some("sandbox-1"));
     let observability =
         DaemonObservability::from_config(&config).expect("sandbox id enables observability");
@@ -48,11 +48,14 @@ fn observability_collection_writes_phase2_live_snapshot() -> TestResult {
     assert_eq!(workspaces[0].state, "active");
     assert_eq!(workspaces[0].remount_state.as_deref(), Some("active"));
 
-    let executions = store.execution_snapshots_for_test("sandbox-1")?;
-    assert_eq!(executions.len(), 1);
-    assert_eq!(executions[0].execution_id, "cmd_1");
-    assert_eq!(executions[0].execution_kind, "command");
-    assert_eq!(executions[0].workspace_id, "workspace-1");
+    let namespace_executions = store.namespace_execution_snapshots_for_test("sandbox-1")?;
+    assert_eq!(namespace_executions.len(), 1);
+    assert_eq!(
+        namespace_executions[0].namespace_execution_id,
+        "namespace_execution_1"
+    );
+    assert_eq!(namespace_executions[0].workspace_session_id, "workspace-1");
+    assert_eq!(namespace_executions[0].operation, "exec_command");
 
     let samples = store.resource_samples_for_test("sandbox-1")?;
     assert_eq!(samples.len(), 2);
@@ -83,7 +86,6 @@ fn observability_collection_writes_namespace_execution_tables() -> TestResult {
         DaemonObservability::from_config(&config).expect("sandbox id enables observability");
     let snapshot = RuntimeObservabilitySnapshot {
         workspaces: Vec::new(),
-        active_executions: Vec::new(),
         active_namespace_executions: vec![RuntimeNamespaceExecutionSnapshot {
             namespace_execution_id: NamespaceExecutionId("namespace_execution_1".to_owned()),
             workspace_session_id: WorkspaceSessionId("workspace-1".to_owned()),
@@ -105,7 +107,6 @@ fn observability_collection_writes_namespace_execution_tables() -> TestResult {
     observability.collect_runtime_snapshot_for_test(&config, snapshot)?;
 
     let store = store_for_config(&config)?;
-    assert!(store.execution_snapshots_for_test("sandbox-1")?.is_empty());
     let snapshots = store.namespace_execution_snapshots_for_test("sandbox-1")?;
     assert_eq!(snapshots.len(), 1);
     assert_eq!(snapshots[0].namespace_execution_id, "namespace_execution_1");
@@ -121,6 +122,56 @@ fn observability_collection_writes_namespace_execution_tables() -> TestResult {
     assert_eq!(traces[0].request_id.as_deref(), Some("req-parent"));
     assert_eq!(traces[0].status, "ok");
     assert_eq!(traces[0].exit_code, Some(0));
+    Ok(())
+}
+
+#[test]
+fn namespace_execution_snapshots_do_not_persist_command_payload_data() -> TestResult {
+    let root = test_root("namespace-snapshot-no-command-payload");
+    let config = server_config(&root, Some("sandbox-1"));
+    let observability =
+        DaemonObservability::from_config(&config).expect("sandbox id enables observability");
+    let snapshot = RuntimeObservabilitySnapshot {
+        workspaces: Vec::new(),
+        active_namespace_executions: vec![RuntimeNamespaceExecutionSnapshot {
+            namespace_execution_id: NamespaceExecutionId("namespace_execution_1".to_owned()),
+            workspace_session_id: WorkspaceSessionId("workspace-1".to_owned()),
+            operation_name: "exec_command".to_owned(),
+            lifecycle_state: NamespaceExecutionLifecycle::Running,
+            started_at_unix_ms: 1_000,
+        }],
+        completed_namespace_executions: Vec::new(),
+        partial_errors: Vec::new(),
+    };
+
+    observability.collect_runtime_snapshot_for_test(&config, snapshot)?;
+
+    let store = store_for_config(&config)?;
+    let snapshots = store.namespace_execution_snapshots_for_test("sandbox-1")?;
+    assert_eq!(snapshots.len(), 1);
+    let snapshot = &snapshots[0];
+    let values = [
+        snapshot.sandbox_id.as_str(),
+        snapshot.namespace_execution_id.as_str(),
+        snapshot.workspace_session_id.as_str(),
+        snapshot.operation.as_str(),
+        snapshot.lifecycle_state.as_str(),
+        snapshot.error_message.as_deref().unwrap_or_default(),
+    ];
+    for forbidden in [
+        "SECRET_COMMAND_TEXT",
+        "SECRET_TRANSCRIPT_PATH",
+        "SECRET_TRANSCRIPT_CONTENT",
+        "SECRET_STDIN",
+        "SECRET_STDOUT",
+        "SECRET_STDERR",
+        "SECRET_ENV",
+    ] {
+        assert!(
+            values.iter().all(|value| !value.contains(forbidden)),
+            "namespace execution snapshot unexpectedly contained {forbidden}"
+        );
+    }
     Ok(())
 }
 
@@ -183,22 +234,13 @@ fn observability_collection_bounds_rows_and_keeps_valid_rows() -> TestResult {
             workspace_snapshot(&long_workspace_id, Some(root.join("missing-upperdir"))),
             workspace_snapshot("", None),
         ],
-        active_executions: vec![RuntimeExecutionSnapshot {
-            execution_id: "cmd_1".to_owned(),
-            execution_kind: "command".repeat(20),
-            operation: Some("exec_command".repeat(20)),
-            command_session_id: Some(CommandSessionId("cmd_1".to_owned())),
-            workspace_id: WorkspaceSessionId("workspace-1".to_owned()),
-            command: Some("x".repeat(5000)),
-            lifecycle_state: "running".to_owned(),
-            finalization_state: "not_started".to_owned(),
-            workspace_ownership: "existing_session".to_owned(),
-            started_at_unix_ms: None,
-            wall_time_ms: Some(10.0),
-            transcript_path: Some(PathBuf::from("/tmp/transcript.log")),
-            process_group_id: Some(1234),
+        active_namespace_executions: vec![RuntimeNamespaceExecutionSnapshot {
+            namespace_execution_id: NamespaceExecutionId("namespace_execution_1".to_owned()),
+            workspace_session_id: WorkspaceSessionId("workspace-1".to_owned()),
+            operation_name: "exec_command".repeat(20),
+            lifecycle_state: NamespaceExecutionLifecycle::Running,
+            started_at_unix_ms: 1_000,
         }],
-        active_namespace_executions: Vec::new(),
         completed_namespace_executions: Vec::new(),
         partial_errors: Vec::new(),
     };
@@ -225,11 +267,9 @@ fn observability_collection_bounds_rows_and_keeps_valid_rows() -> TestResult {
         .iter()
         .all(|workspace| !workspace.workspace_id.is_empty()));
 
-    let executions = store.execution_snapshots_for_test("sandbox-1")?;
-    assert_eq!(executions.len(), 1);
-    assert!(executions[0].execution_kind.len() <= 64);
-    assert!(executions[0].operation.as_ref().is_some_and(|value| value.len() <= 128));
-    assert!(executions[0].command.as_ref().is_some_and(|value| value.len() <= 4096));
+    let namespace_executions = store.namespace_execution_snapshots_for_test("sandbox-1")?;
+    assert_eq!(namespace_executions.len(), 1);
+    assert!(namespace_executions[0].operation.len() <= 128);
     Ok(())
 }
 
@@ -247,7 +287,6 @@ fn disk_samples_are_cached_until_tests_force_refresh_and_can_truncate() -> TestR
         &config,
         RuntimeObservabilitySnapshot {
             workspaces: vec![workspace_snapshot("workspace-1", Some(upperdir.clone()))],
-            active_executions: Vec::new(),
             active_namespace_executions: Vec::new(),
             completed_namespace_executions: Vec::new(),
             partial_errors: Vec::new(),
@@ -258,7 +297,6 @@ fn disk_samples_are_cached_until_tests_force_refresh_and_can_truncate() -> TestR
         &config,
         RuntimeObservabilitySnapshot {
             workspaces: vec![workspace_snapshot("workspace-1", Some(upperdir.clone()))],
-            active_executions: Vec::new(),
             active_namespace_executions: Vec::new(),
             completed_namespace_executions: Vec::new(),
             partial_errors: Vec::new(),
@@ -276,7 +314,6 @@ fn disk_samples_are_cached_until_tests_force_refresh_and_can_truncate() -> TestR
         &config,
         RuntimeObservabilitySnapshot {
             workspaces: vec![workspace_snapshot("workspace-1", Some(upperdir.clone()))],
-            active_executions: Vec::new(),
             active_namespace_executions: Vec::new(),
             completed_namespace_executions: Vec::new(),
             partial_errors: Vec::new(),
@@ -297,7 +334,6 @@ fn disk_samples_are_cached_until_tests_force_refresh_and_can_truncate() -> TestR
                 "workspace-large",
                 Some(large_upperdir.clone()),
             )],
-            active_executions: Vec::new(),
             active_namespace_executions: Vec::new(),
             completed_namespace_executions: Vec::new(),
             partial_errors: Vec::new(),
@@ -1023,22 +1059,13 @@ fn assert_no_trace_text(trace: &TraceRecord, spans: &[SpanRecord], forbidden: &s
 fn runtime_snapshot(missing_upperdir: PathBuf) -> RuntimeObservabilitySnapshot {
     RuntimeObservabilitySnapshot {
         workspaces: vec![workspace_snapshot("workspace-1", Some(missing_upperdir))],
-        active_executions: vec![RuntimeExecutionSnapshot {
-            execution_id: "cmd_1".to_owned(),
-            execution_kind: "command".to_owned(),
-            operation: Some("exec_command".to_owned()),
-            command_session_id: Some(CommandSessionId("cmd_1".to_owned())),
-            workspace_id: WorkspaceSessionId("workspace-1".to_owned()),
-            command: Some("printf ok".to_owned()),
-            lifecycle_state: "running".to_owned(),
-            finalization_state: "not_started".to_owned(),
-            workspace_ownership: "existing_session".to_owned(),
-            started_at_unix_ms: None,
-            wall_time_ms: Some(10.0),
-            transcript_path: Some(PathBuf::from("/tmp/transcript.log")),
-            process_group_id: Some(1234),
+        active_namespace_executions: vec![RuntimeNamespaceExecutionSnapshot {
+            namespace_execution_id: NamespaceExecutionId("namespace_execution_1".to_owned()),
+            workspace_session_id: WorkspaceSessionId("workspace-1".to_owned()),
+            operation_name: "exec_command".to_owned(),
+            lifecycle_state: NamespaceExecutionLifecycle::Running,
+            started_at_unix_ms: 1_000,
         }],
-        active_namespace_executions: Vec::new(),
         completed_namespace_executions: Vec::new(),
         partial_errors: Vec::new(),
     }

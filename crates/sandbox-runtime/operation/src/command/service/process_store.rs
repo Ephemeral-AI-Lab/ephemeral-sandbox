@@ -10,7 +10,6 @@ use crate::command::{
     CommandFinalizedMetadata, CommandServiceError, CommandSessionId, CommandStatus,
 };
 use crate::namespace_execution::NamespaceExecutionId;
-use crate::observability::RuntimeExecutionSnapshot;
 use crate::workspace_crate::WorkspaceSessionId;
 use crate::workspace_remount::{RemountCancellationToken, RemountSwitchState};
 use crate::workspace_session::WorkspaceSessionHandler;
@@ -208,36 +207,6 @@ impl CommandProcessStore {
     ) -> Option<R> {
         lock(&self.active).get_mut(command_session_id).map(update)
     }
-
-    pub(crate) fn snapshot_active_executions(
-        &self,
-    ) -> Result<Vec<RuntimeExecutionSnapshot>, String> {
-        let active = self
-            .active
-            .lock()
-            .map_err(|_| "command process store lock is poisoned".to_owned())?;
-        let mut snapshots = active
-            .values()
-            .map(|record| RuntimeExecutionSnapshot {
-                execution_id: record.command_session_id.0.clone(),
-                execution_kind: "command".to_owned(),
-                operation: Some("exec_command".to_owned()),
-                command_session_id: Some(record.command_session_id.clone()),
-                workspace_id: record.workspace_session_id.clone(),
-                command: Some(record.process.command().to_owned()),
-                lifecycle_state: map_lifecycle_state(&record.lifecycle_state).to_owned(),
-                finalization_state: map_finalization_state(&record.finalization).to_owned(),
-                workspace_ownership: map_workspace_ownership(&record.workspace_ownership)
-                    .to_owned(),
-                started_at_unix_ms: None,
-                wall_time_ms: Some(record.started_at.elapsed().as_secs_f64() * 1000.0),
-                transcript_path: record.transcript.transcript_path.clone(),
-                process_group_id: record.process.process_group_id(),
-            })
-            .collect::<Vec<_>>();
-        snapshots.sort_by(|left, right| left.execution_id.cmp(&right.execution_id));
-        Ok(snapshots)
-    }
 }
 
 impl Default for CommandProcessStore {
@@ -410,29 +379,4 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
-}
-
-const fn map_lifecycle_state(state: &CommandLifecycleState) -> &'static str {
-    match state {
-        CommandLifecycleState::Running => "running",
-        CommandLifecycleState::QuiescedForRemount => "quiesced_for_remount",
-        CommandLifecycleState::Finalizing => "finalizing",
-        CommandLifecycleState::Cancelled => "cancelled",
-    }
-}
-
-fn map_finalization_state(state: &FinalizationState) -> &'static str {
-    match state {
-        FinalizationState::NotStarted => "not_started",
-        FinalizationState::InProgress => "in_progress",
-        FinalizationState::Complete => "complete",
-        FinalizationState::Failed { .. } => "failed",
-    }
-}
-
-const fn map_workspace_ownership(ownership: &CommandWorkspaceOwnership) -> &'static str {
-    match ownership {
-        CommandWorkspaceOwnership::ExistingSession => "existing_session",
-        CommandWorkspaceOwnership::OneShot { .. } => "one_shot",
-    }
 }

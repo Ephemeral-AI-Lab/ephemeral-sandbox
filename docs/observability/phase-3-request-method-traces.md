@@ -50,31 +50,31 @@ completion checklist.
 Live Phase 2 pieces:
 
 - `crates/sandbox-runtime/operation/src/observability.rs` defines
-  `RuntimeObservabilitySnapshot`, `RuntimeWorkspaceSnapshot`, and
-  `RuntimeExecutionSnapshot`.
+  `RuntimeObservabilitySnapshot`, `RuntimeWorkspaceSnapshot`, and namespace
+  execution snapshot types.
 - `crates/sandbox-runtime/operation/src/services.rs` exposes
   `SandboxRuntimeOperations::observability_snapshot`.
 - `crates/sandbox-runtime/operation/src/workspace_session/service/snapshot.rs`
   snapshots active workspace sessions.
-- `crates/sandbox-runtime/operation/src/command/service/process_store.rs`
-  snapshots active command executions through
-  `CommandProcessStore::snapshot_active_executions`.
+- `crates/sandbox-runtime/operation/src/namespace_execution.rs` snapshots active
+  namespace executions.
 - `crates/sandbox-daemon/src/observability/service.rs` defines
-  `DaemonObservability` and writes sandbox, workspace, execution, and resource
-  snapshot records.
+  `DaemonObservability` and writes sandbox, workspace, namespace execution, and
+  resource snapshot records.
 - `crates/sandbox-observability/src/store.rs` has two migrations:
-  `phase_1_observability_foundation` and `phase_2_runtime_snapshots`.
+  `phase_1_observability_foundation` and `phase_2_runtime_snapshots`, with
+  later migrations adding namespace execution tables and dropping the old
+  `execution_snapshots` table from the final schema.
 - `crates/sandbox-daemon/tests/unit/observability.rs`,
   `crates/sandbox-runtime/operation/tests/observability_snapshot.rs`, and
-  `crates/sandbox-observability/tests/schema.rs` cover the current Phase 2
-  storage and snapshot behavior.
+  `crates/sandbox-observability/tests/schema.rs` cover the current storage and
+  snapshot behavior.
 
 Still incomplete or dirty pieces relevant to Phase 3:
 
 - The Phase 2 spec checklist is not updated to match live code.
-- `RuntimeExecutionSnapshot::started_at_unix_ms` is currently `None` for active
-  command executions; Phase 3 request trace timing must not depend on that
-  field.
+- Active command work is represented as namespace execution snapshots; Phase 3
+  request trace timing must not depend on command-shaped active snapshot fields.
 - Cgroup sampling is currently unavailable-only: the daemon writes
   `cgroup_available = 0` when no explicit daemon-owned cgroup target exists, and
   live code does not yet read cgroup v2 files. This does not block request

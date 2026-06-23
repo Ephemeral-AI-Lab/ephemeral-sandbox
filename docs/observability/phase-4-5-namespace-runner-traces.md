@@ -215,6 +215,9 @@ This value describes the scope of the phase, not a field on
 `NamespaceExecutionRecord`. A single-value enum or string field would add shape
 without adding meaning.
 
+Phase 4.6 keeps this decision and deletes the older command-shaped active
+execution lane instead of adding a replacement kind, runner, or scope axis.
+
 Do not add a `NamespaceRunnerMode` trace field. If implementation needs an
 internal enum for dispatch, keep it in the runner/adapter layer. Mount/remount
 runner modes remain out of the namespace execution store.
@@ -420,10 +423,10 @@ lifecycle_state = starting | running
 sampled_at_unix_ms = sampled_at_unix_ms
 ```
 
-Do not add `command_session_id` to namespace execution snapshots. Existing
-command execution snapshots may continue to include command-specific fields
-because they are command snapshots. The namespace execution snapshot is a
-different, generic row.
+Do not add `command_session_id` to namespace execution snapshots. Phase 4.6
+deletes the older command execution snapshot lane instead of aliasing it into
+namespace execution rows. The namespace execution snapshot is the only active
+execution snapshot row.
 
 Do not add command text, transcript path, process group id, workspace ownership,
 or finalization state to namespace execution snapshots. Those belong to command

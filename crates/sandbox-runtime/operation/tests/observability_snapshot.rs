@@ -54,7 +54,7 @@ fn observability_snapshot_copies_active_workspace_fields(
 }
 
 #[test]
-fn observability_snapshot_reports_active_command_execution(
+fn observability_snapshot_reports_active_command_namespace_execution(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let fake = Arc::new(FakeWorkspaceService::new());
     let services = build_services(Arc::clone(&fake));
@@ -81,18 +81,6 @@ fn observability_snapshot_reports_active_command_execution(
 
     let snapshot = operations.observability_snapshot();
 
-    assert_eq!(snapshot.active_executions.len(), 1);
-    let execution = &snapshot.active_executions[0];
-    assert_eq!(execution.execution_id, command_session_id.0);
-    assert_eq!(execution.execution_kind, "command");
-    assert_eq!(execution.operation.as_deref(), Some("exec_command"));
-    assert_eq!(execution.workspace_id, workspace_session_id);
-    assert_eq!(execution.command.as_deref(), Some("printf ok"));
-    assert_eq!(execution.lifecycle_state, "running");
-    assert_eq!(execution.workspace_ownership, "existing_session");
-    assert!(execution.wall_time_ms.is_some());
-    assert!(execution.transcript_path.is_some());
-    assert!(execution.started_at_unix_ms.is_none());
     let command_namespace_execution_id = services
         .command
         .namespace_execution_id_for_command_for_test(&command_session_id)

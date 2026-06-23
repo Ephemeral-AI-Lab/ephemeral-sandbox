@@ -25,8 +25,8 @@ pub use namespace_execution::{
 };
 pub use observability::{
     span_keys, AsyncTraceSink, CommandFinalizationTraceMetadata, CompletedOperationSpan,
-    CompletedOperationTrace, OperationTrace, RuntimeExecutionSnapshot,
-    RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot, SpanKey,
+    CompletedOperationTrace, OperationTrace, RuntimeObservabilitySnapshot,
+    RuntimeWorkspaceSnapshot, SpanKey,
 };
 pub use services::{
     CommandRuntimeConfig, Rfc1918Egress, SandboxRuntimeConfig, SandboxRuntimeOperations,

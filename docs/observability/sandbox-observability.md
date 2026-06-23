@@ -379,7 +379,7 @@ Purpose:
 - Current sandbox snapshot.
 - Current workspace snapshots.
 - Recent resource samples.
-- Current active runtime execution snapshots.
+- Current active namespace execution snapshots.
 
 `sandbox_snapshots` is only the root row for a sandbox. It is enough for Phase 1
 store bootstrapping, but it is not enough for the full observability hierarchy.
@@ -389,7 +389,7 @@ The complete local model needs these companion table families:
 sandbox_snapshots       -> sandbox root state
 workspace_snapshots     -> workspace rows under each sandbox
 resource_samples        -> sandbox-global and per-workspace resource history
-execution_snapshots     -> active/recent runtime executions under each workspace
+namespace_execution_snapshots -> active namespace executions under each workspace
 traces + spans          -> recent request/method chains
 trace_links             -> future multi-link trace relationships, if needed
 ```
@@ -404,7 +404,8 @@ Phase 1
 Phase 2
   sandbox_snapshots       -> live daemon sandbox-root snapshot population
   workspace_snapshots     -> live workspace rows under each sandbox
-  execution_snapshots     -> live active/recent execution rows
+  execution_snapshots     -> historical active command snapshot lane,
+                              superseded and dropped by Phase 4.6
   resource_samples        -> live sandbox-global and per-workspace resource samples
 
 Phase 3
@@ -417,8 +418,12 @@ Phase 4
   traces + spans          -> linked command-finalization trace rows
 
 Phase 4.5
-  execution_snapshots     -> active namespace execution rows when exposed
+  namespace_execution_snapshots -> active namespace execution rows
   traces + spans          -> completed namespace execution lifecycle traces
+
+Phase 4.6
+  namespace_execution_snapshots -> only active execution snapshot lane
+  execution_snapshots           -> dropped from final migrated schema
 ```
 
 Phase 1 therefore establishes storage shape for `sandbox_snapshots`, `traces`,
@@ -500,26 +505,15 @@ CREATE TABLE IF NOT EXISTS resource_samples (
   disk_first_error_path TEXT
 );
 
-CREATE TABLE IF NOT EXISTS execution_snapshots (
+CREATE TABLE IF NOT EXISTS namespace_execution_snapshots (
   sandbox_id TEXT NOT NULL,
-  workspace_id TEXT NOT NULL,
-  execution_id TEXT NOT NULL,
-  execution_kind TEXT NOT NULL,    -- command | namespace_execution | future kinds
-  operation TEXT,
-  command_session_id TEXT,
-  namespace_execution_id TEXT,
-  operation_execution_id TEXT,
-  command TEXT,
-  lifecycle_state TEXT NOT NULL,   -- running | quiesced_for_remount | finalizing | cancelled
-  finalization_state TEXT NOT NULL,
-  workspace_ownership TEXT,
-  started_at_unix_ms INTEGER,
-  wall_time_ms REAL,
-  command_total_time_ms REAL,
-  process_group_id INTEGER,
-  transcript_path TEXT,
+  namespace_execution_id TEXT NOT NULL,
+  workspace_session_id TEXT NOT NULL,
+  operation TEXT NOT NULL,
+  lifecycle_state TEXT NOT NULL,
   sampled_at_unix_ms INTEGER NOT NULL,
-  PRIMARY KEY(sandbox_id, execution_id)
+  error_message TEXT,
+  PRIMARY KEY(sandbox_id, namespace_execution_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_workspace_snapshots_sandbox
@@ -531,17 +525,15 @@ CREATE INDEX IF NOT EXISTS idx_resource_samples_workspace_time
 CREATE INDEX IF NOT EXISTS idx_resource_samples_sandbox_time
   ON resource_samples(sandbox_id, sampled_at_unix_ms);
 
-CREATE INDEX IF NOT EXISTS idx_execution_snapshots_workspace
-  ON execution_snapshots(sandbox_id, workspace_id);
-
-CREATE INDEX IF NOT EXISTS idx_execution_snapshots_command
-  ON execution_snapshots(sandbox_id, command_session_id);
+CREATE INDEX IF NOT EXISTS idx_namespace_execution_snapshots_workspace_session
+  ON namespace_execution_snapshots(sandbox_id, workspace_session_id);
 ```
 
 Retention:
 
-- `sandbox_snapshots`, `workspace_snapshots`, and `execution_snapshots` represent
-  current state and are updated in place.
+- `sandbox_snapshots`, `workspace_snapshots`, and
+  `namespace_execution_snapshots` represent current state and are updated in
+  place.
 - `resource_samples` is time-series data and should be retained by time window.
 - A `resource_samples` row with `workspace_id IS NULL` is the sandbox-global
   sample for that sandbox.
@@ -571,25 +563,14 @@ pub struct WorkspaceSnapshot {
     pub profile: Option<String>,
     pub base_revision: Option<BaseRevisionView>,
     pub resources: ResourceSnapshot,
-    pub active_executions: Vec<ExecutionSnapshot>,
+    pub active_namespace_executions: Vec<NamespaceExecutionSnapshot>,
     pub recent_traces: Vec<TraceSummary>,
 }
 
-pub struct ExecutionSnapshot {
-    pub execution_id: String,
-    pub execution_kind: String,
-    pub operation: Option<String>,
-    pub workspace_id: String,
-    pub command_session_id: Option<String>,
-    pub namespace_execution_id: Option<String>,
-    pub operation_execution_id: Option<String>,
-    pub command: Option<String>,
+pub struct NamespaceExecutionSnapshot {
+    pub namespace_execution_id: String,
+    pub operation: String,
     pub lifecycle_state: String,
-    pub finalization_state: String,
-    pub workspace_ownership: Option<String>,
-    pub wall_time_ms: Option<f64>,
-    pub process_group_id: Option<i32>,
-    pub transcript_path: Option<PathBuf>,
 }
 
 pub struct ResourceSnapshot {
@@ -610,8 +591,7 @@ sandbox_id
   workspace_id
     state
     resources
-    active executions
-    active commands (filtered from active executions)
+    active namespace executions
     recent traces
 ```
 

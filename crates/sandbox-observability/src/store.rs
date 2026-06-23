@@ -9,9 +9,8 @@ use thiserror::Error;
 
 use crate::paths::ObservabilityPaths;
 use crate::records::{
-    ExecutionSnapshotRecord, NamespaceExecutionSnapshotRecord, NamespaceExecutionTraceRecord,
-    RecordValidationError, ResourceSampleRecord, SandboxSnapshotRecord, SpanRecord, TraceRecord,
-    WorkspaceSnapshotRecord,
+    NamespaceExecutionSnapshotRecord, NamespaceExecutionTraceRecord, RecordValidationError,
+    ResourceSampleRecord, SandboxSnapshotRecord, SpanRecord, TraceRecord, WorkspaceSnapshotRecord,
 };
 
 struct Migration {
@@ -40,6 +39,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 4,
         name: "phase_4_5_namespace_execution_traces",
         sql: V4_SCHEMA_SQL,
+    },
+    Migration {
+        version: 5,
+        name: "phase_4_6_mechanical_namespace_execution_unification",
+        sql: V5_SCHEMA_SQL,
     },
 ];
 
@@ -228,6 +232,12 @@ CREATE INDEX IF NOT EXISTS idx_namespace_execution_traces_namespace_execution
 
 CREATE INDEX IF NOT EXISTS idx_namespace_execution_traces_workspace_session_started
   ON namespace_execution_traces(sandbox_id, workspace_session_id, started_at_unix_ms);
+"#;
+
+const V5_SCHEMA_SQL: &str = r#"
+DROP INDEX IF EXISTS idx_execution_snapshots_workspace;
+DROP INDEX IF EXISTS idx_execution_snapshots_command;
+DROP TABLE IF EXISTS execution_snapshots;
 "#;
 
 #[derive(Debug, Error)]
@@ -500,114 +510,6 @@ impl ObservabilityStore {
                     WHERE sandbox_id = ?1
                       AND workspace_id = ?2",
                 params![sandbox_id, &workspace_id, sampled_at_unix_ms],
-            )?;
-        }
-        transaction.commit()?;
-        Ok(())
-    }
-
-    pub fn upsert_execution_snapshots(
-        &self,
-        sandbox_id: &str,
-        snapshots: &[ExecutionSnapshotRecord],
-    ) -> Result<(), StoreError> {
-        for snapshot in snapshots {
-            snapshot.validate_for_sandbox(sandbox_id)?;
-        }
-
-        let mut connection = self.connection()?;
-        let transaction = connection.transaction()?;
-        for snapshot in snapshots {
-            transaction.execute(
-                "INSERT INTO execution_snapshots (
-                    sandbox_id,
-                    workspace_id,
-                    execution_id,
-                    execution_kind,
-                    operation,
-                    command_session_id,
-                    command,
-                    lifecycle_state,
-                    finalization_state,
-                    workspace_ownership,
-                    started_at_unix_ms,
-                    wall_time_ms,
-                    process_group_id,
-                    transcript_path,
-                    sampled_at_unix_ms,
-                    error_message
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
-                ON CONFLICT(sandbox_id, execution_id) DO UPDATE SET
-                    workspace_id = excluded.workspace_id,
-                    execution_kind = excluded.execution_kind,
-                    operation = excluded.operation,
-                    command_session_id = excluded.command_session_id,
-                    command = excluded.command,
-                    lifecycle_state = excluded.lifecycle_state,
-                    finalization_state = excluded.finalization_state,
-                    workspace_ownership = excluded.workspace_ownership,
-                    started_at_unix_ms = excluded.started_at_unix_ms,
-                    wall_time_ms = excluded.wall_time_ms,
-                    process_group_id = excluded.process_group_id,
-                    transcript_path = excluded.transcript_path,
-                    sampled_at_unix_ms = excluded.sampled_at_unix_ms,
-                    error_message = excluded.error_message",
-                params![
-                    &snapshot.sandbox_id,
-                    &snapshot.workspace_id,
-                    &snapshot.execution_id,
-                    &snapshot.execution_kind,
-                    &snapshot.operation,
-                    &snapshot.command_session_id,
-                    &snapshot.command,
-                    &snapshot.lifecycle_state,
-                    &snapshot.finalization_state,
-                    &snapshot.workspace_ownership,
-                    snapshot.started_at_unix_ms,
-                    snapshot.wall_time_ms,
-                    snapshot.process_group_id,
-                    &snapshot.transcript_path,
-                    snapshot.sampled_at_unix_ms,
-                    &snapshot.error_message,
-                ],
-            )?;
-        }
-        transaction.commit()?;
-        Ok(())
-    }
-
-    pub fn prune_execution_snapshots(
-        &self,
-        sandbox_id: &str,
-        active_execution_ids: &[String],
-    ) -> Result<(), StoreError> {
-        validate_id("sandbox_id", sandbox_id)?;
-        for execution_id in active_execution_ids {
-            validate_id("execution_id", execution_id)?;
-        }
-        let active = active_execution_ids.iter().collect::<HashSet<_>>();
-
-        let mut connection = self.connection()?;
-        let transaction = connection.transaction()?;
-        let stale_execution_ids = {
-            let mut statement = transaction.prepare(
-                "SELECT execution_id
-                    FROM execution_snapshots
-                    WHERE sandbox_id = ?1",
-            )?;
-            let rows = statement.query_map([sandbox_id], |row| row.get::<_, String>(0))?;
-            rows.collect::<Result<Vec<_>, _>>()?
-                .into_iter()
-                .filter(|execution_id| !active.contains(execution_id))
-                .collect::<Vec<_>>()
-        };
-
-        for execution_id in stale_execution_ids {
-            transaction.execute(
-                "DELETE FROM execution_snapshots
-                    WHERE sandbox_id = ?1
-                      AND execution_id = ?2",
-                params![sandbox_id, &execution_id],
             )?;
         }
         transaction.commit()?;
@@ -988,58 +890,6 @@ impl ObservabilityStore {
                 layer_count: row.get(11)?,
                 sampled_at_unix_ms: row.get(12)?,
                 error_message: row.get(13)?,
-            })
-        })?;
-        rows.collect::<Result<_, _>>().map_err(StoreError::from)
-    }
-
-    #[cfg(any(test, feature = "test-support"))]
-    #[doc(hidden)]
-    pub fn execution_snapshots_for_test(
-        &self,
-        sandbox_id: &str,
-    ) -> Result<Vec<ExecutionSnapshotRecord>, StoreError> {
-        let connection = self.connection()?;
-        let mut statement = connection.prepare(
-            "SELECT
-                sandbox_id,
-                workspace_id,
-                execution_id,
-                execution_kind,
-                operation,
-                command_session_id,
-                command,
-                lifecycle_state,
-                finalization_state,
-                workspace_ownership,
-                started_at_unix_ms,
-                wall_time_ms,
-                process_group_id,
-                transcript_path,
-                sampled_at_unix_ms,
-                error_message
-            FROM execution_snapshots
-            WHERE sandbox_id = ?1
-            ORDER BY execution_id",
-        )?;
-        let rows = statement.query_map([sandbox_id], |row| {
-            Ok(ExecutionSnapshotRecord {
-                sandbox_id: row.get(0)?,
-                workspace_id: row.get(1)?,
-                execution_id: row.get(2)?,
-                execution_kind: row.get(3)?,
-                operation: row.get(4)?,
-                command_session_id: row.get(5)?,
-                command: row.get(6)?,
-                lifecycle_state: row.get(7)?,
-                finalization_state: row.get(8)?,
-                workspace_ownership: row.get(9)?,
-                started_at_unix_ms: row.get(10)?,
-                wall_time_ms: row.get(11)?,
-                process_group_id: row.get(12)?,
-                transcript_path: row.get(13)?,
-                sampled_at_unix_ms: row.get(14)?,
-                error_message: row.get(15)?,
             })
         })?;
         rows.collect::<Result<_, _>>().map_err(StoreError::from)

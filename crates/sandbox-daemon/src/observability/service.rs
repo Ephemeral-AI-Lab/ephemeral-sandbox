@@ -5,16 +5,15 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use sandbox_observability::{
-    ExecutionSnapshotRecord, ObservabilityPaths, ObservabilityStore, ResourceSampleRecord,
-    SandboxSnapshotRecord, SpanRecord, StoreError, TraceRecord, WorkspaceSnapshotRecord,
-    MAX_COMMAND_LENGTH, MAX_ERROR_MESSAGE_LENGTH, MAX_ID_LENGTH, MAX_KIND_LENGTH,
-    MAX_OPERATION_LENGTH, MAX_PATH_LENGTH, MAX_SNAPSHOT_STATE_LENGTH,
+    ObservabilityPaths, ObservabilityStore, ResourceSampleRecord, SandboxSnapshotRecord,
+    SpanRecord, StoreError, TraceRecord, WorkspaceSnapshotRecord, MAX_ERROR_MESSAGE_LENGTH,
+    MAX_ID_LENGTH, MAX_KIND_LENGTH, MAX_OPERATION_LENGTH, MAX_PATH_LENGTH,
+    MAX_SNAPSHOT_STATE_LENGTH,
 };
 use sandbox_runtime::{
     span_keys, AsyncTraceSink, CommandFinalizationTraceMetadata, CompletedOperationSpan,
     CompletedOperationTrace, NamespaceExecutionId, NamespaceExecutionRecord,
-    RuntimeExecutionSnapshot, RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot,
-    SandboxRuntimeOperations, SpanKey,
+    RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot, SandboxRuntimeOperations, SpanKey,
 };
 
 use crate::server::ServerConfig;
@@ -243,7 +242,6 @@ impl DaemonObservability {
     ) -> Result<Vec<NamespaceExecutionId>, StoreError> {
         let RuntimeObservabilitySnapshot {
             workspaces,
-            active_executions,
             active_namespace_executions,
             completed_namespace_executions,
             mut partial_errors,
@@ -274,28 +272,6 @@ impl DaemonObservability {
                 workspace.upperdir.as_deref(),
                 sampled_at_unix_ms,
                 force_fresh_disk,
-            ));
-        }
-
-        let mut execution_records = Vec::new();
-        for execution in &active_executions {
-            let Some(execution_id) =
-                bounded_required_id("execution_id", &execution.execution_id, &mut partial_errors)
-            else {
-                continue;
-            };
-            let Some(workspace_id) = bounded_required_id(
-                "execution_workspace_id",
-                &execution.workspace_id.0,
-                &mut partial_errors,
-            ) else {
-                continue;
-            };
-            execution_records.push(self.execution_record(
-                execution,
-                execution_id,
-                workspace_id,
-                sampled_at_unix_ms,
             ));
         }
 
@@ -354,15 +330,6 @@ impl DaemonObservability {
             &active_workspace_ids,
             sampled_at_unix_ms,
         )?;
-
-        let active_execution_ids = execution_records
-            .iter()
-            .map(|execution| execution.execution_id.clone())
-            .collect::<Vec<_>>();
-        self.store
-            .upsert_execution_snapshots(&self.sandbox_id, &execution_records)?;
-        self.store
-            .prune_execution_snapshots(&self.sandbox_id, &active_execution_ids)?;
 
         let active_namespace_execution_ids = namespace_execution_records
             .iter()
@@ -429,52 +396,6 @@ impl DaemonObservability {
             base_manifest_version: workspace.base_manifest_version,
             base_root_hash: workspace.base_root_hash.clone().map(bound_id),
             layer_count: workspace.layer_count.map(usize_to_i64),
-            sampled_at_unix_ms,
-            error_message: None,
-        }
-    }
-
-    fn execution_record(
-        &self,
-        execution: &RuntimeExecutionSnapshot,
-        execution_id: String,
-        workspace_id: String,
-        sampled_at_unix_ms: i64,
-    ) -> ExecutionSnapshotRecord {
-        ExecutionSnapshotRecord {
-            sandbox_id: self.sandbox_id.clone(),
-            workspace_id,
-            execution_id,
-            execution_kind: bound_required_text(
-                &execution.execution_kind,
-                MAX_KIND_LENGTH,
-                "unknown",
-            ),
-            operation: execution.operation.clone().map(bound_operation),
-            command_session_id: execution
-                .command_session_id
-                .as_ref()
-                .map(|command_session_id| bound_id(command_session_id.0.clone())),
-            command: execution.command.clone().map(bound_command),
-            lifecycle_state: bound_required_text(
-                &execution.lifecycle_state,
-                MAX_SNAPSHOT_STATE_LENGTH,
-                "unknown",
-            ),
-            finalization_state: bound_required_text(
-                &execution.finalization_state,
-                MAX_SNAPSHOT_STATE_LENGTH,
-                "unknown",
-            ),
-            workspace_ownership: Some(bound_kind(execution.workspace_ownership.clone())),
-            started_at_unix_ms: execution.started_at_unix_ms,
-            wall_time_ms: execution.wall_time_ms,
-            process_group_id: execution.process_group_id.map(i64::from),
-            transcript_path: execution
-                .transcript_path
-                .as_deref()
-                .map(path_string)
-                .map(bound_path),
             sampled_at_unix_ms,
             error_message: None,
         }
@@ -600,14 +521,6 @@ fn bounded_required_id(
     }
 }
 
-fn bound_required_text(value: &str, max_bytes: usize, fallback: &'static str) -> String {
-    if value.is_empty() {
-        fallback.to_owned()
-    } else {
-        bound_string(value.to_owned(), max_bytes)
-    }
-}
-
 fn bound_id(value: String) -> String {
     bound_string_with_hash(value, MAX_ID_LENGTH)
 }
@@ -622,10 +535,6 @@ fn bound_operation(value: String) -> String {
 
 fn bound_state(value: String) -> String {
     bound_string(value, MAX_SNAPSHOT_STATE_LENGTH)
-}
-
-fn bound_command(value: String) -> String {
-    bound_string(value, MAX_COMMAND_LENGTH)
 }
 
 fn bound_method(value: String) -> String {

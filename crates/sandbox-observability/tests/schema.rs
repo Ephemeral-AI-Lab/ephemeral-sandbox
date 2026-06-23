@@ -6,9 +6,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::Connection;
 use sandbox_observability::{
-    ExecutionSnapshotRecord, NamespaceExecutionSnapshotRecord, NamespaceExecutionTraceRecord,
-    ObservabilityPaths, ObservabilityStore, ResourceSampleRecord, SandboxSnapshotRecord,
-    SpanRecord, StoreError, TraceRecord, WorkspaceSnapshotRecord,
+    NamespaceExecutionSnapshotRecord, NamespaceExecutionTraceRecord, ObservabilityPaths,
+    ObservabilityStore, ResourceSampleRecord, SandboxSnapshotRecord, SpanRecord, StoreError,
+    TraceRecord, WorkspaceSnapshotRecord,
 };
 
 type TestResult<T = ()> = Result<T, Box<dyn Error>>;
@@ -58,11 +58,27 @@ fn schema_initialization_is_idempotent() -> TestResult {
     let namespace_snapshot_columns = column_names(&connection, "namespace_execution_snapshots")?;
     assert!(namespace_snapshot_columns.contains("namespace_execution_id"));
     assert!(namespace_snapshot_columns.contains("workspace_session_id"));
+    for forbidden_column in [
+        "command_session_id",
+        "command",
+        "transcript_path",
+        "stdin",
+        "stdout",
+        "stderr",
+        "environment",
+        "output",
+        "execution_kind",
+    ] {
+        assert!(
+            !namespace_snapshot_columns.contains(forbidden_column),
+            "namespace execution snapshots unexpectedly include {forbidden_column}"
+        );
+    }
     let namespace_trace_columns = column_names(&connection, "namespace_execution_traces")?;
     assert!(namespace_trace_columns.contains("namespace_execution_id"));
     assert!(namespace_trace_columns.contains("workspace_session_id"));
     assert!(namespace_trace_columns.contains("exit_code"));
-    assert_eq!(migration_count(&connection)?, 4);
+    assert_eq!(migration_count(&connection)?, 5);
     assert!(paths.database_path().exists());
     assert!(dir
         .path()
@@ -341,33 +357,6 @@ fn workspace_upsert_marks_stale_rows_destroyed_and_keeps_resource_history() -> T
 }
 
 #[test]
-fn active_execution_upsert_and_prune_tracks_current_rows() -> TestResult {
-    let (_dir, paths) = test_paths("execution-prune")?;
-    let store = ObservabilityStore::open(&paths)?;
-
-    store.upsert_execution_snapshots(
-        "sandbox-1",
-        &[
-            execution_snapshot("exec-1", "workspace-1", 1_000),
-            execution_snapshot("exec-2", "workspace-1", 1_000),
-        ],
-    )?;
-    store.prune_execution_snapshots("sandbox-1", &["exec-2".to_owned()])?;
-
-    let connection = Connection::open(paths.database_path())?;
-    let execution: (String, String) = connection.query_row(
-        "SELECT execution_id, execution_kind
-         FROM execution_snapshots
-         WHERE sandbox_id = 'sandbox-1'",
-        [],
-        |row| Ok((row.get(0)?, row.get(1)?)),
-    )?;
-    assert_eq!(execution, ("exec-2".to_owned(), "command".to_owned()));
-
-    Ok(())
-}
-
-#[test]
 fn namespace_execution_snapshot_and_completed_trace_use_typed_tables() -> TestResult {
     let (_dir, paths) = test_paths("namespace-execution")?;
     let store = ObservabilityStore::open(&paths)?;
@@ -398,7 +387,6 @@ fn namespace_execution_snapshot_and_completed_trace_use_typed_tables() -> TestRe
     })?;
 
     let connection = Connection::open(paths.database_path())?;
-    assert_eq!(row_count(&connection, "execution_snapshots")?, 0);
     let snapshot: (String, String, String, String) = connection.query_row(
         "SELECT namespace_execution_id, workspace_session_id, operation, lifecycle_state
          FROM namespace_execution_snapshots
@@ -468,7 +456,6 @@ fn test_paths(name: &str) -> TestResult<(TestDir, ObservabilityPaths)> {
 
 fn allowed_tables() -> BTreeSet<String> {
     [
-        "execution_snapshots",
         "namespace_execution_snapshots",
         "namespace_execution_traces",
         "resource_samples",
@@ -485,8 +472,6 @@ fn allowed_tables() -> BTreeSet<String> {
 
 fn allowed_indexes() -> BTreeSet<String> {
     [
-        "idx_execution_snapshots_command",
-        "idx_execution_snapshots_workspace",
         "idx_namespace_execution_snapshots_workspace_session",
         "idx_namespace_execution_traces_namespace_execution",
         "idx_namespace_execution_traces_workspace_session_started",
@@ -585,31 +570,6 @@ fn workspace_snapshot(workspace_id: &str, sampled_at_unix_ms: i64) -> WorkspaceS
         base_manifest_version: Some(7),
         base_root_hash: Some("root-hash".to_owned()),
         layer_count: Some(2),
-        sampled_at_unix_ms,
-        error_message: None,
-    }
-}
-
-fn execution_snapshot(
-    execution_id: &str,
-    workspace_id: &str,
-    sampled_at_unix_ms: i64,
-) -> ExecutionSnapshotRecord {
-    ExecutionSnapshotRecord {
-        sandbox_id: "sandbox-1".to_owned(),
-        workspace_id: workspace_id.to_owned(),
-        execution_id: execution_id.to_owned(),
-        execution_kind: "command".to_owned(),
-        operation: Some("exec_command".to_owned()),
-        command_session_id: Some(execution_id.to_owned()),
-        command: Some("printf ok".to_owned()),
-        lifecycle_state: "running".to_owned(),
-        finalization_state: "not_started".to_owned(),
-        workspace_ownership: Some("existing_session".to_owned()),
-        started_at_unix_ms: None,
-        wall_time_ms: Some(12.5),
-        process_group_id: Some(1234),
-        transcript_path: Some(format!("/tmp/{execution_id}/transcript.log")),
         sampled_at_unix_ms,
         error_message: None,
     }

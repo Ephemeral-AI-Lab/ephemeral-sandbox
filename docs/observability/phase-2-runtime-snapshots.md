@@ -329,6 +329,11 @@ that imply database writes, sampling, telemetry, tracing, or exporting.
 
 Recommended DTOs:
 
+Phase 4.6 supersedes the execution DTO lane shown below. The historical Phase 2
+plan introduced `RuntimeExecutionSnapshot`, `active_executions`, and
+`execution_snapshots`; the current active-work observability lane is
+`active_namespace_executions` projected into `namespace_execution_snapshots`.
+
 ```rust
 pub struct RuntimeObservabilitySnapshot {
     pub workspaces: Vec<RuntimeWorkspaceSnapshot>,
@@ -565,6 +570,10 @@ Recommended stale policy:
 
 ### `ExecutionStateSampler`
 
+Phase 4.6 deletes this sampler from the active implementation. The command
+process store no longer feeds observability snapshots; command work is visible
+through namespace execution snapshots with `operation = "exec_command"`.
+
 Input:
 
 - `sandbox_id`;
@@ -786,6 +795,10 @@ Target derivation:
 ## SQLite Writes
 
 Phase 2 writes live data into `observability.sqlite`.
+
+Phase 4.6 keeps the historical Phase 2 migration text intact but adds a later
+drop migration so the final migrated schema no longer contains
+`execution_snapshots` or its indexes.
 
 Tables to populate:
 

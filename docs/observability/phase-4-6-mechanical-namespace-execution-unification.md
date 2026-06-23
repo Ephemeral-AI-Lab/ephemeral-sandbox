@@ -470,22 +470,22 @@ plan must not keep the old lane or add a replacement kind axis.
 
 ## Completion Checklist
 
-- [ ] `RuntimeExecutionSnapshot` is removed.
-- [ ] `RuntimeObservabilitySnapshot.active_executions` is removed.
-- [ ] `CommandProcessStore::snapshot_active_executions` is removed.
-- [ ] Daemon observability writes only namespace execution snapshots for active
+- [x] `RuntimeExecutionSnapshot` is removed.
+- [x] `RuntimeObservabilitySnapshot.active_executions` is removed.
+- [x] `CommandProcessStore::snapshot_active_executions` is removed.
+- [x] Daemon observability writes only namespace execution snapshots for active
       execution state.
-- [ ] Namespace execution snapshots carry `operation = exec_command` for
+- [x] Namespace execution snapshots carry `operation = exec_command` for
       active command work.
-- [ ] No active observability path adds `execution_kind`, `runner_kind`,
+- [x] No active observability path adds `execution_kind`, `runner_kind`,
       `execution_scope`, or a replacement single-value kind field.
-- [ ] `execution_snapshots` and its indexes are dropped from the final SQLite
+- [x] `execution_snapshots` and its indexes are dropped from the final SQLite
       schema.
-- [ ] `ExecutionSnapshotRecord` and its store APIs are removed.
-- [ ] Phase 5 DTOs expose `active_namespace_executions` only.
-- [ ] `active_commands` is not serialized; command work is identified by
+- [x] `ExecutionSnapshotRecord` and its store APIs are removed.
+- [x] Phase 5 DTOs expose `active_namespace_executions` only.
+- [x] `active_commands` is not serialized; command work is identified by
       `operation == "exec_command"` when a display layer needs that label.
-- [ ] No command transcript content, command output, stdin, or environment data
+- [x] No command transcript content, command output, stdin, or environment data
       is added to namespace execution snapshots.
-- [ ] No projection, attachment, sidecar table, or compatibility alias is added
+- [x] No projection, attachment, sidecar table, or compatibility alias is added
       for command-shaped observability snapshots.

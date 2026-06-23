@@ -9,7 +9,6 @@ const MAX_ERROR_KIND_LENGTH: usize = 128;
 pub const MAX_ERROR_MESSAGE_LENGTH: usize = 4096;
 pub const MAX_SNAPSHOT_STATE_LENGTH: usize = 64;
 pub const MAX_PATH_LENGTH: usize = 4096;
-pub const MAX_COMMAND_LENGTH: usize = 4096;
 
 #[derive(Debug, Error)]
 pub enum RecordValidationError {
@@ -222,26 +221,6 @@ impl WorkspaceSnapshotRecord {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct ExecutionSnapshotRecord {
-    pub sandbox_id: String,
-    pub workspace_id: String,
-    pub execution_id: String,
-    pub execution_kind: String,
-    pub operation: Option<String>,
-    pub command_session_id: Option<String>,
-    pub command: Option<String>,
-    pub lifecycle_state: String,
-    pub finalization_state: String,
-    pub workspace_ownership: Option<String>,
-    pub started_at_unix_ms: Option<i64>,
-    pub wall_time_ms: Option<f64>,
-    pub process_group_id: Option<i64>,
-    pub transcript_path: Option<String>,
-    pub sampled_at_unix_ms: i64,
-    pub error_message: Option<String>,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NamespaceExecutionSnapshotRecord {
     pub sandbox_id: String,
@@ -322,51 +301,6 @@ impl NamespaceExecutionTraceRecord {
             "error_kind",
             self.error_kind.as_deref(),
             MAX_ERROR_KIND_LENGTH,
-        )?;
-        validate_optional(
-            "error_message",
-            self.error_message.as_deref(),
-            MAX_ERROR_MESSAGE_LENGTH,
-        )?;
-        Ok(())
-    }
-}
-
-impl ExecutionSnapshotRecord {
-    pub(crate) fn validate_for_sandbox(
-        &self,
-        sandbox_id: &str,
-    ) -> Result<(), RecordValidationError> {
-        validate_sandbox_match("execution_snapshot", sandbox_id, &self.sandbox_id)?;
-        validate_required("workspace_id", &self.workspace_id, MAX_ID_LENGTH)?;
-        validate_required("execution_id", &self.execution_id, MAX_ID_LENGTH)?;
-        validate_required("execution_kind", &self.execution_kind, MAX_KIND_LENGTH)?;
-        validate_optional("operation", self.operation.as_deref(), MAX_OPERATION_LENGTH)?;
-        validate_optional(
-            "command_session_id",
-            self.command_session_id.as_deref(),
-            MAX_ID_LENGTH,
-        )?;
-        validate_optional("command", self.command.as_deref(), MAX_COMMAND_LENGTH)?;
-        validate_required(
-            "lifecycle_state",
-            &self.lifecycle_state,
-            MAX_SNAPSHOT_STATE_LENGTH,
-        )?;
-        validate_required(
-            "finalization_state",
-            &self.finalization_state,
-            MAX_SNAPSHOT_STATE_LENGTH,
-        )?;
-        validate_optional(
-            "workspace_ownership",
-            self.workspace_ownership.as_deref(),
-            MAX_KIND_LENGTH,
-        )?;
-        validate_optional(
-            "transcript_path",
-            self.transcript_path.as_deref(),
-            MAX_PATH_LENGTH,
         )?;
         validate_optional(
             "error_message",
