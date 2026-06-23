@@ -56,10 +56,11 @@ assuming the docs are current.
 
 Phase 3 implements coarse request method traces only:
 
-- create one request-local `OperationTrace` at daemon dispatch;
-- pass trace context into runtime operation dispatch;
+- create one request-local `OperationTrace` at daemon dispatch only when daemon
+  observability is enabled and `sandbox_id` is present;
+- pass optional trace context into runtime operation dispatch;
 - add the automatic root `dispatch_operation` span;
-- add coarse selected spans for:
+- add one public service-method span for:
   - `exec_command`;
   - `write_command_stdin`;
   - `read_command_lines`;
@@ -82,6 +83,8 @@ Phase 3 must not implement:
 - daemon query APIs such as `get_observability_snapshot`;
 - Prometheus, Grafana, Loki, Tempo, OTLP, or log export;
 - command transcript ingestion;
+- daemon decode-error trace records;
+- trace hierarchy columns or indexes;
 - response envelopes such as `{ result, meta }`;
 - runtime SQLite writes;
 - a `sandbox-observability` dependency from `sandbox-runtime`.
@@ -98,7 +101,8 @@ The spec must include a "Current Repo Grounding" section that confirms:
 - the current `OperationEntry` and `dispatch_operation` signatures;
 - the current public runtime operation entries;
 - the current Phase 1/2 `TraceRecord`, `SpanRecord`, and `insert_trace` shape;
-- whether `traces` currently has `workspace_id` and `command_session_id`;
+- whether `traces` currently has `workspace_id` and `command_session_id`, and
+  that Phase 3 must not add them;
 - that `Request` already carries `request_id`, `op`, `scope`, and `args`;
 - that command output and transcripts stay outside observability storage.
 
@@ -110,21 +114,24 @@ The spec must make these decisions explicit.
 
 ### Trace Context Ownership
 
-Define `OperationTrace` as runtime-side request context that records spans but
-does not know SQLite, daemon paths, or `sandbox-observability` record types.
+Define `OperationTrace` as runtime-side request span collector that records
+timing, nesting, and call order but does not know SQLite, daemon paths,
+`sandbox-observability` record types, response JSON, `sandbox_id`, `request_id`,
+operation, workspace hierarchy, or command hierarchy.
 
 Specify:
 
-- fields for `trace_id`, `request_id`, optional `sandbox_id`, `operation`,
-  optional `workspace_id`, optional `command_session_id`, monotonic start time,
-  Unix start time, active parent stack, completed spans, and terminal status;
-- how `trace_id = "request:" + request_id` is formed;
-- whether the implementation should pass `&OperationTrace` with interior
-  mutability or `&mut OperationTrace`, and why;
+- runtime fields only for monotonic start time, Unix start time, active parent
+  stack, completed spans, and stable `call_index`;
+- how daemon maps `trace_id = "request:" + request_id`;
+- how daemon maps storage `span_id` from `trace_id` plus runtime `call_index`;
+- that the implementation should pass `Option<&OperationTrace>`, not a disabled
+  trace object and not `&mut OperationTrace`;
 - `enter` for scope spans;
 - `measure` for one call or expression;
 - how spans finish on early return, panic unwind, or normal return;
-- how errors are represented without changing operation response payloads;
+- how daemon derives errors once from projected response JSON without changing
+  operation response payloads;
 - how the trace is completed before daemon persistence.
 
 ### Dispatch Boundary
@@ -157,24 +164,18 @@ For `exec_command`, add only:
 
 ```text
 CommandOperationService::exec_command
-resolve_exec_workspace
-start_command_process
-initial_exec_yield
 ```
 
 For `write_command_stdin`, add only:
 
 ```text
 CommandOperationService::write_command_stdin
-write_or_cancel
-wait_for_command_yield
 ```
 
 For `read_command_lines`, add only:
 
 ```text
 CommandOperationService::read_command_lines
-read_transcript_window
 ```
 
 For `squash`, add only:
@@ -187,6 +188,12 @@ The spec must explicitly defer these helper or lower-level spans:
 
 ```text
 parse_input
+resolve_exec_workspace
+start_command_process
+initial_exec_yield
+write_or_cancel
+wait_for_command_yield
+read_transcript_window
 command_admission
 register_active_command
 start_completion_watcher
@@ -205,38 +212,28 @@ wait_for_command_execution_scope
 ```
 
 Explain that Phase 3 spans are inclusive timings. For example,
-`resolve_exec_workspace` may include workspace/session/layerstack work, and
-`start_command_process` may include parent-side spawn preparation.
+`CommandOperationService::exec_command` includes workspace resolution, admission,
+command process start, watcher launch, and initial yield. Helper spans move to
+Phase 3.5 only after observed Phase 3 traces justify the split.
 
 ### Storage Migration
 
-If the live schema still lacks request trace hierarchy fields, specify a Phase 3
-migration that adds only:
+Specify that Phase 3 requires no schema migration. The live Phase 1 schema
+already has `traces`, `spans`, `TraceRecord`, `SpanRecord`, and
+`ObservabilityStore::insert_trace`.
 
-```sql
-ALTER TABLE traces ADD COLUMN workspace_id TEXT;
-ALTER TABLE traces ADD COLUMN command_session_id TEXT;
-
-CREATE INDEX IF NOT EXISTS idx_traces_workspace_time
-  ON traces(sandbox_id, workspace_id, started_at_unix_ms);
-
-CREATE INDEX IF NOT EXISTS idx_traces_command_time
-  ON traces(sandbox_id, command_session_id, started_at_unix_ms);
-```
-
-Update `TraceRecord` and `ObservabilityStore::insert_trace` accordingly.
-
-Do not add `trace_links`, `origin_request_id`, `correlation_kind`,
-`correlation_id`, or `async_name` in Phase 3.
+Do not add `traces.workspace_id`, `traces.command_session_id`,
+`idx_traces_workspace_time`, `idx_traces_command_time`, `trace_links`,
+`origin_request_id`, `correlation_kind`, `correlation_id`, or `async_name` in
+Phase 3.
 
 ### Daemon Persistence
 
 Specify how `SandboxDaemonServer::dispatch_request` should:
 
 - create the request trace only when observability is enabled and `sandbox_id`
-  is available, or create a disabled/no-op trace if that keeps runtime code
-  simpler;
-- pass the trace into `sandbox_runtime::dispatch_operation`;
+  is available;
+- pass `trace.as_ref()` into `sandbox_runtime::dispatch_operation`;
 - project the operation response exactly as today;
 - persist the completed request trace and spans after response projection;
 - ignore or record observability write failures without changing the user
@@ -286,28 +283,22 @@ Expected additions or edits:
 
 ```text
 crates/sandbox-runtime/operation/src/observability.rs
-crates/sandbox-runtime/operation/src/observability/trace.rs
+crates/sandbox-runtime/operation/src/lib.rs
 crates/sandbox-runtime/operation/src/operation.rs
+crates/sandbox-runtime/operation/src/command/service/impls/mod.rs
 crates/sandbox-runtime/operation/src/command/service/impls/exec_command.rs
 crates/sandbox-runtime/operation/src/command/service/impls/write_command_stdin.rs
 crates/sandbox-runtime/operation/src/command/service/impls/read_command_lines.rs
+crates/sandbox-runtime/operation/src/layerstack/service/impls/mod.rs
 crates/sandbox-runtime/operation/src/layerstack/service/impls/squash.rs
 crates/sandbox-daemon/src/server/dispatch.rs
 crates/sandbox-daemon/src/observability/service.rs
-crates/sandbox-daemon/src/observability/trace.rs
-crates/sandbox-observability/src/records.rs
-crates/sandbox-observability/src/store.rs
-crates/sandbox-observability/tests/schema.rs
 ```
 
-If `observability.rs` cannot remain both a file and a module directory in the
-current Rust layout, specify the cleanest module move, for example:
-
-```text
-crates/sandbox-runtime/operation/src/observability/mod.rs
-crates/sandbox-runtime/operation/src/observability/snapshot.rs
-crates/sandbox-runtime/operation/src/observability/trace.rs
-```
+Do not split `observability.rs` into a module directory unless the final
+implementation becomes hard to read. Do not add production storage files or a
+daemon `observability/trace.rs` mapper unless the mapper demonstrably outgrows
+`service.rs`.
 
 Do not add a new crate. Do not add manager files.
 
@@ -319,21 +310,22 @@ the cost goes.
 Use this target:
 
 ```text
-crates/sandbox-runtime non-test LOC: 110-250
+crates/sandbox-runtime non-test LOC: 70-120
 ```
 
 Expected split:
 
 ```text
-OperationTrace + span guard/types           70-130
-dispatch boundary plumbing                  20-35
-selected operation spans                    25-45
-exports/module movement, if needed           5-40
+OperationTrace + span guard/types            45-65
+dispatch boundary plumbing                   15-20
+selected operation wrapper spans             10-15
+exports/module movement, if needed            0-5
 ```
 
-If the spec predicts more than 250 runtime non-test LOC, it must stop and revise
-the boundary. The usual mistake is implementing Phase 3.5 or lower-crate tracing
-inside Phase 3.
+If the spec predicts more than 120 runtime non-test LOC, it must stop and revise
+the boundary. The usual mistake is implementing Phase 3.5 spans, disabled/no-op
+trace state, storage-shaped DTOs, public service signature churn, module
+ceremony, or lower-crate tracing inside Phase 3.
 
 ## Verification Plan Requirements
 
@@ -351,16 +343,18 @@ cargo test -p sandbox-daemon observability
 
 Required behavior tests:
 
-- schema migration adds trace `workspace_id` and `command_session_id` fields;
+- no Phase 3 schema migration or trace hierarchy indexes are added;
 - synthetic request trace persists all spans under one `trace_id`;
 - span `call_index` ordering is stable;
-- nested spans get the correct `parent_span_id`;
+- nested runtime spans map to the correct storage `parent_span_id`;
 - early returns close active spans;
 - operation errors still persist trace status without changing response shape;
 - missing `sandbox_id` disables persistence without failing requests;
 - observability store failures do not change operation responses;
 - runtime tests do not import `sandbox-observability`;
-- selected operation traces contain only the coarse Phase 3 span set.
+- public service method signatures do not change;
+- selected operation traces contain only root, operation dispatch, and one public
+  service-method span.
 
 ## Output Rules
 

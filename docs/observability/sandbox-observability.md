@@ -106,7 +106,7 @@ Later runtime adoption is split across later phases:
 | --- | --- | ---: |
 | Phase 1 | Data model and local stores outside runtime | 0 |
 | Phase 2 | Read-only workspace and execution snapshot adapters | 100-180 |
-| Phase 3 | Request trace boundary and coarse selected operation spans | 110-250 |
+| Phase 3 | Request trace boundary and minimal selected operation spans | 70-120 |
 | Phase 3.5 | Targeted in-process deep request spans | 60-130 |
 | Phase 4 | Linked async finalization trace wiring | 60-110 |
 | Phase 4.5 | Cross-process namespace-runner traces | 90-180 |
@@ -187,19 +187,21 @@ add collectors, samplers, or runtime snapshot methods.
 
 ### 4. Future Method Trace Context
 
-`OperationTrace` is a Phase 3 request-local context. The concrete storage and
-writer should live outside `sandbox-runtime`; runtime only receives the context
-and records method boundaries while it handles a request or async finalization.
+`OperationTrace` is a Phase 3 request-local span collector. The concrete storage,
+writer, request metadata, response inspection, and hierarchy mapping live outside
+`sandbox-runtime`; runtime only receives optional trace context and records
+bounded method spans while it handles a request.
 
 Responsibilities:
 
-- Hold `trace_id`, `request_id`, `sandbox_id`, `operation`, and optional
-  `workspace_id` / `command_session_id`.
-- Maintain a parent stack for method spans.
+- Maintain request start time, a parent stack, completed spans, and stable
+  `call_index` values.
 - Create method spans with `enter` and `measure`.
 - Finish spans on early return, panic unwind, or normal return.
-- Hand completed traces to the method trace writer.
-- Create linked async traces when later background work starts.
+- Hand completed runtime span DTOs to daemon-owned mapping code.
+- Omit `trace_id`, `request_id`, `sandbox_id`, operation, workspace hierarchy,
+  command hierarchy, response status, and response error metadata from runtime
+  DTOs.
 
 ### 5. Local SQLite Store
 
@@ -871,47 +873,46 @@ A span contains:
 
 ## Mapping Method Spans to Request IDs
 
-Create the trace context at the operation boundary.
+Create the trace context at the daemon operation boundary only when daemon
+observability is enabled and `sandbox_id` is available.
 
 ```rust
-let mut trace = OperationTrace::new_request(
-    request.request_id.clone(),
-    request.op.clone(),
-    sandbox_id.clone(),
-);
+let trace = observability_enabled.then(OperationTrace::new);
 ```
 
-Then pass `&mut trace` through operation dispatch and service calls:
+Then pass `trace.as_ref()` through operation dispatch:
 
 ```rust
-entry.dispatch(operations, request, &mut trace)
+entry.dispatch(operations, request, trace.as_ref())
 ```
 
-Every call to `trace.enter(...)` or `trace.measure(...)` writes into the same
-trace context, so each span automatically inherits:
+Every call to `trace.enter(...)` or `trace.measure(...)` writes timing, nesting,
+and `call_index` into the same runtime span collector. Runtime does not store:
 
 ```text
 trace_id
 request_id
 sandbox_id
 operation
-parent_span_id
+workspace_id
+command_session_id
+response status
+response error metadata
 ```
 
-When a method discovers a workspace or command id, update the context:
-
-```rust
-trace.set_workspace_id(workspace.workspace_session_id.clone());
-trace.set_command_session_id(command_session_id.clone());
-```
-
-This lets later spans and the completed trace be shown under:
+After response projection, daemon-owned mapping derives:
 
 ```text
-sandbox_id
-  workspace_id
-    command_session_id
+trace_id = "request:" + request_id
+span_id = trace_id + ":span:" + call_index
+parent_span_id = trace_id + ":span:" + parent_call_index
+kind = "request"
+status/error = projected response JSON
 ```
+
+Phase 3 intentionally does not add trace hierarchy fields or indexes for
+`workspace_id` / `command_session_id`. Those fields are reconsidered with the
+first daemon trace query API or an explicit hierarchy-correlation phase.
 
 ## `enter` vs `measure`
 
@@ -922,39 +923,24 @@ Use `measure` for one call or expression.
 Rules:
 
 - Public operation dispatch methods: `enter`.
-- Public/service methods: `enter`.
-- Important subcalls inside a service method: `measure`.
+- Public service calls made by operation dispatch wrappers: `measure`.
+- Important subcalls inside a service method: Phase 3.5 only after evidence.
 - Tiny helpers: no span.
 - Loops: one span around the loop, not one span per item.
-- Async task entrypoints: `enter` with link metadata.
-- Cleanup/finalization paths: `enter`.
+- Async task entrypoints: Phase 4 linked traces, not Phase 3 child spans.
+- Cleanup/finalization paths: Phase 4 linked traces unless they are synchronous
+  request work.
 
 Example:
 
 ```rust
-pub fn exec_command(
-    &self,
-    input: ExecCommandInput,
-    trace: &mut OperationTrace,
-) -> Result<CommandYield, CommandServiceError> {
-    let _span = trace.enter("CommandOperationService::exec_command");
-
-    if input.cmd.trim().is_empty() {
-        return Err(CommandServiceError::InvalidCommand {
-            message: "cmd must be non-empty".to_owned(),
-        });
-    }
-
-    self.exec_validated_command(input, trace)
-}
-```
-
-Example subcall:
-
-```rust
-let workspace = trace.measure("resolve_exec_workspace", || {
-    self.resolve_exec_workspace(&input)
-})?;
+let result = trace
+    .map(|trace| {
+        trace.measure("CommandOperationService::exec_command", || {
+            operations.command.exec_command(input)
+        })
+    })
+    .unwrap_or_else(|| operations.command.exec_command(input));
 ```
 
 ## Future Operation Authoring Rule
@@ -968,39 +954,25 @@ dispatch_operation
   <operation>::dispatch
 ```
 
-The operation author should add spans only at method boundaries that matter.
+The operation author should add at most one public service-method span at the
+operation dispatch wrapper. Do not add trace parameters to public service
+methods in Phase 3.
 
 Minimum expected effort for a new operation:
 
 ```rust
-pub fn new_operation(
-    &self,
-    input: NewOperationInput,
-    trace: &mut OperationTrace,
-) -> Result<NewOperationOutput, NewOperationError> {
-    let _span = trace.enter("NewOperationService::new_operation");
-
-    let target = trace.measure("resolve_target", || {
-        self.resolve_target(&input)
-    })?;
-
-    let output = trace.measure("execute_route", || {
-        self.execute_route(target, trace)
-    })?;
-
-    Ok(output)
-}
-```
-
-If the call goes through a different route or service, pass the same trace
-context:
-
-```rust
-other_route.execute(input, trace)
+trace
+    .map(|trace| {
+        trace.measure("NewOperationService::new_operation", || {
+            operations.new_operation.execute(input)
+        })
+    })
+    .unwrap_or_else(|| operations.new_operation.execute(input))
 ```
 
 If the route author adds no spans, operation-level timing still exists. If they
-add a few spans, the UI gets a readable method chain.
+add one public service-method span, the UI gets a readable method chain. Deeper
+subcall spans belong to Phase 3.5.
 
 ## `exec_command` Method Chain
 
@@ -1047,22 +1019,24 @@ Recommended Phase 3 coarse spans:
 dispatch_operation
 exec_command::dispatch
 CommandOperationService::exec_command
-resolve_exec_workspace
-start_command_process
-initial_exec_yield
 ```
 
 Phase 3 spans are inclusive timings. For example,
-`resolve_exec_workspace` may include workspace-session creation and layerstack
-work, and `start_command_process` may include namespace-runner request building
-and parent-side process spawn. Phase 3 must not record the full internal
-workspace, layerstack, command spawn, namespace runner, or shell execution call
-chain.
+`CommandOperationService::exec_command` includes validation, workspace
+resolution, command admission, command process start, watcher launch, and initial
+yield. Phase 3 must not record the full internal workspace, layerstack, command
+spawn, namespace runner, or shell execution call chain.
 
 Do not instrument these helper-sized boundaries on the first pass:
 
 ```text
 parse_input
+resolve_exec_workspace
+start_command_process
+initial_exec_yield
+write_or_cancel
+wait_for_command_yield
+read_transcript_window
 command_admission
 register_active_command
 start_completion_watcher
@@ -1366,15 +1340,17 @@ databases.
 
 ### Phase 3: Coarse Request Method Traces
 
-- Create `OperationTrace` at daemon dispatch.
-- Pass the trace context into runtime dispatch.
+- Create `OperationTrace` at daemon dispatch only when daemon observability is
+  enabled and `sandbox_id` is present.
+- Pass optional trace context into runtime dispatch.
 - Add automatic root dispatch span.
-- Add coarse selected spans for `exec_command`, `write_command_stdin`,
+- Add one public service-method span for `exec_command`, `write_command_stdin`,
   `read_command_lines`, and `squash`.
 - Persist completed request traces and spans in `sandbox-daemon`.
+- Do not add Phase 3 trace hierarchy columns or indexes.
 - Do not expand into full workspace, layerstack, command spawn,
   namespace-runner, or shell execution internals.
-- Expected `crates/sandbox-runtime` change: 110-250 non-test LOC.
+- Expected `crates/sandbox-runtime` change: 70-120 non-test LOC.
 
 ### Phase 3.5: Targeted Deep Request Spans
 

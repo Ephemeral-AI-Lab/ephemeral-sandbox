@@ -171,7 +171,9 @@ fn disk_samples_are_cached_until_tests_force_refresh_and_can_truncate() -> TestR
     assert_eq!(cached.disk_file_count, Some(1));
     assert_eq!(cached.disk_truncated, Some(false));
 
-    observability.collect_runtime_snapshot_fresh_disk_for_test(
+    let refreshed_observability =
+        DaemonObservability::from_config(&config).expect("sandbox id enables observability");
+    refreshed_observability.collect_runtime_snapshot_for_test(
         &config,
         RuntimeObservabilitySnapshot {
             workspaces: vec![workspace_snapshot("workspace-1", Some(upperdir.clone()))],
@@ -187,7 +189,7 @@ fn disk_samples_are_cached_until_tests_force_refresh_and_can_truncate() -> TestR
     for index in 0..1030 {
         std::fs::write(large_upperdir.join(format!("file-{index}")), b"x")?;
     }
-    observability.collect_runtime_snapshot_fresh_disk_for_test(
+    refreshed_observability.collect_runtime_snapshot_for_test(
         &config,
         RuntimeObservabilitySnapshot {
             workspaces: vec![workspace_snapshot(
@@ -216,11 +218,8 @@ async fn observability_write_errors_do_not_alter_operation_responses() -> TestRe
     let root = test_root("write-error-response");
     let config = server_config(&root, Some("sandbox-1"));
     let server = SandboxDaemonServer::new(config, Arc::new(runtime_operations(&root)?));
-    let observability = server
-        .observability
-        .as_ref()
-        .expect("sandbox id enables observability");
-    observability.force_next_collection_error_for_test();
+    store_for_config(&server.config)?.drop_workspace_snapshots_table_for_test()?;
+
     let response = server
         .dispatch_bytes(
             serde_json::to_vec(&Request::new(
@@ -233,13 +232,18 @@ async fn observability_write_errors_do_not_alter_operation_responses() -> TestRe
         )
         .await;
 
-    for _ in 0..100 {
-        if !observability.collection_error_pending_for_test() {
+    for _ in 0..10 {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        if store_for_config(&server.config)?
+            .sandbox_snapshot_for_test("sandbox-1")?
+            .is_some()
+        {
             break;
         }
-        tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    assert!(!observability.collection_error_pending_for_test());
+    assert!(store_for_config(&server.config)?
+        .sandbox_snapshot_for_test("sandbox-1")?
+        .is_some());
     assert_eq!(response["error"]["kind"], "unknown_op");
     assert_eq!(response["error"]["message"], "unknown operation");
     Ok(())
@@ -295,8 +299,7 @@ fn latest_workspace_sample(
     store
         .resource_samples_for_test(sandbox_id)?
         .into_iter()
-        .filter(|sample| sample.workspace_id.as_deref() == Some(workspace_id))
-        .last()
+        .rfind(|sample| sample.workspace_id.as_deref() == Some(workspace_id))
         .ok_or_else(|| format!("missing resource sample for {workspace_id}").into())
 }
 

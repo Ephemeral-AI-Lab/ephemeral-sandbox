@@ -1,15 +1,15 @@
 use thiserror::Error;
 
-const MAX_ID_LENGTH: usize = 256;
-const MAX_KIND_LENGTH: usize = 64;
+pub const MAX_ID_LENGTH: usize = 256;
+pub const MAX_KIND_LENGTH: usize = 64;
 const MAX_STATUS_LENGTH: usize = 64;
-const MAX_OPERATION_LENGTH: usize = 128;
+pub const MAX_OPERATION_LENGTH: usize = 128;
 const MAX_METHOD_LENGTH: usize = 256;
 const MAX_ERROR_KIND_LENGTH: usize = 128;
-const MAX_ERROR_MESSAGE_LENGTH: usize = 4096;
-const MAX_SNAPSHOT_STATE_LENGTH: usize = 64;
-const MAX_PATH_LENGTH: usize = 4096;
-const MAX_COMMAND_LENGTH: usize = 4096;
+pub const MAX_ERROR_MESSAGE_LENGTH: usize = 4096;
+pub const MAX_SNAPSHOT_STATE_LENGTH: usize = 64;
+pub const MAX_PATH_LENGTH: usize = 4096;
+pub const MAX_COMMAND_LENGTH: usize = 4096;
 
 #[derive(Debug, Error)]
 pub enum RecordValidationError {

@@ -14,25 +14,27 @@ Status: draft implementation spec
 ## Exact Goal
 
 Phase 3 adds completed request method traces for the daemon-owned runtime
-operation path. It records one request-local runtime trace, a root
-`dispatch_operation` span, and a small set of coarse operation spans for the
-current long-running or observability-relevant runtime operations.
+operation path. It records one request-local runtime span tree, a root
+`dispatch_operation` span, a matched `<operation>::dispatch` span, and at most
+one public service-method span for each selected operation.
 
 Phase 3 implements only:
 
-- create one request-local `OperationTrace` at daemon dispatch;
-- pass that trace context into `sandbox_runtime::dispatch_operation`;
+- create one request-local `OperationTrace` at daemon dispatch only when daemon
+  observability is enabled;
+- pass an optional trace context into `sandbox_runtime::dispatch_operation`;
 - add the automatic root `dispatch_operation` span;
-- add selected coarse spans for `exec_command`, `write_command_stdin`,
-  `read_command_lines`, and `squash`;
+- add one public service-method span for `exec_command`,
+  `write_command_stdin`, `read_command_lines`, and `squash`;
 - persist completed request traces and spans through daemon-owned
   observability storage;
 - preserve the current `sandbox_protocol::Response` payload shape.
 
 Phase 3 must not add response envelopes, async trace links, runner child-process
 traces, manager aggregation, query APIs, external observability services, command
-transcript ingestion, runtime SQLite writes, or a `sandbox-observability`
-dependency from `sandbox-runtime`.
+transcript ingestion, decode-error traces, trace hierarchy columns or indexes,
+runtime SQLite writes, or a `sandbox-observability` dependency from
+`sandbox-runtime`.
 
 ## Current Repo Grounding
 
@@ -226,8 +228,9 @@ pub fn insert_trace(
 and inserts one trace row plus all span rows in a single SQLite transaction.
 
 The current `traces` table does not have `workspace_id` or
-`command_session_id`. Phase 3 must add only those hierarchy fields and their
-indexes.
+`command_session_id`. Phase 3 intentionally does not add those hierarchy fields
+or indexes; they belong with the first concrete daemon query API or a later
+hierarchy-correlation phase.
 
 ### Current Request and Response Shape
 
@@ -274,6 +277,8 @@ Phase 3 does not implement:
 - Prometheus, Grafana, Loki, Tempo, OTLP, or log export;
 - command transcript ingestion;
 - response envelopes such as `{ "result": ..., "meta": ... }`;
+- `traces.workspace_id`, `traces.command_session_id`, or hierarchy indexes;
+- daemon decode-error trace records;
 - runtime SQLite writes;
 - a `sandbox-observability` dependency from `sandbox-runtime`;
 - a new crate;
@@ -283,50 +288,65 @@ Phase 3 does not implement:
 
 ### Runtime Trace Context
 
-Add runtime-owned request tracing under
-`crates/sandbox-runtime/operation/src/observability/trace.rs`.
+Add runtime-owned request span collection in
+`crates/sandbox-runtime/operation/src/observability.rs`. Do not split the file
+unless the final implementation becomes hard to read; the current snapshot DTOs
+are small.
 
-`OperationTrace` is a request-local runtime context. It records span structure
-and terminal status but does not know SQLite, daemon paths, or
-`sandbox-observability` record types.
+`OperationTrace` is a request-local span collector. It does not know
+`sandbox_id`, `request_id`, operation names as trace metadata, SQLite, daemon
+paths, `sandbox-observability` records, response JSON, command output, transcript
+content, workspace hierarchy, or command hierarchy.
 
 Use this domain split:
 
-- `OperationTrace`: mutable request aggregate used while dispatch runs.
-- `CompletedOperationTrace`: immutable runtime DTO returned to the daemon.
-- `CompletedOperationSpan`: immutable runtime DTO for completed spans.
-- `TraceStatus`: runtime enum or string adapter for `ok`, `error`, and `panic`.
+- `OperationTrace`: mutable request span collector used while dispatch runs.
+- `CompletedOperationTrace`: immutable runtime DTO containing only trace timing
+  and completed spans.
+- `CompletedOperationSpan`: immutable runtime DTO for one completed span.
 
-The enabled trace state must include:
+The runtime trace state must include only:
+
+- monotonic request start time as `Instant`;
+- Unix request start time in milliseconds;
+- active parent stack as `call_index` values;
+- completed spans;
+- next stable `call_index`.
+
+Runtime must not store:
 
 - `trace_id`;
 - `request_id`;
-- optional `sandbox_id`;
+- `sandbox_id`;
 - `operation`;
-- optional `workspace_id`;
-- optional `command_session_id`;
-- monotonic start time as `Instant`;
-- Unix start time in milliseconds;
-- active parent stack;
-- completed spans;
-- next stable `call_index`;
-- terminal status;
-- optional terminal `error_kind`;
-- optional terminal `error_message`.
+- `workspace_id`;
+- `command_session_id`;
+- terminal trace status;
+- terminal trace error kind or message.
 
-The request trace id is:
+The daemon derives the request trace id as:
 
 ```text
 trace_id = "request:" + request_id
 ```
 
-Pass `&OperationTrace`, not `&mut OperationTrace`.
+The daemon maps span ids from call indexes:
 
-Reason: Phase 3 needs RAII span guards that close on normal return, early
-return, and panic unwind while still allowing nested calls to enter child spans.
-A guard that holds `&mut OperationTrace` would borrow the trace for the full
-scope and make nested instrumentation awkward or impossible without unsafe code
-or manual close calls. `OperationTrace` should use interior mutability, such as
+```text
+span_id = trace_id + ":span:" + call_index
+```
+
+Pass `Option<&OperationTrace>`, not a disabled/no-op trace object. `None` means
+daemon observability was unavailable and runtime dispatch does not record spans.
+This keeps the disabled path out of runtime state and avoids completed DTOs that
+exist only to be ignored.
+
+When a trace is present, pass `&OperationTrace`, not `&mut OperationTrace`.
+Phase 3 needs RAII span guards that close on normal return, early return, and
+panic unwind while still allowing nested calls to enter child spans. A guard that
+holds `&mut OperationTrace` would borrow the trace for the full scope and make
+nested instrumentation awkward or impossible without unsafe code or manual close
+calls. `OperationTrace` should use interior mutability, such as
 `RefCell<TraceState>`, because the trace is request-local and not shared across
 concurrent threads. It does not need `Arc<Mutex<_>>`.
 
@@ -334,28 +354,16 @@ Expected API shape:
 
 ```rust
 pub struct OperationTrace {
-    state: TraceStateStorage,
+    state: RefCell<TraceState>,
 }
 
 pub struct SpanGuard<'a> {
     trace: &'a OperationTrace,
-    span_id: String,
+    call_index: i64,
 }
 
 impl OperationTrace {
-    pub fn enabled(
-        request_id: String,
-        operation: String,
-        sandbox_id: String,
-    ) -> Self;
-
-    pub fn disabled(request_id: String, operation: String) -> Self;
-
-    pub fn is_enabled(&self) -> bool;
-
-    pub fn set_workspace_id(&self, workspace_id: impl Into<String>);
-
-    pub fn set_command_session_id(&self, command_session_id: impl Into<String>);
+    pub fn new() -> Self;
 
     pub fn enter(&self, method_name: &'static str) -> SpanGuard<'_>;
 
@@ -365,61 +373,28 @@ impl OperationTrace {
         call: impl FnOnce() -> T,
     ) -> T;
 
-    pub fn measure_result<T, E: std::fmt::Display>(
-        &self,
-        method_name: &'static str,
-        error_kind: &'static str,
-        call: impl FnOnce() -> Result<T, E>,
-    ) -> Result<T, E>;
-
-    pub fn complete_from_response_value(
-        &self,
-        response: &serde_json::Value,
-    ) -> CompletedOperationTrace;
-
-    pub fn complete_panic(
-        &self,
-        message: impl Into<String>,
-    ) -> CompletedOperationTrace;
+    pub fn complete(&self) -> CompletedOperationTrace;
 }
 ```
 
 `enter` creates a span, assigns `call_index`, uses the current top of the parent
-stack as `parent_span_id`, pushes the new span id, and returns a `SpanGuard`.
-Dropping the guard pops the span if it is still active and records finish time
-and duration. If the guard is dropped during unwind, the span closes with
-`status = "panic"` unless it was already marked with a more specific error.
+stack as `parent_call_index`, pushes the new call index, and returns a
+`SpanGuard`. Dropping the guard pops the span if it is still active and records
+finish time and duration. If the guard is dropped during unwind, the span closes
+with `status = "panic"`; otherwise it closes with `status = "ok"`.
 
 `measure` is a convenience wrapper around `enter` for one call or expression.
+Do not add `measure_result`. Phase 3 records operation errors by letting daemon
+code inspect the projected response JSON once, after runtime dispatch returns.
 
-`measure_result` is the selected Phase 3 way to map typed service errors into
-span error metadata without changing operation response payloads. The closure's
-`Err` value is recorded as bounded `error_message` with the caller-provided
-`error_kind`, then the original `Err` is returned unchanged.
-
-Operation response errors are represented by inspecting the projected JSON value
-at trace completion:
-
-- if the response has top-level `error.kind` and `error.message`, the trace
-  terminal status is `error` and those bounded fields are copied into trace
-  metadata;
-- otherwise the trace terminal status is `ok`;
-- if completion sees an error response and no span has an error status, the
-  current operation dispatch span or root span should be marked with the same
-  bounded error metadata so unknown operations and request argument parse errors
-  still have useful root timing.
-
-This stores error metadata only in observability records. It must not add error
-metadata to the operation response and must not wrap successful responses.
-
-`CompletedOperationTrace` must be produced before daemon persistence. The
-completed DTO remains a runtime type so the daemon can map it into
-`TraceRecord` and `SpanRecord` without making runtime import
-`sandbox-observability`.
+The completed runtime DTO must be produced before daemon persistence. The daemon
+maps it into `TraceRecord` and `SpanRecord`, injects `sandbox_id`, `request_id`,
+`operation`, `kind = "request"`, response-derived status/error metadata, and the
+storage span ids. This keeps runtime independent of `sandbox-observability`.
 
 ### Dispatch Boundary
 
-Change the runtime dispatch boundary to accept `&OperationTrace`.
+Change the runtime dispatch boundary to accept `Option<&OperationTrace>`.
 
 Expected `OperationEntry` shape in
 `crates/sandbox-runtime/operation/src/operation.rs`:
@@ -433,7 +408,7 @@ pub(crate) struct OperationEntry {
     pub(crate) dispatch: fn(
         &SandboxRuntimeOperations,
         &sandbox_protocol::Request,
-        &OperationTrace,
+        Option<&OperationTrace>,
     ) -> sandbox_protocol::Response,
 }
 ```
@@ -444,15 +419,15 @@ Expected dispatch shape:
 pub(crate) fn dispatch_operation(
     operations: &SandboxRuntimeOperations,
     request: &sandbox_protocol::Request,
-    trace: &OperationTrace,
+    trace: Option<&OperationTrace>,
 ) -> sandbox_protocol::Response {
-    trace.measure("dispatch_operation", || {
+    measure_optional(trace, "dispatch_operation", || {
         operation_entry_groups()
             .into_iter()
             .flat_map(|entries| entries.iter())
             .find(|entry| entry.name == request.op)
             .map_or_else(sandbox_protocol::Response::unknown_op, |entry| {
-                trace.measure(operation_dispatch_span(entry.name), || {
+                measure_optional(trace, operation_dispatch_span(entry.name), || {
                     (entry.dispatch)(operations, request, trace)
                 })
             })
@@ -477,7 +452,7 @@ changes to:
 pub fn dispatch_operation(
     operations: &SandboxRuntimeOperations,
     request: &sandbox_protocol::Request,
-    trace: &OperationTrace,
+    trace: Option<&OperationTrace>,
 ) -> sandbox_protocol::Response
 ```
 
@@ -487,11 +462,17 @@ The selected operation dispatch functions change to:
 pub(crate) fn dispatch(
     operations: &SandboxRuntimeOperations,
     request: &Request,
-    trace: &OperationTrace,
+    trace: Option<&OperationTrace>,
 ) -> Response
 ```
 
-for command operations and `squash`.
+for command operations and `squash`. Only these dispatch wrappers receive the
+optional trace. Do not change the public service methods
+`CommandOperationService::exec_command`,
+`CommandOperationService::write_command_stdin`,
+`CommandOperationService::read_command_lines`, or `LayerStackService::squash`.
+The dispatch wrappers should parse input normally, then wrap the single public
+service method call in the selected service-method span.
 
 Unknown operations still pass through `dispatch_operation`, so the request gets
 at least:
@@ -512,11 +493,9 @@ dispatch_operation
 because `<operation>::dispatch` wraps `parse_input`. Phase 3 must not add a
 separate `parse_input` span.
 
-Daemon request decode errors happen before a typed `Request` exists. Phase 3 can
-persist a minimal decode-error trace only when the raw decoded JSON contains a
-non-empty string `request_id` and a non-empty string `op`; otherwise no valid
-`request:<request_id>` trace id can be formed. Bad JSON without a request id is
-not a Phase 3 trace producer.
+Daemon request decode errors happen before a typed `Request` exists and are not
+Phase 3 request-method traces. Do not add decode-error trace persistence in this
+phase.
 
 ### Daemon Persistence
 
@@ -525,15 +504,11 @@ not a Phase 3 trace producer.
 Trace creation rule:
 
 - if `self.observability.is_some()` and `self.config.sandbox_id` is a non-empty
-  string, create `OperationTrace::enabled(request.request_id.clone(),
-  request.op.clone(), sandbox_id.clone())`;
-- otherwise create `OperationTrace::disabled(request.request_id.clone(),
-  request.op.clone())` and still pass it through runtime dispatch.
+  string, create `Some(OperationTrace::new())`;
+- otherwise pass `None` into runtime dispatch and skip trace completion.
 
-Using a disabled trace keeps runtime code simple and avoids optional trace
-plumbing through every selected operation. Disabled trace methods are no-ops and
-`complete_from_response_value` returns a disabled completed trace that the daemon
-does not persist.
+Do not create disabled/no-op traces. The daemon already owns the enabled/disabled
+decision and can branch once at dispatch.
 
 Expected daemon shape:
 
@@ -543,22 +518,42 @@ async fn dispatch_request(&self, request: Request) -> serde_json::Value {
         return response;
     }
 
-    let trace = self.operation_trace_for(&request);
+    let trace = self.operation_trace_for();
+    let trace_request_id = request.request_id.clone();
+    let trace_operation = request.op.clone();
+    let trace_sandbox_id = self
+        .config
+        .sandbox_id
+        .as_ref()
+        .filter(|sandbox_id| !sandbox_id.is_empty())
+        .cloned();
+    let observability = self.observability.clone();
     let operations = Arc::clone(&self.operations);
     let task = tokio::task::spawn_blocking(move || {
         let response = sandbox_runtime::dispatch_operation(
             &operations,
             &request,
-            &trace,
+            trace.as_ref(),
         );
         let value = response.into_json_value();
-        let completed_trace = trace.complete_from_response_value(&value);
-        (value, completed_trace)
+        if let (Some(observability), Some(completed_trace), Some(sandbox_id)) = (
+            observability,
+            trace.as_ref().map(OperationTrace::complete),
+            trace_sandbox_id,
+        ) {
+            let _ = observability.insert_completed_operation_trace(
+                sandbox_id,
+                trace_request_id,
+                trace_operation,
+                &value,
+                completed_trace,
+            );
+        }
+        value
     });
 
     match task.await {
-        Ok((response, completed_trace)) => {
-            self.persist_completed_trace(completed_trace);
+        Ok(response) => {
             self.trigger_observability_collection();
             response
         }
@@ -568,12 +563,18 @@ async fn dispatch_request(&self, request: Request) -> serde_json::Value {
 }
 ```
 
-`persist_completed_trace` should:
+`DaemonObservability::insert_completed_operation_trace` should:
 
-- return immediately when the completed trace is disabled;
-- return immediately when `self.observability` is `None`;
-- map runtime trace DTOs into `TraceRecord` and `SpanRecord`;
-- call a daemon-owned method such as `DaemonObservability::insert_trace`;
+- derive `trace_id` as `request:<request_id>`;
+- inspect the projected response JSON once to derive trace status and bounded
+  error metadata;
+- map runtime trace DTOs into existing `TraceRecord` and `SpanRecord`;
+- synthesize storage span ids from `trace_id` plus runtime call indexes;
+- when the response is a fault, mark the deepest completed span with
+  response-derived error metadata; this maps to the public service span for
+  service errors, `<operation>::dispatch` for argument parse errors, and
+  `dispatch_operation` for unknown operations;
+- call `ObservabilityStore::insert_trace`;
 - ignore write failures for the user operation response;
 - optionally record bounded internal diagnostics later, but not in Phase 3
   response payloads.
@@ -586,11 +587,10 @@ Panic handling:
 - `SpanGuard::drop` must close active spans during unwind.
 - The daemon should keep the current user-facing panic behavior: a runtime panic
   maps to the existing internal daemon error path.
-- If the implementation adds a narrow `catch_unwind` inside the blocking closure
-  to complete and persist a `panic` trace, it must still return the same error
-  kind and same broad internal-error behavior to the caller. Panic persistence is
-  best effort; normal operation errors are the required Phase 3 persistence
-  target.
+- Do not add `catch_unwind` in Phase 3. Persisting panic traces is deferred
+  because it adds a second panic-handling path around the blocking task. Normal
+  operation errors, unknown operations, and argument parse errors are the
+  required Phase 3 persistence target.
 
 Phase 2 snapshot collection continues after request handling. Trace persistence
 should run before `trigger_observability_collection` so the completed method
@@ -598,45 +598,28 @@ trace is durable even if snapshot collection later fails.
 
 ### Storage Migration
 
-The live schema lacks `workspace_id` and `command_session_id` on `traces`.
-Add one new migration to `crates/sandbox-observability/src/store.rs`:
+No schema migration is required for Phase 3. The live Phase 1 schema already has
+`traces`, `spans`, `TraceRecord`, `SpanRecord`, and
+`ObservabilityStore::insert_trace`.
 
-```rust
-Migration {
-    version: 3,
-    name: "phase_3_request_method_traces",
-    sql: V3_SCHEMA_SQL,
-}
+Do not add:
+
+```text
+traces.workspace_id
+traces.command_session_id
+idx_traces_workspace_time
+idx_traces_command_time
+trace_links
+origin_request_id
+correlation_kind
+correlation_id
+async_name
 ```
 
-`V3_SCHEMA_SQL` must add only:
-
-```sql
-ALTER TABLE traces ADD COLUMN workspace_id TEXT;
-ALTER TABLE traces ADD COLUMN command_session_id TEXT;
-
-CREATE INDEX IF NOT EXISTS idx_traces_workspace_time
-  ON traces(sandbox_id, workspace_id, started_at_unix_ms);
-
-CREATE INDEX IF NOT EXISTS idx_traces_command_time
-  ON traces(sandbox_id, command_session_id, started_at_unix_ms);
-```
-
-Update `TraceRecord` in
-`crates/sandbox-observability/src/records.rs` to include:
-
-```rust
-pub workspace_id: Option<String>,
-pub command_session_id: Option<String>,
-```
-
-and validate them with `MAX_ID_LENGTH`.
-
-Update `ObservabilityStore::insert_trace` to insert those fields into the
-`traces` table. Do not change the `spans` table for Phase 3.
-
-Do not add `trace_links`, `origin_request_id`, `correlation_kind`,
-`correlation_id`, or `async_name`.
+`workspace_id` and `command_session_id` are useful hierarchy fields, but adding
+them now optimizes for future queries before Phase 3 has a query API. Reconsider
+them with the first daemon-owned trace query API or an explicit hierarchy
+correlation phase.
 
 ### Selected Span Policy
 
@@ -644,7 +627,7 @@ Phase 3 spans are inclusive timings. A span measures the full elapsed time of
 the code block it wraps, including lower-level work that Phase 3 intentionally
 does not split.
 
-Every request trace starts with:
+Every traced request starts with:
 
 ```text
 dispatch_operation
@@ -658,38 +641,31 @@ For `exec_command`, add only:
 
 ```text
 CommandOperationService::exec_command
-resolve_exec_workspace
-start_command_process
-initial_exec_yield
 ```
 
-`resolve_exec_workspace` may include workspace-session resolution or
-workspace-session creation and related layerstack work. `start_command_process`
-may include `WorkspaceHandle::entry`, parent-side command spawn preparation,
-namespace-runner request building, and parent-side process spawn. Phase 3 does
-not split those internal calls.
+This span wraps the existing `operations.command.exec_command(input)` call in
+the operation dispatch wrapper. It includes validation, workspace resolution,
+command process start, admission, watcher launch, and initial yield.
 
 For `write_command_stdin`, add only:
 
 ```text
 CommandOperationService::write_command_stdin
-write_or_cancel
-wait_for_command_yield
 ```
 
-`write_or_cancel` should wrap the existing branch that either cancels the
-process for kill input or writes to process stdin. It does not need to become a
-new public method.
+This span wraps the existing `operations.command.write_command_stdin(input)` call
+in the operation dispatch wrapper. It includes the write-or-cancel branch and the
+yield wait.
 
 For `read_command_lines`, add only:
 
 ```text
 CommandOperationService::read_command_lines
-read_transcript_window
 ```
 
-`read_transcript_window` should include active transcript window reads and
-completed transcript window reads. It must not record transcript content.
+This span wraps the existing `operations.command.read_command_lines(input)` call
+in the operation dispatch wrapper. It includes active and completed transcript
+window reads, but trace records must not store transcript content.
 
 For `squash`, add only:
 
@@ -701,6 +677,12 @@ Explicitly defer these helper or lower-level spans:
 
 ```text
 parse_input
+resolve_exec_workspace
+start_command_process
+initial_exec_yield
+write_or_cancel
+wait_for_command_yield
+read_transcript_window
 command_admission
 register_active_command
 start_completion_watcher
@@ -740,21 +722,15 @@ Keep the implementation small and use the existing crate layout.
 Runtime files:
 
 - `crates/sandbox-runtime/operation/src/observability.rs`
-  - Move this file to `crates/sandbox-runtime/operation/src/observability/mod.rs`
-    because Rust cannot keep both `observability.rs` and an
-    `observability/` module directory.
-- `crates/sandbox-runtime/operation/src/observability/mod.rs`
-  - Re-export snapshot DTOs and trace DTOs.
-- `crates/sandbox-runtime/operation/src/observability/snapshot.rs`
-  - Hold the current `RuntimeObservabilitySnapshot`,
-    `RuntimeWorkspaceSnapshot`, and `RuntimeExecutionSnapshot` definitions.
-- `crates/sandbox-runtime/operation/src/observability/trace.rs`
-  - Add `OperationTrace`, `SpanGuard`, `CompletedOperationTrace`, and
-    `CompletedOperationSpan`.
+  - Keep the current snapshot DTOs in place.
+  - Add the minimal `OperationTrace`, `SpanGuard`, `CompletedOperationTrace`, and
+    `CompletedOperationSpan` types here unless the final implementation becomes
+    hard to read.
 - `crates/sandbox-runtime/operation/src/lib.rs`
   - Re-export `OperationTrace` and completed trace DTOs as needed by
     `sandbox-daemon`.
-  - Change public `dispatch_operation` signature.
+  - Change public `dispatch_operation` signature to accept
+    `Option<&OperationTrace>`.
 - `crates/sandbox-runtime/operation/src/operation.rs`
   - Change `OperationEntry` function pointer type.
   - Add root `dispatch_operation` span.
@@ -762,48 +738,46 @@ Runtime files:
 - `crates/sandbox-runtime/operation/src/command/service/impls/mod.rs`
   - Update operation entry constants for the new dispatch function pointer.
 - `crates/sandbox-runtime/operation/src/command/service/impls/exec_command.rs`
-  - Add trace parameter to dispatch and selected service methods.
-  - Add the four selected `exec_command` spans.
+  - Add optional trace parameter to dispatch only.
+  - Wrap only `operations.command.exec_command(input)` in
+    `CommandOperationService::exec_command`.
 - `crates/sandbox-runtime/operation/src/command/service/impls/write_command_stdin.rs`
-  - Add trace parameter.
-  - Add selected write/cancel and yield spans.
+  - Add optional trace parameter to dispatch only.
+  - Wrap only `operations.command.write_command_stdin(input)` in
+    `CommandOperationService::write_command_stdin`.
 - `crates/sandbox-runtime/operation/src/command/service/impls/read_command_lines.rs`
-  - Add trace parameter.
-  - Add selected transcript-window span without recording transcript content.
+  - Add optional trace parameter to dispatch only.
+  - Wrap only `operations.command.read_command_lines(input)` in
+    `CommandOperationService::read_command_lines`.
 - `crates/sandbox-runtime/operation/src/layerstack/service/impls/mod.rs`
   - Update the operation entry constant for the new dispatch function pointer.
 - `crates/sandbox-runtime/operation/src/layerstack/service/impls/squash.rs`
-  - Add trace parameter and selected `LayerStackService::squash` span.
+  - Add optional trace parameter to dispatch only.
+  - Wrap only `operations.layerstack.squash()` in `LayerStackService::squash`.
+
+Do not change public service method signatures. Do not add trace parameters to
+`CommandOperationService` or `LayerStackService` methods.
 
 Daemon files:
 
 - `crates/sandbox-daemon/src/server/dispatch.rs`
-  - Create enabled or disabled `OperationTrace`.
-  - Pass trace into runtime dispatch.
-  - Complete trace from projected response JSON.
+  - Create `Some(OperationTrace::new())` only when daemon observability is
+    enabled and `sandbox_id` is present.
+  - Pass `trace.as_ref()` into runtime dispatch.
+  - Complete the trace after projecting the response JSON.
   - Persist completed trace before Phase 2 snapshot collection.
-- `crates/sandbox-daemon/src/observability/mod.rs`
-  - Add `mod trace;`.
 - `crates/sandbox-daemon/src/observability/service.rs`
   - Add daemon-owned trace persistence entrypoint.
-  - Keep snapshot collection behavior unchanged.
-- `crates/sandbox-daemon/src/observability/trace.rs`
-  - Map `CompletedOperationTrace` and `CompletedOperationSpan` into
+  - Map `CompletedOperationTrace` and `CompletedOperationSpan` into existing
     `TraceRecord` and `SpanRecord`.
   - Bound error strings consistently with the current daemon service helpers.
+  - Keep snapshot collection behavior unchanged.
 
 Storage files:
 
-- `crates/sandbox-observability/src/records.rs`
-  - Add `workspace_id` and `command_session_id` to `TraceRecord`.
-- `crates/sandbox-observability/src/store.rs`
-  - Add migration version 3.
-  - Update `insert_trace`.
-  - Add test-only trace read helper only if needed by focused tests.
-- `crates/sandbox-observability/tests/schema.rs`
-  - Update allowed index set.
-  - Update synthetic trace construction.
-  - Add migration and hierarchy-field assertions.
+- No production storage changes are required.
+- Add a test-only trace read helper only if daemon trace persistence tests cannot
+  assert through existing store helpers and direct SQLite reads.
 
 Do not add a new crate. Do not add manager files.
 
@@ -813,86 +787,64 @@ Expected runtime trace DTOs:
 
 ```rust
 pub struct CompletedOperationTrace {
-    pub enabled: bool,
-    pub trace_id: String,
-    pub kind: &'static str,
-    pub status: String,
-    pub sandbox_id: Option<String>,
-    pub operation: String,
-    pub request_id: String,
-    pub workspace_id: Option<String>,
-    pub command_session_id: Option<String>,
     pub started_at_unix_ms: i64,
-    pub finished_at_unix_ms: Option<i64>,
-    pub duration_ms: Option<f64>,
-    pub error_kind: Option<String>,
-    pub error_message: Option<String>,
+    pub finished_at_unix_ms: i64,
+    pub duration_ms: f64,
     pub spans: Vec<CompletedOperationSpan>,
 }
 
 pub struct CompletedOperationSpan {
-    pub span_id: String,
-    pub trace_id: String,
-    pub parent_span_id: Option<String>,
-    pub method_name: String,
+    pub parent_call_index: Option<i64>,
+    pub method_name: &'static str,
     pub call_index: i64,
-    pub status: String,
+    pub status: &'static str,
     pub started_at_unix_ms: i64,
-    pub finished_at_unix_ms: Option<i64>,
-    pub duration_ms: Option<f64>,
-    pub error_kind: Option<String>,
-    pub error_message: Option<String>,
+    pub finished_at_unix_ms: i64,
+    pub duration_ms: f64,
 }
 ```
 
-`kind` is always `"request"` in Phase 3.
+Runtime completed DTOs intentionally omit trace ids, storage span ids,
+`sandbox_id`, `request_id`, operation, workspace hierarchy, command hierarchy,
+and response error metadata. Runtime span names and runtime span statuses stay as
+`&'static str`; the daemon converts them to storage `String`s during mapping.
 
-Expected service signatures:
+Expected dispatch signatures:
 
 ```rust
-impl CommandOperationService {
-    pub fn exec_command(
-        &self,
-        input: ExecCommandInput,
-        trace: &OperationTrace,
-    ) -> Result<CommandYield, CommandServiceError>;
+pub fn dispatch_operation(
+    operations: &SandboxRuntimeOperations,
+    request: &sandbox_protocol::Request,
+    trace: Option<&OperationTrace>,
+) -> sandbox_protocol::Response;
 
-    pub fn write_command_stdin(
-        &self,
-        input: WriteCommandStdinInput,
-        trace: &OperationTrace,
-    ) -> Result<CommandYield, CommandServiceError>;
-
-    pub fn read_command_lines(
-        &self,
-        input: ReadCommandLinesInput,
-        trace: &OperationTrace,
-    ) -> Result<CommandLinesOutput, CommandServiceError>;
-}
-
-impl LayerStackService {
-    pub fn squash(
-        &self,
-        trace: &OperationTrace,
-    ) -> Result<SquashLayerStackResult, LayerStackServiceError>;
-}
+pub(crate) fn dispatch(
+    operations: &SandboxRuntimeOperations,
+    request: &Request,
+    trace: Option<&OperationTrace>,
+) -> Response;
 ```
+
+Public service signatures remain unchanged.
 
 Expected daemon persistence signature:
 
 ```rust
 impl DaemonObservability {
-    pub(crate) fn insert_trace(
+    pub(crate) fn insert_completed_operation_trace(
         &self,
+        sandbox_id: String,
+        request_id: String,
+        operation: String,
+        response: &serde_json::Value,
         trace: CompletedOperationTrace,
     ) -> Result<(), StoreError>;
 }
 ```
 
-`DaemonObservability::insert_trace` should reject or ignore disabled completed
-traces before record mapping. It should also skip persistence if
-`trace.sandbox_id` is missing, because `TraceRecord.sandbox_id` is required by
-the storage schema.
+The server helper should skip work if `self.observability` is absent before
+calling this method. `DaemonObservability` maps runtime call indexes to storage
+span ids and derives trace status/error fields from `response`.
 
 ## Failure Policy
 
@@ -917,23 +869,28 @@ Observability remains best effort.
 
 ## LOC Budget
 
-`crates/sandbox-runtime` non-test LOC target: `110-250`.
+`crates/sandbox-runtime` non-test LOC target: `70-120`.
+
+Implementation should aim for `75-95` non-test LOC. Treat anything above `120`
+as evidence that Phase 3.5 spans, disabled trace plumbing, storage-shaped DTOs,
+or module ceremony slipped back in.
 
 Expected split:
 
 ```text
-OperationTrace + span guard/types           70-130
-dispatch boundary plumbing                  20-35
-selected operation spans                    25-45
-exports/module movement, if needed           5-40
+OperationTrace + span guard/types            45-65
+dispatch boundary plumbing                   15-20
+selected operation wrapper spans             10-15
+exports/module movement, if needed            0-5
 ```
 
-If runtime non-test LOC trends above 250, stop and narrow the boundary. The
-usual cause is accidentally implementing Phase 3.5 lower-level spans or
-Phase 4/4.5 trace linking in Phase 3.
+If runtime non-test LOC trends above 120, stop and narrow the boundary. The usual
+cause is accidentally implementing Phase 3.5 lower-level spans, disabled/no-op
+trace state, storage DTO fields, public service signature churn, or Phase 4/4.5
+trace linking in Phase 3.
 
-Daemon and storage LOC are outside this runtime budget, but should stay focused:
-one daemon trace mapper, one store migration, and focused tests.
+Daemon LOC is outside this runtime budget, but should stay focused: one daemon
+trace mapper, no production storage migration, and focused tests.
 
 ## Verification Plan
 
@@ -951,12 +908,14 @@ cargo test -p sandbox-daemon observability
 
 Required behavior tests:
 
-- schema migration adds trace `workspace_id` and `command_session_id` fields;
-- schema migration adds only `idx_traces_workspace_time` and
-  `idx_traces_command_time` for Phase 3 trace hierarchy lookup;
+- schema migration count remains unchanged for Phase 3 unless another completed
+  phase has already added migrations;
+- `traces.workspace_id`, `traces.command_session_id`,
+  `idx_traces_workspace_time`, and `idx_traces_command_time` are not introduced
+  by this phase;
 - synthetic request trace persists all spans under one `trace_id`;
 - span `call_index` ordering is stable;
-- nested spans get the correct `parent_span_id`;
+- nested runtime spans map to the correct storage `parent_span_id`;
 - early returns close active spans;
 - operation errors still persist trace status without changing response shape;
 - unknown operations persist a request/root trace when observability is enabled;
@@ -965,7 +924,9 @@ Required behavior tests:
 - missing `sandbox_id` disables persistence without failing requests;
 - observability store failures do not change operation responses;
 - runtime tests do not import `sandbox-observability`;
-- selected operation traces contain only the coarse Phase 3 span set;
+- selected operation traces contain only root, operation dispatch, and one public
+  service-method span;
+- public service method signatures do not change;
 - command output and transcript content do not appear in trace or span records.
 
 Suggested focused test placement:
@@ -974,12 +935,12 @@ Suggested focused test placement:
   - span nesting;
   - call index order;
   - early return guard closure;
-  - disabled trace no-op behavior;
-  - selected span set with fake services where practical.
+  - panic-unwind guard closure status;
+  - selected span set with fake services where practical;
+  - no `sandbox-observability` import.
 - `crates/sandbox-observability/tests/schema.rs`
-  - migration count becomes 3;
-  - allowed index set includes the two new trace indexes;
-  - trace rows persist `workspace_id` and `command_session_id`.
+  - existing synthetic trace insertion still works;
+  - no Phase 3 hierarchy columns or indexes are added.
 - `crates/sandbox-daemon/tests/unit/observability.rs`
   - completed trace mapping and persistence;
   - missing sandbox id;
@@ -991,10 +952,11 @@ Suggested focused test placement:
 Storage:
 
 - [ ] `observability.sqlite` remains the only observability database.
-- [ ] `traces.workspace_id` exists.
-- [ ] `traces.command_session_id` exists.
-- [ ] `idx_traces_workspace_time` exists.
-- [ ] `idx_traces_command_time` exists.
+- [ ] No Phase 3 schema migration is added.
+- [ ] `traces.workspace_id` is not added in Phase 3.
+- [ ] `traces.command_session_id` is not added in Phase 3.
+- [ ] `idx_traces_workspace_time` is not added in Phase 3.
+- [ ] `idx_traces_command_time` is not added in Phase 3.
 - [ ] No `trace_links` table is created.
 - [ ] No async trace columns are added in Phase 3.
 
@@ -1004,18 +966,25 @@ Runtime boundary:
 - [ ] Runtime does not depend on `sandbox-observability`.
 - [ ] Runtime does not import `rusqlite`.
 - [ ] Runtime does not know daemon paths or `ObservabilityStore`.
-- [ ] Runtime public dispatch accepts `&OperationTrace`.
-- [ ] Operation entries and selected dispatch functions accept `&OperationTrace`.
+- [ ] Runtime DTOs do not store `trace_id`, `sandbox_id`, `request_id`,
+  operation, workspace hierarchy, command hierarchy, or response error metadata.
+- [ ] Runtime public dispatch accepts `Option<&OperationTrace>`.
+- [ ] Operation entries and selected dispatch functions accept
+  `Option<&OperationTrace>`.
+- [ ] Public service method signatures are unchanged.
 - [ ] The root `dispatch_operation` span is automatic.
-- [ ] The selected operations contain only the Phase 3 coarse spans.
-- [ ] Runtime non-test LOC stays within `110-250`.
+- [ ] The selected operations contain only root, operation dispatch, and one
+  public service-method span.
+- [ ] Runtime non-test LOC stays within `70-120`, with `75-95` preferred.
 
 Daemon boundary:
 
 - [ ] Daemon creates enabled traces only when observability is enabled and
   `sandbox_id` is available.
-- [ ] Daemon passes disabled traces when persistence is disabled.
+- [ ] Daemon passes `None` when persistence is disabled.
 - [ ] Daemon persists completed traces after response projection.
+- [ ] Daemon derives trace status and bounded error metadata from projected
+  response JSON exactly once.
 - [ ] Daemon does not change operation response payloads.
 - [ ] Daemon-owned code maps runtime trace DTOs into `TraceRecord` and
   `SpanRecord`.
@@ -1046,7 +1015,5 @@ Verification:
   `docs/observability/phase-2-runtime-snapshots.md` still has an unchecked
   completion checklist. That doc cleanup is separate from Phase 3 and should not
   block this spec.
-- Panic trace persistence is best effort unless the implementation can catch
-  runtime panics inside the blocking closure without changing the broad
-  user-facing daemon internal-error behavior. Normal operation errors, unknown
+- Panic trace persistence is deferred. Normal operation errors, unknown
   operations, and argument parse errors are required Phase 3 persistence cases.

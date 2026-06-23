@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-#[cfg(test)]
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use sandbox_observability::{
     ExecutionSnapshotRecord, ObservabilityPaths, ObservabilityStore, ResourceSampleRecord,
-    SandboxSnapshotRecord, StoreError, WorkspaceSnapshotRecord,
+    SandboxSnapshotRecord, StoreError, WorkspaceSnapshotRecord, MAX_COMMAND_LENGTH,
+    MAX_ERROR_MESSAGE_LENGTH, MAX_ID_LENGTH, MAX_KIND_LENGTH, MAX_OPERATION_LENGTH,
+    MAX_PATH_LENGTH, MAX_SNAPSHOT_STATE_LENGTH,
 };
 use sandbox_runtime::{
     RuntimeExecutionSnapshot, RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot,
@@ -20,13 +20,6 @@ use crate::server::ServerConfig;
 use super::cgroup::CgroupSample;
 use super::disk::{self, DiskSample};
 
-const MAX_ERROR_LEN: usize = 4096;
-const MAX_PATH_LEN: usize = 4096;
-const MAX_ID_LEN: usize = 256;
-const MAX_KIND_LEN: usize = 64;
-const MAX_OPERATION_LEN: usize = 128;
-const MAX_STATE_LEN: usize = 64;
-const MAX_COMMAND_LEN: usize = 4096;
 const DISK_SAMPLE_MIN_INTERVAL: Duration = Duration::from_secs(10);
 
 pub(crate) struct DaemonObservability {
@@ -35,8 +28,6 @@ pub(crate) struct DaemonObservability {
     store: ObservabilityStore,
     next_sample_id: AtomicU64,
     disk_samples: Mutex<HashMap<DiskCacheKey, CachedDiskSample>>,
-    #[cfg(test)]
-    force_collection_error: AtomicBool,
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -49,11 +40,6 @@ struct DiskCacheKey {
 struct CachedDiskSample {
     sampled_at: Instant,
     sample: DiskSample,
-}
-
-struct WorkspaceCollectionTarget<'a> {
-    workspace_id: String,
-    upperdir: Option<&'a Path>,
 }
 
 impl DaemonObservability {
@@ -71,8 +57,6 @@ impl DaemonObservability {
             store,
             next_sample_id: AtomicU64::new(1),
             disk_samples: Mutex::new(HashMap::new()),
-            #[cfg(test)]
-            force_collection_error: AtomicBool::new(false),
         })
     }
 
@@ -81,11 +65,6 @@ impl DaemonObservability {
         config: &ServerConfig,
         operations: &SandboxRuntimeOperations,
     ) -> Result<(), StoreError> {
-        #[cfg(test)]
-        if self.force_collection_error.swap(false, Ordering::AcqRel) {
-            return Err(StoreError::ConnectionLock);
-        }
-
         self.write_snapshot(
             config,
             operations.observability_snapshot(),
@@ -104,28 +83,6 @@ impl DaemonObservability {
         self.write_snapshot(config, snapshot, unix_ms(), false)
     }
 
-    #[cfg(test)]
-    #[allow(dead_code, reason = "used by path-included daemon integration tests")]
-    pub(crate) fn collect_runtime_snapshot_fresh_disk_for_test(
-        &self,
-        config: &ServerConfig,
-        snapshot: RuntimeObservabilitySnapshot,
-    ) -> Result<(), StoreError> {
-        self.write_snapshot(config, snapshot, unix_ms(), true)
-    }
-
-    #[cfg(test)]
-    #[allow(dead_code, reason = "used by path-included daemon integration tests")]
-    pub(crate) fn force_next_collection_error_for_test(&self) {
-        self.force_collection_error.store(true, Ordering::Release);
-    }
-
-    #[cfg(test)]
-    #[allow(dead_code, reason = "used by path-included daemon integration tests")]
-    pub(crate) fn collection_error_pending_for_test(&self) -> bool {
-        self.force_collection_error.load(Ordering::Acquire)
-    }
-
     fn write_snapshot(
         &self,
         config: &ServerConfig,
@@ -140,7 +97,12 @@ impl DaemonObservability {
         } = snapshot;
 
         let mut workspace_records = Vec::new();
-        let mut workspace_targets = Vec::new();
+        let mut resource_samples = vec![self.resource_record(
+            None,
+            sampled_at_unix_ms,
+            CgroupSample::unavailable("cgroup path unavailable"),
+            DiskSample::empty(),
+        )];
         for workspace in &workspaces {
             let Some(workspace_id) = bounded_required_id(
                 "workspace_id",
@@ -154,10 +116,12 @@ impl DaemonObservability {
                 workspace_id.clone(),
                 sampled_at_unix_ms,
             ));
-            workspace_targets.push(WorkspaceCollectionTarget {
-                workspace_id,
-                upperdir: workspace.upperdir.as_deref(),
-            });
+            resource_samples.push(self.workspace_resource_record(
+                &workspace_id,
+                workspace.upperdir.as_deref(),
+                sampled_at_unix_ms,
+                force_fresh_disk,
+            ));
         }
 
         let mut execution_records = Vec::new();
@@ -181,9 +145,6 @@ impl DaemonObservability {
                 sampled_at_unix_ms,
             ));
         }
-
-        let resource_samples =
-            self.resource_records(&workspace_targets, sampled_at_unix_ms, force_fresh_disk);
 
         self.store.upsert_sandbox_snapshot(&self.sandbox_record(
             config,
@@ -282,7 +243,11 @@ impl DaemonObservability {
             sandbox_id: self.sandbox_id.clone(),
             workspace_id,
             execution_id,
-            execution_kind: bound_required_text(&execution.execution_kind, MAX_KIND_LEN, "unknown"),
+            execution_kind: bound_required_text(
+                &execution.execution_kind,
+                MAX_KIND_LENGTH,
+                "unknown",
+            ),
             operation: execution.operation.clone().map(bound_operation),
             command_session_id: execution
                 .command_session_id
@@ -291,12 +256,12 @@ impl DaemonObservability {
             command: execution.command.clone().map(bound_command),
             lifecycle_state: bound_required_text(
                 &execution.lifecycle_state,
-                MAX_STATE_LEN,
+                MAX_SNAPSHOT_STATE_LENGTH,
                 "unknown",
             ),
             finalization_state: bound_required_text(
                 &execution.finalization_state,
-                MAX_STATE_LEN,
+                MAX_SNAPSHOT_STATE_LENGTH,
                 "unknown",
             ),
             workspace_ownership: Some(bound_kind(execution.workspace_ownership.clone())),
@@ -313,32 +278,22 @@ impl DaemonObservability {
         }
     }
 
-    fn resource_records(
+    fn workspace_resource_record(
         &self,
-        workspace_targets: &[WorkspaceCollectionTarget<'_>],
+        workspace_id: &str,
+        upperdir: Option<&Path>,
         sampled_at_unix_ms: i64,
         force_fresh_disk: bool,
-    ) -> Vec<ResourceSampleRecord> {
-        let mut records = vec![self.resource_record(
-            None,
+    ) -> ResourceSampleRecord {
+        let disk = upperdir
+            .map(|upperdir| self.disk_sample(workspace_id, upperdir, force_fresh_disk))
+            .unwrap_or_else(DiskSample::empty);
+        self.resource_record(
+            Some(workspace_id),
             sampled_at_unix_ms,
             CgroupSample::unavailable("cgroup path unavailable"),
-            DiskSample::empty(),
-        )];
-
-        records.extend(workspace_targets.iter().map(|target| {
-            let disk = target
-                .upperdir
-                .map(|upperdir| self.disk_sample(&target.workspace_id, upperdir, force_fresh_disk))
-                .unwrap_or_else(DiskSample::empty);
-            self.resource_record(
-                Some(target.workspace_id.as_str()),
-                sampled_at_unix_ms,
-                CgroupSample::unavailable("cgroup path unavailable"),
-                disk,
-            )
-        }));
-        records
+            disk,
+        )
     }
 
     fn resource_record(
@@ -351,7 +306,7 @@ impl DaemonObservability {
         ResourceSampleRecord {
             sample_id: self.next_sample_id(sampled_at_unix_ms),
             sandbox_id: self.sandbox_id.clone(),
-            workspace_id: workspace_id.map(str::to_owned).map(bound_id),
+            workspace_id: workspace_id.map(str::to_owned),
             sampled_at_unix_ms,
             cgroup_path: cgroup.cgroup_path.map(bound_path),
             cgroup_available: cgroup.cgroup_available,
@@ -452,31 +407,31 @@ fn bound_required_text(value: &str, max_bytes: usize, fallback: &'static str) ->
 }
 
 fn bound_id(value: String) -> String {
-    bound_string(value, MAX_ID_LEN)
+    bound_string(value, MAX_ID_LENGTH)
 }
 
 fn bound_kind(value: String) -> String {
-    bound_string(value, MAX_KIND_LEN)
+    bound_string(value, MAX_KIND_LENGTH)
 }
 
 fn bound_operation(value: String) -> String {
-    bound_string(value, MAX_OPERATION_LEN)
+    bound_string(value, MAX_OPERATION_LENGTH)
 }
 
 fn bound_state(value: String) -> String {
-    bound_string(value, MAX_STATE_LEN)
+    bound_string(value, MAX_SNAPSHOT_STATE_LENGTH)
 }
 
 fn bound_command(value: String) -> String {
-    bound_string(value, MAX_COMMAND_LEN)
+    bound_string(value, MAX_COMMAND_LENGTH)
 }
 
 fn bound_error(value: String) -> String {
-    bound_string(value, MAX_ERROR_LEN)
+    bound_string(value, MAX_ERROR_MESSAGE_LENGTH)
 }
 
 fn bound_path(value: String) -> String {
-    bound_string(value, MAX_PATH_LEN)
+    bound_string(value, MAX_PATH_LENGTH)
 }
 
 fn bound_string(value: String, max_bytes: usize) -> String {
