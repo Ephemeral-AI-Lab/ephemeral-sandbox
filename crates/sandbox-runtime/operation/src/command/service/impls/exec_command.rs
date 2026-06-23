@@ -12,6 +12,10 @@ use crate::command::{
     CommandSessionId, CommandTranscriptStore, CommandWorkspaceOwnership, CommandYield,
     ExecCommandInput, FinalizationState,
 };
+use crate::namespace_execution::{
+    BeginNamespaceExecution, CompleteNamespaceExecution, NamespaceExecutionId,
+    NamespaceExecutionTerminalStatus,
+};
 use crate::observability::{measure_optional, measure_optional_if, span_keys, OperationTrace};
 use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
 use crate::workspace_crate::{WorkspaceEntry, WorkspaceSessionId};
@@ -95,7 +99,7 @@ pub(crate) fn dispatch(
         Ok(input) => input,
         Err(response) => return response,
     };
-    let origin_request_id = trace.is_some().then(|| request.request_id.clone());
+    let origin_request_id = Some(request.request_id.clone());
     command_yield_response(measure_optional(
         trace,
         "CommandOperationService::exec_command",
@@ -171,10 +175,27 @@ impl CommandOperationService {
                 ));
             }
         };
+        let namespace_execution_id = self
+            .namespace_execution_store()
+            .allocate_namespace_execution_id();
+        let _ = self.namespace_execution_store().begin_namespace_execution(
+            namespace_execution_id.clone(),
+            BeginNamespaceExecution {
+                workspace_session_id: workspace.workspace_session_id.clone(),
+                operation_name: "exec_command".to_owned(),
+                request_id: origin_request_id.clone(),
+            },
+        );
         let started =
             match self.start_command_process(&command_session_id, &input, &workspace, trace) {
-                Ok(started) => started,
+                Ok(started) => {
+                    let _ = self
+                        .namespace_execution_store()
+                        .mark_namespace_execution_running(&namespace_execution_id);
+                    started
+                }
                 Err(error) => {
+                    self.complete_namespace_start_failure(&namespace_execution_id, &error);
                     return Err(self.cleanup_workspace_start_failure(
                         &command_session_id,
                         workspace,
@@ -186,13 +207,15 @@ impl CommandOperationService {
 
         if self.process_store().active(&command_session_id).is_some() {
             started.process.cancel_process();
+            let error = CommandServiceError::DuplicateCommandSessionId {
+                command_session_id: command_session_id.clone(),
+            };
+            self.complete_namespace_start_failure(&namespace_execution_id, &error);
             return Err(self.cleanup_workspace_start_failure(
                 &command_session_id,
                 workspace,
                 Some(&started.process),
-                CommandServiceError::DuplicateCommandSessionId {
-                    command_session_id: command_session_id.clone(),
-                },
+                error,
             ));
         }
         let completion = CommandCompletionPromise::new(
@@ -200,10 +223,15 @@ impl CommandOperationService {
             self.completion_sender().clone(),
             origin_request_id,
         );
-        let (record, process_for_rollback) =
-            started.into_active_record(command_session_id.clone(), &workspace, completion.clone());
+        let (record, process_for_rollback) = started.into_active_record(
+            command_session_id.clone(),
+            namespace_execution_id.clone(),
+            &workspace,
+            completion.clone(),
+        );
         if let Err(error) = self.process_store().insert_active(reservation, record) {
             process_for_rollback.cancel_process();
+            self.complete_namespace_start_failure(&namespace_execution_id, &error);
             return Err(self.cleanup_workspace_start_failure(
                 &command_session_id,
                 workspace,
@@ -307,6 +335,24 @@ impl CommandOperationService {
         self.cleanup_unstarted_workspace(command_session_id, workspace, error)
     }
 
+    fn complete_namespace_start_failure(
+        &self,
+        namespace_execution_id: &NamespaceExecutionId,
+        error: &CommandServiceError,
+    ) {
+        let _ = self
+            .namespace_execution_store()
+            .complete_namespace_execution(
+                namespace_execution_id,
+                CompleteNamespaceExecution {
+                    terminal_status: NamespaceExecutionTerminalStatus::Error,
+                    exit_code: None,
+                    error_kind: Some("command_start_failed".to_owned()),
+                    error_message: Some(error.to_string()),
+                },
+            );
+    }
+
     fn cleanup_unstarted_workspace(
         &self,
         command_session_id: &CommandSessionId,
@@ -375,6 +421,7 @@ impl StartedCommand {
     fn into_active_record(
         self,
         command_session_id: CommandSessionId,
+        namespace_execution_id: NamespaceExecutionId,
         workspace: &ResolvedExecWorkspace,
         completion: CommandCompletionPromise,
     ) -> (ActiveCommandProcess, Arc<CommandProcess>) {
@@ -382,6 +429,7 @@ impl StartedCommand {
         let process_for_rollback = Arc::clone(&process);
         let record = ActiveCommandProcess {
             command_session_id,
+            namespace_execution_id,
             workspace_session_id: workspace.workspace_session_id.clone(),
             workspace_ownership: workspace.ownership.clone(),
             workspace_root: workspace.workspace_root.clone(),

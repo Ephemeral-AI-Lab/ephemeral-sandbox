@@ -12,14 +12,16 @@ use sandbox_observability::{
 };
 use sandbox_runtime::{
     span_keys, AsyncTraceSink, CommandFinalizationTraceMetadata, CompletedOperationSpan,
-    CompletedOperationTrace, RuntimeExecutionSnapshot, RuntimeObservabilitySnapshot,
-    RuntimeWorkspaceSnapshot, SandboxRuntimeOperations, SpanKey,
+    CompletedOperationTrace, NamespaceExecutionId, NamespaceExecutionRecord,
+    RuntimeExecutionSnapshot, RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot,
+    SandboxRuntimeOperations, SpanKey,
 };
 
 use crate::server::ServerConfig;
 
 use super::cgroup::CgroupSample;
 use super::disk::{self, DiskSample};
+use super::namespace_execution;
 
 const DISK_SAMPLE_MIN_INTERVAL: Duration = Duration::from_secs(10);
 const MAX_METHOD_LENGTH: usize = 256;
@@ -90,12 +92,14 @@ impl DaemonObservability {
         config: &ServerConfig,
         operations: &SandboxRuntimeOperations,
     ) -> Result<(), StoreError> {
-        self.write_snapshot(
+        let acked_namespace_execution_ids = self.write_snapshot(
             config,
             operations.observability_snapshot(),
             unix_ms(),
             false,
-        )
+        )?;
+        let _ = operations.ack_completed_namespace_executions(&acked_namespace_execution_ids);
+        Ok(())
     }
 
     pub(crate) fn insert_completed_operation_trace(
@@ -175,6 +179,14 @@ impl DaemonObservability {
         self.store.insert_trace(&trace_record, &spans)
     }
 
+    fn insert_completed_namespace_execution_trace(
+        &self,
+        execution: &NamespaceExecutionRecord,
+    ) -> Result<(), StoreError> {
+        let trace_record = namespace_execution::trace_record(&self.sandbox_id, execution);
+        self.store.insert_namespace_execution_trace(&trace_record)
+    }
+
     pub(crate) fn async_trace_sink(observability: Arc<Self>) -> AsyncTraceSink {
         Arc::new(move |trace, metadata| {
             let _ = observability.insert_completed_async_operation_trace(trace, metadata);
@@ -210,6 +222,7 @@ impl DaemonObservability {
         snapshot: RuntimeObservabilitySnapshot,
     ) -> Result<(), StoreError> {
         self.write_snapshot(config, snapshot, unix_ms(), false)
+            .map(|_| ())
     }
 
     #[cfg(test)]
@@ -227,10 +240,12 @@ impl DaemonObservability {
         snapshot: RuntimeObservabilitySnapshot,
         sampled_at_unix_ms: i64,
         force_fresh_disk: bool,
-    ) -> Result<(), StoreError> {
+    ) -> Result<Vec<NamespaceExecutionId>, StoreError> {
         let RuntimeObservabilitySnapshot {
             workspaces,
             active_executions,
+            active_namespace_executions,
+            completed_namespace_executions,
             mut partial_errors,
         } = snapshot;
 
@@ -284,6 +299,44 @@ impl DaemonObservability {
             ));
         }
 
+        let mut namespace_execution_records = Vec::new();
+        for execution in &active_namespace_executions {
+            let Some(namespace_execution_id) = bounded_required_id(
+                "namespace_execution_id",
+                &execution.namespace_execution_id.0,
+                &mut partial_errors,
+            ) else {
+                continue;
+            };
+            let Some(workspace_session_id) = bounded_required_id(
+                "namespace_execution_workspace_session_id",
+                &execution.workspace_session_id.0,
+                &mut partial_errors,
+            ) else {
+                continue;
+            };
+            namespace_execution_records.push(namespace_execution::snapshot_record(
+                &self.sandbox_id,
+                execution,
+                namespace_execution_id,
+                workspace_session_id,
+                sampled_at_unix_ms,
+            ));
+        }
+
+        let mut acked_namespace_execution_ids = Vec::new();
+        for completed in &completed_namespace_executions {
+            match self.insert_completed_namespace_execution_trace(completed) {
+                Ok(()) => {
+                    acked_namespace_execution_ids.push(completed.namespace_execution_id.clone())
+                }
+                Err(error) => partial_errors.push(bound_error(format!(
+                    "namespace execution projection failed for {}: {error}",
+                    completed.namespace_execution_id.0
+                ))),
+            }
+        }
+
         self.store.upsert_sandbox_snapshot(&self.sandbox_record(
             config,
             sampled_at_unix_ms,
@@ -311,8 +364,19 @@ impl DaemonObservability {
         self.store
             .prune_execution_snapshots(&self.sandbox_id, &active_execution_ids)?;
 
+        let active_namespace_execution_ids = namespace_execution_records
+            .iter()
+            .map(|execution| execution.namespace_execution_id.clone())
+            .collect::<Vec<_>>();
+        self.store
+            .upsert_namespace_execution_snapshots(&self.sandbox_id, &namespace_execution_records)?;
+        self.store.prune_namespace_execution_snapshots(
+            &self.sandbox_id,
+            &active_namespace_execution_ids,
+        )?;
+
         self.store.insert_resource_samples(&resource_samples)?;
-        Ok(())
+        Ok(acked_namespace_execution_ids)
     }
 
     fn sandbox_record(

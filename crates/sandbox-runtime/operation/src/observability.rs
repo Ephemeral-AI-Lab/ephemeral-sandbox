@@ -6,12 +6,15 @@ use std::thread;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use crate::command::CommandSessionId;
+use crate::namespace_execution::{NamespaceExecutionRecord, RuntimeNamespaceExecutionSnapshot};
 use crate::workspace_crate::{WorkspaceProfile, WorkspaceSessionId};
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct RuntimeObservabilitySnapshot {
     pub workspaces: Vec<RuntimeWorkspaceSnapshot>,
     pub active_executions: Vec<RuntimeExecutionSnapshot>,
+    pub active_namespace_executions: Vec<RuntimeNamespaceExecutionSnapshot>,
+    pub completed_namespace_executions: Vec<NamespaceExecutionRecord>,
     pub partial_errors: Vec<String>,
 }
 

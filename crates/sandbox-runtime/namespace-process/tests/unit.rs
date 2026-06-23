@@ -42,6 +42,19 @@ mod runner_error_tests {
         assert!(message.contains("namespace syscall failed"));
         assert!(message.contains("setns mount namespace failed"));
     }
+
+    #[test]
+    fn run_result_has_no_runner_trace_transport_field() {
+        let value = serde_json::to_value(super::runner::protocol::RunResult {
+            exit_code: 0,
+            payload: serde_json::json!({ "status": "ok" }),
+        })
+        .expect("run result serializes");
+
+        assert_eq!(value["exit_code"], 0);
+        assert_eq!(value["payload"]["status"], "ok");
+        assert!(value.get("runner_trace").is_none());
+    }
 }
 
 #[cfg(target_os = "linux")]

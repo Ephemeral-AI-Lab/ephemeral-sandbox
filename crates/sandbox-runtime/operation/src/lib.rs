@@ -4,6 +4,7 @@ pub(crate) extern crate sandbox_runtime_workspace as workspace_crate;
 
 pub mod command;
 pub mod layerstack;
+mod namespace_execution;
 mod observability;
 mod operation;
 mod services;
@@ -13,6 +14,11 @@ mod workspace_session_operations;
 
 pub use command::CommandOperationService;
 pub use layerstack::LayerStackService;
+pub use namespace_execution::{
+    BeginNamespaceExecution, CompleteNamespaceExecution, NamespaceExecutionId,
+    NamespaceExecutionLifecycle, NamespaceExecutionRecord, NamespaceExecutionStore,
+    NamespaceExecutionTerminalStatus, RuntimeNamespaceExecutionSnapshot,
+};
 pub use observability::{
     span_keys, AsyncTraceSink, CommandFinalizationTraceMetadata, CompletedOperationSpan,
     CompletedOperationTrace, OperationTrace, RuntimeExecutionSnapshot,

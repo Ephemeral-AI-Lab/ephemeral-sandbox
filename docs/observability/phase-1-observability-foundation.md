@@ -78,27 +78,29 @@ Phase 1 does not change daemon startup. Path derivation is tested in
 `sandbox-observability` with synthetic socket paths. A later daemon integration
 phase can decide how missing `sandbox_id` disables live observability.
 
-### Manager Runtime Directory
+### Sandbox Daemon Runtime Directory
 
-`crates/sandbox-manager/src/daemon_install.rs` is the live source of the
-manager-launched daemon runtime directory:
+The daemon must run inside the sandbox and use sandbox-internal `/eos` storage
+for its runtime files and observability database:
 
 ```text
-<manager_runtime_root>/<sandbox_id>/
+/eos/runtime/daemon/
   runtime.sock
   runtime.pid
+  observability/
+    observability.sqlite
 ```
 
-`LocalSandboxDaemonInstaller::launch_spec` derives:
+The manager may keep host-side endpoint metadata, launch bookkeeping, or proxy
+state so it can reach the daemon, but it must not create a manager-side
+observability store. In particular, this design rejects a second store at:
 
-- `daemon_runtime_dir = manager_runtime_root.join(record.id.as_str())`;
-- `socket_path = daemon_runtime_dir.join("runtime.sock")`;
-- `pid_path = daemon_runtime_dir.join("runtime.pid")`;
-- `--sandbox-id record.id`.
+```text
+<manager_runtime_root>/<sandbox_id>/observability/observability.sqlite
+```
 
-That manager path shape avoids collisions across many local daemon processes.
-It is not an observability storage convention. Phase 1 derives from the daemon
-socket parent, whatever path the launcher chose:
+Phase 1 derives from the daemon socket parent, and production daemon socket
+paths must be under `/eos`:
 
 ```text
 daemon_runtime_dir = socket_path.parent()
@@ -106,14 +108,14 @@ observability_dir = daemon_runtime_dir.join("observability")
 database_path = observability_dir.join("observability.sqlite")
 ```
 
-The production daemon config can set:
+The production daemon config should therefore set:
 
 ```text
 socket_path = /eos/runtime/daemon/runtime.sock
 database_path = /eos/runtime/daemon/observability/observability.sqlite
 ```
 
-It must not add a new manager-side path convention.
+It must not add a new manager-side observability path convention.
 
 ### Runtime Operation Graph
 
@@ -303,6 +305,8 @@ Responsibilities:
   - derives `daemon_runtime_dir` from `socket_path.parent()`;
   - derives `observability_dir`;
   - derives `database_path`;
+  - treats `/eos/runtime/daemon/runtime.sock` as the production socket-path
+    shape;
   - does not create directories.
 
 - `records.rs`
@@ -376,7 +380,7 @@ Phase 1 changes:
 The Phase 1 database is:
 
 ```text
-<daemon_runtime_dir>/observability/observability.sqlite
+/eos/runtime/daemon/observability/observability.sqlite
 ```
 
 Recommended pragmas:
@@ -637,11 +641,12 @@ Storage shape:
 
 Path and store behavior:
 
-- [x] `ObservabilityPaths` derives
-  `<daemon_runtime_dir>/observability/observability.sqlite` from the parent of
-  the daemon socket path.
-- [x] `ObservabilityPaths` does not introduce a new manager-side path
-  convention.
+- [x] `ObservabilityPaths` derives the database path from the parent of the
+  daemon socket path.
+- [x] Production daemon socket paths use sandbox-internal `/eos` storage,
+  yielding `/eos/runtime/daemon/observability/observability.sqlite`.
+- [x] `ObservabilityPaths` does not introduce a new manager-side observability
+  path convention.
 - [x] `ObservabilityStore::open` creates the observability directory and
   initializes the schema.
 - [x] Store initialization can run repeatedly without changing behavior.

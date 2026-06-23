@@ -242,6 +242,96 @@ pub struct ExecutionSnapshotRecord {
     pub error_message: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NamespaceExecutionSnapshotRecord {
+    pub sandbox_id: String,
+    pub namespace_execution_id: String,
+    pub workspace_session_id: String,
+    pub operation: String,
+    pub lifecycle_state: String,
+    pub sampled_at_unix_ms: i64,
+    pub error_message: Option<String>,
+}
+
+impl NamespaceExecutionSnapshotRecord {
+    pub(crate) fn validate_for_sandbox(
+        &self,
+        sandbox_id: &str,
+    ) -> Result<(), RecordValidationError> {
+        validate_sandbox_match("namespace_execution_snapshot", sandbox_id, &self.sandbox_id)?;
+        validate_required(
+            "namespace_execution_id",
+            &self.namespace_execution_id,
+            MAX_ID_LENGTH,
+        )?;
+        validate_required(
+            "workspace_session_id",
+            &self.workspace_session_id,
+            MAX_ID_LENGTH,
+        )?;
+        validate_required("operation", &self.operation, MAX_OPERATION_LENGTH)?;
+        validate_required(
+            "lifecycle_state",
+            &self.lifecycle_state,
+            MAX_SNAPSHOT_STATE_LENGTH,
+        )?;
+        validate_optional(
+            "error_message",
+            self.error_message.as_deref(),
+            MAX_ERROR_MESSAGE_LENGTH,
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NamespaceExecutionTraceRecord {
+    pub trace_id: String,
+    pub sandbox_id: String,
+    pub namespace_execution_id: String,
+    pub workspace_session_id: String,
+    pub operation: String,
+    pub request_id: Option<String>,
+    pub status: String,
+    pub exit_code: Option<i64>,
+    pub started_at_unix_ms: i64,
+    pub finished_at_unix_ms: i64,
+    pub duration_ms: f64,
+    pub error_kind: Option<String>,
+    pub error_message: Option<String>,
+}
+
+impl NamespaceExecutionTraceRecord {
+    pub(crate) fn validate(&self) -> Result<(), RecordValidationError> {
+        validate_required("trace_id", &self.trace_id, MAX_ID_LENGTH)?;
+        validate_required("sandbox_id", &self.sandbox_id, MAX_ID_LENGTH)?;
+        validate_required(
+            "namespace_execution_id",
+            &self.namespace_execution_id,
+            MAX_ID_LENGTH,
+        )?;
+        validate_required(
+            "workspace_session_id",
+            &self.workspace_session_id,
+            MAX_ID_LENGTH,
+        )?;
+        validate_required("operation", &self.operation, MAX_OPERATION_LENGTH)?;
+        validate_optional("request_id", self.request_id.as_deref(), MAX_ID_LENGTH)?;
+        validate_required("status", &self.status, MAX_STATUS_LENGTH)?;
+        validate_optional(
+            "error_kind",
+            self.error_kind.as_deref(),
+            MAX_ERROR_KIND_LENGTH,
+        )?;
+        validate_optional(
+            "error_message",
+            self.error_message.as_deref(),
+            MAX_ERROR_MESSAGE_LENGTH,
+        )?;
+        Ok(())
+    }
+}
+
 impl ExecutionSnapshotRecord {
     pub(crate) fn validate_for_sandbox(
         &self,

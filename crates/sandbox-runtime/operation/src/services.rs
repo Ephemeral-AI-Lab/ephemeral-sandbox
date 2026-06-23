@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::command::CommandOperationService;
 use crate::layerstack::LayerStackService;
+use crate::namespace_execution::{NamespaceExecutionId, NamespaceExecutionStore};
 use crate::observability::{AsyncTraceSink, RuntimeObservabilitySnapshot};
 use crate::workspace_crate::{profile::WorkspaceModeManager, WorkspaceRuntimeService};
 use crate::workspace_session::WorkspaceSessionService;
@@ -11,6 +12,7 @@ pub struct SandboxRuntimeOperations {
     pub command: Arc<CommandOperationService>,
     pub workspace_session: Arc<WorkspaceSessionService>,
     pub layerstack: Arc<LayerStackService>,
+    pub namespace_execution: Arc<NamespaceExecutionStore>,
 }
 
 impl SandboxRuntimeOperations {
@@ -20,14 +22,36 @@ impl SandboxRuntimeOperations {
         workspace_session: Arc<WorkspaceSessionService>,
         layerstack: Arc<LayerStackService>,
     ) -> Self {
+        let namespace_execution = Arc::clone(command.namespace_execution_store());
+        Self::new_with_namespace_execution_store(
+            command,
+            workspace_session,
+            layerstack,
+            namespace_execution,
+        )
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn new_with_namespace_execution_store(
+        command: Arc<CommandOperationService>,
+        workspace_session: Arc<WorkspaceSessionService>,
+        layerstack: Arc<LayerStackService>,
+        namespace_execution: Arc<NamespaceExecutionStore>,
+    ) -> Self {
         assert!(
             command.shares_workspace_session(&workspace_session),
             "SandboxRuntimeOperations command service must use the same workspace_session Arc"
+        );
+        assert!(
+            command.shares_namespace_execution_store(&namespace_execution),
+            "SandboxRuntimeOperations command service must use the same namespace_execution Arc"
         );
         Self {
             command,
             workspace_session,
             layerstack,
+            namespace_execution,
         }
     }
 
@@ -56,6 +80,7 @@ impl SandboxRuntimeOperations {
             layer_stack_root.clone(),
         ));
         let workspace_session = Arc::new(WorkspaceSessionService::new(workspace_runtime));
+        let namespace_execution = Arc::new(NamespaceExecutionStore::new());
         let layerstack = Arc::new(
             LayerStackService::new(layer_stack_root)
                 .expect("layerstack service initialization failed"),
@@ -65,9 +90,15 @@ impl SandboxRuntimeOperations {
             ::sandbox_runtime_command::CommandConfig {
                 scratch_root: config.command.scratch_root,
             },
+            Arc::clone(&namespace_execution),
             async_trace_sink,
         ));
-        Self::new(command, workspace_session, layerstack)
+        Self::new_with_namespace_execution_store(
+            command,
+            workspace_session,
+            layerstack,
+            namespace_execution,
+        )
     }
 
     #[must_use]
@@ -80,12 +111,46 @@ impl SandboxRuntimeOperations {
                 Vec::new()
             }
         };
+        let active_namespace_executions = match self
+            .namespace_execution
+            .snapshot_active_namespace_executions()
+        {
+            Ok(snapshots) => snapshots,
+            Err(error) => {
+                partial_errors.push(error);
+                Vec::new()
+            }
+        };
+        let completed_namespace_executions = match self
+            .namespace_execution
+            .drain_completed_namespace_executions(256)
+        {
+            Ok(completed) => completed,
+            Err(error) => {
+                partial_errors.push(error);
+                Vec::new()
+            }
+        };
+        match self.namespace_execution.drain_partial_errors() {
+            Ok(errors) => partial_errors.extend(errors),
+            Err(error) => partial_errors.push(error),
+        }
 
         RuntimeObservabilitySnapshot {
             workspaces,
             active_executions,
+            active_namespace_executions,
+            completed_namespace_executions,
             partial_errors,
         }
+    }
+
+    pub fn ack_completed_namespace_executions(
+        &self,
+        namespace_execution_ids: &[NamespaceExecutionId],
+    ) -> Result<(), String> {
+        self.namespace_execution
+            .ack_completed_namespace_executions(namespace_execution_ids)
     }
 }
 

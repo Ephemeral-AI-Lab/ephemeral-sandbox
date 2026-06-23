@@ -6,7 +6,10 @@ use std::sync::Arc;
 
 use sandbox_runtime::command::ExecCommandInput;
 use sandbox_runtime::layerstack::LayerStackService;
-use sandbox_runtime::{CommandOperationService, SandboxRuntimeOperations};
+use sandbox_runtime::{
+    CommandOperationService, NamespaceExecutionLifecycle, NamespaceExecutionStore,
+    SandboxRuntimeOperations,
+};
 use sandbox_runtime_workspace::{WorkspaceProfile, WorkspaceSessionId};
 
 use support::{
@@ -45,6 +48,8 @@ fn observability_snapshot_copies_active_workspace_fields(
     assert_eq!(workspace.base_manifest_version, Some(1));
     assert_eq!(workspace.base_root_hash.as_deref(), Some("root"));
     assert_eq!(workspace.layer_count, Some(1));
+    assert!(snapshot.active_namespace_executions.is_empty());
+    assert!(snapshot.completed_namespace_executions.is_empty());
     Ok(())
 }
 
@@ -88,6 +93,26 @@ fn observability_snapshot_reports_active_command_execution(
     assert!(execution.wall_time_ms.is_some());
     assert!(execution.transcript_path.is_some());
     assert!(execution.started_at_unix_ms.is_none());
+    let command_namespace_execution_id = services
+        .command
+        .namespace_execution_id_for_command_for_test(&command_session_id)
+        .expect("active command keeps namespace execution id");
+    assert_eq!(snapshot.active_namespace_executions.len(), 1);
+    let namespace_execution = &snapshot.active_namespace_executions[0];
+    assert_eq!(
+        namespace_execution.namespace_execution_id,
+        command_namespace_execution_id
+    );
+    assert_eq!(
+        namespace_execution.workspace_session_id,
+        workspace_session_id
+    );
+    assert_eq!(namespace_execution.operation_name, "exec_command");
+    assert_eq!(
+        namespace_execution.lifecycle_state,
+        NamespaceExecutionLifecycle::Running
+    );
+    assert!(snapshot.completed_namespace_executions.is_empty());
     Ok(())
 }
 
@@ -96,6 +121,21 @@ fn runtime_observability_snapshot_keeps_observability_crate_out() {
     let manifest = include_str!("../Cargo.toml");
     assert!(!manifest.contains("sandbox-observability"));
     assert!(!manifest.contains("rusqlite"));
+}
+
+#[test]
+#[should_panic(
+    expected = "SandboxRuntimeOperations command service must use the same namespace_execution Arc"
+)]
+fn runtime_operations_enforce_shared_namespace_execution_store() {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    let services = build_services(Arc::clone(&fake));
+    let _operations = SandboxRuntimeOperations::new_with_namespace_execution_store(
+        Arc::<CommandOperationService>::clone(&services.command),
+        Arc::clone(&services.workspace),
+        layerstack_service().expect("layerstack service"),
+        Arc::new(NamespaceExecutionStore::new()),
+    );
 }
 
 fn create_session(

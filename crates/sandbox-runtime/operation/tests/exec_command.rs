@@ -11,14 +11,20 @@ use sandbox_runtime::command::{
     CommandServiceError, CommandSessionId, CommandStatus, ExecCommandInput, ReadCommandLinesInput,
     WriteCommandStdinInput,
 };
-use sandbox_runtime::{AsyncTraceSink, LayerStackService, SandboxRuntimeOperations};
-use sandbox_runtime_command::process::{CommandProcess, CommandProcessSpawn, CommandProcessSpec};
+use sandbox_runtime::{
+    AsyncTraceSink, LayerStackService, NamespaceExecutionStore, NamespaceExecutionTerminalStatus,
+    SandboxRuntimeOperations,
+};
+use sandbox_runtime_command::process::{
+    CommandProcess, CommandProcessExit, CommandProcessSpawn, CommandProcessSpec,
+};
 use sandbox_runtime_workspace::{WorkspaceEntry, WorkspaceProfile, WorkspaceSessionId};
 use serde_json::json;
 
 use support::{
     build_services, build_services_with_launch_driver,
-    build_services_with_launch_driver_and_async_trace_sink, create_request, success_exit,
+    build_services_with_launch_driver_and_async_trace_sink,
+    build_services_with_launch_driver_namespace_store, create_request, success_exit,
     workspace_handle, workspace_handle_unavailable_launch, workspace_handle_without_launch,
     FakeLaunchDriver, FakeWorkspaceService, ScriptedCommandYield,
 };
@@ -58,6 +64,17 @@ fn create_session(
         .create_workspace_session(create_request())
         .expect("session create succeeds")
         .workspace_session_id
+}
+
+fn command_exit(status: &str, exit_code: i64, stdout: &str) -> CommandProcessExit {
+    CommandProcessExit {
+        status: status.to_owned(),
+        exit_code,
+        signal: None,
+        stdout: stdout.to_owned(),
+        elapsed_s: 0.1,
+        kill: None,
+    }
 }
 
 #[test]
@@ -362,6 +379,187 @@ fn exec_command_spawn_failure_keeps_session_workspace_alive() {
         !env.command.config().scratch_root.join("cmd_1").exists(),
         "session spawn failure should clean up unretained command artifacts"
     );
+}
+
+#[test]
+fn exec_command_spawn_failure_completes_namespace_execution_error() {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    let launch_driver = Arc::new(FakeLaunchDriver::new());
+    launch_driver.push_spawn_error(CommandServiceError::CommandIo {
+        command_session_id: CommandSessionId("cmd_1".to_owned()),
+        error: "spawn failed".to_owned(),
+    });
+    let env = build_services_with_launch_driver(Arc::clone(&fake), launch_driver);
+    let workspace_session_id = create_session(
+        &fake,
+        &env,
+        "workspace-session",
+        PathBuf::from("/workspace/session"),
+        WorkspaceProfile::HostCompatible,
+    );
+
+    let _error = env
+        .command
+        .exec_command(exec_input(workspace_session_id.clone()), None)
+        .expect_err("spawn failure rejects session exec");
+
+    let completed = env
+        .command
+        .namespace_execution_store()
+        .drain_completed_namespace_executions(10)
+        .expect("namespace completed records drain");
+    assert_eq!(completed.len(), 1);
+    assert_eq!(completed[0].workspace_session_id, workspace_session_id);
+    assert_eq!(
+        completed[0].terminal_status,
+        Some(NamespaceExecutionTerminalStatus::Error)
+    );
+    assert_eq!(
+        completed[0].error_kind.as_deref(),
+        Some("command_start_failed")
+    );
+}
+
+#[test]
+fn namespace_store_mutation_failure_does_not_fail_command_or_drop_command_bridge_id() {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    let namespace_execution = Arc::new(NamespaceExecutionStore::new());
+    namespace_execution.set_force_mutation_errors_for_test(true);
+    let launch_driver = Arc::new(FakeLaunchDriver::new());
+    launch_driver.push_outcome(ScriptedCommandYield::Running(String::new()));
+    let env = build_services_with_launch_driver_namespace_store(
+        Arc::clone(&fake),
+        launch_driver,
+        Arc::clone(&namespace_execution),
+    );
+    let workspace_session_id = create_session(
+        &fake,
+        &env,
+        "workspace-session",
+        PathBuf::from("/workspace/session"),
+        WorkspaceProfile::HostCompatible,
+    );
+
+    let output = env
+        .command
+        .exec_command(exec_input(workspace_session_id), None)
+        .expect("command starts despite namespace store mutation failure");
+    let command_session_id = output
+        .command_session_id
+        .expect("running command has command id");
+    let namespace_execution_id = env
+        .command
+        .namespace_execution_id_for_command_for_test(&command_session_id)
+        .expect("command record keeps allocated namespace id");
+
+    assert_eq!(namespace_execution_id.0, "namespace_execution_1");
+    let snapshot = SandboxRuntimeOperations::new(
+        Arc::clone(&env.command),
+        Arc::clone(&env.workspace),
+        layerstack_service().expect("layerstack service"),
+    )
+    .observability_snapshot();
+    assert!(snapshot.active_namespace_executions.is_empty());
+    assert!(snapshot
+        .partial_errors
+        .iter()
+        .any(|error| error.contains("begin_namespace_execution")));
+}
+
+#[test]
+fn namespace_execution_terminal_status_maps_command_result_without_output_text() {
+    for (status, exit_code, expected) in [
+        ("ok", 0, NamespaceExecutionTerminalStatus::Ok),
+        ("error", 2, NamespaceExecutionTerminalStatus::Error),
+        ("timed_out", 124, NamespaceExecutionTerminalStatus::TimedOut),
+        (
+            "cancelled",
+            130,
+            NamespaceExecutionTerminalStatus::Cancelled,
+        ),
+    ] {
+        let fake = Arc::new(FakeWorkspaceService::new());
+        let launch_driver = Arc::new(FakeLaunchDriver::new());
+        launch_driver.push_outcome(ScriptedCommandYield::Completed(command_exit(
+            status,
+            exit_code,
+            "SECRET_OUTPUT\n",
+        )));
+        let env = build_services_with_launch_driver(Arc::clone(&fake), launch_driver);
+        let workspace_session_id = create_session(
+            &fake,
+            &env,
+            &format!("workspace-session-{status}"),
+            PathBuf::from(format!("/workspace/session-{status}")),
+            WorkspaceProfile::HostCompatible,
+        );
+
+        let _output = env
+            .command
+            .exec_command(exec_input(workspace_session_id.clone()), None)
+            .expect("terminal command completes");
+
+        let completed = env
+            .command
+            .namespace_execution_store()
+            .drain_completed_namespace_executions(10)
+            .expect("namespace completed records drain");
+        assert_eq!(completed.len(), 1);
+        let record = &completed[0];
+        assert_eq!(record.workspace_session_id, workspace_session_id);
+        assert_eq!(record.operation_name, "exec_command");
+        assert_eq!(record.request_id, None);
+        assert_eq!(record.terminal_status, Some(expected));
+        assert_eq!(record.exit_code, Some(exit_code));
+        assert!(
+            !format!("{record:?}").contains("SECRET_OUTPUT"),
+            "namespace execution record must not carry command output"
+        );
+    }
+}
+
+#[test]
+fn namespace_execution_request_id_comes_from_runtime_request_not_runner_request(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    let launch_driver = Arc::new(FakeLaunchDriver::new());
+    launch_driver.push_outcome(ScriptedCommandYield::Completed(success_exit("done\n")));
+    let env = build_services_with_launch_driver(Arc::clone(&fake), launch_driver);
+    let workspace_session_id = create_session(
+        &fake,
+        &env,
+        "workspace-session",
+        PathBuf::from("/workspace/session"),
+        WorkspaceProfile::HostCompatible,
+    );
+    let operations = SandboxRuntimeOperations::new(
+        Arc::clone(&env.command),
+        Arc::clone(&env.workspace),
+        layerstack_service()?,
+    );
+    let request = Request::new(
+        "exec_command",
+        "req-external",
+        CliOperationScope::system(),
+        json!({
+            "workspace_session_id": workspace_session_id.0,
+            "cmd": "printf ok",
+            "yield_time_ms": 0,
+        }),
+    );
+
+    let response =
+        sandbox_runtime::dispatch_operation(&operations, &request, None).into_json_value();
+    assert_eq!(response["status"], "ok");
+    let completed = env
+        .command
+        .namespace_execution_store()
+        .drain_completed_namespace_executions(10)
+        .expect("namespace completed records drain");
+    assert_eq!(completed.len(), 1);
+    assert_eq!(completed[0].request_id.as_deref(), Some("req-external"));
+    assert_ne!(completed[0].request_id.as_deref(), Some("cmd_1"));
+    Ok(())
 }
 
 #[test]

@@ -8,12 +8,14 @@ use crate::server::{SandboxDaemonServer, ServerConfig};
 use sandbox_observability::{ObservabilityPaths, ObservabilityStore, SpanRecord, TraceRecord};
 use sandbox_runtime::command::CommandSessionId;
 use sandbox_runtime::{
-    span_keys, CommandFinalizationTraceMetadata, CompletedOperationSpan, CompletedOperationTrace,
-    WorkspaceSessionId,
+    span_keys, BeginNamespaceExecution, CommandFinalizationTraceMetadata,
+    CompleteNamespaceExecution, CompletedOperationSpan, CompletedOperationTrace,
+    NamespaceExecutionId, NamespaceExecutionLifecycle, NamespaceExecutionRecord,
+    NamespaceExecutionStore, NamespaceExecutionTerminalStatus, WorkspaceSessionId,
 };
 use sandbox_runtime::{
-    RuntimeExecutionSnapshot, RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot,
-    WorkspaceProfile,
+    RuntimeExecutionSnapshot, RuntimeNamespaceExecutionSnapshot, RuntimeObservabilitySnapshot,
+    RuntimeWorkspaceSnapshot, WorkspaceProfile,
 };
 use serde_json::{json, Value};
 
@@ -74,6 +76,98 @@ fn observability_collection_writes_phase2_live_snapshot() -> TestResult {
 }
 
 #[test]
+fn observability_collection_writes_namespace_execution_tables() -> TestResult {
+    let root = test_root("namespace-projection");
+    let config = server_config(&root, Some("sandbox-1"));
+    let observability =
+        DaemonObservability::from_config(&config).expect("sandbox id enables observability");
+    let snapshot = RuntimeObservabilitySnapshot {
+        workspaces: Vec::new(),
+        active_executions: Vec::new(),
+        active_namespace_executions: vec![RuntimeNamespaceExecutionSnapshot {
+            namespace_execution_id: NamespaceExecutionId("namespace_execution_1".to_owned()),
+            workspace_session_id: WorkspaceSessionId("workspace-1".to_owned()),
+            operation_name: "exec_command".to_owned(),
+            lifecycle_state: NamespaceExecutionLifecycle::Running,
+            started_at_unix_ms: 1_000,
+        }],
+        completed_namespace_executions: vec![completed_namespace_execution(
+            "namespace_execution_2",
+            "workspace-1",
+            "exec_command",
+            NamespaceExecutionTerminalStatus::Ok,
+            Some("req-parent"),
+            Some(0),
+        )],
+        partial_errors: Vec::new(),
+    };
+
+    observability.collect_runtime_snapshot_for_test(&config, snapshot)?;
+
+    let store = store_for_config(&config)?;
+    assert!(store.execution_snapshots_for_test("sandbox-1")?.is_empty());
+    let snapshots = store.namespace_execution_snapshots_for_test("sandbox-1")?;
+    assert_eq!(snapshots.len(), 1);
+    assert_eq!(snapshots[0].namespace_execution_id, "namespace_execution_1");
+    assert_eq!(snapshots[0].workspace_session_id, "workspace-1");
+    assert_eq!(snapshots[0].operation, "exec_command");
+    assert_eq!(snapshots[0].lifecycle_state, "running");
+
+    let traces = store.namespace_execution_traces_for_test("sandbox-1")?;
+    assert_eq!(traces.len(), 1);
+    assert_eq!(traces[0].trace_id, "namespace_execution:namespace_execution_2");
+    assert_eq!(traces[0].namespace_execution_id, "namespace_execution_2");
+    assert_eq!(traces[0].workspace_session_id, "workspace-1");
+    assert_eq!(traces[0].request_id.as_deref(), Some("req-parent"));
+    assert_eq!(traces[0].status, "ok");
+    assert_eq!(traces[0].exit_code, Some(0));
+    Ok(())
+}
+
+#[test]
+fn daemon_collect_acks_only_successful_namespace_trace_projection() -> TestResult {
+    let root = test_root("namespace-ack-success-only");
+    let server = daemon_server(&root, Some("sandbox-1"))?;
+    let good = seed_completed_namespace_execution(
+        server.operations.namespace_execution.as_ref(),
+        "namespace_execution_good",
+        "exec_command",
+    );
+    let bad = seed_completed_namespace_execution(
+        server.operations.namespace_execution.as_ref(),
+        "namespace_execution_bad",
+        "",
+    );
+
+    server
+        .observability
+        .as_ref()
+        .expect("sandbox id enables observability")
+        .collect(&server.config, server.operations.as_ref())?;
+
+    let pending = server
+        .operations
+        .namespace_execution
+        .drain_completed_namespace_executions(10)
+        .expect("pending namespace records drain");
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].namespace_execution_id, bad);
+
+    let store = store_for_config(&server.config)?;
+    let traces = store.namespace_execution_traces_for_test("sandbox-1")?;
+    assert_eq!(traces.len(), 1);
+    assert_eq!(traces[0].namespace_execution_id, good.0);
+    let sandbox = store
+        .sandbox_snapshot_for_test("sandbox-1")?
+        .expect("sandbox snapshot written");
+    assert!(sandbox
+        .error_message
+        .as_deref()
+        .is_some_and(|message| message.contains("namespace_execution_bad")));
+    Ok(())
+}
+
+#[test]
 fn observability_collection_bounds_rows_and_keeps_valid_rows() -> TestResult {
     let root = test_root("bounds-rows");
     let config = server_config(&root, Some("sandbox-1"));
@@ -105,6 +199,8 @@ fn observability_collection_bounds_rows_and_keeps_valid_rows() -> TestResult {
             transcript_path: Some(PathBuf::from("/tmp/transcript.log")),
             process_group_id: Some(1234),
         }],
+        active_namespace_executions: Vec::new(),
+        completed_namespace_executions: Vec::new(),
         partial_errors: Vec::new(),
     };
 
@@ -153,6 +249,8 @@ fn disk_samples_are_cached_until_tests_force_refresh_and_can_truncate() -> TestR
         RuntimeObservabilitySnapshot {
             workspaces: vec![workspace_snapshot("workspace-1", Some(upperdir.clone()))],
             active_executions: Vec::new(),
+            active_namespace_executions: Vec::new(),
+            completed_namespace_executions: Vec::new(),
             partial_errors: Vec::new(),
         },
     )?;
@@ -162,6 +260,8 @@ fn disk_samples_are_cached_until_tests_force_refresh_and_can_truncate() -> TestR
         RuntimeObservabilitySnapshot {
             workspaces: vec![workspace_snapshot("workspace-1", Some(upperdir.clone()))],
             active_executions: Vec::new(),
+            active_namespace_executions: Vec::new(),
+            completed_namespace_executions: Vec::new(),
             partial_errors: Vec::new(),
         },
     )?;
@@ -178,6 +278,8 @@ fn disk_samples_are_cached_until_tests_force_refresh_and_can_truncate() -> TestR
         RuntimeObservabilitySnapshot {
             workspaces: vec![workspace_snapshot("workspace-1", Some(upperdir.clone()))],
             active_executions: Vec::new(),
+            active_namespace_executions: Vec::new(),
+            completed_namespace_executions: Vec::new(),
             partial_errors: Vec::new(),
         },
     )?;
@@ -197,6 +299,8 @@ fn disk_samples_are_cached_until_tests_force_refresh_and_can_truncate() -> TestR
                 Some(large_upperdir.clone()),
             )],
             active_executions: Vec::new(),
+            active_namespace_executions: Vec::new(),
+            completed_namespace_executions: Vec::new(),
             partial_errors: Vec::new(),
         },
     )?;
@@ -788,6 +892,60 @@ fn command_finalization_metadata(
     }
 }
 
+fn completed_namespace_execution(
+    namespace_execution_id: &str,
+    workspace_session_id: &str,
+    operation_name: &str,
+    terminal_status: NamespaceExecutionTerminalStatus,
+    request_id: Option<&str>,
+    exit_code: Option<i64>,
+) -> NamespaceExecutionRecord {
+    NamespaceExecutionRecord {
+        namespace_execution_id: NamespaceExecutionId(namespace_execution_id.to_owned()),
+        workspace_session_id: WorkspaceSessionId(workspace_session_id.to_owned()),
+        operation_name: operation_name.to_owned(),
+        request_id: request_id.map(str::to_owned),
+        lifecycle_state: NamespaceExecutionLifecycle::Terminal,
+        started_at_unix_ms: 1_000,
+        finished_at_unix_ms: Some(1_025),
+        duration_ms: Some(25.0),
+        terminal_status: Some(terminal_status),
+        exit_code,
+        error_kind: None,
+        error_message: None,
+    }
+}
+
+fn seed_completed_namespace_execution(
+    store: &NamespaceExecutionStore,
+    namespace_execution_id: &str,
+    operation_name: &str,
+) -> NamespaceExecutionId {
+    let id = NamespaceExecutionId(namespace_execution_id.to_owned());
+    store
+        .begin_namespace_execution(
+            id.clone(),
+            BeginNamespaceExecution {
+                workspace_session_id: WorkspaceSessionId("workspace-1".to_owned()),
+                operation_name: operation_name.to_owned(),
+                request_id: Some("req-parent".to_owned()),
+            },
+        )
+        .expect("begin namespace execution succeeds");
+    store
+        .complete_namespace_execution(
+            &id,
+            CompleteNamespaceExecution {
+                terminal_status: NamespaceExecutionTerminalStatus::Ok,
+                exit_code: Some(0),
+                error_kind: None,
+                error_message: None,
+            },
+        )
+        .expect("complete namespace execution succeeds");
+    id
+}
+
 fn span_key_names(keys: Vec<sandbox_runtime::SpanKey>) -> Vec<&'static str> {
     let mut names = keys.into_iter().map(|key| key.as_str()).collect::<Vec<_>>();
     names.sort_unstable();
@@ -881,6 +1039,8 @@ fn runtime_snapshot(missing_upperdir: PathBuf) -> RuntimeObservabilitySnapshot {
             transcript_path: Some(PathBuf::from("/tmp/transcript.log")),
             process_group_id: Some(1234),
         }],
+        active_namespace_executions: Vec::new(),
+        completed_namespace_executions: Vec::new(),
         partial_errors: Vec::new(),
     }
 }

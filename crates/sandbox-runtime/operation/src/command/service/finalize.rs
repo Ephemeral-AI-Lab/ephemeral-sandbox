@@ -4,6 +4,10 @@ use crate::command::{
     CommandWorkspaceOwnership, CompletedCommandRecord, FinalizationState,
     RetainedCommandTranscript,
 };
+use crate::namespace_execution::{
+    CompleteNamespaceExecution, NamespaceExecutionId, NamespaceExecutionStore,
+    NamespaceExecutionTerminalStatus,
+};
 use crate::observability::{measure_optional, OperationTrace};
 use crate::workspace_crate::{DestroyWorkspaceRequest, WorkspaceSessionId};
 use crate::workspace_session::WorkspaceSessionService;
@@ -11,6 +15,7 @@ use crate::workspace_session::WorkspaceSessionService;
 #[derive(Debug, Clone)]
 pub(crate) struct ActiveCompletionRecord {
     command_session_id: CommandSessionId,
+    namespace_execution_id: NamespaceExecutionId,
     workspace_session_id: WorkspaceSessionId,
     workspace_ownership: CommandWorkspaceOwnership,
     started_at: std::time::Instant,
@@ -26,6 +31,7 @@ pub(crate) struct CommandCompletionOutcome {
 pub(crate) fn complete_terminal_command_with_services(
     workspace: &WorkspaceSessionService,
     process_store: &CommandProcessStore,
+    namespace_execution: &NamespaceExecutionStore,
     command_session_id: CommandSessionId,
     process_exit: ::sandbox_runtime_command::process::CommandProcessExit,
     trace: Option<&OperationTrace>,
@@ -34,6 +40,7 @@ pub(crate) fn complete_terminal_command_with_services(
         complete_terminal_command_inner(
             workspace,
             process_store,
+            namespace_execution,
             command_session_id,
             process_exit,
             trace,
@@ -44,6 +51,7 @@ pub(crate) fn complete_terminal_command_with_services(
 fn complete_terminal_command_inner(
     workspace: &WorkspaceSessionService,
     process_store: &CommandProcessStore,
+    namespace_execution: &NamespaceExecutionStore,
     command_session_id: CommandSessionId,
     process_exit: ::sandbox_runtime_command::process::CommandProcessExit,
     trace: Option<&OperationTrace>,
@@ -59,6 +67,7 @@ fn complete_terminal_command_inner(
     };
     let workspace_session_id = Some(record.workspace_session_id.clone());
     let result = terminal_result(&process_exit);
+    complete_namespace_execution(namespace_execution, &record.namespace_execution_id, &result);
 
     let finalized = match measure_optional(trace, "apply_workspace_completion_policy", || {
         apply_workspace_completion_policy(workspace, &record)
@@ -128,6 +137,7 @@ fn begin_terminal_completion(
     }
     let record = ActiveCompletionRecord {
         command_session_id: active.command_session_id.clone(),
+        namespace_execution_id: active.namespace_execution_id.clone(),
         workspace_session_id: active.workspace_session_id.clone(),
         workspace_ownership: active.workspace_ownership.clone(),
         started_at: active.started_at,
@@ -155,6 +165,7 @@ fn complete_command_record(
     let completed = CompletedCommandRecord {
         command_session_id: command_session_id.clone(),
         workspace_session_id: record.workspace_session_id,
+        namespace_execution_id: record.namespace_execution_id,
         started_at: record.started_at,
         result,
         transcript: RetainedCommandTranscript {
@@ -166,6 +177,22 @@ fn complete_command_record(
     };
     let _ = process_store.complete_active(completed)?;
     Ok(())
+}
+
+fn complete_namespace_execution(
+    namespace_execution: &NamespaceExecutionStore,
+    namespace_execution_id: &NamespaceExecutionId,
+    result: &CommandTerminalResult,
+) {
+    let _ = namespace_execution.complete_namespace_execution(
+        namespace_execution_id,
+        CompleteNamespaceExecution {
+            terminal_status: namespace_terminal_status(result.status),
+            exit_code: result.exit_code,
+            error_kind: None,
+            error_message: None,
+        },
+    );
 }
 
 fn mark_active_completion(
@@ -224,6 +251,15 @@ fn terminal_status(
         "timed_out" => CommandStatus::TimedOut,
         "cancelled" => CommandStatus::Cancelled,
         _ => CommandStatus::Error,
+    }
+}
+
+const fn namespace_terminal_status(status: CommandStatus) -> NamespaceExecutionTerminalStatus {
+    match status {
+        CommandStatus::Ok => NamespaceExecutionTerminalStatus::Ok,
+        CommandStatus::Error | CommandStatus::Running => NamespaceExecutionTerminalStatus::Error,
+        CommandStatus::TimedOut => NamespaceExecutionTerminalStatus::TimedOut,
+        CommandStatus::Cancelled => NamespaceExecutionTerminalStatus::Cancelled,
     }
 }
 

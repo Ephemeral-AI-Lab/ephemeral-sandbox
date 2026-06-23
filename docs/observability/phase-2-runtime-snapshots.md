@@ -99,21 +99,22 @@ Phase 2 should add daemon-owned snapshot collection around this existing server
 shape. It must not change `sandbox_protocol::Response` and must not require
 runtime dispatch signature changes.
 
-### Manager Runtime Directory
+### Sandbox Daemon Runtime Directory
 
-`crates/sandbox-manager/src/daemon_install.rs` is the current source of the
-manager-launched daemon runtime directory:
+The daemon must run inside the sandbox and use sandbox-internal `/eos` storage
+for its runtime files and observability database:
 
 ```text
-<manager_runtime_root>/<sandbox_id>/
+/eos/runtime/daemon/
   runtime.sock
   runtime.pid
+  observability/
+    observability.sqlite
 ```
 
-`LocalSandboxDaemonInstaller::launch_spec` passes `--sandbox-id record.id` to
-the daemon and derives the socket and pid paths inside that directory. That
-path shape avoids collisions across many local daemon processes; it is not an
-observability storage convention. Phase 2 should keep the Phase 1 path rule:
+Manager-side paths may exist only as endpoint metadata, launch bookkeeping, or
+transport/proxy state. They must not be the observability storage root. Phase 2
+keeps the Phase 1 path rule, with production daemon socket paths under `/eos`:
 
 ```text
 daemon_runtime_dir = socket_path.parent()
@@ -280,7 +281,8 @@ sandbox-observability:
   records, schema migrations, store helpers, upsert/insert APIs
 
 sandbox-manager:
-  no Phase 2 changes unless a test fixture or type import is truly required
+  no Phase 2 storage ownership; later aggregation queries daemon APIs instead
+  of opening or mirroring daemon SQLite files
 ```
 
 The daemon knows `sandbox_id` through `ServerConfig.sandbox_id`. The runtime
@@ -495,7 +497,8 @@ Source of truth:
 
 - `ServerConfig.sandbox_id` for `sandbox_id`;
 - `ServerConfig.socket_path` and `pid_path`;
-- `socket_path.parent()` for daemon runtime directory;
+- `socket_path.parent()` for daemon runtime directory, with production paths
+  under `/eos`;
 - daemon process id for `daemon_pid`;
 - collector health for `state` and bounded `error_message`.
 - workspace root only if daemon integration passes the `serve` workspace root

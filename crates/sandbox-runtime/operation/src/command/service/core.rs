@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use crate::command::{
     CommandLaunchDriver, CommandProcessStore, CommandSessionId, RealCommandLaunchDriver,
 };
+use crate::namespace_execution::{NamespaceExecutionId, NamespaceExecutionStore};
 use crate::observability::AsyncTraceSink;
 use crate::workspace_crate::{
     CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, WorkspaceProfile,
@@ -19,6 +20,7 @@ pub struct CommandOperationService {
     workspace: Arc<WorkspaceSessionService>,
     config: ::sandbox_runtime_command::CommandConfig,
     process_store: Arc<CommandProcessStore>,
+    namespace_execution: Arc<NamespaceExecutionStore>,
     launch_driver: Arc<dyn CommandLaunchDriver>,
     completion_sender: CommandCompletionSender,
     remount_controller: Arc<dyn ProcessGroupController>,
@@ -38,6 +40,7 @@ impl CommandOperationService {
         Self::from_parts(
             workspace,
             config,
+            Arc::new(NamespaceExecutionStore::new()),
             Arc::new(RealCommandLaunchDriver),
             Arc::new(ProcProcessGroupController),
             None,
@@ -48,11 +51,13 @@ impl CommandOperationService {
     pub(crate) fn new_with_async_trace_sink(
         workspace: Arc<WorkspaceSessionService>,
         config: ::sandbox_runtime_command::CommandConfig,
+        namespace_execution: Arc<NamespaceExecutionStore>,
         async_trace_sink: Option<AsyncTraceSink>,
     ) -> Self {
         Self::from_parts(
             workspace,
             config,
+            namespace_execution,
             Arc::new(RealCommandLaunchDriver),
             Arc::new(ProcProcessGroupController),
             async_trace_sink,
@@ -62,6 +67,7 @@ impl CommandOperationService {
     pub(super) fn from_parts(
         workspace: Arc<WorkspaceSessionService>,
         config: ::sandbox_runtime_command::CommandConfig,
+        namespace_execution: Arc<NamespaceExecutionStore>,
         launch_driver: Arc<dyn CommandLaunchDriver>,
         remount_controller: Arc<dyn ProcessGroupController>,
         async_trace_sink: Option<AsyncTraceSink>,
@@ -70,12 +76,14 @@ impl CommandOperationService {
         let completion_sender = spawn_completion_finalizer(
             Arc::clone(&workspace),
             Arc::clone(&process_store),
+            Arc::clone(&namespace_execution),
             async_trace_sink,
         );
         Self {
             workspace,
             config,
             process_store,
+            namespace_execution,
             launch_driver,
             completion_sender,
             remount_controller,
@@ -92,6 +100,19 @@ impl CommandOperationService {
     }
 
     #[must_use]
+    pub(crate) fn shares_namespace_execution_store(
+        &self,
+        namespace_execution: &Arc<NamespaceExecutionStore>,
+    ) -> bool {
+        Arc::ptr_eq(&self.namespace_execution, namespace_execution)
+    }
+
+    #[must_use]
+    pub fn namespace_execution_store(&self) -> &Arc<NamespaceExecutionStore> {
+        &self.namespace_execution
+    }
+
+    #[must_use]
     pub fn config(&self) -> &::sandbox_runtime_command::CommandConfig {
         &self.config
     }
@@ -99,6 +120,21 @@ impl CommandOperationService {
     #[must_use]
     pub(crate) fn process_store(&self) -> &Arc<CommandProcessStore> {
         &self.process_store
+    }
+
+    #[doc(hidden)]
+    pub fn namespace_execution_id_for_command_for_test(
+        &self,
+        command_session_id: &CommandSessionId,
+    ) -> Option<NamespaceExecutionId> {
+        self.process_store
+            .active(command_session_id)
+            .map(|active| active.namespace_execution_id.clone())
+            .or_else(|| {
+                self.process_store
+                    .completed(command_session_id)
+                    .map(|completed| completed.namespace_execution_id)
+            })
     }
 
     #[must_use]

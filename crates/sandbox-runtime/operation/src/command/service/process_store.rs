@@ -9,6 +9,7 @@ use std::time::Instant;
 use crate::command::{
     CommandFinalizedMetadata, CommandServiceError, CommandSessionId, CommandStatus,
 };
+use crate::namespace_execution::NamespaceExecutionId;
 use crate::observability::RuntimeExecutionSnapshot;
 use crate::workspace_crate::WorkspaceSessionId;
 use crate::workspace_remount::{RemountCancellationToken, RemountSwitchState};
@@ -174,6 +175,7 @@ impl CommandProcessStore {
             CompletedCommandRecord {
                 command_session_id: command_session_id.clone(),
                 workspace_session_id: active_record.workspace_session_id,
+                namespace_execution_id: active_record.namespace_execution_id,
                 started_at: active_record.started_at,
                 result,
                 transcript: RetainedCommandTranscript {
@@ -301,6 +303,7 @@ impl Deref for ActiveCommandRef<'_> {
 
 pub(crate) struct ActiveCommandProcess {
     pub(crate) command_session_id: CommandSessionId,
+    pub(crate) namespace_execution_id: NamespaceExecutionId,
     pub(crate) workspace_session_id: WorkspaceSessionId,
     pub(crate) workspace_ownership: CommandWorkspaceOwnership,
     pub(crate) workspace_root: PathBuf,
@@ -388,6 +391,7 @@ impl CommandCompletionStore {
 pub(crate) struct CompletedCommandRecord {
     pub(crate) command_session_id: CommandSessionId,
     pub(crate) workspace_session_id: WorkspaceSessionId,
+    pub(crate) namespace_execution_id: NamespaceExecutionId,
     pub(crate) started_at: Instant,
     pub(crate) result: CommandTerminalResult,
     pub(crate) transcript: RetainedCommandTranscript,

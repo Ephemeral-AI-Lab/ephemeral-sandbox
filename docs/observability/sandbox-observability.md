@@ -53,20 +53,24 @@ trace, event, or log pipeline.
   `CliOperationScope::Sandbox { sandbox_id }`.
 - `sandbox-runtime` currently owns workspace sessions, command state,
   layerstack operations, and runtime roots, but it does not own sandbox identity.
-- `sandbox-manager` may create a per-sandbox daemon runtime directory when it
-  launches many local daemon processes:
+- The sandbox daemon must run inside the sandbox. Its runtime files and
+  observability store live under sandbox-internal `/eos` storage:
 
   ```text
-  <manager_runtime_root>/<sandbox_id>/
+  /eos/runtime/daemon/
     runtime.sock
     runtime.pid
+    observability/
+      observability.sqlite
   ```
 
-  This is a manager launch convention for avoiding socket collisions, not an
-  observability storage convention.
+  A manager-side path may exist only as control-plane endpoint metadata,
+  transport proxy state, or launch bookkeeping. It must not be the
+  observability storage root.
 - `sandbox-daemon::ServerConfig` already carries `socket_path`, `pid_path`, and
   optional `sandbox_id`. The daemon runtime directory is
-  `ServerConfig.socket_path.parent()`.
+  `ServerConfig.socket_path.parent()`, and for production sandbox daemons that
+  socket path must be inside `/eos`.
 - Public runtime dispatch enters through `sandbox_runtime::dispatch_operation`.
 - The current public runtime operation catalog is small. The live runtime
   operations are:
@@ -228,7 +232,8 @@ exist:
 ## Local Disk Layout
 
 The daemon derives its observability directory from its daemon runtime
-directory:
+directory. Because the daemon runs inside the sandbox, the daemon socket and
+observability database are sandbox-internal `/eos` paths:
 
 ```text
 daemon_runtime_dir = ServerConfig.socket_path.parent()
@@ -236,7 +241,7 @@ socket_path = <daemon_runtime_dir>/runtime.sock
 observability_dir = <daemon_runtime_dir>/observability
 ```
 
-Production config can set the daemon runtime directory under `/eos`:
+Production config must set the daemon runtime directory under `/eos`:
 
 ```text
 /eos/runtime/daemon/
@@ -246,10 +251,16 @@ Production config can set the daemon runtime directory under `/eos`:
     observability.sqlite
 ```
 
-When the manager launches many local sandboxes, it can choose a host-side
-daemon runtime directory such as `<manager_runtime_root>/<sandbox_id>/`. In that
-case `<sandbox_id>` belongs to the manager-selected daemon runtime directory,
-not to `sandbox-observability` path derivation.
+The manager must not create a second host-side observability store such as:
+
+```text
+<manager_runtime_root>/<sandbox_id>/observability/observability.sqlite
+```
+
+If the manager needs a host-visible socket, tunnel, mount, or proxy to reach the
+sandbox daemon, that endpoint belongs to manager transport state only. The
+authoritative observability store remains the daemon-owned
+`/eos/runtime/daemon/observability/observability.sqlite` inside the sandbox.
 
 Do not store observability data inside:
 
@@ -619,7 +630,7 @@ existing daemon socket path.
 Execution space:
 
 ```text
-sandbox daemon over <daemon_runtime_dir>/runtime.sock
+sandbox daemon over /eos/runtime/daemon/runtime.sock
 ```
 
 Purpose:
@@ -707,6 +718,8 @@ Rules:
 - `sandbox_ids = Some(..)` queries only those sandboxes.
 - The manager fans out by calling `get_observability_snapshot` on each daemon.
 - The manager should not open per-sandbox SQLite files.
+- The manager should not maintain a manager-side mirror of
+  `observability.sqlite`.
 - The manager may cache the aggregate later, but the first implementation can
   query daemons on demand.
 
@@ -1381,7 +1394,8 @@ databases.
 
 - Add a minimal `sandbox-observability` crate.
 - Add row-shaped records for traces, spans, and sandbox snapshots.
-- Derive the observability directory from the daemon socket path.
+- Derive the observability directory from the sandbox-internal daemon socket
+  path under `/eos`.
 - Create `observability.sqlite`.
 - Add idempotent schema migration and direct synthetic-record store writes.
 - Do not wire the crate into daemon serving yet.
@@ -1468,7 +1482,8 @@ databases.
 
 - Add daemon API `get_observability_snapshot`.
 - Add manager API `get_observability_tree`.
-- Add manager aggregation across ready sandboxes.
+- Add manager aggregation across ready sandboxes by querying daemon APIs, not by
+  opening or mirroring daemon SQLite stores.
 - Render hierarchy:
 
   ```text

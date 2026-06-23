@@ -9,8 +9,9 @@ use thiserror::Error;
 
 use crate::paths::ObservabilityPaths;
 use crate::records::{
-    ExecutionSnapshotRecord, RecordValidationError, ResourceSampleRecord, SandboxSnapshotRecord,
-    SpanRecord, TraceRecord, WorkspaceSnapshotRecord,
+    ExecutionSnapshotRecord, NamespaceExecutionSnapshotRecord, NamespaceExecutionTraceRecord,
+    RecordValidationError, ResourceSampleRecord, SandboxSnapshotRecord, SpanRecord, TraceRecord,
+    WorkspaceSnapshotRecord,
 };
 
 struct Migration {
@@ -34,6 +35,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 3,
         name: "phase_4_async_method_traces",
         sql: V3_SCHEMA_SQL,
+    },
+    Migration {
+        version: 4,
+        name: "phase_4_5_namespace_execution_traces",
+        sql: V4_SCHEMA_SQL,
     },
 ];
 
@@ -184,6 +190,44 @@ const V3_SCHEMA_SQL: &str = r#"
 ALTER TABLE traces ADD COLUMN origin_request_id TEXT;
 ALTER TABLE traces ADD COLUMN workspace_id TEXT;
 ALTER TABLE traces ADD COLUMN command_session_id TEXT;
+"#;
+
+const V4_SCHEMA_SQL: &str = r#"
+CREATE TABLE IF NOT EXISTS namespace_execution_snapshots (
+  sandbox_id TEXT NOT NULL,
+  namespace_execution_id TEXT NOT NULL,
+  workspace_session_id TEXT NOT NULL,
+  operation TEXT NOT NULL,
+  lifecycle_state TEXT NOT NULL,
+  sampled_at_unix_ms INTEGER NOT NULL,
+  error_message TEXT,
+  PRIMARY KEY(sandbox_id, namespace_execution_id)
+);
+
+CREATE TABLE IF NOT EXISTS namespace_execution_traces (
+  trace_id TEXT PRIMARY KEY,
+  sandbox_id TEXT NOT NULL,
+  namespace_execution_id TEXT NOT NULL,
+  workspace_session_id TEXT NOT NULL,
+  operation TEXT NOT NULL,
+  request_id TEXT,
+  status TEXT NOT NULL,
+  exit_code INTEGER,
+  started_at_unix_ms INTEGER NOT NULL,
+  finished_at_unix_ms INTEGER NOT NULL,
+  duration_ms REAL NOT NULL,
+  error_kind TEXT,
+  error_message TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_namespace_execution_snapshots_workspace_session
+  ON namespace_execution_snapshots(sandbox_id, workspace_session_id);
+
+CREATE INDEX IF NOT EXISTS idx_namespace_execution_traces_namespace_execution
+  ON namespace_execution_traces(sandbox_id, namespace_execution_id);
+
+CREATE INDEX IF NOT EXISTS idx_namespace_execution_traces_workspace_session_started
+  ON namespace_execution_traces(sandbox_id, workspace_session_id, started_at_unix_ms);
 "#;
 
 #[derive(Debug, Error)]
@@ -570,6 +614,144 @@ impl ObservabilityStore {
         Ok(())
     }
 
+    pub fn upsert_namespace_execution_snapshots(
+        &self,
+        sandbox_id: &str,
+        snapshots: &[NamespaceExecutionSnapshotRecord],
+    ) -> Result<(), StoreError> {
+        for snapshot in snapshots {
+            snapshot.validate_for_sandbox(sandbox_id)?;
+        }
+
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        for snapshot in snapshots {
+            transaction.execute(
+                "INSERT INTO namespace_execution_snapshots (
+                    sandbox_id,
+                    namespace_execution_id,
+                    workspace_session_id,
+                    operation,
+                    lifecycle_state,
+                    sampled_at_unix_ms,
+                    error_message
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                ON CONFLICT(sandbox_id, namespace_execution_id) DO UPDATE SET
+                    workspace_session_id = excluded.workspace_session_id,
+                    operation = excluded.operation,
+                    lifecycle_state = excluded.lifecycle_state,
+                    sampled_at_unix_ms = excluded.sampled_at_unix_ms,
+                    error_message = excluded.error_message",
+                params![
+                    &snapshot.sandbox_id,
+                    &snapshot.namespace_execution_id,
+                    &snapshot.workspace_session_id,
+                    &snapshot.operation,
+                    &snapshot.lifecycle_state,
+                    snapshot.sampled_at_unix_ms,
+                    &snapshot.error_message,
+                ],
+            )?;
+        }
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn prune_namespace_execution_snapshots(
+        &self,
+        sandbox_id: &str,
+        active_namespace_execution_ids: &[String],
+    ) -> Result<(), StoreError> {
+        validate_id("sandbox_id", sandbox_id)?;
+        for namespace_execution_id in active_namespace_execution_ids {
+            validate_id("namespace_execution_id", namespace_execution_id)?;
+        }
+        let active = active_namespace_execution_ids
+            .iter()
+            .collect::<HashSet<_>>();
+
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        let stale_namespace_execution_ids = {
+            let mut statement = transaction.prepare(
+                "SELECT namespace_execution_id
+                    FROM namespace_execution_snapshots
+                    WHERE sandbox_id = ?1",
+            )?;
+            let rows = statement.query_map([sandbox_id], |row| row.get::<_, String>(0))?;
+            rows.collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .filter(|namespace_execution_id| !active.contains(namespace_execution_id))
+                .collect::<Vec<_>>()
+        };
+
+        for namespace_execution_id in stale_namespace_execution_ids {
+            transaction.execute(
+                "DELETE FROM namespace_execution_snapshots
+                    WHERE sandbox_id = ?1
+                      AND namespace_execution_id = ?2",
+                params![sandbox_id, &namespace_execution_id],
+            )?;
+        }
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn insert_namespace_execution_trace(
+        &self,
+        trace: &NamespaceExecutionTraceRecord,
+    ) -> Result<(), StoreError> {
+        trace.validate()?;
+
+        let connection = self.connection()?;
+        connection.execute(
+            "INSERT INTO namespace_execution_traces (
+                trace_id,
+                sandbox_id,
+                namespace_execution_id,
+                workspace_session_id,
+                operation,
+                request_id,
+                status,
+                exit_code,
+                started_at_unix_ms,
+                finished_at_unix_ms,
+                duration_ms,
+                error_kind,
+                error_message
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+            ON CONFLICT(trace_id) DO UPDATE SET
+                sandbox_id = excluded.sandbox_id,
+                namespace_execution_id = excluded.namespace_execution_id,
+                workspace_session_id = excluded.workspace_session_id,
+                operation = excluded.operation,
+                request_id = excluded.request_id,
+                status = excluded.status,
+                exit_code = excluded.exit_code,
+                started_at_unix_ms = excluded.started_at_unix_ms,
+                finished_at_unix_ms = excluded.finished_at_unix_ms,
+                duration_ms = excluded.duration_ms,
+                error_kind = excluded.error_kind,
+                error_message = excluded.error_message",
+            params![
+                &trace.trace_id,
+                &trace.sandbox_id,
+                &trace.namespace_execution_id,
+                &trace.workspace_session_id,
+                &trace.operation,
+                &trace.request_id,
+                &trace.status,
+                trace.exit_code,
+                trace.started_at_unix_ms,
+                trace.finished_at_unix_ms,
+                trace.duration_ms,
+                &trace.error_kind,
+                &trace.error_message,
+            ],
+        )?;
+        Ok(())
+    }
+
     pub fn insert_resource_samples(
         &self,
         samples: &[ResourceSampleRecord],
@@ -858,6 +1040,86 @@ impl ObservabilityStore {
                 transcript_path: row.get(13)?,
                 sampled_at_unix_ms: row.get(14)?,
                 error_message: row.get(15)?,
+            })
+        })?;
+        rows.collect::<Result<_, _>>().map_err(StoreError::from)
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    #[doc(hidden)]
+    pub fn namespace_execution_snapshots_for_test(
+        &self,
+        sandbox_id: &str,
+    ) -> Result<Vec<NamespaceExecutionSnapshotRecord>, StoreError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT
+                sandbox_id,
+                namespace_execution_id,
+                workspace_session_id,
+                operation,
+                lifecycle_state,
+                sampled_at_unix_ms,
+                error_message
+            FROM namespace_execution_snapshots
+            WHERE sandbox_id = ?1
+            ORDER BY namespace_execution_id",
+        )?;
+        let rows = statement.query_map([sandbox_id], |row| {
+            Ok(NamespaceExecutionSnapshotRecord {
+                sandbox_id: row.get(0)?,
+                namespace_execution_id: row.get(1)?,
+                workspace_session_id: row.get(2)?,
+                operation: row.get(3)?,
+                lifecycle_state: row.get(4)?,
+                sampled_at_unix_ms: row.get(5)?,
+                error_message: row.get(6)?,
+            })
+        })?;
+        rows.collect::<Result<_, _>>().map_err(StoreError::from)
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    #[doc(hidden)]
+    pub fn namespace_execution_traces_for_test(
+        &self,
+        sandbox_id: &str,
+    ) -> Result<Vec<NamespaceExecutionTraceRecord>, StoreError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT
+                trace_id,
+                sandbox_id,
+                namespace_execution_id,
+                workspace_session_id,
+                operation,
+                request_id,
+                status,
+                exit_code,
+                started_at_unix_ms,
+                finished_at_unix_ms,
+                duration_ms,
+                error_kind,
+                error_message
+            FROM namespace_execution_traces
+            WHERE sandbox_id = ?1
+            ORDER BY namespace_execution_id",
+        )?;
+        let rows = statement.query_map([sandbox_id], |row| {
+            Ok(NamespaceExecutionTraceRecord {
+                trace_id: row.get(0)?,
+                sandbox_id: row.get(1)?,
+                namespace_execution_id: row.get(2)?,
+                workspace_session_id: row.get(3)?,
+                operation: row.get(4)?,
+                request_id: row.get(5)?,
+                status: row.get(6)?,
+                exit_code: row.get(7)?,
+                started_at_unix_ms: row.get(8)?,
+                finished_at_unix_ms: row.get(9)?,
+                duration_ms: row.get(10)?,
+                error_kind: row.get(11)?,
+                error_message: row.get(12)?,
             })
         })?;
         rows.collect::<Result<_, _>>().map_err(StoreError::from)

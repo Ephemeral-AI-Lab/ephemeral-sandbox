@@ -5,13 +5,16 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use sandbox_runtime::command::test_support::command_service_with_launch_driver_and_async_trace_sink;
+use sandbox_runtime::command::test_support::{
+    command_service_with_launch_driver_and_async_trace_sink,
+    command_service_with_launch_driver_namespace_store_and_async_trace_sink,
+};
 use sandbox_runtime::command::{
     CommandCompletionPromise, CommandCompletionWaitOutcome, CommandLaunchDriver,
     CommandOperationService, CommandServiceError,
 };
 use sandbox_runtime::workspace_session::WorkspaceSessionService;
-use sandbox_runtime::AsyncTraceSink;
+use sandbox_runtime::{AsyncTraceSink, NamespaceExecutionStore};
 use sandbox_runtime_command::process::{
     CommandProcess, CommandProcessExit, CommandProcessSpawn, CommandProcessSpec,
 };
@@ -366,6 +369,24 @@ pub(crate) fn build_services_with_launch_driver_and_async_trace_sink(
         launch_driver,
         async_trace_sink,
     ));
+    TestServices { workspace, command }
+}
+
+pub(crate) fn build_services_with_launch_driver_namespace_store(
+    fake: Arc<FakeWorkspaceService>,
+    launch_driver: Arc<dyn CommandLaunchDriver>,
+    namespace_execution: Arc<NamespaceExecutionStore>,
+) -> TestServices {
+    let workspace = Arc::new(WorkspaceSessionService::new(fake_workspace_runtime(fake)));
+    let command = Arc::new(
+        command_service_with_launch_driver_namespace_store_and_async_trace_sink(
+            Arc::clone(&workspace),
+            test_command_config(),
+            launch_driver,
+            namespace_execution,
+            None,
+        ),
+    );
     TestServices { workspace, command }
 }
 

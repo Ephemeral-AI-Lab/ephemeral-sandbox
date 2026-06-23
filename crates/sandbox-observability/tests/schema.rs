@@ -6,8 +6,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::Connection;
 use sandbox_observability::{
-    ExecutionSnapshotRecord, ObservabilityPaths, ObservabilityStore, ResourceSampleRecord,
-    SandboxSnapshotRecord, SpanRecord, StoreError, TraceRecord, WorkspaceSnapshotRecord,
+    ExecutionSnapshotRecord, NamespaceExecutionSnapshotRecord, NamespaceExecutionTraceRecord,
+    ObservabilityPaths, ObservabilityStore, ResourceSampleRecord, SandboxSnapshotRecord,
+    SpanRecord, StoreError, TraceRecord, WorkspaceSnapshotRecord,
 };
 
 type TestResult<T = ()> = Result<T, Box<dyn Error>>;
@@ -54,7 +55,14 @@ fn schema_initialization_is_idempotent() -> TestResult {
     assert!(trace_columns.contains("origin_request_id"));
     assert!(trace_columns.contains("workspace_id"));
     assert!(trace_columns.contains("command_session_id"));
-    assert_eq!(migration_count(&connection)?, 3);
+    let namespace_snapshot_columns = column_names(&connection, "namespace_execution_snapshots")?;
+    assert!(namespace_snapshot_columns.contains("namespace_execution_id"));
+    assert!(namespace_snapshot_columns.contains("workspace_session_id"));
+    let namespace_trace_columns = column_names(&connection, "namespace_execution_traces")?;
+    assert!(namespace_trace_columns.contains("namespace_execution_id"));
+    assert!(namespace_trace_columns.contains("workspace_session_id"));
+    assert!(namespace_trace_columns.contains("exit_code"));
+    assert_eq!(migration_count(&connection)?, 4);
     assert!(paths.database_path().exists());
     assert!(dir
         .path()
@@ -347,6 +355,64 @@ fn active_execution_upsert_and_prune_tracks_current_rows() -> TestResult {
 }
 
 #[test]
+fn namespace_execution_snapshot_and_completed_trace_use_typed_tables() -> TestResult {
+    let (_dir, paths) = test_paths("namespace-execution")?;
+    let store = ObservabilityStore::open(&paths)?;
+
+    store.upsert_namespace_execution_snapshots(
+        "sandbox-1",
+        &[
+            namespace_execution_snapshot("namespace_execution_1", "workspace-1", 1_000),
+            namespace_execution_snapshot("namespace_execution_2", "workspace-1", 1_000),
+        ],
+    )?;
+    store
+        .prune_namespace_execution_snapshots("sandbox-1", &["namespace_execution_2".to_owned()])?;
+    store.insert_namespace_execution_trace(&NamespaceExecutionTraceRecord {
+        trace_id: "namespace_execution:namespace_execution_1".to_owned(),
+        sandbox_id: "sandbox-1".to_owned(),
+        namespace_execution_id: "namespace_execution_1".to_owned(),
+        workspace_session_id: "workspace-1".to_owned(),
+        operation: "exec_command".to_owned(),
+        request_id: Some("request-1".to_owned()),
+        status: "ok".to_owned(),
+        exit_code: Some(0),
+        started_at_unix_ms: 1_000,
+        finished_at_unix_ms: 1_025,
+        duration_ms: 25.0,
+        error_kind: None,
+        error_message: None,
+    })?;
+
+    let connection = Connection::open(paths.database_path())?;
+    assert_eq!(row_count(&connection, "execution_snapshots")?, 0);
+    let snapshots = namespace_execution_snapshot_rows(&connection, "sandbox-1")?;
+    assert_eq!(snapshots.len(), 1);
+    assert_eq!(
+        snapshots[0],
+        (
+            "namespace_execution_2".to_owned(),
+            "workspace-1".to_owned(),
+            "exec_command".to_owned(),
+            "running".to_owned(),
+        )
+    );
+    let traces = namespace_execution_trace_rows(&connection, "sandbox-1")?;
+    assert_eq!(traces.len(), 1);
+    assert_eq!(
+        traces[0],
+        (
+            "namespace_execution_1".to_owned(),
+            "workspace-1".to_owned(),
+            "ok".to_owned(),
+            Some(0),
+        )
+    );
+
+    Ok(())
+}
+
+#[test]
 fn resource_samples_preserve_sandbox_and_workspace_scope() -> TestResult {
     let (_dir, paths) = test_paths("resource-scope")?;
     let store = ObservabilityStore::open(&paths)?;
@@ -380,6 +446,8 @@ fn test_paths(name: &str) -> TestResult<(TestDir, ObservabilityPaths)> {
 fn allowed_tables() -> BTreeSet<String> {
     [
         "execution_snapshots",
+        "namespace_execution_snapshots",
+        "namespace_execution_traces",
         "resource_samples",
         "schema_migrations",
         "sandbox_snapshots",
@@ -396,6 +464,9 @@ fn allowed_indexes() -> BTreeSet<String> {
     [
         "idx_execution_snapshots_command",
         "idx_execution_snapshots_workspace",
+        "idx_namespace_execution_snapshots_workspace_session",
+        "idx_namespace_execution_traces_namespace_execution",
+        "idx_namespace_execution_traces_workspace_session_started",
         "idx_resource_samples_sandbox_time",
         "idx_resource_samples_workspace_time",
         "idx_spans_trace_call_index",
@@ -481,6 +552,38 @@ fn execution_rows(
     rows.collect()
 }
 
+fn namespace_execution_snapshot_rows(
+    connection: &Connection,
+    sandbox_id: &str,
+) -> rusqlite::Result<Vec<(String, String, String, String)>> {
+    let mut statement = connection.prepare(
+        "SELECT namespace_execution_id, workspace_session_id, operation, lifecycle_state
+         FROM namespace_execution_snapshots
+         WHERE sandbox_id = ?1
+         ORDER BY namespace_execution_id",
+    )?;
+    let rows = statement.query_map([sandbox_id], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+    })?;
+    rows.collect()
+}
+
+fn namespace_execution_trace_rows(
+    connection: &Connection,
+    sandbox_id: &str,
+) -> rusqlite::Result<Vec<(String, String, String, Option<i64>)>> {
+    let mut statement = connection.prepare(
+        "SELECT namespace_execution_id, workspace_session_id, status, exit_code
+         FROM namespace_execution_traces
+         WHERE sandbox_id = ?1
+         ORDER BY namespace_execution_id",
+    )?;
+    let rows = statement.query_map([sandbox_id], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+    })?;
+    rows.collect()
+}
+
 struct ResourceSampleRow {
     workspace_id: Option<String>,
     cgroup_available: bool,
@@ -546,6 +649,22 @@ fn execution_snapshot(
         wall_time_ms: Some(12.5),
         process_group_id: Some(1234),
         transcript_path: Some(format!("/tmp/{execution_id}/transcript.log")),
+        sampled_at_unix_ms,
+        error_message: None,
+    }
+}
+
+fn namespace_execution_snapshot(
+    namespace_execution_id: &str,
+    workspace_session_id: &str,
+    sampled_at_unix_ms: i64,
+) -> NamespaceExecutionSnapshotRecord {
+    NamespaceExecutionSnapshotRecord {
+        sandbox_id: "sandbox-1".to_owned(),
+        namespace_execution_id: namespace_execution_id.to_owned(),
+        workspace_session_id: workspace_session_id.to_owned(),
+        operation: "exec_command".to_owned(),
+        lifecycle_state: "running".to_owned(),
         sampled_at_unix_ms,
         error_message: None,
     }

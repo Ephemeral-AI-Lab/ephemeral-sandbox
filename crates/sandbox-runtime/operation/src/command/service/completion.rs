@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use sandbox_runtime_command::process::{CommandProcess, CommandProcessExit};
 
 use crate::command::{CommandServiceError, CommandSessionId};
+use crate::namespace_execution::NamespaceExecutionStore;
 use crate::observability::{AsyncTraceSink, CommandFinalizationTraceMetadata, OperationTrace};
 use crate::workspace_session::WorkspaceSessionService;
 
@@ -117,6 +118,7 @@ impl CommandCompletionPromise {
 pub(crate) fn spawn_completion_finalizer(
     workspace: Arc<WorkspaceSessionService>,
     process_store: Arc<CommandProcessStore>,
+    namespace_execution: Arc<NamespaceExecutionStore>,
     async_trace_sink: Option<AsyncTraceSink>,
 ) -> CommandCompletionSender {
     let (tx, rx) = mpsc::channel::<CommandCompletion>();
@@ -125,6 +127,7 @@ pub(crate) fn spawn_completion_finalizer(
             finalize_completion(
                 workspace.as_ref(),
                 process_store.as_ref(),
+                namespace_execution.as_ref(),
                 completion,
                 async_trace_sink.as_ref(),
             );
@@ -136,6 +139,7 @@ pub(crate) fn spawn_completion_finalizer(
 fn finalize_completion(
     workspace: &WorkspaceSessionService,
     process_store: &CommandProcessStore,
+    namespace_execution: &NamespaceExecutionStore,
     completion: CommandCompletion,
     async_trace_sink: Option<&AsyncTraceSink>,
 ) {
@@ -150,6 +154,7 @@ fn finalize_completion(
         let outcome = complete_terminal_command_with_services(
             workspace,
             process_store,
+            namespace_execution,
             command_session_id,
             process_exit,
             None,
@@ -162,6 +167,7 @@ fn finalize_completion(
     let outcome = complete_terminal_command_with_services(
         workspace,
         process_store,
+        namespace_execution,
         command_session_id.clone(),
         process_exit,
         Some(&trace),
