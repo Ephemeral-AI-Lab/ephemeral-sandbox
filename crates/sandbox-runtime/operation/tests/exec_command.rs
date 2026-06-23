@@ -11,13 +11,14 @@ use sandbox_runtime::command::{
     CommandServiceError, CommandSessionId, CommandStatus, ExecCommandInput, ReadCommandLinesInput,
     WriteCommandStdinInput,
 };
-use sandbox_runtime::{LayerStackService, SandboxRuntimeOperations};
+use sandbox_runtime::{AsyncTraceSink, LayerStackService, SandboxRuntimeOperations};
 use sandbox_runtime_command::process::{CommandProcess, CommandProcessSpawn, CommandProcessSpec};
 use sandbox_runtime_workspace::{WorkspaceEntry, WorkspaceProfile, WorkspaceSessionId};
 use serde_json::json;
 
 use support::{
-    build_services, build_services_with_launch_driver, create_request, success_exit,
+    build_services, build_services_with_launch_driver,
+    build_services_with_launch_driver_and_async_trace_sink, create_request, success_exit,
     workspace_handle, workspace_handle_unavailable_launch, workspace_handle_without_launch,
     FakeLaunchDriver, FakeWorkspaceService, ScriptedCommandYield,
 };
@@ -144,6 +145,43 @@ fn exec_command_without_workspace_session_creates_and_destroys_one_shot_on_compl
         fake.destroy_calls(),
         vec![WorkspaceSessionId("one-shot-session".to_owned())]
     );
+}
+
+#[test]
+fn exec_command_without_request_trace_does_not_emit_async_finalizer_trace() {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    fake.push_create_result(Ok(workspace_handle(
+        "one-shot-session",
+        "lease-1",
+        PathBuf::from("/workspace/one-shot"),
+        WorkspaceProfile::HostCompatible,
+    )));
+    let launch_driver = Arc::new(FakeLaunchDriver::new());
+    launch_driver.push_outcome(ScriptedCommandYield::Completed(success_exit(
+        "one-shot done\n",
+    )));
+    let (tx, rx) = mpsc::channel::<()>();
+    let sink: AsyncTraceSink = Arc::new(move |_, _| {
+        tx.send(()).expect("async trace test receiver stays open");
+    });
+    let env = build_services_with_launch_driver_and_async_trace_sink(
+        Arc::clone(&fake),
+        launch_driver,
+        Some(sink),
+    );
+
+    let output = env
+        .command
+        .exec_command(one_shot_exec_input(), None)
+        .expect("one-shot command completes");
+
+    assert_eq!(output.status, CommandStatus::Ok);
+    assert_eq!(output.output, "one-shot done");
+    assert_eq!(
+        fake.destroy_calls(),
+        vec![WorkspaceSessionId("one-shot-session".to_owned())]
+    );
+    assert!(rx.recv_timeout(Duration::from_millis(100)).is_err());
 }
 
 #[test]

@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -43,6 +44,18 @@ pub struct RuntimeExecutionSnapshot {
     pub wall_time_ms: Option<f64>,
     pub transcript_path: Option<PathBuf>,
     pub process_group_id: Option<i32>,
+}
+
+pub type AsyncTraceSink =
+    Arc<dyn Fn(CompletedOperationTrace, CommandFinalizationTraceMetadata) + Send + Sync + 'static>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandFinalizationTraceMetadata {
+    pub origin_request_id: String,
+    pub workspace_session_id: Option<WorkspaceSessionId>,
+    pub command_session_id: CommandSessionId,
+    pub finalizer_status: &'static str,
+    pub finalizer_error: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

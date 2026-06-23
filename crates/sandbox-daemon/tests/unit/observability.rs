@@ -8,7 +8,8 @@ use crate::server::{SandboxDaemonServer, ServerConfig};
 use sandbox_observability::{ObservabilityPaths, ObservabilityStore, SpanRecord, TraceRecord};
 use sandbox_runtime::command::CommandSessionId;
 use sandbox_runtime::{
-    span_keys, CompletedOperationSpan, CompletedOperationTrace, WorkspaceSessionId,
+    span_keys, CommandFinalizationTraceMetadata, CompletedOperationSpan, CompletedOperationTrace,
+    WorkspaceSessionId,
 };
 use sandbox_runtime::{
     RuntimeExecutionSnapshot, RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot,
@@ -251,6 +252,118 @@ fn completed_operation_trace_maps_and_persists_success() -> TestResult {
     assert_eq!(spans[2].parent_span_id.as_deref(), Some("request:req-success:span:1"));
     assert_no_trace_text(&trace, &spans, "SECRET_OUTPUT");
     assert_no_trace_text(&trace, &spans, "SECRET_TRANSCRIPT");
+    Ok(())
+}
+
+#[test]
+fn completed_async_command_finalization_trace_maps_and_persists_success() -> TestResult {
+    let root = test_root("async-trace-success");
+    let config = server_config(&root, Some("sandbox-1"));
+    let observability =
+        DaemonObservability::from_config(&config).expect("sandbox id enables observability");
+
+    observability.insert_completed_async_operation_trace(
+        completed_trace(&[
+            (None, "complete_terminal_command_with_services", 0),
+            (Some(0), "apply_workspace_completion_policy", 1),
+            (Some(0), "complete_command_record", 2),
+        ]),
+        command_finalization_metadata("req-origin", "workspace-1", "cmd_1"),
+    )?;
+
+    let store = store_for_config(&config)?;
+    let trace_id = "async:command_finalization:command_session_id:cmd_1";
+    let trace = trace_for(&store, trace_id)?;
+    assert_eq!(trace.kind, "async");
+    assert_eq!(trace.status, "ok");
+    assert_eq!(trace.sandbox_id, "sandbox-1");
+    assert_eq!(trace.operation, "command_finalization");
+    assert!(trace.request_id.is_none());
+    assert_eq!(trace.origin_request_id.as_deref(), Some("req-origin"));
+    assert_eq!(trace.workspace_id.as_deref(), Some("workspace-1"));
+    assert_eq!(trace.command_session_id.as_deref(), Some("cmd_1"));
+
+    let spans = store.spans_for_test(trace_id)?;
+    assert_eq!(
+        span_names(&spans),
+        vec![
+            "complete_terminal_command_with_services",
+            "apply_workspace_completion_policy",
+            "complete_command_record",
+        ]
+    );
+    assert_eq!(
+        spans[1].parent_span_id.as_deref(),
+        Some("async:command_finalization:command_session_id:cmd_1:span:0")
+    );
+    assert_eq!(
+        spans[2].parent_span_id.as_deref(),
+        Some("async:command_finalization:command_session_id:cmd_1:span:0")
+    );
+    Ok(())
+}
+
+#[test]
+fn completed_async_command_finalization_trace_maps_error_text() -> TestResult {
+    let root = test_root("async-trace-error");
+    let config = server_config(&root, Some("sandbox-1"));
+    let observability =
+        DaemonObservability::from_config(&config).expect("sandbox id enables observability");
+
+    observability.insert_completed_async_operation_trace(
+        completed_trace(&[(None, "complete_terminal_command_with_services", 0)]),
+        CommandFinalizationTraceMetadata {
+            origin_request_id: "req-origin".to_owned(),
+            workspace_session_id: Some(WorkspaceSessionId("workspace-1".to_owned())),
+            command_session_id: CommandSessionId("cmd_1".to_owned()),
+            finalizer_status: "error",
+            finalizer_error: Some("raw finalizer error".to_owned()),
+        },
+    )?;
+
+    let store = store_for_config(&config)?;
+    let trace = trace_for(&store, "async:command_finalization:command_session_id:cmd_1")?;
+    assert_eq!(trace.status, "error");
+    assert!(trace.error_kind.is_none());
+    assert_eq!(trace.error_message.as_deref(), Some("raw finalizer error"));
+    Ok(())
+}
+
+#[test]
+fn async_command_finalization_trace_does_not_update_deep_span_keys() -> TestResult {
+    let root = test_root("async-trace-no-deep-keys");
+    let config = server_config(&root, Some("sandbox-1"));
+    let observability =
+        DaemonObservability::from_config(&config).expect("sandbox id enables observability");
+
+    observability.insert_completed_async_operation_trace(
+        completed_trace_with_durations(&[
+            (None, "complete_terminal_command_with_services", 0, 20.0),
+            (Some(0), "CommandOperationService::exec_command", 1, 101.0),
+        ]),
+        command_finalization_metadata("req-origin", "workspace-1", "cmd_1"),
+    )?;
+
+    assert!(observability.enabled_deep_span_keys().is_empty());
+    Ok(())
+}
+
+#[test]
+fn async_trace_sink_store_failure_is_swallowed_at_callback_boundary() -> TestResult {
+    let root = test_root("async-trace-store-failure");
+    let config = server_config(&root, Some("sandbox-1"));
+    let observability = Arc::new(
+        DaemonObservability::from_config(&config).expect("sandbox id enables observability"),
+    );
+    observability.force_sqlite_write_errors_for_test()?;
+    let sink = DaemonObservability::async_trace_sink(Arc::clone(&observability));
+
+    sink(
+        completed_trace(&[(None, "complete_terminal_command_with_services", 0)]),
+        command_finalization_metadata("req-origin", "workspace-1", "cmd_1"),
+    );
+
+    assert!(observability.enabled_deep_span_keys().is_empty());
     Ok(())
 }
 
@@ -665,6 +778,20 @@ fn completed_trace_with_durations(
     }
 }
 
+fn command_finalization_metadata(
+    origin_request_id: &str,
+    workspace_session_id: &str,
+    command_session_id: &str,
+) -> CommandFinalizationTraceMetadata {
+    CommandFinalizationTraceMetadata {
+        origin_request_id: origin_request_id.to_owned(),
+        workspace_session_id: Some(WorkspaceSessionId(workspace_session_id.to_owned())),
+        command_session_id: CommandSessionId(command_session_id.to_owned()),
+        finalizer_status: "ok",
+        finalizer_error: None,
+    }
+}
+
 fn span_key_names(keys: Vec<sandbox_runtime::SpanKey>) -> Vec<&'static str> {
     let mut names = keys.into_iter().map(|key| key.as_str()).collect::<Vec<_>>();
     names.sort_unstable();
@@ -680,8 +807,10 @@ fn span_record<'a>(spans: &'a [SpanRecord], method_name: &str) -> &'a SpanRecord
 
 fn daemon_server(root: &Path, sandbox_id: Option<&str>) -> TestResult<SandboxDaemonServer> {
     let config = server_config(root, sandbox_id);
-    let operations = Arc::new(runtime_operations(root)?);
-    Ok(SandboxDaemonServer::new(config, operations))
+    Ok(SandboxDaemonServer::new_with_runtime_config(
+        config,
+        runtime_config(root)?,
+    ))
 }
 
 fn request_bytes(op: &str, request_id: &str, args: Value) -> TestResult<Vec<u8>> {
@@ -718,6 +847,9 @@ fn assert_no_trace_text(trace: &TraceRecord, spans: &[SpanRecord], forbidden: &s
         trace.operation.as_str(),
     ];
     values.extend(trace.request_id.as_deref());
+    values.extend(trace.origin_request_id.as_deref());
+    values.extend(trace.workspace_id.as_deref());
+    values.extend(trace.command_session_id.as_deref());
     values.extend(trace.error_kind.as_deref());
     values.extend(trace.error_message.as_deref());
     for span in spans {
@@ -801,29 +933,33 @@ fn server_config(root: &Path, sandbox_id: Option<&str>) -> ServerConfig {
 }
 
 fn runtime_operations(root: &Path) -> TestResult<sandbox_runtime::SandboxRuntimeOperations> {
+    Ok(sandbox_runtime::SandboxRuntimeOperations::from_config(
+        runtime_config(root)?,
+    ))
+}
+
+fn runtime_config(root: &Path) -> TestResult<sandbox_runtime::SandboxRuntimeConfig> {
     let layer_stack_root = root.join("layer-stack");
     let workspace_root = root.join("runtime-workspace");
     std::fs::create_dir_all(&workspace_root)?;
     sandbox_runtime_layerstack::build_workspace_base(&layer_stack_root, &workspace_root, false)?;
-    Ok(sandbox_runtime::SandboxRuntimeOperations::from_config(
-        sandbox_runtime::SandboxRuntimeConfig {
-            workspace: sandbox_runtime::WorkspaceRuntimeConfig {
-                workspace_root,
-                layer_stack_root,
-                scratch_root: root.join("workspace-scratch"),
-                caps: sandbox_runtime::WorkspaceResourceCaps {
-                    upperdir_bytes: 1_073_741_824,
-                    memavail_fraction: 0.5,
-                    setup_timeout_s: 30.0,
-                    exit_grace_s: 0.25,
-                    rfc1918_egress: sandbox_runtime::Rfc1918Egress::Allow,
-                },
-            },
-            command: sandbox_runtime::CommandRuntimeConfig {
-                scratch_root: root.join("command-scratch"),
+    Ok(sandbox_runtime::SandboxRuntimeConfig {
+        workspace: sandbox_runtime::WorkspaceRuntimeConfig {
+            workspace_root,
+            layer_stack_root,
+            scratch_root: root.join("workspace-scratch"),
+            caps: sandbox_runtime::WorkspaceResourceCaps {
+                upperdir_bytes: 1_073_741_824,
+                memavail_fraction: 0.5,
+                setup_timeout_s: 30.0,
+                exit_grace_s: 0.25,
+                rfc1918_egress: sandbox_runtime::Rfc1918Egress::Allow,
             },
         },
-    ))
+        command: sandbox_runtime::CommandRuntimeConfig {
+            scratch_root: root.join("command-scratch"),
+        },
+    })
 }
 
 fn test_root(label: &str) -> PathBuf {

@@ -3,6 +3,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use sandbox_runtime::command::test_support::{
+    command_service_with_launch_driver, command_service_with_launch_driver_and_remount_controller,
+};
 use sandbox_runtime::command::{
     CommandCompletionPromise, CommandCompletionWaitOutcome, CommandLaunchDriver,
     CommandOperationService, CommandServiceError, ExecCommandInput, WriteCommandStdinInput,
@@ -269,7 +272,7 @@ impl ProcessGroupController for FakeProcessGroupController {
 
 fn build_services(fake: Arc<RemountWorkspaceServiceFake>) -> TestServices {
     let workspace = Arc::new(WorkspaceSessionService::new(fake_workspace_runtime(fake)));
-    let command = Arc::new(CommandOperationService::with_launch_driver_for_test(
+    let command = Arc::new(command_service_with_launch_driver(
         Arc::clone(&workspace),
         command_config(),
         Arc::new(InactiveLaunchDriver {
@@ -295,16 +298,14 @@ fn build_services_with_process_group_controller(
     process_group_id: i32,
 ) -> TestServices {
     let workspace = Arc::new(WorkspaceSessionService::new(fake_workspace_runtime(fake)));
-    let command = Arc::new(
-        CommandOperationService::with_launch_driver_and_remount_controller_for_test(
-            Arc::clone(&workspace),
-            command_config(),
-            Arc::new(InactiveLaunchDriver {
-                process_group_id: Some(process_group_id),
-            }),
-            controller,
-        ),
-    );
+    let command = Arc::new(command_service_with_launch_driver_and_remount_controller(
+        Arc::clone(&workspace),
+        command_config(),
+        Arc::new(InactiveLaunchDriver {
+            process_group_id: Some(process_group_id),
+        }),
+        controller,
+    ));
     let remount_workspace: Arc<dyn RemountWorkspaceSession> = workspace.clone();
     let remount_command: Arc<dyn CommandRemountCoordinator> = command.clone();
     let remount = Arc::new(WorkspaceRemountService::new(

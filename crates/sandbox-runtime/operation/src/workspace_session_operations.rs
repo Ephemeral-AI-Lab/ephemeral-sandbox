@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 
-use crate::command::WorkspaceDestroyAdmission;
+use crate::command::CommandSessionId;
 use crate::observability::{measure_optional, OperationTrace};
 use crate::operation::{
     ArgCliSpec, ArgKind, ArgSpec, CliOperationFamilySpec, CliOperationSpec, CliSpec, OperationEntry,
@@ -128,34 +128,34 @@ fn dispatch_destroy_workspace_session(
         Ok(input) => input,
         Err(response) => return response,
     };
-    let admission = operations
-        .command
-        .begin_workspace_destroy_admission(&input.workspace_session_id);
-    if !admission.active_command_session_ids.is_empty() {
-        return active_command_rejection(&admission);
-    }
+    operations.command.with_workspace_destroy_admission(
+        &input.workspace_session_id,
+        |active_command_session_ids| {
+            if !active_command_session_ids.is_empty() {
+                return active_command_rejection(active_command_session_ids);
+            }
 
-    let handler = match operations
-        .workspace_session
-        .resolve_session(input.workspace_session_id)
-    {
-        Ok(handler) => handler,
-        Err(error) => return workspace_session_error_response(error),
-    };
-    let response = destroy_workspace_session_response(measure_optional(
-        trace,
-        "WorkspaceSessionService::destroy_session",
-        || {
-            operations.workspace_session.destroy_session(
-                handler,
-                DestroyWorkspaceRequest {
-                    grace_s: input.grace_s,
+            let handler = match operations
+                .workspace_session
+                .resolve_session(input.workspace_session_id.clone())
+            {
+                Ok(handler) => handler,
+                Err(error) => return workspace_session_error_response(error),
+            };
+            destroy_workspace_session_response(measure_optional(
+                trace,
+                "WorkspaceSessionService::destroy_session",
+                || {
+                    operations.workspace_session.destroy_session(
+                        handler,
+                        DestroyWorkspaceRequest {
+                            grace_s: input.grace_s,
+                        },
+                    )
                 },
-            )
+            ))
         },
-    ));
-    drop(admission);
-    response
+    )
 }
 
 fn parse_workspace_profile(request: &Request) -> Result<WorkspaceProfile, Response> {
@@ -214,13 +214,12 @@ fn workspace_session_error_response(error: WorkspaceSessionError) -> Response {
     Response::fault_with_details("operation_failed", error.to_string(), json!({}))
 }
 
-fn active_command_rejection(admission: &WorkspaceDestroyAdmission<'_>) -> Response {
+fn active_command_rejection(active_command_session_ids: &[CommandSessionId]) -> Response {
     Response::fault_with_details(
         "operation_failed",
         "workspace session has active command sessions",
         json!({
-            "active_command_session_ids": admission
-                .active_command_session_ids
+            "active_command_session_ids": active_command_session_ids
                 .iter()
                 .map(|command_session_id| command_session_id.0.as_str())
                 .collect::<Vec<_>>(),

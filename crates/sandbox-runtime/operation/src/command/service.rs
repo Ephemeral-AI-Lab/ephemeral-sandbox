@@ -7,6 +7,7 @@ mod impls;
 mod launch;
 mod process_store;
 mod status_lookup;
+pub mod test_support;
 pub(crate) mod transcript;
 
 pub use completion::{CommandCompletionPromise, CommandCompletionWaitOutcome};
@@ -16,7 +17,6 @@ pub use contract::{
     CommandYield, ExecCommandInput, ReadCommandLinesInput, WriteCommandStdinInput,
 };
 pub use core::CommandOperationService;
-pub(crate) use core::{WorkspaceDestroyAdmission, WorkspaceLifecycleAdmission};
 pub use launch::{CommandLaunchDriver, RealCommandLaunchDriver};
 pub(crate) use process_store::{
     ActiveCommandProcess, ActiveCommandRef, CancellationState, CommandLifecycleState,

@@ -5,6 +5,9 @@ use std::time::{Duration, Instant};
 use sandbox_runtime_command::process::{CommandProcess, CommandProcessExit};
 
 use crate::command::{CommandServiceError, CommandSessionId};
+use crate::observability::{
+    AsyncTraceSink, CommandFinalizationTraceMetadata, CompletedOperationTrace, OperationTrace,
+};
 use crate::workspace_session::WorkspaceSessionService;
 
 use super::finalize::complete_terminal_command_with_services;
@@ -33,6 +36,7 @@ impl CommandCompletionSender {
 #[derive(Clone)]
 pub struct CommandCompletionPromise {
     command_session_id: CommandSessionId,
+    origin_request_id: Option<String>,
     sender: CommandCompletionSender,
     state: Arc<CommandCompletionState>,
 }
@@ -48,6 +52,7 @@ struct CommandCompletionStateInner {
 
 struct CommandCompletion {
     command_session_id: CommandSessionId,
+    origin_request_id: Option<String>,
     process_exit: CommandProcessExit,
 }
 
@@ -55,9 +60,11 @@ impl CommandCompletionPromise {
     pub(crate) fn new(
         command_session_id: CommandSessionId,
         sender: CommandCompletionSender,
+        origin_request_id: Option<String>,
     ) -> Self {
         Self {
             command_session_id,
+            origin_request_id,
             sender,
             state: Arc::new(CommandCompletionState {
                 inner: Mutex::new(CommandCompletionStateInner::default()),
@@ -91,6 +98,7 @@ impl CommandCompletionPromise {
         if should_send {
             self.sender.send(CommandCompletion {
                 command_session_id: self.command_session_id.clone(),
+                origin_request_id: self.origin_request_id.clone(),
                 process_exit,
             });
         }
@@ -111,19 +119,74 @@ impl CommandCompletionPromise {
 pub(crate) fn spawn_completion_finalizer(
     workspace: Arc<WorkspaceSessionService>,
     process_store: Arc<CommandProcessStore>,
+    async_trace_sink: Option<AsyncTraceSink>,
 ) -> CommandCompletionSender {
     let (tx, rx) = mpsc::channel::<CommandCompletion>();
     thread::spawn(move || {
         for completion in rx {
-            let _ = complete_terminal_command_with_services(
+            finalize_completion(
                 workspace.as_ref(),
                 process_store.as_ref(),
-                completion.command_session_id,
-                completion.process_exit,
+                completion,
+                async_trace_sink.as_ref(),
             );
         }
     });
     CommandCompletionSender { tx }
+}
+
+fn finalize_completion(
+    workspace: &WorkspaceSessionService,
+    process_store: &CommandProcessStore,
+    completion: CommandCompletion,
+    async_trace_sink: Option<&AsyncTraceSink>,
+) {
+    let Some(origin_request_id) = completion.origin_request_id.clone() else {
+        let outcome = complete_terminal_command_with_services(
+            workspace,
+            process_store,
+            completion.command_session_id,
+            completion.process_exit,
+            None,
+        );
+        let _ = outcome.result;
+        return;
+    };
+    let Some(async_trace_sink) = async_trace_sink else {
+        let outcome = complete_terminal_command_with_services(
+            workspace,
+            process_store,
+            completion.command_session_id,
+            completion.process_exit,
+            None,
+        );
+        let _ = outcome.result;
+        return;
+    };
+
+    let command_session_id = completion.command_session_id.clone();
+    let trace = OperationTrace::new();
+    let outcome = complete_terminal_command_with_services(
+        workspace,
+        process_store,
+        completion.command_session_id,
+        completion.process_exit,
+        Some(&trace),
+    );
+    let metadata = CommandFinalizationTraceMetadata {
+        origin_request_id,
+        workspace_session_id: outcome.workspace_session_id.clone(),
+        command_session_id,
+        finalizer_status: if outcome.result.is_ok() {
+            "ok"
+        } else {
+            "error"
+        },
+        finalizer_error: outcome.result.as_ref().err().map(ToString::to_string),
+    };
+    let completed_trace: CompletedOperationTrace = trace.complete();
+    async_trace_sink(completed_trace, metadata);
+    let _ = outcome.result;
 }
 
 pub(crate) fn wait_for_completion_yield(

@@ -110,6 +110,22 @@ fn service_graph_runtime_operations_exposes_command_lane(
 }
 
 #[test]
+#[should_panic(
+    expected = "SandboxRuntimeOperations command service must use the same workspace_session Arc"
+)]
+fn service_graph_runtime_operations_rejects_mismatched_workspace_session_arc() {
+    let command_workspace = workspace_session();
+    let aggregate_workspace = workspace_session();
+    let command = Arc::new(CommandOperationService::new(
+        command_workspace,
+        sandbox_runtime_command::CommandConfig::default(),
+    ));
+    let layerstack = layerstack_service().expect("layerstack service builds");
+
+    let _operations = SandboxRuntimeOperations::new(command, aggregate_workspace, layerstack);
+}
+
+#[test]
 fn command_contract_keeps_session_selector_in_exec_input() {
     let input = ExecCommandInput {
         workspace_session_id: Some(WorkspaceSessionId("workspace-1".to_owned())),
@@ -196,7 +212,7 @@ fn service_graph_cli_catalog_keeps_non_cli_helpers_out() {
         "block_remount",
         "refresh_after_publish",
         "capture_session_changes",
-        "begin_workspace_destroy_admission",
+        "with_workspace_destroy_admission",
         "publish_changes",
         "process_store",
         "transcript",
@@ -270,7 +286,16 @@ fn service_graph_workspace_session_source_boundaries_stay_private() {
 
     let adapter = include_str!("../src/workspace_session_operations.rs");
     assert!(adapter.contains("operations.workspace_session"));
-    assert!(!adapter.contains("operations.command.workspace()"));
+    assert!(!adapter.contains("WorkspaceDestroyAdmission"));
+    assert!(!adapter.contains("begin_workspace_destroy_admission"));
+
+    for (path, source) in rust_sources("src/command") {
+        assert!(
+            !source.contains("fn workspace(&self)"),
+            "generic workspace accessor leaked into {}",
+            path.display()
+        );
+    }
 
     let services = include_str!("../src/services.rs");
     assert!(services.contains("pub workspace_session: Arc<WorkspaceSessionService>"));

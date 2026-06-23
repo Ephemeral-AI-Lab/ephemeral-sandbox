@@ -38,6 +38,9 @@ pub struct TraceRecord {
     pub sandbox_id: String,
     pub operation: String,
     pub request_id: Option<String>,
+    pub origin_request_id: Option<String>,
+    pub workspace_id: Option<String>,
+    pub command_session_id: Option<String>,
     pub started_at_unix_ms: i64,
     pub finished_at_unix_ms: Option<i64>,
     pub duration_ms: Option<f64>,
@@ -53,6 +56,17 @@ impl TraceRecord {
         validate_required("sandbox_id", &self.sandbox_id, MAX_ID_LENGTH)?;
         validate_required("operation", &self.operation, MAX_OPERATION_LENGTH)?;
         validate_optional("request_id", self.request_id.as_deref(), MAX_ID_LENGTH)?;
+        validate_optional(
+            "origin_request_id",
+            self.origin_request_id.as_deref(),
+            MAX_ID_LENGTH,
+        )?;
+        validate_optional("workspace_id", self.workspace_id.as_deref(), MAX_ID_LENGTH)?;
+        validate_optional(
+            "command_session_id",
+            self.command_session_id.as_deref(),
+            MAX_ID_LENGTH,
+        )?;
         validate_optional(
             "error_kind",
             self.error_kind.as_deref(),

@@ -2,7 +2,6 @@
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use sandbox_config::configs::{
@@ -49,9 +48,9 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
         .build()
         .context("failed to build daemon tokio runtime")?;
     let serve_result = runtime.block_on(async move {
-        let server = sandbox_daemon::SandboxDaemonServer::new(
+        let server = sandbox_daemon::SandboxDaemonServer::new_with_runtime_config(
             server_config,
-            Arc::new(build_runtime_operations(&runtime_config, workspace_root)),
+            build_runtime_config(&runtime_config, workspace_root),
         );
         server.serve().await
     });
@@ -64,11 +63,11 @@ struct DaemonRuntimeConfig {
     runtime: RuntimeConfig,
 }
 
-fn build_runtime_operations(
+fn build_runtime_config(
     config: &DaemonRuntimeConfig,
     workspace_root: PathBuf,
-) -> sandbox_runtime::SandboxRuntimeOperations {
-    sandbox_runtime::SandboxRuntimeOperations::from_config(sandbox_runtime::SandboxRuntimeConfig {
+) -> sandbox_runtime::SandboxRuntimeConfig {
+    sandbox_runtime::SandboxRuntimeConfig {
         workspace: sandbox_runtime::WorkspaceRuntimeConfig {
             workspace_root,
             layer_stack_root: config.runtime.workspace.layer_stack_root.clone(),
@@ -91,7 +90,7 @@ fn build_runtime_operations(
         command: sandbox_runtime::CommandRuntimeConfig {
             scratch_root: config.daemon.commands.scratch_root.clone(),
         },
-    })
+    }
 }
 
 fn load_runtime_config(path: &Path) -> Result<DaemonRuntimeConfig> {

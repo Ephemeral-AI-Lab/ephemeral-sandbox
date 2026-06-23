@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use sandbox_observability::{
@@ -11,8 +11,9 @@ use sandbox_observability::{
     MAX_OPERATION_LENGTH, MAX_PATH_LENGTH, MAX_SNAPSHOT_STATE_LENGTH,
 };
 use sandbox_runtime::{
-    span_keys, CompletedOperationSpan, CompletedOperationTrace, RuntimeExecutionSnapshot,
-    RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot, SandboxRuntimeOperations, SpanKey,
+    span_keys, AsyncTraceSink, CommandFinalizationTraceMetadata, CompletedOperationSpan,
+    CompletedOperationTrace, RuntimeExecutionSnapshot, RuntimeObservabilitySnapshot,
+    RuntimeWorkspaceSnapshot, SandboxRuntimeOperations, SpanKey,
 };
 
 use crate::server::ServerConfig;
@@ -23,6 +24,9 @@ use super::disk::{self, DiskSample};
 const DISK_SAMPLE_MIN_INTERVAL: Duration = Duration::from_secs(10);
 const MAX_METHOD_LENGTH: usize = 256;
 const REQUEST_TRACE_PREFIX: &str = "request:";
+const COMMAND_FINALIZATION_OPERATION: &str = "command_finalization";
+const ASYNC_COMMAND_FINALIZATION_TRACE_PREFIX: &str =
+    "async:command_finalization:command_session_id:";
 const SPAN_ID_SEPARATOR: &str = ":span:";
 const MAX_CALL_INDEX_TEXT_LENGTH: usize = 20;
 const MAX_TRACE_ID_LENGTH: usize =
@@ -116,40 +120,59 @@ impl DaemonObservability {
             sandbox_id: bound_id(sandbox_id),
             operation: bound_operation(operation),
             request_id: Some(bound_id(request_id)),
+            origin_request_id: None,
+            workspace_id: None,
+            command_session_id: None,
             started_at_unix_ms: trace.started_at_unix_ms,
             finished_at_unix_ms: Some(trace.finished_at_unix_ms),
             duration_ms: Some(trace.duration_ms),
             error_kind: error_kind.clone(),
             error_message: error_message.clone(),
         };
-        let spans = trace
-            .spans
-            .into_iter()
-            .map(|span| {
-                let is_error_span = error_call_index == Some(span.call_index);
-                SpanRecord {
-                    span_id: trace_span_id(&trace_id, span.call_index),
-                    trace_id: trace_id.clone(),
-                    parent_span_id: span
-                        .parent_call_index
-                        .map(|call_index| trace_span_id(&trace_id, call_index)),
-                    method_name: bound_method(span.method_name.to_owned()),
-                    call_index: span.call_index,
-                    status: if is_error_span {
-                        "error".to_owned()
-                    } else {
-                        bound_state(span.status.to_owned())
-                    },
-                    started_at_unix_ms: span.started_at_unix_ms,
-                    finished_at_unix_ms: Some(span.finished_at_unix_ms),
-                    duration_ms: Some(span.duration_ms),
-                    error_kind: is_error_span.then(|| error_kind.clone()).flatten(),
-                    error_message: is_error_span.then(|| error_message.clone()).flatten(),
-                }
-            })
-            .collect::<Vec<_>>();
+        let spans = span_records_for_trace(
+            &trace_id,
+            trace.spans,
+            error_call_index,
+            error_kind.as_ref(),
+            error_message.as_ref(),
+        );
 
         self.store.insert_trace(&trace_record, &spans)
+    }
+
+    pub(crate) fn insert_completed_async_operation_trace(
+        &self,
+        trace: CompletedOperationTrace,
+        metadata: CommandFinalizationTraceMetadata,
+    ) -> Result<(), StoreError> {
+        let trace_id = trace_id_for_command_finalization(&metadata.command_session_id.0);
+        let trace_record = TraceRecord {
+            trace_id: trace_id.clone(),
+            kind: "async".to_owned(),
+            status: bound_state(metadata.finalizer_status.to_owned()),
+            sandbox_id: self.sandbox_id.clone(),
+            operation: COMMAND_FINALIZATION_OPERATION.to_owned(),
+            request_id: None,
+            origin_request_id: Some(bound_id(metadata.origin_request_id)),
+            workspace_id: metadata
+                .workspace_session_id
+                .map(|workspace_session_id| bound_id(workspace_session_id.0)),
+            command_session_id: Some(bound_id(metadata.command_session_id.0)),
+            started_at_unix_ms: trace.started_at_unix_ms,
+            finished_at_unix_ms: Some(trace.finished_at_unix_ms),
+            duration_ms: Some(trace.duration_ms),
+            error_kind: None,
+            error_message: metadata.finalizer_error.map(bound_error),
+        };
+        let spans = span_records_for_trace(&trace_id, trace.spans, None, None, None);
+
+        self.store.insert_trace(&trace_record, &spans)
+    }
+
+    pub(crate) fn async_trace_sink(observability: Arc<Self>) -> AsyncTraceSink {
+        Arc::new(move |trace, metadata| {
+            let _ = observability.insert_completed_async_operation_trace(trace, metadata);
+        })
     }
 
     pub(crate) fn enabled_deep_span_keys(&self) -> Vec<SpanKey> {
@@ -589,8 +612,51 @@ fn trace_id_for_request(request_id: &str) -> String {
     )
 }
 
+fn trace_id_for_command_finalization(command_session_id: &str) -> String {
+    let max_command_session_id_len =
+        MAX_TRACE_ID_LENGTH - ASYNC_COMMAND_FINALIZATION_TRACE_PREFIX.len();
+    format!(
+        "{ASYNC_COMMAND_FINALIZATION_TRACE_PREFIX}{}",
+        bound_string_with_hash(command_session_id.to_owned(), max_command_session_id_len)
+    )
+}
+
 fn trace_span_id(trace_id: &str, call_index: i64) -> String {
     format!("{trace_id}{SPAN_ID_SEPARATOR}{call_index}")
+}
+
+fn span_records_for_trace(
+    trace_id: &str,
+    spans: Vec<CompletedOperationSpan>,
+    error_call_index: Option<i64>,
+    error_kind: Option<&String>,
+    error_message: Option<&String>,
+) -> Vec<SpanRecord> {
+    spans
+        .into_iter()
+        .map(|span| {
+            let is_error_span = error_call_index == Some(span.call_index);
+            SpanRecord {
+                span_id: trace_span_id(trace_id, span.call_index),
+                trace_id: trace_id.to_owned(),
+                parent_span_id: span
+                    .parent_call_index
+                    .map(|call_index| trace_span_id(trace_id, call_index)),
+                method_name: bound_method(span.method_name.to_owned()),
+                call_index: span.call_index,
+                status: if is_error_span {
+                    "error".to_owned()
+                } else {
+                    bound_state(span.status.to_owned())
+                },
+                started_at_unix_ms: span.started_at_unix_ms,
+                finished_at_unix_ms: Some(span.finished_at_unix_ms),
+                duration_ms: Some(span.duration_ms),
+                error_kind: is_error_span.then(|| error_kind.cloned()).flatten(),
+                error_message: is_error_span.then(|| error_message.cloned()).flatten(),
+            }
+        })
+        .collect()
 }
 
 fn trace_response_status(response: &serde_json::Value) -> (String, Option<String>, Option<String>) {

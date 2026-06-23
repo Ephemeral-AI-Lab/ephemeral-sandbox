@@ -1,234 +1,26 @@
-use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use sandbox_protocol::{CliOperationScope, Request};
 use sandbox_runtime::workspace_session::{WorkspaceSessionError, WorkspaceSessionService};
 use sandbox_runtime::{CommandOperationService, LayerStackService, SandboxRuntimeOperations};
 use sandbox_runtime_workspace::{
     BaseRevision, CaptureChangesRequest, CapturedWorkspaceChanges, CreateWorkspaceRequest,
-    DestroyWorkspaceRequest, DestroyWorkspaceResult, LayerStackSnapshotRef, LeaseId,
-    ReadonlySnapshotHandle, RemountWorkspaceRequest, RemountWorkspaceResult, WorkspaceError,
-    WorkspaceHandle, WorkspaceProfile, WorkspaceRuntimeHooks, WorkspaceRuntimeService,
-    WorkspaceSessionId,
+    DestroyWorkspaceRequest, LeaseId, RemountWorkspaceRequest, RemountWorkspaceResult,
+    WorkspaceError, WorkspaceHandle, WorkspaceProfile, WorkspaceSessionId,
 };
 use serde_json::json;
 
 mod support;
-
-struct FakeWorkspaceService {
-    create_results: Mutex<VecDeque<Result<WorkspaceHandle, WorkspaceError>>>,
-    capture_results: Mutex<VecDeque<Result<CapturedWorkspaceChanges, WorkspaceError>>>,
-    remount_results: Mutex<VecDeque<Result<RemountWorkspaceResult, WorkspaceError>>>,
-    destroy_results: Mutex<VecDeque<Result<DestroyWorkspaceResult, WorkspaceError>>>,
-    create_requests: Mutex<Vec<CreateWorkspaceRequest>>,
-    capture_calls: Mutex<Vec<WorkspaceSessionId>>,
-    remount_calls: Mutex<Vec<WorkspaceSessionId>>,
-    destroy_calls: Mutex<Vec<WorkspaceSessionId>>,
-}
-
-impl FakeWorkspaceService {
-    fn new() -> Self {
-        Self {
-            create_results: Mutex::new(VecDeque::new()),
-            capture_results: Mutex::new(VecDeque::new()),
-            remount_results: Mutex::new(VecDeque::new()),
-            destroy_results: Mutex::new(VecDeque::new()),
-            create_requests: Mutex::new(Vec::new()),
-            capture_calls: Mutex::new(Vec::new()),
-            remount_calls: Mutex::new(Vec::new()),
-            destroy_calls: Mutex::new(Vec::new()),
-        }
-    }
-
-    fn push_create_result(&self, result: Result<WorkspaceHandle, WorkspaceError>) {
-        self.create_results
-            .lock()
-            .expect("test operation succeeds")
-            .push_back(result);
-    }
-
-    fn push_capture_result(&self, result: Result<CapturedWorkspaceChanges, WorkspaceError>) {
-        self.capture_results
-            .lock()
-            .expect("test operation succeeds")
-            .push_back(result);
-    }
-
-    fn push_remount_result(&self, result: Result<RemountWorkspaceResult, WorkspaceError>) {
-        self.remount_results
-            .lock()
-            .expect("test operation succeeds")
-            .push_back(result);
-    }
-
-    fn push_destroy_result(&self, result: Result<DestroyWorkspaceResult, WorkspaceError>) {
-        self.destroy_results
-            .lock()
-            .expect("test operation succeeds")
-            .push_back(result);
-    }
-
-    fn capture_calls(&self) -> Vec<WorkspaceSessionId> {
-        self.capture_calls
-            .lock()
-            .expect("test operation succeeds")
-            .clone()
-    }
-
-    fn remount_calls(&self) -> Vec<WorkspaceSessionId> {
-        self.remount_calls
-            .lock()
-            .expect("test operation succeeds")
-            .clone()
-    }
-
-    fn destroy_calls(&self) -> Vec<WorkspaceSessionId> {
-        self.destroy_calls
-            .lock()
-            .expect("test operation succeeds")
-            .clone()
-    }
-
-    fn create_requests(&self) -> Vec<CreateWorkspaceRequest> {
-        self.create_requests
-            .lock()
-            .expect("test operation succeeds")
-            .clone()
-    }
-}
-
-impl FakeWorkspaceService {
-    fn create_workspace(
-        &self,
-        request: CreateWorkspaceRequest,
-    ) -> Result<WorkspaceHandle, WorkspaceError> {
-        self.create_requests
-            .lock()
-            .expect("test operation succeeds")
-            .push(request);
-        self.create_results
-            .lock()
-            .expect("test operation succeeds")
-            .pop_front()
-            .unwrap_or_else(|| {
-                Err(WorkspaceError::Setup {
-                    step: "create result not configured".to_owned(),
-                })
-            })
-    }
-
-    fn capture_changes(
-        &self,
-        handle: &WorkspaceHandle,
-        _request: CaptureChangesRequest,
-    ) -> Result<CapturedWorkspaceChanges, WorkspaceError> {
-        self.capture_calls
-            .lock()
-            .expect("test operation succeeds")
-            .push(handle.id.clone());
-        self.capture_results
-            .lock()
-            .expect("test operation succeeds")
-            .pop_front()
-            .unwrap_or_else(|| {
-                Err(WorkspaceError::Capture {
-                    message: "capture result not configured".to_owned(),
-                })
-            })
-    }
-
-    fn remount_workspace(
-        &self,
-        handle: &WorkspaceHandle,
-        _request: RemountWorkspaceRequest,
-    ) -> Result<RemountWorkspaceResult, WorkspaceError> {
-        self.remount_calls
-            .lock()
-            .expect("test operation succeeds")
-            .push(handle.id.clone());
-        self.remount_results
-            .lock()
-            .expect("test operation succeeds")
-            .pop_front()
-            .unwrap_or_else(|| {
-                Err(WorkspaceError::Setup {
-                    step: "remount result not configured".to_owned(),
-                })
-            })
-    }
-
-    fn destroy_workspace(
-        &self,
-        handle: WorkspaceHandle,
-        _request: DestroyWorkspaceRequest,
-    ) -> Result<DestroyWorkspaceResult, WorkspaceError> {
-        self.destroy_calls
-            .lock()
-            .expect("test operation succeeds")
-            .push(handle.id.clone());
-        self.destroy_results
-            .lock()
-            .expect("test operation succeeds")
-            .pop_front()
-            .unwrap_or_else(|| Ok(destroy_result(&handle)))
-    }
-
-    fn latest_snapshot(&self) -> Result<ReadonlySnapshotHandle, WorkspaceError> {
-        Err(WorkspaceError::SnapshotAcquire {
-            source: "latest snapshot not configured".to_owned(),
-        })
-    }
-}
+use support::FakeWorkspaceService;
 
 fn manager_with(fake: &Arc<FakeWorkspaceService>) -> WorkspaceSessionService {
-    WorkspaceSessionService::new(fake_workspace_runtime(fake))
-}
-
-fn fake_workspace_runtime(fake: &Arc<FakeWorkspaceService>) -> Arc<WorkspaceRuntimeService> {
-    Arc::new(WorkspaceRuntimeService::from_hooks_for_test(
-        WorkspaceRuntimeHooks {
-            create_workspace: Box::new({
-                let fake = Arc::clone(fake);
-                move |request| fake.create_workspace(request)
-            }),
-            capture_changes: Box::new({
-                let fake = Arc::clone(fake);
-                move |handle, request| fake.capture_changes(handle, request)
-            }),
-            remount_workspace: Box::new({
-                let fake = Arc::clone(fake);
-                move |handle, request| fake.remount_workspace(handle, request)
-            }),
-            destroy_workspace: Box::new({
-                let fake = Arc::clone(fake);
-                move |handle, request| fake.destroy_workspace(handle, request)
-            }),
-            latest_snapshot: Box::new({
-                let fake = Arc::clone(fake);
-                move || fake.latest_snapshot()
-            }),
-        },
-    ))
+    WorkspaceSessionService::new(support::fake_workspace_runtime(Arc::clone(fake)))
 }
 
 fn create_request() -> CreateWorkspaceRequest {
-    CreateWorkspaceRequest {
-        profile: WorkspaceProfile::HostCompatible,
-    }
-}
-
-fn test_manifest() -> sandbox_runtime_layerstack::Manifest {
-    sandbox_runtime_layerstack::Manifest::new(
-        1,
-        vec![sandbox_runtime_layerstack::LayerRef {
-            layer_id: "L000001-test".to_owned(),
-            path: "layers/L000001-test".to_owned(),
-        }],
-        sandbox_runtime_layerstack::MANIFEST_SCHEMA_VERSION,
-    )
-    .expect("test manifest is valid")
+    support::create_request()
 }
 
 fn workspace_handle(workspace_session_id: &str, lease_id: &str) -> WorkspaceHandle {
@@ -244,30 +36,12 @@ fn workspace_handle_with_profile(
     lease_id: &str,
     profile: WorkspaceProfile,
 ) -> WorkspaceHandle {
-    let snapshot = LayerStackSnapshotRef {
-        lease_id: LeaseId(lease_id.to_owned()),
-        manifest_version: 1,
-        root_hash: "root".to_owned(),
-        manifest: test_manifest(),
-        layer_paths: vec![PathBuf::from("/lower/one")],
-    };
-    WorkspaceHandle::without_launch_for_test(
-        WorkspaceSessionId(workspace_session_id.to_owned()),
+    support::workspace_handle(
+        workspace_session_id,
+        lease_id,
         PathBuf::from("/workspace"),
         profile,
-        snapshot,
     )
-}
-
-fn destroy_result(handle: &WorkspaceHandle) -> DestroyWorkspaceResult {
-    DestroyWorkspaceResult {
-        workspace_session_id: handle.id.clone(),
-        evicted_upperdir_bytes: 0,
-        lifetime_s: 0.0,
-        lease_released: Some(true),
-        lease_release_error: None,
-        active_leases_after: 0,
-    }
 }
 
 fn capture_result(
@@ -787,6 +561,7 @@ fn workspace_session_destroy_operation_rejects_invalid_args_without_raw_destroy(
         json!({}),
         json!({ "workspace_session_id": "" }),
         json!({ "workspace_session_id": 7 }),
+        json!({ "workspace_session_id": "workspace-1", "grace_s": "NaN" }),
         json!({ "workspace_session_id": "workspace-1", "grace_s": -0.1 }),
     ] {
         let fake = Arc::new(FakeWorkspaceService::new());

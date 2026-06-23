@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::command::CommandOperationService;
 use crate::layerstack::LayerStackService;
-use crate::observability::RuntimeObservabilitySnapshot;
+use crate::observability::{AsyncTraceSink, RuntimeObservabilitySnapshot};
 use crate::workspace_crate::{profile::WorkspaceModeManager, WorkspaceRuntimeService};
 use crate::workspace_session::WorkspaceSessionService;
 
@@ -20,6 +20,10 @@ impl SandboxRuntimeOperations {
         workspace_session: Arc<WorkspaceSessionService>,
         layerstack: Arc<LayerStackService>,
     ) -> Self {
+        assert!(
+            command.shares_workspace_session(&workspace_session),
+            "SandboxRuntimeOperations command service must use the same workspace_session Arc"
+        );
         Self {
             command,
             workspace_session,
@@ -29,6 +33,15 @@ impl SandboxRuntimeOperations {
 
     #[must_use]
     pub fn from_config(config: SandboxRuntimeConfig) -> Self {
+        Self::from_config_with_async_trace_sink(config, None)
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn from_config_with_async_trace_sink(
+        config: SandboxRuntimeConfig,
+        async_trace_sink: Option<AsyncTraceSink>,
+    ) -> Self {
         let layer_stack_root = config.workspace.layer_stack_root.clone();
         let workspace_runtime = Arc::new(WorkspaceRuntimeService::new(
             WorkspaceModeManager::new(
@@ -47,11 +60,12 @@ impl SandboxRuntimeOperations {
             LayerStackService::new(layer_stack_root)
                 .expect("layerstack service initialization failed"),
         );
-        let command = Arc::new(CommandOperationService::new(
+        let command = Arc::new(CommandOperationService::new_with_async_trace_sink(
             Arc::clone(&workspace_session),
             ::sandbox_runtime_command::CommandConfig {
                 scratch_root: config.command.scratch_root,
             },
+            async_trace_sink,
         ));
         Self::new(command, workspace_session, layerstack)
     }

@@ -4,6 +4,7 @@ use crate::command::{
     CommandWorkspaceOwnership, CompletedCommandRecord, FinalizationState,
     RetainedCommandTranscript,
 };
+use crate::observability::{measure_optional, OperationTrace};
 use crate::workspace_crate::{DestroyWorkspaceRequest, WorkspaceSessionId};
 use crate::workspace_session::WorkspaceSessionService;
 
@@ -17,29 +18,69 @@ pub(crate) struct ActiveCompletionRecord {
     next_snapshot_offset: u64,
 }
 
+pub(crate) struct CommandCompletionOutcome {
+    pub(crate) workspace_session_id: Option<WorkspaceSessionId>,
+    pub(crate) result: Result<CommandTerminalResult, CommandServiceError>,
+}
+
 pub(crate) fn complete_terminal_command_with_services(
     workspace: &WorkspaceSessionService,
     process_store: &CommandProcessStore,
     command_session_id: CommandSessionId,
     process_exit: ::sandbox_runtime_command::process::CommandProcessExit,
-) -> Result<CommandTerminalResult, CommandServiceError> {
-    let record = begin_terminal_completion(process_store, &command_session_id)?;
+    trace: Option<&OperationTrace>,
+) -> CommandCompletionOutcome {
+    measure_optional(trace, "complete_terminal_command_with_services", || {
+        complete_terminal_command_inner(
+            workspace,
+            process_store,
+            command_session_id,
+            process_exit,
+            trace,
+        )
+    })
+}
+
+fn complete_terminal_command_inner(
+    workspace: &WorkspaceSessionService,
+    process_store: &CommandProcessStore,
+    command_session_id: CommandSessionId,
+    process_exit: ::sandbox_runtime_command::process::CommandProcessExit,
+    trace: Option<&OperationTrace>,
+) -> CommandCompletionOutcome {
+    let record = match begin_terminal_completion(process_store, &command_session_id) {
+        Ok(record) => record,
+        Err(error) => {
+            return CommandCompletionOutcome {
+                workspace_session_id: None,
+                result: Err(error),
+            };
+        }
+    };
+    let workspace_session_id = Some(record.workspace_session_id.clone());
     let result = terminal_result(&process_exit);
 
-    let finalized = match apply_workspace_completion_policy(workspace, &record) {
+    let finalized = match measure_optional(trace, "apply_workspace_completion_policy", || {
+        apply_workspace_completion_policy(workspace, &record)
+    }) {
         Ok(finalized) => finalized,
         Err(error) => {
-            return fail_completion(
-                process_store,
-                &command_session_id,
-                error.to_string(),
-                result,
-                None,
-            );
+            return CommandCompletionOutcome {
+                workspace_session_id,
+                result: fail_completion(
+                    process_store,
+                    &command_session_id,
+                    error.to_string(),
+                    result,
+                    None,
+                ),
+            };
         }
     };
 
-    match complete_command_record(process_store, record, result.clone(), finalized) {
+    let completion_result = match measure_optional(trace, "complete_command_record", || {
+        complete_command_record(process_store, record, result.clone(), finalized)
+    }) {
         Ok(()) => Ok(result),
         Err(error) => fail_completion(
             process_store,
@@ -48,6 +89,10 @@ pub(crate) fn complete_terminal_command_with_services(
             result,
             None,
         ),
+    };
+    CommandCompletionOutcome {
+        workspace_session_id,
+        result: completion_result,
     }
 }
 

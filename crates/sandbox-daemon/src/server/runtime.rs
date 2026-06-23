@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::observability::DaemonObservability;
 pub(crate) use sandbox_protocol::{MAX_REQUEST_BYTES, REQUEST_READ_TIMEOUT_S};
-use sandbox_runtime::SandboxRuntimeOperations;
+use sandbox_runtime::{SandboxRuntimeConfig, SandboxRuntimeOperations};
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
@@ -37,6 +37,27 @@ impl SandboxDaemonServer {
     #[must_use]
     pub fn new(config: ServerConfig, operations: Arc<SandboxRuntimeOperations>) -> Self {
         let observability = DaemonObservability::from_config(&config).map(Arc::new);
+        Self {
+            config,
+            operations,
+            observability,
+            shutdown: CancellationToken::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn new_with_runtime_config(
+        config: ServerConfig,
+        runtime_config: SandboxRuntimeConfig,
+    ) -> Self {
+        let observability = DaemonObservability::from_config(&config).map(Arc::new);
+        let async_trace_sink = observability
+            .as_ref()
+            .map(|observability| DaemonObservability::async_trace_sink(Arc::clone(observability)));
+        let operations = Arc::new(SandboxRuntimeOperations::from_config_with_async_trace_sink(
+            runtime_config,
+            async_trace_sink,
+        ));
         Self {
             config,
             operations,

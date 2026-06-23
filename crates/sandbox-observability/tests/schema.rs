@@ -51,9 +51,10 @@ fn schema_initialization_is_idempotent() -> TestResult {
     assert_eq!(table_names(&connection)?, allowed_tables());
     assert_eq!(index_names(&connection)?, allowed_indexes());
     let trace_columns = column_names(&connection, "traces")?;
-    assert!(!trace_columns.contains("workspace_id"));
-    assert!(!trace_columns.contains("command_session_id"));
-    assert_eq!(migration_count(&connection)?, 2);
+    assert!(trace_columns.contains("origin_request_id"));
+    assert!(trace_columns.contains("workspace_id"));
+    assert!(trace_columns.contains("command_session_id"));
+    assert_eq!(migration_count(&connection)?, 3);
     assert!(paths.database_path().exists());
     assert!(dir
         .path()
@@ -113,6 +114,9 @@ fn inserts_synthetic_trace_and_spans() -> TestResult {
             sandbox_id: "sandbox-1".to_owned(),
             operation: "exec_command".to_owned(),
             request_id: Some("request-1".to_owned()),
+            origin_request_id: None,
+            workspace_id: None,
+            command_session_id: None,
             started_at_unix_ms: 1_000,
             finished_at_unix_ms: Some(1_025),
             duration_ms: Some(25.0),
@@ -164,6 +168,69 @@ fn inserts_synthetic_trace_and_spans() -> TestResult {
         connection.query_row("SELECT MAX(call_index) FROM spans", [], |row| row.get(0))?;
     assert_eq!(max_call_index, 1);
 
+    Ok(())
+}
+
+#[test]
+fn inserts_async_trace_fields_without_adding_async_indexes() -> TestResult {
+    let (_dir, paths) = test_paths("async-trace-insert")?;
+    let store = ObservabilityStore::open(&paths)?;
+
+    store.insert_trace(
+        &TraceRecord {
+            trace_id: "async:command_finalization:command_session_id:cmd_1".to_owned(),
+            kind: "async".to_owned(),
+            status: "ok".to_owned(),
+            sandbox_id: "sandbox-1".to_owned(),
+            operation: "command_finalization".to_owned(),
+            request_id: None,
+            origin_request_id: Some("request-1".to_owned()),
+            workspace_id: Some("workspace-1".to_owned()),
+            command_session_id: Some("cmd_1".to_owned()),
+            started_at_unix_ms: 1_000,
+            finished_at_unix_ms: Some(1_010),
+            duration_ms: Some(10.0),
+            error_kind: None,
+            error_message: None,
+        },
+        &[SpanRecord {
+            span_id: "async:command_finalization:command_session_id:cmd_1:span:0".to_owned(),
+            trace_id: "async:command_finalization:command_session_id:cmd_1".to_owned(),
+            parent_span_id: None,
+            method_name: "complete_terminal_command_with_services".to_owned(),
+            call_index: 0,
+            status: "ok".to_owned(),
+            started_at_unix_ms: 1_000,
+            finished_at_unix_ms: Some(1_010),
+            duration_ms: Some(10.0),
+            error_kind: None,
+            error_message: None,
+        }],
+    )?;
+
+    let connection = Connection::open(paths.database_path())?;
+    assert_eq!(index_names(&connection)?, allowed_indexes());
+    let row: (
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    ) = connection.query_row(
+        "SELECT request_id, origin_request_id, workspace_id, command_session_id
+             FROM traces
+             WHERE trace_id = 'async:command_finalization:command_session_id:cmd_1'",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )?;
+    assert_eq!(
+        row,
+        (
+            None,
+            Some("request-1".to_owned()),
+            Some("workspace-1".to_owned()),
+            Some("cmd_1".to_owned()),
+        )
+    );
     Ok(())
 }
 

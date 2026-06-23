@@ -136,12 +136,12 @@ impl CommandOperationService {
         &self,
         workspace_session_id: &WorkspaceSessionId,
     ) -> Result<(), CommandServiceError> {
-        if self.workspace().is_remount_pending(workspace_session_id) {
+        if self.workspace_remount_pending(workspace_session_id) {
             return Err(CommandServiceError::WorkspaceSessionRemountPending {
                 workspace_session_id: workspace_session_id.clone(),
             });
         }
-        if self.workspace().is_remount_blocked(workspace_session_id) {
+        if self.workspace_remount_blocked(workspace_session_id) {
             return Err(CommandServiceError::WorkspaceSessionRemountBlocked {
                 workspace_session_id: workspace_session_id.clone(),
             });

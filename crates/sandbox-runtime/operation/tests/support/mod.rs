@@ -5,11 +5,13 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use sandbox_runtime::command::test_support::command_service_with_launch_driver_and_async_trace_sink;
 use sandbox_runtime::command::{
     CommandCompletionPromise, CommandCompletionWaitOutcome, CommandLaunchDriver,
     CommandOperationService, CommandServiceError,
 };
 use sandbox_runtime::workspace_session::WorkspaceSessionService;
+use sandbox_runtime::AsyncTraceSink;
 use sandbox_runtime_command::process::{
     CommandProcess, CommandProcessExit, CommandProcessSpawn, CommandProcessSpec,
 };
@@ -31,6 +33,7 @@ pub(crate) struct FakeWorkspaceService {
     create_results: Mutex<VecDeque<Result<WorkspaceHandle, WorkspaceError>>>,
     capture_results: Mutex<VecDeque<Result<CapturedWorkspaceChanges, WorkspaceError>>>,
     remount_results: Mutex<VecDeque<Result<RemountWorkspaceResult, WorkspaceError>>>,
+    destroy_results: Mutex<VecDeque<Result<DestroyWorkspaceResult, WorkspaceError>>>,
     create_requests: Mutex<Vec<CreateWorkspaceRequest>>,
     capture_calls: Mutex<Vec<WorkspaceSessionId>>,
     remount_calls: Mutex<Vec<WorkspaceSessionId>>,
@@ -192,6 +195,16 @@ impl FakeWorkspaceService {
             .push_back(result);
     }
 
+    pub(crate) fn push_destroy_result(
+        &self,
+        result: Result<DestroyWorkspaceResult, WorkspaceError>,
+    ) {
+        self.destroy_results
+            .lock()
+            .expect("test operation succeeds")
+            .push_back(result);
+    }
+
     pub(crate) fn create_requests(&self) -> Vec<CreateWorkspaceRequest> {
         self.create_requests
             .lock()
@@ -290,7 +303,11 @@ impl FakeWorkspaceService {
             .lock()
             .expect("test operation succeeds")
             .push(handle.id.clone());
-        Ok(destroy_result(&handle))
+        self.destroy_results
+            .lock()
+            .expect("test operation succeeds")
+            .pop_front()
+            .unwrap_or_else(|| Ok(destroy_result(&handle)))
     }
 
     fn latest_snapshot(&self) -> Result<ReadonlySnapshotHandle, WorkspaceError> {
@@ -334,11 +351,20 @@ pub(crate) fn build_services_with_launch_driver(
     fake: Arc<FakeWorkspaceService>,
     launch_driver: Arc<dyn CommandLaunchDriver>,
 ) -> TestServices {
+    build_services_with_launch_driver_and_async_trace_sink(fake, launch_driver, None)
+}
+
+pub(crate) fn build_services_with_launch_driver_and_async_trace_sink(
+    fake: Arc<FakeWorkspaceService>,
+    launch_driver: Arc<dyn CommandLaunchDriver>,
+    async_trace_sink: Option<AsyncTraceSink>,
+) -> TestServices {
     let workspace = Arc::new(WorkspaceSessionService::new(fake_workspace_runtime(fake)));
-    let command = Arc::new(CommandOperationService::with_launch_driver_for_test(
+    let command = Arc::new(command_service_with_launch_driver_and_async_trace_sink(
         Arc::clone(&workspace),
         test_command_config(),
         launch_driver,
+        async_trace_sink,
     ));
     TestServices { workspace, command }
 }

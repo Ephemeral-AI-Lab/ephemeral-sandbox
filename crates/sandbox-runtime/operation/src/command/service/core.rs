@@ -3,9 +3,15 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use crate::command::{
     CommandLaunchDriver, CommandProcessStore, CommandSessionId, RealCommandLaunchDriver,
 };
-use crate::workspace_crate::WorkspaceSessionId;
+use crate::observability::AsyncTraceSink;
+use crate::workspace_crate::{
+    CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, WorkspaceProfile,
+    WorkspaceSessionId,
+};
 use crate::workspace_remount::{ProcProcessGroupController, ProcessGroupController};
-use crate::workspace_session::WorkspaceSessionService;
+use crate::workspace_session::{
+    WorkspaceSessionError, WorkspaceSessionHandler, WorkspaceSessionService,
+};
 
 use super::completion::{spawn_completion_finalizer, CommandCompletionSender};
 
@@ -23,11 +29,6 @@ pub(crate) struct WorkspaceLifecycleAdmission<'a> {
     _guard: MutexGuard<'a, ()>,
 }
 
-pub(crate) struct WorkspaceDestroyAdmission<'a> {
-    pub(crate) active_command_session_ids: Vec<CommandSessionId>,
-    _lifecycle_admission: WorkspaceLifecycleAdmission<'a>,
-}
-
 impl CommandOperationService {
     #[must_use]
     pub fn new(
@@ -39,44 +40,38 @@ impl CommandOperationService {
             config,
             Arc::new(RealCommandLaunchDriver),
             Arc::new(ProcProcessGroupController),
+            None,
         )
     }
 
-    #[doc(hidden)]
     #[must_use]
-    pub fn with_launch_driver_for_test(
+    pub(crate) fn new_with_async_trace_sink(
         workspace: Arc<WorkspaceSessionService>,
         config: ::sandbox_runtime_command::CommandConfig,
-        launch_driver: Arc<dyn CommandLaunchDriver>,
+        async_trace_sink: Option<AsyncTraceSink>,
     ) -> Self {
         Self::from_parts(
             workspace,
             config,
-            launch_driver,
+            Arc::new(RealCommandLaunchDriver),
             Arc::new(ProcProcessGroupController),
+            async_trace_sink,
         )
     }
 
-    #[doc(hidden)]
-    #[must_use]
-    pub fn with_launch_driver_and_remount_controller_for_test(
+    pub(super) fn from_parts(
         workspace: Arc<WorkspaceSessionService>,
         config: ::sandbox_runtime_command::CommandConfig,
         launch_driver: Arc<dyn CommandLaunchDriver>,
         remount_controller: Arc<dyn ProcessGroupController>,
-    ) -> Self {
-        Self::from_parts(workspace, config, launch_driver, remount_controller)
-    }
-
-    fn from_parts(
-        workspace: Arc<WorkspaceSessionService>,
-        config: ::sandbox_runtime_command::CommandConfig,
-        launch_driver: Arc<dyn CommandLaunchDriver>,
-        remount_controller: Arc<dyn ProcessGroupController>,
+        async_trace_sink: Option<AsyncTraceSink>,
     ) -> Self {
         let process_store = Arc::new(CommandProcessStore::new());
-        let completion_sender =
-            spawn_completion_finalizer(Arc::clone(&workspace), Arc::clone(&process_store));
+        let completion_sender = spawn_completion_finalizer(
+            Arc::clone(&workspace),
+            Arc::clone(&process_store),
+            async_trace_sink,
+        );
         Self {
             workspace,
             config,
@@ -89,8 +84,11 @@ impl CommandOperationService {
     }
 
     #[must_use]
-    pub(super) fn workspace(&self) -> &Arc<WorkspaceSessionService> {
-        &self.workspace
+    pub(crate) fn shares_workspace_session(
+        &self,
+        workspace: &Arc<WorkspaceSessionService>,
+    ) -> bool {
+        Arc::ptr_eq(&self.workspace, workspace)
     }
 
     #[must_use]
@@ -126,17 +124,53 @@ impl CommandOperationService {
         WorkspaceLifecycleAdmission { _guard: guard }
     }
 
-    pub(crate) fn begin_workspace_destroy_admission(
+    pub(crate) fn with_workspace_destroy_admission<R>(
         &self,
         workspace_session_id: &WorkspaceSessionId,
-    ) -> WorkspaceDestroyAdmission<'_> {
-        let lifecycle_admission = self.begin_workspace_lifecycle_admission();
+        dispatch: impl FnOnce(&[CommandSessionId]) -> R,
+    ) -> R {
+        let _lifecycle_admission = self.begin_workspace_lifecycle_admission();
         let active_command_session_ids = self
             .process_store()
             .active_command_session_ids_for_workspace_session(workspace_session_id);
-        WorkspaceDestroyAdmission {
-            active_command_session_ids,
-            _lifecycle_admission: lifecycle_admission,
-        }
+        dispatch(&active_command_session_ids)
+    }
+
+    pub(super) fn resolve_workspace_session(
+        &self,
+        workspace_session_id: WorkspaceSessionId,
+    ) -> Result<WorkspaceSessionHandler, WorkspaceSessionError> {
+        self.workspace.resolve_session(workspace_session_id)
+    }
+
+    pub(super) fn create_one_shot_workspace_session(
+        &self,
+    ) -> Result<WorkspaceSessionHandler, WorkspaceSessionError> {
+        self.workspace
+            .create_workspace_session(CreateWorkspaceRequest {
+                profile: WorkspaceProfile::HostCompatible,
+            })
+    }
+
+    pub(super) fn destroy_one_shot_workspace_session(
+        &self,
+        handler: WorkspaceSessionHandler,
+    ) -> Result<DestroyWorkspaceResult, WorkspaceSessionError> {
+        self.workspace
+            .destroy_session(handler, DestroyWorkspaceRequest::default())
+    }
+
+    pub(super) fn workspace_remount_pending(
+        &self,
+        workspace_session_id: &WorkspaceSessionId,
+    ) -> bool {
+        self.workspace.is_remount_pending(workspace_session_id)
+    }
+
+    pub(super) fn workspace_remount_blocked(
+        &self,
+        workspace_session_id: &WorkspaceSessionId,
+    ) -> bool {
+        self.workspace.is_remount_blocked(workspace_session_id)
     }
 }

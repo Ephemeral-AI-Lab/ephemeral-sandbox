@@ -243,6 +243,24 @@ fn destroy_workspace_session_maps_workspace_session_id_and_grace() -> TestResult
 }
 
 #[test]
+fn destroy_workspace_session_rejects_non_finite_grace() -> TestResult {
+    for value in ["NaN", "inf"] {
+        let error = build_runtime_operation_request(
+            "destroy_workspace_session",
+            Some("sbox-1"),
+            &["--workspace-session-id", "ws-1", "--grace-s", value],
+        )
+        .err()
+        .ok_or("non-finite grace unexpectedly built a request")?;
+        let message = error.to_string();
+
+        assert!(message.contains("--grace-s"), "{value}: {message}");
+        assert!(message.contains("finite"), "{value}: {message}");
+    }
+    Ok(())
+}
+
+#[test]
 fn read_command_lines_maps_command_session_id_start_offset_and_limit_flags() -> TestResult {
     let catalog = runtime_catalog()?;
     let request = build_request_from_catalog_with_id(

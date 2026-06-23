@@ -10,17 +10,16 @@ use crate::command::service::CommandOperationService;
 use crate::command::{
     ActiveCommandProcess, CancellationState, CommandLifecycleState, CommandServiceError,
     CommandSessionId, CommandTranscriptStore, CommandWorkspaceOwnership, CommandYield,
-    ExecCommandInput, FinalizationState, WorkspaceLifecycleAdmission,
+    ExecCommandInput, FinalizationState,
 };
 use crate::observability::{measure_optional, measure_optional_if, span_keys, OperationTrace};
 use crate::operation::{ArgCliSpec, ArgKind, ArgSpec, CliOperationSpec, CliSpec};
-use crate::workspace_crate::{
-    CreateWorkspaceRequest, DestroyWorkspaceRequest, WorkspaceEntry, WorkspaceProfile,
-    WorkspaceSessionId,
-};
+use crate::workspace_crate::{WorkspaceEntry, WorkspaceSessionId};
 use crate::workspace_session::WorkspaceSessionHandler;
 use crate::SandboxRuntimeOperations;
 use sandbox_protocol::{Request, Response};
+
+use super::super::core::WorkspaceLifecycleAdmission;
 
 pub(crate) const SPEC: CliOperationSpec = CliOperationSpec {
     name: "exec_command",
@@ -96,10 +95,15 @@ pub(crate) fn dispatch(
         Ok(input) => input,
         Err(response) => return response,
     };
+    let origin_request_id = trace.is_some().then(|| request.request_id.clone());
     command_yield_response(measure_optional(
         trace,
         "CommandOperationService::exec_command",
-        || operations.command.exec_command(input, trace),
+        || {
+            operations
+                .command
+                .exec_command_with_origin_request_id(input, trace, origin_request_id)
+        },
     ))
 }
 
@@ -121,19 +125,29 @@ impl CommandOperationService {
         input: ExecCommandInput,
         trace: Option<&OperationTrace>,
     ) -> Result<CommandYield, CommandServiceError> {
+        self.exec_command_with_origin_request_id(input, trace, None)
+    }
+
+    fn exec_command_with_origin_request_id(
+        &self,
+        input: ExecCommandInput,
+        trace: Option<&OperationTrace>,
+        origin_request_id: Option<String>,
+    ) -> Result<CommandYield, CommandServiceError> {
         if input.cmd.trim().is_empty() {
             return Err(CommandServiceError::InvalidCommand {
                 message: "cmd must be non-empty".to_owned(),
             });
         }
 
-        self.exec_validated_command(input, trace)
+        self.exec_validated_command(input, trace, origin_request_id)
     }
 
     fn exec_validated_command(
         &self,
         input: ExecCommandInput,
         trace: Option<&OperationTrace>,
+        origin_request_id: Option<String>,
     ) -> Result<CommandYield, CommandServiceError> {
         let existing_session_admission = input
             .workspace_session_id
@@ -184,6 +198,7 @@ impl CommandOperationService {
         let completion = CommandCompletionPromise::new(
             command_session_id.clone(),
             self.completion_sender().clone(),
+            origin_request_id,
         );
         let (record, process_for_rollback) =
             started.into_active_record(command_session_id.clone(), &workspace, completion.clone());
@@ -212,21 +227,13 @@ impl CommandOperationService {
             measure_optional_if(
                 trace,
                 span_keys::COMMAND_EXEC_WORKSPACE_RESOLVE_EXISTING_SESSION,
-                || {
-                    self.workspace()
-                        .resolve_session(workspace_session_id.clone())
-                },
+                || self.resolve_workspace_session(workspace_session_id.clone()),
             )?
         } else {
             measure_optional_if(
                 trace,
                 span_keys::COMMAND_EXEC_WORKSPACE_CREATE_ONE_SHOT_SESSION,
-                || {
-                    self.workspace()
-                        .create_workspace_session(CreateWorkspaceRequest {
-                            profile: WorkspaceProfile::HostCompatible,
-                        })
-                },
+                || self.create_one_shot_workspace_session(),
             )?
         };
         let ownership = if input.workspace_session_id.is_some() {
@@ -308,17 +315,16 @@ impl CommandOperationService {
     ) -> CommandServiceError {
         match workspace.ownership {
             CommandWorkspaceOwnership::ExistingSession => error,
-            CommandWorkspaceOwnership::OneShot { handler } => match self
-                .workspace()
-                .destroy_session(*handler, DestroyWorkspaceRequest::default())
-            {
-                Ok(_) => error,
-                Err(cleanup_error) => CommandServiceError::OneShotWorkspaceCleanupFailed {
-                    command_session_id: command_session_id.clone(),
-                    command_error: Box::new(error),
-                    cleanup_error: cleanup_error.to_string(),
-                },
-            },
+            CommandWorkspaceOwnership::OneShot { handler } => {
+                match self.destroy_one_shot_workspace_session(*handler) {
+                    Ok(_) => error,
+                    Err(cleanup_error) => CommandServiceError::OneShotWorkspaceCleanupFailed {
+                        command_session_id: command_session_id.clone(),
+                        command_error: Box::new(error),
+                        cleanup_error: cleanup_error.to_string(),
+                    },
+                }
+            }
         }
     }
 }

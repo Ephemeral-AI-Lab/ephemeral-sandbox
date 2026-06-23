@@ -30,6 +30,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "phase_2_runtime_snapshots",
         sql: V2_SCHEMA_SQL,
     },
+    Migration {
+        version: 3,
+        name: "phase_4_async_method_traces",
+        sql: V3_SCHEMA_SQL,
+    },
 ];
 
 const SCHEMA_MIGRATIONS_SQL: &str = r#"
@@ -175,6 +180,12 @@ CREATE INDEX IF NOT EXISTS idx_resource_samples_sandbox_time
   ON resource_samples(sandbox_id, sampled_at_unix_ms);
 "#;
 
+const V3_SCHEMA_SQL: &str = r#"
+ALTER TABLE traces ADD COLUMN origin_request_id TEXT;
+ALTER TABLE traces ADD COLUMN workspace_id TEXT;
+ALTER TABLE traces ADD COLUMN command_session_id TEXT;
+"#;
+
 #[derive(Debug, Error)]
 pub enum StoreError {
     #[error("failed to create observability directory {path}")]
@@ -239,12 +250,15 @@ impl ObservabilityStore {
                 sandbox_id,
                 operation,
                 request_id,
+                origin_request_id,
+                workspace_id,
+                command_session_id,
                 started_at_unix_ms,
                 finished_at_unix_ms,
                 duration_ms,
                 error_kind,
                 error_message
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 &trace.trace_id,
                 &trace.kind,
@@ -252,6 +266,9 @@ impl ObservabilityStore {
                 &trace.sandbox_id,
                 &trace.operation,
                 &trace.request_id,
+                &trace.origin_request_id,
+                &trace.workspace_id,
+                &trace.command_session_id,
                 trace.started_at_unix_ms,
                 trace.finished_at_unix_ms,
                 trace.duration_ms,
@@ -632,6 +649,9 @@ impl ObservabilityStore {
                     sandbox_id,
                     operation,
                     request_id,
+                    origin_request_id,
+                    workspace_id,
+                    command_session_id,
                     started_at_unix_ms,
                     finished_at_unix_ms,
                     duration_ms,
@@ -648,11 +668,14 @@ impl ObservabilityStore {
                         sandbox_id: row.get(3)?,
                         operation: row.get(4)?,
                         request_id: row.get(5)?,
-                        started_at_unix_ms: row.get(6)?,
-                        finished_at_unix_ms: row.get(7)?,
-                        duration_ms: row.get(8)?,
-                        error_kind: row.get(9)?,
-                        error_message: row.get(10)?,
+                        origin_request_id: row.get(6)?,
+                        workspace_id: row.get(7)?,
+                        command_session_id: row.get(8)?,
+                        started_at_unix_ms: row.get(9)?,
+                        finished_at_unix_ms: row.get(10)?,
+                        duration_ms: row.get(11)?,
+                        error_kind: row.get(12)?,
+                        error_message: row.get(13)?,
                     })
                 },
             )

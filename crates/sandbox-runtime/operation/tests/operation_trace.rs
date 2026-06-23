@@ -1,16 +1,21 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
+use std::time::Duration;
 
 use sandbox_protocol::{CliOperationScope, Request};
 use sandbox_runtime::layerstack::LayerStackService;
-use sandbox_runtime::{span_keys, OperationTrace, SandboxRuntimeOperations, WorkspaceProfile};
+use sandbox_runtime::{
+    span_keys, AsyncTraceSink, CommandFinalizationTraceMetadata, CompletedOperationTrace,
+    OperationTrace, SandboxRuntimeOperations, WorkspaceProfile,
+};
 use serde_json::json;
 
 mod support;
 use support::{
-    build_services, build_services_with_launch_driver, create_request, workspace_handle,
-    FakeLaunchDriver, FakeWorkspaceService, ScriptedCommandYield,
+    build_services, build_services_with_launch_driver,
+    build_services_with_launch_driver_and_async_trace_sink, create_request, success_exit,
+    workspace_handle, FakeLaunchDriver, FakeWorkspaceService, ScriptedCommandYield,
 };
 
 #[test]
@@ -265,6 +270,75 @@ fn operation_trace_records_enabled_exec_command_one_shot_child_span(
             ("command.exec.workspace.resolve", Some(2)),
             ("command.exec.workspace.create_one_shot_session", Some(3)),
             ("command.exec.process.start", Some(2)),
+        ],
+    );
+    Ok(())
+}
+
+#[test]
+fn operation_trace_records_command_finalization_async_span_tree(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    fake.push_create_result(Ok(workspace_handle(
+        "one-shot-session",
+        "lease-1",
+        PathBuf::from("/workspace/one-shot"),
+        WorkspaceProfile::HostCompatible,
+    )));
+    let launch_driver = Arc::new(FakeLaunchDriver::new());
+    launch_driver.push_outcome(ScriptedCommandYield::Completed(success_exit("done\n")));
+    let (tx, rx) = mpsc::channel::<(CompletedOperationTrace, CommandFinalizationTraceMetadata)>();
+    let sink: AsyncTraceSink = Arc::new(move |trace, metadata| {
+        tx.send((trace, metadata))
+            .expect("async trace test receiver stays open");
+    });
+    let services = build_services_with_launch_driver_and_async_trace_sink(
+        Arc::clone(&fake),
+        launch_driver,
+        Some(sink),
+    );
+    let operations = SandboxRuntimeOperations::new(
+        Arc::clone(&services.command),
+        Arc::clone(&services.workspace),
+        layerstack_service()?,
+    );
+    let request_trace = OperationTrace::new();
+
+    let response = sandbox_runtime::dispatch_operation(
+        &operations,
+        &Request::new(
+            "exec_command",
+            "req-async-finalize",
+            CliOperationScope::system(),
+            json!({
+                "cmd": "cat",
+                "yield_time_ms": 0,
+            }),
+        ),
+        Some(&request_trace),
+    )
+    .into_json_value();
+
+    assert_eq!(response["status"], "ok");
+    let (async_trace, metadata) = rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("async finalization trace is emitted");
+    assert_eq!(metadata.origin_request_id, "req-async-finalize");
+    assert_eq!(
+        metadata.workspace_session_id,
+        Some(sandbox_runtime::WorkspaceSessionId(
+            "one-shot-session".to_owned()
+        ))
+    );
+    assert_eq!(metadata.command_session_id.0, "cmd_1");
+    assert_eq!(metadata.finalizer_status, "ok");
+    assert!(metadata.finalizer_error.is_none());
+    assert_completed_span_sequence(
+        &async_trace,
+        &[
+            ("complete_terminal_command_with_services", None),
+            ("apply_workspace_completion_policy", Some(0)),
+            ("complete_command_record", Some(0)),
         ],
     );
     Ok(())
@@ -539,6 +613,21 @@ fn assert_span_sequence(trace: &OperationTrace, expected: &[(&str, Option<i64>)]
         .collect::<Vec<_>>();
     assert_eq!(actual, expected);
     for (index, span) in spans.iter().enumerate() {
+        assert_eq!(span.call_index, index as i64);
+    }
+}
+
+fn assert_completed_span_sequence(
+    trace: &CompletedOperationTrace,
+    expected: &[(&str, Option<i64>)],
+) {
+    let actual = trace
+        .spans
+        .iter()
+        .map(|span| (span.method_name, span.parent_call_index))
+        .collect::<Vec<_>>();
+    assert_eq!(actual, expected);
+    for (index, span) in trace.spans.iter().enumerate() {
         assert_eq!(span.call_index, index as i64);
     }
 }
