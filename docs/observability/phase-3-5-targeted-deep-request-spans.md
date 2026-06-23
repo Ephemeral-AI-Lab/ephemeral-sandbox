@@ -45,10 +45,10 @@ Phase 3.5 must preserve these boundaries:
   `tracing` attributes.
 
 Generic means future operations can reuse the same `SpanKey` plus `measure_if`
-mechanism. Automatic means each call site only names a key and closure; the API
-checks the request-local enabled set and disabled keys run the original code
-path. Dynamic means the daemon-local enabled set can change between requests
-based on recently completed local traces.
+mechanism. Automatic means each call site only names an exported key constant and
+closure; the API checks the request-local enabled set and disabled keys run the
+original code path. Dynamic means the daemon-local enabled set can change between
+requests based on recently completed local traces.
 
 ## Current Repo Grounding
 
@@ -205,8 +205,9 @@ runtime call. Runtime receives only `Option<&OperationTrace>`.
 - calls `ObservabilityStore::insert_trace`.
 
 This mapping already persists arbitrary additional completed spans. Phase 3.5
-does not need daemon mapping changes beyond optional enabled-key updates before
-the completed trace is consumed.
+does not need storage or schema mapping changes, but it must update
+response-error attribution so child spans are not marked as failed merely because
+they have the largest `call_index`.
 
 ### Current Store Shape
 
@@ -318,6 +319,12 @@ persisted `SpanRecord.method_name`. There is no current need for a separate
 display label. If a later product UI wants friendly names, it can map stable
 keys at query/render time without changing trace rows.
 
+Because the tuple field is private, the runtime crate must export the selected
+key constants or a small `span_keys` namespace that contains only constants.
+Daemon code should construct enabled sets from those exported constants, not from
+free-form strings. Do not make the tuple field public and do not add a broad
+string parser before a real config surface exists.
+
 `OperationTrace` directly stores the request's enabled `SpanKey` values. This
 set must not store:
 
@@ -397,9 +404,10 @@ Suggested parent-to-key groups:
 
 The enabled set may be monotonic for the daemon process lifetime. That is enough
 for the first dynamic implementation and avoids a cache, decay worker, timer,
-or query API. If config-driven enablement is added later, it should union config
-keys with the same in-memory enabled set before constructing `OperationTrace`;
-runtime call sites do not change.
+query API, or config surface. If config-driven enablement is added in a later
+phase, it should union validated exported constants with the same in-memory
+enabled set before constructing `OperationTrace`; runtime call sites do not
+change.
 
 ### Span Key Registry
 
@@ -411,28 +419,29 @@ Initial registered keys:
 
 | Span key | First Phase 3.5 decision |
 | --- | --- |
-| `command.exec.resolve_workspace` | Register and wire in `CommandOperationService::exec_validated_command` around `resolve_exec_workspace`. |
-| `command.exec.workspace_session.resolve_session` | Register and wire in `resolve_exec_workspace` around `WorkspaceSessionService::resolve_session`. |
-| `command.exec.workspace_session.create_workspace_session` | Register and wire in `resolve_exec_workspace` around `WorkspaceSessionService::create_workspace_session`. |
-| `command.exec.start_command_process` | Register and wire in `exec_validated_command` around `start_command_process`. |
-| `command.exec.workspace_handle.entry` | Register and wire in `start_command_process` around `ResolvedExecWorkspace::entry`. |
-| `command.exec.spawn.prepare` | Register and wire in `RealCommandLaunchDriver::spawn` around `CommandProcessSpawn::prepare`, after passing the optional trace through the launch-driver trait. |
-| `command.exec.spawn.process_spawn` | Register and wire in `RealCommandLaunchDriver::spawn` around `CommandProcess::spawn`; this is a caller-owned boundary span for lower command-crate work. |
-| `layerstack.squash.open_layerstack` | Register and wire in `LayerStackService::squash` around `LayerStack::open`. |
-| `layerstack.squash.squash_layerstack` | Register and wire in `LayerStackService::squash` around `LayerStack::squash`. |
+| `command.exec.workspace.resolve` | Register and wire in `CommandOperationService::exec_validated_command` around the workspace-resolution branch. |
+| `command.exec.workspace.resolve_existing_session` | Register and wire in the existing-session branch around `WorkspaceSessionService::resolve_session`. |
+| `command.exec.workspace.create_one_shot_session` | Register and wire in the one-shot branch around `WorkspaceSessionService::create_workspace_session`. |
+| `command.exec.process.start` | Register and wire in `exec_validated_command` around the process-start boundary. |
+| `layerstack.squash.open_stack` | Register and wire in `LayerStackService::squash` around opening the layer stack. |
+| `layerstack.squash.compact_stack` | Register and wire in `LayerStackService::squash` around the squash operation. |
 
 Candidate keys to defer from the first implementation:
 
 | Span key | Decision |
 | --- | --- |
-| `command.exec.workspace_runtime.create_workspace` | Caller-owned boundary span is possible in `WorkspaceSessionService::create_workspace_session`, but defer until `command.exec.workspace_session.create_workspace_session` proves too broad. Do not pass trace context into `crates/sandbox-runtime/workspace`. |
+| `command.exec.workspace_runtime.create_workspace` | Caller-owned boundary span is possible in `WorkspaceSessionService::create_workspace_session`, but defer until `command.exec.workspace.create_one_shot_session` proves too broad. Do not pass trace context into `crates/sandbox-runtime/workspace`. |
 | `command.exec.layerstack.snapshot_or_lease` | Defer. The live call is inside `WorkspaceRuntimeService::create_workspace` through `sandbox_runtime_layerstack::service::acquire_snapshot_with_lease`; splitting it would push trace context below the operation crate. |
-| `command.exec.spawn.build_namespace_runner_request` | Defer. The live function is in `crates/sandbox-runtime/command/src/process.rs`; the Phase 3.5 caller-owned `command.exec.spawn.process_spawn` span covers it inclusively. |
-| `command.exec.spawn.spawn_current_exe_ns_runner` | Defer. The live function is in `crates/sandbox-runtime/command/src/pty.rs`; the Phase 3.5 caller-owned `command.exec.spawn.process_spawn` span covers it inclusively. |
+| `command.exec.workspace.entry_materialize` | Defer. First measure the broader process-start boundary; split workspace entry materialization only if the parent remains ambiguous. |
+| `command.exec.spawn.prepare_artifacts` | Defer. It requires `CommandLaunchDriver::spawn` signature churn and fake-driver updates; first measure the broader process-start boundary. |
+| `command.exec.spawn.runtime_process` | Defer. It requires `CommandLaunchDriver::spawn` signature churn and reaches toward lower command-crate work; first measure the broader process-start boundary. |
+| `command.exec.spawn.build_namespace_runner_request` | Defer. The live function is in `crates/sandbox-runtime/command/src/process.rs`; the first-pass `command.exec.process.start` span covers it inclusively. |
+| `command.exec.spawn.spawn_current_exe_ns_runner` | Defer. The live function is in `crates/sandbox-runtime/command/src/pty.rs`; the first-pass `command.exec.process.start` span covers it inclusively. |
 
-Do not register deferred keys until they have real call sites. Unknown config
-or future keys should be ignored when constructing the enabled set until a key
-is present in the registry.
+Do not register deferred keys until they have real call sites. Future config or
+operator-supplied strings are out of scope for the first implementation; when
+they exist later, unknown strings should be ignored until they map to an exported
+constant.
 
 ### Runtime API
 
@@ -518,6 +527,17 @@ Child span keys are stored in `SpanRecord.method_name`. Parentage uses the
 existing `call_index` and `parent_call_index` mapping. Existing tests that sort
 spans by `call_index` remain the right model.
 
+Phase 3.5 must also adjust daemon error attribution to stop assuming that the
+deepest completed span is the response-error span. That Phase 3 shortcut worked
+while each operation had only root, dispatch, and one public service-method span,
+but child spans may finish successfully before later parent code returns a fault.
+Response-derived operation errors should remain attached to the narrowest
+applicable Phase 3 coarse span, usually the public service-method span, unless a
+later design adds explicit runtime span-error reporting. Child spans must not get
+response-derived error metadata merely because they have the largest
+`call_index`. This is a small daemon mapping/test change, not a storage schema
+change.
+
 ### Crate and Process Boundaries
 
 Phase 3.5 spans stay on the same request trace only when the work runs in the
@@ -532,8 +552,9 @@ Boundary rules:
 - do not add `sandbox-observability` types to lower runtime crates;
 - when a lower crate cannot accept neutral trace context cleanly, keep a
   caller-owned boundary span around the lower call;
-- parent-side launch-driver spans are eligible because `RealCommandLaunchDriver`
-  lives in `crates/sandbox-runtime/operation`;
+- parent-side launch-driver spans are eligible for a later split because
+  `RealCommandLaunchDriver` lives in `crates/sandbox-runtime/operation`, but they
+  are deferred from the first implementation to avoid launch-driver trait churn;
 - `runner::run`, `run_setns`, namespace setup, shell execution, and command
   wait-loop internals are Phase 4.5 and must not appear as Phase 3.5 child
   spans.
@@ -567,6 +588,7 @@ LOC budget, delete these pieces first:
 - config-driven enablement;
 - TTL or decay of enabled keys;
 - separate display names for span keys;
+- launch-driver/internal spawn keys;
 - deferred lower-crate keys;
 - `command.exec.workspace_runtime.create_workspace`;
 - any helper beyond `measure_optional_if`.
@@ -574,7 +596,7 @@ LOC budget, delete these pieces first:
 The happy path remains readable when call sites look like:
 
 ```rust
-measure_optional_if(trace, span_keys::COMMAND_EXEC_RESOLVE_WORKSPACE, || {
+measure_optional_if(trace, span_keys::COMMAND_EXEC_WORKSPACE_RESOLVE, || {
     self.resolve_exec_workspace(&input, trace)
 })?
 ```
@@ -598,7 +620,7 @@ A future operation adds child spans by:
 It should not need operation-specific daemon persistence paths.
 
 Span keys are stable domain names such as
-`command.exec.workspace_session.resolve_session`. They are not storage ids,
+`command.exec.workspace.create_one_shot_session`. They are not storage ids,
 display labels, or exact function names such as `resolve_exec_workspace`, which
 may churn during refactors.
 
@@ -611,9 +633,9 @@ The next runtime operation can add eligible child spans with the same three-step
 pattern: define keys, add an enablement mapping from a Phase 3 parent span, and
 wrap in-process boundaries with `measure_optional_if`.
 
-Config-driven enablement and recent-trace-driven enablement compose by unioning
-keys in `DaemonObservability::enabled_deep_span_keys`. Runtime call sites do
-not change.
+If a later phase adds config-driven enablement, it can compose with
+recent-trace-driven enablement by unioning validated exported constants in
+`DaemonObservability::enabled_deep_span_keys`. Runtime call sites do not change.
 
 If later phases add a product query API, no runtime change is required. The API
 can query existing `traces` and `spans` rows and map stable span-key strings to
@@ -663,6 +685,8 @@ Keep the implementation in the existing crate layout.
 `crates/sandbox-runtime/operation/src/lib.rs`
 
 - Re-export `SpanKey` for daemon enabled-key construction.
+- Re-export the selected span-key constants or a narrow `span_keys` namespace so
+  daemon code never needs to manufacture keys from arbitrary strings.
 - Continue re-exporting `OperationTrace`, `CompletedOperationTrace`, and
   `CompletedOperationSpan`.
 
@@ -681,23 +705,21 @@ Keep the implementation in the existing crate layout.
 - Thread `trace` through `exec_validated_command`, `resolve_exec_workspace`,
   and `start_command_process`.
 - Wrap:
-  - `resolve_exec_workspace` with `command.exec.resolve_workspace`;
+  - `resolve_exec_workspace` with `command.exec.workspace.resolve`;
   - `WorkspaceSessionService::resolve_session` with
-    `command.exec.workspace_session.resolve_session`;
+    `command.exec.workspace.resolve_existing_session`;
   - `WorkspaceSessionService::create_workspace_session` with
-    `command.exec.workspace_session.create_workspace_session`;
-  - `start_command_process` with `command.exec.start_command_process`;
-  - `ResolvedExecWorkspace::entry` with `command.exec.workspace_handle.entry`.
+    `command.exec.workspace.create_one_shot_session`;
+  - `start_command_process` with `command.exec.process.start`.
 - Do not add command output, transcript text, environment data, or shell text to
   spans.
 
 `crates/sandbox-runtime/operation/src/command/service/launch.rs`
 
-- Change `CommandLaunchDriver::spawn` to accept `trace: Option<&OperationTrace>`.
-- Update fake/test launch drivers to accept and ignore the parameter.
-- In `RealCommandLaunchDriver::spawn`, wrap:
-  - `CommandProcessSpawn::prepare` with `command.exec.spawn.prepare`;
-  - `CommandProcess::spawn` with `command.exec.spawn.process_spawn`.
+- No first-pass signature change is required.
+- Leave `CommandLaunchDriver::spawn`, fake launch drivers, and
+  `RealCommandLaunchDriver::spawn` unchanged unless `command.exec.process.start`
+  later proves too broad.
 - Do not pass trace context into `crates/sandbox-runtime/command`.
 
 `crates/sandbox-runtime/operation/src/command/service/helpers.rs`
@@ -709,8 +731,8 @@ Keep the implementation in the existing crate layout.
 `crates/sandbox-runtime/operation/src/command/service/core.rs`
 
 - No state-field change should be required.
-- If `CommandLaunchDriver::spawn` signature changes require imports, keep them
-  local and avoid new service-level observability ownership.
+- No launch-driver signature change should be required in the first
+  implementation.
 
 `crates/sandbox-runtime/operation/src/command/service/impls/write_command_stdin.rs`
 
@@ -728,8 +750,8 @@ Keep the implementation in the existing crate layout.
 
 - Pass `trace: Option<&OperationTrace>` from dispatch into
   `LayerStackService::squash`.
-- Wrap `LayerStack::open` with `layerstack.squash.open_layerstack`.
-- Wrap `stack.squash()` with `layerstack.squash.squash_layerstack`.
+- Wrap `LayerStack::open` with `layerstack.squash.open_stack`.
+- Wrap `stack.squash()` with `layerstack.squash.compact_stack`.
 - Keep result mapping and `SquashLayerStackResult` unchanged.
 
 `crates/sandbox-runtime/layerstack/src/stack/ops/squash.rs`
@@ -742,9 +764,9 @@ Keep the implementation in the existing crate layout.
 `crates/sandbox-runtime/operation/src/workspace_session/service/impls/create_workspace_session.rs`
 
 - No first-pass signature change is required if the
-  `command.exec.workspace_session.create_workspace_session` span is enough.
+  `command.exec.workspace.create_one_shot_session` span is enough.
 - Defer `command.exec.workspace_runtime.create_workspace` until traces show the
-  create-session span is still ambiguous.
+  create-one-shot-session span is still ambiguous.
 
 `crates/sandbox-runtime/operation/src/workspace_session/service/impls/resolve_session.rs`
 
@@ -761,14 +783,14 @@ Keep the implementation in the existing crate layout.
 `crates/sandbox-runtime/command/src/process.rs`
 
 - No Phase 3.5 changes in the first implementation.
-- `CommandProcess::spawn` remains covered by the caller-owned
-  `command.exec.spawn.process_spawn` span in `RealCommandLaunchDriver::spawn`.
+- `CommandProcess::spawn` remains covered inclusively by the caller-owned
+  `command.exec.process.start` span in the operation crate.
 
 `crates/sandbox-runtime/command/src/pty.rs`
 
 - No Phase 3.5 changes.
 - `spawn_current_exe_ns_runner` remains inside the lower command crate and is
-  covered inclusively by `command.exec.spawn.process_spawn`.
+  covered inclusively by `command.exec.process.start`.
 
 ### Daemon Enabled Keys
 
@@ -786,6 +808,8 @@ Keep the implementation in the existing crate layout.
 - Add `enabled_deep_span_keys`.
 - Update enabled-key state from `CompletedOperationTrace` before consuming it into
   storage rows.
+- Update response-error attribution so completed child spans are not marked
+  failed solely because they have the largest `call_index`.
 - Keep `insert_completed_operation_trace` best-effort and request-safe.
 - Keep trace mapping to existing `TraceRecord` and `SpanRecord`.
 
@@ -797,6 +821,8 @@ Keep the implementation in the existing crate layout.
   - completed slow `CommandOperationService::exec_command` enables command
     child keys for future requests;
   - completed slow `LayerStackService::squash` enables layerstack child keys;
+  - response-derived operation errors mark the appropriate Phase 3 coarse span,
+    not the deepest child span by default;
   - successful trace insertion still writes ordinary `SpanRecord` rows.
 
 ### Runtime Tests
@@ -819,6 +845,11 @@ Expected runtime additions:
 ```rust
 pub struct SpanKey(&'static str);
 
+pub mod span_keys {
+    pub const COMMAND_EXEC_WORKSPACE_RESOLVE: SpanKey = SpanKey("command.exec.workspace.resolve");
+    // additional first-pass constants live here
+}
+
 impl OperationTrace {
     pub fn new() -> Self;
     pub fn new_with_enabled_span_keys(keys: impl IntoIterator<Item = SpanKey>) -> Self;
@@ -835,16 +866,6 @@ impl CommandOperationService {
         input: ExecCommandInput,
         trace: Option<&OperationTrace>,
     ) -> Result<CommandYield, CommandServiceError>;
-}
-
-pub trait CommandLaunchDriver: Send + Sync {
-    fn spawn(
-        &self,
-        spec: CommandProcessSpec,
-        workspace_entry: WorkspaceEntry,
-        config: &sandbox_runtime_command::CommandConfig,
-        trace: Option<&OperationTrace>,
-    ) -> Result<CommandProcess, CommandServiceError>;
 }
 ```
 
@@ -863,6 +884,7 @@ No expected signature changes:
 
 - `sandbox_runtime::dispatch_operation`;
 - operation dispatch function pointer type;
+- `CommandLaunchDriver::spawn`;
 - `WorkspaceRuntimeService::create_workspace`;
 - `CommandProcess::spawn`;
 - `spawn_current_exe_ns_runner`;
@@ -877,19 +899,19 @@ cutover inside this repo instead. Update call sites and tests directly.
 
 | Candidate | Decision | Reason |
 | --- | --- | --- |
-| `command.exec.resolve_workspace` | Implement. | Lives in `CommandOperationService::exec_validated_command`; useful split under `CommandOperationService::exec_command`. |
-| `command.exec.workspace_session.resolve_session` | Implement. | Existing-session path is in-process and caller-owned. |
-| `command.exec.workspace_session.create_workspace_session` | Implement. | One-shot workspace creation is a likely slow branch; caller can measure it without lower-crate trace dependencies. |
-| `command.exec.workspace_runtime.create_workspace` | Defer. | The live call is below `WorkspaceSessionService`; first use create-session as the boundary. Split later only if needed. |
+| `command.exec.workspace.resolve` | Implement. | Lives in `CommandOperationService::exec_validated_command`; useful first split under `CommandOperationService::exec_command`. |
+| `command.exec.workspace.resolve_existing_session` | Implement. | Existing-session path is in-process and caller-owned. |
+| `command.exec.workspace.create_one_shot_session` | Implement. | One-shot workspace creation is a likely slow branch; caller can measure it without lower-crate trace dependencies. |
+| `command.exec.workspace_runtime.create_workspace` | Defer. | The live call is below `WorkspaceSessionService`; first use create-one-shot-session as the boundary. Split later only if needed. |
 | `command.exec.layerstack.snapshot_or_lease` | Defer. | The snapshot/lease call is inside the workspace crate and layerstack service crate. Avoid trace context below operation. |
-| `command.exec.start_command_process` | Implement. | Captures workspace entry materialization plus launch-driver work. |
-| `command.exec.workspace_handle.entry` | Implement. | In-process caller-owned boundary before launch. |
-| `command.exec.spawn.prepare` | Implement. | `RealCommandLaunchDriver` lives in operation crate and can measure the lower command-crate call from the caller side. |
-| `command.exec.spawn.process_spawn` | Implement. | Caller-owned span around `CommandProcess::spawn`; includes runner request build, current-exe runner spawn, and start acknowledgement. |
-| `command.exec.spawn.build_namespace_runner_request` | Defer. | Function is in the command crate; covered inclusively by `process_spawn`. |
-| `command.exec.spawn.spawn_current_exe_ns_runner` | Defer. | Function is in the command crate and spawns the runner process; covered inclusively by `process_spawn`. |
-| `layerstack.squash.open_layerstack` | Implement. | In-process caller-owned boundary in `LayerStackService::squash`. |
-| `layerstack.squash.squash_layerstack` | Implement. | In-process caller-owned boundary around `LayerStack::squash`. |
+| `command.exec.process.start` | Implement. | Captures workspace entry materialization plus launch-driver work without changing the launch-driver trait. |
+| `command.exec.workspace.entry_materialize` | Defer. | First measure the broader process-start boundary; split later only if needed. |
+| `command.exec.spawn.prepare_artifacts` | Defer. | Requires launch-driver signature churn and fake-driver updates; first measure the broader process-start boundary. |
+| `command.exec.spawn.runtime_process` | Defer. | Requires launch-driver signature churn and reaches toward lower command-crate work; first measure the broader process-start boundary. |
+| `command.exec.spawn.build_namespace_runner_request` | Defer. | Function is in the command crate; covered inclusively by process-start until a later launch-driver split is justified. |
+| `command.exec.spawn.spawn_current_exe_ns_runner` | Defer. | Function is in the command crate and spawns the runner process; covered inclusively by process-start until a later launch-driver split is justified. |
+| `layerstack.squash.open_stack` | Implement. | In-process caller-owned boundary in `LayerStackService::squash`. |
+| `layerstack.squash.compact_stack` | Implement. | In-process caller-owned boundary around layerstack compaction. |
 | `runner::run`, `run_setns`, `shell_exec::execute_shell` | Defer to Phase 4.5. | These are namespace-runner process internals, not Phase 3.5 request-local child spans. |
 
 ## Failure Behavior
@@ -901,7 +923,8 @@ cutover inside this repo instead. Update call sites and tests directly.
   dispatch and skips trace persistence.
 - Store failures still do not fail or alter user operations.
 - Enabled-key update failures or poisoned locks must not fail user operations.
-- Unknown span keys from config or future state are ignored until registered.
+- Unknown future config/operator strings are ignored until they map to exported
+  constants in a later config phase.
 - Panics keep the existing Phase 3 behavior: `SpanGuard::drop` records `panic`
   during unwind, but daemon dispatch does not add a new `catch_unwind` path in
   Phase 3.5.
@@ -923,9 +946,12 @@ non-test split:
 span key/enabled-set additions                20-40
 measure_if-style runtime API                  10-20
 selected child span call-site wiring          20-50
-daemon enabled-key creation/update            10-25
 tests and small exports as needed
 ```
+
+Daemon enabled-key creation/update is outside the `crates/sandbox-runtime` LOC
+budget, but it should stay narrow: one in-memory set, one snapshot method, one
+completed-trace update method, and focused tests.
 
 The runtime budget should stop and revise if the implementation needs more than
 130 non-test LOC under `crates/sandbox-runtime`, or if it requires:
@@ -940,7 +966,7 @@ If the budget is tight, keep only:
 
 - `SpanKey`;
 - `OperationTrace::measure_if`;
-- command exec boundary spans;
+- command exec workspace/process boundary spans;
 - layerstack open/squash spans;
 - daemon in-memory enabled-key set.
 
@@ -976,8 +1002,12 @@ Required behavior tests:
   requests;
 - trace persistence uses existing `TraceRecord`, `SpanRecord`, and
   `ObservabilityStore::insert_trace`;
+- response-derived operation errors attach to the appropriate Phase 3 coarse span,
+  not to the deepest child span by default;
 - no new schema migration is required;
 - runtime tests do not import `sandbox-observability`;
+- first-pass command process-start coverage does not change
+  `CommandLaunchDriver::spawn`;
 - missing `sandbox_id` still disables trace persistence without failing the
   request;
 - observability store failures still do not fail user operations;
@@ -989,7 +1019,8 @@ Required behavior tests:
 Phase 3.5 is complete when:
 
 - `OperationTrace` carries immutable request-local enabled keys;
-- `SpanKey` is exported from `sandbox-runtime/operation`;
+- `SpanKey` and the first-pass span-key constants are exported from
+  `sandbox-runtime/operation`;
 - enabled child keys record spans through `measure_if`;
 - disabled child keys call through without span rows or call-index changes;
 - daemon dispatch constructs `OperationTrace` with enabled keys when
@@ -998,6 +1029,8 @@ Phase 3.5 is complete when:
 - selected command exec and layerstack child spans are wired;
 - existing Phase 3 parent spans still appear;
 - trace persistence still uses existing `traces` and `spans`;
+- daemon response-error attribution does not mark child spans failed solely
+  because they have the largest `call_index`;
 - `sandbox_protocol::Response` remains unchanged;
 - runtime crates still do not depend on `sandbox-observability` or SQLite;
 - the verification plan passes.
@@ -1010,7 +1043,7 @@ Phase 3.5 is complete when:
 - The first dynamic approach uses a simple parent-span duration threshold. The
   exact threshold should be validated with local traces after Phase 3 is
   exercised under real command and layerstack workloads.
-- If `command.exec.workspace_session.create_workspace_session` remains too
+- If `command.exec.workspace.create_one_shot_session` remains too
   broad after Phase 3.5, a later narrow caller-owned
   `command.exec.workspace_runtime.create_workspace` span can be added in the
   operation crate without passing trace context into the workspace crate.

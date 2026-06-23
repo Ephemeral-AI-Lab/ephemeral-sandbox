@@ -82,9 +82,6 @@ impl OperationTrace {
 }
 
 #[rustfmt::skip]
-impl Default for OperationTrace { fn default() -> Self { Self::new() } }
-
-#[rustfmt::skip]
 impl Drop for SpanGuard<'_> {
     fn drop(&mut self) {
         let duration_ms = elapsed_ms(self.started_at);
@@ -102,11 +99,6 @@ pub(crate) fn measure_optional<T>(
 ) -> T {
     match trace { Some(trace) => trace.measure(method_name, call), None => call() }
 }
-
-fn elapsed_ms(started_at: Instant) -> f64 {
-    started_at.elapsed().as_secs_f64() * 1000.0
-}
-fn finish_unix_ms(started_at_unix_ms: i64, duration_ms: f64) -> i64 {
-    started_at_unix_ms.saturating_add(duration_ms.round() as i64)
-}
+#[rustfmt::skip] fn elapsed_ms(started_at: Instant) -> f64 { started_at.elapsed().as_secs_f64() * 1000.0 }
+#[rustfmt::skip] fn finish_unix_ms(started_at_unix_ms: i64, duration_ms: f64) -> i64 { started_at_unix_ms.saturating_add(duration_ms.round() as i64) }
 #[rustfmt::skip] fn unix_ms() -> i64 { i64::try_from(SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis()).unwrap_or(i64::MAX) }

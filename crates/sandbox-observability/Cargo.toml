@@ -9,5 +9,8 @@ license.workspace = true
 rusqlite.workspace = true
 thiserror.workspace = true
 
+[features]
+test-support = []
+
 [lints]
 workspace = true

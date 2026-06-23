@@ -1065,18 +1065,17 @@ profiler-style tracing.
 Phase 3.5 must use a generic, automatic, and dynamic deep-span mechanism rather
 than hard-coding a fixed always-on child-span list. The runtime should expose one
 small trace API for optional child spans, such as `measure_if`, backed by a
-request-local span policy. Operation code registers stable span keys at
-meaningful boundaries, and the policy decides at request time whether each span
-key is enabled.
+request-local enabled-key set. Operation code names exported stable span-key
+constants at meaningful boundaries, and the enabled set decides at request time
+whether each span key is recorded.
 
 Keep the first Phase 3.5 implementation deliberately simple:
 
 - use one API for all child spans;
 - use one stable span-key namespace;
-- use one policy object containing enabled span keys;
+- let `OperationTrace` carry one immutable enabled-key set for the request;
 - keep using the existing `traces` and `spans` storage path;
-- build the policy from daemon configuration, recent local trace statistics, or
-  both;
+- build the first enabled-key set from recent local trace statistics;
 - when a span key is disabled, run the original code path without recording a
   child span.
 
@@ -1086,51 +1085,45 @@ spans only, then enable a registered child span group when recent local traces
 show the parent span is slow or ambiguous. Operation authors should not hand-edit
 instrumentation just because one sandbox is currently slow.
 
-An acceptable first implementation can be an in-memory enabled-key set populated
-from daemon configuration and updated after completed request traces. It does not
-need new tables, a background worker, percentile math, a new query API, or a
-separate tuning service.
+An acceptable first implementation can be a daemon-local in-memory enabled-key
+set updated after completed request traces. It does not need config, new tables,
+a background worker, percentile math, a new query API, or a separate tuning
+service.
 
 Do not attempt generic automatic discovery of every Rust function call in Phase
 3.5. That would require broad `tracing` attribute adoption, compiler
 instrumentation, eBPF/profiler integration, or invasive function signature churn,
 and it would produce profiler-style data rather than readable method chains.
-Phase 3.5 genericity is in the span policy and API, while eligible span points
-remain explicit and stable.
+Phase 3.5 genericity is in the enabled-key set and API, while eligible span
+points remain explicit and stable.
 
 Phase 3.5 candidates:
 
 ```text
-resolve_exec_workspace
-  WorkspaceSessionService::resolve_session
-  WorkspaceSessionService::create_workspace_session
-  WorkspaceRuntimeService::create_workspace
-  layerstack snapshot or lease acquisition
+command exec workspace resolution
+  existing session resolution
+  one-shot session creation
 
-start_command_process
-  WorkspaceHandle::entry
-  CommandProcessSpawn::prepare
-  CommandProcess::spawn
-  build_namespace_runner_request
-  spawn_current_exe_ns_runner
+command exec process start
 
-squash
-  open_layerstack
-  squash_layerstack
+layerstack squash
+  open stack
+  compact stack
 ```
 
 Phase 3.5 rules:
 
 - Add a child span only under a Phase 3 parent span that has proven useful to
   split.
-- Add child spans through the generic policy-gated API, not through fixed
+- Add child spans through the generic enabled-key-gated API, not through fixed
   always-on instrumentation.
 - Keep each request trace readable; do not expand every helper or loop.
-- Use stable domain span keys such as `command.exec.resolve_workspace` or
-  `command.spawn.prepare`; display names can be derived from those keys or set
-  beside them.
-- Keep policy state outside lower runtime crates. Lower crates may receive only
-  neutral trace context when their existing API boundary can accept it cleanly.
+- Use stable domain span keys such as `command.exec.workspace.resolve` or
+  `layerstack.squash.compact_stack`; display names can be derived from those
+  keys or set beside them.
+- Keep enabled-key state outside lower runtime crates. Lower crates may receive
+  only neutral trace context when their existing API boundary can accept it
+  cleanly.
 - Do not pass SQLite stores, daemon paths, writer handles, or
   `sandbox-observability` types into lower runtime crates.
 - Do not create a dependency from lower workspace, layerstack, command, or
@@ -1411,18 +1404,20 @@ databases.
 
 ### Phase 3.5: Targeted Deep Request Spans
 
-- Add a generic policy-gated child span API, such as `measure_if`, and a stable
-  span-key registry for eligible in-process boundaries.
-- Derive deep-span enablement automatically and dynamically from daemon
-  configuration, recent local trace statistics, or both.
-- Keep the first policy implementation to an enabled-key set; do not add new
+- Add a generic enabled-key-gated child span API, such as `measure_if`, and a
+  stable span-key constant namespace for eligible in-process boundaries.
+- Derive deep-span enablement automatically and dynamically from daemon-local
+  recent trace statistics.
+- Keep the first implementation to an enabled-key set; do not add config, new
   schema, background workers, percentile math, or query APIs for Phase 3.5.
 - Split proven-slow Phase 3 parent spans into a small number of lower-level
   in-process child spans by enabling registered span keys, not by hard-coding an
   always-on list.
-- Candidate areas are workspace session creation/resolution, workspace runtime
-  creation, layerstack snapshot or lease acquisition, parent-side command spawn,
-  namespace-runner request building, and layerstack squash internals.
+- Candidate areas are workspace session creation/resolution, a broad parent-side
+  command process-start boundary, and layerstack squash internals. Defer
+  workspace runtime creation, layerstack snapshot or lease acquisition,
+  launch-driver internals, and namespace-runner request building until the broad
+  first-pass spans prove too ambiguous.
 - Keep deep spans on the same request trace when the work runs in the daemon or
   runtime process.
 - Do not push SQLite, daemon observability stores, writer handles, or

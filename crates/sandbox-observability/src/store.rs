@@ -611,6 +611,7 @@ impl ObservabilityStore {
         Ok(())
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     #[doc(hidden)]
     pub fn force_sqlite_write_errors_for_test(&self) -> Result<(), StoreError> {
         let connection = self.connection()?;
@@ -618,6 +619,7 @@ impl ObservabilityStore {
         Ok(())
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     #[doc(hidden)]
     pub fn trace_for_test(&self, trace_id: &str) -> Result<Option<TraceRecord>, StoreError> {
         let connection = self.connection()?;
@@ -658,6 +660,7 @@ impl ObservabilityStore {
             .map_err(StoreError::from)
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     #[doc(hidden)]
     pub fn spans_for_test(&self, trace_id: &str) -> Result<Vec<SpanRecord>, StoreError> {
         let connection = self.connection()?;
@@ -697,6 +700,7 @@ impl ObservabilityStore {
             .map_err(StoreError::from)
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     #[doc(hidden)]
     pub fn sandbox_snapshot_for_test(
         &self,
@@ -736,6 +740,7 @@ impl ObservabilityStore {
             .map_err(StoreError::from)
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     #[doc(hidden)]
     pub fn workspace_snapshots_for_test(
         &self,
@@ -783,6 +788,7 @@ impl ObservabilityStore {
         rows.collect::<Result<_, _>>().map_err(StoreError::from)
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     #[doc(hidden)]
     pub fn execution_snapshots_for_test(
         &self,
@@ -834,6 +840,7 @@ impl ObservabilityStore {
         rows.collect::<Result<_, _>>().map_err(StoreError::from)
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     #[doc(hidden)]
     pub fn resource_samples_for_test(
         &self,

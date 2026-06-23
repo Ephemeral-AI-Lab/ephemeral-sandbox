@@ -290,6 +290,32 @@ fn completed_operation_trace_marks_deepest_span_on_error() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn completed_operation_trace_persists_long_distinct_request_ids() -> TestResult {
+    let root = test_root("trace-long-request-id");
+    let config = server_config(&root, Some("sandbox-1"));
+    let observability =
+        DaemonObservability::from_config(&config).expect("sandbox id enables observability");
+    let shared_prefix = "request-id-with-shared-prefix-".repeat(20);
+
+    observability.insert_completed_operation_trace(
+        "sandbox-1".to_owned(),
+        format!("{shared_prefix}a"),
+        "exec_command".to_owned(),
+        &json!({ "status": "ok" }),
+        completed_trace(&[(None, "dispatch_operation", 0)]),
+    )?;
+    observability.insert_completed_operation_trace(
+        "sandbox-1".to_owned(),
+        format!("{shared_prefix}b"),
+        "exec_command".to_owned(),
+        &json!({ "status": "ok" }),
+        completed_trace(&[(None, "dispatch_operation", 0)]),
+    )?;
+
+    Ok(())
+}
+
 #[tokio::test]
 async fn unknown_operation_trace_persistence() -> TestResult {
     let root = test_root("trace-unknown-op");

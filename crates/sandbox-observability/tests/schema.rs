@@ -238,15 +238,19 @@ fn workspace_upsert_marks_stale_rows_destroyed_and_keeps_resource_history() -> T
     )])?;
     store.reconcile_workspace_snapshots("sandbox-1", &["workspace-2".to_owned()], 2_000)?;
 
-    let workspaces = store.workspace_snapshots_for_test("sandbox-1")?;
+    let connection = Connection::open(paths.database_path())?;
+    let workspaces = workspace_rows(&connection, "sandbox-1")?;
     assert_eq!(workspaces.len(), 2);
-    assert_eq!(workspaces[0].workspace_id, "workspace-1");
-    assert_eq!(workspaces[0].state, "destroyed");
-    assert_eq!(workspaces[0].sampled_at_unix_ms, 2_000);
-    assert_eq!(workspaces[1].workspace_id, "workspace-2");
-    assert_eq!(workspaces[1].state, "active");
+    assert_eq!(
+        workspaces[0],
+        ("workspace-1".to_owned(), "destroyed".to_owned(), 2_000)
+    );
+    assert_eq!(
+        workspaces[1],
+        ("workspace-2".to_owned(), "active".to_owned(), 1_000)
+    );
 
-    let samples = store.resource_samples_for_test("sandbox-1")?;
+    let samples = resource_sample_rows(&connection, "sandbox-1")?;
     assert_eq!(samples.len(), 1);
     assert_eq!(samples[0].workspace_id.as_deref(), Some("workspace-1"));
 
@@ -267,10 +271,10 @@ fn active_execution_upsert_and_prune_tracks_current_rows() -> TestResult {
     )?;
     store.prune_execution_snapshots("sandbox-1", &["exec-2".to_owned()])?;
 
-    let executions = store.execution_snapshots_for_test("sandbox-1")?;
+    let connection = Connection::open(paths.database_path())?;
+    let executions = execution_rows(&connection, "sandbox-1")?;
     assert_eq!(executions.len(), 1);
-    assert_eq!(executions[0].execution_id, "exec-2");
-    assert_eq!(executions[0].execution_kind, "command");
+    assert_eq!(executions[0], ("exec-2".to_owned(), "command".to_owned()));
 
     Ok(())
 }
@@ -285,7 +289,8 @@ fn resource_samples_preserve_sandbox_and_workspace_scope() -> TestResult {
         resource_sample("sample-workspace", Some("workspace-1"), 1_001),
     ])?;
 
-    let samples = store.resource_samples_for_test("sandbox-1")?;
+    let connection = Connection::open(paths.database_path())?;
+    let samples = resource_sample_rows(&connection, "sandbox-1")?;
     assert_eq!(samples.len(), 2);
     assert_eq!(samples[0].workspace_id, None);
     assert!(!samples[0].cgroup_available);
@@ -377,6 +382,62 @@ fn migration_count(connection: &Connection) -> rusqlite::Result<i64> {
 fn row_count(connection: &Connection, table: &str) -> rusqlite::Result<i64> {
     let sql = format!("SELECT COUNT(*) FROM {table}");
     connection.query_row(&sql, [], |row| row.get(0))
+}
+
+fn workspace_rows(
+    connection: &Connection,
+    sandbox_id: &str,
+) -> rusqlite::Result<Vec<(String, String, i64)>> {
+    let mut statement = connection.prepare(
+        "SELECT workspace_id, state, sampled_at_unix_ms
+         FROM workspace_snapshots
+         WHERE sandbox_id = ?1
+         ORDER BY workspace_id",
+    )?;
+    let rows = statement.query_map([sandbox_id], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+    })?;
+    rows.collect()
+}
+
+fn execution_rows(
+    connection: &Connection,
+    sandbox_id: &str,
+) -> rusqlite::Result<Vec<(String, String)>> {
+    let mut statement = connection.prepare(
+        "SELECT execution_id, execution_kind
+         FROM execution_snapshots
+         WHERE sandbox_id = ?1
+         ORDER BY execution_id",
+    )?;
+    let rows = statement.query_map([sandbox_id], |row| Ok((row.get(0)?, row.get(1)?)))?;
+    rows.collect()
+}
+
+struct ResourceSampleRow {
+    workspace_id: Option<String>,
+    cgroup_available: bool,
+    cgroup_error: Option<String>,
+}
+
+fn resource_sample_rows(
+    connection: &Connection,
+    sandbox_id: &str,
+) -> rusqlite::Result<Vec<ResourceSampleRow>> {
+    let mut statement = connection.prepare(
+        "SELECT workspace_id, cgroup_available, cgroup_error
+         FROM resource_samples
+         WHERE sandbox_id = ?1
+         ORDER BY sampled_at_unix_ms, sample_id",
+    )?;
+    let rows = statement.query_map([sandbox_id], |row| {
+        Ok(ResourceSampleRow {
+            workspace_id: row.get(0)?,
+            cgroup_available: row.get::<_, i64>(1)? != 0,
+            cgroup_error: row.get(2)?,
+        })
+    })?;
+    rows.collect()
 }
 
 fn workspace_snapshot(workspace_id: &str, sampled_at_unix_ms: i64) -> WorkspaceSnapshotRecord {

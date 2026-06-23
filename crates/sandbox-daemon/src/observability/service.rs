@@ -22,6 +22,11 @@ use super::disk::{self, DiskSample};
 
 const DISK_SAMPLE_MIN_INTERVAL: Duration = Duration::from_secs(10);
 const MAX_METHOD_LENGTH: usize = 256;
+const REQUEST_TRACE_PREFIX: &str = "request:";
+const SPAN_ID_SEPARATOR: &str = ":span:";
+const MAX_CALL_INDEX_TEXT_LENGTH: usize = 20;
+const MAX_TRACE_ID_LENGTH: usize =
+    MAX_ID_LENGTH - SPAN_ID_SEPARATOR.len() - MAX_CALL_INDEX_TEXT_LENGTH;
 
 pub(crate) struct DaemonObservability {
     sandbox_id: String,
@@ -82,7 +87,7 @@ impl DaemonObservability {
         response: &serde_json::Value,
         trace: CompletedOperationTrace,
     ) -> Result<(), StoreError> {
-        let trace_id = format!("request:{request_id}");
+        let trace_id = trace_id_for_request(&request_id);
         let (status, error_kind, error_message) = trace_response_status(response);
         let is_error = status == "error";
         let error_call_index = is_error.then(|| {
@@ -479,7 +484,7 @@ fn bound_required_text(value: &str, max_bytes: usize, fallback: &'static str) ->
 }
 
 fn bound_id(value: String) -> String {
-    bound_string(value, MAX_ID_LENGTH)
+    bound_string_with_hash(value, MAX_ID_LENGTH)
 }
 
 fn bound_kind(value: String) -> String {
@@ -522,8 +527,38 @@ fn bound_string(value: String, max_bytes: usize) -> String {
     }
 }
 
+fn bound_string_with_hash(value: String, max_bytes: usize) -> String {
+    if value.len() <= max_bytes {
+        return value;
+    }
+    let suffix = format!("~{:016x}", stable_hash(value.as_bytes()));
+    let prefix_len = max_bytes.saturating_sub(suffix.len());
+    if prefix_len == 0 {
+        return bound_string(suffix, max_bytes);
+    }
+    let mut end = prefix_len.min(value.len());
+    while !value.is_char_boundary(end) {
+        end = end.saturating_sub(1);
+    }
+    format!("{}{}", &value[..end], suffix)
+}
+
+fn stable_hash(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+        (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
+    })
+}
+
+fn trace_id_for_request(request_id: &str) -> String {
+    let max_request_id_len = MAX_TRACE_ID_LENGTH - REQUEST_TRACE_PREFIX.len();
+    format!(
+        "{REQUEST_TRACE_PREFIX}{}",
+        bound_string_with_hash(request_id.to_owned(), max_request_id_len)
+    )
+}
+
 fn trace_span_id(trace_id: &str, call_index: i64) -> String {
-    format!("{trace_id}:span:{call_index}")
+    format!("{trace_id}{SPAN_ID_SEPARATOR}{call_index}")
 }
 
 fn trace_response_status(response: &serde_json::Value) -> (String, Option<String>, Option<String>) {
