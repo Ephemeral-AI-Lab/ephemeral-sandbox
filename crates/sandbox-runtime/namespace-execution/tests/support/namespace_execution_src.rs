@@ -1,6 +1,7 @@
 pub mod engine {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/engine.rs"));
 
+    #[allow(dead_code)]
     impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         pub(crate) fn with_launcher(
             launcher: Box<dyn crate::launcher::NsRunnerLauncher>,

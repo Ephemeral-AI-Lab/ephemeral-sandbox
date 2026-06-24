@@ -3,23 +3,18 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use sandbox_runtime_namespace_execution::test_support::{NsRunnerLauncher, PtyMaster, RunnerChild};
 use sandbox_runtime_namespace_execution::{
-    NamespaceExecutionEngine, NamespaceExecutionError, NoopObserver,
+    NamespaceExecutionError, NamespaceExecutionId, NamespaceTarget, RunnerOutcome,
 };
 use sandbox_runtime_namespace_process::runner::protocol::{NamespaceRunnerRequest, RunResult};
+use sandbox_runtime_workspace::model::WorkspaceHandle;
 use sandbox_runtime_workspace::overlay::dirs::OverlayDirs;
 use sandbox_runtime_workspace::profile::{
-    RemountProbe, ResourceCaps, WorkspaceModeError, WorkspaceModeFds, WorkspaceModeHandle,
-    WorkspaceModeId,
-};
-use sandbox_runtime_workspace::test_support::{
-    insert_handle_for_test, mount_overlay_for_test, namespace_runtime_with_engine_for_test,
-    remount_overlay_for_test, remount_with_layers_for_test,
-    workspace_mode_manager_with_runtime_for_test, WorkspaceRemountState,
+    RemountOverlayResult, RemountProbe, WorkspaceModeError, WorkspaceModeFds, WorkspaceModeHandle,
+    WorkspaceModeId, WorkspaceRemountState,
 };
 use sandbox_runtime_workspace::WorkspaceProfile;
-use serde_json::json;
+use serde_json::{json, Value};
 
 #[derive(Clone, Default)]
 struct FakeLauncher {
@@ -34,8 +29,10 @@ struct FakeLauncherState {
     setup_timeouts: Vec<f64>,
 }
 
-struct FakeChild {
-    outcome: Option<Result<RunResult, NamespaceExecutionError>>,
+struct TestNamespaceRuntime {
+    launcher: FakeLauncher,
+    next_id: AtomicU64,
+    setup_timeout_s: f64,
 }
 
 impl FakeLauncher {
@@ -64,40 +61,99 @@ impl FakeLauncher {
     }
 }
 
-impl NsRunnerLauncher for FakeLauncher {
-    fn spawn_pty(
-        &self,
-        _request: NamespaceRunnerRequest,
-    ) -> Result<(Box<dyn RunnerChild>, PtyMaster), NamespaceExecutionError> {
-        panic!("workspace mount tests never spawn PTY children")
-    }
-
+impl FakeLauncher {
     fn spawn_piped(
         &self,
         mode_flag: &'static str,
         request: NamespaceRunnerRequest,
         setup_timeout_s: f64,
-    ) -> Result<Box<dyn RunnerChild>, NamespaceExecutionError> {
+    ) -> Result<RunResult, NamespaceExecutionError> {
         let mut state = self.state.lock().expect("fake launcher mutex poisoned");
         state.mode_flags.push(mode_flag);
         state.setup_timeouts.push(setup_timeout_s);
         state.requests.push(request);
-        let outcome = state.outcomes.pop_front().unwrap_or_else(|| {
+        state.outcomes.pop_front().unwrap_or_else(|| {
             Err(NamespaceExecutionError::Completion(
                 "missing fake result".into(),
             ))
-        });
-        Ok(Box::new(FakeChild {
-            outcome: Some(outcome),
-        }))
+        })
     }
 }
 
-impl RunnerChild for FakeChild {
-    fn wait_completion(&mut self) -> Result<RunResult, NamespaceExecutionError> {
-        self.outcome
-            .take()
-            .expect("fake child is waited exactly once")
+impl TestNamespaceRuntime {
+    fn new(launcher: FakeLauncher, setup_timeout_s: f64) -> Self {
+        Self {
+            launcher,
+            next_id: AtomicU64::new(1),
+            setup_timeout_s,
+        }
+    }
+
+    fn mount_overlay(
+        &self,
+        handle: &WorkspaceModeHandle,
+        layer_paths: &[PathBuf],
+    ) -> Result<(), WorkspaceModeError> {
+        let mut entry = WorkspaceHandle::from(handle).entry().map_err(setup_error)?;
+        entry.layer_paths = layer_paths.to_vec();
+        self.run_mount(
+            "--mount-overlay",
+            NamespaceTarget::from(entry),
+            json!({}),
+            |_| Ok(()),
+        )
+    }
+
+    fn remount_overlay(
+        &self,
+        handle: &WorkspaceModeHandle,
+        layer_paths: &[PathBuf],
+        probe: &RemountProbe,
+    ) -> Result<RemountOverlayResult, WorkspaceModeError> {
+        let mut entry = WorkspaceHandle::from(handle).entry().map_err(setup_error)?;
+        entry.layer_paths = layer_paths.to_vec();
+        let probe_args = json!({
+            "probe_path": probe
+                .path
+                .as_ref()
+                .map(|path| path.to_string_lossy().into_owned()),
+            "probe_content": probe.expected_content.as_deref(),
+        });
+        self.run_mount(
+            "--remount-overlay",
+            NamespaceTarget::from(entry),
+            probe_args,
+            |outcome| Ok(RemountOverlayResult::from_payload(outcome.payload())),
+        )
+    }
+
+    fn run_mount<O>(
+        &self,
+        mode_flag: &'static str,
+        target: NamespaceTarget,
+        args: Value,
+        parse: impl FnOnce(RunnerOutcome) -> Result<O, NamespaceExecutionError>,
+    ) -> Result<O, WorkspaceModeError> {
+        let id = self.allocate_id();
+        let request = build_request(&target, &id, args);
+        let result = self
+            .launcher
+            .spawn_piped(mode_flag, request, self.setup_timeout_s)
+            .map_err(setup_error)?;
+        let outcome = RunnerOutcome::new(result);
+        if outcome.exit_code() != 0 {
+            return Err(setup_error(NamespaceExecutionError::Finalize(format!(
+                "namespace runner {mode_flag} failed with exit code {}: {}",
+                outcome.exit_code(),
+                mount_failure_detail(outcome.payload())
+            ))));
+        }
+        parse(outcome).map_err(setup_error)
+    }
+
+    fn allocate_id(&self) -> NamespaceExecutionId {
+        let next_id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        NamespaceExecutionId(format!("namespace_execution_{next_id}"))
     }
 }
 
@@ -109,7 +165,9 @@ fn mount_overlay_success_uses_engine_request_and_caller_layers() {
     let handle = workspace_mode_handle();
     let layer_paths = vec![PathBuf::from("/override/lower")];
 
-    mount_overlay_for_test(&runtime, &handle, &layer_paths).expect("mount succeeds");
+    runtime
+        .mount_overlay(&handle, &layer_paths)
+        .expect("mount succeeds");
 
     assert_eq!(fake.mode_flags(), vec!["--mount-overlay"]);
     let requests = fake.requests();
@@ -149,9 +207,9 @@ fn remount_overlay_success_parses_verified_report_and_probe_args() {
         expected_content: Some("ready".to_owned()),
     };
 
-    let result =
-        remount_overlay_for_test(&runtime, &handle, &[PathBuf::from("/new/lower")], &probe)
-            .expect("remount succeeds");
+    let result = runtime
+        .remount_overlay(&handle, &[PathBuf::from("/new/lower")], &probe)
+        .expect("remount succeeds");
 
     assert!(result.mount_verified);
     assert_eq!(fake.mode_flags(), vec!["--remount-overlay"]);
@@ -179,19 +237,11 @@ fn remount_verification_failure_is_caller_error() {
         }),
     ));
     let runtime = runtime_with_fake_launcher(&fake);
-    let mut manager = workspace_mode_manager_with_runtime_for_test(
-        "/workspace",
-        ResourceCaps::default(),
-        temp_path("remount-false"),
-        runtime,
-    );
     let handle = workspace_mode_handle();
-    let workspace_id = handle.workspace_id.clone();
-    insert_handle_for_test(&mut manager, handle);
 
     let error = remount_with_layers_for_test(
-        &mut manager,
-        &workspace_id,
+        &runtime,
+        &handle,
         vec![PathBuf::from("/new/lower")],
         &RemountProbe::default(),
     )
@@ -211,12 +261,9 @@ fn mount_overlay_failure_is_setup_failed_with_payload_detail() {
     fake.push_result(run_result(1, json!({"error": "mount exploded"})));
     let runtime = runtime_with_fake_launcher(&fake);
 
-    let error = mount_overlay_for_test(
-        &runtime,
-        &workspace_mode_handle(),
-        &[PathBuf::from("/lower")],
-    )
-    .expect_err("mount failure surfaces as setup failure");
+    let error = runtime
+        .mount_overlay(&workspace_mode_handle(), &[PathBuf::from("/lower")])
+        .expect_err("mount failure surfaces as setup failure");
 
     assert!(matches!(
         error,
@@ -225,16 +272,65 @@ fn mount_overlay_failure_is_setup_failed_with_payload_detail() {
     ));
 }
 
-fn runtime_with_fake_launcher(
-    fake: &FakeLauncher,
-) -> sandbox_runtime_workspace::test_support::NamespaceRuntime {
-    let engine: NamespaceExecutionEngine = NamespaceExecutionEngine::with_launcher(
-        Box::new(fake.clone()),
-        Arc::new(NoopObserver),
-        8,
-        12.0,
-    );
-    namespace_runtime_with_engine_for_test(Arc::new(engine))
+fn runtime_with_fake_launcher(fake: &FakeLauncher) -> TestNamespaceRuntime {
+    TestNamespaceRuntime::new(fake.clone(), 12.0)
+}
+
+fn remount_with_layers_for_test(
+    runtime: &TestNamespaceRuntime,
+    handle: &WorkspaceModeHandle,
+    layer_paths: Vec<PathBuf>,
+    probe: &RemountProbe,
+) -> Result<WorkspaceModeHandle, WorkspaceModeError> {
+    if layer_paths.is_empty() {
+        return Err(WorkspaceModeError::InvalidArgument(
+            "layer_paths must not be empty".to_owned(),
+        ));
+    }
+    let remount = runtime.remount_overlay(handle, &layer_paths, probe)?;
+    if !remount.mount_verified {
+        return Err(WorkspaceModeError::SetupFailed {
+            step: format!(
+                "remount overlay verification failed: {}",
+                remount.failure_summary()
+            ),
+        });
+    }
+    let mut updated = handle.clone();
+    updated.layer_paths = layer_paths;
+    updated.remount_state = WorkspaceRemountState::Active;
+    Ok(updated)
+}
+
+fn build_request(
+    target: &NamespaceTarget,
+    id: &NamespaceExecutionId,
+    args: Value,
+) -> NamespaceRunnerRequest {
+    NamespaceRunnerRequest {
+        request_id: id.0.clone(),
+        args,
+        workspace_root: target.workspace_root.clone(),
+        layer_paths: target.layer_paths.clone(),
+        upperdir: target.upperdir.clone(),
+        workdir: target.workdir.clone(),
+        ns_fds: Some(target.ns_fds),
+        timeout_seconds: None,
+    }
+}
+
+fn mount_failure_detail(payload: &Value) -> String {
+    payload
+        .get("error")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .unwrap_or_else(|| payload.to_string())
+}
+
+fn setup_error(error: impl std::fmt::Display) -> WorkspaceModeError {
+    WorkspaceModeError::SetupFailed {
+        step: error.to_string(),
+    }
 }
 
 fn run_result(exit_code: i32, payload: serde_json::Value) -> RunResult {
@@ -282,13 +378,4 @@ fn test_manifest() -> sandbox_runtime_layerstack::Manifest {
         sandbox_runtime_layerstack::MANIFEST_SCHEMA_VERSION,
     )
     .expect("test manifest is valid")
-}
-
-fn temp_path(label: &str) -> PathBuf {
-    static NEXT_TEST: AtomicU64 = AtomicU64::new(0);
-    std::env::temp_dir().join(format!(
-        "workspace-setns-{label}-{}-{}",
-        std::process::id(),
-        NEXT_TEST.fetch_add(1, Ordering::Relaxed)
-    ))
 }

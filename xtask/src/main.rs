@@ -43,6 +43,9 @@ fn main() -> Result<()> {
         }
         Some("check-inline-tests") => check_inline_test_policy(&InlineTestPolicyArgs::parse(args)?),
         Some("check-cfg") => check_cfg_policy(&CfgPolicyArgs::parse(args)?),
+        Some("check-test-support") => {
+            check_test_support_policy(&TestSupportPolicyArgs::parse(args)?)
+        }
         Some("help" | "--help" | "-h") | None => {
             print_help();
             Ok(())
@@ -58,6 +61,11 @@ struct InlineTestPolicyArgs {
 
 #[derive(Debug)]
 struct CfgPolicyArgs {
+    roots: Vec<PathBuf>,
+}
+
+#[derive(Debug)]
+struct TestSupportPolicyArgs {
     roots: Vec<PathBuf>,
 }
 
@@ -89,6 +97,13 @@ struct InlineTestPolicyViolation {
 
 #[derive(Debug)]
 struct CfgPolicyViolation {
+    path: PathBuf,
+    line_number: usize,
+    line: String,
+}
+
+#[derive(Debug)]
+struct TestSupportPolicyViolation {
     path: PathBuf,
     line_number: usize,
     line: String,
@@ -155,6 +170,33 @@ impl CfgPolicyArgs {
         }
         if roots.is_empty() {
             roots.push(PathBuf::from("crates/sandbox-daemon"));
+        }
+        Ok(Self { roots })
+    }
+}
+
+impl TestSupportPolicyArgs {
+    fn parse<I>(args: I) -> Result<Self>
+    where
+        I: IntoIterator<Item = OsString>,
+    {
+        let mut roots = Vec::new();
+        let mut iter = args.into_iter();
+        while let Some(arg) = iter.next() {
+            let arg = arg
+                .into_string()
+                .map_err(|_| anyhow::anyhow!("xtask arguments must be valid UTF-8"))?;
+            match arg.as_str() {
+                "--root" => roots.push(PathBuf::from(next_string(&mut iter, "--root")?)),
+                "--help" | "-h" => {
+                    print_help();
+                    std::process::exit(0);
+                }
+                other => bail!("unknown check-test-support option {other:?}"),
+            }
+        }
+        if roots.is_empty() {
+            roots.extend([PathBuf::from("crates"), PathBuf::from("xtask")]);
         }
         Ok(Self { roots })
     }
@@ -399,6 +441,49 @@ production Rust sources; keep platform- and feature-specific code out of src."
     bail!("found {} forbidden #[cfg] attributes", violations.len())
 }
 
+fn check_test_support_policy(args: &TestSupportPolicyArgs) -> Result<()> {
+    let root = workspace_root()?;
+    let mut violations = Vec::new();
+    for scan_root in &args.roots {
+        let scan_root = absolutize(&root, scan_root);
+        for entry in WalkBuilder::new(&scan_root).build() {
+            let entry = entry.with_context(|| format!("walk {}", scan_root.display()))?;
+            let path = entry.path();
+            if !entry
+                .file_type()
+                .is_some_and(|file_type| file_type.is_file())
+                || !is_rust_source(path)
+                || !is_under_crate_src(path)
+            {
+                continue;
+            }
+            collect_test_support_policy_violations(path, &mut violations)?;
+        }
+    }
+
+    if violations.is_empty() {
+        println!("no test-support feature gates found in crate src Rust files");
+        return Ok(());
+    }
+
+    eprintln!(
+        "test-support feature gates are forbidden in crate src/ Rust files; move \
+test-only code into crate-root tests/ suites."
+    );
+    for violation in &violations {
+        eprintln!(
+            "{}:{}: {}",
+            relative_to(&root, &violation.path).display(),
+            violation.line_number,
+            violation.line.trim(),
+        );
+    }
+    bail!(
+        "found {} forbidden test-support feature gates",
+        violations.len()
+    )
+}
+
 fn check_mod_lib_size_policy(args: &ModLibSizePolicyArgs) -> Result<()> {
     let root = workspace_root()?;
     let mut violations = Vec::new();
@@ -529,6 +614,21 @@ fn collect_cfg_policy_violations(
     })
 }
 
+fn collect_test_support_policy_violations(
+    path: &Path,
+    violations: &mut Vec<TestSupportPolicyViolation>,
+) -> Result<()> {
+    for_each_attribute(path, |line_number, raw_attribute, compact_attribute| {
+        if compact_attribute_is_test_support_gate(compact_attribute) {
+            violations.push(TestSupportPolicyViolation {
+                path: path.to_path_buf(),
+                line_number,
+                line: raw_attribute.to_owned(),
+            });
+        }
+    })
+}
+
 fn for_each_attribute<F>(path: &Path, mut visit: F) -> Result<()>
 where
     F: FnMut(usize, &str, &str),
@@ -563,6 +663,17 @@ where
 }
 
 fn compact_attribute_is_cfg(compact: &str) -> bool {
+    let Some(attribute) = attribute_body(compact) else {
+        return false;
+    };
+    let (path, _args) = attribute_path_and_args(attribute);
+    path == "cfg" || path == "cfg_attr"
+}
+
+fn compact_attribute_is_test_support_gate(compact: &str) -> bool {
+    if !compact.contains("feature=\"test-support\"") {
+        return false;
+    }
     let Some(attribute) = attribute_body(compact) else {
         return false;
     };
@@ -1133,6 +1244,8 @@ xtask commands:
   check-cfg [--root <path> ...]
           fail if production Rust sources contain #[cfg]/#[cfg_attr] attributes
           (defaults to crates/sandbox-daemon)
+  check-test-support [--root <path> ...]
+          fail if crate src/ Rust files contain test-support feature gates
   package [--target <triple>] [--out-dir <dir>] [--builder rust-lld|cargo|cross]
           [--profile <name> | --fast] [--no-build] [--sign --minisign-key <path>]
 
