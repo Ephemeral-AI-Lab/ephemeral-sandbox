@@ -2,7 +2,6 @@ mod create;
 mod destroy;
 pub(crate) mod leases;
 mod persistence;
-pub(crate) mod remount;
 
 use std::collections::HashMap;
 use std::time::Instant;

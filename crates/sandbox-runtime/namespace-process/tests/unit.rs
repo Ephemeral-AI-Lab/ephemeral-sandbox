@@ -8,10 +8,7 @@ pub mod runner;
 pub(crate) use holder::network::parse_network_config;
 pub(crate) use holder::Handshake;
 #[cfg(target_os = "linux")]
-pub(crate) use runner::setns::{
-    mountinfo_lowerdir_count_matched, mountinfo_lowerdir_verified, namespace_fd_order_with_types,
-    remount_overlay, WorkspaceMountInfo,
-};
+pub(crate) use runner::setns::namespace_fd_order_with_types;
 
 #[cfg(target_os = "linux")]
 pub(crate) use runner::shell_exec::request::{normalize_lexical, shell_argv, shell_cwd};

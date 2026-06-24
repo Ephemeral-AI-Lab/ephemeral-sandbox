@@ -446,16 +446,6 @@ pub struct CapturedWorkspaceChanges {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RemountWorkspaceRequest {
-    pub layer_paths: Vec<PathBuf>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RemountWorkspaceResult {
-    pub handle: WorkspaceHandle,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReadonlySnapshotHandle {
     pub view_root: PathBuf,
     pub generation_key: String,

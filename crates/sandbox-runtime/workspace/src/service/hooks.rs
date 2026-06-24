@@ -1,8 +1,7 @@
 use crate::error::WorkspaceError;
 use crate::model::{
     CaptureChangesRequest, CapturedWorkspaceChanges, CreateWorkspaceRequest,
-    DestroyWorkspaceRequest, DestroyWorkspaceResult, ReadonlySnapshotHandle,
-    RemountWorkspaceRequest, RemountWorkspaceResult, WorkspaceHandle,
+    DestroyWorkspaceRequest, DestroyWorkspaceResult, ReadonlySnapshotHandle, WorkspaceHandle,
 };
 
 #[doc(hidden)]
@@ -19,18 +18,6 @@ pub struct WorkspaceRuntimeHooks {
                 &WorkspaceHandle,
                 CaptureChangesRequest,
             ) -> Result<CapturedWorkspaceChanges, WorkspaceError>
-            + Send
-            + Sync,
-    >,
-    #[expect(
-        clippy::type_complexity,
-        reason = "hook signatures stay explicit by policy"
-    )]
-    pub remount_workspace: Box<
-        dyn Fn(
-                &WorkspaceHandle,
-                RemountWorkspaceRequest,
-            ) -> Result<RemountWorkspaceResult, WorkspaceError>
             + Send
             + Sync,
     >,

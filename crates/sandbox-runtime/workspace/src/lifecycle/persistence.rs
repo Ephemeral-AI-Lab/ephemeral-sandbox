@@ -33,7 +33,6 @@ impl WorkspaceModeManager {
                     "veth_host_name": handle.veth.as_ref().map(|veth| veth.host_name.as_str()),
                     "veth_ns_name": handle.veth.as_ref().map(|veth| veth.ns_name.as_str()),
                     "ns_ip": handle.veth.as_ref().map(|veth| veth.ns_ip.to_string()),
-                    "remount_state": handle.remount_state.as_str(),
                     "created_at": handle.created_at,
                     "last_activity": handle.last_activity,
                 })

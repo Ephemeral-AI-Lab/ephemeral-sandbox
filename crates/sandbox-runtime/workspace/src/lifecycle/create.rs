@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::lifecycle::leases::{monotonic_seconds, next_handle_id};
-use crate::lifecycle::remount::WorkspaceRemountState;
 use crate::model::WorkspaceProfile;
 use crate::namespace::NamespacePlan;
 use crate::overlay::dirs::create_overlay_dirs;
@@ -110,7 +109,6 @@ impl WorkspaceModeManager {
             readiness_fd: -1,
             control_fd: -1,
             veth: None,
-            remount_state: WorkspaceRemountState::Active,
             created_at: now,
             last_activity: now,
         };

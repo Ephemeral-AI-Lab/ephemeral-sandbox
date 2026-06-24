@@ -2,7 +2,7 @@
 //! profiles.
 //!
 //! Every profile creates a private mounted workspace: fresh overlay directories
-//! plus the holder-owned namespace stack used to run and remount commands.
+//! plus the holder-owned namespace stack used to run commands.
 //! `WorkspaceProfile` selects the isolation profile applied to that workspace; higher
 //! layers decide when a workspace is created, destroyed, captured, or published.
 //!
@@ -27,7 +27,7 @@ pub use model::{
     BaseRevision, CaptureChangesRequest, CapturedWorkspaceChanges, ChangedPathKind,
     CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, LayerStackSnapshotRef,
     LayerStackSnapshotView, LeaseId, ProtectedPathDrop, ProtectedPathDropReason,
-    ReadonlySnapshotHandle, RemountWorkspaceRequest, RemountWorkspaceResult, WorkspaceEntry,
-    WorkspaceEntryError, WorkspaceEntryFds, WorkspaceHandle, WorkspaceProfile, WorkspaceSessionId,
+    ReadonlySnapshotHandle, WorkspaceEntry, WorkspaceEntryError, WorkspaceEntryFds,
+    WorkspaceHandle, WorkspaceProfile, WorkspaceSessionId,
 };
 pub use service::{WorkspaceRuntimeHooks, WorkspaceRuntimeService};

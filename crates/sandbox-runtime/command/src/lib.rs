@@ -1,8 +1,8 @@
 //! Command execution state and transcript helpers.
 //!
 //! The namespace-execution engine owns process spawning and PTY I/O. This crate
-//! keeps the command-facing handle, transcript windowing, and process-group
-//! inspection helpers used by the operation layer.
+//! keeps the command-facing handle and transcript windowing used by the
+//! operation layer.
 //!
 //! Mechanism crate, like `sandbox-runtime-overlay` and
 //! `sandbox-runtime-namespace-process`. The sandbox
@@ -14,7 +14,6 @@
 mod command_execution;
 mod config;
 mod contract;
-pub mod process_group;
 mod transcript_rows;
 
 pub use command_execution::CommandExecution;

@@ -7,7 +7,6 @@ use serde_json::json;
 
 #[cfg(target_os = "linux")]
 use crate::isolated_setup::{BRIDGE_PREFIX_LEN, GATEWAY};
-use crate::lifecycle::remount::{RemountOverlayResult, RemountProbe};
 #[cfg(target_os = "linux")]
 use crate::model::WorkspaceHandle;
 use crate::profile::WorkspaceModeError;
@@ -38,23 +37,6 @@ impl NamespaceRuntime {
         }
     }
 
-    pub(crate) fn remount_overlay(
-        &self,
-        handle: &WorkspaceModeHandle,
-        layer_paths: &[PathBuf],
-        probe: &RemountProbe,
-    ) -> Result<RemountOverlayResult, WorkspaceModeError> {
-        #[cfg(not(target_os = "linux"))]
-        {
-            let _ = (&self.engine, handle, layer_paths, probe);
-            Ok(RemountOverlayResult::verified())
-        }
-        #[cfg(target_os = "linux")]
-        {
-            self.remount_overlay_via_engine(handle, layer_paths, probe)
-        }
-    }
-
     #[cfg(target_os = "linux")]
     pub(crate) fn mount_overlay_via_engine(
         &self,
@@ -71,36 +53,6 @@ impl NamespaceRuntime {
                 id,
                 json!({}),
                 |_| Ok(()),
-            )
-            .map_err(setup_error)?
-            .wait()
-            .map_err(setup_error)
-    }
-
-    #[cfg(target_os = "linux")]
-    pub(crate) fn remount_overlay_via_engine(
-        &self,
-        handle: &WorkspaceModeHandle,
-        layer_paths: &[PathBuf],
-        probe: &RemountProbe,
-    ) -> Result<RemountOverlayResult, WorkspaceModeError> {
-        let mut entry = WorkspaceHandle::from(handle).entry().map_err(setup_error)?;
-        entry.layer_paths = layer_paths.to_vec();
-        let id = self.engine.allocate_id();
-        let probe_args = json!({
-            "probe_path": probe
-                .path
-                .as_ref()
-                .map(|path| path.to_string_lossy().into_owned()),
-            "probe_content": probe.expected_content.as_deref(),
-        });
-        self.engine
-            .run_mount(
-                "--remount-overlay",
-                NamespaceTarget::from(entry),
-                id,
-                probe_args,
-                |outcome| Ok(RemountOverlayResult::from_payload(outcome.payload())),
             )
             .map_err(setup_error)?
             .wait()

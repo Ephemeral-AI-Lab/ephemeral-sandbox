@@ -45,11 +45,6 @@ impl<V> ExecutionRegistry<V> {
         }
     }
 
-    #[must_use]
-    pub fn max_active(&self) -> usize {
-        self.max_active
-    }
-
     pub fn try_reserve(&self, id: &NamespaceExecutionId) -> Result<(), NamespaceExecutionError> {
         let mut state = self.lock();
         if state.active >= self.max_active {

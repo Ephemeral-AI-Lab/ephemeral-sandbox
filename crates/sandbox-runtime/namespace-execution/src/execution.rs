@@ -89,10 +89,6 @@ impl<T> InteractiveExecution<T> {
         self.pty.pgid()
     }
 
-    pub fn read_output_since(&self, offset: u64) -> String {
-        self.pty.read_output_since(offset)
-    }
-
     pub fn output_len(&self) -> u64 {
         self.pty.output_len()
     }

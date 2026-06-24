@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::isolated_setup::VethAllocation;
-use crate::lifecycle::remount::WorkspaceRemountState;
 use crate::model::WorkspaceProfile;
 use crate::overlay::dirs::OverlayDirs;
 
@@ -35,7 +34,6 @@ pub struct WorkspaceModeHandle {
     pub readiness_fd: i32,
     pub control_fd: i32,
     pub veth: Option<VethAllocation>,
-    pub remount_state: WorkspaceRemountState,
     pub created_at: f64,
     pub last_activity: f64,
 }

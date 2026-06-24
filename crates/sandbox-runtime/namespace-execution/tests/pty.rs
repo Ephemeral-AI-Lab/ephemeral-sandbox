@@ -16,9 +16,7 @@ fn reader_drains_slave_output_into_the_transcript() {
 
     slave.write_all(b"hello pty\n").expect("write to slave");
 
-    let observed = wait_for_output(&pty, "hello pty");
-    assert!(observed.contains("hello pty"), "got {observed:?}");
-    assert!(pty.output_len() >= 10);
+    assert!(wait_for_len(&pty, 10) >= 10);
 }
 
 #[test]
@@ -50,14 +48,11 @@ fn file_backed_reader_appends_timestamp_prefixed_transcript() {
 
     slave.write_all(b"file line\n").expect("write to slave");
 
-    let observed = wait_for_output(&pty, "file line");
-    assert!(observed.contains("file line"), "got {observed:?}");
-    // output_len reflects the file length, not an in-memory buffer.
+    let contents = wait_for_file_contains(&path, "file line");
     assert_eq!(
         pty.output_len(),
         std::fs::metadata(&path).expect("transcript metadata").len()
     );
-    let contents = std::fs::read_to_string(&path).expect("read transcript file");
     assert!(contents.contains("file line"), "got {contents:?}");
     assert!(
         contents.starts_with('[') && contents.contains("] "),
@@ -65,12 +60,23 @@ fn file_backed_reader_appends_timestamp_prefixed_transcript() {
     );
 }
 
-fn wait_for_output(pty: &PtyMaster, needle: &str) -> String {
+fn wait_for_len(pty: &PtyMaster, len: u64) -> u64 {
     let deadline = Instant::now() + Duration::from_secs(2);
     loop {
-        let output = pty.read_output_since(0);
-        if output.contains(needle) || Instant::now() >= deadline {
-            return output;
+        let observed = pty.output_len();
+        if observed >= len || Instant::now() >= deadline {
+            return observed;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn wait_for_file_contains(path: &std::path::Path, needle: &str) -> String {
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        let contents = std::fs::read_to_string(path).unwrap_or_default();
+        if contents.contains(needle) || Instant::now() >= deadline {
+            return contents;
         }
         thread::sleep(Duration::from_millis(10));
     }

@@ -1,5 +1,5 @@
 use std::fs::{File, OpenOptions};
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -18,8 +18,6 @@ use rustix::pty::{grantpt, openpt, unlockpt, OpenptFlags};
 use crate::transcript::TranscriptTimestampPrefixer;
 
 const STDIN_WRITE_DEADLINE: Duration = Duration::from_secs(2);
-
-const MAX_OUTPUT_READ_BYTES: u64 = 1024 * 1024;
 
 enum TranscriptSink {
     Memory(Arc<Mutex<Vec<u8>>>),
@@ -105,19 +103,6 @@ impl PtyMaster {
         Ok(())
     }
 
-    pub fn read_output_since(&self, offset: u64) -> String {
-        match &self.sink {
-            TranscriptSink::Memory(transcript) => {
-                let transcript = transcript.lock().expect("pty transcript mutex poisoned");
-                let start = usize::try_from(offset)
-                    .unwrap_or(usize::MAX)
-                    .min(transcript.len());
-                String::from_utf8_lossy(&transcript[start..]).into_owned()
-            }
-            TranscriptSink::File(path) => read_file_since(path, offset),
-        }
-    }
-
     pub fn output_len(&self) -> u64 {
         match &self.sink {
             TranscriptSink::Memory(transcript) => {
@@ -177,30 +162,6 @@ fn poll_readable(master: &File) -> bool {
             Err(_) => return false,
         }
     }
-}
-
-fn read_file_since(path: &Path, offset: u64) -> String {
-    let Ok(mut file) = File::open(path) else {
-        return String::new();
-    };
-    let Ok(metadata) = file.metadata() else {
-        return String::new();
-    };
-    let len = metadata.len();
-    let start = offset.min(len);
-    let bounded_start = start.max(len.saturating_sub(MAX_OUTPUT_READ_BYTES));
-    if file.seek(SeekFrom::Start(bounded_start)).is_err() {
-        return String::new();
-    }
-    let mut bytes = Vec::new();
-    if file
-        .take(MAX_OUTPUT_READ_BYTES)
-        .read_to_end(&mut bytes)
-        .is_err()
-    {
-        return String::new();
-    }
-    String::from_utf8_lossy(&bytes).into_owned()
 }
 
 pub fn open_pty_pair() -> io::Result<(File, File)> {

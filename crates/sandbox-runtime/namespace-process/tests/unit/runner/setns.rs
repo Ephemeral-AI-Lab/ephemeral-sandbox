@@ -1,22 +1,4 @@
-use crate::runner::protocol::{Fd, NamespaceRunnerRequest, NsFds};
-use std::path::Path;
-#[cfg(target_os = "linux")]
-use std::path::PathBuf;
-
-#[cfg(target_os = "linux")]
-#[test]
-fn remount_overlay_requires_setns_payload() -> Result<(), Box<dyn std::error::Error>> {
-    let mut request = request(None);
-    request.layer_paths = vec![Path::new("/tmp/layer").to_path_buf()];
-    let hidden_paths = [Path::new("/eos").to_path_buf()];
-
-    let Err(error) = super::remount_overlay(&request, &hidden_paths) else {
-        return Err("remount overlay should require setns namespace fds".into());
-    };
-
-    assert!(error.to_string().contains("requires ns_fds"));
-    Ok(())
-}
+use crate::runner::protocol::{Fd, NsFds};
 
 #[cfg(target_os = "linux")]
 #[test]
@@ -32,75 +14,4 @@ fn namespace_order_is_user_mnt_pid_net_and_skips_missing_fds() {
         .map(|(name, fd, _nstype)| (name, fd))
         .collect();
     assert_eq!(order, vec![("user", 10), ("mnt", 11), ("net", 12)]);
-}
-
-#[cfg(target_os = "linux")]
-#[test]
-fn lowerdir_verification_reports_only_available_kernel_proof() {
-    let expected = vec![PathBuf::from("/layers/l4"), PathBuf::from("/layers/parent")];
-    assert_eq!(
-        super::mountinfo_lowerdir_count_matched(None, expected.len()),
-        None
-    );
-    assert_eq!(super::mountinfo_lowerdir_verified(None, &expected), None);
-
-    let hidden = super::WorkspaceMountInfo {
-        mount_point: "/workspace".to_owned(),
-        fs_type: "overlay".to_owned(),
-        lowerdir_count: None,
-        lowerdir: None,
-    };
-    assert_eq!(
-        super::mountinfo_lowerdir_count_matched(Some(&hidden), expected.len()),
-        None
-    );
-    assert_eq!(
-        super::mountinfo_lowerdir_verified(Some(&hidden), &expected),
-        None
-    );
-
-    let count_only = super::WorkspaceMountInfo {
-        lowerdir_count: Some(2),
-        ..hidden.clone()
-    };
-    assert_eq!(
-        super::mountinfo_lowerdir_count_matched(Some(&count_only), expected.len()),
-        Some(true)
-    );
-    assert_eq!(
-        super::mountinfo_lowerdir_verified(Some(&count_only), &expected),
-        None
-    );
-
-    let exact = super::WorkspaceMountInfo {
-        lowerdir_count: Some(2),
-        lowerdir: Some("/layers/l4:/layers/parent".to_owned()),
-        ..hidden.clone()
-    };
-    assert_eq!(
-        super::mountinfo_lowerdir_verified(Some(&exact), &expected),
-        Some(true)
-    );
-
-    let mismatch = super::WorkspaceMountInfo {
-        lowerdir: Some("/layers/parent:/layers/l4".to_owned()),
-        ..exact
-    };
-    assert_eq!(
-        super::mountinfo_lowerdir_verified(Some(&mismatch), &expected),
-        Some(false)
-    );
-}
-
-fn request(ns_fds: Option<NsFds>) -> NamespaceRunnerRequest {
-    NamespaceRunnerRequest {
-        request_id: "test".to_owned(),
-        args: serde_json::json!({"command": "true"}),
-        workspace_root: Path::new("/workspace").to_path_buf(),
-        layer_paths: vec![],
-        upperdir: Some(Path::new("/tmp/iws/upper").to_path_buf()),
-        workdir: Some(Path::new("/tmp/iws/work").to_path_buf()),
-        ns_fds,
-        timeout_seconds: None,
-    }
 }

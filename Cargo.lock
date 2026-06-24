@@ -1079,7 +1079,6 @@ dependencies = [
 name = "sandbox-runtime-command"
 version = "0.1.0"
 dependencies = [
- "nix 0.29.0",
  "sandbox-runtime-namespace-execution",
  "sandbox-runtime-workspace",
  "serde_json",

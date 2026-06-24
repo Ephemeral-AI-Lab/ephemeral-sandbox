@@ -8,11 +8,6 @@ fn id(n: u32) -> NamespaceExecutionId {
 }
 
 #[test]
-fn reports_configured_capacity() {
-    assert_eq!(ExecutionRegistry::<()>::new(2).max_active(), 2);
-}
-
-#[test]
 fn admits_up_to_capacity_then_refuses() {
     let registry = ExecutionRegistry::<()>::new(2);
     registry.try_reserve(&id(1)).expect("first slot");
