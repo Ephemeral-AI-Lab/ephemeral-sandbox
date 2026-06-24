@@ -8,5 +8,11 @@ license.workspace = true
 [dependencies]
 sandbox-runtime-namespace-process.workspace = true
 
+[features]
+test-support = []
+
+[dev-dependencies]
+sandbox-runtime-namespace-execution = { path = ".", features = ["test-support"] }
+
 [lints]
 workspace = true

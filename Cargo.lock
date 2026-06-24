@@ -1101,6 +1101,7 @@ dependencies = [
 name = "sandbox-runtime-namespace-execution"
 version = "0.1.0"
 dependencies = [
+ "sandbox-runtime-namespace-execution",
  "sandbox-runtime-namespace-process",
 ]
 

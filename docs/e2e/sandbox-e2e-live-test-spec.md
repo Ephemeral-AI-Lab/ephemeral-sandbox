@@ -759,6 +759,31 @@ what a conforming attach gateway must be started with.
   `observability.json`; assertions over existing daemon spans; consume P1 (cgroup
   CPU/mem) and P2 (queue-wait) once they surface in the tree.
 
+### Two-stage delivery during the runtime migration
+
+While `sandbox-runtime` is mid-migration its CLI operations (the R-series —
+`exec_command`, `write_command_stdin`, `read_command_lines`,
+`create_workspace_session`, `destroy_workspace_session`, `squash`) cannot be
+driven, so the phases above ship in two stages split on that one fault line.
+**Stage 1** delivers everything that never drives a runtime op: Phase 0; the
+Phase 1 harness with M1 green (the R1 leaf compiles and ships but is dormant); the
+manager half of Phase 2 (M2–M5, N1, `err_kind_at`); all of Phase 3 with the
+orchestrator's default test target pinned to `cargo test --test manager`; and the
+snapshot/P1 half of Phase 4. **Stage 2** resumes once the migrated runtime serves
+the R-series: green R1, author R2–R8 and N2 plus the runtime assertion helpers
+(`err_detail`, `offsets_monotonic`, `non_decreasing`), consume P2 and runtime
+command traces, and flip the orchestrator default to the full suite. The only
+structural change at the boundary is that default test target — every runtime leaf
+is an additive file the generated include list discovers (the
+"add-a-test-case = add one file" invariant). The gate is binary-level, not
+per-leaf: the sole skip path is `EOS_E2E_RUN_ROOT` unset, so a runtime leaf driven
+against a not-yet-migrated runtime would *fail* (`operation_failed`), never skip —
+hence Stage 1 keeps the runtime binary out of the green target instead of adding a
+runtime-readiness skip guard. Manager provisioning is assumed live; if it is also
+down, Stage 1 stays code-complete and skip-safe and only its green proof waits. See
+`sandbox-e2e-live-test-phases-note.md` → *Two-stage delivery (runtime-migration
+gate)* for the per-phase map.
+
 ## Verification Commands
 
 ```sh

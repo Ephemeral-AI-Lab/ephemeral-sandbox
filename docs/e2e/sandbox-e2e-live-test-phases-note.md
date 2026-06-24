@@ -24,6 +24,58 @@ v1 is **attach-only** — spawn mode is deferred (Open Items #1).
 
 ---
 
+## Two-stage delivery (runtime-migration gate)
+
+The `sandbox-runtime` crates are mid-migration, so the **runtime CLI operations**
+— the R-series `exec_command`, `write_command_stdin`, `read_command_lines`,
+`create_workspace_session`, `destroy_workspace_session`, `squash` — cannot be
+driven yet. The phases above are therefore delivered in **two stages**, split on
+that one fault line. Manager lifecycle + observability provisioning is assumed
+live (only the runtime *operations* are not ready); if provisioning is also down,
+every Stage 1 item is still code-complete and skip-safe and only its *green proof*
+waits for provisioning to return.
+
+| Stage | Work it contains | Green when |
+|-------|------------------|-----------|
+| **Stage 1 — everything but runtime ops** | Phase 0; Phase 1 harness + M1 green (the R1 leaf ships but is dormant); Phase 2 manager half (M2–M5, N1, `err_kind_at`, `exchange.jsonl`); Phase 3 orchestrator + artifacts + cleanup with the default test target pinned to `--test manager`; Phase 4 snapshot poller + `observability.json` (+ P1 iff surfaced) | a gateway that provisions/destroys sandboxes and serves `get_observability_tree` |
+| **Stage 2 — resume once runtime ops land** | Phase 1 remainder (green R1); Phase 2 runtime half (author R2–R8, N2, and `err_detail` / `offsets_monotonic` / `non_decreasing`); Phase 4 P2 queue-wait + runtime command traces; flip the orchestrator default to the full suite | the migrated real Docker runtime serves the R-series |
+
+**Single stage-boundary switch.** The only structural change between the stages is
+the orchestrator's default test target — Stage 1 invokes `cargo test --test
+manager`, Stage 2 drops the restriction and runs the full suite (`--test manager`
+*and* `--test runtime`). Everything else is **additive leaf files**: the generated
+`#[path]` include list (`build.rs`) discovers each new `tests/runtime/**` leaf with
+no orchestrator or registry edit — exactly the cross-phase "add-a-test-case = add
+one file" invariant.
+
+**Why a binary-level gate, not per-leaf skips.** A runtime leaf run against a
+gateway whose runtime ops fail would *fail* (`operation_failed`), not skip — the
+only skip path is `EOS_E2E_RUN_ROOT` unset (`tests/support/mod.rs`). So Stage 1
+keeps the runtime binary out of the green target rather than adding a
+runtime-readiness probe + skip guard (new state meaning "not implemented yet" —
+avoided per *prefer less*). Only the existing R1 `one_shot.rs` smoke leaf is
+authored pre-migration; R2–R8 are written in **Stage 2** against the migrated
+runtime's settled response shapes, so the suite is not rewritten against a moving
+target.
+
+### Stage map per phase
+
+- **Phase 0** — Stage 1 (done).
+- **Phase 1** — Stage 1 for the harness core and M1 green. The **R1 green proof is
+  the first Stage 2 item**: `one_shot.rs` already compiles and ships, it is just
+  not in the Stage 1 green target.
+- **Phase 2** — *split*. Stage 1: M2–M5, N1, `err_kind_at`. Stage 2: R1 green +
+  authoring R2–R8, N2, and the runtime assertion helpers `err_detail`,
+  `offsets_monotonic`, `non_decreasing`.
+- **Phase 3** — Stage 1 in full; the one stage-aware line is the default test
+  target (manager-only → full suite at the boundary).
+- **Phase 4** — *split*. Stage 1: the snapshot poller, `observability.json`, and
+  P1 (cgroup) consumption (`recent_traces` is present but carries little or no
+  runtime-command activity pre-migration). Stage 2: P2 (namespace queue-wait) and
+  runtime command traces.
+
+---
+
 ## Phase 0 — Scaffold the crate
 
 **Goal:** make `crates/sandbox-e2e-live-test` a real, building workspace member
@@ -73,7 +125,10 @@ against a real gateway, and skip-safe without one.
 - Crate compiles; bare `cargo test -p sandbox-e2e-live-test` (no env) **skips
   cleanly**, no panic.
 - With `EOS_E2E_RUN_ROOT` → a hand-written `run-manifest.json` for a real-runtime
-  gateway, both leaves pass under `--test-threads=1`.
+  gateway, the **M1** leaf passes under `--test-threads=1`. The **R1** leaf
+  (`one_shot.rs`) compiles and ships this phase, but its green proof is the first
+  **Stage 2** item — runtime ops are mid-migration (see *Two-stage delivery
+  (runtime-migration gate)*).
 
 **Note:** `eos-e2e` stays a stub; the run env is set by hand this phase.
 
@@ -94,6 +149,11 @@ against a real gateway, and skip-safe without one.
 - Full `assertion.rs`: `err_kind_at`, `err_detail` (runtime `operation_failed`
   details), `offsets_monotonic`, `non_decreasing`.
 - Per-test `exchange.jsonl` capture.
+
+**Staging:** the manager half (M2–M5, N1, `err_kind_at`) is **Stage 1**; the
+runtime half (R1 green + authoring R2–R8, N2, and `err_detail` /
+`offsets_monotonic` / `non_decreasing`) is **Stage 2**, written against the
+migrated runtime's settled shapes. See *Two-stage delivery (runtime-migration gate)*.
 
 **Acceptance:** all leaves compile; skip-safe without env; green vs a real gateway.
 Stateful chains (R3/R5/R6) capture and round-trip `command_session_id`; conditional
@@ -140,6 +200,11 @@ backstop is deferred (Open Items #2).
   *iff* they surface in the tree (additive builder); their P1/P2 unit assertions
   live in the daemon crates, not here (the `*_for_test` SQLite path is off-limits
   by the black-box boundary).
+
+**Staging:** the snapshot poller, `observability.json`, and P1 (cgroup) consumption
+are **Stage 1** (pre-runtime, `recent_traces` is present but carries little or no
+runtime-command activity); P2 (namespace queue-wait) and runtime command traces are
+**Stage 2**. See *Two-stage delivery (runtime-migration gate)*.
 
 **Acceptance:** observability snapshots written per sandbox; absence of P1/P2 only
 lowers diagnostic resolution, never blocks the run.
