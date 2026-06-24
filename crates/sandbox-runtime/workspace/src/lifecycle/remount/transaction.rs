@@ -46,9 +46,7 @@ impl WorkspaceModeManager {
             .get(workspace_id)
             .cloned()
             .ok_or(WorkspaceModeError::NotOpen)?;
-        let remount = self
-            .runtime
-            .remount_overlay(&handle, &layer_paths, probe)?;
+        let remount = self.runtime.remount_overlay(&handle, &layer_paths, probe)?;
         if !remount.mount_verified {
             return Err(WorkspaceModeError::SetupFailed {
                 step: format!(

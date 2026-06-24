@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+use sandbox_runtime_namespace_execution::NamespaceTarget;
 use sandbox_runtime_workspace::model::{
     BaseRevision, CaptureChangesRequest, CapturedWorkspaceChanges, ChangedPathKind,
     CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, LayerStackSnapshotRef,
@@ -148,6 +149,36 @@ fn host_compatible_entry_uses_holder_launch_without_network_fd() {
     assert_eq!(entry.ns_fds.mnt, 11);
     assert_eq!(entry.ns_fds.pid, 12);
     assert_eq!(entry.ns_fds.net, None);
+}
+
+#[test]
+fn workspace_entry_converts_to_namespace_target() {
+    let entry = WorkspaceEntry {
+        workspace_root: "/workspace".into(),
+        layer_paths: vec!["/lower/one".into(), "/lower/two".into()],
+        upperdir: "/tmp/eos/upper".into(),
+        workdir: "/tmp/eos/work".into(),
+        ns_fds: WorkspaceEntryFds {
+            user: 10,
+            mnt: 11,
+            pid: 12,
+            net: Some(13),
+        },
+    };
+
+    let target = NamespaceTarget::from(entry);
+
+    assert_eq!(target.workspace_root, PathBuf::from("/workspace"));
+    assert_eq!(
+        target.layer_paths,
+        vec![PathBuf::from("/lower/one"), PathBuf::from("/lower/two")]
+    );
+    assert_eq!(target.upperdir, Some(PathBuf::from("/tmp/eos/upper")));
+    assert_eq!(target.workdir, Some(PathBuf::from("/tmp/eos/work")));
+    assert_eq!(target.ns_fds.user.map(|fd| fd.0), Some(10));
+    assert_eq!(target.ns_fds.mnt.map(|fd| fd.0), Some(11));
+    assert_eq!(target.ns_fds.pid.map(|fd| fd.0), Some(12));
+    assert_eq!(target.ns_fds.net.map(|fd| fd.0), Some(13));
 }
 
 #[test]

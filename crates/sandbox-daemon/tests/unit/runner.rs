@@ -4,7 +4,9 @@ use std::os::unix::net::UnixStream;
 
 use anyhow::{bail, Context, Result};
 
-use crate::runner_cli::{open_fd_for_write, wait_for_start_ack_reader, RunnerCliConfig};
+use crate::runner_cli::{
+    mount_overlay_result, open_fd_for_write, wait_for_start_ack_reader, RunnerCliConfig,
+};
 
 #[test]
 fn runner_cli_accepts_explicit_request_and_result_fds() -> Result<()> {
@@ -20,10 +22,7 @@ fn runner_cli_accepts_explicit_request_and_result_fds() -> Result<()> {
 
 #[test]
 fn runner_cli_rejects_missing_result_fd() -> Result<()> {
-    let error = match RunnerCliConfig::parse(vec![
-        "--request-fd".to_owned(),
-        "3".to_owned(),
-    ]) {
+    let error = match RunnerCliConfig::parse(vec!["--request-fd".to_owned(), "3".to_owned()]) {
         Ok(_) => bail!("missing output path unexpectedly accepted"),
         Err(error) => error,
     };
@@ -64,6 +63,24 @@ fn result_fd_writer_writes_to_fd_peer() -> Result<()> {
     read_end.read_to_string(&mut payload)?;
     assert_eq!(payload, "{\"exit_code\":0}");
     Ok(())
+}
+
+#[test]
+fn mount_overlay_result_maps_success_and_failure() {
+    let success = mount_overlay_result(Ok::<(), &str>(()));
+
+    assert_eq!(success.exit_code, 0);
+    assert_eq!(success.payload["success"], true);
+    assert_eq!(success.payload["status"], "ok");
+
+    let failure = mount_overlay_result(Err("boom"));
+
+    assert_eq!(failure.exit_code, 1);
+    let error = failure.payload["error"]
+        .as_str()
+        .expect("failure payload contains error string");
+    assert!(error.contains("ns-runner setns overlay mount failed"));
+    assert!(error.contains("boom"));
 }
 
 #[test]
