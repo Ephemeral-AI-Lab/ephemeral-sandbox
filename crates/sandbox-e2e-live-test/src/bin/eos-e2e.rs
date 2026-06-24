@@ -222,7 +222,10 @@ fn run_pipeline(args: &RunArgs) -> ExitCode {
     }
 }
 
-fn preflight(config: &RunConfig) -> Result<(), String> {
+/// Preflight checks 1–3 (§3.2): Linux, Docker reachable, image present. None
+/// need a gateway socket, so `eos-e2e preflight` surfaces these before demanding
+/// one.
+fn preflight_environment(image: &str) -> Result<(), String> {
     if std::env::consts::OS != "linux" {
         return Err(format!(
             "EphemeralOS E2E is Linux+Docker only; current OS={}",
@@ -232,16 +235,19 @@ fn preflight(config: &RunConfig) -> Result<(), String> {
     if !command_succeeds("docker", &["version"]) {
         return Err("Docker daemon not reachable at $DOCKER_HOST".to_owned());
     }
-    if !command_succeeds("docker", &["image", "inspect", &config.image]) {
+    if !command_succeeds("docker", &["image", "inspect", image]) {
         return Err(format!(
-            "image {0} not present; run `docker pull {0}`",
-            config.image
+            "image {image} not present; run `docker pull {image}`"
         ));
     }
-    preflight_probe(config)
+    Ok(())
 }
 
-fn preflight_probe(config: &RunConfig) -> Result<(), String> {
+/// Preflight check 4 (§3.2.1): the one black-box `create_sandbox` that trips the
+/// runtime trait. A scratch temp workspace is created and removed; an
+/// unconfigured gateway is detected by the carried `runtime is not configured`
+/// substring; a real gateway's probe sandbox is destroyed immediately.
+fn preflight_probe(image: &str, gateway_socket: &Path) -> Result<(), String> {
     let scratch = std::env::temp_dir().join("eos-e2e-preflight");
     if let Err(error) = std::fs::create_dir_all(&scratch) {
         return Err(format!(
@@ -249,11 +255,11 @@ fn preflight_probe(config: &RunConfig) -> Result<(), String> {
             scratch.display()
         ));
     }
-    let cli = CliClient::new(PathBuf::from(CLI_BIN), config.gateway_socket.clone());
+    let cli = CliClient::new(PathBuf::from(CLI_BIN), gateway_socket.to_path_buf());
     let scratch_arg = scratch.to_string_lossy().into_owned();
     let record = cli.manager(
         "create_sandbox",
-        &["--image", &config.image, "--workspace-root", &scratch_arg],
+        &["--image", image, "--workspace-root", &scratch_arg],
     );
     let result = interpret_probe(&cli, &record);
     let _ = std::fs::remove_dir_all(&scratch);
