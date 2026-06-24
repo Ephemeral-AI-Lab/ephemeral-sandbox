@@ -2,10 +2,6 @@ pub mod error {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/error.rs"));
 }
 
-pub mod transcript {
-    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/transcript.rs"));
-}
-
 #[allow(dead_code)]
 pub mod pty {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/pty.rs"));

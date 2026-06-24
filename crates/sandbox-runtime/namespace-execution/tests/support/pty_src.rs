@@ -1,7 +1,3 @@
-pub mod transcript {
-    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/transcript.rs"));
-}
-
 pub mod pty {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/pty.rs"));
 

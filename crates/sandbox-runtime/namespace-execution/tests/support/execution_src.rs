@@ -2,8 +2,12 @@ pub mod error {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/error.rs"));
 }
 
-pub mod id {
-    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/id.rs"));
+pub mod shell {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/shell.rs"));
+}
+
+pub mod types {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/types.rs"));
 }
 
 pub mod promise {
@@ -45,4 +49,4 @@ pub mod execution {
 }
 
 pub use execution::{ExecutionHandle, InteractiveExecution};
-pub use id::NamespaceExecutionId;
+pub use types::NamespaceExecutionId;

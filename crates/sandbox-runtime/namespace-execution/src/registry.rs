@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use crate::error::NamespaceExecutionError;
-use crate::id::NamespaceExecutionId;
+use crate::types::NamespaceExecutionId;
 use crate::shell::NamespaceExecutionTerminalStatus;
 
 pub struct ExecutionRegistry<V> {

@@ -2,7 +2,7 @@ use std::io;
 use std::sync::Arc;
 
 use crate::error::NamespaceExecutionError;
-use crate::id::NamespaceExecutionId;
+use crate::types::NamespaceExecutionId;
 use crate::promise::{CompletionPromise, CompletionWaiter};
 use crate::pty::PtyMaster;
 

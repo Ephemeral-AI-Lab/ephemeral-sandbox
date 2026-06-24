@@ -1,5 +1,20 @@
-use crate::id::NamespaceExecutionId;
+use std::path::PathBuf;
+
+use sandbox_runtime_namespace_process::runner::protocol::NsFds;
+
 use crate::shell::NamespaceExecutionTerminalStatus;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct NamespaceExecutionId(pub String);
+
+#[derive(Debug, Clone)]
+pub struct NamespaceTarget {
+    pub workspace_root: PathBuf,
+    pub layer_paths: Vec<PathBuf>,
+    pub upperdir: Option<PathBuf>,
+    pub workdir: Option<PathBuf>,
+    pub ns_fds: NsFds,
+}
 
 pub trait ExecutionObserver: Send + Sync {
     fn on_running(&self, id: &NamespaceExecutionId);

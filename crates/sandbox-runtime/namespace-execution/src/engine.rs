@@ -10,13 +10,11 @@ use serde_json::Value;
 
 use crate::error::NamespaceExecutionError;
 use crate::execution::{ExecutionHandle, InteractiveExecution};
-use crate::id::NamespaceExecutionId;
 use crate::launcher::{ForkRunnerLauncher, NsRunnerLauncher, RunnerChild};
-use crate::observer::ExecutionObserver;
 use crate::promise::CompletionPromise;
 use crate::registry::ExecutionRegistry;
 use crate::shell::{NamespaceExecutionTerminalStatus, RunnerOutcome, ShellOperation};
-use crate::target::NamespaceTarget;
+use crate::types::{ExecutionObserver, NamespaceExecutionId, NamespaceTarget};
 
 pub struct NamespaceExecutionEngine<V = ()> {
     registry: Arc<ExecutionRegistry<V>>,
