@@ -1,26 +1,12 @@
 use crate::error::LayerStackError;
 use crate::fs::{next_unique, write_manifest};
-use crate::model::{LayerRef, Manifest};
+use crate::model::Manifest;
 use crate::stack::lease::{lock_shared_registry, release_lease_locked};
 use crate::stack::squash::{manifest_prefix_before_plan, LayerCheckpointSquasher, SquashPlanEntry};
 use crate::stack::{LayerStack, SquashOutcome};
 use crate::ACTIVE_MANIFEST_FILE;
 
 impl LayerStack {
-    #[doc(hidden)]
-    pub fn build_compaction_checkpoint(
-        &mut self,
-        manifest: &Manifest,
-    ) -> Result<LayerRef, LayerStackError> {
-        let _guard = self.writer_lock.exclusive()?;
-        if manifest.layers.is_empty() {
-            return Err(LayerStackError::InvalidSquashPlan(
-                "compaction checkpoint requires at least one layer".to_owned(),
-            ));
-        }
-        self.build_projected_checkpoint(manifest)
-    }
-
     pub fn squash(&mut self) -> Result<SquashOutcome, LayerStackError> {
         let _guard = self.writer_lock.exclusive()?;
         let active = self.read_active_manifest_unlocked()?;

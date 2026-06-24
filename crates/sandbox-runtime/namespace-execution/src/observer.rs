@@ -12,3 +12,18 @@ pub trait ExecutionObserver: Send + Sync {
         exit_code: Option<i64>,
     );
 }
+
+#[derive(Debug, Default)]
+pub struct NoopObserver;
+
+impl ExecutionObserver for NoopObserver {
+    fn on_running(&self, _id: &NamespaceExecutionId) {}
+
+    fn on_terminal(
+        &self,
+        _id: &NamespaceExecutionId,
+        _status: NamespaceExecutionTerminalStatus,
+        _exit_code: Option<i64>,
+    ) {
+    }
+}

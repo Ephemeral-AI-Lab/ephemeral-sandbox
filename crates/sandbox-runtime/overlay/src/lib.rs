@@ -70,14 +70,6 @@ impl OverlayError {
             source,
         }
     }
-
-    #[must_use]
-    pub fn failing_path(&self) -> Option<&Path> {
-        match self {
-            Self::Capture { path, .. } => Some(path.as_path()),
-            _ => None,
-        }
-    }
 }
 
 /// Per-overlay writable directories created beside each other under one run dir.

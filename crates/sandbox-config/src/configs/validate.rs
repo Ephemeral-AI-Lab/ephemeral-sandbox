@@ -60,22 +60,6 @@ pub fn require_non_empty_items(
 }
 
 /// Require `value >= minimum`.
-pub fn require_u32_at_least(
-    value: u32,
-    minimum: u32,
-    field: &'static str,
-) -> Result<(), ConfigFieldError> {
-    if value >= minimum {
-        Ok(())
-    } else {
-        Err(ConfigFieldError::new(
-            field,
-            format!("must be at least {minimum}"),
-        ))
-    }
-}
-
-/// Require `value >= minimum`.
 pub fn require_u64_at_least(
     value: u64,
     minimum: u64,
@@ -103,22 +87,6 @@ pub fn require_usize_at_least(
         Err(ConfigFieldError::new(
             field,
             format!("must be at least {minimum}"),
-        ))
-    }
-}
-
-/// Require `value <= maximum`.
-pub fn require_usize_at_most(
-    value: usize,
-    maximum: usize,
-    field: &'static str,
-) -> Result<(), ConfigFieldError> {
-    if value <= maximum {
-        Ok(())
-    } else {
-        Err(ConfigFieldError::new(
-            field,
-            format!("must be at most {maximum}"),
         ))
     }
 }

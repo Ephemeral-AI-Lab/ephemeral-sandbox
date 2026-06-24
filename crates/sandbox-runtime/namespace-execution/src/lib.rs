@@ -27,7 +27,7 @@ pub use engine::NamespaceExecutionEngine;
 pub use error::NamespaceExecutionError;
 pub use execution::{ExecutionHandle, InteractiveExecution};
 pub use id::NamespaceExecutionId;
-pub use observer::ExecutionObserver;
+pub use observer::{ExecutionObserver, NoopObserver};
 pub use registry::{CompletedExecution, ExecutionRegistry};
 pub use shell::{RunnerOutcome, ShellOperation};
 pub use status::NamespaceExecutionTerminalStatus;

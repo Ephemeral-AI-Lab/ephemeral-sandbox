@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
@@ -16,36 +16,6 @@ pub struct WorkspaceBinding {
     pub active_root_hash: String,
     pub base_manifest_version: i64,
     pub base_root_hash: String,
-}
-
-impl WorkspaceBinding {
-    pub fn layer_path_from_relative(&self, path: &str) -> Result<String, LayerStackError> {
-        let raw = required_path(path)?;
-        if raw.starts_with('/') {
-            return Err(LayerStackError::WorkspaceBinding(format!(
-                "path must be relative: {raw}"
-            )));
-        }
-        normalize_layer_path(raw)
-    }
-
-    pub fn layer_path_from_absolute(&self, path: &str) -> Result<String, LayerStackError> {
-        let raw = required_path(path)?;
-        if !raw.starts_with('/') {
-            return Err(LayerStackError::WorkspaceBinding(format!(
-                "path must be absolute: {raw}"
-            )));
-        }
-        let workspace = PathBuf::from(&self.workspace_root);
-        let candidate = PathBuf::from(raw);
-        let relative = candidate.strip_prefix(&workspace).map_err(|_| {
-            LayerStackError::WorkspaceBinding(format!(
-                "path is outside bound workspace {}: {raw}",
-                self.workspace_root
-            ))
-        })?;
-        normalize_layer_path(&relative.to_string_lossy())
-    }
 }
 
 pub fn read_workspace_binding(
@@ -130,20 +100,4 @@ pub(super) fn write_workspace_binding_at(
     let encoded = serde_json::to_vec_pretty(binding)
         .map_err(|err| LayerStackError::WorkspaceBinding(err.to_string()))?;
     write_atomic(target_stack.join(WORKSPACE_BINDING_FILE), &encoded)
-}
-
-fn required_path(path: &str) -> Result<&str, LayerStackError> {
-    let raw = path.trim();
-    if raw.is_empty() {
-        return Err(LayerStackError::WorkspaceBinding(
-            "path is required".to_owned(),
-        ));
-    }
-    Ok(raw)
-}
-
-fn normalize_layer_path(path: &str) -> Result<String, LayerStackError> {
-    crate::model::LayerPath::parse(path)
-        .map(|path| path.as_str().to_owned())
-        .map_err(LayerStackError::from)
 }
