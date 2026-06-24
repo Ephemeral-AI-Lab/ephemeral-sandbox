@@ -993,6 +993,7 @@ name = "sandbox-daemon"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "rusqlite",
  "sandbox-config",
  "sandbox-observability",
  "sandbox-protocol",
@@ -1049,7 +1050,6 @@ name = "sandbox-observability"
 version = "0.1.0"
 dependencies = [
  "rusqlite",
- "sandbox-observability",
  "thiserror 2.0.18",
 ]
 

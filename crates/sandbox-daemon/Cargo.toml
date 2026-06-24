@@ -24,7 +24,7 @@ tokio-util.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-sandbox-observability = { workspace = true, features = ["test-support"] }
+rusqlite.workspace = true
 sandbox-runtime-layerstack.workspace = true
 
 [lints]

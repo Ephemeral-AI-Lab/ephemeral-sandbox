@@ -2,9 +2,6 @@ mod read;
 mod rows;
 mod schema;
 
-#[cfg(feature = "test-support")]
-mod test_support;
-
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
@@ -25,9 +22,6 @@ pub use rows::{
     ObservabilityRequestTraceRow, ObservabilityResourceSampleRow, ObservabilitySandboxSnapshotRow,
     ObservabilitySnapshotReadOptions, ObservabilitySnapshotRows, ObservabilityWorkspaceSnapshotRow,
 };
-
-#[cfg(feature = "test-support")]
-pub use schema::{schema_checksum, V1_SCHEMA_SQL};
 
 #[derive(Debug, Error)]
 pub enum StoreError {

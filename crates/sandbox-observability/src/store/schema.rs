@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 );
 "#;
 
-pub const V1_SCHEMA_SQL: &str = r#"
+const V1_SCHEMA_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS traces (
   trace_id TEXT PRIMARY KEY,
   kind TEXT NOT NULL,
@@ -276,7 +276,7 @@ pub(super) fn apply_schema(connection: &mut Connection) -> Result<(), StoreError
     Ok(())
 }
 
-pub fn schema_checksum(sql: &str) -> String {
+fn schema_checksum(sql: &str) -> String {
     const FNV_OFFSET: u64 = 0xcbf29ce484222325;
     const FNV_PRIME: u64 = 0x00000100000001b3;
 

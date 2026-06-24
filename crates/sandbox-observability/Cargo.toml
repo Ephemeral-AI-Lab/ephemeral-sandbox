@@ -9,11 +9,5 @@ license.workspace = true
 rusqlite.workspace = true
 thiserror.workspace = true
 
-[features]
-test-support = []
-
-[dev-dependencies]
-sandbox-observability = { path = ".", features = ["test-support"] }
-
 [lints]
 workspace = true

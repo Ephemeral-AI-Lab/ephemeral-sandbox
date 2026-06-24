@@ -5,8 +5,11 @@ use std::sync::Arc;
 
 use crate::observability::DaemonObservability;
 use crate::server::{SandboxDaemonServer, ServerConfig};
+use rusqlite::{Connection, OptionalExtension};
 use sandbox_observability::{
-    ObservabilityPaths, ObservabilityStore, SpanRecord, StoreError, TraceRecord,
+    NamespaceExecutionSnapshotRecord, NamespaceExecutionTraceRecord, ObservabilityPaths,
+    ResourceSampleRecord, SandboxSnapshotRecord, SpanRecord, StoreError, TraceRecord,
+    WorkspaceSnapshotRecord,
 };
 use sandbox_runtime::command::CommandSessionId;
 use sandbox_runtime::{
@@ -32,8 +35,6 @@ trait DaemonObservabilityTestExt {
         config: &ServerConfig,
         snapshot: RuntimeObservabilitySnapshot,
     ) -> Result<(), StoreError>;
-
-    fn force_sqlite_write_errors_for_test(&self) -> Result<(), StoreError>;
 }
 
 impl DaemonObservabilityTestExt for DaemonObservability {
@@ -46,9 +47,311 @@ impl DaemonObservabilityTestExt for DaemonObservability {
             .map(|_| ())
     }
 
-    fn force_sqlite_write_errors_for_test(&self) -> Result<(), StoreError> {
-        self.store.force_sqlite_write_errors_for_test()
+}
+
+struct TestObservabilityStore {
+    database_path: PathBuf,
+}
+
+impl TestObservabilityStore {
+    fn connection(&self) -> rusqlite::Result<Connection> {
+        Connection::open(&self.database_path)
     }
+
+    fn trace_for_test(&self, trace_id: &str) -> TestResult<Option<TraceRecord>> {
+        let connection = self.connection()?;
+        Ok(connection
+            .query_row(
+                "SELECT
+                    trace_id,
+                    kind,
+                    status,
+                    sandbox_id,
+                    operation,
+                    request_id,
+                    origin_request_id,
+                    workspace_id,
+                    command_session_id,
+                    started_at_unix_ms,
+                    finished_at_unix_ms,
+                    duration_ms,
+                    error_kind,
+                    error_message
+                 FROM traces
+                 WHERE trace_id = ?1",
+                [trace_id],
+                |row| {
+                    Ok(TraceRecord {
+                        trace_id: row.get(0)?,
+                        kind: row.get(1)?,
+                        status: row.get(2)?,
+                        sandbox_id: row.get(3)?,
+                        operation: row.get(4)?,
+                        request_id: row.get(5)?,
+                        origin_request_id: row.get(6)?,
+                        workspace_id: row.get(7)?,
+                        command_session_id: row.get(8)?,
+                        started_at_unix_ms: row.get(9)?,
+                        finished_at_unix_ms: row.get(10)?,
+                        duration_ms: row.get(11)?,
+                        error_kind: row.get(12)?,
+                        error_message: row.get(13)?,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    fn spans_for_test(&self, trace_id: &str) -> TestResult<Vec<SpanRecord>> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT
+                span_id,
+                trace_id,
+                parent_span_id,
+                method_name,
+                call_index,
+                status,
+                started_at_unix_ms,
+                finished_at_unix_ms,
+                duration_ms,
+                error_kind,
+                error_message
+             FROM spans
+             WHERE trace_id = ?1
+             ORDER BY call_index",
+        )?;
+        let rows = statement.query_map([trace_id], |row| {
+            Ok(SpanRecord {
+                span_id: row.get(0)?,
+                trace_id: row.get(1)?,
+                parent_span_id: row.get(2)?,
+                method_name: row.get(3)?,
+                call_index: row.get(4)?,
+                status: row.get(5)?,
+                started_at_unix_ms: row.get(6)?,
+                finished_at_unix_ms: row.get(7)?,
+                duration_ms: row.get(8)?,
+                error_kind: row.get(9)?,
+                error_message: row.get(10)?,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    fn sandbox_snapshot_for_test(
+        &self,
+        sandbox_id: &str,
+    ) -> TestResult<Option<SandboxSnapshotRecord>> {
+        let connection = self.connection()?;
+        Ok(connection
+            .query_row(
+                "SELECT
+                    sandbox_id,
+                    state,
+                    workspace_root,
+                    daemon_runtime_dir,
+                    socket_path,
+                    pid_path,
+                    daemon_pid,
+                    sampled_at_unix_ms,
+                    error_message
+                FROM sandbox_snapshots
+                WHERE sandbox_id = ?1",
+                [sandbox_id],
+                |row| {
+                    Ok(SandboxSnapshotRecord {
+                        sandbox_id: row.get(0)?,
+                        state: row.get(1)?,
+                        workspace_root: row.get(2)?,
+                        daemon_runtime_dir: row.get(3)?,
+                        socket_path: row.get(4)?,
+                        pid_path: row.get(5)?,
+                        daemon_pid: row.get(6)?,
+                        sampled_at_unix_ms: row.get(7)?,
+                        error_message: row.get(8)?,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    fn workspace_snapshots_for_test(
+        &self,
+        sandbox_id: &str,
+    ) -> TestResult<Vec<WorkspaceSnapshotRecord>> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT
+                sandbox_id,
+                workspace_id,
+                state,
+                remount_state,
+                profile,
+                workspace_root,
+                upperdir,
+                workdir,
+                namespace_fd_count,
+                base_manifest_version,
+                base_root_hash,
+                layer_count,
+                sampled_at_unix_ms,
+                error_message
+            FROM workspace_snapshots
+            WHERE sandbox_id = ?1
+            ORDER BY workspace_id",
+        )?;
+        let rows = statement.query_map([sandbox_id], |row| {
+            Ok(WorkspaceSnapshotRecord {
+                sandbox_id: row.get(0)?,
+                workspace_id: row.get(1)?,
+                state: row.get(2)?,
+                remount_state: row.get(3)?,
+                profile: row.get(4)?,
+                workspace_root: row.get(5)?,
+                upperdir: row.get(6)?,
+                workdir: row.get(7)?,
+                namespace_fd_count: row.get(8)?,
+                base_manifest_version: row.get(9)?,
+                base_root_hash: row.get(10)?,
+                layer_count: row.get(11)?,
+                sampled_at_unix_ms: row.get(12)?,
+                error_message: row.get(13)?,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    fn namespace_execution_snapshots_for_test(
+        &self,
+        sandbox_id: &str,
+    ) -> TestResult<Vec<NamespaceExecutionSnapshotRecord>> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT
+                sandbox_id,
+                namespace_execution_id,
+                workspace_session_id,
+                operation,
+                lifecycle_state,
+                sampled_at_unix_ms,
+                error_message
+            FROM namespace_execution_snapshots
+            WHERE sandbox_id = ?1
+            ORDER BY namespace_execution_id",
+        )?;
+        let rows = statement.query_map([sandbox_id], |row| {
+            Ok(NamespaceExecutionSnapshotRecord {
+                sandbox_id: row.get(0)?,
+                namespace_execution_id: row.get(1)?,
+                workspace_session_id: row.get(2)?,
+                operation: row.get(3)?,
+                lifecycle_state: row.get(4)?,
+                sampled_at_unix_ms: row.get(5)?,
+                error_message: row.get(6)?,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    fn namespace_execution_traces_for_test(
+        &self,
+        sandbox_id: &str,
+    ) -> TestResult<Vec<NamespaceExecutionTraceRecord>> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT
+                trace_id,
+                sandbox_id,
+                namespace_execution_id,
+                workspace_session_id,
+                operation,
+                request_id,
+                status,
+                exit_code,
+                started_at_unix_ms,
+                finished_at_unix_ms,
+                duration_ms,
+                error_kind,
+                error_message
+            FROM namespace_execution_traces
+            WHERE sandbox_id = ?1
+            ORDER BY namespace_execution_id",
+        )?;
+        let rows = statement.query_map([sandbox_id], |row| {
+            Ok(NamespaceExecutionTraceRecord {
+                trace_id: row.get(0)?,
+                sandbox_id: row.get(1)?,
+                namespace_execution_id: row.get(2)?,
+                workspace_session_id: row.get(3)?,
+                operation: row.get(4)?,
+                request_id: row.get(5)?,
+                status: row.get(6)?,
+                exit_code: row.get(7)?,
+                started_at_unix_ms: row.get(8)?,
+                finished_at_unix_ms: row.get(9)?,
+                duration_ms: row.get(10)?,
+                error_kind: row.get(11)?,
+                error_message: row.get(12)?,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    fn resource_samples_for_test(&self, sandbox_id: &str) -> TestResult<Vec<ResourceSampleRecord>> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT
+                sample_id,
+                sandbox_id,
+                workspace_id,
+                sampled_at_unix_ms,
+                cgroup_path,
+                cgroup_available,
+                cgroup_error,
+                cpu_usage_usec,
+                memory_current_bytes,
+                memory_max_bytes,
+                memory_max_unlimited,
+                disk_upperdir_bytes,
+                disk_file_count,
+                disk_dir_count,
+                disk_symlink_count,
+                disk_truncated,
+                disk_read_error_count,
+                disk_first_error_path
+            FROM resource_samples
+            WHERE sandbox_id = ?1
+            ORDER BY sampled_at_unix_ms, sample_id",
+        )?;
+        let rows = statement.query_map([sandbox_id], |row| {
+            Ok(ResourceSampleRecord {
+                sample_id: row.get(0)?,
+                sandbox_id: row.get(1)?,
+                workspace_id: row.get(2)?,
+                sampled_at_unix_ms: row.get(3)?,
+                cgroup_path: row.get(4)?,
+                cgroup_available: row.get::<_, i64>(5)? != 0,
+                cgroup_error: row.get(6)?,
+                cpu_usage_usec: row.get(7)?,
+                memory_current_bytes: row.get(8)?,
+                memory_max_bytes: row.get(9)?,
+                memory_max_unlimited: row.get::<_, Option<i64>>(10)?.map(|value| value != 0),
+                disk_upperdir_bytes: row.get(11)?,
+                disk_file_count: row.get(12)?,
+                disk_dir_count: row.get(13)?,
+                disk_symlink_count: row.get(14)?,
+                disk_truncated: row.get::<_, Option<i64>>(15)?.map(|value| value != 0),
+                disk_read_error_count: row.get(16)?,
+                disk_first_error_path: row.get(17)?,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+}
+
+struct SqliteWriteBlocker {
+    _connection: Connection,
 }
 
 fn test_unix_ms() -> i64 {
@@ -69,8 +372,7 @@ fn observability_collection_writes_namespace_only_live_snapshot() -> TestResult 
 
     observability.collect_runtime_snapshot_for_test(&config, snapshot)?;
 
-    let paths = ObservabilityPaths::from_socket_path(&config.socket_path)?;
-    let store = ObservabilityStore::open(&paths)?;
+    let store = store_for_config(&config)?;
     let sandbox = store
         .sandbox_snapshot_for_test("sandbox-1")?
         .expect("sandbox snapshot written");
@@ -620,7 +922,7 @@ fn async_trace_sink_store_failure_is_swallowed_at_callback_boundary() -> TestRes
     let observability = Arc::new(
         DaemonObservability::from_config(&config).expect("sandbox id enables observability"),
     );
-    observability.force_sqlite_write_errors_for_test()?;
+    let _write_blocker = block_sqlite_writes_for_test(&config)?;
     let sink = DaemonObservability::async_trace_sink(Arc::clone(&observability));
 
     sink(
@@ -951,11 +1253,7 @@ async fn missing_sandbox_id_disables_trace_persistence_without_failing_request()
 async fn observability_store_failure_does_not_alter_operation_response() -> TestResult {
     let root = test_root("trace-store-failure");
     let server = daemon_server(&root, Some("sandbox-1"))?;
-    server
-        .observability
-        .as_ref()
-        .expect("observability enabled")
-        .force_sqlite_write_errors_for_test()?;
+    let _write_blocker = block_sqlite_writes_for_test(&server.config)?;
 
     let response = server
         .dispatch_bytes(request_bytes("missing_op", "req-store-failure", json!({}))?, false)
@@ -974,7 +1272,7 @@ async fn observability_write_errors_do_not_change_operation_responses() -> TestR
         .observability
         .as_ref()
         .expect("sandbox id enables observability");
-    observability.force_sqlite_write_errors_for_test()?;
+    let _write_blocker = block_sqlite_writes_for_test(&server.config)?;
 
     let collect_error = observability
         .collect(&server.config, server.operations.as_ref())
@@ -1141,7 +1439,7 @@ fn request_bytes(op: &str, request_id: &str, args: Value) -> TestResult<Vec<u8>>
     }))?)
 }
 
-fn trace_for(store: &ObservabilityStore, trace_id: &str) -> TestResult<TraceRecord> {
+fn trace_for(store: &TestObservabilityStore, trace_id: &str) -> TestResult<TraceRecord> {
     store
         .trace_for_test(trace_id)?
         .ok_or_else(|| format!("missing trace {trace_id}").into())
@@ -1213,13 +1511,15 @@ fn workspace_snapshot(workspace_id: &str, upperdir: Option<PathBuf>) -> RuntimeW
     }
 }
 
-fn store_for_config(config: &ServerConfig) -> TestResult<ObservabilityStore> {
+fn store_for_config(config: &ServerConfig) -> TestResult<TestObservabilityStore> {
     let paths = ObservabilityPaths::from_socket_path(&config.socket_path)?;
-    Ok(ObservabilityStore::open(&paths)?)
+    Ok(TestObservabilityStore {
+        database_path: paths.database_path().to_path_buf(),
+    })
 }
 
 fn latest_workspace_sample(
-    store: &ObservabilityStore,
+    store: &TestObservabilityStore,
     sandbox_id: &str,
     workspace_id: &str,
 ) -> TestResult<sandbox_observability::ResourceSampleRecord> {
@@ -1228,6 +1528,15 @@ fn latest_workspace_sample(
         .into_iter()
         .rfind(|sample| sample.workspace_id.as_deref() == Some(workspace_id))
         .ok_or_else(|| format!("missing resource sample for {workspace_id}").into())
+}
+
+fn block_sqlite_writes_for_test(config: &ServerConfig) -> TestResult<SqliteWriteBlocker> {
+    let paths = ObservabilityPaths::from_socket_path(&config.socket_path)?;
+    let connection = Connection::open(paths.database_path())?;
+    connection.execute_batch("BEGIN IMMEDIATE")?;
+    Ok(SqliteWriteBlocker {
+        _connection: connection,
+    })
 }
 
 fn server_config(root: &Path, sandbox_id: Option<&str>) -> ServerConfig {
