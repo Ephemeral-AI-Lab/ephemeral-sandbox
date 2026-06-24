@@ -8,3 +8,5 @@ mod overlay_tree;
 mod remount_plan;
 #[path = "unit/service.rs"]
 mod service;
+#[path = "unit/setns_runner.rs"]
+mod setns_runner;

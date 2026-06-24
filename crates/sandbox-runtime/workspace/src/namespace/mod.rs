@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use sandbox_runtime_namespace_execution::{NamespaceExecutionEngine, NoopObserver};
 
-#[cfg(target_os = "linux")]
 use crate::profile::WorkspaceModeError;
 
 const MOUNT_MAX_ACTIVE: usize = 64;
@@ -86,7 +85,6 @@ impl NamespacePlan {
     }
 }
 
-#[cfg(target_os = "linux")]
 pub(crate) fn setup_error(error: impl std::fmt::Display) -> WorkspaceModeError {
     WorkspaceModeError::SetupFailed {
         step: error.to_string(),
@@ -95,6 +93,8 @@ pub(crate) fn setup_error(error: impl std::fmt::Display) -> WorkspaceModeError {
 
 pub struct NamespaceRuntime {
     engine: Arc<NamespaceExecutionEngine>,
+    #[cfg(feature = "test-support")]
+    force_engine_for_test: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -113,6 +113,16 @@ impl NamespaceRuntime {
                 MOUNT_MAX_ACTIVE,
                 setup_timeout_s,
             )),
+            #[cfg(feature = "test-support")]
+            force_engine_for_test: false,
+        }
+    }
+
+    #[cfg(feature = "test-support")]
+    pub fn from_engine_for_test(engine: Arc<NamespaceExecutionEngine>) -> Self {
+        Self {
+            engine,
+            force_engine_for_test: true,
         }
     }
 }

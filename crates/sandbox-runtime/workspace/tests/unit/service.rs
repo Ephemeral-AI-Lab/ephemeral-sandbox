@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde_json::json;
 
 use sandbox_runtime_workspace::model::{
-    CreateWorkspaceRequest, DestroyWorkspaceRequest, WorkspaceProfile,
+    CreateWorkspaceRequest, DestroyWorkspaceRequest, RemountWorkspaceRequest, WorkspaceProfile,
 };
 use sandbox_runtime_workspace::profile::{ResourceCaps, WorkspaceModeManager};
 use sandbox_runtime_workspace::WorkspaceRuntimeService;
@@ -57,6 +57,35 @@ fn runtime_service_create_and_destroy_are_backed_by_impl_files(
     assert_eq!(destroyed.lease_released, Some(true));
     assert_eq!(destroyed.lease_release_error, None);
     assert_eq!(destroyed.active_leases_after, 0);
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires real Linux namespace, mount, and network privileges"
+)]
+fn runtime_service_remount_uses_verified_non_linux_stub(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = Fixture::new("remount")?;
+    let service = fixture.service();
+    let handle = service.create_workspace(CreateWorkspaceRequest {
+        profile: WorkspaceProfile::HostCompatible,
+    })?;
+    let new_layer = fixture
+        .layer_stack_root
+        .join("layers")
+        .join("B000002-remount");
+    std::fs::create_dir_all(&new_layer)?;
+
+    let remounted = service.remount_workspace(
+        &handle,
+        RemountWorkspaceRequest {
+            layer_paths: vec![new_layer.clone()],
+        },
+    )?;
+
+    assert_eq!(remounted.handle.snapshot.layer_paths, vec![new_layer]);
     Ok(())
 }
 

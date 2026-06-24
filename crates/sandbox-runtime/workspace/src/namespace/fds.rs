@@ -13,16 +13,13 @@ use std::thread;
 #[cfg(target_os = "linux")]
 use std::time::{Duration, Instant};
 
+use crate::profile::{WorkspaceModeError, WorkspaceModeFds};
 #[cfg(target_os = "linux")]
 use nix::errno::Errno;
 #[cfg(target_os = "linux")]
 use nix::fcntl::{fcntl, FcntlArg, FdFlag, OFlag};
 #[cfg(target_os = "linux")]
 use nix::unistd::read;
-#[cfg(target_os = "linux")]
-use sandbox_runtime_namespace_process::runner::protocol::{Fd, NsFds};
-
-use crate::profile::{WorkspaceModeError, WorkspaceModeFds};
 
 #[cfg(target_os = "linux")]
 use super::setup_error;
@@ -139,14 +136,4 @@ pub(super) fn write_all_fd(fd: RawFd, bytes: &[u8]) -> Result<(), WorkspaceModeE
         .open(format!("/proc/self/fd/{fd}"))
         .map_err(setup_error)?;
     file.write_all(bytes).map_err(setup_error)
-}
-
-#[cfg(target_os = "linux")]
-pub(super) fn ns_fds_from_mode(fds: WorkspaceModeFds) -> Option<NsFds> {
-    (!fds.is_empty()).then(|| NsFds {
-        user: fds.user.map(Fd),
-        mnt: fds.mnt.map(Fd),
-        pid: fds.pid.map(Fd),
-        net: fds.net.map(Fd),
-    })
 }

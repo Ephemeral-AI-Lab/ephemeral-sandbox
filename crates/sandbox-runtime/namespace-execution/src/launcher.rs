@@ -190,11 +190,7 @@ impl RunnerChild for ForkRunnerChild {
             )?,
             None => self.child.wait().map_err(spawn_error)?,
         };
-        let bytes = read_result_fd(&self.result_read).unwrap_or_default();
-        if let Ok(result) = serde_json::from_slice::<RunResult>(&bytes) {
-            return Ok(result);
-        }
-        Ok(synthesize_result(status))
+        run_result_from_child_status(status, &self.result_read)
     }
 }
 
@@ -252,6 +248,25 @@ fn read_result_fd(result_read: &OwnedFd) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 
+fn run_result_from_child_status(
+    status: ExitStatus,
+    result_read: &OwnedFd,
+) -> Result<RunResult, NamespaceExecutionError> {
+    match read_result_fd(result_read) {
+        Ok(bytes) => match serde_json::from_slice::<RunResult>(&bytes) {
+            Ok(result) => Ok(result),
+            Err(error) if status.success() => Err(NamespaceExecutionError::Completion(format!(
+                "decode runner result JSON: {error}"
+            ))),
+            Err(_) => Ok(synthesize_result(status)),
+        },
+        Err(error) if status.success() => Err(NamespaceExecutionError::Completion(format!(
+            "read runner result fd: {error}"
+        ))),
+        Err(_) => Ok(synthesize_result(status)),
+    }
+}
+
 fn synthesize_result(status: ExitStatus) -> RunResult {
     let exit_code = status
         .code()
@@ -265,7 +280,7 @@ fn synthesize_result(status: ExitStatus) -> RunResult {
 
 fn wait_for_child_with_timeout(
     child: &mut Child,
-    mode_flag: &str,
+    mode_flag: &'static str,
     setup_timeout_s: f64,
 ) -> Result<ExitStatus, NamespaceExecutionError> {
     let deadline = Instant::now() + setup_timeout_duration(setup_timeout_s);
@@ -319,8 +334,8 @@ fn terminate_spawned_child(child: &mut Child, pgid: Option<i32>) {
     let _ = child.wait();
 }
 
-fn timeout_error(mode_flag: &str) -> NamespaceExecutionError {
-    NamespaceExecutionError::Spawn(format!("ns-runner {mode_flag} timed out"))
+fn timeout_error(mode_flag: &'static str) -> NamespaceExecutionError {
+    NamespaceExecutionError::Timeout { mode_flag }
 }
 
 fn encode_request(request: &NamespaceRunnerRequest) -> Result<Vec<u8>, NamespaceExecutionError> {
@@ -386,5 +401,56 @@ mod tests {
             .to_string()
             .contains("ns-runner --mount-overlay timed out"));
         assert!(runner.child.try_wait().expect("child state").is_some());
+    }
+
+    #[test]
+    fn zero_status_without_valid_result_is_completion_error() {
+        let (result_read, result_write) = result_pipe().expect("result pipe");
+        drop(result_write);
+        let child = Command::new("sh")
+            .arg("-c")
+            .arg("true")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn child");
+        let mut runner = ForkRunnerChild {
+            child,
+            result_read,
+            timeout: None,
+        };
+
+        let error = runner
+            .wait_completion()
+            .expect_err("missing success result is an execution error");
+
+        assert!(matches!(error, NamespaceExecutionError::Completion(_)));
+    }
+
+    #[test]
+    fn nonzero_status_without_valid_result_synthesizes_failure() {
+        let (result_read, result_write) = result_pipe().expect("result pipe");
+        drop(result_write);
+        let child = Command::new("sh")
+            .arg("-c")
+            .arg("exit 17")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn child");
+        let mut runner = ForkRunnerChild {
+            child,
+            result_read,
+            timeout: None,
+        };
+
+        let result = runner
+            .wait_completion()
+            .expect("nonzero child status yields synthesized result");
+
+        assert_eq!(result.exit_code, 17);
+        assert_eq!(result.payload["status"], "error");
     }
 }

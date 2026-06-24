@@ -10,6 +10,7 @@ use sandbox_runtime::{
     CommandOperationService, NamespaceExecutionLifecycle, NamespaceExecutionStore,
     SandboxRuntimeOperations,
 };
+use sandbox_runtime_workspace::{RemountWorkspaceRequest, RemountWorkspaceResult};
 use sandbox_runtime_workspace::{WorkspaceProfile, WorkspaceSessionId};
 
 use support::{
@@ -100,6 +101,49 @@ fn observability_snapshot_reports_active_command_namespace_execution(
         namespace_execution.lifecycle_state,
         NamespaceExecutionLifecycle::Running
     );
+    assert!(snapshot.completed_namespace_executions.is_empty());
+    Ok(())
+}
+
+#[test]
+fn observability_snapshot_keeps_workspace_remount_out_of_namespace_executions(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    let services = build_services(Arc::clone(&fake));
+    let workspace_session_id = create_session(
+        &fake,
+        &services,
+        "workspace-session",
+        PathBuf::from("/workspace/session"),
+        WorkspaceProfile::HostCompatible,
+    );
+    let mut remounted = workspace_handle(
+        "workspace-session",
+        "lease-2",
+        PathBuf::from("/workspace/session"),
+        WorkspaceProfile::HostCompatible,
+    );
+    remounted.snapshot.layer_paths = vec![PathBuf::from("/lower/remounted")];
+    remounted.base_revision = remounted.snapshot.base_revision();
+    fake.push_remount_result(Ok(RemountWorkspaceResult { handle: remounted }));
+    let handler = services
+        .workspace
+        .begin_remount(workspace_session_id)
+        .expect("begin remount succeeds");
+
+    services
+        .workspace
+        .apply_and_finish_remount(
+            &handler,
+            RemountWorkspaceRequest {
+                layer_paths: vec![PathBuf::from("/lower/remounted")],
+            },
+        )
+        .expect("workspace remount succeeds");
+    let operations = operations_for(&services)?;
+    let snapshot = operations.observability_snapshot();
+
+    assert!(snapshot.active_namespace_executions.is_empty());
     assert!(snapshot.completed_namespace_executions.is_empty());
     Ok(())
 }

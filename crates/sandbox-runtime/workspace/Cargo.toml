@@ -26,6 +26,8 @@ test-support = []
 [dev-dependencies]
 sandbox-runtime-workspace = { path = ".", features = ["test-support"] }
 sandbox-runtime-layerstack.workspace = true
+sandbox-runtime-namespace-execution = { workspace = true, features = ["test-support"] }
+sandbox-runtime-namespace-process.workspace = true
 serde_json.workspace = true
 
 [lints]

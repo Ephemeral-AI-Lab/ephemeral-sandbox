@@ -4,12 +4,10 @@ use std::sync::OnceLock;
 use std::time::Instant;
 
 use crate::assertion;
-use crate::cli_client::{CallRecord, CliClient};
+use crate::cli_client::{CallRecord, CliClient, CLI_BIN};
 use crate::config::ManifestConfig;
 use crate::gateway;
 use crate::report;
-
-const CLI_BIN: &str = "sandbox-cli";
 
 /// Lazy harness singleton: env → manifest → `CliClient`, plus the per-test
 /// provisioning entry point. Owns the one `CliClient` every leaf shares.
@@ -35,7 +33,9 @@ impl Harness {
             Ok(config) => config?,
             Err(error) => panic!("invalid EOS_E2E_RUN_ROOT run-manifest.json: {error:#}"),
         };
-        if let Err(error) = gateway::await_ready(&config.gateway_socket) {
+        if let Err(error) =
+            gateway::await_ready(&config.gateway_socket, gateway::DEFAULT_READY_TIMEOUT)
+        {
             panic!("gateway not ready: {error:#}");
         }
         let cli = CliClient::new(PathBuf::from(CLI_BIN), config.gateway_socket);

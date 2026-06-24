@@ -4,6 +4,9 @@ use std::time::Instant;
 
 use serde_json::{json, Value};
 
+/// The black-box driver binary name; the sole CLI every code path shells out to.
+pub const CLI_BIN: &str = "sandbox-cli";
+
 /// One captured `sandbox-cli` invocation. `request_json` is `None` on the
 /// black-box path because the CLI never echoes the wire request to stdio (it is
 /// written only to the socket); the field exists for parity with the parent
@@ -61,10 +64,20 @@ impl CliClient {
         argv.extend(subcommand);
 
         let started = Instant::now();
-        let output = Command::new(&self.cli_path)
-            .args(&argv)
-            .output()
-            .unwrap_or_else(|error| panic!("failed to spawn {}: {error}", self.cli_path.display()));
+        let output = match Command::new(&self.cli_path).args(&argv).output() {
+            Ok(output) => output,
+            Err(error) => {
+                return CallRecord {
+                    argv,
+                    request_json: None,
+                    response_json: Value::Null,
+                    exit_code: -1,
+                    stdout: String::new(),
+                    stderr: format!("failed to spawn {}: {error}", self.cli_path.display()),
+                    latency_ms: started.elapsed().as_millis(),
+                };
+            }
+        };
         let latency_ms = started.elapsed().as_millis();
 
         let exit_code = output.status.code().unwrap_or(-1);
@@ -93,7 +106,9 @@ impl CallRecord {
     /// The parsed response is the bare result object (success) or
     /// `{ error: {..} }` (failure). On exit 0 the line came from stdout; on exit
     /// 1/2 it came from stderr. `response_json` is parsed from whichever stream
-    /// carried the line.
+    /// carried the line. When `sandbox-cli` cannot be spawned the record carries
+    /// `exit_code == -1`, a `Null` response, and the OS error in `stderr`, so
+    /// callers can treat the spawn failure as non-fatal by inspecting `exit_code`.
     #[must_use]
     pub fn response(&self) -> &Value {
         &self.response_json

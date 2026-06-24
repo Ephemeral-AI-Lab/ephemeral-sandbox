@@ -4,10 +4,8 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use crate::cli_client::CliClient;
+use crate::cli_client::{CliClient, CLI_BIN};
 use crate::config::CleanupPolicy;
-
-const CLI_BIN: &str = "sandbox-cli";
 
 /// Outcome of one teardown pass (§7.3); embedded into `summary.cleanup`. Errors
 /// are human-readable and non-fatal (e.g. a destroy of an already-gone sandbox).
@@ -64,10 +62,11 @@ impl RunGuard {
 
     /// Execute teardown once: sweep survivor sandboxes, leave the attached
     /// gateway untouched, then (policy-gated) remove the run root. Idempotent —
-    /// a destroy of an already-gone sandbox is recorded but non-fatal.
+    /// a destroy of an already-gone (or unspawnable) sandbox is recorded but
+    /// non-fatal. The `done` guard is set only after the destructive steps
+    /// complete, so a teardown interrupted by a panic can still be finished by
+    /// `Drop`.
     pub fn teardown(&self) -> CleanupReport {
-        self.done.set(true);
-
         let destroyed_sandbox_ids = self.captured_ids();
         let mut errors = Vec::new();
         for id in &destroyed_sandbox_ids {
@@ -93,6 +92,7 @@ impl RunGuard {
             }
         }
 
+        self.done.set(true);
         CleanupReport {
             policy: self.policy.as_str().to_owned(),
             removed_run_root,

@@ -231,7 +231,7 @@ impl RunConfig {
             .max(1);
 
         let tests = if let Some(path) = &args.rerun_failed_from {
-            TestSelection::RerunFailedFrom(path.clone())
+            TestSelection::Names(parse_failed_tests(path)?)
         } else if args.test_names.is_empty() {
             TestSelection::All
         } else {
@@ -325,6 +325,27 @@ pub fn resolve_run_root_base(args: &RunArgs) -> PathBuf {
     tmp.join("eos-e2e")
 }
 
+/// Parse the `failed_tests[]` libtest filters from a prior `summary.json` (§9).
+/// Resolving `--rerun-failed-from` through this up front means a malformed
+/// summary fails before any run root or manifest is created.
+pub fn parse_failed_tests(path: &Path) -> anyhow::Result<Vec<String>> {
+    let bytes =
+        std::fs::read(path).with_context(|| format!("reading rerun summary {}", path.display()))?;
+    let summary: serde_json::Value = serde_json::from_slice(&bytes)
+        .with_context(|| format!("parsing rerun summary {}", path.display()))?;
+    Ok(summary
+        .get("failed_tests")
+        .and_then(serde_json::Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
 /// Reject run ids that are empty or carry a char outside the `SandboxId`
 /// charset `[A-Za-z0-9._-]` (notably `:`, which the colon-free clock avoids).
 pub fn validate_run_id(run_id: &str) -> anyhow::Result<()> {
@@ -389,11 +410,17 @@ fn derive_run_id(clock: &str) -> anyhow::Result<String> {
     hasher.update(salt.as_bytes());
     let digest = hasher.finalize();
 
-    let mut slug = String::with_capacity(8);
-    for byte in digest.iter().take(4) {
-        slug.push_str(&format!("{byte:02x}"));
-    }
+    let slug = hex_encode(&digest[..4]);
     Ok(format!("r{clock}-{slug}"))
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    let mut hex = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        let _ = write!(hex, "{byte:02x}");
+    }
+    hex
 }
 
 /// `git rev-parse HEAD` for the working tree, recorded in `run-manifest.json`
@@ -428,11 +455,7 @@ fn test_manifest_hash() -> String {
     let mut hasher = Sha256::new();
     hasher.update(joined.as_bytes());
     let digest = hasher.finalize();
-    let mut hex = String::with_capacity(64);
-    for byte in digest {
-        hex.push_str(&format!("{byte:02x}"));
-    }
-    hex
+    hex_encode(&digest)
 }
 
 fn collect_test_leaves(dir: &Path, base: &Path, out: &mut Vec<String>) {

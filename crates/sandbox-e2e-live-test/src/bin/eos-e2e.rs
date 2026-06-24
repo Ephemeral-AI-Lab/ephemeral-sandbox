@@ -6,7 +6,7 @@ use clap::Parser as _;
 use serde_json::Value;
 
 use sandbox_e2e_live_test::cleanup::RunGuard;
-use sandbox_e2e_live_test::cli_client::{CallRecord, CliClient};
+use sandbox_e2e_live_test::cli_client::{CallRecord, CliClient, CLI_BIN};
 use sandbox_e2e_live_test::config::{
     self, Args, CleanupPolicy, Command as Subcommand, RunArgs, RunConfig, TestSelection,
 };
@@ -16,7 +16,6 @@ use sandbox_e2e_live_test::{gateway, report};
 /// suite (drop `--test manager`) and changes nothing else here (§9).
 const STAGE1_DEFAULT_TARGET: &[&str] = &["--test", "manager"];
 
-const CLI_BIN: &str = "sandbox-cli";
 const RUN_ROOT_ENV: &str = "EOS_E2E_RUN_ROOT";
 const RUN_MANIFEST_FILE: &str = "run-manifest.json";
 
@@ -86,19 +85,27 @@ fn run_clean(args: &RunArgs, run_id: &str) -> ExitCode {
 }
 
 fn run_pipeline(args: &RunArgs) -> ExitCode {
+    let image = match config::resolve_image(args) {
+        Ok(image) => image,
+        Err(error) => return fail_usage(&format!("configuration error: {error:#}")),
+    };
+    if let Err(message) = preflight_environment(&image) {
+        eprintln!("{message}");
+        return ExitCode::from(2);
+    }
+    let socket = match config::resolve_gateway_socket(args) {
+        Ok(socket) => socket,
+        Err(error) => return fail_usage(&format!("configuration error: {error:#}")),
+    };
+    if let Err(message) = preflight_probe(&image, &socket) {
+        eprintln!("{message}");
+        return ExitCode::from(2);
+    }
+
     let config = match RunConfig::resolve(args) {
         Ok(config) => config,
         Err(error) => return fail_usage(&format!("configuration error: {error:#}")),
     };
-
-    if let Err(message) = preflight_environment(&config.image) {
-        eprintln!("{message}");
-        return ExitCode::from(2);
-    }
-    if let Err(message) = preflight_probe(&config.image, &config.gateway_socket) {
-        eprintln!("{message}");
-        return ExitCode::from(2);
-    }
 
     let git_head = config::git_head().unwrap_or_default();
     if let Err(error) = report::write_run_manifest(&config.run_root, &config, &git_head) {
@@ -125,7 +132,7 @@ fn run_pipeline(args: &RunArgs) -> ExitCode {
     };
 
     let attach = Instant::now();
-    if let Err(error) = gateway::await_ready(&config.gateway_socket) {
+    if let Err(error) = gateway::await_ready(&config.gateway_socket, config.gateway_ready_timeout) {
         eprintln!("eos-e2e: gateway not ready: {error:#}");
         return ExitCode::from(2);
     }
@@ -318,26 +325,7 @@ fn test_filters(tests: &TestSelection) -> anyhow::Result<Vec<String>> {
     match tests {
         TestSelection::All => Ok(Vec::new()),
         TestSelection::Names(names) => Ok(names.clone()),
-        TestSelection::RerunFailedFrom(path) => {
-            let bytes = std::fs::read(path).map_err(|error| {
-                anyhow::anyhow!("reading rerun summary {}: {error}", path.display())
-            })?;
-            let summary: Value = serde_json::from_slice(&bytes).map_err(|error| {
-                anyhow::anyhow!("parsing rerun summary {}: {error}", path.display())
-            })?;
-            let failed = summary
-                .get("failed_tests")
-                .and_then(Value::as_array)
-                .map(|items| {
-                    items
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(str::to_owned)
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
-            Ok(failed)
-        }
+        TestSelection::RerunFailedFrom(path) => config::parse_failed_tests(path),
     }
 }
 

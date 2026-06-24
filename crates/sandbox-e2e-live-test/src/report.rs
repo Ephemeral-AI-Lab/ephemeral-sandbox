@@ -210,9 +210,28 @@ pub fn write_summary(run_root: &Path, summary: &Summary) -> io::Result<()> {
     write_json_pretty(&run_root.join(SUMMARY_FILE), summary)
 }
 
+/// An `errored` `tests[]` entry keyed on the report dir name, used when a
+/// `result.json` is absent or unreadable — no test identity is recoverable.
+fn errored_entry(id: String, report_dir: String, failure: String) -> TestEntry {
+    TestEntry {
+        name: id.clone(),
+        sandbox_id: id,
+        status: "errored".to_owned(),
+        duration_ms: 0,
+        workspace_root: String::new(),
+        report_dir,
+        assertions: Assertions {
+            total: 0,
+            failed: 0,
+        },
+        failure: Some(failure),
+    }
+}
+
 /// Build `summary.tests[]` by globbing `{run_root}/reports/*/`. A dir whose
-/// `result.json` parses yields its recorded entry; a missing/unparsable
-/// `result.json` yields an `errored` entry keyed on the dir name (§5.3).
+/// `result.json` parses yields its recorded entry; a missing `result.json`
+/// yields an `errored` entry (`"result.json missing"`) and an unparsable one an
+/// `errored` entry naming the parse error (§5.3).
 #[must_use]
 pub fn build_tests(run_root: &Path) -> Vec<TestEntry> {
     let reports = run_root.join("reports");
@@ -230,33 +249,25 @@ pub fn build_tests(run_root: &Path) -> Vec<TestEntry> {
         let id = entry.file_name().to_string_lossy().into_owned();
         let report_dir = entry.path();
         let report_dir_str = report_dir.to_string_lossy().into_owned();
-        let parsed = fs::read(report_dir.join("result.json"))
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<TestOutcome>(&bytes).ok());
-        let test = match parsed {
-            Some(outcome) => TestEntry {
-                name: outcome.test_name,
-                sandbox_id: outcome.sandbox_id,
-                status: outcome.status,
-                duration_ms: outcome.duration_ms,
-                workspace_root: outcome.workspace_root,
-                report_dir: report_dir_str,
-                assertions: outcome.assertions,
-                failure: outcome.failure,
-            },
-            None => TestEntry {
-                name: id.clone(),
-                sandbox_id: id,
-                status: "errored".to_owned(),
-                duration_ms: 0,
-                workspace_root: String::new(),
-                report_dir: report_dir_str,
-                assertions: Assertions {
-                    total: 0,
-                    failed: 0,
+        let test = match fs::read(report_dir.join("result.json")) {
+            Ok(bytes) => match serde_json::from_slice::<TestOutcome>(&bytes) {
+                Ok(outcome) => TestEntry {
+                    name: outcome.test_name,
+                    sandbox_id: outcome.sandbox_id,
+                    status: outcome.status,
+                    duration_ms: outcome.duration_ms,
+                    workspace_root: outcome.workspace_root,
+                    report_dir: report_dir_str,
+                    assertions: outcome.assertions,
+                    failure: outcome.failure,
                 },
-                failure: Some("result.json missing".to_owned()),
+                Err(error) => errored_entry(
+                    id,
+                    report_dir_str,
+                    format!("result.json unparsable: {error}"),
+                ),
             },
+            Err(_) => errored_entry(id, report_dir_str, "result.json missing".to_owned()),
         };
         tests.push(test);
     }

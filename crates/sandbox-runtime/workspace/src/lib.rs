@@ -36,6 +36,62 @@ pub use service::{WorkspaceRuntimeHooks, WorkspaceRuntimeService};
 /// only under the `test-support` feature.
 #[cfg(feature = "test-support")]
 pub mod test_support {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use sandbox_runtime_namespace_execution::NamespaceExecutionEngine;
+
+    use crate::lifecycle::remount::RemountProbe;
+    use crate::profile::{
+        ResourceCaps, WorkspaceModeError, WorkspaceModeHandle, WorkspaceModeId,
+        WorkspaceModeManager,
+    };
+
     pub use crate::lifecycle::remount::WorkspaceRemountState;
     pub use crate::namespace::NamespaceRuntime;
+
+    pub fn namespace_runtime_with_engine_for_test(
+        engine: Arc<NamespaceExecutionEngine>,
+    ) -> NamespaceRuntime {
+        NamespaceRuntime::from_engine_for_test(engine)
+    }
+
+    pub fn mount_overlay_for_test(
+        runtime: &NamespaceRuntime,
+        handle: &WorkspaceModeHandle,
+        layer_paths: &[PathBuf],
+    ) -> Result<(), WorkspaceModeError> {
+        runtime.mount_overlay_via_engine(handle, layer_paths)
+    }
+
+    pub fn remount_overlay_for_test(
+        runtime: &NamespaceRuntime,
+        handle: &WorkspaceModeHandle,
+        layer_paths: &[PathBuf],
+        probe: &RemountProbe,
+    ) -> Result<crate::profile::RemountOverlayResult, WorkspaceModeError> {
+        runtime.remount_overlay_via_engine(handle, layer_paths, probe)
+    }
+
+    pub fn workspace_mode_manager_with_runtime_for_test(
+        workspace_root: impl Into<String>,
+        caps: ResourceCaps,
+        scratch_root: PathBuf,
+        runtime: NamespaceRuntime,
+    ) -> WorkspaceModeManager {
+        WorkspaceModeManager::with_runtime(workspace_root, caps, scratch_root, runtime)
+    }
+
+    pub fn insert_handle_for_test(manager: &mut WorkspaceModeManager, handle: WorkspaceModeHandle) {
+        manager.handles.insert(handle.workspace_id.clone(), handle);
+    }
+
+    pub fn remount_with_layers_for_test(
+        manager: &mut WorkspaceModeManager,
+        workspace_id: &WorkspaceModeId,
+        layer_paths: Vec<PathBuf>,
+        probe: &RemountProbe,
+    ) -> Result<WorkspaceModeHandle, WorkspaceModeError> {
+        manager.remount_with_layers(workspace_id, layer_paths, probe)
+    }
 }

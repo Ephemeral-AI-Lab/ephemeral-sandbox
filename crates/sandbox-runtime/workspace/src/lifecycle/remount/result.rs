@@ -16,6 +16,14 @@ pub struct RemountOverlayResult {
 
 impl RemountOverlayResult {
     #[must_use]
+    pub const fn verified() -> Self {
+        Self {
+            mount_verified: true,
+            failure_summary: None,
+        }
+    }
+
+    #[must_use]
     pub fn from_payload(payload: &Value) -> Self {
         let mount_verified = payload
             .get("mount_verified")
