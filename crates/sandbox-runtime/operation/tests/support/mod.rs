@@ -19,7 +19,6 @@ use sandbox_runtime::command::{CommandOperationService, CommandServiceError};
 use sandbox_runtime::workspace_remount::ProcessGroupController;
 use sandbox_runtime::workspace_session::WorkspaceSessionService;
 use sandbox_runtime::{AsyncTraceSink, NamespaceExecutionLedger};
-use sandbox_runtime_command::process::CommandProcessExit;
 use sandbox_runtime_workspace::{
     CaptureChangesRequest, CapturedWorkspaceChanges, CreateWorkspaceRequest,
     DestroyWorkspaceRequest, DestroyWorkspaceResult, LayerStackSnapshotRef, LeaseId,
@@ -52,8 +51,15 @@ pub(crate) struct FakeWorkspaceService {
 /// translated to a `FakeRunnerScript` applied by the engine's fake launcher.
 #[derive(Debug, Clone)]
 pub(crate) enum ScriptedCommandYield {
-    Completed(CommandProcessExit),
+    Completed(ScriptedCommandExit),
     Running(String),
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ScriptedCommandExit {
+    pub(crate) status: String,
+    pub(crate) exit_code: i64,
+    pub(crate) stdout: String,
 }
 
 /// A scripting façade over the engine `FakeLauncher`: `push_outcome` enqueues a
@@ -106,7 +112,7 @@ fn script_from_yield(outcome: ScriptedCommandYield) -> FakeRunnerScript {
     }
 }
 
-fn run_result_from_exit(exit: &CommandProcessExit) -> RunResult {
+fn run_result_from_exit(exit: &ScriptedCommandExit) -> RunResult {
     RunResult {
         exit_code: i32::try_from(exit.exit_code).unwrap_or(1),
         payload: serde_json::json!({ "status": exit.status }),
@@ -424,14 +430,11 @@ pub(crate) fn destroy_result(handle: &WorkspaceHandle) -> DestroyWorkspaceResult
     }
 }
 
-pub(crate) fn success_exit(stdout: &str) -> CommandProcessExit {
-    CommandProcessExit {
+pub(crate) fn success_exit(stdout: &str) -> ScriptedCommandExit {
+    ScriptedCommandExit {
         status: "ok".to_owned(),
         exit_code: 0,
-        signal: None,
         stdout: stdout.to_owned(),
-        elapsed_s: 0.1,
-        kill: None,
     }
 }
 

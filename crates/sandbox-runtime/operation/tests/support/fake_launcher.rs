@@ -1,7 +1,6 @@
-//! Public, `test-support`-gated fakes for the launcher Bridge seam. Promoted from
-//! the engine's own `tests/support` so downstream crates' `tests/` (the command
-//! and operation suites) can build an engine over a scripted fake runner without
-//! reaching the real fork path. Two drive modes share one type:
+//! Test-local fakes for the launcher Bridge seam. Downstream integration suites
+//! can build an engine over a scripted fake runner without reaching the real fork
+//! path. Two drive modes share one type:
 //!
 //! - **manual** (engine suites): each `spawn_pty`/`spawn_piped` parks a pending
 //!   child; the test later `complete_latest`/`fail_latest_wait`.

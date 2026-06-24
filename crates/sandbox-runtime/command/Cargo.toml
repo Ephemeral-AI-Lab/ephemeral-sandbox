@@ -6,13 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-sandbox-runtime-namespace-process.workspace = true
 sandbox-runtime-namespace-execution.workspace = true
 nix = { workspace = true, features = ["process", "signal"] }
-rustix = { workspace = true, features = ["pty", "event", "pipe"] }
 serde_json.workspace = true
-thiserror.workspace = true
-time.workspace = true
 sandbox-runtime-workspace.workspace = true
 
 [lints]

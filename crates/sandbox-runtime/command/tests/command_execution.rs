@@ -1,5 +1,5 @@
 //! Black-box coverage of `CommandExecution`'s running-vs-terminal read modes
-//! over a fake interactive execution (engine `test-support`).
+//! over a fake interactive execution.
 
 use std::path::PathBuf;
 use std::sync::Arc;

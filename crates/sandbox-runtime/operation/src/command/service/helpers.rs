@@ -176,7 +176,6 @@ pub(crate) fn finalization_failed(
     CommandServiceError::CommandFinalizationFailed {
         command_session_id,
         error: finalize_message(error),
-        finalized: None,
     }
 }
 

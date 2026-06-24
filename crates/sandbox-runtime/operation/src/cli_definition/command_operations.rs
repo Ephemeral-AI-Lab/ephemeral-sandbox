@@ -4,9 +4,8 @@ use crate::cli_definition::{
     ArgCliSpec, ArgKind, ArgSpec, CliOperationFamilySpec, CliOperationSpec, CliSpec,
 };
 use crate::command::{
-    CommandFinalizedMetadata, CommandOutput, CommandPublishStatus, CommandServiceError,
-    CommandSessionId, CommandStatus, ExecCommandInput, ReadCommandLinesInput,
-    WriteCommandStdinInput,
+    CommandOutput, CommandServiceError, CommandSessionId, CommandStatus, ExecCommandInput,
+    ReadCommandLinesInput, WriteCommandStdinInput,
 };
 use crate::observability::{measure_optional, OperationTrace};
 use crate::operation::OperationEntry;
@@ -291,15 +290,9 @@ fn command_service_error_response(error: CommandServiceError) -> Response {
 fn command_error_details(error: &CommandServiceError) -> Value {
     match error {
         CommandServiceError::CommandFinalizationFailed {
-            command_session_id,
-            finalized,
-            ..
+            command_session_id, ..
         } => json!({
             "command_session_id": command_session_id.0.as_str(),
-            "finalized": finalized
-                .as_ref()
-                .map(|metadata| finalized_value(Some(metadata.as_ref())))
-                .unwrap_or(Value::Null),
         }),
         CommandServiceError::LayerStack(error) => match error.as_ref() {
             crate::layerstack::LayerStackServiceError::PublishRejected { rejection } => json!({
@@ -331,38 +324,6 @@ fn command_output_value(output: CommandOutput) -> Value {
 
 fn status_name(status: CommandStatus) -> &'static str {
     status.as_str()
-}
-
-fn finalized_value(finalized: Option<&CommandFinalizedMetadata>) -> Value {
-    finalized.map_or(Value::Null, |finalized| {
-        json!({
-            "policy": "session",
-            "outcome": "session_complete",
-            "publish": finalized.publish.as_ref().map(|publish| {
-                json!({
-                    "status": publish_status_name(publish.status),
-                    "rejection": publish.rejection.as_deref().map(publish_reject_value),
-                    "revision": publish.revision.as_ref().map(|revision| {
-                        json!({
-                            "manifest_version": revision.manifest_version,
-                            "root_hash": revision.root_hash.as_str(),
-                            "layer_count": revision.layer_count,
-                        })
-                    }),
-                    "layer_paths": publish.layer_paths.iter().map(|path| path.to_string_lossy().into_owned()).collect::<Vec<_>>(),
-                })
-            }),
-        })
-    })
-}
-
-fn publish_status_name(status: CommandPublishStatus) -> &'static str {
-    match status {
-        CommandPublishStatus::Published => "published",
-        CommandPublishStatus::NoOp => "no_op",
-        CommandPublishStatus::Rejected => "rejected",
-        CommandPublishStatus::Skipped => "skipped",
-    }
 }
 
 fn publish_reject_value(rejection: &sandbox_runtime_layerstack::PublishReject) -> Value {

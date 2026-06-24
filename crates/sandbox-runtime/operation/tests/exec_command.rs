@@ -14,7 +14,6 @@ use sandbox_runtime::{
     AsyncTraceSink, LayerStackService, NamespaceExecutionLedger, NamespaceExecutionTerminalStatus,
     SandboxRuntimeOperations,
 };
-use sandbox_runtime_command::process::CommandProcessExit;
 use sandbox_runtime_namespace_execution::{
     NamespaceExecutionError, NsRunnerLauncher, PtyMaster, RunnerChild,
 };
@@ -27,8 +26,8 @@ use support::{
     build_services_with_launch_driver_and_async_trace_sink,
     build_services_with_launch_driver_namespace_store, create_request, success_exit,
     workspace_handle, workspace_handle_unavailable_launch, workspace_handle_without_launch,
-    FakeLaunchDriver, FakeLauncher, FakeRunnerScript, FakeWorkspaceService, ScriptedCommandYield,
-    TestServices,
+    FakeLaunchDriver, FakeLauncher, FakeRunnerScript, FakeWorkspaceService, ScriptedCommandExit,
+    ScriptedCommandYield, TestServices,
 };
 
 fn exec_input(workspace_session_id: WorkspaceSessionId) -> ExecCommandInput {
@@ -86,14 +85,11 @@ fn create_session(
         .workspace_session_id
 }
 
-fn command_exit(status: &str, exit_code: i64, stdout: &str) -> CommandProcessExit {
-    CommandProcessExit {
+fn command_exit(status: &str, exit_code: i64, stdout: &str) -> ScriptedCommandExit {
+    ScriptedCommandExit {
         status: status.to_owned(),
         exit_code,
-        signal: None,
         stdout: stdout.to_owned(),
-        elapsed_s: 0.1,
-        kill: None,
     }
 }
 

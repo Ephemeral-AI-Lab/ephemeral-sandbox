@@ -67,7 +67,6 @@ fn read_command_window(
         Some(Err(error)) => Err(CommandServiceError::CommandFinalizationFailed {
             command_session_id: command_session_id.clone(),
             error: finalize_message(&error),
-            finalized: None,
         }),
         None => Err(CommandServiceError::CommandNotFound {
             command_session_id: command_session_id.clone(),

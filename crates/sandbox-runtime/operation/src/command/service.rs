@@ -7,8 +7,7 @@ pub mod test_support;
 pub(crate) mod transcript;
 
 pub use contract::{
-    CommandFinalizedMetadata, CommandOutput, CommandPublishFinalization, CommandPublishStatus,
-    CommandSessionId, CommandStatus, ExecCommandInput, ReadCommandLinesInput,
+    CommandOutput, CommandSessionId, CommandStatus, ExecCommandInput, ReadCommandLinesInput,
     WriteCommandStdinInput,
 };
 pub use core::CommandOperationService;

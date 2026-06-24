@@ -1,11 +1,8 @@
-//! Command process PTY substrate.
+//! Command execution state and transcript helpers.
 //!
-//! This crate owns the per-command process/PTY/transcript machinery: spawning
-//! the runner child, taking its exit into a policy-free [`process::CommandProcessExit`],
-//! cancelling the process group, yield-waiting on output, and retaining the
-//! transcript. It carries no workspace policy: who runs on which workspace,
-//! and what happens to the upperdir at finalization, is the command-ops tier's
-//! concern.
+//! The namespace-execution engine owns process spawning and PTY I/O. This crate
+//! keeps the command-facing handle, transcript windowing, and process-group
+//! inspection helpers used by the operation layer.
 //!
 //! Mechanism crate, like `sandbox-runtime-overlay` and
 //! `sandbox-runtime-namespace-process`. The sandbox
@@ -17,16 +14,12 @@
 mod command_execution;
 mod config;
 mod contract;
-pub mod process;
 pub mod process_group;
-mod pty;
-mod transcript;
 mod transcript_rows;
 
 pub use command_execution::CommandExecution;
 pub use config::CommandConfig;
-pub use contract::{CommandError, CommandTerminalResult};
-pub use process::{CommandProcess, CommandProcessSpec};
+pub use contract::CommandTerminalResult;
 pub use transcript_rows::{
     required_transcript_window, transcript_window, CommandStream, CommandTranscriptRow,
     CommandTranscriptWindow,

@@ -19,7 +19,6 @@ const DAEMON_CONFIG_YAML_ENV: &str = "SANDBOX_DAEMON_CONFIG_YAML";
 /// `RunResult` JSON to `--result-fd <fd>`.
 pub(crate) fn run(args: std::env::Args) -> Result<()> {
     let config = RunnerCliConfig::parse(args)?;
-    wait_for_start_ack(config.start_ack_fd)?;
     let request_json = read_payload_from_fd(config.request_fd)?;
     let request: sandbox_runtime_namespace_process::runner::protocol::NamespaceRunnerRequest =
         serde_json::from_str(&request_json).context("failed to decode ns-runner request JSON")?;
@@ -108,7 +107,6 @@ enum NsRunnerOperation {
 pub(crate) struct RunnerCliConfig {
     request_fd: RawFd,
     result_fd: RawFd,
-    start_ack_fd: Option<RawFd>,
     mode: NsRunnerOperation,
 }
 
@@ -116,7 +114,6 @@ impl RunnerCliConfig {
     pub(crate) fn parse(args: impl IntoIterator<Item = String>) -> Result<Self> {
         let mut request_fd = None;
         let mut result_fd = None;
-        let mut start_ack_fd = None;
         let mut mode = None;
         let mut set_mode = |selected: NsRunnerOperation| {
             if mode.is_some() {
@@ -148,14 +145,6 @@ impl RunnerCliConfig {
                             .context("--result-fd must be an integer file descriptor")?,
                     );
                 }
-                "--start-ack-fd" => {
-                    start_ack_fd = Some(
-                        args.next()
-                            .ok_or_else(|| anyhow!("--start-ack-fd requires a file descriptor"))?
-                            .parse::<RawFd>()
-                            .context("--start-ack-fd must be an integer file descriptor")?,
-                    );
-                }
                 "--help" | "-h" => {
                     println!(
                         "usage: sandbox-daemon ns-runner [--mount-overlay | --remount-overlay] [--request-fd FD] [--result-fd FD]"
@@ -177,26 +166,9 @@ impl RunnerCliConfig {
         Ok(Self {
             request_fd,
             result_fd,
-            start_ack_fd,
             mode: mode.unwrap_or(NsRunnerOperation::Run),
         })
     }
-}
-
-fn wait_for_start_ack(fd: Option<RawFd>) -> Result<()> {
-    let Some(fd) = fd else {
-        return Ok(());
-    };
-    let file = open_fd_for_read(fd)
-        .with_context(|| format!("failed to open ns-runner start ack fd {fd}"))?;
-    wait_for_start_ack_reader(file)
-}
-
-pub(crate) fn wait_for_start_ack_reader(mut reader: impl Read) -> Result<()> {
-    let mut byte = [0_u8; 1];
-    reader
-        .read_exact(&mut byte)
-        .context("ns-runner start ack closed before command start")
 }
 
 fn open_fd_for_read(fd: RawFd) -> std::io::Result<File> {

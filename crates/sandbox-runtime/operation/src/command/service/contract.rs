@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use crate::workspace_crate::WorkspaceSessionId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -65,25 +63,4 @@ pub struct CommandOutput {
     pub total_lines: u64,
     pub original_token_count: u64,
     pub output: String,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct CommandFinalizedMetadata {
-    pub publish: Option<CommandPublishFinalization>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CommandPublishFinalization {
-    pub status: CommandPublishStatus,
-    pub rejection: Option<Box<sandbox_runtime_layerstack::PublishReject>>,
-    pub revision: Option<crate::layerstack::LayerStackRevision>,
-    pub layer_paths: Vec<PathBuf>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CommandPublishStatus {
-    Published,
-    NoOp,
-    Rejected,
-    Skipped,
 }

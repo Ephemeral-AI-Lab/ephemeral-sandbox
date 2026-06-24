@@ -17,10 +17,8 @@ pub fn default_remount_controller() -> Arc<dyn ProcessGroupController> {
     Arc::new(ProcProcessGroupController)
 }
 
-/// Build a command service over a caller-supplied engine. The test harness builds
-/// the engine from the `test-support` fake launcher (which it can reach as a
-/// `tests/` consumer); this façade only assembles the service parts, so it needs
-/// no `test-support`-gated engine surface in the library build.
+/// Build a command service over a caller-supplied engine. The test harness wires
+/// that engine to a local fake launcher; this facade only assembles service parts.
 #[must_use]
 pub fn command_service_from_engine(
     workspace: Arc<WorkspaceSessionService>,

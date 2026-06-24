@@ -71,18 +71,13 @@ impl NsRunnerLauncher for ForkRunnerLauncher {
         cancelled: Arc<AtomicBool>,
     ) -> Result<(Box<dyn RunnerChild>, PtyMaster), NamespaceExecutionError> {
         let request_bytes = encode_request(&request)?;
-        let (mut child, result_read, start_ack_write, request_write, master, pgid) = {
+        let (mut child, result_read, request_write, master, pgid) = {
             let _spawn_guard = spawn_lock();
             let (request_read, request_write) = request_pipe()?;
             let (result_read, result_write) = result_pipe()?;
-            let (start_ack_read, start_ack_write) = start_ack_pipe()?;
             let (master, slave) = open_pty_pair().map_err(spawn_error)?;
-            let mut command = ns_runner_command(
-                None,
-                request_read.as_raw_fd(),
-                result_write.as_raw_fd(),
-                start_ack_read.as_raw_fd(),
-            )?;
+            let mut command =
+                ns_runner_command(None, request_read.as_raw_fd(), result_write.as_raw_fd())?;
             command
                 .stdin(Stdio::from(slave.try_clone().map_err(spawn_error)?))
                 .stdout(Stdio::from(slave.try_clone().map_err(spawn_error)?))
@@ -91,7 +86,6 @@ impl NsRunnerLauncher for ForkRunnerLauncher {
             let mut child = command.spawn().map_err(spawn_error)?;
             drop(request_read);
             drop(result_write);
-            drop(start_ack_read);
             let pgid = match child_pgid(&child) {
                 Ok(pgid) => pgid,
                 Err(error) => {
@@ -99,14 +93,7 @@ impl NsRunnerLauncher for ForkRunnerLauncher {
                     return Err(error);
                 }
             };
-            (
-                child,
-                result_read,
-                start_ack_write,
-                request_write,
-                master,
-                pgid,
-            )
+            (child, result_read, request_write, master, pgid)
         };
         let cancel: Box<dyn Fn() + Send + Sync> = Box::new(move || {
             cancelled.store(true, Ordering::Release);
@@ -121,7 +108,7 @@ impl NsRunnerLauncher for ForkRunnerLauncher {
                 return Err(error);
             }
         };
-        if let Err(error) = release_start_ack(start_ack_write, request_write, &request_bytes) {
+        if let Err(error) = write_request(request_write, &request_bytes) {
             terminate_spawned_child(&mut child, Some(pgid));
             return Err(error);
         }
@@ -142,16 +129,14 @@ impl NsRunnerLauncher for ForkRunnerLauncher {
         setup_timeout_s: f64,
     ) -> Result<Box<dyn RunnerChild>, NamespaceExecutionError> {
         let request_bytes = encode_request(&request)?;
-        let (mut child, result_read, start_ack_write, request_write, pgid) = {
+        let (mut child, result_read, request_write, pgid) = {
             let _spawn_guard = spawn_lock();
             let (request_read, request_write) = request_pipe()?;
             let (result_read, result_write) = result_pipe()?;
-            let (start_ack_read, start_ack_write) = start_ack_pipe()?;
             let mut command = ns_runner_command(
                 Some(mode_flag),
                 request_read.as_raw_fd(),
                 result_write.as_raw_fd(),
-                start_ack_read.as_raw_fd(),
             )?;
             command
                 .stdin(Stdio::null())
@@ -161,7 +146,6 @@ impl NsRunnerLauncher for ForkRunnerLauncher {
             let mut child = command.spawn().map_err(spawn_error)?;
             drop(request_read);
             drop(result_write);
-            drop(start_ack_read);
             let pgid = match child_pgid(&child) {
                 Ok(pgid) => pgid,
                 Err(error) => {
@@ -169,9 +153,9 @@ impl NsRunnerLauncher for ForkRunnerLauncher {
                     return Err(error);
                 }
             };
-            (child, result_read, start_ack_write, request_write, pgid)
+            (child, result_read, request_write, pgid)
         };
-        if let Err(error) = release_start_ack(start_ack_write, request_write, &request_bytes) {
+        if let Err(error) = write_request(request_write, &request_bytes) {
             terminate_spawned_child(&mut child, Some(pgid));
             return Err(error);
         }
@@ -208,7 +192,6 @@ fn ns_runner_command(
     mode_flag: Option<&str>,
     request_fd: RawFd,
     result_fd: RawFd,
-    start_ack_fd: RawFd,
 ) -> Result<Command, NamespaceExecutionError> {
     let mut command = Command::new(env::current_exe().map_err(spawn_error)?);
     command.arg("ns-runner");
@@ -219,20 +202,11 @@ fn ns_runner_command(
         .arg("--request-fd")
         .arg(request_fd.to_string())
         .arg("--result-fd")
-        .arg(result_fd.to_string())
-        .arg("--start-ack-fd")
-        .arg(start_ack_fd.to_string());
+        .arg(result_fd.to_string());
     Ok(command)
 }
 
-/// KEEP start-ack (Phase 6 removes it): release the in-namespace child by writing
-/// the ack byte, then write the request. The child `read_exact`s the ack first.
-fn release_start_ack(
-    start_ack: OwnedFd,
-    request: OwnedFd,
-    request_bytes: &[u8],
-) -> Result<(), NamespaceExecutionError> {
-    File::from(start_ack).write_all(b"1").map_err(spawn_error)?;
+fn write_request(request: OwnedFd, request_bytes: &[u8]) -> Result<(), NamespaceExecutionError> {
     File::from(request)
         .write_all(request_bytes)
         .map_err(spawn_error)?;
@@ -351,13 +325,6 @@ fn result_pipe() -> Result<(OwnedFd, OwnedFd), NamespaceExecutionError> {
     let (read, write) = pipe().map_err(spawn_error)?;
     fcntl_setfd(&read, FdFlags::CLOEXEC).map_err(spawn_error)?;
     fcntl_setfd(&write, FdFlags::empty()).map_err(spawn_error)?;
-    Ok((read, write))
-}
-
-fn start_ack_pipe() -> Result<(OwnedFd, OwnedFd), NamespaceExecutionError> {
-    let (read, write) = pipe().map_err(spawn_error)?;
-    fcntl_setfd(&read, FdFlags::empty()).map_err(spawn_error)?;
-    fcntl_setfd(&write, FdFlags::CLOEXEC).map_err(spawn_error)?;
     Ok((read, write))
 }
 

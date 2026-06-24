@@ -36,7 +36,6 @@ impl CommandOperationService {
                 return Err(CommandServiceError::CommandFinalizationFailed {
                     command_session_id,
                     error,
-                    finalized: None,
                 });
             }
             Some(WriteTarget::Live {
