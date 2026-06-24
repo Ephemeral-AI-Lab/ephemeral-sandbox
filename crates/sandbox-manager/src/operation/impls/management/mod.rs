@@ -1,5 +1,6 @@
 mod create_sandbox;
 mod destroy_sandbox;
+mod get_observability_tree;
 mod inspect_sandbox;
 mod list_sandboxes;
 
@@ -23,6 +24,7 @@ const FAMILIES: &[&CliOperationFamilySpec] = &[&MANAGEMENT_FAMILY];
 const SPECS: &[&CliOperationSpec] = &[
     &create_sandbox::SPEC,
     &destroy_sandbox::SPEC,
+    &get_observability_tree::SPEC,
     &list_sandboxes::SPEC,
     &inspect_sandbox::SPEC,
 ];
@@ -30,6 +32,10 @@ const SPECS: &[&CliOperationSpec] = &[
 pub(crate) const OPERATIONS: &[ManagerOperationEntry] = &[
     ManagerOperationEntry::new(&create_sandbox::SPEC, create_sandbox::dispatch),
     ManagerOperationEntry::new(&destroy_sandbox::SPEC, destroy_sandbox::dispatch),
+    ManagerOperationEntry::new(
+        &get_observability_tree::SPEC,
+        get_observability_tree::dispatch,
+    ),
     ManagerOperationEntry::new(&list_sandboxes::SPEC, list_sandboxes::dispatch),
     ManagerOperationEntry::new(&inspect_sandbox::SPEC, inspect_sandbox::dispatch),
 ];

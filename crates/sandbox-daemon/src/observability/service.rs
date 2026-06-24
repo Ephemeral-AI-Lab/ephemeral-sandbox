@@ -5,10 +5,11 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use sandbox_observability::{
-    ObservabilityPaths, ObservabilityStore, ResourceSampleRecord, SandboxSnapshotRecord,
-    SpanRecord, StoreError, TraceRecord, WorkspaceSnapshotRecord, MAX_ERROR_MESSAGE_LENGTH,
-    MAX_ID_LENGTH, MAX_KIND_LENGTH, MAX_OPERATION_LENGTH, MAX_PATH_LENGTH,
-    MAX_SNAPSHOT_STATE_LENGTH,
+    NamespaceExecutionSnapshotRecord, NamespaceExecutionTraceRecord, ObservabilityPaths,
+    ObservabilitySnapshotReadOptions, ObservabilitySnapshotRows, ObservabilityStore,
+    ResourceSampleRecord, SandboxSnapshotRecord, SpanRecord, StoreError, TraceRecord,
+    WorkspaceSnapshotRecord, MAX_ERROR_MESSAGE_LENGTH, MAX_ID_LENGTH, MAX_KIND_LENGTH,
+    MAX_OPERATION_LENGTH, MAX_PATH_LENGTH, MAX_SNAPSHOT_STATE_LENGTH,
 };
 use sandbox_runtime::{
     span_keys, AsyncTraceSink, CommandFinalizationTraceMetadata, CompletedOperationSpan,
@@ -21,8 +22,12 @@ use crate::server::ServerConfig;
 use super::cgroup::CgroupSample;
 use super::disk::{self, DiskSample};
 use super::namespace_execution;
+use serde_json::{json, Value};
 
 const DISK_SAMPLE_MIN_INTERVAL: Duration = Duration::from_secs(10);
+const DEFAULT_TRACE_LIMIT: usize = 20;
+const MAX_TRACE_LIMIT: usize = 100;
+const MAX_RESOURCE_WINDOW_MS: u64 = 600_000;
 const MAX_METHOD_LENGTH: usize = 256;
 const REQUEST_TRACE_PREFIX: &str = "request:";
 const COMMAND_FINALIZATION_OPERATION: &str = "command_finalization";
@@ -99,6 +104,29 @@ impl DaemonObservability {
         )?;
         let _ = operations.ack_completed_namespace_executions(&acked_namespace_execution_ids);
         Ok(())
+    }
+
+    pub(crate) fn observability_snapshot_response(
+        &self,
+        request: &sandbox_protocol::Request,
+    ) -> sandbox_protocol::Response {
+        let options = match snapshot_read_options(request) {
+            Ok(options) => options,
+            Err(response) => return response,
+        };
+        match self
+            .store
+            .read_observability_snapshot(&self.sandbox_id, &options)
+        {
+            Ok(rows) => match snapshot_value(rows) {
+                Ok(value) => sandbox_protocol::Response::ok(value),
+                Err(response) => response,
+            },
+            Err(error) => sandbox_protocol::Response::fault(
+                sandbox_protocol::error_kind::INTERNAL_ERROR,
+                format!("observability snapshot read failed: {error}"),
+            ),
+        }
     }
 
     pub(crate) fn insert_completed_operation_trace(
@@ -475,6 +503,234 @@ fn unix_ms() -> i64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
     i64::try_from(duration.as_millis()).unwrap_or(i64::MAX)
+}
+
+fn snapshot_read_options(
+    request: &sandbox_protocol::Request,
+) -> Result<ObservabilitySnapshotReadOptions, sandbox_protocol::Response> {
+    Ok(ObservabilitySnapshotReadOptions {
+        include_recent_traces: optional_bool_arg(request, "include_recent_traces")?
+            .unwrap_or(false),
+        trace_limit: request
+            .optional_usize("trace_limit")?
+            .unwrap_or(DEFAULT_TRACE_LIMIT)
+            .min(MAX_TRACE_LIMIT),
+        resource_window_ms: request
+            .optional_u64("resource_window_ms")?
+            .map(|window_ms| window_ms.min(MAX_RESOURCE_WINDOW_MS)),
+    })
+}
+
+fn optional_bool_arg(
+    request: &sandbox_protocol::Request,
+    field: &str,
+) -> Result<Option<bool>, sandbox_protocol::Response> {
+    let object = request
+        .args
+        .as_object()
+        .ok_or_else(|| request.invalid_argument("args must be an object"))?;
+    let Some(value) = object.get(field) else {
+        return Ok(None);
+    };
+    match value {
+        Value::Bool(value) => Ok(Some(*value)),
+        Value::Number(value) => value
+            .as_u64()
+            .map(|value| Some(value != 0))
+            .ok_or_else(|| request.invalid_argument(format!("{field} must be a boolean"))),
+        _ => Err(request.invalid_argument(format!("{field} must be a boolean"))),
+    }
+}
+
+fn snapshot_value(rows: ObservabilitySnapshotRows) -> Result<Value, sandbox_protocol::Response> {
+    let Some(sandbox) = rows.sandbox.as_ref() else {
+        return Err(sandbox_protocol::Response::fault(
+            sandbox_protocol::error_kind::INTERNAL_ERROR,
+            "observability root snapshot unavailable",
+        ));
+    };
+    let availability = if snapshot_has_partial_errors(&rows) {
+        "partial"
+    } else {
+        "available"
+    };
+    Ok(json!({
+        "sandbox_id": sandbox.sandbox_id.as_str(),
+        "lifecycle_state": sandbox.state.as_str(),
+        "availability": availability,
+        "sampled_at_unix_ms": sandbox.sampled_at_unix_ms,
+        "errors": error_list(sandbox.error_message.as_deref()),
+        "daemon": {
+            "socket_path": sandbox.socket_path.as_deref(),
+            "pid_path": sandbox.pid_path.as_deref(),
+            "daemon_pid": sandbox.daemon_pid,
+            "runtime_dir": sandbox.daemon_runtime_dir.as_deref(),
+        },
+        "resources": resource_bundle_value(None, &rows),
+        "workspaces": rows
+            .workspaces
+            .iter()
+            .map(|workspace| workspace_value(workspace, &rows))
+            .collect::<Vec<_>>(),
+        "recent_traces": recent_trace_values(&rows),
+    }))
+}
+
+fn snapshot_has_partial_errors(rows: &ObservabilitySnapshotRows) -> bool {
+    rows.sandbox
+        .as_ref()
+        .and_then(|sandbox| sandbox.error_message.as_ref())
+        .is_some()
+        || rows
+            .workspaces
+            .iter()
+            .any(|workspace| workspace.error_message.is_some())
+        || rows
+            .active_namespace_executions
+            .iter()
+            .any(|execution| execution.error_message.is_some())
+}
+
+fn workspace_value(workspace: &WorkspaceSnapshotRecord, rows: &ObservabilitySnapshotRows) -> Value {
+    json!({
+        "workspace_id": workspace.workspace_id.as_str(),
+        "lifecycle_state": workspace.state.as_str(),
+        "remount_state": workspace.remount_state.as_deref(),
+        "profile": workspace.profile.as_deref(),
+        "sampled_at_unix_ms": workspace.sampled_at_unix_ms,
+        "errors": error_list(workspace.error_message.as_deref()),
+        "layers": {
+            "base_manifest_version": workspace.base_manifest_version,
+            "base_root_hash": workspace.base_root_hash.as_deref(),
+            "layer_count": workspace.layer_count,
+        },
+        "namespace_fd_count": workspace.namespace_fd_count,
+        "resources": resource_bundle_value(Some(&workspace.workspace_id), rows),
+        "active_namespace_executions": rows
+            .active_namespace_executions
+            .iter()
+            .filter(|execution| execution.workspace_session_id == workspace.workspace_id)
+            .map(namespace_execution_value)
+            .collect::<Vec<_>>(),
+    })
+}
+
+fn namespace_execution_value(execution: &NamespaceExecutionSnapshotRecord) -> Value {
+    json!({
+        "namespace_execution_id": execution.namespace_execution_id.as_str(),
+        "operation": execution.operation.as_str(),
+        "lifecycle_state": execution.lifecycle_state.as_str(),
+        "sampled_at_unix_ms": execution.sampled_at_unix_ms,
+        "error": execution.error_message.as_deref(),
+    })
+}
+
+fn resource_bundle_value(scope: Option<&str>, rows: &ObservabilitySnapshotRows) -> Value {
+    let latest = rows
+        .latest_resources
+        .iter()
+        .find(|sample| sample.workspace_id.as_deref() == scope)
+        .map(resource_sample_value)
+        .unwrap_or(Value::Null);
+    let history = rows
+        .resource_history
+        .iter()
+        .filter(|sample| sample.workspace_id.as_deref() == scope)
+        .map(resource_sample_value)
+        .collect::<Vec<_>>();
+    json!({
+        "latest": latest,
+        "history": history,
+    })
+}
+
+fn resource_sample_value(sample: &ResourceSampleRecord) -> Value {
+    json!({
+        "sampled_at_unix_ms": sample.sampled_at_unix_ms,
+        "cgroup": {
+            "available": sample.cgroup_available,
+            "cpu_usage_usec": sample.cpu_usage_usec,
+            "memory_current_bytes": sample.memory_current_bytes,
+            "memory_max_bytes": sample.memory_max_bytes,
+            "memory_max_unlimited": sample.memory_max_unlimited,
+            "error": sample.cgroup_error.as_deref(),
+        },
+        "disk": {
+            "upperdir_bytes": sample.disk_upperdir_bytes,
+            "file_count": sample.disk_file_count,
+            "dir_count": sample.disk_dir_count,
+            "symlink_count": sample.disk_symlink_count,
+            "truncated": sample.disk_truncated,
+            "read_error_count": sample.disk_read_error_count,
+            "first_error_path": sample.disk_first_error_path.as_deref(),
+        },
+    })
+}
+
+fn recent_trace_values(rows: &ObservabilitySnapshotRows) -> Vec<Value> {
+    rows.recent_request_traces
+        .iter()
+        .map(request_trace_value)
+        .chain(
+            rows.recent_namespace_traces
+                .iter()
+                .map(namespace_trace_value),
+        )
+        .collect()
+}
+
+fn request_trace_value(trace: &TraceRecord) -> Value {
+    json!({
+        "trace_id": public_trace_id(trace),
+        "kind": trace.kind.as_str(),
+        "operation": trace.operation.as_str(),
+        "status": trace.status.as_str(),
+        "workspace_id": trace.workspace_id.as_deref(),
+        "namespace_execution_id": Value::Null,
+        "request_id": trace.request_id.as_deref(),
+        "started_at_unix_ms": trace.started_at_unix_ms,
+        "finished_at_unix_ms": trace.finished_at_unix_ms,
+        "duration_ms": trace.duration_ms,
+        "error_kind": trace.error_kind.as_deref(),
+        "error_message": trace.error_message.as_deref(),
+    })
+}
+
+fn public_trace_id(trace: &TraceRecord) -> String {
+    trace
+        .trace_id
+        .strip_prefix(ASYNC_COMMAND_FINALIZATION_TRACE_PREFIX)
+        .map_or_else(
+            || trace.trace_id.clone(),
+            |command_session_id| {
+                format!(
+                    "async:command_finalization:{:016x}",
+                    stable_hash(command_session_id.as_bytes())
+                )
+            },
+        )
+}
+
+fn namespace_trace_value(trace: &NamespaceExecutionTraceRecord) -> Value {
+    json!({
+        "trace_id": trace.trace_id.as_str(),
+        "kind": "namespace_execution",
+        "operation": trace.operation.as_str(),
+        "status": trace.status.as_str(),
+        "workspace_id": trace.workspace_session_id.as_str(),
+        "namespace_execution_id": trace.namespace_execution_id.as_str(),
+        "request_id": trace.request_id.as_deref(),
+        "started_at_unix_ms": trace.started_at_unix_ms,
+        "finished_at_unix_ms": trace.finished_at_unix_ms,
+        "duration_ms": trace.duration_ms,
+        "exit_code": trace.exit_code,
+        "error_kind": trace.error_kind.as_deref(),
+        "error_message": trace.error_message.as_deref(),
+    })
+}
+
+fn error_list(error: Option<&str>) -> Vec<&str> {
+    error.into_iter().collect()
 }
 
 fn path_string(path: &Path) -> String {

@@ -9,4 +9,6 @@ pub use records::{
     MAX_ERROR_MESSAGE_LENGTH, MAX_ID_LENGTH, MAX_KIND_LENGTH, MAX_OPERATION_LENGTH,
     MAX_PATH_LENGTH, MAX_SNAPSHOT_STATE_LENGTH,
 };
-pub use store::{ObservabilityStore, StoreError};
+pub use store::{
+    ObservabilitySnapshotReadOptions, ObservabilitySnapshotRows, ObservabilityStore, StoreError,
+};

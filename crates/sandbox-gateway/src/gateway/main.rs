@@ -8,9 +8,9 @@ use sandbox_gateway::{
     DEFAULT_MAX_CONCURRENT_CONNECTIONS, SANDBOX_GATEWAY_SOCKET_ENV,
 };
 use sandbox_manager::{
-    CreateSandboxRequest, CreateSandboxResult, ManagerError, ManagerServices, SandboxDaemonClient,
+    CreateSandboxRequest, CreateSandboxResult, ManagerError, ManagerServices,
     SandboxDaemonEndpoint, SandboxDaemonInstaller, SandboxManagerRouter, SandboxRecord,
-    SandboxRuntime, SandboxStore,
+    SandboxRuntime, SandboxStore, UnixSandboxDaemonClient,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -96,7 +96,7 @@ fn default_manager_services() -> Arc<ManagerServices> {
         Arc::new(SandboxStore::new()),
         Arc::new(UnconfiguredRuntime),
         Arc::new(UnconfiguredDaemonInstaller),
-        Arc::new(UnconfiguredDaemonClient),
+        Arc::new(UnixSandboxDaemonClient::new()),
     ))
 }
 
@@ -141,20 +141,6 @@ impl SandboxDaemonInstaller for UnconfiguredDaemonInstaller {
     fn check_daemon(&self, _endpoint: &SandboxDaemonEndpoint) -> Result<(), ManagerError> {
         Err(ManagerError::DaemonInstallFailed {
             message: "sandbox daemon installer is not configured".to_owned(),
-        })
-    }
-}
-
-struct UnconfiguredDaemonClient;
-
-impl SandboxDaemonClient for UnconfiguredDaemonClient {
-    fn invoke(
-        &self,
-        _endpoint: &SandboxDaemonEndpoint,
-        _request: sandbox_protocol::Request,
-    ) -> Result<sandbox_protocol::Response, ManagerError> {
-        Err(ManagerError::ForwardingFailed {
-            message: "sandbox daemon client is not configured".to_owned(),
         })
     }
 }

@@ -7,8 +7,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::Connection;
 use sandbox_observability::{
     NamespaceExecutionSnapshotRecord, NamespaceExecutionTraceRecord, ObservabilityPaths,
-    ObservabilityStore, ResourceSampleRecord, SandboxSnapshotRecord, SpanRecord, StoreError,
-    TraceRecord, WorkspaceSnapshotRecord,
+    ObservabilitySnapshotReadOptions, ObservabilityStore, ResourceSampleRecord,
+    SandboxSnapshotRecord, SpanRecord, StoreError, TraceRecord, WorkspaceSnapshotRecord,
 };
 
 type TestResult<T = ()> = Result<T, Box<dyn Error>>;
@@ -453,11 +453,174 @@ fn resource_samples_preserve_sandbox_and_workspace_scope() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn aggregate_snapshot_read_returns_latest_resources_per_scope() -> TestResult {
+    let (_dir, paths) = test_paths("aggregate-latest-resources")?;
+    let store = ObservabilityStore::open(&paths)?;
+
+    store.upsert_sandbox_snapshot(&SandboxSnapshotRecord {
+        sandbox_id: "sandbox-1".to_owned(),
+        state: "ready".to_owned(),
+        workspace_root: None,
+        daemon_runtime_dir: Some("/tmp/daemon".to_owned()),
+        socket_path: Some("/tmp/daemon/runtime.sock".to_owned()),
+        pid_path: Some("/tmp/daemon/runtime.pid".to_owned()),
+        daemon_pid: Some(42),
+        sampled_at_unix_ms: 2_000,
+        error_message: None,
+    })?;
+    store.upsert_workspace_snapshots(
+        "sandbox-1",
+        &[
+            workspace_snapshot("workspace-1", 1_000),
+            workspace_snapshot("workspace-2", 1_000),
+        ],
+    )?;
+    store.insert_resource_samples(&[
+        resource_sample("global-old", None, 1_000),
+        resource_sample("global-new", None, 2_000),
+        resource_sample("workspace-1-old", Some("workspace-1"), 1_100),
+        resource_sample("workspace-1-new", Some("workspace-1"), 2_100),
+        resource_sample("workspace-2-only", Some("workspace-2"), 1_500),
+        resource_sample("workspace-orphan-new", Some("workspace-3"), 3_000),
+    ])?;
+
+    let rows = store.read_observability_snapshot(
+        "sandbox-1",
+        &ObservabilitySnapshotReadOptions {
+            include_recent_traces: false,
+            trace_limit: 20,
+            resource_window_ms: None,
+        },
+    )?;
+
+    assert!(rows.sandbox.is_some());
+    assert_eq!(rows.workspaces.len(), 2);
+    assert_eq!(
+        rows.latest_resources
+            .iter()
+            .map(|sample| sample.sample_id.as_str())
+            .collect::<Vec<_>>(),
+        ["global-new", "workspace-1-new", "workspace-2-only"]
+    );
+    assert!(rows.resource_history.is_empty());
+    assert!(rows.recent_request_traces.is_empty());
+    assert!(rows.recent_namespace_traces.is_empty());
+    Ok(())
+}
+
+#[test]
+fn aggregate_snapshot_read_history_and_traces_are_opt_in() -> TestResult {
+    let (_dir, paths) = test_paths("aggregate-history-traces")?;
+    let store = ObservabilityStore::open(&paths)?;
+    let now = current_unix_ms()?;
+
+    store.upsert_sandbox_snapshot(&SandboxSnapshotRecord {
+        sandbox_id: "sandbox-1".to_owned(),
+        state: "ready".to_owned(),
+        workspace_root: None,
+        daemon_runtime_dir: None,
+        socket_path: None,
+        pid_path: None,
+        daemon_pid: None,
+        sampled_at_unix_ms: now,
+        error_message: None,
+    })?;
+    store.upsert_workspace_snapshots("sandbox-1", &[workspace_snapshot("workspace-1", now)])?;
+    store.insert_resource_samples(&[
+        resource_sample("history-old", None, now.saturating_sub(10_000)),
+        resource_sample("history-recent", None, now.saturating_sub(100)),
+    ])?;
+    store.insert_trace(
+        &TraceRecord {
+            trace_id: "trace-1".to_owned(),
+            kind: "request".to_owned(),
+            status: "ok".to_owned(),
+            sandbox_id: "sandbox-1".to_owned(),
+            operation: "exec_command".to_owned(),
+            request_id: Some("request-1".to_owned()),
+            origin_request_id: None,
+            workspace_id: Some("workspace-1".to_owned()),
+            command_session_id: Some("command-session-secret".to_owned()),
+            started_at_unix_ms: now.saturating_sub(50),
+            finished_at_unix_ms: Some(now.saturating_sub(25)),
+            duration_ms: Some(25.0),
+            error_kind: None,
+            error_message: None,
+        },
+        &[SpanRecord {
+            span_id: "span-1".to_owned(),
+            trace_id: "trace-1".to_owned(),
+            parent_span_id: None,
+            method_name: "secret.span.method".to_owned(),
+            call_index: 0,
+            status: "ok".to_owned(),
+            started_at_unix_ms: now.saturating_sub(50),
+            finished_at_unix_ms: Some(now.saturating_sub(25)),
+            duration_ms: Some(25.0),
+            error_kind: None,
+            error_message: None,
+        }],
+    )?;
+    store.insert_namespace_execution_trace(&NamespaceExecutionTraceRecord {
+        trace_id: "namespace_execution:namespace-1".to_owned(),
+        sandbox_id: "sandbox-1".to_owned(),
+        namespace_execution_id: "namespace-1".to_owned(),
+        workspace_session_id: "workspace-1".to_owned(),
+        operation: "exec_command".to_owned(),
+        request_id: Some("request-2".to_owned()),
+        status: "ok".to_owned(),
+        exit_code: Some(0),
+        started_at_unix_ms: now.saturating_sub(40),
+        finished_at_unix_ms: now.saturating_sub(10),
+        duration_ms: 30.0,
+        error_kind: None,
+        error_message: None,
+    })?;
+
+    let default_rows = store.read_observability_snapshot(
+        "sandbox-1",
+        &ObservabilitySnapshotReadOptions {
+            include_recent_traces: false,
+            trace_limit: 20,
+            resource_window_ms: None,
+        },
+    )?;
+    assert!(default_rows.resource_history.is_empty());
+    assert!(default_rows.recent_request_traces.is_empty());
+    assert!(default_rows.recent_namespace_traces.is_empty());
+
+    let requested_rows = store.read_observability_snapshot(
+        "sandbox-1",
+        &ObservabilitySnapshotReadOptions {
+            include_recent_traces: true,
+            trace_limit: 20,
+            resource_window_ms: Some(1_000),
+        },
+    )?;
+    assert_eq!(
+        requested_rows
+            .resource_history
+            .iter()
+            .map(|sample| sample.sample_id.as_str())
+            .collect::<Vec<_>>(),
+        ["history-recent"]
+    );
+    assert_eq!(requested_rows.recent_request_traces.len(), 1);
+    assert_eq!(requested_rows.recent_namespace_traces.len(), 1);
+    Ok(())
+}
+
 fn test_paths(name: &str) -> TestResult<(TestDir, ObservabilityPaths)> {
     let dir = TestDir::new(name)?;
     let socket_path = dir.path().join("daemon-runtime").join("runtime.sock");
     let paths = ObservabilityPaths::from_socket_path(socket_path)?;
     Ok((dir, paths))
+}
+
+fn current_unix_ms() -> TestResult<i64> {
+    let millis = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
+    Ok(i64::try_from(millis).unwrap_or(i64::MAX))
 }
 
 fn allowed_tables() -> BTreeSet<String> {

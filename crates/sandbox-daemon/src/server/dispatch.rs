@@ -6,6 +6,8 @@ use sandbox_protocol::{decode_request_value, error_kind, Request, DAEMON_AUTH_FI
 use sandbox_runtime::OperationTrace;
 use serde_json::{Map, Value};
 
+pub(crate) const PRIVATE_OBSERVABILITY_SNAPSHOT_OP: &str = "get_observability_snapshot";
+
 impl SandboxDaemonServer {
     pub(crate) async fn dispatch_bytes(&self, bytes: Vec<u8>, is_tcp: bool) -> serde_json::Value {
         let value = match serde_json::from_slice::<serde_json::Value>(&bytes) {
@@ -41,6 +43,9 @@ impl SandboxDaemonServer {
     async fn dispatch_request(&self, request: Request) -> serde_json::Value {
         if let Err(response) = validate_daemon_scope(&request) {
             return response;
+        }
+        if request.op == PRIVATE_OBSERVABILITY_SNAPSHOT_OP {
+            return self.dispatch_private_observability_snapshot(request).await;
         }
         let trace_sandbox_id = self
             .config
@@ -93,6 +98,34 @@ impl SandboxDaemonServer {
             Err(err) => super::error_response(
                 error_kind::INTERNAL_ERROR,
                 format!("daemon request failed: {err}"),
+                serde_json::json!({}),
+            ),
+        }
+    }
+
+    async fn dispatch_private_observability_snapshot(&self, request: Request) -> Value {
+        let Some(observability) = self.observability.clone() else {
+            return super::error_response(
+                error_kind::INTERNAL_ERROR,
+                "daemon observability is not configured",
+                serde_json::json!({}),
+            );
+        };
+        let task = tokio::task::spawn_blocking(move || {
+            observability
+                .observability_snapshot_response(&request)
+                .into_json_value()
+        });
+        match task.await {
+            Ok(response) => response,
+            Err(err) if err.is_cancelled() => super::error_response(
+                error_kind::INTERNAL_ERROR,
+                "daemon observability snapshot request cancelled",
+                serde_json::json!({}),
+            ),
+            Err(err) => super::error_response(
+                error_kind::INTERNAL_ERROR,
+                format!("daemon observability snapshot request failed: {err}"),
                 serde_json::json!({}),
             ),
         }

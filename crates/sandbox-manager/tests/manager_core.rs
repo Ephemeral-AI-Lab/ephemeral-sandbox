@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 #[cfg(unix)]
 use std::process::{Child, Command};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use sandbox_manager::LocalSandboxDaemonInstaller;
 use sandbox_manager::{
@@ -88,6 +90,135 @@ impl SandboxDaemonClient for FakeClient {
     }
 }
 
+#[derive(Default)]
+struct RecordingTreeClient {
+    invocations: Mutex<Vec<TreeInvocation>>,
+    failures: Mutex<Vec<String>>,
+}
+
+#[derive(Debug)]
+struct TreeInvocation {
+    socket_path: PathBuf,
+    op: String,
+    scope: CliOperationScope,
+    args: Value,
+    timeout: Duration,
+}
+
+impl RecordingTreeClient {
+    fn fail_sandbox(&self, sandbox_id: &str) {
+        self.failures
+            .lock()
+            .expect("failures lock")
+            .push(sandbox_id.to_owned());
+    }
+
+    fn invocations(&self) -> Vec<TreeInvocation> {
+        self.invocations
+            .lock()
+            .expect("invocations lock")
+            .iter()
+            .map(|invocation| TreeInvocation {
+                socket_path: invocation.socket_path.clone(),
+                op: invocation.op.clone(),
+                scope: invocation.scope.clone(),
+                args: invocation.args.clone(),
+                timeout: invocation.timeout,
+            })
+            .collect()
+    }
+}
+
+impl SandboxDaemonClient for RecordingTreeClient {
+    fn invoke(
+        &self,
+        endpoint: &SandboxDaemonEndpoint,
+        request: Request,
+    ) -> Result<Response, ManagerError> {
+        self.invoke_with_timeout(endpoint, request, Duration::from_millis(30_000))
+    }
+
+    fn invoke_with_timeout(
+        &self,
+        endpoint: &SandboxDaemonEndpoint,
+        request: Request,
+        timeout: Duration,
+    ) -> Result<Response, ManagerError> {
+        let sandbox_id = request
+            .scope
+            .sandbox_id()
+            .expect("private daemon request has sandbox scope")
+            .to_owned();
+        self.invocations
+            .lock()
+            .expect("invocations lock")
+            .push(TreeInvocation {
+                socket_path: endpoint.socket_path.clone(),
+                op: request.op.clone(),
+                scope: request.scope.clone(),
+                args: request.args.clone(),
+                timeout,
+            });
+        if self
+            .failures
+            .lock()
+            .expect("failures lock")
+            .iter()
+            .any(|failed| failed == &sandbox_id)
+        {
+            return Err(ManagerError::ForwardingFailed {
+                message: format!("daemon {sandbox_id} timed out"),
+            });
+        }
+        Ok(Response::ok(daemon_snapshot(&sandbox_id)))
+    }
+}
+
+struct SlowTreeClient {
+    active: AtomicUsize,
+    max_active: AtomicUsize,
+}
+
+impl SlowTreeClient {
+    fn new() -> Self {
+        Self {
+            active: AtomicUsize::new(0),
+            max_active: AtomicUsize::new(0),
+        }
+    }
+
+    fn max_active(&self) -> usize {
+        self.max_active.load(Ordering::SeqCst)
+    }
+}
+
+impl SandboxDaemonClient for SlowTreeClient {
+    fn invoke(
+        &self,
+        endpoint: &SandboxDaemonEndpoint,
+        request: Request,
+    ) -> Result<Response, ManagerError> {
+        self.invoke_with_timeout(endpoint, request, Duration::from_millis(30_000))
+    }
+
+    fn invoke_with_timeout(
+        &self,
+        _endpoint: &SandboxDaemonEndpoint,
+        request: Request,
+        _timeout: Duration,
+    ) -> Result<Response, ManagerError> {
+        let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
+        self.max_active.fetch_max(active, Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(10));
+        self.active.fetch_sub(1, Ordering::SeqCst);
+        let sandbox_id = request
+            .scope
+            .sandbox_id()
+            .expect("private daemon request has sandbox scope");
+        Ok(Response::ok(daemon_snapshot(sandbox_id)))
+    }
+}
+
 fn services() -> (
     ManagerServices,
     Arc<FakeRuntime>,
@@ -107,6 +238,16 @@ fn services() -> (
     (services, runtime, installer, client)
 }
 
+fn services_with_client(
+    client: Arc<dyn SandboxDaemonClient>,
+) -> (ManagerServices, Arc<SandboxStore>) {
+    let store = Arc::new(SandboxStore::new());
+    let runtime = Arc::new(FakeRuntime::default());
+    let installer = Arc::new(FakeInstaller::default());
+    let services = ManagerServices::new(Arc::clone(&store), runtime, installer, client);
+    (services, store)
+}
+
 fn dispatch(services: &ManagerServices, op: &str, args: Value) -> Value {
     let request = Request::new(op, "req-1", CliOperationScope::System, args);
     sandbox_manager::dispatch_operation(services, &request).into_json_value()
@@ -114,6 +255,45 @@ fn dispatch(services: &ManagerServices, op: &str, args: Value) -> Value {
 
 fn id(value: &str) -> SandboxId {
     SandboxId::new(value).expect("valid sandbox id")
+}
+
+fn endpoint(value: &str) -> SandboxDaemonEndpoint {
+    SandboxDaemonEndpoint::new(PathBuf::from(format!("/tmp/{value}.sock")), None)
+}
+
+fn sandbox_record(
+    value: &str,
+    state: SandboxState,
+    daemon: Option<SandboxDaemonEndpoint>,
+) -> SandboxRecord {
+    SandboxRecord {
+        id: id(value),
+        workspace_root: PathBuf::from("/testbed"),
+        state,
+        daemon,
+    }
+}
+
+fn daemon_snapshot(sandbox_id: &str) -> Value {
+    json!({
+        "sandbox_id": sandbox_id,
+        "lifecycle_state": "daemon-ready",
+        "availability": "available",
+        "sampled_at_unix_ms": 1_000,
+        "errors": [],
+        "daemon": {
+            "socket_path": format!("/daemon/{sandbox_id}/runtime.sock"),
+            "pid_path": format!("/daemon/{sandbox_id}/runtime.pid"),
+            "daemon_pid": 42,
+            "runtime_dir": format!("/daemon/{sandbox_id}"),
+        },
+        "resources": {
+            "latest": Value::Null,
+            "history": [],
+        },
+        "workspaces": [],
+        "recent_traces": [],
+    })
 }
 
 #[cfg(unix)]
@@ -147,6 +327,7 @@ fn cli_operation_catalog_contains_only_manager_operations() {
         [
             "create_sandbox",
             "destroy_sandbox",
+            "get_observability_tree",
             "list_sandboxes",
             "inspect_sandbox",
         ]
@@ -233,6 +414,188 @@ fn create_list_inspect_destroy_sandbox_with_fake_runtime() {
     assert_eq!(
         installer.stopped.lock().expect("stopped lock").as_slice(),
         ["container-1"]
+    );
+}
+
+#[test]
+fn get_observability_tree_aggregates_ready_sandboxes_with_private_daemon_requests() {
+    let client = Arc::new(RecordingTreeClient::default());
+    let (services, store) = services_with_client(client.clone());
+    store
+        .insert(sandbox_record(
+            "sbox-1",
+            SandboxState::Ready,
+            Some(endpoint("sbox-1")),
+        ))
+        .expect("insert ready sandbox");
+    store
+        .insert(sandbox_record(
+            "sbox-2",
+            SandboxState::Ready,
+            Some(endpoint("sbox-2")),
+        ))
+        .expect("insert ready sandbox");
+    store
+        .insert(sandbox_record(
+            "creating",
+            SandboxState::Creating,
+            Some(endpoint("creating")),
+        ))
+        .expect("insert non-ready sandbox");
+
+    let response = dispatch(
+        &services,
+        "get_observability_tree",
+        json!({
+            "include_recent_traces": 1,
+            "trace_limit": 500,
+            "resource_window_ms": 999_999,
+        }),
+    );
+
+    let sandboxes = response["sandboxes"].as_array().expect("sandboxes array");
+    assert_eq!(sandboxes.len(), 2);
+    assert_eq!(sandboxes[0]["sandbox_id"], "sbox-1");
+    assert_eq!(sandboxes[0]["lifecycle_state"], "ready");
+    assert_eq!(sandboxes[0]["availability"], "available");
+    assert_eq!(sandboxes[1]["sandbox_id"], "sbox-2");
+
+    let invocations = client.invocations();
+    assert_eq!(invocations.len(), 2);
+    assert!(invocations
+        .iter()
+        .all(|invocation| invocation.op == "get_observability_snapshot"));
+    assert!(invocations.iter().all(|invocation| {
+        matches!(
+            &invocation.scope,
+            CliOperationScope::Sandbox { sandbox_id }
+                if sandbox_id == "sbox-1" || sandbox_id == "sbox-2"
+        )
+    }));
+    assert!(invocations
+        .iter()
+        .all(|invocation| invocation.args["include_recent_traces"] == true));
+    assert!(invocations
+        .iter()
+        .all(|invocation| invocation.args["trace_limit"] == 100));
+    assert!(invocations
+        .iter()
+        .all(|invocation| invocation.args["resource_window_ms"] == 600_000));
+    assert!(invocations
+        .iter()
+        .all(|invocation| invocation.timeout == Duration::from_millis(1_500)));
+}
+
+#[test]
+fn get_observability_tree_converts_one_daemon_failure_to_one_unavailable_node() {
+    let client = Arc::new(RecordingTreeClient::default());
+    client.fail_sandbox("sbox-2");
+    let (services, store) = services_with_client(client);
+    store
+        .insert(sandbox_record(
+            "sbox-1",
+            SandboxState::Ready,
+            Some(endpoint("sbox-1")),
+        ))
+        .expect("insert ready sandbox");
+    store
+        .insert(sandbox_record(
+            "sbox-2",
+            SandboxState::Ready,
+            Some(endpoint("sbox-2")),
+        ))
+        .expect("insert ready sandbox");
+
+    let response = dispatch(&services, "get_observability_tree", json!({}));
+
+    assert!(response.get("error").is_none());
+    let sandboxes = response["sandboxes"].as_array().expect("sandboxes array");
+    assert_eq!(sandboxes.len(), 2);
+    assert_eq!(sandboxes[0]["availability"], "available");
+    assert_eq!(sandboxes[1]["sandbox_id"], "sbox-2");
+    assert_eq!(sandboxes[1]["lifecycle_state"], "ready");
+    assert_eq!(sandboxes[1]["availability"], "unavailable");
+    assert!(sandboxes[1]["errors"][0]
+        .as_str()
+        .expect("error text")
+        .contains("daemon sbox-2 timed out"));
+}
+
+#[test]
+fn get_observability_tree_errors_for_explicit_unknown_sandbox_id() {
+    let client = Arc::new(RecordingTreeClient::default());
+    let (services, _store) = services_with_client(client);
+
+    let response = dispatch(
+        &services,
+        "get_observability_tree",
+        json!({"sandbox_id": "missing"}),
+    );
+
+    assert_eq!(
+        response["error"]["kind"],
+        sandbox_protocol::error_kind::INVALID_REQUEST
+    );
+    assert!(response["error"]["message"]
+        .as_str()
+        .expect("message")
+        .contains("sandbox not found: missing"));
+}
+
+#[test]
+fn get_observability_tree_returns_unavailable_node_for_explicit_non_ready_sandbox() {
+    let client = Arc::new(RecordingTreeClient::default());
+    let (services, store) = services_with_client(client.clone());
+    store
+        .insert(sandbox_record(
+            "creating",
+            SandboxState::Creating,
+            Some(endpoint("creating")),
+        ))
+        .expect("insert non-ready sandbox");
+
+    let response = dispatch(
+        &services,
+        "get_observability_tree",
+        json!({"sandbox_id": "creating"}),
+    );
+
+    let sandboxes = response["sandboxes"].as_array().expect("sandboxes array");
+    assert_eq!(sandboxes.len(), 1);
+    assert_eq!(sandboxes[0]["sandbox_id"], "creating");
+    assert_eq!(sandboxes[0]["lifecycle_state"], "creating");
+    assert_eq!(sandboxes[0]["availability"], "unavailable");
+    assert!(client.invocations().is_empty());
+}
+
+#[test]
+fn get_observability_tree_bounds_daemon_fanout_concurrency() {
+    let client = Arc::new(SlowTreeClient::new());
+    let (services, store) = services_with_client(client.clone());
+    for index in 0..12 {
+        let sandbox_id = format!("sbox-{index}");
+        store
+            .insert(sandbox_record(
+                &sandbox_id,
+                SandboxState::Ready,
+                Some(endpoint(&sandbox_id)),
+            ))
+            .expect("insert ready sandbox");
+    }
+
+    let response = dispatch(&services, "get_observability_tree", json!({}));
+
+    assert_eq!(
+        response["sandboxes"]
+            .as_array()
+            .expect("sandboxes array")
+            .len(),
+        12
+    );
+    assert!(
+        client.max_active() <= 8,
+        "manager fan-out exceeded cap: {}",
+        client.max_active()
     );
 }
 

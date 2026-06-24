@@ -9,7 +9,7 @@ pub mod router;
 pub mod runtime;
 pub mod store;
 
-pub use daemon_client::SandboxDaemonClient;
+pub use daemon_client::{SandboxDaemonClient, UnixSandboxDaemonClient};
 pub use daemon_install::{
     LocalSandboxDaemonInstaller, SandboxDaemonInstaller, SandboxDaemonLaunchSpec,
 };

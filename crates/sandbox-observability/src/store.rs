@@ -262,6 +262,24 @@ pub enum StoreError {
     },
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ObservabilitySnapshotReadOptions {
+    pub include_recent_traces: bool,
+    pub trace_limit: usize,
+    pub resource_window_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ObservabilitySnapshotRows {
+    pub sandbox: Option<SandboxSnapshotRecord>,
+    pub workspaces: Vec<WorkspaceSnapshotRecord>,
+    pub active_namespace_executions: Vec<NamespaceExecutionSnapshotRecord>,
+    pub latest_resources: Vec<ResourceSampleRecord>,
+    pub resource_history: Vec<ResourceSampleRecord>,
+    pub recent_request_traces: Vec<TraceRecord>,
+    pub recent_namespace_traces: Vec<NamespaceExecutionTraceRecord>,
+}
+
 pub struct ObservabilityStore {
     connection: Mutex<Connection>,
 }
@@ -699,6 +717,43 @@ impl ObservabilityStore {
         Ok(())
     }
 
+    pub fn read_observability_snapshot(
+        &self,
+        sandbox_id: &str,
+        options: &ObservabilitySnapshotReadOptions,
+    ) -> Result<ObservabilitySnapshotRows, StoreError> {
+        validate_id("sandbox_id", sandbox_id)?;
+
+        let connection = self.connection()?;
+        let sandbox = read_sandbox_snapshot(&connection, sandbox_id)?;
+        let workspaces = read_active_workspace_snapshots(&connection, sandbox_id)?;
+        let active_namespace_executions =
+            read_active_namespace_execution_snapshots(&connection, sandbox_id)?;
+        let latest_resources = read_latest_resource_samples(&connection, sandbox_id, &workspaces)?;
+        let resource_history = match options.resource_window_ms {
+            Some(window_ms) => read_resource_history(&connection, sandbox_id, window_ms)?,
+            None => Vec::new(),
+        };
+        let (recent_request_traces, recent_namespace_traces) = if options.include_recent_traces {
+            (
+                read_recent_request_traces(&connection, sandbox_id, options.trace_limit)?,
+                read_recent_namespace_traces(&connection, sandbox_id, options.trace_limit)?,
+            )
+        } else {
+            (Vec::new(), Vec::new())
+        };
+
+        Ok(ObservabilitySnapshotRows {
+            sandbox,
+            workspaces,
+            active_namespace_executions,
+            latest_resources,
+            resource_history,
+            recent_request_traces,
+            recent_namespace_traces,
+        })
+    }
+
     #[cfg(any(test, feature = "test-support"))]
     #[doc(hidden)]
     pub fn force_sqlite_write_errors_for_test(&self) -> Result<(), StoreError> {
@@ -1023,6 +1078,352 @@ impl ObservabilityStore {
             .lock()
             .map_err(|_| StoreError::ConnectionLock)
     }
+}
+
+fn read_sandbox_snapshot(
+    connection: &Connection,
+    sandbox_id: &str,
+) -> Result<Option<SandboxSnapshotRecord>, StoreError> {
+    connection
+        .query_row(
+            "SELECT
+                sandbox_id,
+                state,
+                workspace_root,
+                daemon_runtime_dir,
+                socket_path,
+                pid_path,
+                daemon_pid,
+                sampled_at_unix_ms,
+                error_message
+             FROM sandbox_snapshots
+             WHERE sandbox_id = ?1",
+            [sandbox_id],
+            sandbox_snapshot_from_row,
+        )
+        .optional()
+        .map_err(StoreError::from)
+}
+
+fn read_active_workspace_snapshots(
+    connection: &Connection,
+    sandbox_id: &str,
+) -> Result<Vec<WorkspaceSnapshotRecord>, StoreError> {
+    let mut statement = connection.prepare(
+        "SELECT
+            sandbox_id,
+            workspace_id,
+            state,
+            remount_state,
+            profile,
+            workspace_root,
+            upperdir,
+            workdir,
+            namespace_fd_count,
+            base_manifest_version,
+            base_root_hash,
+            layer_count,
+            sampled_at_unix_ms,
+            error_message
+         FROM workspace_snapshots
+         WHERE sandbox_id = ?1
+           AND state != 'destroyed'
+         ORDER BY workspace_id",
+    )?;
+    let rows = statement.query_map([sandbox_id], workspace_snapshot_from_row)?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(StoreError::from)
+}
+
+fn read_active_namespace_execution_snapshots(
+    connection: &Connection,
+    sandbox_id: &str,
+) -> Result<Vec<NamespaceExecutionSnapshotRecord>, StoreError> {
+    let mut statement = connection.prepare(
+        "SELECT
+            sandbox_id,
+            namespace_execution_id,
+            workspace_session_id,
+            operation,
+            lifecycle_state,
+            sampled_at_unix_ms,
+            error_message
+         FROM namespace_execution_snapshots
+         WHERE sandbox_id = ?1
+         ORDER BY workspace_session_id, namespace_execution_id",
+    )?;
+    let rows = statement.query_map([sandbox_id], namespace_execution_snapshot_from_row)?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(StoreError::from)
+}
+
+fn read_latest_resource_samples(
+    connection: &Connection,
+    sandbox_id: &str,
+    workspaces: &[WorkspaceSnapshotRecord],
+) -> Result<Vec<ResourceSampleRecord>, StoreError> {
+    let mut latest = Vec::new();
+    if let Some(sample) = read_latest_resource_sample(connection, sandbox_id, None)? {
+        latest.push(sample);
+    }
+    for workspace in workspaces {
+        if let Some(sample) =
+            read_latest_resource_sample(connection, sandbox_id, Some(&workspace.workspace_id))?
+        {
+            latest.push(sample);
+        }
+    }
+    Ok(latest)
+}
+
+fn read_latest_resource_sample(
+    connection: &Connection,
+    sandbox_id: &str,
+    workspace_id: Option<&str>,
+) -> Result<Option<ResourceSampleRecord>, StoreError> {
+    match workspace_id {
+        Some(workspace_id) => connection
+            .query_row(
+                &(RESOURCE_SAMPLE_SELECT_PREFIX.to_owned()
+                    + " WHERE sandbox_id = ?1
+                          AND workspace_id = ?2
+                        ORDER BY sampled_at_unix_ms DESC, sample_id DESC
+                        LIMIT 1"),
+                params![sandbox_id, workspace_id],
+                resource_sample_from_row,
+            )
+            .optional()
+            .map_err(StoreError::from),
+        None => connection
+            .query_row(
+                &(RESOURCE_SAMPLE_SELECT_PREFIX.to_owned()
+                    + " WHERE sandbox_id = ?1
+                          AND workspace_id IS NULL
+                        ORDER BY sampled_at_unix_ms DESC, sample_id DESC
+                        LIMIT 1"),
+                [sandbox_id],
+                resource_sample_from_row,
+            )
+            .optional()
+            .map_err(StoreError::from),
+    }
+}
+
+fn read_resource_history(
+    connection: &Connection,
+    sandbox_id: &str,
+    window_ms: u64,
+) -> Result<Vec<ResourceSampleRecord>, StoreError> {
+    let cutoff = unix_time_ms().saturating_sub(i64::try_from(window_ms).unwrap_or(i64::MAX));
+    let mut statement = connection.prepare(
+        &(RESOURCE_SAMPLE_SELECT_PREFIX.to_owned()
+            + " WHERE sandbox_id = ?1
+                  AND sampled_at_unix_ms >= ?2
+                ORDER BY sampled_at_unix_ms DESC, workspace_id, sample_id"),
+    )?;
+    let rows = statement.query_map(params![sandbox_id, cutoff], resource_sample_from_row)?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(StoreError::from)
+}
+
+fn read_recent_request_traces(
+    connection: &Connection,
+    sandbox_id: &str,
+    limit: usize,
+) -> Result<Vec<TraceRecord>, StoreError> {
+    let mut statement = connection.prepare(
+        "SELECT
+            trace_id,
+            kind,
+            status,
+            sandbox_id,
+            operation,
+            request_id,
+            origin_request_id,
+            workspace_id,
+            command_session_id,
+            started_at_unix_ms,
+            finished_at_unix_ms,
+            duration_ms,
+            error_kind,
+            error_message
+         FROM traces
+         WHERE sandbox_id = ?1
+         ORDER BY started_at_unix_ms DESC, trace_id
+         LIMIT ?2",
+    )?;
+    let rows = statement.query_map(params![sandbox_id, limit_i64(limit)], trace_from_row)?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(StoreError::from)
+}
+
+fn read_recent_namespace_traces(
+    connection: &Connection,
+    sandbox_id: &str,
+    limit: usize,
+) -> Result<Vec<NamespaceExecutionTraceRecord>, StoreError> {
+    let mut statement = connection.prepare(
+        "SELECT
+            trace_id,
+            sandbox_id,
+            namespace_execution_id,
+            workspace_session_id,
+            operation,
+            request_id,
+            status,
+            exit_code,
+            started_at_unix_ms,
+            finished_at_unix_ms,
+            duration_ms,
+            error_kind,
+            error_message
+         FROM namespace_execution_traces
+         WHERE sandbox_id = ?1
+         ORDER BY started_at_unix_ms DESC, trace_id
+         LIMIT ?2",
+    )?;
+    let rows = statement.query_map(
+        params![sandbox_id, limit_i64(limit)],
+        namespace_execution_trace_from_row,
+    )?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(StoreError::from)
+}
+
+const RESOURCE_SAMPLE_SELECT_PREFIX: &str = "SELECT
+    sample_id,
+    sandbox_id,
+    workspace_id,
+    sampled_at_unix_ms,
+    cgroup_path,
+    cgroup_available,
+    cgroup_error,
+    cpu_usage_usec,
+    memory_current_bytes,
+    memory_max_bytes,
+    memory_max_unlimited,
+    disk_upperdir_bytes,
+    disk_file_count,
+    disk_dir_count,
+    disk_symlink_count,
+    disk_truncated,
+    disk_read_error_count,
+    disk_first_error_path
+ FROM resource_samples";
+
+fn sandbox_snapshot_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SandboxSnapshotRecord> {
+    Ok(SandboxSnapshotRecord {
+        sandbox_id: row.get(0)?,
+        state: row.get(1)?,
+        workspace_root: row.get(2)?,
+        daemon_runtime_dir: row.get(3)?,
+        socket_path: row.get(4)?,
+        pid_path: row.get(5)?,
+        daemon_pid: row.get(6)?,
+        sampled_at_unix_ms: row.get(7)?,
+        error_message: row.get(8)?,
+    })
+}
+
+fn workspace_snapshot_from_row(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<WorkspaceSnapshotRecord> {
+    Ok(WorkspaceSnapshotRecord {
+        sandbox_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        state: row.get(2)?,
+        remount_state: row.get(3)?,
+        profile: row.get(4)?,
+        workspace_root: row.get(5)?,
+        upperdir: row.get(6)?,
+        workdir: row.get(7)?,
+        namespace_fd_count: row.get(8)?,
+        base_manifest_version: row.get(9)?,
+        base_root_hash: row.get(10)?,
+        layer_count: row.get(11)?,
+        sampled_at_unix_ms: row.get(12)?,
+        error_message: row.get(13)?,
+    })
+}
+
+fn namespace_execution_snapshot_from_row(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<NamespaceExecutionSnapshotRecord> {
+    Ok(NamespaceExecutionSnapshotRecord {
+        sandbox_id: row.get(0)?,
+        namespace_execution_id: row.get(1)?,
+        workspace_session_id: row.get(2)?,
+        operation: row.get(3)?,
+        lifecycle_state: row.get(4)?,
+        sampled_at_unix_ms: row.get(5)?,
+        error_message: row.get(6)?,
+    })
+}
+
+fn trace_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TraceRecord> {
+    Ok(TraceRecord {
+        trace_id: row.get(0)?,
+        kind: row.get(1)?,
+        status: row.get(2)?,
+        sandbox_id: row.get(3)?,
+        operation: row.get(4)?,
+        request_id: row.get(5)?,
+        origin_request_id: row.get(6)?,
+        workspace_id: row.get(7)?,
+        command_session_id: row.get(8)?,
+        started_at_unix_ms: row.get(9)?,
+        finished_at_unix_ms: row.get(10)?,
+        duration_ms: row.get(11)?,
+        error_kind: row.get(12)?,
+        error_message: row.get(13)?,
+    })
+}
+
+fn namespace_execution_trace_from_row(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<NamespaceExecutionTraceRecord> {
+    Ok(NamespaceExecutionTraceRecord {
+        trace_id: row.get(0)?,
+        sandbox_id: row.get(1)?,
+        namespace_execution_id: row.get(2)?,
+        workspace_session_id: row.get(3)?,
+        operation: row.get(4)?,
+        request_id: row.get(5)?,
+        status: row.get(6)?,
+        exit_code: row.get(7)?,
+        started_at_unix_ms: row.get(8)?,
+        finished_at_unix_ms: row.get(9)?,
+        duration_ms: row.get(10)?,
+        error_kind: row.get(11)?,
+        error_message: row.get(12)?,
+    })
+}
+
+fn resource_sample_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ResourceSampleRecord> {
+    Ok(ResourceSampleRecord {
+        sample_id: row.get(0)?,
+        sandbox_id: row.get(1)?,
+        workspace_id: row.get(2)?,
+        sampled_at_unix_ms: row.get(3)?,
+        cgroup_path: row.get(4)?,
+        cgroup_available: row.get::<_, i64>(5)? != 0,
+        cgroup_error: row.get(6)?,
+        cpu_usage_usec: row.get(7)?,
+        memory_current_bytes: row.get(8)?,
+        memory_max_bytes: row.get(9)?,
+        memory_max_unlimited: row.get::<_, Option<i64>>(10)?.map(|value| value != 0),
+        disk_upperdir_bytes: row.get(11)?,
+        disk_file_count: row.get(12)?,
+        disk_dir_count: row.get(13)?,
+        disk_symlink_count: row.get(14)?,
+        disk_truncated: row.get::<_, Option<i64>>(15)?.map(|value| value != 0),
+        disk_read_error_count: row.get(16)?,
+        disk_first_error_path: row.get(17)?,
+    })
+}
+
+fn limit_i64(limit: usize) -> i64 {
+    i64::try_from(limit).unwrap_or(i64::MAX)
 }
 
 fn configure_connection(connection: &Connection) -> Result<(), StoreError> {

@@ -352,6 +352,95 @@ fn observability_is_disabled_when_sandbox_id_is_missing() {
     assert!(DaemonObservability::from_config(&config).is_none());
 }
 
+#[tokio::test]
+async fn private_observability_snapshot_dispatch_returns_summary_tree() -> TestResult {
+    let root = test_root("private-snapshot-summary");
+    let server = daemon_server(&root, Some("sandbox-1"))?;
+    let observability = server
+        .observability
+        .as_ref()
+        .expect("sandbox id enables observability");
+    let mut snapshot = runtime_snapshot(root.join("missing-upperdir"));
+    snapshot
+        .partial_errors
+        .push("partial workspace projection failed".to_owned());
+    observability.collect_runtime_snapshot_for_test(&server.config, snapshot)?;
+    observability.insert_completed_operation_trace(
+        "sandbox-1".to_owned(),
+        "req-summary".to_owned(),
+        "exec_command".to_owned(),
+        &json!({
+            "status": "completed",
+            "output": "SECRET_OUTPUT",
+            "transcript": "SECRET_TRANSCRIPT",
+        }),
+        completed_trace(&[
+            (None, "dispatch_operation", 0),
+            (Some(0), "SECRET_SPAN_METHOD", 1),
+        ]),
+    )?;
+    observability.insert_completed_async_operation_trace(
+        completed_trace(&[(None, "complete_terminal_command_with_services", 0)]),
+        command_finalization_metadata("req-origin", "workspace-1", "SECRET_COMMAND_SESSION"),
+    )?;
+
+    let response = server
+        .dispatch_bytes(
+            request_bytes(
+                crate::server::dispatch::PRIVATE_OBSERVABILITY_SNAPSHOT_OP,
+                "req-private-snapshot",
+                json!({
+                    "include_recent_traces": true,
+                    "trace_limit": 20,
+                    "resource_window_ms": 60_000,
+                }),
+            )?,
+            false,
+        )
+        .await;
+
+    assert_eq!(response["sandbox_id"], "sandbox-1");
+    assert_eq!(response["lifecycle_state"], "ready");
+    assert_eq!(response["availability"], "partial");
+    assert_eq!(
+        response["errors"][0],
+        "partial workspace projection failed"
+    );
+    assert_eq!(response["workspaces"][0]["workspace_id"], "workspace-1");
+    assert_eq!(
+        response["workspaces"][0]["active_namespace_executions"][0]["namespace_execution_id"],
+        "namespace_execution_1"
+    );
+    assert_eq!(
+        response["resources"]["history"]
+            .as_array()
+            .expect("sandbox resource history loaded")
+            .len(),
+        1
+    );
+    assert!(response["recent_traces"]
+        .as_array()
+        .expect("recent traces")
+        .iter()
+        .any(|trace| trace["trace_id"] == "request:req-summary"));
+    let response_text = response.to_string();
+    for forbidden in [
+        "SECRET_OUTPUT",
+        "SECRET_TRANSCRIPT",
+        "SECRET_SPAN_METHOD",
+        "SECRET_COMMAND_SESSION",
+        "span_id",
+        "method_name",
+        "command_session_id",
+    ] {
+        assert!(
+            !response_text.contains(forbidden),
+            "private snapshot response unexpectedly contained {forbidden}: {response_text}"
+        );
+    }
+    Ok(())
+}
+
 #[test]
 fn completed_operation_trace_maps_and_persists_success() -> TestResult {
     let root = test_root("trace-success");
