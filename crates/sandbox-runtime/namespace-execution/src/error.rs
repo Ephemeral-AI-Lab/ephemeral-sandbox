@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// Failures surfaced by the namespace execution engine.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NamespaceExecutionError {
     /// The runner could not be launched (fork/pipe/PTY setup).
     Spawn(String),

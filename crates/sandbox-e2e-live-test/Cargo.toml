@@ -16,6 +16,9 @@ path = "src/bin/eos-e2e.rs"
 anyhow.workspace = true
 serde = { workspace = true }
 serde_json.workspace = true
+clap.workspace = true
+sha2.workspace = true
+time.workspace = true
 
 [lints]
 workspace = true

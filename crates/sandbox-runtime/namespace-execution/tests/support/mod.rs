@@ -16,14 +16,20 @@ use sandbox_runtime_namespace_execution::{
     NamespaceExecutionTerminalStatus, NamespaceTarget, RunnerOutcome, ShellOperation,
 };
 use sandbox_runtime_namespace_process::runner::protocol::{
-    NamespaceRunnerRequest, NsFds, RunResult,
+    Fd, NamespaceRunnerRequest, NsFds, RunResult,
 };
 
 /// A controllable completion cell the test drives. `complete`/`cancel` unblock a
 /// `FakeRunnerChild` blocked in `wait_completion` — a real concurrent unblock.
 struct FakeCompletion {
-    slot: Mutex<Option<RunResult>>,
+    slot: Mutex<Option<FakeCompletionOutcome>>,
     ready: Condvar,
+}
+
+#[derive(Clone)]
+enum FakeCompletionOutcome {
+    Completed(RunResult),
+    Failed(String),
 }
 
 impl FakeCompletion {
@@ -35,9 +41,17 @@ impl FakeCompletion {
     }
 
     fn complete(&self, result: RunResult) {
+        self.finish(FakeCompletionOutcome::Completed(result));
+    }
+
+    fn fail(&self, detail: impl Into<String>) {
+        self.finish(FakeCompletionOutcome::Failed(detail.into()));
+    }
+
+    fn finish(&self, outcome: FakeCompletionOutcome) {
         let mut slot = self.slot.lock().expect("fake completion mutex poisoned");
         if slot.is_none() {
-            *slot = Some(result);
+            *slot = Some(outcome);
             self.ready.notify_all();
         }
     }
@@ -49,7 +63,7 @@ impl FakeCompletion {
         });
     }
 
-    fn wait(&self) -> RunResult {
+    fn wait(&self) -> Result<RunResult, NamespaceExecutionError> {
         let mut slot = self.slot.lock().expect("fake completion mutex poisoned");
         while slot.is_none() {
             slot = self
@@ -57,8 +71,13 @@ impl FakeCompletion {
                 .wait(slot)
                 .expect("fake completion mutex poisoned");
         }
-        slot.clone()
+        match slot
+            .clone()
             .expect("wait loop exits only once the slot is set")
+        {
+            FakeCompletionOutcome::Completed(result) => Ok(result),
+            FakeCompletionOutcome::Failed(detail) => Err(NamespaceExecutionError::Spawn(detail)),
+        }
     }
 }
 
@@ -68,7 +87,7 @@ struct FakeRunnerChild {
 
 impl RunnerChild for FakeRunnerChild {
     fn wait_completion(&mut self) -> Result<RunResult, NamespaceExecutionError> {
-        Ok(self.completion.wait())
+        self.completion.wait()
     }
 }
 
@@ -77,6 +96,7 @@ struct FakeLauncherState {
     requests: Vec<NamespaceRunnerRequest>,
     request_ids: Vec<String>,
     completions: Vec<Arc<FakeCompletion>>,
+    piped_mode_flags: Vec<&'static str>,
     piped_setup_timeouts: Vec<f64>,
 }
 
@@ -122,6 +142,15 @@ impl FakeLauncher {
             .clone()
     }
 
+    #[must_use]
+    pub fn recorded_piped_mode_flags(&self) -> Vec<&'static str> {
+        self.state
+            .lock()
+            .expect("fake launcher mutex poisoned")
+            .piped_mode_flags
+            .clone()
+    }
+
     /// Complete the most recently spawned execution.
     pub fn complete_latest(&self, result: RunResult) {
         let completion = self
@@ -133,6 +162,21 @@ impl FakeLauncher {
             .map(Arc::clone);
         if let Some(completion) = completion {
             completion.complete(result);
+        }
+    }
+
+    /// Fail the most recently spawned execution's `wait_completion`.
+    pub fn fail_latest_wait(&self, detail: impl Into<String>) {
+        let detail = detail.into();
+        let completion = self
+            .state
+            .lock()
+            .expect("fake launcher mutex poisoned")
+            .completions
+            .last()
+            .map(Arc::clone);
+        if let Some(completion) = completion {
+            completion.fail(detail);
         }
     }
 
@@ -163,16 +207,14 @@ impl NsRunnerLauncher for FakeLauncher {
 
     fn spawn_piped(
         &self,
-        _mode_flag: &'static str,
+        mode_flag: &'static str,
         request: NamespaceRunnerRequest,
         setup_timeout_s: f64,
     ) -> Result<Box<dyn RunnerChild>, NamespaceExecutionError> {
         let completion = self.record(&request);
-        self.state
-            .lock()
-            .expect("fake launcher mutex poisoned")
-            .piped_setup_timeouts
-            .push(setup_timeout_s);
+        let mut state = self.state.lock().expect("fake launcher mutex poisoned");
+        state.piped_mode_flags.push(mode_flag);
+        state.piped_setup_timeouts.push(setup_timeout_s);
         Ok(Box::new(FakeRunnerChild { completion }))
     }
 }
@@ -285,6 +327,30 @@ impl ShellOperation for OkShellOp {
     }
 }
 
+/// A shell op with non-default request fields.
+#[derive(Default)]
+pub struct TimedShellOp;
+
+impl ShellOperation for TimedShellOp {
+    type Output = i64;
+
+    fn operation_name(&self) -> &'static str {
+        "timed_shell_op"
+    }
+
+    fn command(&self) -> &str {
+        "printf ready"
+    }
+
+    fn timeout_seconds(&self) -> Option<f64> {
+        Some(2.5)
+    }
+
+    fn finalize(self: Box<Self>, outcome: RunnerOutcome) -> Result<i64, NamespaceExecutionError> {
+        Ok(outcome.exit_code())
+    }
+}
+
 /// A shell op whose `finalize` rejects the outcome.
 #[derive(Default)]
 pub struct ErrShellOp;
@@ -309,6 +375,30 @@ impl ShellOperation for ErrShellOp {
     }
 }
 
+/// A shell op whose `finalize` panics.
+#[derive(Default)]
+pub struct PanicShellOp;
+
+impl ShellOperation for PanicShellOp {
+    type Output = i64;
+
+    fn operation_name(&self) -> &'static str {
+        "panic_shell_op"
+    }
+
+    fn command(&self) -> &str {
+        "panic"
+    }
+
+    fn timeout_seconds(&self) -> Option<f64> {
+        None
+    }
+
+    fn finalize(self: Box<Self>, _outcome: RunnerOutcome) -> Result<i64, NamespaceExecutionError> {
+        panic!("panic shell op")
+    }
+}
+
 #[must_use]
 pub fn run_result(exit_code: i32, status: &str) -> RunResult {
     RunResult {
@@ -326,6 +416,11 @@ pub fn run_result_without_status(exit_code: i32) -> RunResult {
 }
 
 #[must_use]
+pub fn run_result_payload(exit_code: i32, payload: serde_json::Value) -> RunResult {
+    RunResult { exit_code, payload }
+}
+
+#[must_use]
 pub fn outcome(result: RunResult) -> RunnerOutcome {
     RunnerOutcome::new(result)
 }
@@ -334,14 +429,14 @@ pub fn outcome(result: RunResult) -> RunnerOutcome {
 pub fn sample_target() -> NamespaceTarget {
     NamespaceTarget {
         workspace_root: PathBuf::from("/workspace"),
-        layer_paths: Vec::new(),
-        upperdir: None,
-        workdir: None,
+        layer_paths: vec![PathBuf::from("/layers/base"), PathBuf::from("/layers/top")],
+        upperdir: Some(PathBuf::from("/overlay/upper")),
+        workdir: Some(PathBuf::from("/overlay/work")),
         ns_fds: NsFds {
-            user: None,
-            mnt: None,
-            pid: None,
-            net: None,
+            user: Some(Fd(11)),
+            mnt: Some(Fd(12)),
+            pid: Some(Fd(13)),
+            net: Some(Fd(14)),
         },
     }
 }

@@ -2,8 +2,14 @@ mod fds;
 mod holder;
 mod setns_runner;
 
+use std::sync::Arc;
+
+use sandbox_runtime_namespace_execution::{NamespaceExecutionEngine, NoopObserver};
+
 #[cfg(target_os = "linux")]
 use crate::profile::WorkspaceModeError;
+
+const MOUNT_MAX_ACTIVE: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum NamespaceNetwork {
@@ -87,8 +93,9 @@ pub(crate) fn setup_error(error: impl std::fmt::Display) -> WorkspaceModeError {
     }
 }
 
-#[derive(Default)]
-pub struct NamespaceRuntime;
+pub struct NamespaceRuntime {
+    engine: Arc<NamespaceExecutionEngine>,
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct HolderKillReport {
@@ -99,7 +106,13 @@ pub(crate) struct HolderKillReport {
 }
 
 impl NamespaceRuntime {
-    pub fn new() -> Self {
-        Self
+    pub fn new(setup_timeout_s: f64) -> Self {
+        Self {
+            engine: Arc::new(NamespaceExecutionEngine::new(
+                Arc::new(NoopObserver),
+                MOUNT_MAX_ACTIVE,
+                setup_timeout_s,
+            )),
+        }
     }
 }

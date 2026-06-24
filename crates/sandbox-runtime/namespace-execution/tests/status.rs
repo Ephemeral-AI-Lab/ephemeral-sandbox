@@ -1,7 +1,8 @@
 mod support;
 
 use sandbox_runtime_namespace_execution::NamespaceExecutionTerminalStatus;
-use support::{outcome, run_result, run_result_without_status};
+use serde_json::json;
+use support::{outcome, run_result, run_result_payload, run_result_without_status};
 
 #[test]
 fn as_str_strings_match_the_wire_vocabulary() {
@@ -45,6 +46,18 @@ fn status_defaults_to_error_when_absent_or_unknown() {
     );
     assert_eq!(
         outcome(run_result(0, "bogus")).status(),
+        NamespaceExecutionTerminalStatus::Error
+    );
+}
+
+#[test]
+fn status_defaults_to_error_for_non_string_or_non_object_payloads() {
+    assert_eq!(
+        outcome(run_result_payload(1, json!({ "status": 7 }))).status(),
+        NamespaceExecutionTerminalStatus::Error
+    );
+    assert_eq!(
+        outcome(run_result_payload(1, json!(42))).status(),
         NamespaceExecutionTerminalStatus::Error
     );
 }

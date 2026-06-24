@@ -34,11 +34,11 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
 }
 
 fn dispatch_runner_mode(
-    mode: NsRunnerOperation,
+    operation: NsRunnerOperation,
     request: &sandbox_runtime_namespace_process::runner::protocol::NamespaceRunnerRequest,
     runner_config: &RunnerConfig,
 ) -> Result<sandbox_runtime_namespace_process::runner::protocol::RunResult> {
-    match mode {
+    match operation {
         NsRunnerOperation::RemountOverlay => Ok(
             sandbox_runtime_namespace_process::runner::protocol::RunResult {
                 exit_code: 0,
@@ -49,17 +49,29 @@ fn dispatch_runner_mode(
                 .context("ns-runner remount overlay failed")?,
             },
         ),
-        NsRunnerOperation::MountOverlay => {
+        NsRunnerOperation::MountOverlay => Ok(mount_overlay_result(
             sandbox_runtime_namespace_process::runner::setns::setns_overlay_mount(
                 request,
                 &runner_config.mount_mask.hidden_paths,
-            )
-            .context("ns-runner setns overlay mount failed")?;
-            Ok(ok_result())
-        }
+            ),
+        )),
         NsRunnerOperation::Run => {
             sandbox_runtime_namespace_process::runner::run(request).context("ns-runner failed")
         }
+    }
+}
+
+pub(crate) fn mount_overlay_result(
+    outcome: Result<(), impl std::fmt::Display>,
+) -> sandbox_runtime_namespace_process::runner::protocol::RunResult {
+    match outcome {
+        Ok(()) => ok_result(),
+        Err(error) => sandbox_runtime_namespace_process::runner::protocol::RunResult {
+            exit_code: 1,
+            payload: serde_json::json!({
+                "error": format!("ns-runner setns overlay mount failed: {error}")
+            }),
+        },
     }
 }
 

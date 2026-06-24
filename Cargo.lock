@@ -1010,8 +1010,11 @@ name = "sandbox-e2e-live-test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "serde",
  "serde_json",
+ "sha2",
+ "time",
 ]
 
 [[package]]
@@ -1139,6 +1142,7 @@ dependencies = [
  "rtnetlink",
  "rustix 0.38.44",
  "sandbox-runtime-layerstack",
+ "sandbox-runtime-namespace-execution",
  "sandbox-runtime-namespace-process",
  "sandbox-runtime-workspace",
  "serde",

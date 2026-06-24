@@ -100,7 +100,8 @@ impl WorkspaceModeManager {
         caps: ResourceCaps,
         scratch_root: PathBuf,
     ) -> Self {
-        Self::with_runtime(workspace_root, caps, scratch_root, NamespaceRuntime::new())
+        let runtime = NamespaceRuntime::new(caps.setup_timeout_s);
+        Self::with_runtime(workspace_root, caps, scratch_root, runtime)
     }
 
     pub(crate) fn with_runtime(

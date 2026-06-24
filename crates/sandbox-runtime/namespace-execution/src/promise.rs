@@ -1,11 +1,12 @@
 use std::sync::{Condvar, Mutex};
-#[cfg(feature = "test-support")]
 use std::time::{Duration, Instant};
 
 use crate::error::NamespaceExecutionError;
 
 /// Write-once completion cell: the single internal "done?" truth, backed by a
-/// `Mutex` + `Condvar`. Single-consumer — exactly one `wait` takes the value.
+/// `Mutex` + `Condvar`. `wait` takes the value (single-consumer); `resolved`
+/// peeks a clone without consuming, so the registry-retained handle can serve
+/// repeated terminal reads.
 pub struct CompletionPromise<T> {
     slot: Mutex<Option<Result<T, NamespaceExecutionError>>>,
     ready: Condvar,
@@ -54,13 +55,9 @@ impl<T> CompletionPromise<T> {
         slot.take()
             .expect("wait loop exits only once the slot is resolved")
     }
-}
 
-#[cfg(feature = "test-support")]
-impl<T> CompletionPromise<T> {
     /// Block up to `timeout` for resolution. `true` once resolved, `false` on
-    /// timeout. Does not consume the value — the single-consumer `wait` still
-    /// takes it. (The peeking `Option<&T>` form is Phase 3.)
+    /// timeout. Does not consume the value — it stays for `wait`/`resolved`.
     pub fn wait_timeout(&self, timeout: Duration) -> bool {
         let mut slot = self.slot.lock().expect("completion promise mutex poisoned");
         let deadline = Instant::now() + timeout;
@@ -79,5 +76,15 @@ impl<T> CompletionPromise<T> {
             }
         }
         true
+    }
+
+    /// Non-consuming snapshot of the resolved outcome, or `None` while pending.
+    /// The slot is never taken, so repeated terminal reads each get a clone.
+    pub fn resolved(&self) -> Option<Result<T, NamespaceExecutionError>>
+    where
+        T: Clone,
+    {
+        let slot = self.slot.lock().expect("completion promise mutex poisoned");
+        slot.clone()
     }
 }

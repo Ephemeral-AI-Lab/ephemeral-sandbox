@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::PathBuf;
 
+use sandbox_runtime_namespace_execution::NamespaceTarget;
 use sandbox_runtime_namespace_process::runner::protocol::{Fd, NsFds};
 
 use crate::overlay::tree::TreeResourceStats;
@@ -337,6 +338,18 @@ impl From<WorkspaceEntryFds> for NsFds {
             mnt: Some(Fd(fds.mnt)),
             pid: Some(Fd(fds.pid)),
             net: fds.net.map(Fd),
+        }
+    }
+}
+
+impl From<WorkspaceEntry> for NamespaceTarget {
+    fn from(entry: WorkspaceEntry) -> Self {
+        Self {
+            workspace_root: entry.workspace_root,
+            layer_paths: entry.layer_paths,
+            upperdir: Some(entry.upperdir),
+            workdir: Some(entry.workdir),
+            ns_fds: entry.ns_fds.into(),
         }
     }
 }

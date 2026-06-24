@@ -8,11 +8,13 @@ use std::sync::Arc;
 
 use sandbox_runtime_namespace_execution::{
     NamespaceExecutionEngine, NamespaceExecutionError, NamespaceExecutionId,
-    NamespaceExecutionTerminalStatus, NoopObserver,
+    NamespaceExecutionTerminalStatus, NamespaceTarget, NoopObserver,
 };
+use sandbox_runtime_namespace_process::runner::protocol::NamespaceRunnerRequest;
 use serde_json::json;
 use support::{
     run_result, sample_target, ErrShellOp, FakeLauncher, FakeObserver, ObserverEvent, OkShellOp,
+    PanicShellOp, TimedShellOp,
 };
 
 fn id(suffix: &str) -> NamespaceExecutionId {
@@ -25,6 +27,19 @@ fn test_engine(
     max_active: usize,
 ) -> NamespaceExecutionEngine {
     NamespaceExecutionEngine::with_launcher(Box::new(fake.clone()), observer, max_active, 30.0)
+}
+
+fn assert_request_target_fields(
+    request: &NamespaceRunnerRequest,
+    target: &NamespaceTarget,
+    id: &NamespaceExecutionId,
+) {
+    assert_eq!(request.request_id, id.0);
+    assert_eq!(request.workspace_root, target.workspace_root);
+    assert_eq!(request.layer_paths, target.layer_paths);
+    assert_eq!(request.upperdir, target.upperdir);
+    assert_eq!(request.workdir, target.workdir);
+    assert_eq!(request.ns_fds, Some(target.ns_fds));
 }
 
 #[test]
@@ -66,6 +81,52 @@ fn shell_finalize_error_resolves_terminal_error() {
 }
 
 #[test]
+fn shell_finalize_panic_resolves_terminal_error_and_completes_registry() {
+    let fake = FakeLauncher::new();
+    let observer = Arc::new(FakeObserver::new());
+    let engine = test_engine(&fake, observer.clone(), 4);
+    let id = id("finalize_panic");
+
+    let exec = engine
+        .run_shell_interactive(PanicShellOp, sample_target(), id.clone())
+        .expect("admitted");
+    fake.complete_latest(run_result(0, "ok"));
+
+    let error = exec.wait().expect_err("panic is mapped to finalize error");
+    assert!(matches!(
+        error,
+        NamespaceExecutionError::Finalize(detail) if detail.contains("panic shell op")
+    ));
+    assert!(engine.registry_is_completed(&id));
+    let (status, exit_code) = observer.await_terminal();
+    assert_eq!(status, NamespaceExecutionTerminalStatus::Error);
+    assert_eq!(exit_code, Some(0));
+}
+
+#[test]
+fn wait_completion_error_resolves_terminal_error_and_completes_registry() {
+    let fake = FakeLauncher::new();
+    let observer = Arc::new(FakeObserver::new());
+    let engine = test_engine(&fake, observer.clone(), 4);
+    let id = id("wait_error");
+
+    let exec = engine
+        .run_shell_interactive(OkShellOp, sample_target(), id.clone())
+        .expect("admitted");
+    fake.fail_latest_wait("result fd read failed");
+
+    let error = exec.wait().expect_err("wait error surfaced");
+    assert!(matches!(
+        error,
+        NamespaceExecutionError::Spawn(detail) if detail == "result fd read failed"
+    ));
+    assert!(engine.registry_is_completed(&id));
+    let (status, exit_code) = observer.await_terminal();
+    assert_eq!(status, NamespaceExecutionTerminalStatus::Error);
+    assert_eq!(exit_code, None);
+}
+
+#[test]
 fn cancel_unblocks_the_blocked_watcher() {
     let fake = FakeLauncher::new();
     let observer = Arc::new(FakeObserver::new());
@@ -89,8 +150,9 @@ fn admission_refuses_when_full_then_readmits_after_completion() {
     let observer = Arc::new(FakeObserver::new());
     let engine = test_engine(&fake, observer, 1);
 
+    let first_id = id("1");
     let first = engine
-        .run_shell_interactive(OkShellOp, sample_target(), id("1"))
+        .run_shell_interactive(OkShellOp, sample_target(), first_id.clone())
         .expect("first admitted");
     let refused = engine
         .run_shell_interactive(OkShellOp, sample_target(), id("2"))
@@ -104,6 +166,7 @@ fn admission_refuses_when_full_then_readmits_after_completion() {
     // complete-before-resolve ⟹ the slot is freed by the time wait() returns.
     fake.complete_latest(run_result(0, "ok"));
     assert_eq!(first.wait().expect("first resolved"), 0);
+    assert!(engine.registry_is_completed(&first_id));
 
     let third = engine
         .run_shell_interactive(OkShellOp, sample_target(), id("3"))
@@ -129,6 +192,7 @@ fn mount_execution_resolves_parsed_output() {
         )
         .expect("mount admitted");
     assert_eq!(handle.id().0, id.0);
+    assert_eq!(fake.recorded_piped_mode_flags(), vec!["--mount-overlay"]);
 
     fake.complete_latest(run_result(0, "ok"));
     assert_eq!(handle.wait().expect("mount resolved"), 0);
@@ -152,6 +216,7 @@ fn mount_parse_error_resolves_terminal_error() {
             |_outcome| Err::<i64, _>(NamespaceExecutionError::Finalize("bad probe".to_owned())),
         )
         .expect("admitted");
+    assert_eq!(fake.recorded_piped_mode_flags(), vec!["--remount-overlay"]);
     fake.complete_latest(run_result(0, "ok"));
 
     let error = handle.wait().expect_err("parse error surfaced");
@@ -161,10 +226,69 @@ fn mount_parse_error_resolves_terminal_error() {
 }
 
 #[test]
+fn mount_parse_panic_resolves_terminal_error_and_completes_registry() {
+    let fake = FakeLauncher::new();
+    let observer = Arc::new(FakeObserver::new());
+    let engine = test_engine(&fake, observer.clone(), 4);
+    let id = id("mount_panic");
+
+    let handle = engine
+        .run_mount(
+            "--mount-overlay",
+            sample_target(),
+            id.clone(),
+            json!({}),
+            |_outcome| -> Result<i64, NamespaceExecutionError> { panic!("panic mount parse") },
+        )
+        .expect("admitted");
+    fake.complete_latest(run_result(0, "ok"));
+
+    let error = handle
+        .wait()
+        .expect_err("panic is mapped to finalize error");
+    assert!(matches!(
+        error,
+        NamespaceExecutionError::Finalize(detail) if detail.contains("panic mount parse")
+    ));
+    assert!(engine.registry_is_completed(&id));
+    let (status, exit_code) = observer.await_terminal();
+    assert_eq!(status, NamespaceExecutionTerminalStatus::Error);
+    assert_eq!(exit_code, Some(0));
+}
+
+#[test]
+fn shell_request_carries_args_timeout_and_target_fields() {
+    let fake = FakeLauncher::new();
+    let observer = Arc::new(FakeObserver::new());
+    let engine = test_engine(&fake, observer, 4);
+    let target = sample_target();
+    let id = id("shell_request");
+
+    let exec = engine
+        .run_shell_interactive(TimedShellOp, target.clone(), id.clone())
+        .expect("admitted");
+
+    let requests = fake.recorded_requests();
+    assert_eq!(requests.len(), 1);
+    let request = &requests[0];
+    assert_request_target_fields(request, &target, &id);
+    assert_eq!(
+        request.args,
+        json!({ "command": "printf ready", "cwd": "." })
+    );
+    assert_eq!(request.timeout_seconds, Some(2.5));
+
+    fake.complete_latest(run_result(0, "ok"));
+    assert_eq!(exec.wait().expect("resolved"), 0);
+}
+
+#[test]
 fn run_mount_passes_args_to_the_runner_request() {
     let fake = FakeLauncher::new();
     let observer = Arc::new(FakeObserver::new());
     let engine = test_engine(&fake, observer, 4);
+    let target = sample_target();
+    let id = id("args");
     let args = json!({
         "probe_path": "/tmp/remount-probe",
         "probe_content": "expected",
@@ -173,14 +297,20 @@ fn run_mount_passes_args_to_the_runner_request() {
     let handle = engine
         .run_mount(
             "--remount-overlay",
-            sample_target(),
-            id("args"),
+            target.clone(),
+            id.clone(),
             args.clone(),
             |_| Ok(()),
         )
         .expect("admitted");
 
-    assert_eq!(fake.recorded_requests()[0].args, args);
+    let requests = fake.recorded_requests();
+    assert_eq!(requests.len(), 1);
+    let request = &requests[0];
+    assert_request_target_fields(request, &target, &id);
+    assert_eq!(request.args, args);
+    assert_eq!(request.timeout_seconds, None);
+    assert_eq!(fake.recorded_piped_mode_flags(), vec!["--remount-overlay"]);
     fake.complete_latest(run_result(0, "ok"));
     handle.wait().expect("resolved");
 }

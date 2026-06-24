@@ -1,3 +1,5 @@
+use std::any::Any;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -11,7 +13,7 @@ use crate::id::NamespaceExecutionId;
 use crate::launcher::{ForkRunnerLauncher, NsRunnerLauncher, RunnerChild};
 use crate::observer::ExecutionObserver;
 use crate::promise::CompletionPromise;
-use crate::registry::{CompletedExecution, ExecutionRegistry};
+use crate::registry::ExecutionRegistry;
 use crate::shell::{RunnerOutcome, ShellOperation};
 use crate::status::NamespaceExecutionTerminalStatus;
 use crate::target::NamespaceTarget;
@@ -20,15 +22,15 @@ use crate::target::NamespaceTarget;
 /// launcher (the Bridge seam, §2.1). Both entry points share one dispatch spine;
 /// the engine knows nothing of shell-vs-mount beyond which launcher method and
 /// finalizer it is handed.
-pub struct NamespaceExecutionEngine {
-    registry: Arc<ExecutionRegistry>,
+pub struct NamespaceExecutionEngine<V = ()> {
+    registry: Arc<ExecutionRegistry<V>>,
     observer: Arc<dyn ExecutionObserver>,
     launcher: Box<dyn NsRunnerLauncher>,
     next_id: AtomicU64,
     setup_timeout_s: f64,
 }
 
-impl NamespaceExecutionEngine {
+impl<V: Send + 'static> NamespaceExecutionEngine<V> {
     #[must_use]
     pub fn new(
         observer: Arc<dyn ExecutionObserver>,
@@ -66,6 +68,24 @@ impl NamespaceExecutionEngine {
         NamespaceExecutionId(format!("namespace_execution_{next_id}"))
     }
 
+    #[cfg(feature = "test-support")]
+    #[must_use]
+    pub fn registry_is_completed(&self, id: &NamespaceExecutionId) -> bool {
+        self.registry.is_completed(id)
+    }
+
+    pub fn attach(&self, id: &NamespaceExecutionId, value: V) {
+        self.registry.attach(id, value);
+    }
+
+    pub fn with_value<R>(&self, id: &NamespaceExecutionId, f: impl FnOnce(&V) -> R) -> Option<R> {
+        self.registry.with_value(id, f)
+    }
+
+    pub fn live_values<R>(&self, f: impl Fn(&V) -> Option<R>) -> Vec<R> {
+        self.registry.live_values(f)
+    }
+
     /// PTY-backed shell execution. The runner runs in `Run` mode (no mode flag).
     pub fn run_shell_interactive<S: ShellOperation>(
         &self,
@@ -83,7 +103,6 @@ impl NamespaceExecutionEngine {
                 return Err(error);
             }
         };
-        self.registry.attach(&id, pty.pgid());
         self.observer.on_running(&id);
         let promise = Arc::new(CompletionPromise::new());
         self.spawn_watcher(
@@ -121,7 +140,6 @@ impl NamespaceExecutionEngine {
                 return Err(error);
             }
         };
-        self.registry.attach(&id, None);
         self.observer.on_running(&id);
         let promise = Arc::new(CompletionPromise::new());
         self.spawn_watcher(
@@ -160,7 +178,7 @@ impl NamespaceExecutionEngine {
                             exit_code,
                         )
                     } else {
-                        match finalize(outcome) {
+                        match finalize_outcome(finalize, outcome) {
                             Ok(output) => (Ok(output), status, exit_code),
                             Err(error) => (
                                 Err(error),
@@ -172,10 +190,33 @@ impl NamespaceExecutionEngine {
                 }
                 Err(error) => (Err(error), NamespaceExecutionTerminalStatus::Error, None),
             };
-            registry.complete(&id, CompletedExecution { status, exit_code });
+            registry.complete(&id, status, exit_code);
             promise.resolve(result);
             observer.on_terminal(&id, status, exit_code);
         });
+    }
+}
+
+fn finalize_outcome<O>(
+    finalize: impl FnOnce(RunnerOutcome) -> Result<O, NamespaceExecutionError>,
+    outcome: RunnerOutcome,
+) -> Result<O, NamespaceExecutionError> {
+    match catch_unwind(AssertUnwindSafe(|| finalize(outcome))) {
+        Ok(result) => result,
+        Err(payload) => Err(NamespaceExecutionError::Finalize(format!(
+            "finalize panicked: {}",
+            panic_payload_message(payload.as_ref())
+        ))),
+    }
+}
+
+fn panic_payload_message(payload: &(dyn Any + Send)) -> String {
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_owned()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "non-string panic payload".to_owned()
     }
 }
 

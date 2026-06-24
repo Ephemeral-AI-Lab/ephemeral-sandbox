@@ -41,8 +41,7 @@ impl WorkspaceModeManager {
         }
 
         phase_start = Instant::now();
-        self.runtime
-            .mount_overlay(handle, &layer_paths, self.caps.setup_timeout_s)?;
+        self.runtime.mount_overlay(handle, &layer_paths)?;
         record_create_phase_ms(&mut phases_ms, "mount_overlay", phase_start);
 
         if handle.profile == WorkspaceProfile::Isolated {

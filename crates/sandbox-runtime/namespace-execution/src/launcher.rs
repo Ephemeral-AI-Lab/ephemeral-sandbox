@@ -5,6 +5,7 @@ use std::io::{Read, Write};
 use std::os::fd::{AsRawFd, OwnedFd, RawFd};
 use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -56,39 +57,68 @@ struct PipedCompletionTimeout {
     setup_timeout_s: f64,
 }
 
+static SPAWN_CRITICAL_SECTION: Mutex<()> = Mutex::new(());
+
 impl NsRunnerLauncher for ForkRunnerLauncher {
     fn spawn_pty(
         &self,
         request: NamespaceRunnerRequest,
     ) -> Result<(Box<dyn RunnerChild>, PtyMaster), NamespaceExecutionError> {
         let request_bytes = encode_request(&request)?;
-        let (request_read, request_write) = request_pipe()?;
-        let (result_read, result_write) = result_pipe()?;
-        let (start_ack_read, start_ack_write) = start_ack_pipe()?;
-        let (master, slave) = open_pty_pair().map_err(spawn_error)?;
-        let mut command = ns_runner_command(
-            None,
-            request_read.as_raw_fd(),
-            result_write.as_raw_fd(),
-            start_ack_read.as_raw_fd(),
-        )?;
-        command
-            .stdin(Stdio::from(slave.try_clone().map_err(spawn_error)?))
-            .stdout(Stdio::from(slave.try_clone().map_err(spawn_error)?))
-            .stderr(Stdio::from(slave))
-            .process_group(0);
-        let child = command.spawn().map_err(spawn_error)?;
-        drop(request_read);
-        drop(result_write);
-        drop(start_ack_read);
-        let pgid = child_pgid(&child)?;
+        let (mut child, result_read, start_ack_write, request_write, master, pgid) = {
+            let _spawn_guard = spawn_lock();
+            let (request_read, request_write) = request_pipe()?;
+            let (result_read, result_write) = result_pipe()?;
+            let (start_ack_read, start_ack_write) = start_ack_pipe()?;
+            let (master, slave) = open_pty_pair().map_err(spawn_error)?;
+            let mut command = ns_runner_command(
+                None,
+                request_read.as_raw_fd(),
+                result_write.as_raw_fd(),
+                start_ack_read.as_raw_fd(),
+            )?;
+            command
+                .stdin(Stdio::from(slave.try_clone().map_err(spawn_error)?))
+                .stdout(Stdio::from(slave.try_clone().map_err(spawn_error)?))
+                .stderr(Stdio::from(slave))
+                .process_group(0);
+            let mut child = command.spawn().map_err(spawn_error)?;
+            drop(request_read);
+            drop(result_write);
+            drop(start_ack_read);
+            let pgid = match child_pgid(&child) {
+                Ok(pgid) => pgid,
+                Err(error) => {
+                    terminate_spawned_child(&mut child, None);
+                    return Err(error);
+                }
+            };
+            (
+                child,
+                result_read,
+                start_ack_write,
+                request_write,
+                master,
+                pgid,
+            )
+        };
         let pty = PtyMaster::spawn(
             master,
             Some(pgid),
             Box::new(move || terminate_process_group(pgid)),
         )
-        .map_err(spawn_error)?;
-        release_start_ack(start_ack_write, request_write, &request_bytes)?;
+        .map_err(spawn_error);
+        let pty = match pty {
+            Ok(pty) => pty,
+            Err(error) => {
+                terminate_spawned_child(&mut child, Some(pgid));
+                return Err(error);
+            }
+        };
+        if let Err(error) = release_start_ack(start_ack_write, request_write, &request_bytes) {
+            terminate_spawned_child(&mut child, Some(pgid));
+            return Err(error);
+        }
         Ok((
             Box::new(ForkRunnerChild {
                 child,
@@ -106,25 +136,39 @@ impl NsRunnerLauncher for ForkRunnerLauncher {
         setup_timeout_s: f64,
     ) -> Result<Box<dyn RunnerChild>, NamespaceExecutionError> {
         let request_bytes = encode_request(&request)?;
-        let (request_read, request_write) = request_pipe()?;
-        let (result_read, result_write) = result_pipe()?;
-        let (start_ack_read, start_ack_write) = start_ack_pipe()?;
-        let mut command = ns_runner_command(
-            Some(mode_flag),
-            request_read.as_raw_fd(),
-            result_write.as_raw_fd(),
-            start_ack_read.as_raw_fd(),
-        )?;
-        command
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .process_group(0);
-        let child = command.spawn().map_err(spawn_error)?;
-        drop(request_read);
-        drop(result_write);
-        drop(start_ack_read);
-        release_start_ack(start_ack_write, request_write, &request_bytes)?;
+        let (mut child, result_read, start_ack_write, request_write, pgid) = {
+            let _spawn_guard = spawn_lock();
+            let (request_read, request_write) = request_pipe()?;
+            let (result_read, result_write) = result_pipe()?;
+            let (start_ack_read, start_ack_write) = start_ack_pipe()?;
+            let mut command = ns_runner_command(
+                Some(mode_flag),
+                request_read.as_raw_fd(),
+                result_write.as_raw_fd(),
+                start_ack_read.as_raw_fd(),
+            )?;
+            command
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .process_group(0);
+            let mut child = command.spawn().map_err(spawn_error)?;
+            drop(request_read);
+            drop(result_write);
+            drop(start_ack_read);
+            let pgid = match child_pgid(&child) {
+                Ok(pgid) => pgid,
+                Err(error) => {
+                    terminate_spawned_child(&mut child, None);
+                    return Err(error);
+                }
+            };
+            (child, result_read, start_ack_write, request_write, pgid)
+        };
+        if let Err(error) = release_start_ack(start_ack_write, request_write, &request_bytes) {
+            terminate_spawned_child(&mut child, Some(pgid));
+            return Err(error);
+        }
         Ok(Box::new(ForkRunnerChild {
             child,
             result_read,
@@ -195,6 +239,12 @@ fn child_pgid(child: &Child) -> Result<i32, NamespaceExecutionError> {
     })
 }
 
+fn spawn_lock() -> std::sync::MutexGuard<'static, ()> {
+    SPAWN_CRITICAL_SECTION
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 fn read_result_fd(result_read: &OwnedFd) -> io::Result<Vec<u8>> {
     let mut file = File::from(result_read.try_clone()?);
     let mut bytes = Vec::new();
@@ -258,6 +308,15 @@ fn terminate_child(child: &mut Child, signal: Signal) {
     };
     let _ = kill(Pid::from_raw(-pid), signal);
     let _ = kill(Pid::from_raw(pid), signal);
+}
+
+fn terminate_spawned_child(child: &mut Child, pgid: Option<i32>) {
+    if let Some(pgid) = pgid {
+        terminate_process_group(pgid);
+    } else {
+        terminate_child(child, Signal::SIGKILL);
+    }
+    let _ = child.wait();
 }
 
 fn timeout_error(mode_flag: &str) -> NamespaceExecutionError {
