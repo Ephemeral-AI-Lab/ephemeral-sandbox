@@ -12,6 +12,10 @@ path = "src/lib.rs"
 name = "eos-e2e"
 path = "src/bin/eos-e2e.rs"
 
+[[bin]]
+name = "eos-exec-bench"
+path = "src/bin/eos-exec-bench.rs"
+
 [dependencies]
 anyhow.workspace = true
 serde = { workspace = true }

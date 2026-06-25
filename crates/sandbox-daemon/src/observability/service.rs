@@ -31,6 +31,7 @@ pub struct DaemonObservability {
     pub(crate) store: ObservabilityStore,
     next_sample_id: AtomicU64,
     disk_samples: Mutex<HashMap<DiskCacheKey, CachedDiskSample>>,
+    resource_counters: Mutex<HashMap<ResourceScopeKey, PreviousResourceCounters>>,
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -43,6 +44,27 @@ struct DiskCacheKey {
 struct CachedDiskSample {
     sampled_at: Instant,
     sample: DiskSample,
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+struct ResourceScopeKey {
+    workspace_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct PreviousResourceCounters {
+    sampled_at_unix_ms: i64,
+    cpu_usage_usec: Option<i64>,
+    memory_current_bytes: Option<i64>,
+    disk_upperdir_bytes: Option<i64>,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct ResourceDeltas {
+    sample_delta_ms: Option<i64>,
+    cpu_usage_delta_usec: Option<i64>,
+    memory_current_delta_bytes: Option<i64>,
+    disk_upperdir_delta_bytes: Option<i64>,
 }
 
 impl DaemonObservability {
@@ -60,6 +82,7 @@ impl DaemonObservability {
             store,
             next_sample_id: AtomicU64::new(1),
             disk_samples: Mutex::new(HashMap::new()),
+            resource_counters: Mutex::new(HashMap::new()),
         })
     }
 
@@ -268,6 +291,13 @@ impl DaemonObservability {
         cgroup: CgroupSample,
         disk: DiskSample,
     ) -> ResourceSampleRecord {
+        let deltas = self.resource_deltas(
+            workspace_id,
+            sampled_at_unix_ms,
+            cgroup.cpu_usage_usec,
+            cgroup.memory_current_bytes,
+            disk.upperdir_bytes,
+        );
         ResourceSampleRecord {
             sample_id: self.next_sample_id(sampled_at_unix_ms),
             sandbox_id: self.sandbox_id.clone(),
@@ -277,10 +307,14 @@ impl DaemonObservability {
             cgroup_available: cgroup.cgroup_available,
             cgroup_error: cgroup.cgroup_error.map(bound_error),
             cpu_usage_usec: cgroup.cpu_usage_usec,
+            cpu_usage_delta_usec: deltas.cpu_usage_delta_usec,
+            sample_delta_ms: deltas.sample_delta_ms,
             memory_current_bytes: cgroup.memory_current_bytes,
+            memory_current_delta_bytes: deltas.memory_current_delta_bytes,
             memory_max_bytes: cgroup.memory_max_bytes,
             memory_max_unlimited: cgroup.memory_max_unlimited,
             disk_upperdir_bytes: disk.upperdir_bytes,
+            disk_upperdir_delta_bytes: deltas.disk_upperdir_delta_bytes,
             disk_file_count: disk.file_count,
             disk_dir_count: disk.dir_count,
             disk_symlink_count: disk.symlink_count,
@@ -288,6 +322,46 @@ impl DaemonObservability {
             disk_read_error_count: disk.read_error_count,
             disk_first_error_path: disk.first_error_path.map(bound_path),
         }
+    }
+
+    fn resource_deltas(
+        &self,
+        workspace_id: Option<&str>,
+        sampled_at_unix_ms: i64,
+        cpu_usage_usec: Option<i64>,
+        memory_current_bytes: Option<i64>,
+        disk_upperdir_bytes: Option<i64>,
+    ) -> ResourceDeltas {
+        let key = ResourceScopeKey {
+            workspace_id: workspace_id.map(str::to_owned),
+        };
+        let current = PreviousResourceCounters {
+            sampled_at_unix_ms,
+            cpu_usage_usec,
+            memory_current_bytes,
+            disk_upperdir_bytes,
+        };
+        let mut counters = lock_resource_counters(&self.resource_counters);
+        let deltas = counters
+            .get(&key)
+            .map(|previous| ResourceDeltas {
+                sample_delta_ms: sampled_at_unix_ms.checked_sub(previous.sampled_at_unix_ms),
+                cpu_usage_delta_usec: checked_non_negative_delta(
+                    cpu_usage_usec,
+                    previous.cpu_usage_usec,
+                ),
+                memory_current_delta_bytes: checked_delta(
+                    memory_current_bytes,
+                    previous.memory_current_bytes,
+                ),
+                disk_upperdir_delta_bytes: checked_delta(
+                    disk_upperdir_bytes,
+                    previous.disk_upperdir_bytes,
+                ),
+            })
+            .unwrap_or_default();
+        counters.insert(key, current);
+        deltas
     }
 
     fn next_sample_id(&self, sampled_at_unix_ms: i64) -> String {
@@ -452,16 +526,20 @@ fn resource_bundle_value(scope: Option<&str>, rows: &ObservabilitySnapshotRows) 
 fn resource_sample_value(sample: &ObservabilityResourceSampleRow) -> Value {
     json!({
         "sampled_at_unix_ms": sample.sampled_at_unix_ms,
+        "sample_delta_ms": sample.sample_delta_ms,
         "cgroup": {
             "available": sample.cgroup_available,
             "cpu_usage_usec": sample.cpu_usage_usec,
+            "cpu_usage_delta_usec": sample.cpu_usage_delta_usec,
             "memory_current_bytes": sample.memory_current_bytes,
+            "memory_current_delta_bytes": sample.memory_current_delta_bytes,
             "memory_max_bytes": sample.memory_max_bytes,
             "memory_max_unlimited": sample.memory_max_unlimited,
             "error": sample.cgroup_error.as_deref(),
         },
         "disk": {
             "upperdir_bytes": sample.disk_upperdir_bytes,
+            "upperdir_delta_bytes": sample.disk_upperdir_delta_bytes,
             "file_count": sample.disk_file_count,
             "dir_count": sample.disk_dir_count,
             "symlink_count": sample.disk_symlink_count,
@@ -566,4 +644,22 @@ fn lock_disk_samples(
     cache
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn lock_resource_counters(
+    counters: &Mutex<HashMap<ResourceScopeKey, PreviousResourceCounters>>,
+) -> MutexGuard<'_, HashMap<ResourceScopeKey, PreviousResourceCounters>> {
+    counters
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn checked_delta(current: Option<i64>, previous: Option<i64>) -> Option<i64> {
+    current
+        .zip(previous)
+        .and_then(|(current, previous)| current.checked_sub(previous))
+}
+
+fn checked_non_negative_delta(current: Option<i64>, previous: Option<i64>) -> Option<i64> {
+    checked_delta(current, previous).filter(|delta| *delta >= 0)
 }

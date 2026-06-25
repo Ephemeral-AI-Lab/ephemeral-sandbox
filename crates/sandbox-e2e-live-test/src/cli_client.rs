@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::Instant;
 
 use serde_json::{json, Value};
@@ -20,6 +20,8 @@ pub struct CallRecord {
     pub stdout: String,
     pub stderr: String,
     pub latency_ms: u128,
+    pub spawn_ms: u128,
+    pub wait_ms: u128,
 }
 
 /// Drives the `sandbox-cli` wrapper over the public gateway socket boundary.
@@ -64,9 +66,16 @@ impl CliClient {
         argv.extend(subcommand);
 
         let started = Instant::now();
-        let output = match Command::new(&self.cli_path).args(&argv).output() {
-            Ok(output) => output,
+        let spawn_started = Instant::now();
+        let child = match Command::new(&self.cli_path)
+            .args(&argv)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+        {
+            Ok(child) => child,
             Err(error) => {
+                let latency_ms = started.elapsed().as_millis();
                 return CallRecord {
                     argv,
                     request_json: None,
@@ -74,10 +83,32 @@ impl CliClient {
                     exit_code: -1,
                     stdout: String::new(),
                     stderr: format!("failed to spawn {}: {error}", self.cli_path.display()),
-                    latency_ms: started.elapsed().as_millis(),
+                    latency_ms,
+                    spawn_ms: latency_ms,
+                    wait_ms: 0,
                 };
             }
         };
+        let spawn_ms = spawn_started.elapsed().as_millis();
+        let wait_started = Instant::now();
+        let output = match child.wait_with_output() {
+            Ok(output) => output,
+            Err(error) => {
+                let latency_ms = started.elapsed().as_millis();
+                return CallRecord {
+                    argv,
+                    request_json: None,
+                    response_json: Value::Null,
+                    exit_code: -1,
+                    stdout: String::new(),
+                    stderr: format!("failed to wait for {}: {error}", self.cli_path.display()),
+                    latency_ms,
+                    spawn_ms,
+                    wait_ms: wait_started.elapsed().as_millis(),
+                };
+            }
+        };
+        let wait_ms = wait_started.elapsed().as_millis();
         let latency_ms = started.elapsed().as_millis();
 
         let exit_code = output.status.code().unwrap_or(-1);
@@ -98,6 +129,8 @@ impl CliClient {
             stdout,
             stderr,
             latency_ms,
+            spawn_ms,
+            wait_ms,
         }
     }
 }
@@ -128,6 +161,8 @@ impl CallRecord {
             "stdout": self.stdout,
             "stderr": self.stderr,
             "latency_ms": self.latency_ms,
+            "spawn_ms": self.spawn_ms,
+            "wait_ms": self.wait_ms,
         })
     }
 }

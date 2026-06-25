@@ -7,7 +7,10 @@ use sandbox_protocol::{CliOperationExecutionSpace, CliOperationScope, Request};
 use sandbox_runtime::command::{CommandConfig, CommandOperationService, ExecCommandInput};
 use sandbox_runtime::layerstack::LayerStackService;
 use sandbox_runtime::workspace_session::WorkspaceSessionService;
-use sandbox_runtime::SandboxRuntimeOperations;
+use sandbox_runtime::{
+    CommandRuntimeConfig, Rfc1918Egress, SandboxRuntimeConfig, SandboxRuntimeOperations,
+    WorkspaceResourceCaps, WorkspaceRuntimeConfig,
+};
 use sandbox_runtime_workspace::{
     CaptureChangesRequest, CreateWorkspaceRequest, DestroyWorkspaceRequest, WorkspaceError,
     WorkspaceHandle, WorkspaceRuntimeHooks, WorkspaceRuntimeService, WorkspaceSessionId,
@@ -103,6 +106,44 @@ fn command_contract_keeps_session_selector_in_exec_input() {
         input.workspace_session_id,
         Some(WorkspaceSessionId("workspace-1".to_owned()))
     );
+}
+
+#[test]
+fn runtime_from_config_initializes_layerstack_workspace_base(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let base = temp_root("runtime-from-config-layerstack");
+    let layer_stack_root = base.join("layer-stack");
+    let workspace_root = base.join("workspace");
+    let scratch_root = base.join("scratch");
+    let command_scratch_root = base.join("commands");
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(&workspace_root)?;
+
+    let operations = SandboxRuntimeOperations::from_config(SandboxRuntimeConfig {
+        workspace: WorkspaceRuntimeConfig {
+            workspace_root: workspace_root.clone(),
+            layer_stack_root: layer_stack_root.clone(),
+            scratch_root,
+            caps: WorkspaceResourceCaps {
+                upperdir_bytes: 1024 * 1024,
+                memavail_fraction: 0.5,
+                setup_timeout_s: 1.0,
+                exit_grace_s: 0.1,
+                rfc1918_egress: Rfc1918Egress::Allow,
+            },
+        },
+        command: CommandRuntimeConfig {
+            scratch_root: command_scratch_root,
+        },
+        cgroup_root: None,
+    });
+
+    assert!(layer_stack_root.join("workspace.json").is_file());
+    assert_eq!(
+        operations.layerstack.binding().workspace_root,
+        workspace_root.to_string_lossy()
+    );
+    Ok(())
 }
 
 #[test]

@@ -6,6 +6,7 @@ use tokio::time::timeout;
 
 use super::{error_response, SandboxDaemonServer, MAX_REQUEST_BYTES, REQUEST_READ_TIMEOUT_S};
 use crate::server::error::SandboxDaemonError;
+use crate::timing;
 
 impl SandboxDaemonServer {
     /// Handle one accepted connection: read one capped, timed request line, pop
@@ -22,18 +23,24 @@ impl SandboxDaemonServer {
         S: AsyncRead + AsyncWrite + Unpin,
     {
         let (mut reader, mut writer) = tokio::io::split(stream);
+        let read_started = std::time::Instant::now();
         let bytes = read_request_line(&mut reader).await;
+        timing::duration("daemon.read_request", read_started);
+        let dispatch_started = std::time::Instant::now();
         let response = match bytes {
             Ok(bytes) => self.dispatch_bytes(bytes, is_tcp).await,
             Err(err) => self.read_error_response(err, is_tcp),
         };
+        timing::duration("daemon.dispatch", dispatch_started);
         let framed = encode_response(&response);
+        let write_started = std::time::Instant::now();
         if let Err(err) = writer.write_all(&framed).await {
             return Err(SandboxDaemonError::Io(err));
         }
         if let Err(err) = writer.shutdown().await {
             return Err(SandboxDaemonError::Io(err));
         }
+        timing::duration("daemon.write_response", write_started);
         Ok(())
     }
 

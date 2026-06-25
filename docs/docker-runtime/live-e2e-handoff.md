@@ -56,18 +56,28 @@ both targets under one orchestrator process is what yields cgroup/perf evidence
 for the runtime sandboxes. Driving `cargo test --test runtime` by hand would skip
 the poller and produce no `observability.json`.
 
-## 3. Prerequisites (on the Linux host, from repo root)
+## 3. Prerequisites (on the Docker host, from repo root)
 
 ```sh
 export PATH="$PWD/bin:$PATH"            # repo wrappers: sandbox-cli reads the gateway token file
 
-# (1) Package the Linux daemon artifact on this host. Do not build a custom
-#     sandbox image/container: create_sandbox uses the requested base image and
-#     the Docker provider uploads this musl binary into each stopped sandbox
+# (1) Package the Linux daemon artifact locally on this host. Do not build a
+#     custom sandbox image/container: create_sandbox uses the requested base image
+#     and the Docker provider uploads this musl binary into each stopped sandbox
 #     container before starting it.
-cargo run -p xtask -- package --target x86_64-unknown-linux-musl    # -> dist/sandbox-daemon-linux-amd64
-#     For a linux/arm64 Docker engine, build the matching artifact instead:
-#     cargo run -p xtask -- package --target aarch64-unknown-linux-musl
+#
+#     For a linux/arm64 Docker engine, build the matching artifact:
+cargo run -p xtask -- package --target aarch64-unknown-linux-musl --builder cargo --profile package-local
+#     -> dist/sandbox-daemon-linux-arm64
+#
+#     For a linux/amd64 Docker engine:
+#     cargo run -p xtask -- package --target x86_64-unknown-linux-musl --builder cargo --profile package-local
+#     -> dist/sandbox-daemon-linux-amd64
+#
+#     If the host C compiler/linker is not already discoverable, put the local
+#     musl cross-toolchain on PATH and/or set CC_<target> plus
+#     CARGO_TARGET_<TARGET>_LINKER before running xtask. This is host setup only;
+#     do not apt-get inside the sandbox and do not build a Docker builder image.
 #     If you only have a linux/amd64 daemon on an arm64 host, set
 #     manager.docker.platform: linux/amd64 in config/prd.yml.
 

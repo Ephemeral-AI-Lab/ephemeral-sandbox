@@ -13,7 +13,11 @@ runtime:
   workspace:
     layer_stack_root: /eos/layer-stack
     scratch_root: /eos/scratch/workspace
+    # Disk budget concept for writable overlay upperdirs; workspace admission no
+    # longer treats this as a RAM reservation.
     upperdir_bytes: 1073741824
+    # Deprecated compatibility field. Actual memory is monitored from cgroup
+    # memory.current instead of pre-admitted from /proc/meminfo.
     memavail_fraction: 0.5
     setup_timeout_s: 30
     exit_grace_s: 0.25

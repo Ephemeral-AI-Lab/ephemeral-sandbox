@@ -26,16 +26,9 @@ const RUN_MANIFEST_FILE: &str = "run-manifest.json";
 
 /// Wall interval between observability poll cycles (§3.1); a fixed const, not a CLI knob.
 const OBS_POLL_INTERVAL_MS: u64 = 1000;
-/// The four confirmed `get_observability_tree` flags the poller issues (§3.2). No
-/// `--sandbox-id`, so it polls the whole tree and keys by the returned `sandbox_id`.
-const OBS_TREE_ARGS: [&str; 6] = [
-    "--include-recent-traces",
-    "1",
-    "--trace-limit",
-    "100",
-    "--resource-window-ms",
-    "60000",
-];
+/// Current public `get_observability_tree` flags. No `--sandbox-id`, so the
+/// poller samples the whole tree and keys by the returned `sandbox_id`.
+const OBS_TREE_ARGS: [&str; 2] = ["--resource-window-ms", "60000"];
 /// Upper bound on distinct run-level observability warnings folded into the summary.
 const OBS_RUN_WARNING_CAP: usize = 64;
 

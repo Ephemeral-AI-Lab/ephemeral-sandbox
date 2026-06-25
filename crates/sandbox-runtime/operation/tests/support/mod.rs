@@ -89,6 +89,10 @@ impl FakeLaunchDriver {
         self.launcher.recorded_transcript_paths()
     }
 
+    pub(crate) fn recorded_cgroup_procs_paths(&self) -> Vec<Option<PathBuf>> {
+        self.launcher.recorded_cgroup_procs_paths()
+    }
+
     pub(crate) fn launcher(&self) -> FakeLauncher {
         self.launcher.clone()
     }
@@ -256,7 +260,18 @@ pub(crate) fn build_services_with_launch_driver(
     fake: Arc<FakeWorkspaceService>,
     launch_driver: Arc<FakeLaunchDriver>,
 ) -> TestServices {
-    let workspace = Arc::new(WorkspaceSessionService::new(fake_workspace_runtime(fake)));
+    build_services_with_launch_driver_and_cgroup_root(fake, launch_driver, None)
+}
+
+pub(crate) fn build_services_with_launch_driver_and_cgroup_root(
+    fake: Arc<FakeWorkspaceService>,
+    launch_driver: Arc<FakeLaunchDriver>,
+    cgroup_root: Option<PathBuf>,
+) -> TestServices {
+    let workspace = Arc::new(WorkspaceSessionService::with_cgroup_root(
+        fake_workspace_runtime(fake),
+        cgroup_root,
+    ));
     let command = Arc::new(build_command_service(&workspace, &launch_driver));
     TestServices { workspace, command }
 }

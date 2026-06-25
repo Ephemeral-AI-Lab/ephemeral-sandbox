@@ -9,6 +9,8 @@ fn unknown_manager_op_is_unknown_op() {
 
     // N1 owns no sandbox -> there is no id to key on, so it writes no
     // exchange.jsonl; it asserts purely on the returned CallRecord in-process.
+    // The public CLI rejects operations missing from the manager catalog before
+    // sending a request to the manager router.
     let rec = h.cli().manager("definitely_not_an_op", &[]);
-    assert::err_kind_at(&rec, "unknown_op", 1); // unknown op => unknown_op, stderr/exit 1
+    assert::err_kind_at(&rec, "invalid_request", 2);
 }

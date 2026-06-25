@@ -265,19 +265,25 @@ current state.
   "availability": "available",
   "sampled_at_unix_ms": 1750000000000,
   "resources": {                       // SANDBOX-wide — cgroup R + sandbox disk
-    "latest": { "cgroup": { "available": true, "cpu_usage_usec": …,
+    "latest": { "sample_delta_ms": …,
+                "cgroup": { "available": true, "cpu_usage_usec": …,
+                            "cpu_usage_delta_usec": …,
                             "memory_current_bytes": …, "memory_max_bytes": …,
+                            "memory_current_delta_bytes": …,
                             "memory_max_unlimited": false, "error": null },
-                "disk":  { "upperdir_bytes": …, … } },
+                "disk":  { "upperdir_bytes": …, "upperdir_delta_bytes": …, … } },
     "history": [ … ]                   // time-series from resource_samples
   },
   "workspaces": [{
     "workspace_id": "ws-abc",
     "lifecycle_state": "active",
     "resources": {                     // PER-WORKSPACE — cgroup R/workspace-ws-abc + workspace disk
-      "latest": { "cgroup": { "available": true, "cpu_usage_usec": …,
-                              "memory_current_bytes": …, … },
-                  "disk":  { "upperdir_bytes": …, … } },
+      "latest": { "sample_delta_ms": …,
+                  "cgroup": { "available": true, "cpu_usage_usec": …,
+                              "cpu_usage_delta_usec": …,
+                              "memory_current_bytes": …,
+                              "memory_current_delta_bytes": …, … },
+                  "disk":  { "upperdir_bytes": …, "upperdir_delta_bytes": …, … } },
       "history": [ … ]
     },
     "active_namespace_executions": [    // LIVE executions joined into the same node
@@ -328,6 +334,12 @@ executions and live resource usage in one place.
   execution (`namespace_execution.rs::snapshot_record`). Enriching it (e.g.
   `starting`/`running`/`yielding`) is an optional follow-up: thread a real state
   through `RuntimeNamespaceExecutionSnapshot` instead of hardcoding it.
+- **Read-only command space complexity.** For commands that only read from lower
+  layers and have bounded output, writable overlay growth is effectively O(1)
+  relative to repository/workspace size because lower-layer reads do not
+  copy-up into `upperdir`. Output transcripts remain O(output size), process
+  memory is whatever the command allocates, and metadata-changing operations
+  (`chmod`, deletes, writes, renames) can still create upperdir entries.
 
 ---
 

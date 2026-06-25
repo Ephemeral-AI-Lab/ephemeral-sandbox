@@ -163,6 +163,7 @@ struct FakeLauncherState {
     request_ids: Vec<String>,
     cancel_request_ids: Vec<String>,
     transcript_paths: Vec<Option<PathBuf>>,
+    cgroup_procs_paths: Vec<Option<PathBuf>>,
     completions: Vec<Arc<FakeCompletion>>,
     scripts: VecDeque<FakeRunnerScript>,
     overlay_mount_setup_timeouts: Vec<f64>,
@@ -209,6 +210,12 @@ impl FakeLauncher {
         self.lock().transcript_paths.clone()
     }
 
+    /// The workspace `cgroup.procs` path threaded into each `spawn_pty`.
+    #[must_use]
+    pub fn recorded_cgroup_procs_paths(&self) -> Vec<Option<PathBuf>> {
+        self.lock().cgroup_procs_paths.clone()
+    }
+
     #[must_use]
     pub fn overlay_mount_setup_timeouts(&self) -> Vec<f64> {
         self.lock().overlay_mount_setup_timeouts.clone()
@@ -236,12 +243,14 @@ impl FakeLauncher {
         &self,
         request: &NamespaceRunnerRequest,
         transcript_path: Option<PathBuf>,
+        cgroup_procs_path: Option<PathBuf>,
     ) -> (Arc<FakeCompletion>, FakeRunnerScript) {
         let completion = Arc::new(FakeCompletion::new());
         let mut state = self.lock();
         state.requests.push(request.clone());
         state.request_ids.push(request.request_id.clone());
         state.transcript_paths.push(transcript_path);
+        state.cgroup_procs_paths.push(cgroup_procs_path);
         state.completions.push(Arc::clone(&completion));
         let script = state.scripts.pop_front().unwrap_or_default();
         (completion, script)
@@ -258,9 +267,10 @@ impl NsRunnerLauncher for FakeLauncher {
         request: NamespaceRunnerRequest,
         transcript_path: Option<PathBuf>,
         cancelled: Arc<AtomicBool>,
-        _cgroup_procs_path: Option<PathBuf>,
+        cgroup_procs_path: Option<PathBuf>,
     ) -> Result<(Box<dyn RunnerChild>, PtyMaster), NamespaceExecutionError> {
-        let (completion, script) = self.record(&request, transcript_path.clone());
+        let (completion, script) =
+            self.record(&request, transcript_path.clone(), cgroup_procs_path);
         if let Some(error) = script.spawn_error {
             return Err(error);
         }
@@ -304,7 +314,7 @@ impl NsRunnerLauncher for FakeLauncher {
         request: NamespaceRunnerRequest,
         setup_timeout_s: f64,
     ) -> Result<Box<dyn RunnerChild>, NamespaceExecutionError> {
-        let (completion, _script) = self.record(&request, None);
+        let (completion, _script) = self.record(&request, None, None);
         let mut state = self.lock();
         state.overlay_mount_setup_timeouts.push(setup_timeout_s);
         Ok(Box::new(FakeRunnerChild {

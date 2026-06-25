@@ -21,6 +21,7 @@ mod namespace;
 pub mod overlay;
 pub mod profile;
 pub mod service;
+mod timing;
 
 pub use error::WorkspaceError;
 pub use model::{

@@ -8,3 +8,5 @@
 
 pub mod holder;
 pub mod runner;
+#[cfg(target_os = "linux")]
+pub(crate) mod timing;

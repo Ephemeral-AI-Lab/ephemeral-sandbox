@@ -311,15 +311,18 @@ Each resource sample in the live public tree is shaped (daemon projection,
 ```jsonc
 {
   "sampled_at_unix_ms": 1_700_000_000_000,
+  "sample_delta_ms": null,
   "cgroup": {
     "available": false,            // service.rs:635  (NOTE: key is `available`, NOT `cgroup_available`)
     "cpu_usage_usec": null,        // service.rs:636
+    "cpu_usage_delta_usec": null,
     "memory_current_bytes": null,  // service.rs:637
+    "memory_current_delta_bytes": null,
     "memory_max_bytes": null,      // service.rs:638
     "memory_max_unlimited": null,  // service.rs:639
     "error": "cgroup path unavailable" // service.rs:640
   },
-  "disk": { /* upperdir_bytes, file_count, … service.rs:642-650 */ }
+  "disk": { /* upperdir_bytes, upperdir_delta_bytes, file_count, … service.rs:642-650 */ }
 }
 ```
 

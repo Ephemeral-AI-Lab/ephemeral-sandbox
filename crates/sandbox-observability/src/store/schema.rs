@@ -44,6 +44,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "phase_5_drop_trace_tables",
         sql: V7_SCHEMA_SQL,
     },
+    Migration {
+        version: 8,
+        name: "phase_6_resource_sample_deltas",
+        sql: V8_SCHEMA_SQL,
+    },
 ];
 
 const SCHEMA_MIGRATIONS_SQL: &str = r#"
@@ -250,6 +255,13 @@ DROP INDEX IF EXISTS idx_namespace_execution_traces_workspace_session_started;
 DROP TABLE IF EXISTS spans;
 DROP TABLE IF EXISTS traces;
 DROP TABLE IF EXISTS namespace_execution_traces;
+"#;
+
+const V8_SCHEMA_SQL: &str = r#"
+ALTER TABLE resource_samples ADD COLUMN cpu_usage_delta_usec INTEGER;
+ALTER TABLE resource_samples ADD COLUMN sample_delta_ms INTEGER;
+ALTER TABLE resource_samples ADD COLUMN memory_current_delta_bytes INTEGER;
+ALTER TABLE resource_samples ADD COLUMN disk_upperdir_delta_bytes INTEGER;
 "#;
 
 pub(super) fn apply_schema(connection: &mut Connection) -> Result<(), StoreError> {

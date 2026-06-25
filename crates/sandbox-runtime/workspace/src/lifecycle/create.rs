@@ -83,7 +83,6 @@ impl WorkspaceModeManager {
         profile: WorkspaceProfile,
     ) -> Result<WorkspaceModeHandle, WorkspaceModeError> {
         let workspace_root = self.validated_workspace_root()?;
-        self.check_host_capacity()?;
 
         let workspace_id = WorkspaceModeId(next_handle_id());
         let dirs =

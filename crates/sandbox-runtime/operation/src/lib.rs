@@ -9,6 +9,7 @@ mod namespace_execution;
 mod observability;
 mod operation;
 mod services;
+pub(crate) mod timing;
 pub mod workspace_session;
 
 pub use cli_definition::{

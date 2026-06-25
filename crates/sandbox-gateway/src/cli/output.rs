@@ -13,6 +13,7 @@ use crate::cli::request_builder::{
     build_request_from_catalog, manager_catalog_document, resolve_runtime_sandbox_id,
     runtime_catalog_document, BuildRequestInput, RequestBuildError,
 };
+use crate::cli::timing;
 use sandbox_protocol::{
     render_catalog_help, render_operation_help, CliOperationCatalogDocument,
     CliOperationExecutionSpace,
@@ -84,6 +85,7 @@ where
     WOut: Write,
     WErr: Write,
 {
+    timing::checkpoint("cli.start");
     let cli = match Cli::try_parse_from(args) {
         Ok(cli) => cli,
         Err(error) => {
@@ -98,6 +100,7 @@ where
             return EXIT_USAGE;
         }
     };
+    timing::checkpoint("cli.parsed");
 
     let config_overrides = GatewayConfigOverrides {
         gateway_socket_path: cli.gateway_socket_path,
@@ -114,6 +117,7 @@ where
                     return EXIT_USAGE;
                 }
             };
+            timing::checkpoint("cli.manager_catalog_loaded");
             if command.operation == "help" {
                 return render_help_command(&catalog, &command.operation_argv, stdout, stderr);
             }
@@ -121,6 +125,7 @@ where
                 Ok(config) => config,
                 Err(exit) => return exit,
             };
+            timing::checkpoint("cli.config_discovered");
             let client = GatewayClient::new(
                 config.gateway_socket_path.to_string_lossy().into_owned(),
                 config.gateway_auth_token.clone(),
@@ -143,12 +148,14 @@ where
                         return EXIT_USAGE;
                     }
                 };
+                timing::checkpoint("cli.runtime_help_catalog_loaded");
                 return render_help_command(&catalog, &command.operation_argv, stdout, stderr);
             }
             let config = match discover_config(config_overrides, stderr) {
                 Ok(config) => config,
                 Err(exit) => return exit,
             };
+            timing::checkpoint("cli.config_discovered");
             let sandbox_id = match resolve_runtime_sandbox_id(command.sandbox_id, &config) {
                 Ok(sandbox_id) => sandbox_id,
                 Err(error) => {
@@ -156,6 +163,7 @@ where
                     return EXIT_USAGE;
                 }
             };
+            timing::checkpoint("cli.sandbox_id_resolved");
             let catalog = match runtime_catalog_document() {
                 Ok(catalog) => catalog,
                 Err(error) => {
@@ -163,6 +171,7 @@ where
                     return EXIT_USAGE;
                 }
             };
+            timing::checkpoint("cli.runtime_catalog_loaded");
             let request_input = BuildRequestInput {
                 execution_space: CliOperationExecutionSpace::Runtime,
                 operation: command.operation,
@@ -245,6 +254,7 @@ where
     WOut: Write,
     WErr: Write,
 {
+    let build_started = std::time::Instant::now();
     let request = match build_request_from_catalog(request_input, config, catalog) {
         Ok(request) => request,
         Err(error) => {
@@ -252,7 +262,9 @@ where
             return EXIT_USAGE;
         }
     };
+    timing::duration("cli.build_request", build_started);
 
+    let send_started = std::time::Instant::now();
     let response = match client.send(&request).await {
         Ok(response) => response,
         Err(error) => {
@@ -260,8 +272,13 @@ where
             return EXIT_FAILURE;
         }
     };
+    timing::duration("cli.gateway_roundtrip", send_started);
 
-    render_response(&response, stdout, stderr).unwrap_or(EXIT_FAILURE)
+    let render_started = std::time::Instant::now();
+    let exit = render_response(&response, stdout, stderr).unwrap_or(EXIT_FAILURE);
+    timing::duration("cli.render_response", render_started);
+    timing::checkpoint("cli.done");
+    exit
 }
 
 pub fn render_response<WOut, WErr>(

@@ -10,4 +10,9 @@ if [ -z "${SANDBOX_GATEWAY_AUTH_TOKEN:-}" ] && [ -f "$token_file" ]; then
     export SANDBOX_GATEWAY_AUTH_TOKEN
 fi
 
+local_cli="$repo_root/target/debug/sandbox-cli"
+if [ -x "$local_cli" ]; then
+    exec "$local_cli" "$@"
+fi
+
 exec cargo run --quiet --manifest-path "$repo_root/Cargo.toml" -p sandbox-gateway --bin sandbox-cli -- "$@"

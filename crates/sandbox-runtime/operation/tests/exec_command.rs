@@ -19,7 +19,8 @@ use sandbox_runtime_workspace::{WorkspaceProfile, WorkspaceSessionId};
 use serde_json::json;
 
 use support::{
-    build_services, build_services_with_launch_driver, create_request, success_exit,
+    build_services, build_services_with_launch_driver,
+    build_services_with_launch_driver_and_cgroup_root, create_request, success_exit,
     workspace_handle, workspace_handle_unavailable_launch, workspace_handle_without_launch,
     FakeLaunchDriver, FakeLauncher, FakeRunnerScript, FakeWorkspaceService, ScriptedCommandYield,
     TestServices,
@@ -517,6 +518,36 @@ fn exec_command_passes_workspace_entry_to_spawn_paths() {
     assert_eq!(ns_fds.mnt, Some(Fd(11)));
     assert_eq!(ns_fds.pid, Some(Fd(12)));
     assert_eq!(ns_fds.net, Some(Fd(13)));
+}
+
+#[test]
+fn exec_command_places_shared_session_child_in_workspace_cgroup() {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    let launch_driver = Arc::new(FakeLaunchDriver::new());
+    let cgroup_root = temp_root().join("cgroup-root");
+    let env = build_services_with_launch_driver_and_cgroup_root(
+        Arc::clone(&fake),
+        Arc::clone(&launch_driver),
+        Some(cgroup_root.clone()),
+    );
+    let workspace_session_id = create_session(
+        &fake,
+        &env,
+        "workspace-session",
+        PathBuf::from("/workspace/session"),
+        WorkspaceProfile::HostCompatible,
+    );
+
+    env.command
+        .exec_command(exec_input(workspace_session_id))
+        .expect("session command exec succeeds");
+
+    let expected_workspace_cgroup = cgroup_root.join("workspace-workspace-session");
+    assert!(expected_workspace_cgroup.is_dir());
+    assert_eq!(
+        launch_driver.recorded_cgroup_procs_paths(),
+        vec![Some(expected_workspace_cgroup.join("cgroup.procs"))]
+    );
 }
 
 #[test]

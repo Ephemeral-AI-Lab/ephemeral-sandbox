@@ -16,6 +16,8 @@ use crate::labels;
 use crate::launch::daemon_launch_argv;
 
 const ENDPOINT_HOST: &str = "127.0.0.1";
+const TMPFS_OPTIONS: &str = "rw,nosuid,nodev,mode=755";
+const RUNTIME_TMPFS_MOUNTS: &[&str] = &["/eos/layer-stack", "/eos/scratch"];
 
 /// Docker-backed runtime. Creates stopped containers; the installer starts them.
 pub struct DockerSandboxRuntime {
@@ -83,12 +85,14 @@ impl SandboxRuntime for DockerSandboxRuntime {
             name,
             image: resolve_image(config, &request.image),
             cmd,
+            env: runtime_timing_env(),
             labels: build_labels(config, &id, &auth_token, &request.workspace_root),
             binds: vec![format!(
                 "{}:{}",
                 request.workspace_root.display(),
                 config.container_workspace_root.display()
             )],
+            tmpfs: runtime_tmpfs_mounts(),
             daemon_port: config.daemon_port,
             privileged: config.privileged,
             platform: config.platform.clone(),
@@ -104,6 +108,24 @@ impl SandboxRuntime for DockerSandboxRuntime {
             .remove_container(record.id.as_str().to_owned())
             .map_err(runtime_failed)
     }
+}
+
+fn runtime_timing_env() -> Vec<String> {
+    ["EOS_RUNTIME_TIMING", "EOS_RUNTIME_TIMING_LOG"]
+        .into_iter()
+        .filter_map(|key| {
+            std::env::var(key)
+                .ok()
+                .map(|value| format!("{key}={value}"))
+        })
+        .collect()
+}
+
+fn runtime_tmpfs_mounts() -> HashMap<String, String> {
+    RUNTIME_TMPFS_MOUNTS
+        .iter()
+        .map(|path| ((*path).to_owned(), TMPFS_OPTIONS.to_owned()))
+        .collect()
 }
 
 fn resolve_image(config: &DockerRuntimeConfig, requested: &str) -> String {

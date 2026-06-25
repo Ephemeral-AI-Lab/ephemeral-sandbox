@@ -11,6 +11,7 @@ use crate::command::service::CommandOperationService;
 use crate::command::{
     CommandExecValue, CommandOutput, CommandServiceError, CommandTerminalResult, ExecCommandInput,
 };
+use crate::timing;
 use crate::workspace_crate::{DestroyWorkspaceRequest, WorkspaceEntry, WorkspaceSessionId};
 use crate::workspace_session::{WorkspaceSessionHandler, WorkspaceSessionService};
 
@@ -24,16 +25,20 @@ impl CommandOperationService {
                 message: "cmd must be non-empty".to_owned(),
             });
         }
+        let total_started = Instant::now();
         let existing_lifecycle_guard = input
             .workspace_session_id
             .is_some()
             .then(|| self.lock_session_lifecycle());
+        let resolve_started = Instant::now();
         let workspace = self.resolve_exec_workspace(&input)?;
+        timing::duration("runtime.exec.resolve_workspace", resolve_started);
         let lifecycle_guard =
             existing_lifecycle_guard.unwrap_or_else(|| self.lock_session_lifecycle());
 
         let id = self.engine().allocate_id();
 
+        let prepare_started = Instant::now();
         let (entry, transcript_path) = match workspace
             .entry()
             .and_then(|entry| self.prepare_transcript_path(&id).map(|path| (entry, path)))
@@ -41,6 +46,7 @@ impl CommandOperationService {
             Ok(pair) => pair,
             Err(error) => return Err(self.fail_command_start(&id, workspace, error)),
         };
+        timing::duration("runtime.exec.prepare", prepare_started);
 
         let started_at = Instant::now();
         let exec_command = ExecCommand {
@@ -56,6 +62,7 @@ impl CommandOperationService {
             .cgroup_path
             .as_ref()
             .map(|cgroup| cgroup.join("cgroup.procs"));
+        let spawn_started = Instant::now();
         let exec = self.engine().run_shell_interactive(
             exec_command,
             target,
@@ -63,6 +70,7 @@ impl CommandOperationService {
             on_complete,
             cgroup_procs_path,
         );
+        timing::duration("runtime.exec.spawn_interactive", spawn_started);
         let exec = match exec {
             Ok(exec) => exec,
             Err(error) => {
@@ -87,7 +95,12 @@ impl CommandOperationService {
         );
         drop(lifecycle_guard);
 
-        self.wait_for_command_yield(id.clone(), input.yield_time_ms.unwrap_or(1000), 0, false)
+        let yield_started = Instant::now();
+        let output =
+            self.wait_for_command_yield(id.clone(), input.yield_time_ms.unwrap_or(1000), 0, false);
+        timing::duration("runtime.exec.wait_yield", yield_started);
+        timing::duration("runtime.exec.total", total_started);
+        output
     }
 
     fn resolve_exec_workspace(

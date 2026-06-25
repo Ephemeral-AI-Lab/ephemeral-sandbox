@@ -18,8 +18,6 @@ pub use crate::profile::{
 pub use crate::lifecycle::ExitOutcome;
 
 pub(crate) const PERSISTED_HANDLES_SCHEMA_VERSION: u32 = 1;
-const HOST_BUDGET_FALLBACK_BYTES: u64 = 1_u64 << 62;
-const KIB_BYTES: u64 = 1_024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -58,12 +56,6 @@ pub enum WorkspaceModeError {
     #[error("workspace session is not open")]
     NotOpen,
 
-    #[error("host RAM gate refuses new workspace session")]
-    HostRamPressure {
-        required_bytes: u64,
-        budget_bytes: u64,
-    },
-
     #[error("setup failed at step {step}")]
     SetupFailed { step: String },
 
@@ -77,7 +69,6 @@ impl WorkspaceModeError {
         match self {
             Self::InvalidArgument(_) => "invalid_argument",
             Self::NotOpen => "not_open",
-            Self::HostRamPressure { .. } => "host_ram_pressure",
             Self::SetupFailed { .. } | Self::NetworkUnavailable(_) => "setup_failed",
         }
     }
@@ -120,14 +111,6 @@ impl WorkspaceModeManager {
         }
     }
 
-    pub(crate) fn check_host_capacity(&self) -> Result<(), WorkspaceModeError> {
-        check_host_capacity_against_budget(
-            self.handles.len(),
-            self.caps.upperdir_bytes,
-            host_capacity_budget_bytes(self.caps.memavail_fraction),
-        )
-    }
-
     pub(crate) fn workspace_session_root(&self, workspace_id: &WorkspaceModeId) -> PathBuf {
         self.scratch_root.join("sessions").join(&workspace_id.0)
     }
@@ -146,49 +129,4 @@ pub(crate) fn validate_workspace_root(workspace_root: &str) -> Result<(), Worksp
         )));
     }
     Ok(())
-}
-
-fn check_host_capacity_against_budget(
-    open_handles: usize,
-    upperdir_bytes: u64,
-    budget_bytes: u64,
-) -> Result<(), WorkspaceModeError> {
-    let required_bytes = required_host_capacity_bytes(open_handles, upperdir_bytes);
-    if required_bytes > budget_bytes {
-        return Err(WorkspaceModeError::HostRamPressure {
-            required_bytes,
-            budget_bytes,
-        });
-    }
-    Ok(())
-}
-
-fn required_host_capacity_bytes(open_handles: usize, upperdir_bytes: u64) -> u64 {
-    u64::try_from(open_handles)
-        .unwrap_or(u64::MAX)
-        .saturating_add(1)
-        .saturating_mul(upperdir_bytes)
-}
-
-fn host_capacity_budget_bytes(memavail_fraction: f64) -> u64 {
-    std::fs::read_to_string("/proc/meminfo")
-        .ok()
-        .and_then(|meminfo| parse_memavailable_kib(&meminfo))
-        .map_or(HOST_BUDGET_FALLBACK_BYTES, |memavailable_kib| {
-            host_capacity_budget_bytes_from_memavailable_kib(memavailable_kib, memavail_fraction)
-        })
-}
-
-fn parse_memavailable_kib(meminfo: &str) -> Option<u64> {
-    meminfo.lines().find_map(|line| {
-        let rest = line.trim_start().strip_prefix("MemAvailable:")?;
-        rest.split_whitespace().next()?.parse().ok()
-    })
-}
-
-fn host_capacity_budget_bytes_from_memavailable_kib(
-    memavailable_kib: u64,
-    memavail_fraction: f64,
-) -> u64 {
-    (memavailable_kib.saturating_mul(KIB_BYTES) as f64 * memavail_fraction).floor() as u64
 }

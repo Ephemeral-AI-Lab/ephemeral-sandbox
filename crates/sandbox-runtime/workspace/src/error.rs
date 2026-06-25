@@ -11,11 +11,6 @@ pub enum WorkspaceError {
         active_commands: usize,
     },
 
-    ResourcePressure {
-        required_bytes: u64,
-        budget_bytes: u64,
-    },
-
     SnapshotAcquire {
         source: String,
     },
@@ -54,13 +49,6 @@ impl std::fmt::Display for WorkspaceError {
                     "cannot change workspace while commands are active"
                 )
             }
-            Self::ResourcePressure {
-                required_bytes,
-                budget_bytes,
-            } => write!(
-                formatter,
-                "resource pressure: required {required_bytes}, budget {budget_bytes}"
-            ),
             Self::SnapshotAcquire { source } => {
                 write!(formatter, "snapshot acquire failed: {source}")
             }
@@ -82,7 +70,6 @@ impl WorkspaceError {
             Self::InvalidRequest { .. } => "invalid_request",
             Self::NotOpen => "not_open",
             Self::ActiveCommands { .. } => "active_commands",
-            Self::ResourcePressure { .. } => "resource_pressure",
             Self::SnapshotAcquire { .. } => "snapshot_acquire",
             Self::Setup { .. } => "setup",
             Self::Network { .. } => "network",

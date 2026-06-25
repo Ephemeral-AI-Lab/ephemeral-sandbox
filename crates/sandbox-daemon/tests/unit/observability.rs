@@ -26,6 +26,13 @@ trait DaemonObservabilityTestExt {
         config: &ServerConfig,
         snapshot: RuntimeObservabilitySnapshot,
     ) -> Result<(), StoreError>;
+
+    fn collect_runtime_snapshot_at_for_test(
+        &self,
+        config: &ServerConfig,
+        snapshot: RuntimeObservabilitySnapshot,
+        sampled_at_unix_ms: i64,
+    ) -> Result<(), StoreError>;
 }
 
 impl DaemonObservabilityTestExt for DaemonObservability {
@@ -35,6 +42,15 @@ impl DaemonObservabilityTestExt for DaemonObservability {
         snapshot: RuntimeObservabilitySnapshot,
     ) -> Result<(), StoreError> {
         self.write_snapshot(config, snapshot, test_unix_ms(), false)
+    }
+
+    fn collect_runtime_snapshot_at_for_test(
+        &self,
+        config: &ServerConfig,
+        snapshot: RuntimeObservabilitySnapshot,
+        sampled_at_unix_ms: i64,
+    ) -> Result<(), StoreError> {
+        self.write_snapshot(config, snapshot, sampled_at_unix_ms, false)
     }
 }
 
@@ -172,10 +188,14 @@ impl TestObservabilityStore {
                 cgroup_available,
                 cgroup_error,
                 cpu_usage_usec,
+                cpu_usage_delta_usec,
+                sample_delta_ms,
                 memory_current_bytes,
+                memory_current_delta_bytes,
                 memory_max_bytes,
                 memory_max_unlimited,
                 disk_upperdir_bytes,
+                disk_upperdir_delta_bytes,
                 disk_file_count,
                 disk_dir_count,
                 disk_symlink_count,
@@ -196,16 +216,20 @@ impl TestObservabilityStore {
                 cgroup_available: row.get::<_, i64>(5)? != 0,
                 cgroup_error: row.get(6)?,
                 cpu_usage_usec: row.get(7)?,
-                memory_current_bytes: row.get(8)?,
-                memory_max_bytes: row.get(9)?,
-                memory_max_unlimited: row.get::<_, Option<i64>>(10)?.map(|value| value != 0),
-                disk_upperdir_bytes: row.get(11)?,
-                disk_file_count: row.get(12)?,
-                disk_dir_count: row.get(13)?,
-                disk_symlink_count: row.get(14)?,
-                disk_truncated: row.get::<_, Option<i64>>(15)?.map(|value| value != 0),
-                disk_read_error_count: row.get(16)?,
-                disk_first_error_path: row.get(17)?,
+                cpu_usage_delta_usec: row.get(8)?,
+                sample_delta_ms: row.get(9)?,
+                memory_current_bytes: row.get(10)?,
+                memory_current_delta_bytes: row.get(11)?,
+                memory_max_bytes: row.get(12)?,
+                memory_max_unlimited: row.get::<_, Option<i64>>(13)?.map(|value| value != 0),
+                disk_upperdir_bytes: row.get(14)?,
+                disk_upperdir_delta_bytes: row.get(15)?,
+                disk_file_count: row.get(16)?,
+                disk_dir_count: row.get(17)?,
+                disk_symlink_count: row.get(18)?,
+                disk_truncated: row.get::<_, Option<i64>>(19)?.map(|value| value != 0),
+                disk_read_error_count: row.get(20)?,
+                disk_first_error_path: row.get(21)?,
             })
         })?;
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
@@ -330,6 +354,61 @@ fn observability_collection_populates_cgroup_counters_from_fixture_paths() -> Te
     assert_eq!(workspace.memory_max_unlimited, Some(false));
 
     assert!(global.cpu_usage_usec >= workspace.cpu_usage_usec);
+    Ok(())
+}
+
+#[test]
+fn observability_collection_computes_resource_deltas_per_scope() -> TestResult {
+    let root = test_root("resource-deltas");
+    let sandbox_cgroup = root.join("cgroup-root");
+    let workspace_cgroup = sandbox_cgroup.join("workspace-workspace-1");
+    let upperdir = root.join("upperdir");
+    std::fs::create_dir_all(&upperdir)?;
+    std::fs::write(upperdir.join("one.txt"), b"1")?;
+    write_cgroup_fixture(&sandbox_cgroup, 4_000, 8_000, "max")?;
+    write_cgroup_fixture(&workspace_cgroup, 2_000, 4_000, "16384")?;
+
+    let mut config = server_config(&root, Some("sandbox-1"));
+    config.cgroup_root = Some(sandbox_cgroup.clone());
+    let observability =
+        DaemonObservability::from_config(&config).expect("sandbox id enables observability");
+
+    let snapshot = || RuntimeObservabilitySnapshot {
+        workspaces: vec![RuntimeWorkspaceSnapshot {
+            cgroup_path: Some(workspace_cgroup.clone()),
+            ..workspace_snapshot("workspace-1", Some(upperdir.clone()))
+        }],
+        active_namespace_executions: Vec::new(),
+        partial_errors: Vec::new(),
+    };
+
+    observability.collect_runtime_snapshot_at_for_test(&config, snapshot(), 1_000)?;
+    std::fs::write(upperdir.join("two.txt"), b"22")?;
+    write_cgroup_fixture(&sandbox_cgroup, 4_600, 7_500, "max")?;
+    write_cgroup_fixture(&workspace_cgroup, 2_300, 4_500, "16384")?;
+    observability.write_snapshot(&config, snapshot(), 1_250, true)?;
+
+    let store = store_for_config(&config)?;
+    let samples = store.resource_samples_for_test("sandbox-1")?;
+    let latest_global = samples
+        .iter()
+        .rev()
+        .find(|sample| sample.workspace_id.is_none())
+        .expect("latest sandbox-global sample");
+    assert_eq!(latest_global.sample_delta_ms, Some(250));
+    assert_eq!(latest_global.cpu_usage_delta_usec, Some(600));
+    assert_eq!(latest_global.memory_current_delta_bytes, Some(-500));
+
+    let latest_workspace = samples
+        .iter()
+        .rev()
+        .find(|sample| sample.workspace_id.as_deref() == Some("workspace-1"))
+        .expect("latest workspace sample");
+    assert_eq!(latest_workspace.sample_delta_ms, Some(250));
+    assert_eq!(latest_workspace.cpu_usage_delta_usec, Some(300));
+    assert_eq!(latest_workspace.memory_current_delta_bytes, Some(500));
+    assert_eq!(latest_workspace.disk_upperdir_bytes, Some(3));
+    assert_eq!(latest_workspace.disk_upperdir_delta_bytes, Some(2));
     Ok(())
 }
 

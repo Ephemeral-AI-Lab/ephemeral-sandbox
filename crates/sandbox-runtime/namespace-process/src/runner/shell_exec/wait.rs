@@ -6,7 +6,6 @@ use std::time::{Duration, Instant};
 
 use nix::sys::signal::{kill, Signal};
 use nix::unistd::Pid;
-use rustix::process::getpgrp;
 
 use crate::runner::RunnerError;
 
@@ -14,11 +13,11 @@ const CHILD_WAIT_POLL: Duration = Duration::from_millis(5);
 
 pub(super) fn wait_for_command_execution_scope(
     child: &mut std::process::Child,
+    child_pgid: i32,
     timeout_seconds: Option<f64>,
     proc_dir: Option<BorrowedFd>,
 ) -> Result<i32, RunnerError> {
     let deadline = timeout_deadline(timeout_seconds);
-    let pgid = getpgrp().as_raw_nonzero().get();
     let self_pid = i32::try_from(std::process::id()).unwrap_or(i32::MAX);
     let mut root_exit_code = None;
     loop {
@@ -28,13 +27,14 @@ pub(super) fn wait_for_command_execution_scope(
             }
         }
         if root_exit_code.is_some() {
-            let has_other_live_members = pgid_has_other_live_members(pgid, self_pid, proc_dir);
+            let has_other_live_members =
+                pgid_has_other_live_members(child_pgid, self_pid, proc_dir);
             if !has_other_live_members {
                 return Ok(root_exit_code.unwrap_or(0));
             }
         }
         if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
-            let _ = kill(Pid::from_raw(-pgid), Signal::SIGKILL);
+            let _ = kill(Pid::from_raw(-child_pgid), Signal::SIGKILL);
             let _ = child.wait();
             return Err(RunnerError::TimedOut);
         }

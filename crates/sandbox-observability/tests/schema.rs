@@ -25,6 +25,18 @@ fn schema_initialization_is_idempotent() -> TestResult {
     let namespace_snapshot_columns = column_names(&connection, "namespace_execution_snapshots")?;
     assert!(namespace_snapshot_columns.contains("namespace_execution_id"));
     assert!(namespace_snapshot_columns.contains("workspace_session_id"));
+    let resource_sample_columns = column_names(&connection, "resource_samples")?;
+    for required_column in [
+        "cpu_usage_delta_usec",
+        "sample_delta_ms",
+        "memory_current_delta_bytes",
+        "disk_upperdir_delta_bytes",
+    ] {
+        assert!(
+            resource_sample_columns.contains(required_column),
+            "resource samples missing {required_column}"
+        );
+    }
     for forbidden_column in [
         "command_session_id",
         "command",
@@ -41,7 +53,7 @@ fn schema_initialization_is_idempotent() -> TestResult {
             "namespace execution snapshots unexpectedly include {forbidden_column}"
         );
     }
-    assert_eq!(migration_count(&connection)?, 7);
+    assert_eq!(migration_count(&connection)?, 8);
     assert!(paths.database_path().exists());
     assert!(dir
         .path()
@@ -101,7 +113,7 @@ fn schema_migration_checksums_are_recorded() -> TestResult {
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<rusqlite::Result<Vec<_>>>()?;
 
-    assert_eq!(checksums.len(), 7);
+    assert_eq!(checksums.len(), 8);
     assert!(
         checksums
             .iter()

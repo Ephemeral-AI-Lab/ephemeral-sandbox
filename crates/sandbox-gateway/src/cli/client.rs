@@ -3,6 +3,8 @@ use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 
+use crate::cli::timing;
+
 const MAX_RESPONSE_BYTES: usize = MAX_REQUEST_BYTES;
 
 #[derive(Debug)]
@@ -28,22 +30,35 @@ impl GatewayClient {
     }
 
     pub async fn send(&self, request: &Request) -> Result<Value, GatewayClientError> {
+        timing::checkpoint("client.send.start");
+        let started = std::time::Instant::now();
+        let connect_started = std::time::Instant::now();
         let mut stream = TcpStream::connect(self.addr.as_str())
             .await
             .map_err(GatewayClientError::Transport)?;
+        timing::duration("client.connect", connect_started);
+        let encode_started = std::time::Instant::now();
         let mut request_value = serde_json::to_value(request).map_err(GatewayClientError::Json)?;
         if let (Some(token), Value::Object(map)) = (&self.auth_token, &mut request_value) {
             map.insert(GATEWAY_AUTH_FIELD.to_owned(), Value::String(token.clone()));
         }
+        let request_line = json_line(&request_value);
+        timing::duration("client.encode_request", encode_started);
+        let write_started = std::time::Instant::now();
         stream
-            .write_all(&json_line(&request_value))
+            .write_all(&request_line)
             .await
             .map_err(GatewayClientError::Transport)?;
         stream
             .shutdown()
             .await
             .map_err(GatewayClientError::Transport)?;
-        read_response_line(stream).await
+        timing::duration("client.write_shutdown", write_started);
+        let read_started = std::time::Instant::now();
+        let response = read_response_line(stream).await;
+        timing::duration("client.read_response", read_started);
+        timing::duration("client.send.total", started);
+        response
     }
 }
 

@@ -19,6 +19,7 @@ use sandbox_runtime_namespace_process::runner::protocol::{NamespaceRunnerRequest
 
 use crate::error::NamespaceExecutionError;
 use crate::pty::{open_pty_pair, terminate_pgid, PtyMaster};
+use crate::timing;
 
 pub(crate) const MOUNT_OVERLAY_MODE_FLAG: &str = "--mount-overlay";
 
@@ -69,6 +70,7 @@ impl NsRunnerLauncher for ForkRunnerLauncher {
         cgroup_procs_path: Option<PathBuf>,
     ) -> Result<(Box<dyn RunnerChild>, PtyMaster), NamespaceExecutionError> {
         let request_bytes = encode_request(&request)?;
+        let spawn_started = Instant::now();
         let (mut spawned, master) = spawn_locked(None, |command| {
             let (master, slave) = open_pty_pair().map_err(spawn_error)?;
             command
@@ -78,14 +80,19 @@ impl NsRunnerLauncher for ForkRunnerLauncher {
             install_pgid_leader_hook(command);
             Ok(master)
         })?;
+        timing::duration("namespace.launcher.spawn_locked", spawn_started);
+        let cgroup_started = Instant::now();
         place_child_in_cgroup(spawned.child.id(), cgroup_procs_path.as_deref());
+        timing::duration("namespace.launcher.place_child_in_cgroup", cgroup_started);
         let pgid = spawned.pgid;
         let cancel: Box<dyn Fn() + Send + Sync> = Box::new(move || {
             cancelled.store(true, Ordering::Release);
             terminate_pgid(pgid);
         });
+        let pty_started = Instant::now();
         let pty =
             PtyMaster::spawn(master, Some(pgid), transcript_path, cancel).map_err(spawn_error);
+        timing::duration("namespace.launcher.pty_master_spawn", pty_started);
         let pty = match pty {
             Ok(pty) => pty,
             Err(error) => {
@@ -93,10 +100,10 @@ impl NsRunnerLauncher for ForkRunnerLauncher {
                 return Err(error);
             }
         };
-        Ok((
-            Box::new(spawned.into_child(&request_bytes, None, 0.0)?),
-            pty,
-        ))
+        let into_child_started = Instant::now();
+        let child = spawned.into_child(&request_bytes, None, 0.0)?;
+        timing::duration("namespace.launcher.into_child", into_child_started);
+        Ok((Box::new(child), pty))
     }
 
     fn spawn_overlay_mount(
@@ -134,10 +141,12 @@ impl SpawnedRunner {
             request_write,
             pgid,
         } = self;
+        let write_started = Instant::now();
         if let Err(error) = write_request(request_write, request_bytes) {
             terminate_spawned_child(&mut child, Some(pgid));
             return Err(error);
         }
+        timing::duration("namespace.launcher.write_request", write_started);
         Ok(ForkRunnerChild {
             child,
             result_read,
@@ -160,7 +169,9 @@ fn spawn_locked<R>(
         result_write.as_raw_fd(),
     )?;
     let resource = configure(&mut command)?;
+    let command_spawn_started = Instant::now();
     let mut child = command.spawn().map_err(spawn_error)?;
+    timing::duration("namespace.launcher.command_spawn", command_spawn_started);
     drop(request_read);
     drop(result_write);
     let pgid = match child_pgid(&child) {
@@ -183,13 +194,17 @@ fn spawn_locked<R>(
 
 impl RunnerChild for ForkRunnerChild {
     fn wait_completion(&mut self) -> Result<RunResult, NamespaceExecutionError> {
+        let wait_started = Instant::now();
         let status = match self.mode_flag {
             Some(mode_flag) => {
                 wait_for_child_with_timeout(&mut self.child, mode_flag, self.setup_timeout_s)?
             }
             None => self.child.wait().map_err(spawn_error)?,
         };
+        timing::duration("namespace.launcher.child_wait", wait_started);
+        let read_started = Instant::now();
         let bytes = read_result_fd(&self.result_read).unwrap_or_default();
+        timing::duration("namespace.launcher.read_result_fd", read_started);
         if let Ok(result) = serde_json::from_slice::<RunResult>(&bytes) {
             return Ok(result);
         }

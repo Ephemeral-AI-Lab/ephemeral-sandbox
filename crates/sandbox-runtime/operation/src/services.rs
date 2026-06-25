@@ -46,6 +46,11 @@ impl SandboxRuntimeOperations {
             workspace_runtime,
             config.cgroup_root.clone(),
         ));
+        sandbox_runtime_layerstack::ensure_workspace_base(
+            &layer_stack_root,
+            &config.workspace.workspace_root,
+        )
+        .expect("layerstack workspace base initialization failed");
         let layerstack = Arc::new(
             LayerStackService::new(layer_stack_root)
                 .expect("layerstack service initialization failed"),

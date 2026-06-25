@@ -1255,6 +1255,7 @@ Targets:
 
 Profiles:
   package-fast  default local Docker/E2E package, no LTO + incremental rebuilds
+  package-local fastest local Docker/E2E package, unoptimized + stripped
   release       final perf artifact, fat LTO, slowest local rebuilds
 "
     );

@@ -112,9 +112,18 @@ flowchart TD
 `xtask package` is the only supported production packaging entrypoint:
 
 ```sh
-cargo run -p xtask -- package --target x86_64-unknown-linux-musl
-cargo run -p xtask -- package --target aarch64-unknown-linux-musl
+cargo run -p xtask -- package --target x86_64-unknown-linux-musl --builder cargo --profile package-local
+cargo run -p xtask -- package --target aarch64-unknown-linux-musl --builder cargo --profile package-local
 ```
+
+If the target has C dependencies, the musl C compiler/linker is host setup. Put
+the local cross-toolchain on `PATH` and/or set `CC_<target>`,
+`CXX_<target>`, `AR_<target>`, and `CARGO_TARGET_<TARGET>_LINKER` before running
+`xtask`. Do not install packages inside the sandbox container, do not compile
+Rust inside the sandbox, and do not build a Docker builder image.
+
+Use `package-local` for live Docker E2E iteration. Use `package-fast` or
+`release` only when you need a more optimized daemon artifact.
 
 Expected artifacts:
 

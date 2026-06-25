@@ -28,6 +28,12 @@ mod serve_cli;
 #[path = "../src/server/mod.rs"]
 pub(crate) mod server;
 pub(crate) use server::MAX_REQUEST_BYTES;
+#[allow(
+    dead_code,
+    reason = "test harness path-includes private modules that depend on crate-level timing helpers"
+)]
+#[path = "../src/timing.rs"]
+pub(crate) mod timing;
 
 #[path = "unit/dependency_guard.rs"]
 mod dependency_guard_tests;

@@ -22,13 +22,6 @@ pub(crate) fn workspace_error_from_mode_error(error: WorkspaceModeError) -> Work
             message,
         },
         WorkspaceModeError::NotOpen => WorkspaceError::NotOpen,
-        WorkspaceModeError::HostRamPressure {
-            required_bytes,
-            budget_bytes,
-        } => WorkspaceError::ResourcePressure {
-            required_bytes,
-            budget_bytes,
-        },
         WorkspaceModeError::SetupFailed { step } => WorkspaceError::Setup { step },
         WorkspaceModeError::NetworkUnavailable(message) => WorkspaceError::Network { message },
     }

@@ -631,7 +631,10 @@ cargo check -p sandbox-config -p sandbox-manager -p sandbox-gateway -p sandbox-p
 # Linux container runtime correctness
 cargo check -p sandbox-daemon -p sandbox-runtime --target x86_64-unknown-linux-gnu
 # Phase 6 (Linux/macOS/Windows host + Linux container runtime)
-cargo run -p xtask -- package --builder cross
+# Host-local Linux musl artifact build; do not build Rust in the sandbox
+# container and do not build a custom sandbox image.
+cargo run -p xtask -- package --target aarch64-unknown-linux-musl --builder cargo --profile package-local
+file dist/sandbox-daemon-linux-arm64   # should report "statically linked"
 start-sandbox-gateway --backend docker --config-yaml config/prd.yml
 sandbox-cli manager create_sandbox --image python:3.11-bookworm --workspace-root "$PWD/.eos-ws"
 sandbox-cli manager inspect_sandbox --sandbox-id <id>

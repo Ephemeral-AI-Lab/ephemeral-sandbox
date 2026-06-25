@@ -6,6 +6,7 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWrite
 use tokio::time::timeout;
 
 use super::{GatewayError, SandboxGatewayServer};
+use crate::cli::timing;
 
 impl SandboxGatewayServer {
     pub async fn handle_connection<S>(&self, stream: S) -> Result<(), GatewayError>
@@ -13,7 +14,11 @@ impl SandboxGatewayServer {
         S: AsyncRead + AsyncWrite + Unpin,
     {
         let (mut reader, mut writer) = tokio::io::split(stream);
-        let response = match read_request_line(&mut reader).await {
+        let read_started = std::time::Instant::now();
+        let bytes = read_request_line(&mut reader).await;
+        timing::duration("gateway.read_request", read_started);
+        let dispatch_started = std::time::Instant::now();
+        let response = match bytes {
             Ok(bytes) => match self.authorize_and_decode(&bytes) {
                 Ok(request) => self
                     .manager
@@ -24,10 +29,13 @@ impl SandboxGatewayServer {
             },
             Err(error) => error.to_response_value(),
         };
+        timing::duration("gateway.dispatch", dispatch_started);
+        let write_started = std::time::Instant::now();
         writer
             .write_all(&sandbox_protocol::response_line(&response))
             .await?;
         writer.shutdown().await?;
+        timing::duration("gateway.write_response", write_started);
         Ok(())
     }
 

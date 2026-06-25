@@ -273,10 +273,6 @@ fn snapshot_serializes_with_the_artifact_schema() {
                 "/tmp/gw.sock".to_owned(),
                 "manager".to_owned(),
                 "get_observability_tree".to_owned(),
-                "--include-recent-traces".to_owned(),
-                "1".to_owned(),
-                "--trace-limit".to_owned(),
-                "100".to_owned(),
                 "--resource-window-ms".to_owned(),
                 "60000".to_owned(),
             ],
@@ -305,14 +301,14 @@ fn snapshot_serializes_with_the_artifact_schema() {
     let argv = value["source_call"]["argv"]
         .as_array()
         .expect("source_call.argv is an array");
-    for flag in [
-        "--include-recent-traces",
-        "--trace-limit",
-        "--resource-window-ms",
-    ] {
-        assert!(
-            argv.iter().any(|entry| entry == flag),
-            "expected {flag} in source_call.argv"
-        );
-    }
+    assert!(
+        argv.iter().any(|entry| entry == "--resource-window-ms"),
+        "expected --resource-window-ms in source_call.argv"
+    );
+    assert!(
+        !argv
+            .iter()
+            .any(|entry| entry == "--include-recent-traces" || entry == "--trace-limit"),
+        "source_call.argv should reflect the current public CLI shape"
+    );
 }

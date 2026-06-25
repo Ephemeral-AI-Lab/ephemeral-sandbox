@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use super::SandboxDaemonServer;
 use crate::server::error::SandboxDaemonError;
+use crate::timing;
 use sandbox_protocol::{decode_request_value, error_kind, Request, DAEMON_AUTH_FIELD};
 use serde_json::{Map, Value};
 
@@ -11,6 +12,7 @@ const DAEMON_NAME: &str = "sandbox-daemon";
 
 impl SandboxDaemonServer {
     pub(crate) async fn dispatch_bytes(&self, bytes: Vec<u8>, is_tcp: bool) -> serde_json::Value {
+        let parse_started = std::time::Instant::now();
         let value = match serde_json::from_slice::<serde_json::Value>(&bytes) {
             Ok(value) => value,
             Err(err) => {
@@ -21,6 +23,8 @@ impl SandboxDaemonServer {
                 );
             }
         };
+        timing::duration("daemon.parse_json", parse_started);
+        let auth_started = std::time::Instant::now();
         let value = if is_tcp {
             match strip_tcp_auth(self.config.auth_token.as_deref(), value) {
                 Ok(authenticated) => authenticated,
@@ -35,8 +39,13 @@ impl SandboxDaemonServer {
         } else {
             value
         };
+        timing::duration("daemon.auth", auth_started);
+        let decode_started = std::time::Instant::now();
         match decode_request(value) {
-            Ok(request) => self.dispatch_request(request).await,
+            Ok(request) => {
+                timing::duration("daemon.decode_request", decode_started);
+                self.dispatch_request(request).await
+            }
             Err(response) => response,
         }
     }
@@ -52,11 +61,13 @@ impl SandboxDaemonServer {
             return self.dispatch_private_observability_snapshot(request).await;
         }
         let operations = Arc::clone(&self.operations);
+        let runtime_started = std::time::Instant::now();
         let task = tokio::task::spawn_blocking(move || {
             sandbox_runtime::dispatch_operation(&operations, &request).into_json_value()
         });
         match task.await {
             Ok(response) => {
+                timing::duration("daemon.runtime_dispatch", runtime_started);
                 self.trigger_observability_collection();
                 response
             }
