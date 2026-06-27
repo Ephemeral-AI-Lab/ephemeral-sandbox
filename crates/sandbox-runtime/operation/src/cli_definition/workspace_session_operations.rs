@@ -23,7 +23,7 @@ const CREATE_SPEC: CliOperationSpec = CliOperationSpec {
     name: "create_workspace_session",
     family: "workspace_session",
     summary: "Create a runtime workspace session.",
-    description: "Create a user-owned runtime workspace session. When profile is omitted, the runtime creates a shared-network workspace.",
+    description: "Create a user-owned runtime workspace session. When network profile is omitted, the runtime creates a shared-network workspace.",
     args: CREATE_ARGS,
     cli: Some(CliSpec {
         path: &["runtime", "create_workspace_session"],
@@ -140,7 +140,7 @@ fn parse_workspace_profile(request: &Request) -> Result<NetworkProfile, Response
         None => Ok(NetworkProfile::Shared),
         Some(value) if value == NetworkProfile::Shared.as_str() => Ok(NetworkProfile::Shared),
         Some(value) if value == NetworkProfile::Isolated.as_str() => Ok(NetworkProfile::Isolated),
-        Some(_) => Err(request.invalid_argument("profile must be one of shared or isolated")),
+        Some(_) => Err(request.invalid_argument("network_profile must be one of shared or isolated")),
     }
 }
 

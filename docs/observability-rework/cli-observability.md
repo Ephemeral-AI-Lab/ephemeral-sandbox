@@ -117,14 +117,14 @@ const EVENTS_SPEC: CliOperationSpec = CliOperationSpec {
     family: "observability",
     summary: "List domain-fact events across traces.",
     description: "Fold the log into a flat, cross-trace stream of point-in-time \
-events (publish, lease, errors, …), newest first. Filter by exact name and/or a \
+events (lease, errors, …), newest first. Filter by exact name and/or a \
 start timestamp.",
     args: &[
         SANDBOX_ID_ARG,
         ArgSpec::optional(
             "name",
             ArgKind::String,
-            "Filter to events with this exact name (e.g. layerstack.publish).",
+            "Filter to events with this exact name (e.g. lease.acquired).",
             None,
             Some(ArgCliSpec { flag: Some("--name"), positional: None }),
         ),
@@ -141,7 +141,7 @@ start timestamp.",
         usage: "sandbox-cli observability events --sandbox-id ID [--name NAME] [--since-ms MS]",
         examples: &[
             "sandbox-cli observability events --sandbox-id eos-abc",
-            "sandbox-cli observability events --sandbox-id eos-abc --name layerstack.publish",
+            "sandbox-cli observability events --sandbox-id eos-abc --name lease.acquired",
         ],
     }),
     related: &["trace", "raw"],
@@ -333,7 +333,7 @@ Family
   Observability
 
 Description
-  Fold the log into a flat, cross-trace stream of point-in-time events (publish, lease, errors, …), newest first. Filter by exact name and/or a start timestamp.
+  Fold the log into a flat, cross-trace stream of point-in-time events (lease, errors, …), newest first. Filter by exact name and/or a start timestamp.
 
 Usage
   sandbox-cli observability events --sandbox-id ID [--name NAME] [--since-ms MS]
@@ -342,13 +342,13 @@ Arguments
   --sandbox-id string required
     Target sandbox id (selects the daemon to query).
   --name string optional
-    Filter to events with this exact name (e.g. layerstack.publish).
+    Filter to events with this exact name (e.g. lease.acquired).
   --since-ms integer optional
     Only events at or after this unix-ms timestamp.
 
 Examples
   sandbox-cli observability events --sandbox-id eos-abc
-  sandbox-cli observability events --sandbox-id eos-abc --name layerstack.publish
+  sandbox-cli observability events --sandbox-id eos-abc --name lease.acquired
 
 Related Operations
   trace
@@ -461,24 +461,21 @@ $ sandbox-cli observability trace --sandbox-id eos-abc --id req-7f3
 trace req-7f3   sandbox eos-abc   wall 4.30s   (call returned at 1.05s)
 
   +00.000  daemon.dispatch op=exec_command                 1051ms  ✓
-  +00.002   └ exec_command one_shot                        1048ms  ✓
+  +00.002   └ command.exec one_shot                        1048ms  ✓
   +00.003      ├ workspace_session.create                    38ms  ✓
-  +00.004      │   ├ workspace.create                         8ms  ✓
-  +00.009      │   │   • lease.acquired r5
-  +00.013      │   └ namespace.exec.mount_overlay [async]    27ms  ✓ exit0
-  +00.042      └ namespace.exec.shell           [async]    4231ms  ✓ exit0
-  +00.055         ├ ns_runner.shell.spawn_child              6ms  ✓   [Phase B]
-  +04.274         ├ • exec.terminal exit=0
-  +04.275         └ workspace_session.destroy one_shot       25ms  ✓
-  +04.290            • layerstack.publish r5→r6  +2 layers 40KB
-  +04.295            • lease.released r6
+  +00.009      │   • lease.acquired r5
+  +00.013      │   └ namespace.exec.mount_overlay            27ms  ✓
+  +00.042      ├ namespace.exec.shell           [async]    4231ms  ✓ exit0
+  +00.055      │   └ namespace.runner.spawn_child            6ms  ✓   [Phase B]
+  +04.275      └ workspace_session.destroy one_shot         25ms  ✓
+  +04.295         • lease.released r5
 ```
 
 ```console
 $ sandbox-cli observability trace --sandbox-id eos-abc        # --id defaults to "last"
 trace req-9a1   sandbox eos-abc   wall — (in flight)   1 span open
 
-  +00.000  exec_command ws-7                                1020ms  ✓
+  +00.000  command.exec ws-7                                1020ms  ✓
   +00.020   └ namespace.exec.shell  ns-42  [async]          running  (live, from registry)
 ```
 
@@ -494,29 +491,26 @@ $ sandbox-cli observability events --sandbox-id eos-abc
 events  sandbox eos-abc   12 matched (newest first)
 
   ts        name                trace     parent  attrs
-  +04.295   lease.released      req-7f3   d-6     revision=r6
-  +04.290   layerstack.publish  req-7f3   d-6     base=r5 revision=r6 layers_added=2 bytes=40960
-  +04.274   exec.terminal       req-7f3   d-5     status=completed exit_code=0
-  +00.009   lease.acquired      req-7f3   d-3     revision=r5 owner=req-7f3
+  +04.295   lease.released      req-7f3   d-6     revision=r5
+  +00.009   lease.acquired      req-7f3   d-2     revision=r5 owner=req-7f3
   …
 ```
 
 ```console
-$ sandbox-cli observability events --sandbox-id eos-abc --name layerstack.publish
-events  sandbox eos-abc   name=layerstack.publish   2 matched
+$ sandbox-cli observability events --sandbox-id eos-abc --name lease.released
+events  sandbox eos-abc   name=lease.released   2 matched
 
   ts        trace     parent  attrs
-  +04.290   req-7f3   d-6     base=r5 revision=r6 layers_added=2 bytes=40960
-  +18.118   req-9c2   d-31    base=r6 revision=r7 layers_added=1 bytes=8192
+  +04.295   req-7f3   d-6     revision=r5
+  +18.130   req-9c2   d-31    revision=r7
 ```
 
 ```console
 $ sandbox-cli observability events --sandbox-id eos-abc --since-ms 1719500004280
-events  sandbox eos-abc   since 1719500004280   2 matched
+events  sandbox eos-abc   since 1719500004280   1 matched
 
   ts        name                trace     parent  attrs
-  +04.295   lease.released      req-7f3   d-6     revision=r6
-  +04.290   layerstack.publish  req-7f3   d-6     base=r5 revision=r6 layers_added=2 bytes=40960
+  +04.295   lease.released      req-7f3   d-6     revision=r5
 ```
 
 ```console
@@ -524,7 +518,7 @@ $ sandbox-cli observability events --sandbox-id eos-abc --name lease.acquired --
 events  sandbox eos-abc   name=lease.acquired since 1719500000000   1 matched
 
   ts        trace     parent  attrs
-  +00.009   req-7f3   d-3     revision=r5 owner=req-7f3
+  +00.009   req-7f3   d-2     revision=r5 owner=req-7f3
 ```
 
 ### 4.4 `cgroup` — default scope / workspace / window cap error
@@ -557,15 +551,15 @@ error: window_ms exceeds max (600000)
 
 ```console
 $ sandbox-cli observability raw --sandbox-id eos-abc --kind span --trace req-7f3
-{"ts":1719500000012,"kind":"span","sandbox":"eos-abc","component":"sandbox-runtime","trace":"req-7f3","span":"d-3","parent":"d-2","name":"workspace.create","dur_ms":8.0,"status":"completed"}
-{"ts":1719500001050,"kind":"span","sandbox":"eos-abc","component":"sandbox-runtime","trace":"req-7f3","span":"d-1","parent":"d-0","name":"exec_command","dur_ms":1048.0,"status":"completed","attrs":{"one_shot":true}}
-{"ts":1719500004273,"kind":"span","sandbox":"eos-abc","component":"sandbox-runtime","trace":"req-7f3","span":"d-5","parent":"d-1","name":"namespace.exec.shell","dur_ms":4231.0,"status":"completed","exit_code":0,"attrs":{"exec_id":"ns-9","async":true}}
+{"ts":1719500000040,"kind":"span","trace":"req-7f3","span":"d-4","parent":"d-2","name":"namespace.exec.mount_overlay","dur_ms":27.0,"status":"completed"}
+{"ts":1719500001050,"kind":"span","trace":"req-7f3","span":"d-1","parent":"d-0","name":"command.exec","dur_ms":1048.0,"status":"completed","attrs":{"one_shot":true}}
+{"ts":1719500004273,"kind":"span","trace":"req-7f3","span":"d-5","parent":"d-1","name":"namespace.exec.shell","dur_ms":4231.0,"status":"completed","attrs":{"exec_id":"ns-9","async":true,"exit_code":0}}
 ```
 
 ```console
 $ sandbox-cli observability raw --sandbox-id eos-abc --kind sample --since-ms 1719500010000
-{"ts":1719500010000,"kind":"sample","sandbox":"eos-abc","component":"sandbox-daemon","scope":"ws-1","cpu_usec":4100000,"mem_cur":21000000,"disk_bytes":1320000,"files":340}
-{"ts":1719500020000,"kind":"sample","sandbox":"eos-abc","component":"sandbox-daemon","scope":"ws-1","cpu_usec":4250000,"mem_cur":20500000,"disk_bytes":1320000,"files":340}
+{"ts":1719500010000,"kind":"sample","scope":"ws-1","cpu_usec":4100000,"mem_cur":21000000,"disk_bytes":1320000,"files":340}
+{"ts":1719500020000,"kind":"sample","scope":"ws-1","cpu_usec":4250000,"mem_cur":20500000,"disk_bytes":1320000,"files":340}
 ```
 
 ```console
@@ -598,6 +592,30 @@ $ sandbox-cli observability raw --sandbox-id eos-abc --trace nope
 - **`get_observability` params** map 1:1 from flags: `view` = subcommand name,
   `trace` ⇄ `--id`/`--trace`, `name`, `scope`, `window_ms`, `since_ms`, `kind`.
   `--sandbox-id` is CLI routing, not an op param.
+- **Publish is a span, not an event.** `layerstack.publish` is no longer a
+  point-in-time event: a real publish is the sync span `layerstack.publish`
+  (`attrs{base, revision, layers_added, bytes, no_op}`; `status=error` +
+  `attrs.reason="manifest_conflict"` on a rejected publish — the old
+  `layerstack.publish_rejected` event is gone). One-shot teardown never publishes
+  (it evicts the upperdir and releases the lease), so Case A's tail is
+  `lease.released` alone, carrying the same revision as `lease.acquired`. The
+  cross-trace publish audit therefore moves off `events --name layerstack.publish`
+  to `raw --kind span` filtered on `name == "layerstack.publish"` (jq); the
+  `events` view still serves `lease.*` and the other domain facts. The capacity
+  columns (`base`/`revision`/`layers_added`/`bytes`) survive verbatim as span
+  attrs.
+- **`trace` dispatch duration is the yield window, not I/O cost.** A
+  `daemon.dispatch op=write_command_stdin` / read span measures the
+  `yield_time_ms` poll window, not the write/read cost; read/write poll-loop
+  dispatches surface as single-node traces, kept honest by config-gating emission
+  and the root-status fix (a faulted `Response` colors the root span `error`, not
+  a green ✓). A Ctrl-D that ends a one-shot attributes the teardown tail to the
+  originating exec trace by design — the model is a tree, not a DAG.
+- **Read filters own their values.** The daemon-side `RawFilter` holds owned
+  `Option<String>` fields and derives `Default`, so a view folds its filter as
+  `RawFilter { kind: Some("event".into()), ..Default::default() }`; the `events`
+  view reuses `scan()`'s already-parsed `Event` records rather than re-parsing
+  `raw`'s NDJSON lines.
 - **Testing**: add catalog/help golden tests mirroring `gateway_cli.rs`
   (`Family\n  Observability`, each operation page) and a per-view request-builder
   test asserting flags map to the right `get_observability` params.
