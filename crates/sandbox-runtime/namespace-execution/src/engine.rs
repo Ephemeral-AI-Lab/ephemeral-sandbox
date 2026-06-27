@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread;
 
+use sandbox_observability::{SpanStatus, TerminalHook};
 use sandbox_runtime_namespace_process::runner::protocol::NamespaceRunnerRequest;
 use serde_json::Value;
 
@@ -14,11 +15,11 @@ use crate::launcher::{ForkRunnerLauncher, NsRunnerLauncher, RunnerChild, MOUNT_O
 use crate::promise::CompletionPromise;
 use crate::registry::ExecutionRegistry;
 use crate::shell::{NamespaceExecutionTerminalStatus, RunnerOutcome, ShellOperation};
-use crate::types::{ExecutionObserver, NamespaceExecutionId, NamespaceTarget};
+use crate::types::{NamespaceExecutionId, NamespaceTarget};
 
 pub struct NamespaceExecutionEngine<V = ()> {
     registry: Arc<ExecutionRegistry<V>>,
-    observer: Arc<dyn ExecutionObserver>,
+    terminal_hook: Arc<dyn TerminalHook<NamespaceExecutionId>>,
     launcher: Box<dyn NsRunnerLauncher>,
     next_id: AtomicU64,
     setup_timeout_s: f64,
@@ -27,13 +28,13 @@ pub struct NamespaceExecutionEngine<V = ()> {
 impl<V: Send + 'static> NamespaceExecutionEngine<V> {
     #[must_use]
     pub fn new(
-        observer: Arc<dyn ExecutionObserver>,
+        terminal_hook: Arc<dyn TerminalHook<NamespaceExecutionId>>,
         max_active: usize,
         setup_timeout_s: f64,
     ) -> Self {
         Self::with_launcher(
             Box::new(ForkRunnerLauncher),
-            observer,
+            terminal_hook,
             max_active,
             setup_timeout_s,
         )
@@ -41,13 +42,13 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
 
     pub fn with_launcher(
         launcher: Box<dyn NsRunnerLauncher>,
-        observer: Arc<dyn ExecutionObserver>,
+        terminal_hook: Arc<dyn TerminalHook<NamespaceExecutionId>>,
         max_active: usize,
         setup_timeout_s: f64,
     ) -> Self {
         Self {
             registry: Arc::new(ExecutionRegistry::new(max_active)),
-            observer,
+            terminal_hook,
             launcher,
             next_id: AtomicU64::new(1),
             setup_timeout_s,
@@ -102,7 +103,6 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
                 cgroup_procs_path,
             )
         })?;
-        self.observer.on_running(&id);
         let promise = Arc::new(CompletionPromise::new());
         self.spawn_watcher(
             id.clone(),
@@ -132,7 +132,6 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
             self.launcher
                 .spawn_overlay_mount(request, self.setup_timeout_s)
         })?;
-        self.observer.on_running(&id);
         let promise = Arc::new(CompletionPromise::new());
         self.spawn_watcher(
             id.clone(),
@@ -170,29 +169,32 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         finalize: impl FnOnce(RunnerOutcome) -> Result<O, NamespaceExecutionError> + Send + 'static,
     ) {
         let registry = Arc::clone(&self.registry);
-        let observer = Arc::clone(&self.observer);
+        let terminal_hook = Arc::clone(&self.terminal_hook);
         thread::spawn(move || {
             let wait_result = child.wait_completion();
             let (result, status, exit_code) = match wait_result {
                 Ok(run_result) => {
                     let outcome = RunnerOutcome::new(run_result)
                         .with_cancelled(cancelled.load(Ordering::Acquire));
-                    let status = outcome.status();
+                    let exec_status = outcome.status();
                     let exit_code = Some(outcome.exit_code());
+                    terminal_hook.on_terminal(&id, exec_status.to_span_status(), exit_code);
                     let result = mount_exit_error(mount_error_mode, &outcome)
                         .map_or_else(|| finalize_outcome(finalize, outcome), Err);
-                    let status = if result.is_ok() {
-                        status
+                    let live_status = if result.is_ok() {
+                        exec_status
                     } else {
                         NamespaceExecutionTerminalStatus::Error
                     };
-                    (result, status, exit_code)
+                    (result, live_status, exit_code)
                 }
-                Err(error) => (Err(error), NamespaceExecutionTerminalStatus::Error, None),
+                Err(error) => {
+                    terminal_hook.on_terminal(&id, SpanStatus::Error, None);
+                    (Err(error), NamespaceExecutionTerminalStatus::Error, None)
+                }
             };
             registry.complete(&id, status, exit_code);
             promise.resolve(result);
-            observer.on_terminal(&id, status, exit_code);
         });
     }
 }

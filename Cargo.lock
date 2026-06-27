@@ -1452,6 +1452,7 @@ dependencies = [
 name = "sandbox-runtime"
 version = "0.1.0"
 dependencies = [
+ "sandbox-observability",
  "sandbox-protocol",
  "sandbox-runtime-layerstack",
  "sandbox-runtime-namespace-execution",
@@ -1469,6 +1470,7 @@ dependencies = [
  "ignore",
  "proptest",
  "rustix 0.38.44",
+ "sandbox-observability",
  "serde",
  "serde_json",
  "sha2",
@@ -1482,6 +1484,7 @@ dependencies = [
  "libc",
  "nix 0.29.0",
  "rustix 0.38.44",
+ "sandbox-observability",
  "sandbox-runtime-namespace-process",
  "serde_json",
  "time",
@@ -1516,6 +1519,7 @@ dependencies = [
  "nix 0.29.0",
  "rtnetlink",
  "rustix 0.38.44",
+ "sandbox-observability",
  "sandbox-runtime-layerstack",
  "sandbox-runtime-namespace-execution",
  "sandbox-runtime-namespace-process",

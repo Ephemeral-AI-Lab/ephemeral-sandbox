@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::observability::DaemonObservability;
 use sandbox_config::configs::observability::ObservabilityConfig;
+use sandbox_observability::Observer;
 pub(crate) use sandbox_protocol::{MAX_REQUEST_BYTES, REQUEST_READ_TIMEOUT_S};
 use sandbox_runtime::{SandboxRuntimeConfig, SandboxRuntimeOperations};
 use serde_json::{json, Value};
@@ -47,13 +48,22 @@ impl SandboxDaemonServer {
         runtime_config: SandboxRuntimeConfig,
     ) -> Self {
         let observability = DaemonObservability::from_config(&config).map(Arc::new);
-        let operations = Arc::new(SandboxRuntimeOperations::from_config(runtime_config));
+        let operations = Arc::new(SandboxRuntimeOperations::from_config(
+            runtime_config,
+            resolve_observer(observability.as_ref()),
+        ));
         Self {
             config,
             operations,
             observability,
             shutdown: CancellationToken::new(),
         }
+    }
+
+    /// A clone of the one process `Observer` (disabled when no observability
+    /// stack is configured), used to root the per-request `daemon.dispatch` span.
+    pub(crate) fn observer(&self) -> Observer {
+        resolve_observer(self.observability.as_ref())
     }
 
     pub(crate) fn trigger_observability_collection(&self) {
@@ -67,6 +77,13 @@ impl SandboxDaemonServer {
         });
         drop(handle);
     }
+}
+
+/// The one process `Observer`, or a disabled no-op when no observability stack is
+/// configured. Resolving in one place keeps the construction and per-request
+/// paths on the same handle.
+fn resolve_observer(observability: Option<&Arc<DaemonObservability>>) -> Observer {
+    observability.map_or_else(Observer::disabled, |observability| observability.observer())
 }
 
 pub(crate) fn error_response(

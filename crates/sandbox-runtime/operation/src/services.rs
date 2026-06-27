@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use sandbox_observability::Observer;
 use sandbox_runtime_layerstack::service::StackObservation;
 
 use crate::command::CommandOperationService;
@@ -29,8 +30,11 @@ impl SandboxRuntimeOperations {
         }
     }
 
+    /// Assemble the runtime services over one shared process `Observer` (a clone
+    /// of the daemon's). Every emitting service holds that same handle, so daemon
+    /// and runtime spans share one id sequence and one parent chain.
     #[must_use]
-    pub fn from_config(config: SandboxRuntimeConfig) -> Self {
+    pub fn from_config(config: SandboxRuntimeConfig, observer: Observer) -> Self {
         let layer_stack_root = config.workspace.layer_stack_root.clone();
         let workspace_runtime = Arc::new(WorkspaceRuntimeService::new(
             WorkspaceManager::new(
@@ -41,12 +45,14 @@ impl SandboxRuntimeOperations {
                     .into_owned(),
                 config.workspace.caps.into(),
                 config.workspace.scratch_root,
+                observer.clone(),
             ),
             layer_stack_root.clone(),
         ));
         let workspace_session = Arc::new(WorkspaceSessionService::with_cgroup_root(
             workspace_runtime,
             config.cgroup_root.clone(),
+            observer.clone(),
         ));
         sandbox_runtime_layerstack::ensure_workspace_base(
             &layer_stack_root,
@@ -54,7 +60,7 @@ impl SandboxRuntimeOperations {
         )
         .expect("layerstack workspace base initialization failed");
         let layerstack = Arc::new(
-            LayerStackService::new(layer_stack_root)
+            LayerStackService::new(layer_stack_root, observer.clone())
                 .expect("layerstack service initialization failed"),
         );
         let command = Arc::new(CommandOperationService::new(
@@ -63,6 +69,7 @@ impl SandboxRuntimeOperations {
             crate::command::CommandConfig {
                 scratch_root: config.namespace_execution.scratch_root,
             },
+            observer,
         ));
         Self::new(command, workspace_session, layerstack)
     }

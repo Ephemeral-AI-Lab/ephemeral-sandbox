@@ -64,6 +64,20 @@ impl Observer {
         }
     }
 
+    /// A permanently-disabled observer whose every emit is a no-op. Used where no
+    /// real sink exists (the daemon's observability stack is absent) and by tests
+    /// that construct services directly without a trace context.
+    #[must_use]
+    pub fn disabled() -> Self {
+        Self::new(
+            ObserverConfig {
+                proc: crate::record::proc::DAEMON,
+                enabled: false,
+            },
+            Sink::new(std::path::PathBuf::new()),
+        )
+    }
+
     /// Open a sync span that records on drop, nested under the thread-local
     /// parent. No enclosing context (or disabled) ⇒ a no-op guard.
     #[must_use]

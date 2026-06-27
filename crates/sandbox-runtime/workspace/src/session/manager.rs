@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use sandbox_observability::Observer;
 use serde::Deserialize;
 
 use crate::isolated_network_setup::IsolatedNetwork;
@@ -73,8 +74,9 @@ impl WorkspaceManager {
         workspace_root: impl Into<String>,
         caps: ResourceCaps,
         scratch_root: PathBuf,
+        obs: Observer,
     ) -> Self {
-        let runtime = NamespaceRuntime::new(caps.setup_timeout_s);
+        let runtime = NamespaceRuntime::new(caps.setup_timeout_s, obs);
         Self::with_runtime(workspace_root, caps, scratch_root, runtime)
     }
 

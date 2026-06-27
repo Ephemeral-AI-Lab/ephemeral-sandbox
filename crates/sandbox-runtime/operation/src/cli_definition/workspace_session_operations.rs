@@ -140,7 +140,9 @@ fn parse_workspace_profile(request: &Request) -> Result<NetworkProfile, Response
         None => Ok(NetworkProfile::Shared),
         Some(value) if value == NetworkProfile::Shared.as_str() => Ok(NetworkProfile::Shared),
         Some(value) if value == NetworkProfile::Isolated.as_str() => Ok(NetworkProfile::Isolated),
-        Some(_) => Err(request.invalid_argument("network_profile must be one of shared or isolated")),
+        Some(_) => {
+            Err(request.invalid_argument("network_profile must be one of shared or isolated"))
+        }
     }
 }
 

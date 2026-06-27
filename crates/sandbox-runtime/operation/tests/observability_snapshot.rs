@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+use sandbox_observability::Observer;
 use sandbox_runtime::command::ExecCommandInput;
 use sandbox_runtime::layerstack::LayerStackService;
 use sandbox_runtime::{CommandOperationService, SandboxRuntimeOperations};
@@ -87,10 +88,15 @@ fn observability_snapshot_reports_active_command_namespace_execution(
     Ok(())
 }
 
+/// The runtime now depends on the `sandbox-observability` leaf (it carries the
+/// span/event emit seams), so the old "operation excludes sandbox-observability"
+/// assertion is intentionally gone. What must still hold is that the runtime
+/// never pulls a storage engine: `rusqlite` stays out. The leaf-boundary
+/// invariant (obs must not depend on runtime/daemon/manager) is owned by the obs
+/// crate's own `dependency_guard.rs`.
 #[test]
-fn runtime_observability_snapshot_keeps_observability_crate_out() {
+fn runtime_never_pulls_rusqlite() {
     let manifest = include_str!("../Cargo.toml");
-    assert!(!manifest.contains("sandbox-observability"));
     assert!(!manifest.contains("rusqlite"));
 }
 
@@ -132,7 +138,10 @@ fn layerstack_service() -> Result<Arc<LayerStackService>, Box<dyn std::error::Er
     let _ = std::fs::remove_dir_all(&base);
     std::fs::create_dir_all(&workspace)?;
     sandbox_runtime_layerstack::build_workspace_base(&root, &workspace, false)?;
-    Ok(Arc::new(LayerStackService::new(root)?))
+    Ok(Arc::new(LayerStackService::new(
+        root,
+        Observer::disabled(),
+    )?))
 }
 
 fn temp_root() -> PathBuf {

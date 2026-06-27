@@ -7,9 +7,8 @@ use std::sync::{Arc, Mutex};
 
 mod fake_launcher;
 pub use fake_launcher::{FakeLauncher, FakeRunnerScript};
-use sandbox_runtime_namespace_execution::{
-    NamespaceExecutionEngine, NamespaceExecutionError, NoopObserver,
-};
+use sandbox_observability::{Observer, SpanRegistry};
+use sandbox_runtime_namespace_execution::{NamespaceExecutionEngine, NamespaceExecutionError};
 use sandbox_runtime_namespace_process::runner::protocol::{NamespaceRunnerRequest, RunResult};
 
 use sandbox_runtime::command::{CommandOperationService, CommandServiceError};
@@ -272,6 +271,7 @@ pub(crate) fn build_services_with_launch_driver_and_cgroup_root(
     let workspace = Arc::new(WorkspaceSessionService::with_cgroup_root(
         fake_workspace_runtime(fake),
         cgroup_root,
+        Observer::disabled(),
     ));
     let command = Arc::new(build_command_service(
         &workspace,
@@ -286,7 +286,10 @@ pub(crate) fn build_services_with_launch_driver_and_layerstack(
     launch_driver: Arc<FakeLaunchDriver>,
     layerstack: Arc<LayerStackService>,
 ) -> TestServices {
-    let workspace = Arc::new(WorkspaceSessionService::new(fake_workspace_runtime(fake)));
+    let workspace = Arc::new(WorkspaceSessionService::new(
+        fake_workspace_runtime(fake),
+        Observer::disabled(),
+    ));
     let command = Arc::new(build_command_service(
         &workspace,
         layerstack,
@@ -296,14 +299,19 @@ pub(crate) fn build_services_with_launch_driver_and_layerstack(
 }
 
 /// Build a command service over an engine wired to the driver's fake launcher.
+/// The one `exec_spans` registry backs both the engine's terminal hook and the
+/// service launch path, matching production wiring; the disabled observer makes
+/// every span/event a no-op for suites that do not assert on observability.
 pub(crate) fn build_command_service(
     workspace: &Arc<WorkspaceSessionService>,
     layerstack: Arc<LayerStackService>,
     launch_driver: &FakeLaunchDriver,
 ) -> CommandOperationService {
+    let obs = Observer::disabled();
+    let exec_spans = Arc::new(SpanRegistry::new(obs.clone()));
     let engine = Arc::new(NamespaceExecutionEngine::with_launcher(
         Box::new(launch_driver.launcher()),
-        Arc::new(NoopObserver),
+        exec_spans.clone(),
         MAX_ACTIVE_COMMANDS,
         SETUP_TIMEOUT_S,
     ));
@@ -312,7 +320,41 @@ pub(crate) fn build_command_service(
         layerstack,
         test_command_config(),
         engine,
+        exec_spans,
+        obs,
     )
+}
+
+/// Build a full service set over one shared, caller-supplied `Observer` (enabled
+/// in trace tests so the emitted spans/events land in one log). The one
+/// `exec_spans` registry backs both the engine and the launch path, and the
+/// layerstack service shares the same observer, so a one-shot finalize publish
+/// records under the same trace.
+pub(crate) fn build_observed_services(
+    fake: Arc<FakeWorkspaceService>,
+    launch_driver: Arc<FakeLaunchDriver>,
+    obs: Observer,
+) -> TestServices {
+    let workspace = Arc::new(WorkspaceSessionService::new(
+        fake_workspace_runtime(fake),
+        obs.clone(),
+    ));
+    let exec_spans = Arc::new(SpanRegistry::new(obs.clone()));
+    let engine = Arc::new(NamespaceExecutionEngine::with_launcher(
+        Box::new(launch_driver.launcher()),
+        exec_spans.clone(),
+        MAX_ACTIVE_COMMANDS,
+        SETUP_TIMEOUT_S,
+    ));
+    let command = Arc::new(CommandOperationService::with_engine(
+        Arc::clone(&workspace),
+        observed_layerstack_service(obs.clone()),
+        test_command_config(),
+        engine,
+        exec_spans,
+        obs,
+    ));
+    TestServices { workspace, command }
 }
 
 pub(crate) fn create_request() -> CreateWorkspaceRequest {
@@ -399,6 +441,10 @@ fn test_command_config() -> sandbox_runtime::command::CommandConfig {
 }
 
 fn test_layerstack_service() -> Arc<LayerStackService> {
+    observed_layerstack_service(Observer::disabled())
+}
+
+pub(crate) fn observed_layerstack_service(obs: Observer) -> Arc<LayerStackService> {
     let base = std::env::temp_dir().join(format!(
         "operation-service-layerstack-test-{}-{}",
         std::process::id(),
@@ -410,7 +456,7 @@ fn test_layerstack_service() -> Arc<LayerStackService> {
     std::fs::create_dir_all(&workspace).expect("create layerstack test workspace");
     sandbox_runtime_layerstack::build_workspace_base(&root, &workspace, false)
         .expect("build layerstack test base");
-    Arc::new(LayerStackService::new(root).expect("create layerstack test service"))
+    Arc::new(LayerStackService::new(root, obs).expect("create layerstack test service"))
 }
 
 fn test_launch_base_dir() -> PathBuf {

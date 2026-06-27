@@ -355,13 +355,16 @@ fn destroy_workspace_session_waits_for_existing_session_exec_until_active_insert
     let (spawn_entered_tx, spawn_entered_rx) = mpsc::channel();
     let (release_spawn_tx, release_spawn_rx) = mpsc::channel();
     let blocking_launcher = BlockingNsLauncher::new(spawn_entered_tx, release_spawn_rx);
+    let obs = sandbox_observability::Observer::disabled();
     let workspace = Arc::new(sandbox_runtime::WorkspaceSessionService::new(
         support::fake_workspace_runtime(Arc::clone(&fake)),
+        obs.clone(),
     ));
+    let exec_spans = Arc::new(sandbox_observability::SpanRegistry::new(obs.clone()));
     let engine = Arc::new(
         sandbox_runtime_namespace_execution::NamespaceExecutionEngine::with_launcher(
             Box::new(blocking_launcher),
-            Arc::new(sandbox_runtime_namespace_execution::NoopObserver),
+            exec_spans.clone(),
             256,
             30.0,
         ),
@@ -382,6 +385,8 @@ fn destroy_workspace_session_waits_for_existing_session_exec_until_active_insert
             layerstack_service()?,
             config,
             engine,
+            exec_spans,
+            obs,
         ),
     );
     let env = TestServices {
@@ -913,7 +918,10 @@ fn layerstack_service() -> Result<Arc<LayerStackService>, Box<dyn std::error::Er
     let _ = std::fs::remove_dir_all(&base);
     std::fs::create_dir_all(&workspace)?;
     sandbox_runtime_layerstack::build_workspace_base(&root, &workspace, false)?;
-    Ok(Arc::new(LayerStackService::new(root)?))
+    Ok(Arc::new(LayerStackService::new(
+        root,
+        sandbox_observability::Observer::disabled(),
+    )?))
 }
 
 fn temp_root() -> PathBuf {

@@ -4,7 +4,8 @@ mod setns_runner;
 
 use std::sync::Arc;
 
-use sandbox_runtime_namespace_execution::{NamespaceExecutionEngine, NoopObserver};
+use sandbox_observability::{NoopHook, Observer};
+use sandbox_runtime_namespace_execution::NamespaceExecutionEngine;
 
 #[cfg(target_os = "linux")]
 use crate::session::WorkspaceManagerError;
@@ -95,6 +96,7 @@ pub(crate) fn setup_error(error: impl std::fmt::Display) -> WorkspaceManagerErro
 
 pub struct NamespaceRuntime {
     engine: Arc<NamespaceExecutionEngine>,
+    obs: Observer,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -106,13 +108,14 @@ pub(crate) struct HolderKillReport {
 }
 
 impl NamespaceRuntime {
-    pub fn new(setup_timeout_s: f64) -> Self {
+    pub fn new(setup_timeout_s: f64, obs: Observer) -> Self {
         Self {
             engine: Arc::new(NamespaceExecutionEngine::new(
-                Arc::new(NoopObserver),
+                Arc::new(NoopHook),
                 MOUNT_MAX_ACTIVE,
                 setup_timeout_s,
             )),
+            obs,
         }
     }
 }

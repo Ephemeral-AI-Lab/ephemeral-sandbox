@@ -7,11 +7,12 @@ mod support;
 
 use std::sync::Arc;
 
+use sandbox_observability::{NoopHook, SpanStatus};
 use sandbox_runtime_namespace_process::runner::protocol::NamespaceRunnerRequest;
 use serde_json::json;
 use support::{
-    run_result, sample_target, ErrShellOp, FakeLauncher, FakeObserver, ObserverEvent, OkShellOp,
-    PanicShellOp, TimedShellOp,
+    run_result, sample_target, ErrShellOp, FakeLauncher, FakeObserver, OkShellOp, PanicShellOp,
+    TimedShellOp,
 };
 
 fn id(suffix: &str) -> NamespaceExecutionId {
@@ -55,9 +56,13 @@ fn shell_execution_resolves_finalized_output_and_records_terminal() {
     assert_eq!(exec.wait().expect("resolved Ok"), 0);
 
     let (status, exit_code) = observer.await_terminal();
-    assert_eq!(status, NamespaceExecutionTerminalStatus::Ok);
+    assert_eq!(status, SpanStatus::Completed);
     assert_eq!(exit_code, Some(0));
-    assert_eq!(observer.events().first(), Some(&ObserverEvent::Running(id)));
+    assert_eq!(
+        observer.events().len(),
+        1,
+        "only the terminal edge is recorded"
+    );
 }
 
 #[test]
@@ -79,8 +84,10 @@ fn shell_finalize_error_resolves_terminal_error() {
 
     let error = exec.wait().expect_err("finalize error surfaced");
     assert!(matches!(error, NamespaceExecutionError::Finalize(_)));
+    // The terminal hook records the child's own exit (recorded before finalize),
+    // so a finalize failure surfaces on the live result, not the span status.
     let (status, _exit) = observer.await_terminal();
-    assert_eq!(status, NamespaceExecutionTerminalStatus::Error);
+    assert_eq!(status, SpanStatus::Completed);
 }
 
 #[test]
@@ -101,8 +108,10 @@ fn shell_finalize_panic_resolves_terminal_error_and_completes_registry() {
         NamespaceExecutionError::Finalize(detail) if detail.contains("panic shell op")
     ));
     assert!(engine.is_completed(&id));
+    // The hook fires with the child's exit before the panicking finalize runs, so
+    // it records the execution's own outcome; the panic surfaces on the result.
     let (status, exit_code) = observer.await_terminal();
-    assert_eq!(status, NamespaceExecutionTerminalStatus::Error);
+    assert_eq!(status, SpanStatus::Completed);
     assert_eq!(exit_code, Some(0));
 }
 
@@ -125,7 +134,7 @@ fn wait_completion_error_resolves_terminal_error_and_completes_registry() {
     ));
     assert!(engine.is_completed(&id));
     let (status, exit_code) = observer.await_terminal();
-    assert_eq!(status, NamespaceExecutionTerminalStatus::Error);
+    assert_eq!(status, SpanStatus::Error);
     assert_eq!(exit_code, None);
 }
 
@@ -144,7 +153,7 @@ fn cancel_unblocks_the_blocked_watcher() {
     (exec.cancel_handle())();
     assert_eq!(exec.wait().expect("resolved after cancel"), 130);
     let (status, _exit) = observer.await_terminal();
-    assert_eq!(status, NamespaceExecutionTerminalStatus::Cancelled);
+    assert_eq!(status, SpanStatus::Cancelled);
 }
 
 #[test]
@@ -193,7 +202,7 @@ fn mount_overlay_execution_resolves_unit_output() {
     fake.complete_latest(run_result(0, "ok"));
     handle.wait().expect("mount resolved");
     let (status, exit_code) = observer.await_terminal();
-    assert_eq!(status, NamespaceExecutionTerminalStatus::Ok);
+    assert_eq!(status, SpanStatus::Completed);
     assert_eq!(exit_code, Some(0));
 }
 
@@ -270,8 +279,10 @@ fn mount_overlay_nonzero_exit_is_terminal_error() {
         NamespaceExecutionError::Finalize(detail)
             if detail.contains("--mount-overlay") && detail.contains("mount exploded")
     ));
+    // The hook records the runner's reported outcome (payload `status: ok`) at
+    // child-exit; the nonzero-exit mount failure surfaces on the live result.
     let (status, exit_code) = observer.await_terminal();
-    assert_eq!(status, NamespaceExecutionTerminalStatus::Error);
+    assert_eq!(status, SpanStatus::Completed);
     assert_eq!(exit_code, Some(1));
 }
 
@@ -294,7 +305,7 @@ fn mount_overlay_passes_setup_timeout_to_launcher() {
 #[test]
 fn engine_allocates_monotonic_namespace_execution_ids() {
     let engine: NamespaceExecutionEngine =
-        NamespaceExecutionEngine::new(Arc::new(NoopObserver), 4, 30.0);
+        NamespaceExecutionEngine::new(Arc::new(NoopHook), 4, 30.0);
 
     assert_eq!(engine.allocate_id().0, "namespace_execution_1");
     assert_eq!(engine.allocate_id().0, "namespace_execution_2");

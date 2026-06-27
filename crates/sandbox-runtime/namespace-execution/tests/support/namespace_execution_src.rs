@@ -39,4 +39,4 @@ pub use error::NamespaceExecutionError;
 pub use execution::{ExecutionHandle, InteractiveExecution};
 pub use registry::ExecutionRegistry;
 pub use shell::{NamespaceExecutionTerminalStatus, RunnerOutcome, ShellOperation};
-pub use types::{ExecutionObserver, NamespaceExecutionId, NamespaceTarget, NoopObserver};
+pub use types::{NamespaceExecutionId, NamespaceTarget};

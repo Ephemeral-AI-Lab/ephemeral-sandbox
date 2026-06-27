@@ -2,6 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use sandbox_observability::record::names;
+use sandbox_observability::{Observer, TraceContext};
 use sandbox_runtime_namespace_execution::{
     NamespaceExecutionError, NamespaceExecutionId, NamespaceTarget,
 };
@@ -23,78 +25,90 @@ impl CommandOperationService {
         &self,
         input: ExecCommandInput,
     ) -> Result<CommandOutput, CommandServiceError> {
-        if input.cmd.trim().is_empty() {
-            return Err(CommandServiceError::InvalidCommand {
-                message: "cmd must be non-empty".to_owned(),
-            });
-        }
-        let existing_lifecycle_guard = input
-            .workspace_session_id
-            .is_some()
-            .then(|| self.lock_session_lifecycle());
-        let workspace = self.resolve_exec_workspace(&input)?;
-        let lifecycle_guard =
-            existing_lifecycle_guard.unwrap_or_else(|| self.lock_session_lifecycle());
-
-        let id = self.engine().allocate_id();
-
-        let (entry, transcript_path) = match workspace
-            .entry()
-            .and_then(|entry| self.prepare_transcript_path(&id).map(|path| (entry, path)))
-        {
-            Ok(pair) => pair,
-            Err(error) => return Err(self.fail_command_start(&id, workspace, error)),
-        };
-
-        let started_at = Instant::now();
-        let exec_command = ExecCommand {
-            command: input.cmd.clone(),
-            timeout_seconds: input.timeout_ms.map(|ms| ms as f64 / 1000.0),
-            transcript_path: transcript_path.clone(),
-            started_at,
-        };
-        let on_complete = workspace.finalize_closure(
-            self.workspace_handle().clone(),
-            self.layerstack_handle().clone(),
-        );
-        let target = NamespaceTarget::from(entry);
-
-        let cgroup_procs_path = workspace
-            .cgroup_path
-            .as_ref()
-            .map(|cgroup| cgroup.join("cgroup.procs"));
-        let exec = self.engine().run_shell_interactive(
-            exec_command,
-            target,
-            id.clone(),
-            on_complete,
-            cgroup_procs_path,
-        );
-        let exec = match exec {
-            Ok(exec) => exec,
-            Err(error) => {
-                let error = CommandServiceError::CommandIo {
-                    command_session_id: id.clone(),
-                    error: error.to_string(),
-                };
-                self.cleanup_transcript_dir(&id);
-                return Err(self.fail_command_start(&id, workspace, error));
+        self.obs().scope(names::COMMAND_EXEC, |span| {
+            if input.cmd.trim().is_empty() {
+                return Err(CommandServiceError::InvalidCommand {
+                    message: "cmd must be non-empty".to_owned(),
+                });
             }
-        };
+            let existing_lifecycle_guard = input
+                .workspace_session_id
+                .is_some()
+                .then(|| self.lock_session_lifecycle());
+            let workspace = self.resolve_exec_workspace(&input)?;
+            span.attr("one_shot", workspace.one_shot);
+            let lifecycle_guard =
+                existing_lifecycle_guard.unwrap_or_else(|| self.lock_session_lifecycle());
 
-        self.engine().attach(
-            &id,
-            CommandExecValue::new(
-                exec,
-                transcript_path,
-                workspace.workspace_session_id.clone(),
+            let id = self.engine().allocate_id();
+
+            let (entry, transcript_path) = match workspace
+                .entry()
+                .and_then(|entry| self.prepare_transcript_path(&id).map(|path| (entry, path)))
+            {
+                Ok(pair) => pair,
+                Err(error) => return Err(self.fail_command_start(&id, workspace, error)),
+            };
+
+            let started_at = Instant::now();
+            let exec_command = ExecCommand {
+                command: input.cmd.clone(),
+                timeout_seconds: input.timeout_ms.map(|ms| ms as f64 / 1000.0),
+                transcript_path: transcript_path.clone(),
                 started_at,
-                "exec_command",
-            ),
-        );
-        drop(lifecycle_guard);
+            };
+            let on_complete = workspace.finalize_closure(
+                self.workspace_handle().clone(),
+                self.layerstack_handle().clone(),
+                self.obs().clone(),
+                self.obs().context(),
+            );
+            let target = NamespaceTarget::from(entry);
 
-        self.wait_for_command_yield(id.clone(), input.yield_time_ms.unwrap_or(1000), 0, false)
+            let cgroup_procs_path = workspace
+                .cgroup_path
+                .as_ref()
+                .map(|cgroup| cgroup.join("cgroup.procs"));
+            let exec = self.exec_spans().launch(
+                id.clone(),
+                self.obs().context(),
+                names::NAMESPACE_EXEC_RUN_SHELL,
+                |_child_ctx| {
+                    self.engine().run_shell_interactive(
+                        exec_command,
+                        target,
+                        id.clone(),
+                        on_complete,
+                        cgroup_procs_path,
+                    )
+                },
+            );
+            let exec = match exec {
+                Ok(exec) => exec,
+                Err(error) => {
+                    let error = CommandServiceError::CommandIo {
+                        command_session_id: id.clone(),
+                        error: error.to_string(),
+                    };
+                    self.cleanup_transcript_dir(&id);
+                    return Err(self.fail_command_start(&id, workspace, error));
+                }
+            };
+
+            self.engine().attach(
+                &id,
+                CommandExecValue::new(
+                    exec,
+                    transcript_path,
+                    workspace.workspace_session_id.clone(),
+                    started_at,
+                    "exec_command",
+                ),
+            );
+            drop(lifecycle_guard);
+
+            self.wait_for_command_yield(id.clone(), input.yield_time_ms.unwrap_or(1000), 0, false)
+        })
     }
 
     fn resolve_exec_workspace(
@@ -171,15 +185,26 @@ impl ResolvedExecWorkspace {
     /// Build the engine `on_complete` closure: once the child reaches a terminal
     /// state, one-shot workspaces publish their captured diff before destroy.
     /// Existing caller-owned sessions stay alive and are not published here.
+    ///
+    /// The closure restores the originating request's `TraceContext` (snapshotted
+    /// on the dispatch thread, parent = the `command.exec` span) so the finalize
+    /// tail spans and `lease.released` event nest under the command trace. The
+    /// one-shot gate alone decides whether finalization runs; a `None` context
+    /// (observability disabled) still tears the workspace down — the spans/events
+    /// simply emit nothing.
     fn finalize_closure(
         &self,
         workspace: Arc<WorkspaceSessionService>,
         layerstack: Arc<crate::layerstack::LayerStackService>,
+        obs: Observer,
+        ctx: Option<TraceContext>,
     ) -> impl FnOnce(&Result<CommandTerminalResult, NamespaceExecutionError>) + Send + 'static {
         let one_shot_handler = self.one_shot.then(|| self.handler.clone());
         move |_result| {
             if let Some(handler) = one_shot_handler {
-                finalize_one_shot(workspace, layerstack, handler);
+                obs.with_context(ctx, || {
+                    finalize_one_shot(workspace, layerstack, handler);
+                });
             }
         }
     }

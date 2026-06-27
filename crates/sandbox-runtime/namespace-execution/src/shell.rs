@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use sandbox_observability::SpanStatus;
 use sandbox_runtime_namespace_process::runner::protocol::RunResult;
 use serde_json::Value;
 
@@ -11,6 +12,21 @@ pub enum NamespaceExecutionTerminalStatus {
     Error,
     TimedOut,
     Cancelled,
+}
+
+impl NamespaceExecutionTerminalStatus {
+    /// Map the execution's terminal outcome onto the observability span status.
+    /// A local method (not a `From`) keeps the conversion on the owning type and
+    /// avoids an orphan impl across the crate boundary.
+    #[must_use]
+    pub fn to_span_status(self) -> SpanStatus {
+        match self {
+            Self::Ok => SpanStatus::Completed,
+            Self::Error => SpanStatus::Error,
+            Self::TimedOut => SpanStatus::TimedOut,
+            Self::Cancelled => SpanStatus::Cancelled,
+        }
+    }
 }
 
 pub struct RunnerOutcome {

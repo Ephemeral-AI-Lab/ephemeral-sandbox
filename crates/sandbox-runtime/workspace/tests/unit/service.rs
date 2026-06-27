@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use sandbox_observability::Observer;
 use serde_json::json;
 
 use sandbox_runtime_workspace::model::{
@@ -102,6 +103,7 @@ impl Fixture {
                 self.workspace_root.to_string_lossy().into_owned(),
                 ResourceCaps::default(),
                 self.scratch_root.clone(),
+                Observer::disabled(),
             ),
             self.layer_stack_root.clone(),
         )

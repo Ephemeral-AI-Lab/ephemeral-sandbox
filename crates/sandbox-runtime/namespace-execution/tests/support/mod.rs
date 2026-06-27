@@ -10,11 +10,12 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 
+use sandbox_observability::{SpanStatus, TerminalHook};
+
 use crate::launcher::{NsRunnerLauncher, RunnerChild};
 use crate::pty::{open_pty_pair, PtyMaster};
 use crate::{
-    ExecutionObserver, NamespaceExecutionError, NamespaceExecutionId,
-    NamespaceExecutionTerminalStatus, NamespaceTarget, RunnerOutcome, ShellOperation,
+    NamespaceExecutionError, NamespaceExecutionId, NamespaceTarget, RunnerOutcome, ShellOperation,
 };
 use sandbox_runtime_namespace_process::runner::protocol::{
     Fd, NamespaceRunnerRequest, NsFds, RunResult,
@@ -301,21 +302,20 @@ fn append_transcript(path: &Path, bytes: &[u8]) {
     }
 }
 
-/// An observed lifecycle event, recorded by `FakeObserver`.
+/// A recorded terminal edge: which execution finished, with what span status and
+/// exit code. The `TerminalHook` terminal edge is the only one the engine emits;
+/// live "running" state stays in the engine's own `ExecutionRegistry`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ObserverEvent {
-    Running(NamespaceExecutionId),
-    Terminal(
-        NamespaceExecutionId,
-        NamespaceExecutionTerminalStatus,
-        Option<i64>,
-    ),
+pub struct TerminalRecord {
+    pub id: NamespaceExecutionId,
+    pub status: SpanStatus,
+    pub exit_code: Option<i64>,
 }
 
-/// Records `on_running`/`on_terminal` calls; `await_terminal` blocks until the
-/// terminal event lands (the watcher fires it after `resolve`).
+/// Records `on_terminal` calls; `await_terminal` blocks until the terminal edge
+/// lands (the watcher fires it right after `wait_completion`, before finalize).
 pub struct FakeObserver {
-    events: Mutex<Vec<ObserverEvent>>,
+    events: Mutex<Vec<TerminalRecord>>,
     terminal: Condvar,
 }
 
@@ -329,18 +329,18 @@ impl FakeObserver {
     }
 
     #[must_use]
-    pub fn events(&self) -> Vec<ObserverEvent> {
+    pub fn events(&self) -> Vec<TerminalRecord> {
         self.events
             .lock()
             .expect("fake observer mutex poisoned")
             .clone()
     }
 
-    pub fn await_terminal(&self) -> (NamespaceExecutionTerminalStatus, Option<i64>) {
+    pub fn await_terminal(&self) -> (SpanStatus, Option<i64>) {
         let mut events = self.events.lock().expect("fake observer mutex poisoned");
         loop {
-            if let Some(terminal) = events.iter().rev().find_map(terminal_of) {
-                return terminal;
+            if let Some(terminal) = events.last() {
+                return (terminal.status, terminal.exit_code);
             }
             events = self
                 .terminal
@@ -356,32 +356,17 @@ impl Default for FakeObserver {
     }
 }
 
-impl ExecutionObserver for FakeObserver {
-    fn on_running(&self, id: &NamespaceExecutionId) {
+impl TerminalHook<NamespaceExecutionId> for FakeObserver {
+    fn on_terminal(&self, id: &NamespaceExecutionId, status: SpanStatus, exit_code: Option<i64>) {
         self.events
             .lock()
             .expect("fake observer mutex poisoned")
-            .push(ObserverEvent::Running(id.clone()));
-    }
-
-    fn on_terminal(
-        &self,
-        id: &NamespaceExecutionId,
-        status: NamespaceExecutionTerminalStatus,
-        exit_code: Option<i64>,
-    ) {
-        self.events
-            .lock()
-            .expect("fake observer mutex poisoned")
-            .push(ObserverEvent::Terminal(id.clone(), status, exit_code));
+            .push(TerminalRecord {
+                id: id.clone(),
+                status,
+                exit_code,
+            });
         self.terminal.notify_all();
-    }
-}
-
-fn terminal_of(event: &ObserverEvent) -> Option<(NamespaceExecutionTerminalStatus, Option<i64>)> {
-    match event {
-        ObserverEvent::Terminal(_, status, exit_code) => Some((*status, *exit_code)),
-        ObserverEvent::Running(_) => None,
     }
 }
 

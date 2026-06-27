@@ -21,4 +21,4 @@ pub use transcript_rows::{
     required_transcript_window, transcript_window, CommandStream, CommandTranscriptRow,
     CommandTranscriptWindow,
 };
-pub use types::{ExecutionObserver, NamespaceExecutionId, NamespaceTarget, NoopObserver};
+pub use types::{NamespaceExecutionId, NamespaceTarget};

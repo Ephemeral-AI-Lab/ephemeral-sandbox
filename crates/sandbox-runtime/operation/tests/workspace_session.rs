@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+use sandbox_observability::Observer;
 use sandbox_protocol::{CliOperationScope, Request};
 use sandbox_runtime::workspace_session::{WorkspaceSessionError, WorkspaceSessionService};
 use sandbox_runtime::{CommandOperationService, LayerStackService, SandboxRuntimeOperations};
@@ -15,7 +16,10 @@ mod support;
 use support::FakeWorkspaceService;
 
 fn manager_with(fake: &Arc<FakeWorkspaceService>) -> WorkspaceSessionService {
-    WorkspaceSessionService::new(support::fake_workspace_runtime(Arc::clone(fake)))
+    WorkspaceSessionService::new(
+        support::fake_workspace_runtime(Arc::clone(fake)),
+        Observer::disabled(),
+    )
 }
 
 fn create_request() -> CreateWorkspaceRequest {
@@ -548,6 +552,7 @@ fn operations_with_fake(
         Arc::clone(&workspace),
         Arc::clone(&layerstack),
         sandbox_runtime::command::CommandConfig::default(),
+        Observer::disabled(),
     ));
     Ok(SandboxRuntimeOperations::new(
         command, workspace, layerstack,
@@ -566,7 +571,10 @@ fn layerstack_service() -> Result<Arc<LayerStackService>, Box<dyn std::error::Er
     let _ = std::fs::remove_dir_all(&base);
     std::fs::create_dir_all(&workspace)?;
     sandbox_runtime_layerstack::build_workspace_base(&root, &workspace, false)?;
-    Ok(Arc::new(LayerStackService::new(root)?))
+    Ok(Arc::new(LayerStackService::new(
+        root,
+        Observer::disabled(),
+    )?))
 }
 
 fn temp_root() -> PathBuf {

@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use super::SandboxDaemonServer;
 use crate::server::error::SandboxDaemonError;
+use sandbox_observability::record::names;
+use sandbox_observability::{SpanStatus, TraceContext};
 use sandbox_protocol::{decode_request_value, error_kind, Request, DAEMON_AUTH_FIELD};
 use serde_json::{Map, Value};
 
@@ -56,8 +58,22 @@ impl SandboxDaemonServer {
             return self.dispatch_private_observability(request).await;
         }
         let operations = Arc::clone(&self.operations);
+        let observer = self.observer();
         let task = tokio::task::spawn_blocking(move || {
-            sandbox_runtime::dispatch_operation(&operations, &request).into_json_value()
+            let ctx = TraceContext {
+                trace: Arc::from(request.request_id.as_str()),
+                parent: None,
+            };
+            observer.with_context(ctx, || {
+                let dispatch = observer.span(names::DAEMON_DISPATCH);
+                dispatch.attr("op", request.op.clone());
+                let json =
+                    sandbox_runtime::dispatch_operation(&operations, &request).into_json_value();
+                if json.get("error").is_some() {
+                    dispatch.status(SpanStatus::Error);
+                }
+                json
+            })
         });
         match task.await {
             Ok(response) => {

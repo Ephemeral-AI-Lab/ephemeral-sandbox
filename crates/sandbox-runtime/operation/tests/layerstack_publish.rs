@@ -57,6 +57,7 @@ impl PublishFixture {
     > {
         Ok(sandbox_runtime::layerstack::LayerStackService::new(
             self.root.clone(),
+            sandbox_observability::Observer::disabled(),
         )?)
     }
 }

@@ -33,7 +33,7 @@ impl LayerStackService {
                 operation: "open",
                 error,
             })?;
-        let published = match stack.publish_validated_changes(publish_request) {
+        let published = match stack.publish_validated_changes_traced(publish_request, &self.obs) {
             Ok(published) => published,
             Err(error) => return Err(map_publish_error(error)),
         };

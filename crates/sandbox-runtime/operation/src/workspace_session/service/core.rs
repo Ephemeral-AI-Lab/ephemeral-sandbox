@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use sandbox_observability::Observer;
+
 use crate::workspace_crate::{WorkspaceRuntimeService, WorkspaceSessionId};
 use crate::workspace_session::WorkspaceSessionError;
 
@@ -11,29 +13,37 @@ pub struct WorkspaceSessionService {
     sessions: Mutex<HashMap<WorkspaceSessionId, WorkspaceSession>>,
     workspace: Arc<WorkspaceRuntimeService>,
     cgroup_root: Option<PathBuf>,
+    obs: Observer,
 }
 
 impl WorkspaceSessionService {
     #[must_use]
-    pub fn new(workspace: Arc<WorkspaceRuntimeService>) -> Self {
-        Self::with_cgroup_root(workspace, None)
+    pub fn new(workspace: Arc<WorkspaceRuntimeService>, obs: Observer) -> Self {
+        Self::with_cgroup_root(workspace, None, obs)
     }
 
     #[must_use]
     pub fn with_cgroup_root(
         workspace: Arc<WorkspaceRuntimeService>,
         cgroup_root: Option<PathBuf>,
+        obs: Observer,
     ) -> Self {
         Self {
             sessions: Mutex::new(HashMap::new()),
             workspace,
             cgroup_root,
+            obs,
         }
     }
 
     #[must_use]
     pub(crate) fn workspace(&self) -> &Arc<WorkspaceRuntimeService> {
         &self.workspace
+    }
+
+    #[must_use]
+    pub(crate) fn obs(&self) -> &Observer {
+        &self.obs
     }
 
     /// Create the leaf workspace cgroup `R/workspace-<wsid>` when a delegated

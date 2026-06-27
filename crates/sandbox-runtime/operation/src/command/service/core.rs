@@ -1,8 +1,7 @@
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use sandbox_runtime_namespace_execution::{
-    NamespaceExecutionEngine, NamespaceExecutionId, NoopObserver,
-};
+use sandbox_observability::{Observer, SpanRegistry};
+use sandbox_runtime_namespace_execution::{NamespaceExecutionEngine, NamespaceExecutionId};
 
 use crate::command::{CommandConfig, CommandExecValue};
 use crate::layerstack::LayerStackService;
@@ -24,6 +23,8 @@ pub struct CommandOperationService {
     layerstack: Arc<LayerStackService>,
     config: CommandConfig,
     engine: Arc<NamespaceExecutionEngine<CommandExecValue>>,
+    exec_spans: Arc<SpanRegistry<NamespaceExecutionId>>,
+    obs: Observer,
     session_lifecycle_lock: Mutex<()>,
 }
 
@@ -35,17 +36,22 @@ impl CommandOperationService {
         workspace: Arc<WorkspaceSessionService>,
         layerstack: Arc<LayerStackService>,
         config: CommandConfig,
+        obs: Observer,
     ) -> Self {
+        let exec_spans = Arc::new(SpanRegistry::new(obs.clone()));
         let engine = Arc::new(NamespaceExecutionEngine::new(
-            Arc::new(NoopObserver),
+            exec_spans.clone(),
             MAX_ACTIVE_COMMANDS,
             COMMAND_ENGINE_SETUP_TIMEOUT_S,
         ));
-        Self::with_engine(workspace, layerstack, config, engine)
+        Self::with_engine(workspace, layerstack, config, engine, exec_spans, obs)
     }
 
-    /// Build a command service over a caller-supplied engine. The test harness
-    /// wires that engine to a local fake launcher; production goes through `new`.
+    /// Build a command service over a caller-supplied engine and the exec span
+    /// registry wired into it. The same `exec_spans` must back both the engine's
+    /// terminal hook and this service's launch path, so a parked span always has
+    /// a recorder. The test harness wires the engine to a local fake launcher;
+    /// production goes through `new`.
     #[doc(hidden)]
     #[must_use]
     pub fn with_engine(
@@ -53,12 +59,16 @@ impl CommandOperationService {
         layerstack: Arc<LayerStackService>,
         config: CommandConfig,
         engine: Arc<NamespaceExecutionEngine<CommandExecValue>>,
+        exec_spans: Arc<SpanRegistry<NamespaceExecutionId>>,
+        obs: Observer,
     ) -> Self {
         Self {
             workspace,
             layerstack,
             config,
             engine,
+            exec_spans,
+            obs,
             session_lifecycle_lock: Mutex::new(()),
         }
     }
@@ -87,6 +97,16 @@ impl CommandOperationService {
     #[must_use]
     pub(crate) fn engine(&self) -> &Arc<NamespaceExecutionEngine<CommandExecValue>> {
         &self.engine
+    }
+
+    #[must_use]
+    pub(super) fn obs(&self) -> &Observer {
+        &self.obs
+    }
+
+    #[must_use]
+    pub(super) fn exec_spans(&self) -> &Arc<SpanRegistry<NamespaceExecutionId>> {
+        &self.exec_spans
     }
 
     pub(crate) fn lock_session_lifecycle(&self) -> SessionLifecycleGuard<'_> {

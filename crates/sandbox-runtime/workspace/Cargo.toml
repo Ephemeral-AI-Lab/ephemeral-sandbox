@@ -9,6 +9,7 @@ license.workspace = true
 sandbox-runtime-layerstack.workspace = true
 sandbox-runtime-namespace-execution.workspace = true
 sandbox-runtime-namespace-process.workspace = true
+sandbox-observability.workspace = true
 nix = { workspace = true, features = ["process", "signal", "fs"] }
 rustix.workspace = true
 serde.workspace = true

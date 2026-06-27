@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+use sandbox_observability::Observer;
 use sandbox_protocol::CliOperationExecutionSpace;
 use sandbox_runtime::command::{CommandConfig, CommandOperationService, ExecCommandInput};
 use sandbox_runtime::layerstack::LayerStackService;
@@ -17,7 +18,10 @@ use sandbox_runtime_workspace::{
 };
 
 fn workspace_session() -> Arc<WorkspaceSessionService> {
-    Arc::new(WorkspaceSessionService::new(noop_workspace_runtime()))
+    Arc::new(WorkspaceSessionService::new(
+        noop_workspace_runtime(),
+        Observer::disabled(),
+    ))
 }
 
 fn layerstack_service() -> Result<Arc<LayerStackService>, Box<dyn std::error::Error + Send + Sync>>
@@ -28,7 +32,10 @@ fn layerstack_service() -> Result<Arc<LayerStackService>, Box<dyn std::error::Er
     let _ = std::fs::remove_dir_all(&base);
     std::fs::create_dir_all(&workspace)?;
     sandbox_runtime_layerstack::build_workspace_base(&root, &workspace, false)?;
-    Ok(Arc::new(LayerStackService::new(root)?))
+    Ok(Arc::new(LayerStackService::new(
+        root,
+        Observer::disabled(),
+    )?))
 }
 
 fn temp_root(label: &str) -> PathBuf {
@@ -80,6 +87,7 @@ fn service_graph_runtime_operations_exposes_command_lane(
         Arc::clone(&workspace),
         Arc::clone(&layerstack),
         CommandConfig::default(),
+        Observer::disabled(),
     ));
     let operations = SandboxRuntimeOperations::new(
         Arc::clone(&command),
@@ -119,22 +127,25 @@ fn runtime_from_config_initializes_layerstack_workspace_base(
     let _ = std::fs::remove_dir_all(&base);
     std::fs::create_dir_all(&workspace_root)?;
 
-    let operations = SandboxRuntimeOperations::from_config(SandboxRuntimeConfig {
-        workspace: WorkspaceRuntimeConfig {
-            workspace_root: workspace_root.clone(),
-            layer_stack_root: layer_stack_root.clone(),
-            scratch_root,
-            caps: WorkspaceResourceCaps {
-                setup_timeout_s: 1.0,
-                exit_grace_s: 0.1,
-                rfc1918_egress: Rfc1918Egress::Allow,
+    let operations = SandboxRuntimeOperations::from_config(
+        SandboxRuntimeConfig {
+            workspace: WorkspaceRuntimeConfig {
+                workspace_root: workspace_root.clone(),
+                layer_stack_root: layer_stack_root.clone(),
+                scratch_root,
+                caps: WorkspaceResourceCaps {
+                    setup_timeout_s: 1.0,
+                    exit_grace_s: 0.1,
+                    rfc1918_egress: Rfc1918Egress::Allow,
+                },
             },
+            namespace_execution: NamespaceExecutionRuntimeConfig {
+                scratch_root: command_scratch_root,
+            },
+            cgroup_root: None,
         },
-        namespace_execution: NamespaceExecutionRuntimeConfig {
-            scratch_root: command_scratch_root,
-        },
-        cgroup_root: None,
-    });
+        Observer::disabled(),
+    );
 
     assert!(layer_stack_root.join("workspace.json").is_file());
     assert_eq!(

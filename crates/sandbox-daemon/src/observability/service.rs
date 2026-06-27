@@ -59,6 +59,12 @@ impl DaemonObservability {
         })
     }
 
+    /// A clone of the one process `Observer`. The runtime gets this same handle
+    /// so daemon (`d-*`) and runtime spans share one id sequence and parent chain.
+    pub(crate) fn observer(&self) -> Observer {
+        self.observer.clone()
+    }
+
     /// One periodic tick: rotate if oversized, then emit one `obs.sample` per
     /// scope (`sandbox`, each workspace, `stack`). Best-effort throughout.
     pub(crate) fn collect(&self, config: &ServerConfig, operations: &SandboxRuntimeOperations) {

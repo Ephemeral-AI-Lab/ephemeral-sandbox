@@ -7,6 +7,8 @@ use crate::model::WorkspaceHandle;
 use crate::session::MountedWorkspace;
 use crate::session::WorkspaceManagerError;
 #[cfg(target_os = "linux")]
+use sandbox_observability::record::names;
+#[cfg(target_os = "linux")]
 use sandbox_runtime_namespace_execution::NamespaceTarget;
 
 #[cfg(target_os = "linux")]
@@ -25,7 +27,7 @@ impl NamespaceRuntime {
     ) -> Result<(), WorkspaceManagerError> {
         #[cfg(not(target_os = "linux"))]
         {
-            let _ = (&self.engine, handle, layer_paths);
+            let _ = (&self.engine, &self.obs, handle, layer_paths);
             Ok(())
         }
         #[cfg(target_os = "linux")]
@@ -33,11 +35,14 @@ impl NamespaceRuntime {
             let mut entry = WorkspaceHandle::from(handle).entry().map_err(setup_error)?;
             entry.layer_paths = layer_paths.to_vec();
             let id = self.engine.allocate_id();
-            self.engine
+            let mount = self
+                .engine
                 .mount_overlay(NamespaceTarget::from(entry), id)
-                .map_err(setup_error)?
-                .wait()
-                .map_err(setup_error)
+                .map_err(setup_error)?;
+            self.obs
+                .scope(names::NAMESPACE_EXEC_MOUNT_OVERLAY, |_span| {
+                    mount.wait().map_err(setup_error)
+                })
         }
     }
 
