@@ -41,7 +41,7 @@ says **what changes in code**.
 | `Span`/`Event`/`Sample` record model (one record per span) | emitting spans/events from the runtime (`span-trace-impl.md`) |
 | `Sink` (single-write append, line cap, rotation) | trace-id threading + instrumentation seams (`span-trace-impl.md`) |
 | `Reader` folds: `trace` / `samples` / `raw` (`events` = `raw`+name) | layerstack/lease domain events (`span-trace-impl.md`) |
-| `Observer`/`SpanGuard`/`SpanRegistry`/`TraceContext` + `TerminalHook`/`NoopHook` + config gate | `NamespaceExecutionObserver` + cross-process `np-*` spans (`span-trace-impl.md` / `removal-and-phaseb-impl.md`) |
+| `Observer`/`SpanGuard`/`SpanRegistry`/`TraceContext` + `TerminalHook`/`NoopHook` + config gate | runtime wiring + cross-process `np-*` spans (`span-trace-impl.md` / `removal-and-phaseb-impl.md`) |
 | daemon `collect()` → `obs.sample`; `snapshot`/`cgroup` from live registry | — |
 | delete `store/**` + `rusqlite`; `cgroup`/`disk` readers → leaf crate | — |
 
@@ -355,7 +355,8 @@ impl SpanGuard {
 `command.exec one_shot=true`, and — critically — record `status: error` when the
 operation fails. For a fallible `Result`-returning seam, prefer the `Observer::scope`
 combinator (§3.7): it runs the body and **self-sets `Error` on the `Err` before the guard
-drops**, so a `?`/early-return cannot silently regress a failed op to green. The chainable
+drops if the status is still `Completed`**, so a `?`/early-return cannot silently regress a
+failed op to green and an explicit `TimedOut`/`Cancelled` is not clobbered. The chainable
 `status` is then just the one-liner for an explicit `Err` arm
 (`some_call().inspect_err(|_| span.status(Error))?`). Without these every sync span would
 write `completed` with empty `attrs`, and the renderer would color failures green. A bare
@@ -374,8 +375,8 @@ pub struct SpanRegistry<K: Eq + Hash> { obs: Observer, open: Mutex<HashMap<K, Op
 struct OpenSpan { span: String, ctx: TraceContext, name: &'static str, start_ms: i64 }   // span = minted id
 impl<K: Eq + Hash> SpanRegistry<K> {
     pub fn new(obs: Observer) -> Self;
-    pub fn open(&self, id: K, ctx: Option<TraceContext>, name: &'static str) -> TraceContext;   // mint span id + park + self-stamp start_ms; returns child ctx { trace, parent: <new id> }
-    pub fn launch<T, E>(&self, id: K, ctx: Option<TraceContext>, name: &'static str, f: impl FnOnce() -> Result<T, E>) -> Result<T, E>;   // open iff ctx Some, run f, cancel on Err
+    pub fn open(&self, id: K, ctx: TraceContext, name: &'static str) -> TraceContext;   // mint span id + park + self-stamp start_ms; returns child ctx { trace, parent: <new id> }
+    pub fn launch<T, E>(&self, id: K, ctx: Option<TraceContext>, name: &'static str, f: impl FnOnce(Option<TraceContext>) -> Result<T, E>) -> Result<T, E>;   // open iff ctx Some, pass child ctx to f, cancel on Err
     pub fn record(&self, id: &K, status: SpanStatus, attrs: impl Into<Value>);   // pop + self-stamp end + write one Span
     pub fn cancel(&self, id: &K);                                       // pop without emitting (launch failed before run)
 }                                                                        // Drop ⇒ record remaining as Cancelled (shutdown sweep)
@@ -388,7 +389,10 @@ impl<K: Eq + Hash> SpanRegistry<K> {
   `TraceContext { trace, parent: <new id> }`** the caller threads into the forked child —
   so a cross-process child can stamp `parent = <this span id>` at *launch*, before the
   span completes (the canonical `np-0 parent=d-5`, `removal-and-phaseb-impl.md` §B.2; the
-  id existing at launch is what makes that link constructible, M7). `record`
+  id existing at launch is what makes that link constructible, M7). `open` takes a concrete
+  `TraceContext`; callers that only have `Option<TraceContext>` use `launch`, which passes
+  `Some(child_ctx)` to the launch closure when it parks a span and `None` when tracing is
+  absent. `record`
   self-stamps the end and writes `dur_ms = now - start_ms`. **No caller ever passes a
   timestamp** — correct timing comes from *calling at the right moment*, not from
   threading a clock: the engine calls the terminal hook right after the work finishes and
@@ -401,8 +405,8 @@ impl<K: Eq + Hash> SpanRegistry<K> {
   span that never ran. The `launch` combinator folds this three-step dance: it opens (iff
   `ctx` is `Some`), runs `f`, and `cancel`s internally on `Err`, so the caller never writes
   the cancel by hand and a forgotten `cancel`/`open` can't leak or drop a span
-  (`span-trace-impl.md` §4). With `launch` covering the launch path, `open`/`cancel` may
-  become non-public (M3).
+  (`span-trace-impl.md` §4). With `launch` covering the production launch path, `open`/`cancel`
+  stay low-level escape hatches for nonstandard handoffs only (M3).
 - **Drop is a shutdown sweep, not a per-span net.** A registry lives for the process,
   so its `Drop` (recording leftovers as `cancelled`) only fires at teardown. A watcher
   that panics before recording leaks its entry until then; that is acceptable for a
@@ -551,10 +555,10 @@ module of `pub const` `&'static str` labels — grep-able and typo-safe, with ze
 constraint on extensibility (a new name is still one new const). These strings are
 user-facing grep/jq targets in an append-only file, so state **one grammar rule** next to
 `record::names`: **spans = `subsystem[.area].action` (imperative); events =
-`subsystem.fact` (past-tense)** — e.g. span `command.exec`, `workspace_session.create`,
-`namespace.exec.mount_overlay`; event `lease.acquired`, `layerstack.publish` (the span
-name follows the same span/op split that the span `workspace_session.create` vs the op
-`create_workspace_session` already uses — the op identity persists in
+`subsystem.fact` (past-tense)** — e.g. spans `command.exec`, `workspace_session.create`,
+`namespace.exec.mount_overlay`, `layerstack.publish`; events `lease.acquired`,
+`lease.released` (the span name follows the same span/op split that the span
+`workspace_session.create` vs the op `create_workspace_session` already uses — the op identity persists in
 `attrs.op`/`operation_name`). Beside it, add `record::proc` consts (`DAEMON = "d"`,
 `NS = "np"`) so the `<proc>` token (§2.3) is a named const, not a bare magic string a typo
 could split into a phantom proc (m7).
@@ -576,7 +580,7 @@ a span-less explicit-parent emit is `with_context(ctx, || obs.event(name, attrs)
 |---|---|---|---|---|
 | `new` | `config: ObserverConfig, sink: Sink` | `Observer` | — | builds the `Core` (sink + `SpanIds`); `config` carries the proc token + the named gate |
 | `span` | `name: &'static str` | `SpanGuard` | on **drop** | thread-local parent; pushes its own id |
-| `scope` | `name: &'static str, body: impl FnOnce(&SpanGuard) -> Result<T, E>` | `Result<T, E>` | on **drop** | thread-local parent; self-sets `Error` on `Err` before drop |
+| `scope` | `name: &'static str, body: impl FnOnce(&SpanGuard) -> Result<T, E>` | `Result<T, E>` | on **drop** | thread-local parent; self-sets `Error` on `Err` before drop only if status is still `Completed` |
 | `event` | `name: &'static str, attrs: impl Into<Value>` | `()` | **now** | thread-local parent; drops if ctx is `None` |
 | `sample` | `scope: &str, metrics: impl Into<Value>` | `()` | **now** | no `trace`/`parent` |
 | `context` | — | `Option<TraceContext>` | — | snapshot the thread-local ctx |
@@ -601,13 +605,14 @@ a span-less explicit-parent emit is `with_context(ctx, || obs.event(name, attrs)
 | Method | Args | Returns | Writes? | Effect |
 |---|---|---|---|---|
 | `new` | `obs: Observer` | `SpanRegistry<K>` | — | empty registry sharing the `Core` |
-| `open` | `id: K, ctx: Option<TraceContext>, name: &'static str` | `TraceContext` | — | mint span id + park; self-stamp start; return child ctx `{ trace, parent: <new id> }` (M7) |
-| `launch` | `id: K, ctx: Option<TraceContext>, name: &'static str, f: impl FnOnce() -> Result<T, E>` | `Result<T, E>` | on `record` | open iff `ctx` is `Some`, run `f`, `cancel` on `Err` (M3) |
+| `open` | `id: K, ctx: TraceContext, name: &'static str` | `TraceContext` | — | mint span id + park; self-stamp start; return child ctx `{ trace, parent: <new id> }` (M7) |
+| `launch` | `id: K, ctx: Option<TraceContext>, name: &'static str, f: impl FnOnce(Option<TraceContext>) -> Result<T, E>` | `Result<T, E>` | on `record` | open iff `ctx` is `Some`, pass child ctx to `f`, `cancel` on `Err` (M3) |
 | `record` | `id: &K, status: SpanStatus, attrs: impl Into<Value>` | `()` | **now** | pop + write one `Span`; `dur_ms = now − start` |
 | `cancel` | `id: &K` | `()` | — | pop without writing (launch failed before run) |
 | *(Drop)* | — | — | `record` leftovers as `Cancelled` (shutdown sweep) |
 
-> After `launch` covers the launch path, `open`/`cancel` may be made non-public (M3).
+> `launch` is the normal launch path because it makes register+cancel atomic and exposes
+> the child context Phase B needs. Use `open`/`cancel` directly only for nonstandard handoffs.
 
 **Engine hook — `TerminalHook<K>` (trait) and its impls** (the engine swap lives with its
 source, `span-trace-impl.md` §4):
@@ -723,10 +728,10 @@ thin alias that calls `snapshot_view_response` (no SQLite) and delete it in
 - `sandbox-observability` stays a **leaf**: `serde`, `serde_json`, `thiserror`
   only — no `rusqlite`, no `protocol`/`runtime`/`daemon`/`config`. The
   `TerminalHook<K>` trait is generic over the id type, so owning it in the leaf pulls
-  no dependency (the consumer supplies `K`). The config *values* (`enabled`,
-  `max_file_bytes`) are read by the daemon, mapped — with a `record::proc` const — into the
-  leaf-owned `ObserverConfig` (proc + gate) and passed into `Observer::new`; the crate
-  never imports `sandbox-config`.
+  no dependency (the consumer supplies `K`). The daemon reads `ObservabilityConfig`:
+  `enabled` plus a `record::proc` const become the leaf-owned `ObserverConfig`
+  (proc + gate) passed into `Observer::new`; `max_file_bytes` remains daemon-owned rotation
+  policy. The crate never imports `sandbox-config`.
 - `tests/dependency_guard.rs` (forbids `sandbox-runtime`/`sandbox-daemon`/
   `sandbox-manager`) is unchanged and still passes. Add `rusqlite` to its forbidden
   list to lock the removal.

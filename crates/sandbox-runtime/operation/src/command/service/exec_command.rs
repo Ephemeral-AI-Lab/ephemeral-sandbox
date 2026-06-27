@@ -11,7 +11,11 @@ use crate::command::service::CommandOperationService;
 use crate::command::{
     CommandExecValue, CommandOutput, CommandServiceError, CommandTerminalResult, ExecCommandInput,
 };
-use crate::workspace_crate::{DestroyWorkspaceRequest, WorkspaceEntry, WorkspaceSessionId};
+use crate::layerstack::{LayerStackRevision, PublishChangesRequest};
+use crate::workspace_crate::{
+    BaseRevision, CaptureChangesRequest, DestroyWorkspaceRequest, ProtectedPathDrop,
+    ProtectedPathDropReason, WorkspaceEntry, WorkspaceSessionId,
+};
 use crate::workspace_session::{WorkspaceSessionHandler, WorkspaceSessionService};
 
 impl CommandOperationService {
@@ -49,7 +53,10 @@ impl CommandOperationService {
             transcript_path: transcript_path.clone(),
             started_at,
         };
-        let on_complete = workspace.finalize_closure(self.workspace_handle().clone());
+        let on_complete = workspace.finalize_closure(
+            self.workspace_handle().clone(),
+            self.layerstack_handle().clone(),
+        );
         let target = NamespaceTarget::from(entry);
 
         let cgroup_procs_path = workspace
@@ -162,18 +169,76 @@ impl ResolvedExecWorkspace {
     }
 
     /// Build the engine `on_complete` closure: once the child reaches a terminal
-    /// state, apply the one-shot teardown policy. The one-shot decision is read
-    /// from `self.one_shot` exactly once; teardown errors stay internal to
-    /// finalization and never surface in the command result.
+    /// state, one-shot workspaces publish their captured diff before destroy.
+    /// Existing caller-owned sessions stay alive and are not published here.
     fn finalize_closure(
         &self,
         workspace: Arc<WorkspaceSessionService>,
+        layerstack: Arc<crate::layerstack::LayerStackService>,
     ) -> impl FnOnce(&Result<CommandTerminalResult, NamespaceExecutionError>) + Send + 'static {
         let one_shot_handler = self.one_shot.then(|| self.handler.clone());
         move |_result| {
             if let Some(handler) = one_shot_handler {
-                let _ = workspace.destroy_session(handler, DestroyWorkspaceRequest::default());
+                finalize_one_shot(workspace, layerstack, handler);
             }
         }
     }
+}
+
+fn finalize_one_shot(
+    workspace: Arc<WorkspaceSessionService>,
+    layerstack: Arc<crate::layerstack::LayerStackService>,
+    handler: WorkspaceSessionHandler,
+) {
+    // ponytail: completion hooks cannot surface publish errors yet; destroy still runs.
+    let _ = workspace
+        .capture_session_changes(
+            &handler,
+            CaptureChangesRequest {
+                include_stats: false,
+            },
+        )
+        .ok()
+        .and_then(|captured| {
+            layerstack
+                .publish_changes(PublishChangesRequest {
+                    expected_base: layerstack_revision(&captured.base_revision),
+                    base_manifest: captured.base_manifest,
+                    protected_drops: layer_protected_drops(captured.protected_drops),
+                    changes: captured.changes,
+                })
+                .ok()
+        });
+
+    let _ = workspace.destroy_session(handler, DestroyWorkspaceRequest::default());
+}
+
+fn layerstack_revision(revision: &BaseRevision) -> LayerStackRevision {
+    LayerStackRevision {
+        manifest_version: revision.version,
+        root_hash: revision.root_hash.clone(),
+        layer_count: revision.layer_count,
+    }
+}
+
+fn layer_protected_drops(
+    drops: Vec<ProtectedPathDrop>,
+) -> Vec<sandbox_runtime_layerstack::LayerProtectedDrop> {
+    drops
+        .into_iter()
+        .map(|drop| sandbox_runtime_layerstack::LayerProtectedDrop {
+            path: drop.path,
+            reason: match drop.reason {
+                ProtectedPathDropReason::UnsupportedSpecialFile => {
+                    sandbox_runtime_layerstack::LayerProtectedDropReason::UnsupportedSpecialFile
+                }
+                ProtectedPathDropReason::InvalidLayerPath => {
+                    sandbox_runtime_layerstack::LayerProtectedDropReason::InvalidLayerPath
+                }
+                ProtectedPathDropReason::CommandScratchPath => {
+                    sandbox_runtime_layerstack::LayerProtectedDropReason::CommandScratchPath
+                }
+            },
+        })
+        .collect()
 }

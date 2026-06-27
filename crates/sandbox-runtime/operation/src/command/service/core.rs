@@ -5,6 +5,7 @@ use sandbox_runtime_namespace_execution::{
 };
 
 use crate::command::{CommandConfig, CommandExecValue};
+use crate::layerstack::LayerStackService;
 use crate::namespace_execution::RuntimeNamespaceExecutionSnapshot;
 use crate::workspace_crate::{
     CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, NetworkProfile,
@@ -20,6 +21,7 @@ const COMMAND_ENGINE_SETUP_TIMEOUT_S: f64 = 30.0;
 
 pub struct CommandOperationService {
     workspace: Arc<WorkspaceSessionService>,
+    layerstack: Arc<LayerStackService>,
     config: CommandConfig,
     engine: Arc<NamespaceExecutionEngine<CommandExecValue>>,
     session_lifecycle_lock: Mutex<()>,
@@ -29,13 +31,17 @@ pub(crate) type SessionLifecycleGuard<'a> = MutexGuard<'a, ()>;
 
 impl CommandOperationService {
     #[must_use]
-    pub fn new(workspace: Arc<WorkspaceSessionService>, config: CommandConfig) -> Self {
+    pub fn new(
+        workspace: Arc<WorkspaceSessionService>,
+        layerstack: Arc<LayerStackService>,
+        config: CommandConfig,
+    ) -> Self {
         let engine = Arc::new(NamespaceExecutionEngine::new(
             Arc::new(NoopObserver),
             MAX_ACTIVE_COMMANDS,
             COMMAND_ENGINE_SETUP_TIMEOUT_S,
         ));
-        Self::with_engine(workspace, config, engine)
+        Self::with_engine(workspace, layerstack, config, engine)
     }
 
     /// Build a command service over a caller-supplied engine. The test harness
@@ -44,11 +50,13 @@ impl CommandOperationService {
     #[must_use]
     pub fn with_engine(
         workspace: Arc<WorkspaceSessionService>,
+        layerstack: Arc<LayerStackService>,
         config: CommandConfig,
         engine: Arc<NamespaceExecutionEngine<CommandExecValue>>,
     ) -> Self {
         Self {
             workspace,
+            layerstack,
             config,
             engine,
             session_lifecycle_lock: Mutex::new(()),
@@ -142,6 +150,10 @@ impl CommandOperationService {
 
     pub(super) fn workspace_handle(&self) -> &Arc<WorkspaceSessionService> {
         &self.workspace
+    }
+
+    pub(super) fn layerstack_handle(&self) -> &Arc<LayerStackService> {
+        &self.layerstack
     }
 }
 

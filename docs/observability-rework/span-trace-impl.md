@@ -88,7 +88,7 @@ the trace (M2).
 write/read cost — read it as the yield window, not the I/O. A `Ctrl-D` that ends a
 one-shot attributes the teardown tail to the **originating exec trace** by design (the
 model is a tree, not a DAG; write→termination causality is not a parent edge). If write
-intent must be greppable, emit at most a `command.signal` event under the dispatch span
+intent must be greppable, emit at most a `command.signaled` event under the dispatch span
 with `{command_session_id, kill}` (it links by attr, not parent) — do **not** add
 span-links now. These single-node poll-loop traces are otherwise low-value and are
 mitigated by config-gating + the M2 root-status fix (no more misleading green).
@@ -220,19 +220,19 @@ the service calls `launch`.
 
 - **Launch the shell span (M3).** `exec_command` (`exec_command.rs:35-65`) allocates the
   id (`:35`) and calls `run_shell_interactive(..., id.clone(), ...)` (`:59`). Wrap that
-  launch in `exec_obs.launch(id.clone(), obs.context(), "namespace.exec.shell", || …)`
-  (thread-local `TraceContext`, §2): `launch` opens the parked span, runs the launch
-  body, and `cancel`s the parked span **internally** if the body returns `Err` before the
-  watcher exists (`exec_command.rs:66-76`) — so there is no manual `register`/`cancel`
-  dance and no bogus swept `cancelled`. **The mount is no longer launched here** — it is
-  a sync guard (C1, §5). The engine stays context-agnostic and only forwards the id at
-  `on_terminal`.
-- **Phase B handoff (M7).** `open` (invoked inside `launch`) now mints the span id **at
-  launch** and returns a child `TraceContext { trace, parent: <new id> }`. Phase A
-  discards it (no fork yet); Phase B re-expresses this launch with the lower-level `open`
-  so it can thread that child ctx into the fork, letting `build_request` stamp
-  `np-0.parent = the shell span id (d-5)` — which exists at launch because the id is
-  minted there, not at completion (`removal-and-phaseb-impl.md` §B.2).
+  launch in `exec_obs.launch(id.clone(), obs.context(), "namespace.exec.shell", |child_ctx| …)`
+  (thread-local `TraceContext`, §2): `launch` opens the parked span when context exists,
+  passes the child ctx to the launch body, and `cancel`s the parked span **internally** if
+  the body returns `Err` before the watcher exists (`exec_command.rs:66-76`) — so there is
+  no manual `register`/`cancel` dance and no bogus swept `cancelled`. **The mount is no
+  longer launched here** — it is a sync guard (C1, §5). The engine stays context-agnostic
+  and only forwards the id at `on_terminal`.
+- **Phase B handoff (M7).** `open` (invoked inside `launch`) mints the span id **at
+  launch** and returns a child `TraceContext { trace, parent: <new id> }`. Phase A ignores
+  the closure argument (no fork yet); Phase B passes that child ctx into `build_request`,
+  letting the namespace-process stamp `np-0.parent = the shell span id (d-5)` — which
+  exists at launch because the id is minted there, not at completion
+  (`removal-and-phaseb-impl.md` §B.2).
 - **Record / write.** `on_terminal` (watcher thread, right after child-exit) calls
   `exec_obs.record(id, …)`, which pops the parked span and writes the **one** span record
   — on whichever thread finishes the work (`README.md` §3.1), self-stamping the end. If a
@@ -264,7 +264,8 @@ success-with-no-facts scope. Attach facts with `.attr()`; an explicit `Err` arm 
 | `command.exec` | `exec_command.rs:18` (`exec_command`) | `d-1`; span label is `command.exec`, but the op name / `attrs.op` stay `exec_command` (M10); `.attr("one_shot", …)`; the sync call body (returns at yield) |
 | `workspace_session.create` | `create_workspace_session.rs:9` | `d-2`; `lease.acquired` (§6 event) + the mount span nest inside it (C1) |
 | `namespace.exec.mount_overlay` | `workspace/src/namespace/setns_runner.rs:37` (wrap the `.wait()`) | `d-4`; **sync** `SpanGuard`, status from the `wait()` `Result`; nested under `workspace_session.create` (C1/M8); the `d-3` slot is vacant after dropping `workspace.create` |
-| `workspace_session.destroy` | `destroy_session.rs:7` | `d-6`; one-shot finalize tail (§7), parent `d-1` |
+| `workspace_session.capture_changes` | `capture_session_changes.rs:7` | `d-6`; one-shot finalize tail (§7), parent `d-1` |
+| `workspace_session.destroy` | `destroy_session.rs:7` | `d-8`; one-shot finalize tail (§7), parent `d-1` |
 
 The engine-side `namespace.exec.shell` span is async (§4), not a sync guard;
 `namespace.exec.mount_overlay` is now a **sync** guard (above, C1). Other former labels
@@ -281,15 +282,15 @@ records. They nest under the enclosing span via the thread-local parent, so each
 plain `obs.event(name, attrs)` — no `ctx` threading. **Label grammar (M10):** events are
 `subsystem.fact` (past-tense), spans are `subsystem[.area].action` (imperative); state
 this rule next to `record::names` so the on-disk vocabulary does not drift. The Case A
-lease facts are `lease.acquired` (at session create) and `lease.released` (the sole
-evict-only tail event, C1/C3 — there is **no** `layerstack.publish` in Case A), served as
+lease facts are `lease.acquired` (at session create) and `lease.released` (at one-shot
+destroy after publish), served as
 `events` view rows (`cli-observability.md` §3.4, via `Reader::raw(kind=event, name=…)`,
 `crate-core-impl.md` §3.3).
 
 | Event `name` | Site | `attrs` |
 |---|---|---|
 | `lease.acquired` | `stack/mod.rs:acquire_snapshot` (after `leases.acquire`, `:78-81`) | `revision` (= manifest newest layer / version) |
-| `lease.released` | `cleanup.rs:release_lease_locked` after `leases.release` (`:16`) | `revision` (the **same** revision as `lease.acquired` — no publish bumped it, C1) |
+| `lease.released` | `cleanup.rs:release_lease_locked` after `leases.release` (`:16`) | `revision` of the released lease (Case A releases the original `r5` lease even when the publish span creates `r6`) |
 
 **`layerstack.publish` is a sync span, not an event (M9).** `publish_layer_unlocked`
 (`publish.rs:65-116`) does real variable-duration I/O (per-file `fsync`, `fsync_dir`,
@@ -298,23 +299,22 @@ evict-only tail event, C1/C3 — there is **no** `layerstack.publish` in Case A)
 `attrs{base, revision, layers_added, bytes, no_op}`, and `status=error` +
 `attrs.reason="manifest_conflict"` on the `ManifestConflict` path (`publish.rs:89-97`) —
 this **folds the deleted `layerstack.publish_rejected` event** into the span's status.
-The publish span does **not** fire in Case A (the one-shot teardown is evict-only, C3);
-it is reachable only once a daemon op routes to `publish_changes`. The cross-trace publish
-audit therefore moves from `events --name layerstack.publish` to `raw --kind span --name
-layerstack.publish` + jq (`cli-observability.md` §4.3, M9); the event mechanism still
-serves `lease.*`.
+The publish span fires in Case A's one-shot finalization (`exec_command.rs:finalize_one_shot`):
+capture session changes, publish, refresh the session handle on success, then destroy. The
+cross-trace publish audit therefore moves from `events --name layerstack.publish` to
+`raw --kind span --name layerstack.publish` (`cli-observability.md` §4.3, M9); the event
+mechanism still serves `lease.*`.
 
-- `layers_added` / `bytes`: from the publish outcome — `publish_layer_unlocked`
-  already computes `published_layer_bytes(changes)` (`publish.rs:112`) and prepends
-  one layer per publish; the `no_op` flag is on `PublishValidatedChangesResult`
-  (`publish.rs:36,45`). Pass these through to the `layerstack.publish` span attrs.
+- `layers_added` / `bytes`: compute at the operation boundary before moving the captured
+  changes into `publish_changes`, or add the values to `PublishChangesResult`; the current
+  result exposes `no_op` and `revision` but not byte/layer counts.
 - **One trace path for both session kinds.** These events fire under a span on a
   thread whose thread-local is set: the dispatch thread for a persistent session, and
   the watcher thread for the one-shot tail — which §7 wraps in `with_context` so its
   thread-local is set too. So both cases use the *same* plain `obs.event(name, attrs)`
   reading the thread-local parent; there is **no** one-shot-vs-persistent bifurcation
   and no captured-ctx threading into the events (the captured ctx is set once, at the
-  top of the tail, §7). In Case A `lease.released` lands under `d-6` (the destroy span
+  top of the tail, §7). In Case A `lease.released` lands under `d-8` (the destroy span
   pushed itself as the thread-local parent), while `lease.acquired` lands under
   `workspace_session.create` (`d-2`) at create time (C1).
 - Redaction: revisions/ids only — never source paths.

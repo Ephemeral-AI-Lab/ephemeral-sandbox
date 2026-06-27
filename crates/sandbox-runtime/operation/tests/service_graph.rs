@@ -78,6 +78,7 @@ fn service_graph_runtime_operations_exposes_command_lane(
     let layerstack = layerstack_service()?;
     let command = Arc::new(CommandOperationService::new(
         Arc::clone(&workspace),
+        Arc::clone(&layerstack),
         CommandConfig::default(),
     ));
     let operations = SandboxRuntimeOperations::new(
@@ -209,7 +210,6 @@ fn service_graph_cli_catalog_keeps_non_cli_helpers_out() {
 
     for helper in [
         "resolve_session",
-        "refresh_after_publish",
         "capture_session_changes",
         "destroy_workspace_session_with_admission",
         "publish_changes",

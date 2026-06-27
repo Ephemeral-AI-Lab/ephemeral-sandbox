@@ -3,15 +3,17 @@ mod support;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use sandbox_runtime::command::{CommandStatus, ExecCommandInput};
 use sandbox_runtime_workspace::{
-    LayerStackSnapshotRef, LeaseId, NetworkProfile, WorkspaceHandle, WorkspaceSessionId,
+    CapturedWorkspaceChanges, LayerStackSnapshotRef, LeaseId, NetworkProfile, WorkspaceHandle,
+    WorkspaceSessionId,
 };
 
 use support::{
-    build_services_with_launch_driver, create_request, success_exit, FakeLaunchDriver,
-    FakeWorkspaceService, ScriptedCommandYield,
+    build_services_with_launch_driver, build_services_with_launch_driver_and_layerstack,
+    create_request, success_exit, FakeLaunchDriver, FakeWorkspaceService, ScriptedCommandYield,
 };
 
 struct PublishFixture {
@@ -73,6 +75,15 @@ fn exec_input(workspace_session_id: WorkspaceSessionId) -> ExecCommandInput {
         cmd: "printf ok".to_owned(),
         timeout_ms: None,
         yield_time_ms: Some(250),
+    }
+}
+
+fn one_shot_exec_input() -> ExecCommandInput {
+    ExecCommandInput {
+        workspace_session_id: None,
+        cmd: "printf ok".to_owned(),
+        timeout_ms: None,
+        yield_time_ms: Some(5_000),
     }
 }
 
@@ -163,6 +174,62 @@ fn existing_session_command_completion_does_not_publish(
         resolved.handle.snapshot.root_hash
     );
     Ok(())
+}
+
+#[test]
+fn one_shot_command_completion_publishes_captured_changes_before_destroy(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = PublishFixture::new("one-shot-publish")?;
+    std::fs::write(fixture.workspace.join("README.md"), "base\n")?;
+    let base = fixture.build_base()?;
+    let handle = workspace_handle(base.clone(), &fixture.root);
+    let fake = Arc::new(FakeWorkspaceService::new());
+    fake.push_create_result(Ok(handle.clone()));
+    fake.push_capture_result(Ok(CapturedWorkspaceChanges {
+        workspace_session_id: handle.id.clone(),
+        base_revision: handle.base_revision(),
+        base_manifest: base,
+        changed_paths: vec!["README.md".to_owned()],
+        changed_path_kinds: Default::default(),
+        protected_drops: Vec::new(),
+        stats: None,
+        changes: vec![sandbox_runtime_layerstack::LayerChange::Write {
+            path: lp("README.md"),
+            content: b"one-shot\n".to_vec(),
+        }],
+        metadata_path_count: 1,
+    }));
+    let launch_driver = Arc::new(FakeLaunchDriver::new());
+    launch_driver.push_outcome(ScriptedCommandYield::Completed(success_exit("done\n")));
+    let env = build_services_with_launch_driver_and_layerstack(
+        Arc::clone(&fake),
+        launch_driver,
+        Arc::new(fixture.service()?),
+    );
+
+    let _ = env.command.exec_command(one_shot_exec_input())?;
+    wait_for_destroy(&fake);
+
+    assert_eq!(
+        fake.capture_calls(),
+        vec![WorkspaceSessionId("workspace-session".to_owned())]
+    );
+    assert_eq!(
+        fake.destroy_calls(),
+        vec![WorkspaceSessionId("workspace-session".to_owned())]
+    );
+    assert_eq!(
+        read_text(&fixture, "README.md")?,
+        Some("one-shot\n".to_owned())
+    );
+    Ok(())
+}
+
+fn wait_for_destroy(fake: &FakeWorkspaceService) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while fake.destroy_calls().is_empty() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 
 #[test]

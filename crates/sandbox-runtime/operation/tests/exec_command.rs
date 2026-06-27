@@ -379,6 +379,7 @@ fn destroy_workspace_session_waits_for_existing_session_exec_until_active_insert
     let command = Arc::new(
         sandbox_runtime::command::CommandOperationService::with_engine(
             Arc::clone(&workspace),
+            layerstack_service()?,
             config,
             engine,
         ),

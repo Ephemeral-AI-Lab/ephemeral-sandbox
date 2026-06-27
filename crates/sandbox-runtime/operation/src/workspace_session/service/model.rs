@@ -42,16 +42,4 @@ impl WorkspaceSession {
         self.handle.snapshot.manifest_version = base_revision.version;
         self.handle.snapshot.root_hash = base_revision.root_hash;
     }
-
-    pub(crate) fn refresh_after_publish(
-        &mut self,
-        base_revision: BaseRevision,
-        manifest: sandbox_runtime_layerstack::Manifest,
-        layer_paths: Vec<PathBuf>,
-    ) {
-        self.handle.snapshot.manifest_version = base_revision.version;
-        self.handle.snapshot.root_hash = base_revision.root_hash;
-        self.handle.snapshot.manifest = manifest;
-        self.handle.snapshot.layer_paths = layer_paths;
-    }
 }

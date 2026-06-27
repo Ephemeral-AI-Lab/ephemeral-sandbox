@@ -59,6 +59,7 @@ impl SandboxRuntimeOperations {
         );
         let command = Arc::new(CommandOperationService::new(
             Arc::clone(&workspace_session),
+            Arc::clone(&layerstack),
             crate::command::CommandConfig {
                 scratch_root: config.namespace_execution.scratch_root,
             },

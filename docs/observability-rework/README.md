@@ -24,7 +24,7 @@ This spec is **example-driven**: §4 shows the literal bytes that land in the lo
 and the rendered views, for real scenarios. The rest is structure around those
 examples.
 
-> **Companion:** `layerstack-observability.md` extends this spec with a third
+> **Companion:** `layerstack-impl.md` extends this spec with a third
 > `collect/` reader (layer count / per-layer bytes from disk), leased/booked-by
 > counts from the runtime registry, and a cgroup `io.stat` field — additive, no
 > record-kind or schema change.
@@ -166,10 +166,10 @@ the renderer plots each bar from `ts - dur_ms`.
 ### 4.1 Case A — one-shot `exec_command` (sync call + async tail + finalize-teardown)
 
 A client runs a command with no existing session. The runtime creates a one-shot
-workspace (mount over a layerstack lease), runs the shell, and on child exit tears
-the workspace down — evicting its upperdir and releasing the lease — **on the
-watcher thread, after the call already returned**. (A one-shot **discards** its
-diff; it does not publish — see C3.)
+workspace (mount over a layerstack lease), runs the shell, and on child exit
+finalizes the workspace **on the watcher thread, after the call already
+returned**: capture upperdir changes, publish them to the layerstack, refresh the
+session handle, then destroy the workspace and release the original lease.
 
 ```
 req-7f3   command.exec  (one-shot)
@@ -181,7 +181,9 @@ req-7f3   command.exec  (one-shot)
  │       └─ namespace.exec.shell               [async] ── outlives the call ──┐
  │           └─ namespace.runner.spawn_child  (namespace-process · Phase B)   │
  └─ ── watcher thread, after return ──                                        │
-     └─ workspace_session.destroy (one-shot)  ◄──────────────────── child exits
+     ├─ workspace_session.capture_changes     ◄──────────────────── child exits
+     ├─ layerstack.publish r5→r6
+     └─ workspace_session.destroy (one-shot)
          • lease.released r5
 ```
 
@@ -196,25 +198,27 @@ completion):**
 {"ts":1719500001050,"kind":"span","trace":"req-7f3","span":"d-1","parent":"d-0","name":"command.exec","dur_ms":1048.0,"status":"completed","attrs":{"one_shot":true}}
 {"ts":1719500001051,"kind":"span","trace":"req-7f3","span":"d-0","name":"daemon.dispatch","dur_ms":1051.0,"status":"completed","attrs":{"op":"exec_command"}}
 {"ts":1719500004273,"kind":"span","trace":"req-7f3","span":"d-5","parent":"d-1","name":"namespace.exec.shell","dur_ms":4231.0,"status":"completed","attrs":{"exec_id":"ns-9","async":true,"exit_code":0}}
-{"ts":1719500004295,"kind":"event","trace":"req-7f3","parent":"d-6","name":"lease.released","attrs":{"revision":"r5"}}
-{"ts":1719500004300,"kind":"span","trace":"req-7f3","span":"d-6","parent":"d-1","name":"workspace_session.destroy","dur_ms":25.0,"status":"completed","attrs":{"one_shot":true}}
+{"ts":1719500004286,"kind":"span","trace":"req-7f3","span":"d-6","parent":"d-1","name":"workspace_session.capture_changes","dur_ms":11.0,"status":"completed","attrs":{"one_shot":true}}
+{"ts":1719500004299,"kind":"span","trace":"req-7f3","span":"d-7","parent":"d-1","name":"layerstack.publish","dur_ms":12.0,"status":"completed","attrs":{"base":"r5","revision":"r6","layers_added":1,"bytes":40960,"no_op":false}}
+{"ts":1719500004320,"kind":"event","trace":"req-7f3","parent":"d-8","name":"lease.released","attrs":{"revision":"r5"}}
+{"ts":1719500004325,"kind":"span","trace":"req-7f3","span":"d-8","parent":"d-1","name":"workspace_session.destroy","dur_ms":25.0,"status":"completed","attrs":{"one_shot":true}}
 ```
 
 Note `d-1`/`d-0` complete at ~1.05 s while `d-5` is still running (no record yet).
 `d-5` carries the child-exit instant as its `ts` (4.273 s, captured **before** the
-teardown); the teardown tail (`lease.released` and the `destroy` span `d-6`, whose
-`parent` is `d-1` — the originating `command.exec`, not the shell span) is written
-just after, on the watcher thread. The mount (`d-4`) is a **sync** span under
+finalize tail); the watcher then writes `capture_changes` (`d-6`), `layerstack.publish`
+(`d-7`), and `workspace_session.destroy` (`d-8`) under `d-1` — the originating
+`command.exec`, not the shell span. The mount (`d-4`) is a **sync** span under
 `workspace_session.create`; the `d-3` slot is vacant — `workspace.create` was
 dropped (C1) — so the shell stays `d-5` and Phase B's `np-0.parent = d-5`
-resolves. `lease.released` carries the **same** revision (`r5`) as
-`lease.acquired` — a one-shot publishes nothing. The reader orders by
+resolves. `layerstack.publish` carries the new revision (`r6`); `lease.released`
+still reports the released original lease revision (`r5`). The reader orders by
 `ts`/`parent`, never by append order — all under `req-7f3`.
 
 **Rendered — `sandbox-cli observability trace --sandbox-id eos-abc --id req-7f3`:**
 
 ```
-trace req-7f3   sandbox eos-abc   wall 4.30s   (call returned at 1.05s)
+trace req-7f3   sandbox eos-abc   wall 4.33s   (call returned at 1.05s)
 
   +00.000  daemon.dispatch op=exec_command                 1051ms  ✓
   +00.002   └ command.exec one_shot                        1048ms  ✓
@@ -223,8 +227,10 @@ trace req-7f3   sandbox eos-abc   wall 4.30s   (call returned at 1.05s)
   +00.013      │   └ namespace.exec.mount_overlay            27ms  ✓
   +00.042      ├ namespace.exec.shell           [async]    4231ms  ✓ exit0   ← outlives call
   +00.055      │   └ namespace.runner.spawn_child            6ms  ✓   [Phase B: cross-process]
-  +04.275      └ workspace_session.destroy one_shot         25ms  ✓
-  +04.295         • lease.released r5
+  +04.275      ├ workspace_session.capture_changes           11ms  ✓
+  +04.287      ├ layerstack.publish r5→r6 +1 layer 40KB      12ms  ✓
+  +04.300      └ workspace_session.destroy one_shot          25ms  ✓
+  +04.320         • lease.released r5
 ```
 
 **Phase split for this case.** Everything renders under `req-7f3` in **Phase A**
@@ -367,9 +373,8 @@ truncated to fit — the line is never split. The reused `MAX_*` field bounds ar
 necessary but not sufficient for this (one 4096 B path attr already nears the
 budget), so the cap is on the whole serialized line. A soft size cap with one
 rotation (`…ndjson.1`), **owned by the daemon**, bounds the file; the reader reads
-both, ordered by `ts`. Rotation drops the oldest history; when it does, the daemon
-emits a marker record so a missing trace reads as "rotated out," not "never
-happened."
+both, ordered by `ts`. Rotation drops the oldest history; no marker record is
+written, so an empty trace renders as "unknown trace, or rotated out."
 
 **Redaction.** `attrs` and event payloads MUST NOT carry raw command lines, env,
 or secret-bearing paths — the file is shipped to the host over the daemon RPC.
@@ -395,10 +400,10 @@ impl SpanGuard {                         // sync, !Send: ends on drop, same thre
 
 // generic park-by-key store + the generic engine hook (crate-core-impl.md §3.4)
 impl<K: Eq + Hash> SpanRegistry<K> {
-    fn open(&self, id: K, ctx: impl Into<Option<TraceContext>>,            // park + self-stamp start;
+    fn open(&self, id: K, ctx: TraceContext,                               // park + self-stamp start;
             name: &'static str) -> TraceContext;                           //   returns child ctx (parent = new span id)
     fn launch<T, E>(&self, id: K, ctx: impl Into<Option<TraceContext>>,    // open → run f → cancel on Err
-                    name: &'static str, f: impl FnOnce() -> Result<T, E>) -> Result<T, E>;
+                    name: &'static str, f: impl FnOnce(Option<TraceContext>) -> Result<T, E>) -> Result<T, E>;
     fn record(&self, id: &K, status: SpanStatus, attrs: impl Into<Value>); // pop + write one record (self-stamps end)
     fn cancel(&self, id: &K);                                              // pop without writing
 }
@@ -416,7 +421,7 @@ drop, same thread) and the parked async span in `SpanRegistry<K>` (completed by 
 id-only callback on another thread) are a *real* split — drop-on-same-thread vs.
 complete-by-key-from-another — but each writes exactly one record. There is **no**
 standalone async-span handle: the only async shape is the parked one, so the registry
-owns the open span as plain data and `complete` writes it (self-stamping the end). A
+owns the open span as plain data and `record` writes it (self-stamping the end). A
 new async source is a new `K` + its own `SpanRegistry<K>` (wired as the engine's
 `TerminalHook<K>` by the blanket impl), not new map/lock code. The engine-facing hook `TerminalHook<K>`
 carries only the terminal edge (`on_terminal`) — one-record-at-completion needs no
@@ -509,7 +514,7 @@ $ sandbox-cli exec --sandbox-id eos-abc "cargo build"
 ... command output ...
 
 $ sandbox-cli observability trace --sandbox-id eos-abc --id req-7f3   # or: --id last
-trace req-7f3   sandbox eos-abc   wall 4.30s   (call returned at 1.05s)
+trace req-7f3   sandbox eos-abc   wall 4.33s   (call returned at 1.05s)
 
   +00.000  daemon.dispatch op=exec_command                 1051ms  ✓
   +00.002   └ command.exec one_shot                        1048ms  ✓
@@ -518,15 +523,17 @@ trace req-7f3   sandbox eos-abc   wall 4.30s   (call returned at 1.05s)
   +00.013      │   └ namespace.exec.mount_overlay            27ms  ✓
   +00.042      ├ namespace.exec.shell           [async]    4231ms  ✓ exit0   ← outlives call
   +00.055      │   └ namespace.runner.spawn_child            6ms  ✓   [Phase B: cross-process]
-  +04.275      └ workspace_session.destroy one_shot         25ms  ✓
-  +04.295         • lease.released r5
+  +04.275      ├ workspace_session.capture_changes           11ms  ✓
+  +04.287      ├ layerstack.publish r5→r6 +1 layer 40KB      12ms  ✓
+  +04.300      └ workspace_session.destroy one_shot          25ms  ✓
+  +04.320         • lease.released r5
 ```
 
 ### 7.3 `events` — flat domain-fact stream (by name / time)
 
 Unlike `trace` (one flow as a tree), `events` is a **flat, cross-trace** stream —
 for "show me every lease release" or "all errors." Filter with `--name` and
-`--since`. (`layerstack.publish` is now a **span**, not an event — audit
+`--since-ms`. (`layerstack.publish` is a **span**, not an event — audit
 publishes via `raw --kind span --name layerstack.publish`.)
 
 ```console
@@ -534,7 +541,7 @@ $ sandbox-cli observability events --sandbox-id eos-abc --name lease.released
 events  sandbox eos-abc   name=lease.released   2 matched
 
   ts        trace     parent  attrs
-  +04.295   req-7f3   d-6     revision=r5
+  +04.320   req-7f3   d-8     revision=r5
   +18.122   req-9c2   d-31    revision=r7
 ```
 
@@ -545,7 +552,7 @@ series: cgroup counters (cpu/mem/io, from `/sys/fs/cgroup`) **and** the disk
 sample (upperdir bytes/files) carried in the same record; deltas at read.
 
 ```console
-$ sandbox-cli observability cgroup --sandbox-id eos-abc --scope ws-1 --window 60000
+$ sandbox-cli observability cgroup --sandbox-id eos-abc --scope ws-1 --window-ms 60000
 scope ws-1   window 60s   (Δ computed at read)
 
   t(+s)   cpu_total   Δcpu      mem_cur    disk        Δdisk
@@ -557,12 +564,12 @@ scope ws-1   window 60s   (Δ computed at read)
 ### 7.5 `layerstack` — layer inventory + stack stats
 
 Layer inventory (leased / booked-by) and the stack time-series. Full examples in
-`layerstack-observability.md` §4; the shapes:
+`layerstack-impl.md` §4; the shapes:
 
 ```console
 $ sandbox-cli observability layerstack --sandbox-id eos-abc                  # stack inventory (leased / booked-by)
 $ sandbox-cli observability layerstack --sandbox-id eos-abc --workspace ws-7 # one session's lowers + private upper
-$ sandbox-cli observability layerstack --sandbox-id eos-abc --samples --window 60000   # stack time-series
+$ sandbox-cli observability layerstack --sandbox-id eos-abc --samples --window-ms 60000   # stack time-series
 ```
 
 ### 7.6 `raw` — filtered NDJSON lines
@@ -574,6 +581,9 @@ $ sandbox-cli observability raw --sandbox-id eos-abc --trace req-7f3 --kind span
 {"ts":1719500000042,"kind":"span","trace":"req-7f3","span":"d-2","parent":"d-1","name":"workspace_session.create","dur_ms":39.0,"status":"completed"}
 {"ts":1719500001050,"kind":"span","trace":"req-7f3","span":"d-1","parent":"d-0","name":"command.exec","dur_ms":1048.0,"status":"completed","attrs":{"one_shot":true}}
 {"ts":1719500004273,"kind":"span","trace":"req-7f3","span":"d-5","parent":"d-1","name":"namespace.exec.shell","dur_ms":4231.0,"status":"completed","attrs":{"exec_id":"ns-9","async":true,"exit_code":0}}
+{"ts":1719500004286,"kind":"span","trace":"req-7f3","span":"d-6","parent":"d-1","name":"workspace_session.capture_changes","dur_ms":11.0,"status":"completed","attrs":{"one_shot":true}}
+{"ts":1719500004299,"kind":"span","trace":"req-7f3","span":"d-7","parent":"d-1","name":"layerstack.publish","dur_ms":12.0,"status":"completed","attrs":{"base":"r5","revision":"r6","layers_added":1,"bytes":40960,"no_op":false}}
+{"ts":1719500004325,"kind":"span","trace":"req-7f3","span":"d-8","parent":"d-1","name":"workspace_session.destroy","dur_ms":25.0,"status":"completed","attrs":{"one_shot":true}}
 ```
 
 ### 7.7 Empty / error states
@@ -658,10 +668,11 @@ layer-projection domain concept, not timing.
   serialized-line cap truncates `attrs`, never the line; span ids are unique
   across simulated processes; `Reader` folds — trace tree + offsets from
   `ts - dur_ms`, pairwise sample deltas, raw filter; rotation emits the drop
-  marker and the reader spans both files.
+  reader spans both files; empty trace output says "unknown trace, or rotated out."
 - **Integration:** an `exec_command` reproduces Case A's shape (one record per
   span, `namespace.exec.shell` written on terminal under `req-7f3`, finalize
-  `destroy` span + `lease.released` event share the trace); the `snapshot`
+  `capture_changes` + `layerstack.publish` + `destroy` span + `lease.released`
+  event share the trace); the `snapshot`
   view reflects live-registry in-flight (Case B) with **no** log dependency.
 - **Fetch:** `get_observability` returns each `view`; `trace` the waterfall,
   `events` the flat stream, `cgroup` the series with deltas, `snapshot` from the

@@ -543,14 +543,14 @@ fn operations_with_fake(
     fake: &Arc<FakeWorkspaceService>,
 ) -> Result<SandboxRuntimeOperations, Box<dyn std::error::Error + Send + Sync>> {
     let workspace = Arc::new(manager_with(fake));
+    let layerstack = layerstack_service()?;
     let command = Arc::new(CommandOperationService::new(
         Arc::clone(&workspace),
+        Arc::clone(&layerstack),
         sandbox_runtime::command::CommandConfig::default(),
     ));
     Ok(SandboxRuntimeOperations::new(
-        command,
-        workspace,
-        layerstack_service()?,
+        command, workspace, layerstack,
     ))
 }
 

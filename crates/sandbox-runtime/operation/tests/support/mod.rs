@@ -13,6 +13,7 @@ use sandbox_runtime_namespace_execution::{
 use sandbox_runtime_namespace_process::runner::protocol::{NamespaceRunnerRequest, RunResult};
 
 use sandbox_runtime::command::{CommandOperationService, CommandServiceError};
+use sandbox_runtime::layerstack::LayerStackService;
 use sandbox_runtime::workspace_session::WorkspaceSessionService;
 use sandbox_runtime_workspace::{
     CaptureChangesRequest, CapturedWorkspaceChanges, CreateWorkspaceRequest,
@@ -272,13 +273,32 @@ pub(crate) fn build_services_with_launch_driver_and_cgroup_root(
         fake_workspace_runtime(fake),
         cgroup_root,
     ));
-    let command = Arc::new(build_command_service(&workspace, &launch_driver));
+    let command = Arc::new(build_command_service(
+        &workspace,
+        test_layerstack_service(),
+        &launch_driver,
+    ));
+    TestServices { workspace, command }
+}
+
+pub(crate) fn build_services_with_launch_driver_and_layerstack(
+    fake: Arc<FakeWorkspaceService>,
+    launch_driver: Arc<FakeLaunchDriver>,
+    layerstack: Arc<LayerStackService>,
+) -> TestServices {
+    let workspace = Arc::new(WorkspaceSessionService::new(fake_workspace_runtime(fake)));
+    let command = Arc::new(build_command_service(
+        &workspace,
+        layerstack,
+        &launch_driver,
+    ));
     TestServices { workspace, command }
 }
 
 /// Build a command service over an engine wired to the driver's fake launcher.
 pub(crate) fn build_command_service(
     workspace: &Arc<WorkspaceSessionService>,
+    layerstack: Arc<LayerStackService>,
     launch_driver: &FakeLaunchDriver,
 ) -> CommandOperationService {
     let engine = Arc::new(NamespaceExecutionEngine::with_launcher(
@@ -287,7 +307,12 @@ pub(crate) fn build_command_service(
         MAX_ACTIVE_COMMANDS,
         SETUP_TIMEOUT_S,
     ));
-    CommandOperationService::with_engine(Arc::clone(workspace), test_command_config(), engine)
+    CommandOperationService::with_engine(
+        Arc::clone(workspace),
+        layerstack,
+        test_command_config(),
+        engine,
+    )
 }
 
 pub(crate) fn create_request() -> CreateWorkspaceRequest {
@@ -371,6 +396,21 @@ fn test_command_config() -> sandbox_runtime::command::CommandConfig {
             unique_suffix()
         )),
     }
+}
+
+fn test_layerstack_service() -> Arc<LayerStackService> {
+    let base = std::env::temp_dir().join(format!(
+        "operation-service-layerstack-test-{}-{}",
+        std::process::id(),
+        unique_suffix()
+    ));
+    let root = base.join("layer-stack");
+    let workspace = base.join("workspace");
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(&workspace).expect("create layerstack test workspace");
+    sandbox_runtime_layerstack::build_workspace_base(&root, &workspace, false)
+        .expect("build layerstack test base");
+    Arc::new(LayerStackService::new(root).expect("create layerstack test service"))
 }
 
 fn test_launch_base_dir() -> PathBuf {

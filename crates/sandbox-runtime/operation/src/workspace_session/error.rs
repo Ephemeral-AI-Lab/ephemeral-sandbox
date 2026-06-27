@@ -21,14 +21,6 @@ pub enum WorkspaceSessionError {
     },
 
     #[error(
-        "workspace session publish captured changes failed for {workspace_session_id:?}: {error}"
-    )]
-    PublishCapturedChanges {
-        workspace_session_id: WorkspaceSessionId,
-        error: String,
-    },
-
-    #[error(
         "workspace cleanup after create failure failed for {workspace_session_id:?}: {rollback_error}"
     )]
     CreateRollbackFailed {
