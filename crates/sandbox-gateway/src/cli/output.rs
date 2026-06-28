@@ -34,6 +34,9 @@ struct Cli {
     #[arg(long = "default-sandbox-id", value_name = "SANDBOX_ID", global = true)]
     default_sandbox_id: Option<String>,
 
+    #[arg(long = "progress", global = true)]
+    progress: bool,
+
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -105,6 +108,7 @@ where
         gateway_auth_token: cli.gateway_auth_token,
         default_sandbox_id: cli.default_sandbox_id,
     };
+    let global_progress = cli.progress;
 
     let Some(command) = cli.command else {
         return render_cli_help(stdout);
@@ -122,10 +126,13 @@ where
             let Some(operation) = command.operation else {
                 return render_help_command(&catalog, &[], stdout, stderr);
             };
+            let mut operation_argv = command.operation_argv;
+            let progress = global_progress
+                || (operation == "create_sandbox" && take_progress_flag(&mut operation_argv));
             if operation == "help" {
-                return render_help_command(&catalog, &command.operation_argv, stdout, stderr);
+                return render_help_command(&catalog, &operation_argv, stdout, stderr);
             }
-            if command.operation_argv.is_empty() && operation_requires_args(&catalog, &operation) {
+            if operation_argv.is_empty() && operation_requires_args(&catalog, &operation) {
                 return render_help_command(&catalog, &[operation], stdout, stderr);
             }
             let config = match discover_config(config_overrides, stderr) {
@@ -139,11 +146,19 @@ where
             let request_input = BuildRequestInput {
                 execution_space: CliOperationExecutionSpace::Manager,
                 operation,
-                operation_argv: command.operation_argv,
+                operation_argv,
                 sandbox_id: None,
             };
-            run_request_from_catalog(&client, request_input, &config, &catalog, stdout, stderr)
-                .await
+            run_request_from_catalog(
+                &client,
+                request_input,
+                &config,
+                &catalog,
+                progress,
+                stdout,
+                stderr,
+            )
+            .await
         }
         Command::Runtime(command) => {
             let catalog = match runtime_catalog_document() {
@@ -188,6 +203,7 @@ where
                 request_input,
                 &config,
                 &catalog,
+                global_progress,
                 stdout,
                 stderr,
             )
@@ -224,8 +240,16 @@ where
                 operation_argv: command.operation_argv,
                 sandbox_id: None,
             };
-            run_request_from_catalog(&client, request_input, &config, &catalog, stdout, stderr)
-                .await
+            run_request_from_catalog(
+                &client,
+                request_input,
+                &config,
+                &catalog,
+                global_progress,
+                stdout,
+                stderr,
+            )
+            .await
         }
     }
 }
@@ -294,11 +318,18 @@ fn operation_requires_args(catalog: &CliOperationCatalogDocument, operation: &st
         .is_some_and(|spec| spec.args.iter().any(|arg| arg.required))
 }
 
+fn take_progress_flag(argv: &mut Vec<String>) -> bool {
+    let before = argv.len();
+    argv.retain(|arg| arg != "--progress");
+    argv.len() != before
+}
+
 async fn run_request_from_catalog<WOut, WErr>(
     client: &GatewayClient,
     request_input: BuildRequestInput,
     config: &GatewayConfig,
     catalog: &CliOperationCatalogDocument,
+    stream_events: bool,
     stdout: &mut WOut,
     stderr: &mut WErr,
 ) -> u8
@@ -314,7 +345,12 @@ where
         }
     };
 
-    let response = match client.send(&request).await {
+    let response = match client
+        .send_with_events(&request, stream_events, |event| {
+            let _ = write_json_line(stderr, event);
+        })
+        .await
+    {
         Ok(response) => response,
         Err(error) => {
             let _ = render_error(error.kind(), error.to_string(), stderr);

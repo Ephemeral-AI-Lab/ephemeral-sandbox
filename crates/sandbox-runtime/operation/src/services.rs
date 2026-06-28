@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use sandbox_observability::Observer;
 use sandbox_runtime_layerstack::service::StackObservation;
+use serde_json::json;
 
 use crate::command::CommandOperationService;
 use crate::layerstack::LayerStackService;
@@ -54,11 +55,37 @@ impl SandboxRuntimeOperations {
             config.cgroup_root.clone(),
             observer.clone(),
         ));
-        sandbox_runtime_layerstack::ensure_workspace_base(
+        emit_daemon_progress(
+            "layerstack.ensure_workspace_base",
+            "started",
+            format!(
+                "ensuring workspace base for {}",
+                config.workspace.workspace_root.display()
+            ),
+        );
+        let base_result = sandbox_runtime_layerstack::ensure_workspace_base(
             &layer_stack_root,
             &config.workspace.workspace_root,
-        )
-        .expect("layerstack workspace base initialization failed");
+        );
+        match base_result {
+            Ok((_binding, built)) => emit_daemon_progress(
+                "layerstack.ensure_workspace_base",
+                "completed",
+                if built {
+                    "workspace base built"
+                } else {
+                    "workspace base already exists"
+                },
+            ),
+            Err(error) => {
+                emit_daemon_progress(
+                    "layerstack.ensure_workspace_base",
+                    "failed",
+                    error.to_string(),
+                );
+                panic!("layerstack workspace base initialization failed: {error}");
+            }
+        }
         let layerstack = Arc::new(
             LayerStackService::new(layer_stack_root, observer.clone())
                 .expect("layerstack service initialization failed"),
@@ -100,6 +127,26 @@ impl SandboxRuntimeOperations {
     pub fn layer_stack_root(&self) -> &std::path::Path {
         self.layerstack.layer_stack_root()
     }
+}
+
+fn emit_daemon_progress(phase: &str, state: &str, message: impl Into<String>) {
+    let mut event = json!({
+        "event": "progress",
+        "op": "daemon.startup",
+        "phase": phase,
+        "state": state,
+        "message": message.into(),
+    });
+    if let Some(sandbox_id) = daemon_sandbox_id() {
+        event["sandbox_id"] = json!(sandbox_id);
+    }
+    eprintln!("{event}");
+}
+
+fn daemon_sandbox_id() -> Option<String> {
+    std::env::var("SANDBOX_DAEMON_SANDBOX_ID")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
 }
 
 #[derive(Debug, Clone, PartialEq)]

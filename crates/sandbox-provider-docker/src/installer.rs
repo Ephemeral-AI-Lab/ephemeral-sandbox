@@ -2,12 +2,16 @@
 //! container, start it, gate readiness with an authenticated daemon request, and
 //! best-effort stop it. Removal stays with the runtime's `destroy_sandbox`.
 
+use std::collections::HashSet;
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::net::{Shutdown, TcpStream};
 use std::time::{Duration, Instant};
 
 use sandbox_config::configs::manager::DockerRuntimeConfig;
-use sandbox_manager::{ManagerError, SandboxDaemonEndpoint, SandboxDaemonInstaller, SandboxRecord};
+use sandbox_manager::{
+    ManagerError, ProgressSink, SandboxDaemonEndpoint, SandboxDaemonInstaller, SandboxRecord,
+};
+use serde_json::Value;
 
 use crate::archive::build_install_archive;
 use crate::engine::{DockerEngine, DockerError};
@@ -108,6 +112,39 @@ impl SandboxDaemonInstaller for DockerSandboxDaemonInstaller {
             ))
         })
     }
+
+    fn check_daemon_with_progress(
+        &self,
+        record: &SandboxRecord,
+        endpoint: &SandboxDaemonEndpoint,
+        progress: &ProgressSink,
+    ) -> Result<(), ManagerError> {
+        let timeout = Duration::from_millis(self.engine.config().readiness_timeout_ms);
+        let sandbox_id = record.id.as_str();
+        let mut seen_logs = HashSet::new();
+        poll_until_ready_with_progress(
+            endpoint,
+            sandbox_id,
+            timeout,
+            || {
+                emit_container_progress(
+                    &self.engine.capture_logs(sandbox_id.to_owned()),
+                    &mut seen_logs,
+                    progress,
+                    sandbox_id,
+                );
+            },
+        )
+        .map_err(|error| {
+            let context = self.engine.capture_failure_context(sandbox_id.to_owned());
+            daemon_install_failed(format!(
+                "daemon at {}:{} for {sandbox_id} did not become ready within {} ms: {error}; container {context}",
+                endpoint.host,
+                endpoint.port,
+                timeout.as_millis()
+            ))
+        })
+    }
 }
 
 /// Poll the published port with an authenticated, sandbox-scoped readiness
@@ -119,9 +156,22 @@ fn poll_until_ready(
     sandbox_id: &str,
     timeout: Duration,
 ) -> Result<(), String> {
+    poll_until_ready_with_progress(endpoint, sandbox_id, timeout, || {})
+}
+
+fn poll_until_ready_with_progress<F>(
+    endpoint: &SandboxDaemonEndpoint,
+    sandbox_id: &str,
+    timeout: Duration,
+    mut on_poll: F,
+) -> Result<(), String>
+where
+    F: FnMut(),
+{
     let request_line = readiness_request_line(sandbox_id, &endpoint.auth_token);
     let deadline = Instant::now() + timeout;
     loop {
+        on_poll();
         let error = match authenticated_exchange(
             &endpoint.host,
             endpoint.port,
@@ -132,9 +182,53 @@ fn poll_until_ready(
             Err(error) => error,
         };
         if Instant::now() >= deadline {
+            on_poll();
             return Err(error);
         }
         std::thread::sleep(READINESS_POLL);
+    }
+}
+
+fn emit_container_progress(
+    logs: &str,
+    seen_logs: &mut HashSet<String>,
+    progress: &ProgressSink,
+    default_sandbox_id: &str,
+) {
+    for line in logs.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        if !seen_logs.insert(line.to_owned()) {
+            continue;
+        }
+        let Ok(value) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        let progress_value = value.get("progress").unwrap_or(&value);
+        if progress_value.get("event").and_then(Value::as_str) != Some("progress")
+            && value.get("event").and_then(Value::as_str) != Some("progress")
+        {
+            continue;
+        }
+        let op = progress_value
+            .get("op")
+            .and_then(Value::as_str)
+            .unwrap_or("daemon");
+        let phase = progress_value
+            .get("phase")
+            .and_then(Value::as_str)
+            .unwrap_or("log");
+        let state = progress_value
+            .get("state")
+            .and_then(Value::as_str)
+            .unwrap_or("info");
+        let message = progress_value
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let sandbox_id = progress_value
+            .get("sandbox_id")
+            .and_then(Value::as_str)
+            .unwrap_or(default_sandbox_id);
+        progress.emit(op, phase, state, message, Some(sandbox_id));
     }
 }
 
@@ -166,4 +260,38 @@ fn install_error(error: DockerError) -> ManagerError {
 
 fn daemon_install_failed(message: String) -> ManagerError {
     ManagerError::DaemonInstallFailed { message }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use super::*;
+
+    #[test]
+    fn emit_container_progress_relays_json_progress_lines_once() {
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let progress = ProgressSink::new({
+            let events = Arc::clone(&events);
+            move |event| events.lock().expect("events lock").push(event)
+        });
+        let mut seen_logs = HashSet::new();
+        let logs = r#"
+not json
+{"event":"progress","progress":{"op":"daemon.startup","phase":"layerstack.ensure_workspace_base","state":"started","message":"ensuring base","sandbox_id":"sbox-1"}}
+{"event":"progress","op":"layerstack.setup","phase":"workspace_base.copy","state":"running","message":"copied files"}
+"#;
+
+        emit_container_progress(logs, &mut seen_logs, &progress, "fallback-sbox");
+        emit_container_progress(logs, &mut seen_logs, &progress, "fallback-sbox");
+
+        let events = events.lock().expect("events lock");
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].op, "daemon.startup");
+        assert_eq!(events[0].phase, "layerstack.ensure_workspace_base");
+        assert_eq!(events[0].sandbox_id.as_deref(), Some("sbox-1"));
+        assert_eq!(events[1].op, "layerstack.setup");
+        assert_eq!(events[1].phase, "workspace_base.copy");
+        assert_eq!(events[1].sandbox_id.as_deref(), Some("fallback-sbox"));
+    }
 }

@@ -12,7 +12,7 @@ use crate::operation::management::{
     CreateSandboxInput, TreeOptions,
 };
 use crate::operation::ManagerServices;
-use crate::{ManagerError, SandboxDaemonEndpoint, SandboxId, SandboxRecord};
+use crate::{ManagerError, ProgressSink, SandboxDaemonEndpoint, SandboxId, SandboxRecord};
 
 pub(crate) const MANAGEMENT_FAMILY: CliOperationFamilySpec = CliOperationFamilySpec {
     id: "management",
@@ -185,7 +185,10 @@ const SPECS: &[&CliOperationSpec] = &[
 const OPERATIONS: &[ManagerOperationEntry] = &[
     ManagerOperationEntry::new(&CREATE_SANDBOX_SPEC, dispatch_create_sandbox),
     ManagerOperationEntry::new(&DESTROY_SANDBOX_SPEC, dispatch_destroy_sandbox),
-    ManagerOperationEntry::new(&GET_OBSERVABILITY_TREE_SPEC, dispatch_get_observability_tree),
+    ManagerOperationEntry::new(
+        &GET_OBSERVABILITY_TREE_SPEC,
+        dispatch_get_observability_tree,
+    ),
     ManagerOperationEntry::new(&LIST_SANDBOXES_SPEC, dispatch_list_sandboxes),
     ManagerOperationEntry::new(&INSPECT_SANDBOX_SPEC, dispatch_inspect_sandbox),
 ];
@@ -203,6 +206,14 @@ pub(crate) fn operation_entries() -> &'static [ManagerOperationEntry] {
 }
 
 fn dispatch_create_sandbox(services: &ManagerServices, request: &Request) -> Response {
+    dispatch_create_sandbox_with_progress(services, request, &ProgressSink::noop())
+}
+
+pub(crate) fn dispatch_create_sandbox_with_progress(
+    services: &ManagerServices,
+    request: &Request,
+    progress: &ProgressSink,
+) -> Response {
     let image = match image(request) {
         Ok(image) => image,
         Err(response) => return response,
@@ -217,6 +228,7 @@ fn dispatch_create_sandbox(services: &ManagerServices, request: &Request) -> Res
             image,
             workspace_root,
         },
+        progress,
     ) {
         Ok(record) => Response::ok(record_value(record)),
         Err(error) => error.into_response(),

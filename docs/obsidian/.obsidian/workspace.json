@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "ephemeral-os/docs/cli-operations/manager/destroy_sandbox.md",
+                "file": "ephemeral-os/daily-progress-tracker/2026-06-28.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "destroy_sandbox"
+              "title": "2026-06-28"
             }
           }
         ]
@@ -183,8 +183,13 @@
       "bases:Create new base": false
     }
   },
-  "active": "bfb8ca6220b437db",
+  "active": "2b73796146464bdb",
   "lastOpenFiles": [
+    "ephemeral-os/docs/cli-operations/manager/create_sandbox.md",
+    "ephemeral-os/docs/layerstack",
+    "ephemeral-os/daily-progress-tracker/2026-06-28.md",
+    "ephemeral-os/daily-progress-tracker/2026-06-27.md",
+    "ephemeral-os/docs/cli-operations/manager/destroy_sandbox.md",
     "ephemeral-os/docs/cli-operations/observability/layerstack.md",
     "ephemeral-os/docs/cli-operations/observability/snapshot.md",
     "ephemeral-os/docs/cli-operations/observability/trace.md",
@@ -192,8 +197,6 @@
     "ephemeral-os/docs/cli-operations/observability/events.md",
     "ephemeral-os/docs/cli-operations/manager/get_observability_tree.md",
     "ephemeral-os/docs/cli-operations/manager/inspect_sandbox.md",
-    "ephemeral-os/docs/cli-operations/manager/destroy_sandbox.md",
-    "ephemeral-os/docs/cli-operations/manager/create_sandbox.md",
     "ephemeral-os/docs/cli-operations/runtime/command/exec_command.md",
     "ephemeral-os/docs/cli-operations/runtime/workspace_session/create_workspace_session.md",
     "ephemeral-os/docs/cli-operations/runtime/command/write_command_stdin.md",
@@ -210,17 +213,13 @@
     "ephemeral-os/docs/cli-operations/runtime/Untitled.md",
     "ephemeral-os/docs/cli-operations/runtime",
     "ephemeral-os/docs/cli-operations",
-    "ephemeral-os/daily-progress-tracker/2026-06-28.md",
     "ephemeral-os/index.md",
-    "ephemeral-os/daily-progress-tracker/2026-06-27.md",
     "ephemeral-os/docs/cli-operations/manager/management",
     "ephemeral-os/docs/cli-operations/manager/Untitled.md",
-    "ephemeral-os/docs/cli-operations/observability",
     "ephemeral-os/roadmap.md",
     "ephemeral-os/daily-planner/2026-06-27.md",
     "ephemeral-os/docs/cli-gateway-manager-runtime/Untitled.md",
     "ephemeral-os/docs/Untitled.canvas",
-    "daily-planner.md",
-    "docs.md"
+    "daily-planner.md"
   ]
 }

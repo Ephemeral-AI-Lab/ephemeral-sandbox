@@ -7,11 +7,28 @@ repo_root=$(CDPATH= cd "$script_dir/.." && pwd)
 export PATH="$repo_root/bin:$PATH"
 
 config_yaml=${SANDBOX_GATEWAY_CONFIG_YAML:-$repo_root/config/prd.yml}
-for arg in "$@"; do
+rebuild_binary=0
+show_help=0
+arg_count=$#
+while [ "$arg_count" -gt 0 ]; do
+    arg=$1
+    shift
+    arg_count=$((arg_count - 1))
     case "$arg" in
-        -h|--help) exec start-sandbox-gateway --backend docker --config-yaml "$config_yaml" "$@" ;;
+        --rebuild-binary) rebuild_binary=1 ;;
+        -h|--help)
+            show_help=1
+            set -- "$@" "$arg"
+            ;;
+        *) set -- "$@" "$arg" ;;
     esac
 done
+
+if [ "$show_help" -eq 1 ]; then
+    printf 'start-sandbox-docker-gateway options:\n'
+    printf '  --rebuild-binary  force xtask package rebuild of arm64 and amd64 sandbox-daemon\n\n'
+    exec start-sandbox-gateway --backend docker --config-yaml "$config_yaml" "$@"
+fi
 
 daemon_artifact_rel=$(
     sed -n 's/^[[:space:]]*daemon_binary_path:[[:space:]]*//p' "$config_yaml" | sed -n '1p'
@@ -34,9 +51,9 @@ case "${daemon_artifact##*/}" in
 esac
 
 needs_package=0
-if [ ! -x "$daemon_artifact" ]; then
+if [ "$rebuild_binary" -eq 0 ] && [ ! -x "$daemon_artifact" ]; then
     needs_package=1
-else
+elif [ "$rebuild_binary" -eq 0 ]; then
     # ponytail: broad source mtime check; use cargo metadata if false positives matter.
     newer_source=$(
         find \
@@ -58,7 +75,10 @@ else
     [ -z "$newer_source" ] || needs_package=1
 fi
 
-if [ "$needs_package" -eq 1 ]; then
+if [ "$rebuild_binary" -eq 1 ]; then
+    cargo run -p xtask -- package --target aarch64-unknown-linux-musl
+    cargo run -p xtask -- package --target x86_64-unknown-linux-musl
+elif [ "$needs_package" -eq 1 ]; then
     cargo run -p xtask -- package --target "$package_target"
 fi
 

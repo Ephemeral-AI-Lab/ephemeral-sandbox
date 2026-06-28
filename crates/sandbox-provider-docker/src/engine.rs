@@ -282,6 +282,11 @@ impl DockerEngine {
         })
         .unwrap_or_default()
     }
+
+    pub(crate) fn capture_logs(&self, container: String) -> String {
+        self.run_blocking(move |docker| async move { Ok(collect_logs(&docker, &container).await) })
+            .unwrap_or_default()
+    }
 }
 
 fn connect(endpoint: Option<&str>) -> Result<Docker, DockerError> {

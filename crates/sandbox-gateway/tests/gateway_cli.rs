@@ -1016,6 +1016,101 @@ async fn gateway_client_injects_auth_token_into_request() -> TestResult {
     Ok(())
 }
 
+#[tokio::test]
+async fn gateway_client_streams_events_before_final_response() -> TestResult {
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let addr = listener.local_addr()?.to_string();
+    let (tx, rx) = tokio::sync::oneshot::channel::<Value>();
+
+    let handle = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await?;
+        let mut reader = BufReader::new(stream);
+        let mut line = Vec::new();
+        reader.read_until(b'\n', &mut line).await?;
+        let value = serde_json::from_slice::<Value>(&line)?;
+        let _ = tx.send(value);
+        let mut stream = reader.into_inner();
+        stream
+            .write_all(
+                br#"{"event":"progress","progress":{"op":"create_sandbox","phase":"runtime.create","state":"started"}}"#,
+            )
+            .await?;
+        stream.write_all(b"\n{\"ok\":true}\n").await?;
+        Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+    });
+
+    let client = GatewayClient::new(addr, None);
+    let request = Request::new(
+        "create_sandbox",
+        "req-1",
+        CliOperationScope::System,
+        json!({"image": "ubuntu:24.04", "workspace_root": "/testbed"}),
+    );
+    let mut events = Vec::new();
+    let response = client
+        .send_with_events(&request, true, |event| events.push(event.clone()))
+        .await?;
+    let sent = rx.await?;
+    handle.await??;
+
+    assert_eq!(response, json!({ "ok": true }));
+    assert_eq!(sent["_stream_events"], true);
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0]["event"], "progress");
+    assert_eq!(events[0]["progress"]["phase"], "runtime.create");
+    Ok(())
+}
+
+#[tokio::test]
+async fn cli_progress_global_streams_events_to_stderr_and_final_to_stdout() -> TestResult {
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let addr = listener.local_addr()?.to_string();
+    let (tx, rx) = tokio::sync::oneshot::channel::<Value>();
+
+    let handle = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await?;
+        let mut reader = BufReader::new(stream);
+        let mut line = Vec::new();
+        reader.read_until(b'\n', &mut line).await?;
+        let value = serde_json::from_slice::<Value>(&line)?;
+        let _ = tx.send(value);
+        let mut stream = reader.into_inner();
+        stream
+            .write_all(
+                br#"{"event":"progress","progress":{"op":"list_sandboxes","phase":"dispatch","state":"started"}}"#,
+            )
+            .await?;
+        stream.write_all(b"\n{\"sandboxes\":[]}\n").await?;
+        Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+    });
+
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let exit = sandbox_gateway::cli::output::run_cli_with_writers(
+        vec![
+            "sandbox-cli".to_owned(),
+            "--gateway-socket".to_owned(),
+            addr,
+            "--progress".to_owned(),
+            "manager".to_owned(),
+            "list_sandboxes".to_owned(),
+        ],
+        &mut stdout,
+        &mut stderr,
+    )
+    .await;
+    let sent = rx.await?;
+    handle.await??;
+
+    assert_eq!(exit, 0);
+    assert_eq!(sent["_stream_events"], true);
+    assert_eq!(String::from_utf8(stdout)?, "{\"sandboxes\":[]}\n");
+    let stderr = String::from_utf8(stderr)?;
+    assert!(stderr.contains("\"event\":\"progress\""));
+    assert!(stderr.contains("\"phase\":\"dispatch\""));
+    Ok(())
+}
+
 fn build_manager_request(
     operation: &str,
     argv: &[&str],

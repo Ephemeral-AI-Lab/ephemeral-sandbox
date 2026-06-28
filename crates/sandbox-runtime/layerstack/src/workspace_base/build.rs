@@ -11,8 +11,7 @@ use super::binding::{
     read_workspace_binding, validate_manifest_for_root, validate_workspace_binding_paths,
     write_workspace_binding_at, WorkspaceBinding,
 };
-use super::collect::collect_base_entries;
-use super::layer::write_base_layer;
+use super::layer::build_base_layer;
 
 pub fn ensure_workspace_base(
     layer_stack_root: impl AsRef<Path>,
@@ -81,9 +80,7 @@ fn build_workspace_base_from_snapshot(
     let _stack_guard = LayerStack::open(stack.to_path_buf())?;
     reject_existing_base_state(stack)?;
 
-    let (entries, root_hash) = collect_base_entries(snapshot)?;
-
-    let layer_ref = write_base_layer(stack, &entries)?;
+    let (layer_ref, root_hash) = build_base_layer(stack, snapshot)?;
     write_layer_digest(stack, &layer_ref.layer_id, &root_hash)?;
 
     let manifest = Manifest::new(1, vec![layer_ref], MANIFEST_SCHEMA_VERSION)

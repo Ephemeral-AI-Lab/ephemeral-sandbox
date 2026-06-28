@@ -12,7 +12,7 @@ use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 #[cfg(unix)]
 use nix::unistd::Pid;
 
-use crate::{ManagerError, SandboxDaemonEndpoint, SandboxRecord};
+use crate::{ManagerError, ProgressSink, SandboxDaemonEndpoint, SandboxRecord};
 
 const DAEMON_READY_TIMEOUT: Duration = Duration::from_secs(2);
 const DAEMON_READY_POLL: Duration = Duration::from_millis(20);
@@ -32,6 +32,15 @@ pub trait SandboxDaemonInstaller: Send + Sync {
         record: &SandboxRecord,
         endpoint: &SandboxDaemonEndpoint,
     ) -> Result<(), ManagerError>;
+
+    fn check_daemon_with_progress(
+        &self,
+        record: &SandboxRecord,
+        endpoint: &SandboxDaemonEndpoint,
+        _progress: &ProgressSink,
+    ) -> Result<(), ManagerError> {
+        self.check_daemon(record, endpoint)
+    }
 }
 
 #[derive(Debug, Clone)]

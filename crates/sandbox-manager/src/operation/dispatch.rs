@@ -1,4 +1,5 @@
 use super::ManagerServices;
+use crate::ProgressSink;
 
 #[derive(Clone, Copy)]
 pub(crate) struct ManagerOperationEntry {
@@ -28,4 +29,18 @@ pub fn dispatch_operation(
         .map_or_else(sandbox_protocol::Response::unknown_op, |entry| {
             (entry.dispatch)(services, request)
         })
+}
+
+#[must_use]
+pub fn dispatch_operation_with_progress(
+    services: &ManagerServices,
+    request: &sandbox_protocol::Request,
+    progress: ProgressSink,
+) -> sandbox_protocol::Response {
+    if request.op == "create_sandbox" {
+        return super::cli_definition::management_operations::dispatch_create_sandbox_with_progress(
+            services, request, &progress,
+        );
+    }
+    dispatch_operation(services, request)
 }

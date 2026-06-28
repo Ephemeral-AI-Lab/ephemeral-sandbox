@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use sandbox_protocol::{error_kind, CliOperationScope, Request, Response};
 
+use crate::ProgressSink;
+
 use super::{forward::forward_sandbox_request, SandboxManagerRouter};
 
 impl SandboxManagerRouter {
@@ -32,6 +34,33 @@ impl SandboxManagerRouter {
                 error_kind::INTERNAL_ERROR,
                 format!("manager operation task failed: {error}"),
             ),
+        }
+    }
+
+    pub async fn dispatch_request_with_progress(
+        &self,
+        request: Request,
+        progress: ProgressSink,
+    ) -> Response {
+        let manager_owned = crate::cli_operation_specs()
+            .iter()
+            .any(|spec| spec.name == request.op);
+        match (&request.scope, manager_owned) {
+            (CliOperationScope::System, true) => {
+                let services = Arc::clone(&self.services);
+                match tokio::task::spawn_blocking(move || {
+                    crate::dispatch_operation_with_progress(&services, &request, progress)
+                })
+                .await
+                {
+                    Ok(response) => response,
+                    Err(error) => Response::fault(
+                        error_kind::INTERNAL_ERROR,
+                        format!("manager operation task failed: {error}"),
+                    ),
+                }
+            }
+            _ => self.dispatch_request(request).await,
         }
     }
 

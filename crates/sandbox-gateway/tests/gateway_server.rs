@@ -168,6 +168,40 @@ async fn send_raw(server: &SandboxGatewayServer, raw: &[u8]) -> Value {
     response
 }
 
+async fn send_value_lines(server: &SandboxGatewayServer, value: Value) -> Vec<Value> {
+    let mut raw = serde_json::to_vec(&value).expect("serialize request");
+    raw.push(b'\n');
+    send_raw_lines(server, &raw).await
+}
+
+async fn send_raw_lines(server: &SandboxGatewayServer, raw: &[u8]) -> Vec<Value> {
+    let (client, server_stream) = tokio::io::duplex(64 * 1024);
+    let server_future = server.handle_connection(server_stream);
+    let client_future = async {
+        let (reader, mut writer) = tokio::io::split(client);
+        let _ = writer.write_all(raw).await;
+        let _ = writer.shutdown().await;
+
+        let mut reader = BufReader::new(reader);
+        let mut responses = Vec::new();
+        loop {
+            let mut response = String::new();
+            let bytes = reader
+                .read_line(&mut response)
+                .await
+                .expect("read response");
+            if bytes == 0 {
+                break;
+            }
+            responses.push(serde_json::from_str::<Value>(&response).expect("decode response"));
+        }
+        responses
+    };
+    let (server_result, responses) = tokio::join!(server_future, client_future);
+    server_result.expect("handle connection");
+    responses
+}
+
 #[tokio::test]
 async fn gateway_binds_tcp_writes_pid_file_and_cleans_up() -> TestResult {
     let root = unique_temp_dir("sandbox-gateway-server-test")?;
@@ -218,6 +252,39 @@ async fn gateway_connection_decodes_request_and_writes_response() -> TestResult 
     .await;
 
     assert_eq!(response["sandboxes"], json!([]));
+    Ok(())
+}
+
+#[tokio::test]
+async fn gateway_streams_create_sandbox_progress_before_final_response() -> TestResult {
+    let (services, _store, _daemon_client) = services();
+    let server = server(
+        services,
+        "127.0.0.1:0".to_owned(),
+        PathBuf::from("/tmp/test-gateway.pid"),
+        8,
+        CancellationToken::new(),
+    );
+    let mut request = request(
+        "create_sandbox",
+        CliOperationScope::System,
+        json!({"image": "ubuntu:24.04", "workspace_root": "/testbed"}),
+    );
+    request["_stream_events"] = json!(true);
+
+    let responses = send_value_lines(&server, request).await;
+
+    assert!(responses.len() > 1);
+    assert_eq!(responses[0]["event"], "progress");
+    assert_eq!(responses[0]["progress"]["op"], "create_sandbox");
+    assert!(responses
+        .iter()
+        .any(|response| response["progress"]["phase"] == "runtime.create"));
+    let final_response = responses.last().expect("final response");
+    assert_eq!(final_response["id"], "container-1");
+    assert_eq!(final_response["workspace_root"], "/testbed");
+    assert_eq!(final_response["state"], "ready");
+    assert!(final_response.get("event").is_none());
     Ok(())
 }
 
