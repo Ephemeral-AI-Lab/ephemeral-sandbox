@@ -70,8 +70,6 @@ pub mod names {
     pub const LEASE_ACQUIRED: &str = "lease.acquired";
     /// A layer lease was released.
     pub const LEASE_RELEASED: &str = "lease.released";
-    /// A running command was signaled (e.g. Ctrl-D / kill).
-    pub const COMMAND_SIGNALED: &str = "command.signaled";
 }
 
 /// One NDJSON record. Internally tagged on `kind` so the tag is a sibling field,

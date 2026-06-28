@@ -1,9 +1,9 @@
 //! CLI operation specs for the read-only `observability` execution space.
 //!
 //! Every operation resolves to the single daemon op `get_observability`; the
-//! operation name is the `view` value (see `request_builder`). This slice ships
-//! the `layerstack` view; sibling views (`cgroup`, `snapshot`, …) land with their
-//! daemon bodies.
+//! operation name is the `view` value and the flags map to that op's params (see
+//! `request_builder`). One `CliOperationSpec` per view gives each its own
+//! subcommand, help page, and args.
 
 use sandbox_protocol::{
     ArgCliSpec, ArgKind, ArgSpec, CliOperationCatalog, CliOperationExecutionSpace,
