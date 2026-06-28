@@ -161,9 +161,6 @@ fn write_bound_manifest(
     let binding = WorkspaceBinding {
         workspace_root: fixture.workspace.to_string_lossy().into_owned(),
         layer_stack_root: fixture.root.to_string_lossy().into_owned(),
-        active_manifest_version: 1,
-        active_root_hash: "root".to_owned(),
-        base_manifest_version: 1,
         base_root_hash: "root".to_owned(),
     };
     std::fs::write(

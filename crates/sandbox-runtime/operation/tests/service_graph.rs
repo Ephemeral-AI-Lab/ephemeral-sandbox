@@ -127,7 +127,7 @@ fn runtime_from_config_initializes_layerstack_workspace_base(
     let _ = std::fs::remove_dir_all(&base);
     std::fs::create_dir_all(&workspace_root)?;
 
-    let operations = SandboxRuntimeOperations::from_config(
+    let _operations = SandboxRuntimeOperations::from_config(
         SandboxRuntimeConfig {
             workspace: WorkspaceRuntimeConfig {
                 workspace_root: workspace_root.clone(),
@@ -148,10 +148,8 @@ fn runtime_from_config_initializes_layerstack_workspace_base(
     );
 
     assert!(layer_stack_root.join("workspace.json").is_file());
-    assert_eq!(
-        operations.layerstack.binding().workspace_root,
-        workspace_root.to_string_lossy()
-    );
+    let binding = sandbox_runtime_layerstack::require_workspace_binding(&layer_stack_root)?;
+    assert_eq!(binding.workspace_root, workspace_root.to_string_lossy());
     Ok(())
 }
 

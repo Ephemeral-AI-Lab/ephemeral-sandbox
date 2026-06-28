@@ -249,7 +249,6 @@ fn workspace_value(
         "lifecycle_state": "active",
         "network_profile": workspace.network.as_str(),
         "layers": {
-            "base_manifest_version": workspace.base_manifest_version,
             "base_root_hash": workspace.base_root_hash,
             "layer_count": workspace.layer_count,
         },

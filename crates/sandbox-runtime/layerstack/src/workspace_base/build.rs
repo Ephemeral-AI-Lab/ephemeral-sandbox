@@ -90,9 +90,6 @@ fn build_workspace_base_from_snapshot(
     let binding = WorkspaceBinding {
         workspace_root: binding_workspace.to_string_lossy().into_owned(),
         layer_stack_root: binding_stack.to_string_lossy().into_owned(),
-        active_manifest_version: manifest.version,
-        active_root_hash: root_hash.clone(),
-        base_manifest_version: manifest.version,
         base_root_hash: root_hash,
     };
     write_workspace_binding_at(stack, &binding)?;

@@ -18,7 +18,6 @@ pub struct RuntimeWorkspaceSnapshot {
     pub upperdir: Option<PathBuf>,
     pub workdir: Option<PathBuf>,
     pub namespace_fd_count: Option<usize>,
-    pub base_manifest_version: Option<i64>,
     pub base_root_hash: Option<String>,
     pub layer_count: Option<usize>,
     /// Mounted layer ids, base → newest. The per-session layerstack view joins

@@ -12,9 +12,6 @@ pub const WORKSPACE_BINDING_FILE: &str = "workspace.json";
 pub struct WorkspaceBinding {
     pub workspace_root: String,
     pub layer_stack_root: String,
-    pub active_manifest_version: i64,
-    pub active_root_hash: String,
-    pub base_manifest_version: i64,
     pub base_root_hash: String,
 }
 

@@ -60,4 +60,4 @@ Success — an array of sandbox records (empty when none exist):
 ## Related
 
 - [[inspect_sandbox]]
-- [[create_sandbox]]
+- [[docs/cli-operations/manager/Management/create_sandbox]]

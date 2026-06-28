@@ -60,7 +60,7 @@ Success — one node per selected sandbox:
           "workspace_id": "ws-1",
           "lifecycle_state": "active",
           "network_profile": "shared",
-          "layers": { "base_manifest_version": 1, "base_root_hash": "sha256:…", "layer_count": 2 },
+          "layers": { "base_root_hash": "sha256:…", "layer_count": 2 },
           "namespace_fd_count": 5,
           "resources": { "latest": null, "history": [] },
           "active_namespace_executions": []

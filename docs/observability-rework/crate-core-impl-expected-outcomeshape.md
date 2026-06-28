@@ -309,7 +309,6 @@ workspace_root
 upperdir
 workdir
 namespace_fd_count
-base_manifest_version
 base_root_hash
 layer_count
 sampled_at_unix_ms

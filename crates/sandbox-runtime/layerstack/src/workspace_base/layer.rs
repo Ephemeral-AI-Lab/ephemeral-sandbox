@@ -17,6 +17,13 @@ const WORKSPACE_BASE_LAYER_ID: &str = "B000001-base";
 const PROGRESS_INTERVAL: Duration = Duration::from_secs(1);
 const COPY_BUFFER_BYTES: usize = 1024 * 1024;
 
+/// Fixed worker count for the base-layer build (directory walk and file copy).
+/// Both phases are bound by per-file `readdir`/`open`/`read` latency on the
+/// bind-mounted workspace, not by CPU, so this is sized for I/O concurrency
+/// (overlapping in-flight syscalls) rather than core count; the cores stay
+/// idle-waiting while the syscalls round-trip.
+const BASE_BUILD_WORKER_THREADS: usize = 32;
+
 pub(super) fn build_base_layer(
     stack: &Path,
     workspace: &Path,
@@ -32,27 +39,25 @@ pub(super) fn build_base_layer(
     }
     std::fs::create_dir_all(&staging_dir)?;
     let result = (|| {
-        let mut entries = Vec::new();
-        let mut file_tasks = Vec::new();
-        let mut special = Vec::new();
-        let mut unstable = Vec::new();
         let stats = BuildStats::new();
         stats.emit(format!(
             "copying workspace {} into base layer",
             workspace.display()
         ));
-        collect_tree(
-            workspace,
-            workspace,
-            &staging_dir,
-            &mut entries,
-            &mut file_tasks,
-            &mut special,
-            &mut unstable,
-            &stats,
-        )?;
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(BASE_BUILD_WORKER_THREADS)
+            .build()
+            .map_err(|err| {
+                LayerStackError::Storage(format!("failed to build base-build thread pool: {err}"))
+            })?;
+        let Collected {
+            mut entries,
+            file_tasks,
+            mut special,
+            mut unstable,
+        } = pool.install(|| collect_subtree(workspace, workspace, &staging_dir, &stats))?;
         merge_file_outcomes(
-            copy_files(&file_tasks, &stats)?,
+            pool.install(|| copy_files(&file_tasks, &stats))?,
             &mut entries,
             &mut special,
             &mut unstable,
@@ -113,27 +118,41 @@ enum FileOutcome {
     Special(String),
 }
 
-#[allow(clippy::too_many_arguments)]
-fn collect_tree(
+#[derive(Default)]
+struct Collected {
+    entries: Vec<BaseEntry>,
+    file_tasks: Vec<FileTask>,
+    special: Vec<String>,
+    unstable: Vec<String>,
+}
+
+impl Collected {
+    fn merge(&mut self, other: Collected) {
+        self.entries.extend(other.entries);
+        self.file_tasks.extend(other.file_tasks);
+        self.special.extend(other.special);
+        self.unstable.extend(other.unstable);
+    }
+}
+
+fn collect_subtree(
     workspace: &Path,
     current: &Path,
     staging_dir: &Path,
-    entries: &mut Vec<BaseEntry>,
-    file_tasks: &mut Vec<FileTask>,
-    special: &mut Vec<String>,
-    unstable: &mut Vec<String>,
     stats: &BuildStats,
-) -> Result<(), LayerStackError> {
+) -> Result<Collected, LayerStackError> {
+    let mut collected = Collected::default();
     let mut children = match std::fs::read_dir(current) {
         Ok(read_dir) => read_dir.collect::<Result<Vec<_>, _>>()?,
         Err(err) if err.kind() == ErrorKind::NotFound => {
-            unstable.push(relative_path(workspace, current));
-            return Ok(());
+            collected.unstable.push(relative_path(workspace, current));
+            return Ok(collected);
         }
         Err(err) => return Err(err.into()),
     };
     children.sort_by_key(std::fs::DirEntry::file_name);
 
+    let mut subdirs = Vec::new();
     for child in children {
         let source = child.path();
         let rel = relative_path(workspace, &source);
@@ -141,47 +160,46 @@ fn collect_tree(
         let file_type = match child.file_type() {
             Ok(file_type) => file_type,
             Err(err) if err.kind() == ErrorKind::NotFound => {
-                unstable.push(rel);
+                collected.unstable.push(rel);
                 continue;
             }
             Err(err) => return Err(err.into()),
         };
         if file_type.is_symlink() {
             let Ok(link_target) = std::fs::read_link(&source) else {
-                special.push(rel);
+                collected.special.push(rel);
                 continue;
             };
             std::os::unix::fs::symlink(&link_target, &target)?;
-            entries.push(BaseEntry::Symlink {
+            collected.entries.push(BaseEntry::Symlink {
                 path: rel,
                 link_target: link_target.to_string_lossy().into_owned(),
             });
             stats.record_symlink();
         } else if file_type.is_dir() {
             std::fs::create_dir_all(&target)?;
-            entries.push(BaseEntry::Directory { path: rel });
+            collected.entries.push(BaseEntry::Directory { path: rel });
             stats.record_directory();
-            collect_tree(
-                workspace,
-                &source,
-                staging_dir,
-                entries,
-                file_tasks,
-                special,
-                unstable,
-                stats,
-            )?;
+            subdirs.push(source);
         } else if file_type.is_file() {
-            file_tasks.push(FileTask {
+            collected.file_tasks.push(FileTask {
                 source,
                 target,
                 rel,
             });
         } else {
-            special.push(rel);
+            collected.special.push(rel);
         }
     }
-    Ok(())
+
+    let child_results = subdirs
+        .par_iter()
+        .map(|sub| collect_subtree(workspace, sub, staging_dir, stats))
+        .collect::<Result<Vec<_>, LayerStackError>>()?;
+    for child in child_results {
+        collected.merge(child);
+    }
+    Ok(collected)
 }
 
 fn copy_files(tasks: &[FileTask], stats: &BuildStats) -> Result<Vec<FileOutcome>, LayerStackError> {
@@ -319,13 +337,16 @@ fn copy_file_with_hash(
     buffer: &mut [u8],
 ) -> Result<CopiedFile, CopyFileError> {
     let mut input = std::fs::File::open(source).map_err(map_source_error)?;
-    let permissions = input.metadata().map_err(map_source_error)?.permissions();
+    let metadata = input.metadata().map_err(map_source_error)?;
+    let permissions = metadata.permissions();
     let mut output = std::fs::File::create(target).map_err(CopyFileError::Target)?;
     let mut digest = Sha256::new();
     let mut size = 0_u64;
 
-    loop {
-        let count = input.read(buffer).map_err(map_source_error)?;
+    let mut remaining = metadata.len();
+    while remaining > 0 {
+        let cap = (remaining.min(buffer.len() as u64)) as usize;
+        let count = input.read(&mut buffer[..cap]).map_err(map_source_error)?;
         if count == 0 {
             break;
         }
@@ -334,6 +355,7 @@ fn copy_file_with_hash(
             .map_err(CopyFileError::Target)?;
         digest.update(&buffer[..count]);
         size += count as u64;
+        remaining -= count as u64;
     }
 
     output

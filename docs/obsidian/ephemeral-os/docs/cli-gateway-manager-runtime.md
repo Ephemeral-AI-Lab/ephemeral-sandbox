@@ -21,7 +21,7 @@ The useful mental model is: operators talk to one gateway, the gateway talks to 
 flowchart LR
     subgraph UserTools["User Tools"]
         User([User])
-        Start["bin/start-sandbox-gateway"]
+        Start["bin/start-sandbox-docker-gateway"]
         CLI["bin/sandbox-cli"]
     end
 
@@ -68,7 +68,7 @@ Docker runtime setup only matters during sandbox lifecycle operations such as `c
 
 Implementation paths:
 
-- `bin/start-sandbox-gateway`
+- `bin/start-sandbox-docker-gateway`
 - `bin/sandbox-cli`
 - `crates/sandbox-gateway/src/gateway/main.rs`
 - `crates/sandbox-gateway/src/gateway/server.rs`
@@ -83,24 +83,25 @@ Implementation paths:
 ```mermaid
 flowchart LR
     User([User])
-    Start["bin/start-sandbox-gateway"]
+    Start["bin/start-sandbox-docker-gateway"]
+    Package["packages sandbox-daemon if needed"]
     Build["builds sandbox-gateway"]
     Token["writes auth token"]
     Serve["starts sandbox-gateway serve"]
     Listen["listens on gateway address"]
 
-    User --> Start --> Build --> Token --> Serve --> Listen
+    User --> Start --> Package --> Build --> Token --> Serve --> Listen
 ```
 
-`bin/start-sandbox-gateway` builds the gateway binary, stops the old pid-file-owned gateway if one is running, writes the gateway auth token, and starts `sandbox-gateway serve` in the background.
+`bin/start-sandbox-docker-gateway` packages the Docker daemon binary if needed, builds the gateway binary, stops the old pid-file-owned gateway if one is running, writes the gateway auth token, and starts `sandbox-gateway serve` in the background.
 
-For normal Docker-backed operation, start the gateway with `--backend docker --config-yaml config/prd.yml`. The helper writes the token to the token file used by `bin/sandbox-cli`, so users normally do not need to copy the token by hand. The default gateway address is local, so the gateway is meant to be the local control point for CLI requests.
+The helper uses Docker backend config from `config/prd.yml` by default. It writes the token to the token file used by `bin/sandbox-cli`, so users normally do not need to copy the token by hand. The default gateway address is local, so the gateway is meant to be the local control point for CLI requests.
 
 If startup fails, check the gateway log printed by the helper first. The common operator checks are: Docker is available, the configured daemon binary exists, the config path is correct, and the old gateway process was stopped cleanly.
 
 Implementation paths:
 
-- `bin/start-sandbox-gateway`
+- `bin/start-sandbox-docker-gateway`
 - `crates/sandbox-gateway/src/gateway/main.rs`
 - `crates/sandbox-gateway/src/gateway/server.rs`
 - `crates/sandbox-config/src/configs/cli.rs`

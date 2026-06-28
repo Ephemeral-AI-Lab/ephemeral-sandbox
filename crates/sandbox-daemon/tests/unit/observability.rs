@@ -407,7 +407,6 @@ fn workspace_snapshot(workspace_id: &str, upperdir: Option<PathBuf>) -> RuntimeW
         upperdir,
         workdir: Some(PathBuf::from("/workspace").join(workspace_id).join("work")),
         namespace_fd_count: Some(3),
-        base_manifest_version: Some(1),
         base_root_hash: Some("root".to_owned()),
         layer_count: Some(1),
         layer_ids: vec![format!("{workspace_id}-layer")],

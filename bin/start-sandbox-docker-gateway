@@ -7,6 +7,17 @@ repo_root=$(CDPATH= cd "$script_dir/.." && pwd)
 export PATH="$repo_root/bin:$PATH"
 
 config_yaml=${SANDBOX_GATEWAY_CONFIG_YAML:-$repo_root/config/prd.yml}
+default_socket=${SANDBOX_GATEWAY_SOCKET:-127.0.0.1:7878}
+pid_file=/tmp/eos-gateway.pid
+socket_path=$default_socket
+token_file=${SANDBOX_GATEWAY_TOKEN_FILE:-/tmp/eos-gateway.token}
+target_dir=${CARGO_TARGET_DIR:-$repo_root/target}
+case "$target_dir" in
+    /*) ;;
+    *) target_dir=$(pwd)/$target_dir ;;
+esac
+gateway_bin=$target_dir/debug/sandbox-gateway
+cli_bin=$target_dir/debug/sandbox-cli
 rebuild_binary=0
 show_help=0
 arg_count=$#
@@ -24,62 +35,213 @@ while [ "$arg_count" -gt 0 ]; do
     esac
 done
 
+set -- --backend docker --config-yaml "$config_yaml" "$@"
+
+previous_flag=
+for arg in "$@"; do
+    if [ "$previous_flag" = "pid-file" ]; then
+        pid_file=$arg
+        previous_flag=
+        continue
+    fi
+    if [ "$previous_flag" = "gateway-socket" ]; then
+        socket_path=$arg
+        previous_flag=
+        continue
+    fi
+
+    case "$arg" in
+        -h|--help)
+            show_help=1
+            ;;
+        --pid-file)
+            previous_flag=pid-file
+            ;;
+        --pid-file=*)
+            pid_file=${arg#--pid-file=}
+            ;;
+        --gateway-socket)
+            previous_flag=gateway-socket
+            ;;
+        --gateway-socket=*)
+            socket_path=${arg#--gateway-socket=}
+            ;;
+    esac
+done
+
+if [ "$show_help" -eq 0 ]; then
+    daemon_artifact_rel=$(
+        sed -n 's/^[[:space:]]*daemon_binary_path:[[:space:]]*//p' "$config_yaml" | sed -n '1p'
+    )
+    daemon_artifact_rel=${daemon_artifact_rel#\"}
+    daemon_artifact_rel=${daemon_artifact_rel%\"}
+    daemon_artifact_rel=${daemon_artifact_rel#\'}
+    daemon_artifact_rel=${daemon_artifact_rel%\'}
+
+    case "$daemon_artifact_rel" in
+        '') printf 'daemon_binary_path not found in %s\n' "$config_yaml" >&2; exit 1 ;;
+        /*) daemon_artifact=$daemon_artifact_rel ;;
+        *) daemon_artifact=$repo_root/$daemon_artifact_rel ;;
+    esac
+
+    case "${daemon_artifact##*/}" in
+        *-arm64) package_target=aarch64-unknown-linux-musl ;;
+        *-amd64) package_target=x86_64-unknown-linux-musl ;;
+        *) printf 'cannot infer package target from %s\n' "$daemon_artifact" >&2; exit 1 ;;
+    esac
+
+    needs_package=0
+    if [ "$rebuild_binary" -eq 0 ] && [ ! -x "$daemon_artifact" ]; then
+        needs_package=1
+    elif [ "$rebuild_binary" -eq 0 ]; then
+        # ponytail: broad source mtime check; use cargo metadata if false positives matter.
+        newer_source=$(
+            find \
+                "$repo_root/Cargo.toml" \
+                "$repo_root/Cargo.lock" \
+                "$repo_root/crates/sandbox-daemon/Cargo.toml" \
+                "$repo_root/crates/sandbox-daemon/src" \
+                "$repo_root/crates/sandbox-config/Cargo.toml" \
+                "$repo_root/crates/sandbox-config/src" \
+                "$repo_root/crates/sandbox-observability/Cargo.toml" \
+                "$repo_root/crates/sandbox-observability/src" \
+                "$repo_root/crates/sandbox-protocol/Cargo.toml" \
+                "$repo_root/crates/sandbox-protocol/src" \
+                "$repo_root/crates/sandbox-runtime" \
+                -type f \( -name '*.rs' -o -name 'Cargo.toml' -o -name 'Cargo.lock' \) \
+                -newer "$daemon_artifact" \
+                -print -quit
+        )
+        [ -z "$newer_source" ] || needs_package=1
+    fi
+
+    if [ "$rebuild_binary" -eq 1 ]; then
+        cargo run -p xtask -- package --target aarch64-unknown-linux-musl
+        cargo run -p xtask -- package --target x86_64-unknown-linux-musl
+    elif [ "$needs_package" -eq 1 ]; then
+        cargo run -p xtask -- package --target "$package_target"
+    fi
+fi
+
+printf 'building sandbox-gateway binaries\n'
+cargo build --quiet --manifest-path "$repo_root/Cargo.toml" -p sandbox-gateway --bin sandbox-gateway --bin sandbox-cli
+if [ ! -x "$gateway_bin" ]; then
+    printf 'built sandbox-gateway binary not found at %s\n' "$gateway_bin" >&2
+    exit 1
+fi
+if [ ! -x "$cli_bin" ]; then
+    printf 'built sandbox-cli binary not found at %s\n' "$cli_bin" >&2
+    exit 1
+fi
+
 if [ "$show_help" -eq 1 ]; then
     printf 'start-sandbox-docker-gateway options:\n'
     printf '  --rebuild-binary  force xtask package rebuild of arm64 and amd64 sandbox-daemon\n\n'
-    exec start-sandbox-gateway --backend docker --config-yaml "$config_yaml" "$@"
+    exec "$gateway_bin" serve "$@"
 fi
 
-daemon_artifact_rel=$(
-    sed -n 's/^[[:space:]]*daemon_binary_path:[[:space:]]*//p' "$config_yaml" | sed -n '1p'
+log_file=${SANDBOX_GATEWAY_LOG:-${pid_file%.*}.log}
+if [ "$log_file" = "$pid_file" ]; then
+    log_file=$pid_file.log
+fi
+
+stop_existing_gateway() {
+    [ -f "$pid_file" ] || return 0
+
+    old_pid=$(sed -n '1p' "$pid_file" 2>/dev/null || true)
+    case "$old_pid" in
+        ''|*[!0-9]*)
+            rm -f "$pid_file"
+            return 0
+            ;;
+    esac
+
+    if ! kill -0 "$old_pid" 2>/dev/null; then
+        rm -f "$pid_file" "$socket_path"
+        return 0
+    fi
+
+    process_name=$(ps -p "$old_pid" -o comm= 2>/dev/null || true)
+    case "$process_name" in
+        *sandbox-gateway*) ;;
+        *)
+            printf 'stale pid file %s points at non-gateway process %s; not killing\n' "$pid_file" "$old_pid" >&2
+            rm -f "$pid_file"
+            return 0
+            ;;
+    esac
+
+    printf 'stopping existing sandbox-gateway pid %s\n' "$old_pid"
+    kill "$old_pid" 2>/dev/null || true
+
+    count=0
+    while kill -0 "$old_pid" 2>/dev/null && [ "$count" -lt 50 ]; do
+        sleep 0.1
+        count=$((count + 1))
+    done
+
+    if kill -0 "$old_pid" 2>/dev/null; then
+        printf 'existing sandbox-gateway pid %s did not stop; killing forcefully\n' "$old_pid" >&2
+        kill -KILL "$old_pid" 2>/dev/null || true
+    fi
+
+    rm -f "$pid_file" "$socket_path"
+}
+
+stop_existing_gateway
+
+auth_token=${SANDBOX_GATEWAY_AUTH_TOKEN:-}
+if [ -z "$auth_token" ]; then
+    if command -v uuidgen >/dev/null 2>&1; then
+        auth_token=$(uuidgen)
+    else
+        auth_token=$(od -An -N16 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n')
+    fi
+fi
+export SANDBOX_GATEWAY_AUTH_TOKEN="$auth_token"
+
+mkdir -p "$(dirname "$pid_file")" "$(dirname "$log_file")" "$(dirname "$token_file")"
+printf '%s\n' "$auth_token" >"$token_file"
+
+if command -v python3 >/dev/null 2>&1; then
+    launcher_pid=$(
+        GATEWAY_BIN=$gateway_bin LOG_FILE=$log_file python3 - "$@" <<'PY'
+import os
+import subprocess
+import sys
+
+log = open(os.environ["LOG_FILE"], "ab", buffering=0)
+process = subprocess.Popen(
+    ["nohup", os.environ["GATEWAY_BIN"], "serve", *sys.argv[1:]],
+    stdin=subprocess.DEVNULL,
+    stdout=log,
+    stderr=subprocess.STDOUT,
+    start_new_session=True,
+    close_fds=True,
 )
-daemon_artifact_rel=${daemon_artifact_rel#\"}
-daemon_artifact_rel=${daemon_artifact_rel%\"}
-daemon_artifact_rel=${daemon_artifact_rel#\'}
-daemon_artifact_rel=${daemon_artifact_rel%\'}
-
-case "$daemon_artifact_rel" in
-    '') printf 'daemon_binary_path not found in %s\n' "$config_yaml" >&2; exit 1 ;;
-    /*) daemon_artifact=$daemon_artifact_rel ;;
-    *) daemon_artifact=$repo_root/$daemon_artifact_rel ;;
-esac
-
-case "${daemon_artifact##*/}" in
-    *-arm64) package_target=aarch64-unknown-linux-musl ;;
-    *-amd64) package_target=x86_64-unknown-linux-musl ;;
-    *) printf 'cannot infer package target from %s\n' "$daemon_artifact" >&2; exit 1 ;;
-esac
-
-needs_package=0
-if [ "$rebuild_binary" -eq 0 ] && [ ! -x "$daemon_artifact" ]; then
-    needs_package=1
-elif [ "$rebuild_binary" -eq 0 ]; then
-    # ponytail: broad source mtime check; use cargo metadata if false positives matter.
-    newer_source=$(
-        find \
-            "$repo_root/Cargo.toml" \
-            "$repo_root/Cargo.lock" \
-            "$repo_root/crates/sandbox-daemon/Cargo.toml" \
-            "$repo_root/crates/sandbox-daemon/src" \
-            "$repo_root/crates/sandbox-config/Cargo.toml" \
-            "$repo_root/crates/sandbox-config/src" \
-            "$repo_root/crates/sandbox-observability/Cargo.toml" \
-            "$repo_root/crates/sandbox-observability/src" \
-            "$repo_root/crates/sandbox-protocol/Cargo.toml" \
-            "$repo_root/crates/sandbox-protocol/src" \
-            "$repo_root/crates/sandbox-runtime" \
-            -type f \( -name '*.rs' -o -name 'Cargo.toml' -o -name 'Cargo.lock' \) \
-            -newer "$daemon_artifact" \
-            -print -quit
+print(process.pid)
+PY
     )
-    [ -z "$newer_source" ] || needs_package=1
+else
+    nohup "$gateway_bin" serve "$@" >>"$log_file" 2>&1 &
+    launcher_pid=$!
 fi
 
-if [ "$rebuild_binary" -eq 1 ]; then
-    cargo run -p xtask -- package --target aarch64-unknown-linux-musl
-    cargo run -p xtask -- package --target x86_64-unknown-linux-musl
-elif [ "$needs_package" -eq 1 ]; then
-    cargo run -p xtask -- package --target "$package_target"
-fi
+count=0
+while [ "$count" -lt 20 ]; do
+    if ! kill -0 "$launcher_pid" 2>/dev/null; then
+        printf 'sandbox-gateway failed to stay running; see log: %s\n' "$log_file" >&2
+        tail -20 "$log_file" >&2 2>/dev/null || true
+        exit 1
+    fi
+    [ -f "$pid_file" ] && break
+    sleep 0.1
+    count=$((count + 1))
+done
 
-start-sandbox-gateway --backend docker --config-yaml "$config_yaml" "$@"
+printf 'sandbox-gateway starting in background via launcher pid %s\n' "$launcher_pid"
+printf 'pid file: %s\n' "$pid_file"
+printf 'address: %s\n' "$socket_path"
+printf 'auth token: %s (also written to %s)\n' "$auth_token" "$token_file"
+printf 'log: %s\n' "$log_file"
+printf 'bin/sandbox-cli reads %s automatically; or: export SANDBOX_GATEWAY_AUTH_TOKEN=%s\n' "$token_file" "$auth_token"

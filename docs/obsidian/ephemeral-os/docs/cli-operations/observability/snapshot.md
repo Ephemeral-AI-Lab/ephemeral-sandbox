@@ -54,7 +54,7 @@ sandbox-cli observability snapshot --sandbox-id eos-abc
       "workspace_id": "ws-1",
       "lifecycle_state": "active",
       "network_profile": "shared",
-      "layers": { "base_manifest_version": 1, "base_root_hash": "sha256:…", "layer_count": 2 },
+      "layers": { "base_root_hash": "sha256:…", "layer_count": 2 },
       "namespace_fd_count": 5,
       "resources": { "latest": { "ts": 1751240400000, "sample_delta_ms": 1000, "metrics": { "disk_bytes": 4096, "files": 12 }, "deltas": {} }, "history": [] },
       "active_namespace_executions": [

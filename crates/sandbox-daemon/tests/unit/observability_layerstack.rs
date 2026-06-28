@@ -19,7 +19,6 @@ fn workspace(id: &str, layer_ids: &[&str]) -> RuntimeWorkspaceSnapshot {
         upperdir: None,
         workdir: None,
         namespace_fd_count: Some(3),
-        base_manifest_version: Some(1),
         base_root_hash: Some("root".to_owned()),
         layer_count: Some(layer_ids.len()),
         layer_ids: layer_ids.iter().map(|id| (*id).to_owned()).collect(),

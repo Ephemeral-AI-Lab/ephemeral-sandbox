@@ -43,7 +43,6 @@ pub(crate) struct ContainerSpec {
     pub(crate) env: Vec<String>,
     pub(crate) labels: HashMap<String, String>,
     pub(crate) binds: Vec<String>,
-    pub(crate) tmpfs: HashMap<String, String>,
     pub(crate) daemon_port: u16,
     pub(crate) privileged: bool,
     pub(crate) platform: Option<String>,
@@ -122,11 +121,6 @@ impl DockerEngine {
             );
             let host_config = HostConfig {
                 binds: Some(spec.binds),
-                tmpfs: if spec.tmpfs.is_empty() {
-                    None
-                } else {
-                    Some(spec.tmpfs)
-                },
                 port_bindings: Some(port_bindings),
                 privileged: Some(spec.privileged),
                 cgroupns_mode: Some(HostConfigCgroupnsModeEnum::PRIVATE),

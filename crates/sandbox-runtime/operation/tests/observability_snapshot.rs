@@ -42,7 +42,6 @@ fn observability_snapshot_copies_active_workspace_fields(
     assert!(workspace.upperdir.is_some());
     assert!(workspace.workdir.is_some());
     assert_eq!(workspace.namespace_fd_count, Some(4));
-    assert_eq!(workspace.base_manifest_version, Some(1));
     assert_eq!(workspace.base_root_hash.as_deref(), Some("root"));
     assert_eq!(workspace.layer_count, Some(1));
     assert!(snapshot.active_namespace_executions.is_empty());

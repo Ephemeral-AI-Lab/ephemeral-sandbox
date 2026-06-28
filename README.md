@@ -66,8 +66,8 @@ live in `crates/sandbox-runtime/operation`; CAS fixtures live with
 # expose repo-local sandbox tools for this shell
 export PATH="$PWD/bin:$PATH"
 
-# start or restart the public gateway in the background
-start-sandbox-gateway
+# package the Docker daemon binary if needed and start/restart the public gateway
+start-sandbox-docker-gateway
 
 # in another shell, use the gateway client directly
 sandbox-cli manager list_sandboxes
