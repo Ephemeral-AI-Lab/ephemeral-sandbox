@@ -216,6 +216,109 @@ async fn cgroup_view_dispatch_returns_series() -> TestResult {
 }
 
 #[tokio::test]
+async fn raw_view_dispatch_returns_filtered_lines() -> TestResult {
+    let root = test_root("raw-view");
+    let server = daemon_server(&root, Some("sandbox-1"))?;
+    write_log_lines(
+        &server.config,
+        &[
+            r#"{"ts":1719500001051,"kind":"span","trace":"req-7f3","span":"d-0","name":"daemon.dispatch","dur_ms":1051.0,"status":"completed","attrs":{"op":"exec_command"}}"#,
+            r#"{"ts":1719500004320,"kind":"event","trace":"req-7f3","parent":"d-8","name":"lease.released","attrs":{"revision":"r5"}}"#,
+            r#"{"ts":1719500000000,"kind":"sample","scope":"sandbox","cpu_usec":1000}"#,
+        ],
+    )?;
+
+    let response = server
+        .dispatch_bytes(
+            request_bytes(
+                crate::server::dispatch::PRIVATE_OBSERVABILITY_OP,
+                "req-raw",
+                json!({ "view": "raw", "kind": "span", "trace": "req-7f3" }),
+            )?,
+            false,
+        )
+        .await;
+
+    assert_eq!(response["view"], "raw");
+    let lines = response["lines"].as_array().expect("lines array");
+    assert_eq!(lines.len(), 1, "only the span line matches kind=span");
+    assert!(lines[0]
+        .as_str()
+        .expect("verbatim line")
+        .contains("daemon.dispatch"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn events_view_dispatch_returns_parsed_events_by_name() -> TestResult {
+    let root = test_root("events-view");
+    let server = daemon_server(&root, Some("sandbox-1"))?;
+    write_log_lines(
+        &server.config,
+        &[
+            r#"{"ts":1719500000009,"kind":"event","trace":"req-7f3","parent":"d-2","name":"lease.acquired","attrs":{"revision":"r5"}}"#,
+            r#"{"ts":1719500004320,"kind":"event","trace":"req-7f3","parent":"d-8","name":"lease.released","attrs":{"revision":"r5"}}"#,
+        ],
+    )?;
+
+    let response = server
+        .dispatch_bytes(
+            request_bytes(
+                crate::server::dispatch::PRIVATE_OBSERVABILITY_OP,
+                "req-events",
+                json!({ "view": "events", "name": "lease.released" }),
+            )?,
+            false,
+        )
+        .await;
+
+    assert_eq!(response["view"], "events");
+    let events = response["events"].as_array().expect("events array");
+    assert_eq!(events.len(), 1, "only the matching name is returned");
+    assert_eq!(events[0]["name"], "lease.released");
+    assert_eq!(events[0]["attrs"]["revision"], "r5");
+    Ok(())
+}
+
+#[tokio::test]
+async fn trace_view_dispatch_folds_log_into_span_forest() -> TestResult {
+    let root = test_root("trace-view");
+    let server = daemon_server(&root, Some("sandbox-1"))?;
+    write_log_lines(
+        &server.config,
+        &[
+            r#"{"ts":1719500001050,"kind":"span","trace":"req-7f3","span":"d-1","parent":"d-0","name":"command.exec","dur_ms":1048.0,"status":"completed","attrs":{"one_shot":true}}"#,
+            r#"{"ts":1719500001051,"kind":"span","trace":"req-7f3","span":"d-0","name":"daemon.dispatch","dur_ms":1051.0,"status":"completed","attrs":{"op":"exec_command"}}"#,
+            r#"{"ts":1719500000042,"kind":"span","trace":"req-7f3","span":"d-2","parent":"d-1","name":"workspace_session.create","dur_ms":39.0,"status":"completed","attrs":{}}"#,
+            r#"{"ts":1719500000009,"kind":"event","trace":"req-7f3","parent":"d-2","name":"lease.acquired","attrs":{"revision":"r5"}}"#,
+        ],
+    )?;
+
+    let response = server
+        .dispatch_bytes(
+            request_bytes(
+                crate::server::dispatch::PRIVATE_OBSERVABILITY_OP,
+                "req-trace",
+                json!({ "view": "trace", "trace": "req-7f3" }),
+            )?,
+            false,
+        )
+        .await;
+
+    assert_eq!(response["view"], "trace");
+    assert_eq!(response["trace"], "req-7f3");
+    let spans = response["spans"].as_array().expect("spans array");
+    assert_eq!(spans.len(), 1, "single daemon.dispatch root");
+    assert_eq!(spans[0]["span"]["name"], "daemon.dispatch");
+    let command = &spans[0]["children"][0];
+    assert_eq!(command["span"]["name"], "command.exec");
+    let create = &command["children"][0];
+    assert_eq!(create["span"]["name"], "workspace_session.create");
+    assert_eq!(create["events"][0]["event"]["name"], "lease.acquired");
+    Ok(())
+}
+
+#[tokio::test]
 async fn observability_emit_does_not_change_operation_responses() -> TestResult {
     let root = test_root("emit-isolated");
     let server = daemon_server(&root, Some("sandbox-1"))?;
@@ -252,6 +355,15 @@ fn latest_sample(config: &ServerConfig, scope: &str) -> Option<SampleDelta> {
     )
     .samples(scope, BIG_WINDOW_MS)
     .pop()
+}
+
+fn write_log_lines(config: &ServerConfig, lines: &[&str]) -> TestResult {
+    let paths = ObservabilityPaths::from_socket_path(&config.socket_path)?;
+    if let Some(parent) = paths.log_path().parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(paths.log_path(), format!("{}\n", lines.join("\n")))?;
+    Ok(())
 }
 
 fn empty_snapshot() -> RuntimeObservabilitySnapshot {

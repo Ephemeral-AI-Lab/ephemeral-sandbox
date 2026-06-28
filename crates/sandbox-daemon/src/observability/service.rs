@@ -8,8 +8,8 @@ use std::sync::{Mutex, PoisonError};
 use sandbox_observability::collect::cgroup::CgroupSample;
 use sandbox_observability::collect::disk;
 use sandbox_observability::{
-    record, sample_layerstack, ObservabilityPaths, Observer, ObserverConfig, Reader, SampleDelta,
-    Sink,
+    record, sample_layerstack, Event, ObservabilityPaths, Observer, ObserverConfig, RawFilter,
+    Reader, SampleDelta, Sink, SpanNode,
 };
 use sandbox_runtime::{
     RuntimeNamespaceExecutionSnapshot, RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot,
@@ -195,6 +195,21 @@ impl DaemonObservability {
             .metrics
             .get("disk_bytes")?
             .as_u64()
+    }
+
+    /// The `raw` view: verbatim log lines kept by the filter, ordered by `ts`.
+    pub(crate) fn raw_lines(&self, filter: RawFilter) -> Vec<String> {
+        self.reader().raw(filter)
+    }
+
+    /// The `events` view: parsed `Event` records kept by the same filter shape.
+    pub(crate) fn events(&self, filter: RawFilter) -> Vec<Event> {
+        self.reader().events(filter)
+    }
+
+    /// The `trace` view: one flow folded into a span forest from the log.
+    pub(crate) fn trace(&self, id: &str) -> Vec<SpanNode> {
+        self.reader().trace(id)
     }
 }
 

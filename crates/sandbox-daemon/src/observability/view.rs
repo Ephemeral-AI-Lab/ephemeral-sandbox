@@ -1,7 +1,7 @@
 //! Live `get_observability` view router. Serves every view from live runtime
 //! state plus the leaf `Reader` over the one NDJSON log — no storage engine.
 
-use sandbox_observability::sample_layerstack;
+use sandbox_observability::{sample_layerstack, RawFilter};
 use sandbox_protocol::{error_kind, Request, Response};
 use sandbox_runtime::SandboxRuntimeOperations;
 use serde_json::{json, Value};
@@ -22,6 +22,9 @@ pub(crate) fn observability_view_response(
         Some("layerstack") => layerstack_view_response(operations, observability, request),
         Some("snapshot") => snapshot_view_response(operations, observability, request),
         Some("cgroup") => cgroup_view_response(observability, request),
+        Some("trace") => trace_view_response(observability, request),
+        Some("events") => events_view_response(observability, request),
+        Some("raw") => raw_view_response(observability, request),
         Some(other) => Response::fault(
             error_kind::INVALID_REQUEST,
             format!("unsupported observability view: {other}"),
@@ -130,6 +133,80 @@ fn cgroup_view_response(
         "scope": scope,
         "series": observability.cgroup_series(&scope, window_ms),
     }))
+}
+
+fn trace_view_response(observability: Option<&DaemonObservability>, request: &Request) -> Response {
+    let Some(observability) = observability else {
+        return observability_unconfigured();
+    };
+    let id = match request.optional_string("trace") {
+        Ok(id) => id.map(|id| id.trim().to_owned()).filter(|id| !id.is_empty()),
+        Err(response) => return response,
+    };
+    let Some(id) = id else {
+        return Response::fault(
+            error_kind::INVALID_REQUEST,
+            "trace view requires a trace id (--id)".to_owned(),
+        );
+    };
+    let spans =
+        serde_json::to_value(observability.trace(&id)).unwrap_or_else(|_| Value::Array(Vec::new()));
+    Response::ok(json!({ "view": "trace", "trace": id, "spans": spans }))
+}
+
+fn events_view_response(observability: Option<&DaemonObservability>, request: &Request) -> Response {
+    let Some(observability) = observability else {
+        return observability_unconfigured();
+    };
+    let filter = match event_filter(request) {
+        Ok(filter) => filter,
+        Err(response) => return response,
+    };
+    let events = serde_json::to_value(observability.events(filter))
+        .unwrap_or_else(|_| Value::Array(Vec::new()));
+    Response::ok(json!({ "view": "events", "events": events }))
+}
+
+fn raw_view_response(observability: Option<&DaemonObservability>, request: &Request) -> Response {
+    let Some(observability) = observability else {
+        return observability_unconfigured();
+    };
+    let filter = match raw_filter(request) {
+        Ok(filter) => filter,
+        Err(response) => return response,
+    };
+    Response::ok(json!({ "view": "raw", "lines": observability.raw_lines(filter) }))
+}
+
+fn raw_filter(request: &Request) -> Result<RawFilter, Response> {
+    Ok(RawFilter {
+        kind: optional_filter(request, "kind")?,
+        name: optional_filter(request, "name")?,
+        trace: optional_filter(request, "trace")?,
+        since_ms: since_ms(request)?,
+    })
+}
+
+fn event_filter(request: &Request) -> Result<RawFilter, Response> {
+    Ok(RawFilter {
+        name: optional_filter(request, "name")?,
+        since_ms: since_ms(request)?,
+        ..RawFilter::default()
+    })
+}
+
+fn optional_filter(request: &Request, field: &str) -> Result<Option<String>, Response> {
+    Ok(request
+        .optional_string(field)?
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty()))
+}
+
+fn since_ms(request: &Request) -> Result<i64, Response> {
+    Ok(request
+        .optional_u64("since_ms")?
+        .map(|value| i64::try_from(value).unwrap_or(i64::MAX))
+        .unwrap_or(0))
 }
 
 fn resource_window_ms(request: &Request) -> Result<Option<u64>, Response> {

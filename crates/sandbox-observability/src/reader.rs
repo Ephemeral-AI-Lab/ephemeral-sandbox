@@ -7,6 +7,7 @@
 use std::fs;
 use std::path::PathBuf;
 
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::record::{Attrs, Event, Record, Span, COUNTERS_METRIC_KEY};
@@ -30,7 +31,7 @@ pub struct RawFilter {
 
 /// One node of a `trace` forest: a span plus its start offset, child spans, and
 /// the events that attach directly under it.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SpanNode {
     pub span: Span,
     /// `(ts - dur_ms) - trace_start`, in ms.
@@ -40,7 +41,7 @@ pub struct SpanNode {
 }
 
 /// An event positioned within a trace by its offset from the trace start.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct EventNode {
     /// `event.ts - trace_start`, in ms.
     pub offset_ms: f64,
