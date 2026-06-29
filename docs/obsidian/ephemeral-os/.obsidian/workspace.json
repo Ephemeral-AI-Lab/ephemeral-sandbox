@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "docs/comparision/landscape.md",
+                "file": "roadmap.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "landscape"
+              "title": "roadmap"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "docs/comparision/landscape.md",
+                "file": "roadmap.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for landscape"
+              "title": "Backlinks for roadmap"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "docs/comparision/landscape.md",
+                "file": "roadmap.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from landscape"
+              "title": "Outgoing links from roadmap"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "docs/comparision/landscape.md",
+                "file": "roadmap.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of landscape"
+              "title": "Outline of roadmap"
             }
           }
         ]
@@ -185,14 +185,17 @@
   },
   "active": "d5fccc8ee65959ed",
   "lastOpenFiles": [
-    "docs/comparision/container-use.md",
-    "docs/comparision/landscape.md",
-    "docs/cli-gateway-manager-runtime.md",
-    "docs/layerstack/overlay_mount.md",
-    "docs/layerstack/create_sandbox.md",
-    "docs/ephemeral-os.md",
     "index.md",
+    "docs/sandbox-operation-note.md",
+    "docs/cli-gateway-manager-runtime.md",
+    "docs/layerstack/create_sandbox.md",
+    "docs/sandbox-operation-note",
+    "docs/layerstack/overlay_mount.md",
+    "docs/comparision/landscape.md",
+    "docs/comparision/container-use.md",
+    "docs/comparision/anthropic-managed-container.md",
     "docs/comparision/agentfs.md",
+    "docs/ephemeral-os.md",
     "daily-progress-tracker/2026-06-28.md",
     "docs/cli-operations/manager/Management/destroy_sandbox.md",
     "docs/comparision",
@@ -211,7 +214,6 @@
     "docs/cli-operations/manager/Management",
     "docs/cli-operations/manager/list_sandboxes.md",
     "docs/cli-operations/manager/management",
-    "docs/cli-operations/manager/inspect_sandbox.md",
-    "docs/cli-operations/manager/destroy_sandbox.md"
+    "docs/cli-operations/manager/inspect_sandbox.md"
   ]
 }

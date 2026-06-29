@@ -44,7 +44,7 @@ flowchart LR
 
 | Camp                        | Reconciliation model                            | Isolation primitive                             | Representative projects                                                                                      | EphemeralOS relation                                                            |
 | --------------------------- | ----------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| **Isolation-only infra**    | None — merge is your problem                    | microVM (Firecracker) / gVisor / Kata / libkrun | E2B, Modal, Daytona, Fly Sprites, Vercel Sandbox, Runloop, microsandbox, CodeSandbox SDK, Morph, K7, BoxLite | Substrate it could sit *beside or on*, not a competitor                         |
+| **Isolation-only infra**    | None — merge is your problem                    | microVM (Firecracker) / gVisor / Kata / libkrun; vendor-run container | E2B, Modal, Daytona, Fly Sprites, Vercel Sandbox, Runloop, microsandbox, CodeSandbox SDK, Morph, K7, BoxLite; **Anthropic managed container** (CMA / code-exec, vendor-run — see [[anthropic-managed-container]]) | Substrate it could sit *beside or on*, not a competitor                         |
 | **Isolate → git-merge**     | Git branch/worktree per agent, merged like a PR | Container (often Dagger/Docker) or worktree     | **container-use**, Conductor, Sculptor, Intent, treebeard, packnplay, agenttier                              | The **intent twin** — same goal, opposite mechanism. See [[container-use]]      |
 | **Isolate → snapshot**      | None — snapshot/diff, no merge                  | CoW filesystem (SQLite/FUSE)                    | **AgentFS**                                                                                                  | The **mechanism twin** — same CoW-FS idea, opposite philosophy. See [[agentfs]] |
 | **Converge on shared base** | OCC at publish against a moving base            | Kernel overlayfs + namespaces                   | **EphemeralOS**                                                                                              | **This is us.** Currently a camp of one                                         |
@@ -75,6 +75,9 @@ in [[container-use]]).
   instead of OCC. The "why not just use this" comparison.
 - [[agentfs]] — the mechanism twin: same CoW-filesystem idea, isolate-and-snapshot
   instead of shared-base-and-merge.
+- [[anthropic-managed-container]] — the first-party, vendor-run member of the
+  isolation-only camp: Anthropic's code-execution tool and Managed Agents
+  per-session container (with a `self_hosted` BYO-infra option).
 - **treebeard** and **Intent** each share *half* of EphemeralOS's design
   (treebeard: CoW + network gating on worktrees; Intent: a coordinator/merge
   workflow) — candidates if a third head-to-head is ever worth writing.

@@ -152,3 +152,6 @@ than reject) are the main open pieces of the collaboration model.
   coding agents via git-branch-per-agent instead of a shared OCC base.
 - [[agentfs|AgentFS vs EphemeralOS]] — the mechanism twin: Turso's SQLite-backed
   CoW agent filesystem.
+- [[anthropic-managed-container|Anthropic Managed Container vs EphemeralOS]] —
+  the vendor-run option: Anthropic's code-execution tool and Managed Agents
+  container.
