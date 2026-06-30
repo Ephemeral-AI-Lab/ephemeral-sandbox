@@ -26,11 +26,6 @@ manager:
     # Host-built Linux musl sandbox-daemon artifact uploaded into each sandbox
     # container. create_sandbox does not build a custom container image.
     daemon_binary_path: dist/sandbox-daemon-linux-arm64
-    # Host-published daemon ports. Moved off the 7000/7001 defaults because macOS
-    # Control Center (AirPlay Receiver) binds host port 7000, which makes the
-    # container's loopback port publish fail at start on Docker Desktop.
-    daemon_port: 7010
-    daemon_http_port: 7011
     # Daemon config YAML uploaded into each container.
     daemon_config_yaml_path: config/prd.yml
     # Environment injected into every sandbox container. The Docker CLI injects

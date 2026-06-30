@@ -21,6 +21,7 @@ use crate::error::NamespaceExecutionError;
 use crate::pty::{open_pty_pair, terminate_pgid, PtyMaster};
 
 pub(crate) const MOUNT_OVERLAY_MODE_FLAG: &str = "--mount-overlay";
+const SETUP_WAIT_POLL: Duration = Duration::from_millis(1);
 
 pub trait NsRunnerLauncher: Send + Sync {
     fn spawn_pty(
@@ -303,7 +304,7 @@ fn wait_for_child_with_timeout(
             let _ = child.wait();
             return Err(timeout_error(mode_flag));
         }
-        thread::sleep(Duration::from_millis(10));
+        thread::sleep(SETUP_WAIT_POLL);
     }
 }
 

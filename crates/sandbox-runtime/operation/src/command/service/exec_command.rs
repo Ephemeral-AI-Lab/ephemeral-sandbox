@@ -110,7 +110,7 @@ impl CommandOperationService {
             );
             drop(lifecycle_guard);
 
-            self.wait_for_command_yield(id.clone(), input.yield_time_ms.unwrap_or(1000), 0, false)
+            self.wait_for_command_yield(id.clone(), input.yield_time_ms.unwrap_or(1000), false)
         })
     }
 

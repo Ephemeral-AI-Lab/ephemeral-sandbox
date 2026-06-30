@@ -768,7 +768,7 @@ fn exec_command_initial_completed_session_does_not_finalize_workspace() {
 fn write_command_stdin_waits_for_output_after_write() {
     // In the new engine model a single spawn either parks or completes. To simulate
     // output arriving AFTER exec returns (during the write_command_stdin wait window),
-    // a background thread appends a transcript row during the 250 ms settle.
+    // a background thread appends a transcript row before the 250 ms deadline.
     let fake = Arc::new(FakeWorkspaceService::new());
     let launch_driver = Arc::new(FakeLaunchDriver::new());
     // Park the child — no output at spawn, no completion.
@@ -788,7 +788,7 @@ fn write_command_stdin_waits_for_output_after_write() {
         .command_session_id
         .expect("running command session id is returned");
 
-    // Append a transcript row shortly after exec returns, within the 250 ms yield window.
+    // Append a transcript row shortly after exec returns, before the 250 ms yield deadline.
     let transcript_path = launch_driver
         .recorded_transcript_paths()
         .into_iter()

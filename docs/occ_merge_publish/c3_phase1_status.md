@@ -16,7 +16,7 @@ three-way merge + line origin, one append-after-commit auditability log, the
 | Static gate (`build` / `test` / `clippy` / `fmt`) | **Green** |
 | Daemon cross-compile (`aarch64-unknown-linux-musl`) | **Green** (repackaged) |
 | **Live e2e** (`sandbox-cli runtime file_blame` against a real sandbox) | **Green** — passed with a real host bind directory |
-| Observability counters (§14) | **Not implemented** (deferred; not gating) |
+| Observability counters (§14) | **Closed as deferred** (not implemented; not gating) |
 
 ## What is done (and verified green)
 
@@ -144,8 +144,9 @@ Findings so far:
 - The container is left in `CREATED` because Docker rejects the bind during start.
   Bollard reports Docker Desktop's plain-text error body as the misleading serde
   parse error `expected value at line 1 column 1`.
-- **Ruled out:** port 7000 / macOS AirPlay conflict (moved daemon ports to 7010/7011
-  in `config/prd.yml`, same error); multi-platform manifest-list image (rebuilt
+- **Ruled out:** port 7000 / macOS AirPlay conflict (Docker publishes the
+  container ports to random host loopback ports, so no config change is needed);
+  multi-platform manifest-list image (rebuilt
   single-arch `--provenance=false`, same error); daemon binary executable bit
   (`archive.rs` uploads `0o755`).
 
@@ -170,14 +171,15 @@ Corrected run:
   `workspace_session:00000118bddd3a80284ffe` range.
 - The sandbox was destroyed after the assertions.
 
-## What is NOT done
+## Deferred
 
-### Observability counters (§14) — not implemented (deferred, non-gating)
+### Observability counters (§14) — closed as deferred, non-gating
 - layerstack merge metrics: `automerge_attempted/clean/conflict`,
   `automerge_ineligible{reason}`, `merge_bytes_processed`.
 - runtime audit counters: `audit_events_appended`, `audit_skipped{reason}`.
-Not on the e2e critical path and not part of the static gate; can be added without
-touching the merge/blame logic.
+No merge/audit counter code was added. These counters are not on the e2e
+critical path and are not required for Phase 1 feature completion; add them only
+when acceptance requires full §14 metrics.
 
 ## Live e2e command that passed
 
@@ -212,4 +214,3 @@ Changed: layerstack `plan.rs`, `model.rs`, `ops/publish.rs`, `publish/mod.rs`,
 `command/service/exec_command.rs`, `operation/Cargo.toml` (+sha2), and the 6 test
 `::new` sites + `support/mod.rs`.
 Removed: layerstack `publish/validate.rs`.
-Config (not C3, for the e2e host): `config/prd.yml` daemon ports 7000/7001 → 7010/7011.

@@ -26,8 +26,14 @@ struct FakeRuntime;
 impl SandboxRuntime for FakeRuntime {
     fn create_sandbox(
         &self,
-        _request: &CreateSandboxRequest,
+        request: &CreateSandboxRequest,
     ) -> Result<CreateSandboxResult, ManagerError> {
+        let shared_base = request
+            .shared_base
+            .as_ref()
+            .expect("manager create_sandbox passes shared base");
+        assert_eq!(shared_base.target, PathBuf::from("/eos/layer-stack/base"));
+        assert!(shared_base.readonly);
         Ok(CreateSandboxResult {
             id: sandbox_id("container-1"),
         })
@@ -262,6 +268,11 @@ async fn gateway_connection_decodes_request_and_writes_response() -> TestResult 
 
 #[tokio::test]
 async fn gateway_streams_create_sandbox_progress_before_final_response() -> TestResult {
+    let root = unique_temp_dir("sandbox-gateway-create-test")?;
+    let workspace = root.join("workspace");
+    std::fs::create_dir_all(&workspace)?;
+    std::fs::write(workspace.join("README.md"), b"base\n")?;
+    let workspace_root = workspace.to_string_lossy().into_owned();
     let (services, _store, _daemon_client) = services();
     let server = server(
         services,
@@ -273,7 +284,7 @@ async fn gateway_streams_create_sandbox_progress_before_final_response() -> Test
     let mut request = request(
         "create_sandbox",
         CliOperationScope::System,
-        json!({"image": "ubuntu:24.04", "workspace_root": "/testbed"}),
+        json!({"image": "ubuntu:24.04", "workspace_root": workspace_root.clone()}),
     );
     request["_stream_logs"] = json!(true);
 
@@ -283,12 +294,19 @@ async fn gateway_streams_create_sandbox_progress_before_final_response() -> Test
     assert!(responses[0].starts_with("cli_log("));
     assert!(responses
         .iter()
-        .any(|response| response.contains("creating runtime sandbox for /testbed")));
+        .any(|response| response.contains("building shared workspace base")));
+    assert!(responses.iter().any(
+        |response| response.contains(&format!("creating runtime sandbox for {workspace_root}"))
+    ));
     let final_response = serde_json::from_str::<Value>(responses.last().expect("final response"))?;
     assert_eq!(final_response["id"], "container-1");
-    assert_eq!(final_response["workspace_root"], "/testbed");
+    assert_eq!(
+        final_response["workspace_root"].as_str(),
+        Some(workspace_root.as_str())
+    );
     assert_eq!(final_response["state"], "ready");
     assert!(final_response.get("event").is_none());
+    let _ = std::fs::remove_dir_all(root);
     Ok(())
 }
 

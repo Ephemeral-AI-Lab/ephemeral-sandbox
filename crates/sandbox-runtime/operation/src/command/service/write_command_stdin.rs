@@ -14,16 +14,14 @@ impl CommandOperationService {
 
         let target = self.engine().with_value(&id, |command| {
             if !command.exec.is_finished() {
-                return WriteTarget::Live {
-                    start_offset: command.exec.output_len(),
-                };
+                return WriteTarget::Live;
             }
             match command.exec.resolved() {
                 Some(Err(error)) => WriteTarget::FinalizationFailed(finalize_message(&error)),
                 _ => WriteTarget::AlreadyCompleted,
             }
         });
-        let start_offset = match target {
+        match target {
             None => return command_not_found(command_session_id),
             Some(WriteTarget::AlreadyCompleted) => {
                 return Err(CommandServiceError::CommandAlreadyCompleted { command_session_id });
@@ -34,8 +32,8 @@ impl CommandOperationService {
                     error,
                 });
             }
-            Some(WriteTarget::Live { start_offset }) => start_offset,
-        };
+            Some(WriteTarget::Live) => {}
+        }
 
         if is_kill_input {
             match self
@@ -61,12 +59,12 @@ impl CommandOperationService {
         }
 
         let wait_time_ms = if is_kill_input { 1000 } else { yield_time_ms };
-        self.wait_for_command_yield(command_session_id, wait_time_ms, start_offset, true)
+        self.wait_for_command_yield(command_session_id, wait_time_ms, true)
     }
 }
 
 enum WriteTarget {
-    Live { start_offset: u64 },
+    Live,
     AlreadyCompleted,
     FinalizationFailed(String),
 }

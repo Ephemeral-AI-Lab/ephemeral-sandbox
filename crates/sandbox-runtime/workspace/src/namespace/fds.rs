@@ -9,8 +9,6 @@ use std::os::fd::IntoRawFd;
 #[cfg(target_os = "linux")]
 use std::os::fd::{AsRawFd, RawFd};
 #[cfg(target_os = "linux")]
-use std::thread;
-#[cfg(target_os = "linux")]
 use std::time::{Duration, Instant};
 
 use crate::session::{HolderNsFds, WorkspaceManagerError};
@@ -20,6 +18,10 @@ use nix::errno::Errno;
 use nix::fcntl::{fcntl, FcntlArg, FdFlag, OFlag};
 #[cfg(target_os = "linux")]
 use nix::unistd::read;
+#[cfg(target_os = "linux")]
+use rustix::event::{poll, PollFd, PollFlags};
+#[cfg(target_os = "linux")]
+use rustix::io::Errno as RustixErrno;
 
 #[cfg(target_os = "linux")]
 use super::setup_error;
@@ -122,11 +124,32 @@ pub(super) fn expect_line(
                     });
                 }
             }
-            Err(Errno::EAGAIN) => thread::sleep(Duration::from_millis(10)),
+            Err(Errno::EAGAIN) => wait_readable(fd, deadline)?,
             Err(Errno::EINTR) => {}
             Err(error) => return Err(setup_error(error)),
         }
     }
+}
+
+#[cfg(target_os = "linux")]
+fn wait_readable(fd: RawFd, deadline: Instant) -> Result<(), WorkspaceManagerError> {
+    let timeout_ms = poll_timeout_ms(deadline);
+    let file = File::open(format!("/proc/self/fd/{fd}")).map_err(setup_error)?;
+    let mut fds = [PollFd::new(&file, PollFlags::IN)];
+    match poll(&mut fds, timeout_ms) {
+        Ok(_) => Ok(()),
+        Err(RustixErrno::INTR) => Ok(()),
+        Err(error) => Err(setup_error(error)),
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn poll_timeout_ms(deadline: Instant) -> i32 {
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    if remaining.is_zero() {
+        return 0;
+    }
+    i32::try_from(remaining.as_millis().max(1)).unwrap_or(i32::MAX)
 }
 
 #[cfg(target_os = "linux")]

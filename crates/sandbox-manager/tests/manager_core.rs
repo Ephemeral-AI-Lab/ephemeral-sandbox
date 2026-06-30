@@ -461,7 +461,10 @@ fn create_list_inspect_destroy_sandbox_with_fake_runtime() {
         json!({"image": "ubuntu:24.04", "workspace_root": workspace_root.clone()}),
     );
     assert_eq!(created["id"], "container-1");
-    assert_eq!(created["workspace_root"].as_str(), Some(workspace_root.as_str()));
+    assert_eq!(
+        created["workspace_root"].as_str(),
+        Some(workspace_root.as_str())
+    );
     assert_eq!(created["state"], "ready");
     assert_eq!(
         created["daemon"],
@@ -505,6 +508,13 @@ fn create_list_inspect_destroy_sandbox_with_fake_runtime() {
         .expect("manager create_sandbox always passes shared base");
     assert_eq!(shared_base.target, PathBuf::from("/eos/layer-stack/base"));
     assert!(shared_base.readonly);
+    assert!(shared_base.source.starts_with(
+        workspace
+            .path()
+            .parent()
+            .expect("workspace has parent")
+            .join("eos-shared-workspace-base-cache")
+    ));
     assert!(shared_base.source.ends_with("base"));
     assert!(!shared_base.root_hash.is_empty());
     assert_eq!(

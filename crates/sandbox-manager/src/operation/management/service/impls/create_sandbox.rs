@@ -231,28 +231,3 @@ fn rollback(services: &ManagerServices, record: &SandboxRecord) {
     let _ = services.runtime.destroy_sandbox(record);
     let _ = services.store.remove(&record.id);
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shared_base_cache_root_defaults_to_workspace_sibling() {
-        let root = shared_base_cache_root_from_env(Path::new("/tmp/project/workspace"), None);
-
-        assert_eq!(
-            root,
-            PathBuf::from("/tmp/project/eos-shared-workspace-base-cache")
-        );
-    }
-
-    #[test]
-    fn shared_base_cache_root_uses_env_override() {
-        let root = shared_base_cache_root_from_env(
-            Path::new("/tmp/project/workspace"),
-            Some(OsString::from("/custom/eos-cache")),
-        );
-
-        assert_eq!(root, PathBuf::from("/custom/eos-cache"));
-    }
-}

@@ -14,21 +14,21 @@ async fn main() {
     let name = format!("eos-probe-{}", std::process::id());
 
     let mut exposed = HashMap::new();
-    exposed.insert("7010/tcp".to_owned(), HashMap::new());
-    exposed.insert("7011/tcp".to_owned(), HashMap::new());
+    exposed.insert("7000/tcp".to_owned(), HashMap::new());
+    exposed.insert("7001/tcp".to_owned(), HashMap::new());
     let mut bindings = HashMap::new();
     bindings.insert(
-        "7010/tcp".to_owned(),
+        "7000/tcp".to_owned(),
         Some(vec![PortBinding {
             host_ip: Some("127.0.0.1".to_owned()),
-            host_port: Some("7010".to_owned()),
+            host_port: None,
         }]),
     );
     bindings.insert(
-        "7011/tcp".to_owned(),
+        "7001/tcp".to_owned(),
         Some(vec![PortBinding {
             host_ip: Some("127.0.0.1".to_owned()),
-            host_port: Some("7011".to_owned()),
+            host_port: None,
         }]),
     );
 

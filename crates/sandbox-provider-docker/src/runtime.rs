@@ -79,7 +79,16 @@ impl SandboxRuntime for DockerSandboxRuntime {
         request: &CreateSandboxRequest,
     ) -> Result<CreateSandboxResult, ManagerError> {
         let config = self.engine.config();
-        validate_direct_bind_source(request)?;
+        let shared_base =
+            request
+                .shared_base
+                .as_ref()
+                .ok_or_else(|| ManagerError::RuntimeFailed {
+                    message:
+                        "shared base mount is required; create_sandbox must use host copy+hash"
+                            .to_owned(),
+                })?;
+        validate_shared_base_source(shared_base)?;
         let name = format!("eos-{}", uuid::Uuid::new_v4());
         let id = SandboxId::new(name.clone()).map_err(|error| ManagerError::RuntimeFailed {
             message: format!("generated container name is invalid: {error}"),
@@ -95,7 +104,7 @@ impl SandboxRuntime for DockerSandboxRuntime {
             &id,
             &auth_token,
             &request.workspace_root,
-            request.shared_base.as_ref(),
+            shared_base,
         );
         let workspace_paths = runtime_workspace_paths(config)?;
         let workspace_scratch_volume = workspace_scratch_volume_name(&id);
@@ -106,7 +115,7 @@ impl SandboxRuntime for DockerSandboxRuntime {
             cmd,
             env: container_env(config),
             labels,
-            binds: container_binds(config, request),
+            binds: container_binds(shared_base),
             volumes: vec![VolumeSpec {
                 name: workspace_scratch_volume.clone(),
                 target: workspace_paths.scratch_root.to_string_lossy().into_owned(),
@@ -120,32 +129,30 @@ impl SandboxRuntime for DockerSandboxRuntime {
             nano_cpus: config.nano_cpus,
         };
         self.engine.create_container(spec).map_err(runtime_failed)?;
-        if let Some(shared_base) = &request.shared_base {
-            let archive = build_shared_base_seed_archive(
-                &workspace_paths.layer_stack_root,
-                &config.container_workspace_root,
-                &shared_base.root_hash,
-            )
-            .map_err(|error| ManagerError::RuntimeFailed {
-                message: format!("failed to build shared base seed archive: {error}"),
-            });
-            match archive.and_then(|archive| {
-                self.engine
-                    .upload_archive(id.as_str().to_owned(), "/".to_owned(), archive)
-                    .map_err(runtime_failed)
-            }) {
-                Ok(()) => {}
-                Err(error) => {
-                    let _ = self
-                        .engine
-                        .remove_container(id.as_str().to_owned())
-                        .map_err(runtime_failed);
-                    let _ = self
-                        .engine
-                        .remove_volume(workspace_scratch_volume)
-                        .map_err(runtime_failed);
-                    return Err(error);
-                }
+        let archive = build_shared_base_seed_archive(
+            &workspace_paths.layer_stack_root,
+            &config.container_workspace_root,
+            &shared_base.root_hash,
+        )
+        .map_err(|error| ManagerError::RuntimeFailed {
+            message: format!("failed to build shared base seed archive: {error}"),
+        });
+        match archive.and_then(|archive| {
+            self.engine
+                .upload_archive(id.as_str().to_owned(), "/".to_owned(), archive)
+                .map_err(runtime_failed)
+        }) {
+            Ok(()) => {}
+            Err(error) => {
+                let _ = self
+                    .engine
+                    .remove_container(id.as_str().to_owned())
+                    .map_err(runtime_failed);
+                let _ = self
+                    .engine
+                    .remove_volume(workspace_scratch_volume)
+                    .map_err(runtime_failed);
+                return Err(error);
             }
         }
         Ok(CreateSandboxResult { id })
@@ -208,32 +215,27 @@ fn resolve_image(config: &DockerRuntimeConfig, requested: &str) -> String {
     }
 }
 
-fn container_binds(config: &DockerRuntimeConfig, request: &CreateSandboxRequest) -> Vec<String> {
-    if let Some(shared_base) = &request.shared_base {
-        return vec![format!(
-            "{}:{}:{}",
-            shared_base.source.display(),
-            shared_base.target.display(),
-            if shared_base.readonly { "ro" } else { "rw" }
-        )];
-    }
+fn container_binds(shared_base: &SharedBaseMount) -> Vec<String> {
     vec![format!(
-        "{}:{}:ro",
-        request.workspace_root.display(),
-        config.container_workspace_root.display()
+        "{}:{}:{}",
+        shared_base.source.display(),
+        shared_base.target.display(),
+        if shared_base.readonly { "ro" } else { "rw" }
     )]
 }
 
-fn validate_direct_bind_source(request: &CreateSandboxRequest) -> Result<(), ManagerError> {
-    if request.shared_base.is_some() {
-        return Ok(());
+fn validate_shared_base_source(shared_base: &SharedBaseMount) -> Result<(), ManagerError> {
+    if !shared_base.readonly {
+        return Err(ManagerError::RuntimeFailed {
+            message: "shared base mount must be read-only".to_owned(),
+        });
     }
-    match std::fs::metadata(&request.workspace_root) {
+    match std::fs::metadata(&shared_base.source) {
         Ok(metadata) if metadata.is_dir() => Ok(()),
-        _ => Err(ManagerError::InvalidWorkspaceRoot {
-            value: format!(
-                "{} (must be an existing host directory)",
-                request.workspace_root.display()
+        _ => Err(ManagerError::RuntimeFailed {
+            message: format!(
+                "shared base source {} must be an existing host directory",
+                shared_base.source.display()
             ),
         }),
     }
@@ -244,7 +246,7 @@ fn build_labels(
     id: &SandboxId,
     auth_token: &str,
     host_workspace_root: &Path,
-    shared_base: Option<&SharedBaseMount>,
+    shared_base: &SharedBaseMount,
 ) -> HashMap<String, String> {
     let created_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -278,24 +280,22 @@ fn build_labels(
             labels::CLEANUP_POLICY_REMOVE_ON_DESTROY.to_owned(),
         ),
     ]);
-    if let Some(shared_base) = shared_base {
-        label_map.insert(
-            labels::SHARED_BASE_SOURCE.to_owned(),
-            shared_base.source.to_string_lossy().into_owned(),
-        );
-        label_map.insert(
-            labels::SHARED_BASE_TARGET.to_owned(),
-            shared_base.target.to_string_lossy().into_owned(),
-        );
-        label_map.insert(
-            labels::SHARED_BASE_ROOT_HASH.to_owned(),
-            shared_base.root_hash.clone(),
-        );
-        label_map.insert(
-            labels::SHARED_BASE_READONLY.to_owned(),
-            shared_base.readonly.to_string(),
-        );
-    }
+    label_map.insert(
+        labels::SHARED_BASE_SOURCE.to_owned(),
+        shared_base.source.to_string_lossy().into_owned(),
+    );
+    label_map.insert(
+        labels::SHARED_BASE_TARGET.to_owned(),
+        shared_base.target.to_string_lossy().into_owned(),
+    );
+    label_map.insert(
+        labels::SHARED_BASE_ROOT_HASH.to_owned(),
+        shared_base.root_hash.clone(),
+    );
+    label_map.insert(
+        labels::SHARED_BASE_READONLY.to_owned(),
+        shared_base.readonly.to_string(),
+    );
     label_map
 }
 
@@ -397,25 +397,6 @@ runtime:
         assert_eq!(paths.layer_stack_root, PathBuf::from("/eos/layer-stack"));
         assert_eq!(paths.scratch_root, PathBuf::from("/custom/workspace"));
         let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn create_sandbox_rejects_missing_direct_bind_source() {
-        let runtime = DockerSandboxRuntime::new(DockerRuntimeConfig::default());
-        let workspace_root =
-            std::env::temp_dir().join(format!("eos-missing-workspace-{}", unique_test_suffix()));
-        let error = runtime
-            .create_sandbox(&CreateSandboxRequest {
-                image: "ubuntu:24.04".to_owned(),
-                workspace_root,
-                shared_base: None,
-            })
-            .expect_err("missing host bind source rejected before docker");
-
-        assert!(matches!(error, ManagerError::InvalidWorkspaceRoot { .. }));
-        assert!(error
-            .to_string()
-            .contains("must be an existing host directory"));
     }
 
     fn temp_config_path() -> PathBuf {

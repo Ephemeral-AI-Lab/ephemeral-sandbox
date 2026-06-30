@@ -6,27 +6,18 @@ use super::core::CommandOperationService;
 use super::render::{command_output, command_status};
 use crate::command::{CommandOutput, CommandServiceError, CommandStatus};
 
-const QUIET_MS: Duration = Duration::from_millis(50);
-
 impl CommandOperationService {
     pub(crate) fn wait_for_command_yield(
         &self,
         command_session_id: NamespaceExecutionId,
         yield_time_ms: u64,
-        start_offset: u64,
         include_terminal_command_session_id: bool,
     ) -> Result<CommandOutput, CommandServiceError> {
         let id = command_session_id.clone();
         let deadline = Instant::now() + Duration::from_millis(yield_time_ms);
-        let mut last_offset = start_offset;
-        let mut last_change = Instant::now();
         loop {
-            let Some((finished, offset, waiter)) = self.engine().with_value(&id, |command| {
-                (
-                    command.exec.is_finished(),
-                    command.exec.output_len(),
-                    command.exec.completion(),
-                )
+            let Some((finished, waiter)) = self.engine().with_value(&id, |command| {
+                (command.exec.is_finished(), command.exec.completion())
             }) else {
                 return command_not_found(command_session_id);
             };
@@ -37,12 +28,7 @@ impl CommandOperationService {
                 );
             }
             let now = Instant::now();
-            if offset != last_offset {
-                last_offset = offset;
-                last_change = now;
-            }
-            let settled = offset > start_offset && now.duration_since(last_change) >= QUIET_MS;
-            if settled || now >= deadline {
+            if now >= deadline {
                 return match self
                     .engine()
                     .with_value(&id, |command| command.exec.is_finished())
@@ -55,8 +41,7 @@ impl CommandOperationService {
                     None => command_not_found(command_session_id),
                 };
             }
-            let slice = QUIET_MS.min(deadline.saturating_duration_since(now));
-            waiter.wait_timeout(slice);
+            waiter.wait_timeout(deadline.saturating_duration_since(now));
         }
     }
 
