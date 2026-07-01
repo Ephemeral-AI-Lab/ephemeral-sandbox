@@ -7,14 +7,49 @@ use anyhow::{bail, Context, Result};
 use crate::runner_cli::{mount_overlay::mount_overlay_result, open_fd_for_write, RunnerCliConfig};
 
 #[test]
-fn runner_cli_accepts_explicit_request_and_result_fds() -> Result<()> {
+fn runner_cli_accepts_explicit_mode_and_request_result_fds() -> Result<()> {
     let _config = RunnerCliConfig::parse(vec![
+        "--shell".to_owned(),
         "--request-fd".to_owned(),
         "3".to_owned(),
         "--result-fd".to_owned(),
         "4".to_owned(),
     ])?;
 
+    Ok(())
+}
+
+#[test]
+fn runner_cli_requires_exactly_one_mode() -> Result<()> {
+    let missing = match RunnerCliConfig::parse(vec![
+        "--request-fd".to_owned(),
+        "3".to_owned(),
+        "--result-fd".to_owned(),
+        "4".to_owned(),
+    ]) {
+        Ok(_) => bail!("no mode flag unexpectedly accepted"),
+        Err(error) => error,
+    };
+    assert!(
+        missing.to_string().contains("exactly one mode flag"),
+        "{missing}"
+    );
+
+    let duplicate = match RunnerCliConfig::parse(vec![
+        "--shell".to_owned(),
+        "--file-op".to_owned(),
+        "--request-fd".to_owned(),
+        "3".to_owned(),
+        "--result-fd".to_owned(),
+        "4".to_owned(),
+    ]) {
+        Ok(_) => bail!("two mode flags unexpectedly accepted"),
+        Err(error) => error,
+    };
+    assert!(
+        duplicate.to_string().contains("only one mode flag"),
+        "{duplicate}"
+    );
     Ok(())
 }
 
