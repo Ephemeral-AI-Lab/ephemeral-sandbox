@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "road_to_fully_autnomous_agent_system/spec.md",
+                "file": "implementation_plan/file_operations_read_write_edit.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "spec"
+              "title": "file_operations_read_write_edit"
             }
           }
         ]
@@ -185,6 +185,13 @@
   },
   "active": "d5fccc8ee65959ed",
   "lastOpenFiles": [
+    "implementation_plan/daemon-command-syscall-hardening.md",
+    "testing/file-operation/test-case.md",
+    "implementation_plan/file_operations_read_write_edit.md",
+    "testing/file-operation",
+    "testing/Untitled.md",
+    "testing",
+    "implementation_plan/o1_shared_workspace_base.md",
     "road_to_fully_autnomous_agent_system/ui.md",
     "road_to_fully_autnomous_agent_system/spec.md",
     "road_to_fully_autnomous_agent_system/ui/arbor.html",
@@ -196,17 +203,13 @@
     "road_to_fully_autnomous_agent_system/Begin of the dream.md",
     "road_to_fully_autnomous_agent_system/ui/data.js",
     "road_to_fully_autnomous_agent_system/ui/styles.css",
-    "road_to_fully_autnomous_agent_system/ui",
     "Chalkboards — meetings and the conversation that never forgets.md",
     "The Window — watching a mind think.md",
     "The World — a body of facts.md",
     "daily-progress-tracker/2026-06-30.md",
-    "road_to_fully_autnomous_agent_system",
     "docs/comparision/opensandbox.md",
     "docs/comparision/landscape.md",
     "docs/comparision/cubesandbox.md",
-    "implementation_plan/o1_shared_workspace_base.md",
-    "implementation_plan/daemon-command-syscall-hardening.md",
     "docs/layerstack/o1_shared_workspace_base.md",
     "docs/layerstack/create_sandbox.md",
     "docs/layerstack/overlay_mount.md",
@@ -217,8 +220,6 @@
     "index.md",
     "roadmap.md",
     "docs/sandbox-operation-note.md",
-    "docs/comparision/container-use.md",
-    "docs/comparision/anthropic-managed-container.md",
-    "docs/comparision/agentfs.md"
+    "docs/comparision/container-use.md"
   ]
 }
