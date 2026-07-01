@@ -110,6 +110,56 @@ impl MergedView {
         Ok(MergedEntry::Absent)
     }
 
+    /// Classify one path against the active manifest for the runtime `file`
+    /// domain: absent, a regular file (bytes loaded up to `max_bytes`), a
+    /// non-regular entry, or oversized. `max_bytes == 0` classifies an existing
+    /// regular file without loading its bytes and never reports `TooLarge`; a
+    /// larger regular file over `max_bytes` reports `TooLarge` without loading.
+    pub(crate) fn read_classified(
+        &self,
+        path: &str,
+        manifest: &Manifest,
+        max_bytes: usize,
+    ) -> Result<crate::stack::file_read::ManifestFileRead, LayerStackError> {
+        use crate::stack::file_read::ManifestFileRead;
+        let rel = LayerPath::parse(path)?;
+        for layer in &manifest.layers {
+            let layer_dir = self.layer_dir(layer)?;
+            if Self::is_whiteouted(&layer_dir, rel.as_str())
+                || Self::lookup_blocked_by_layer(&layer_dir, rel.as_str())
+            {
+                return Ok(ManifestFileRead::Absent);
+            }
+            let target = join_layer_path(&layer_dir, rel.as_str());
+            match std::fs::symlink_metadata(&target) {
+                Ok(meta) if meta.file_type().is_symlink() => return Ok(ManifestFileRead::Symlink),
+                Ok(meta) if meta.is_file() => {
+                    let total_bytes = meta.len();
+                    if max_bytes == 0 {
+                        return Ok(ManifestFileRead::File {
+                            bytes: Vec::new(),
+                            total_bytes,
+                        });
+                    }
+                    if total_bytes > max_bytes as u64 {
+                        return Ok(ManifestFileRead::TooLarge {
+                            size: total_bytes,
+                            limit: max_bytes,
+                        });
+                    }
+                    let bytes = std::fs::read(&target)
+                        .map_err(|err| stale_layer_error(layer, rel.as_str(), Some(&err)))?;
+                    return Ok(ManifestFileRead::File { bytes, total_bytes });
+                }
+                Ok(meta) if meta.is_dir() => return Ok(ManifestFileRead::Directory),
+                Ok(_) => return Err(stale_layer_error(layer, rel.as_str(), None)),
+                Err(err) if err.kind() == ErrorKind::NotFound => {}
+                Err(err) => return Err(stale_layer_error(layer, rel.as_str(), Some(&err))),
+            }
+        }
+        Ok(ManifestFileRead::Absent)
+    }
+
     pub(crate) fn visible_descendants(
         &self,
         dir: &LayerPath,

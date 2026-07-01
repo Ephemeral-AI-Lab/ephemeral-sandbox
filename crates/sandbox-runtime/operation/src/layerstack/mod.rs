@@ -3,5 +3,6 @@ mod service;
 
 pub use error::LayerStackServiceError;
 pub use service::{
-    LayerStackRevision, LayerStackService, PublishChangesRequest, PublishChangesResult,
+    AmendError, AmendOutcome, LayerStackRevision, LayerStackService, ManifestReadWindow,
+    PublishChangesRequest, PublishChangesResult,
 };

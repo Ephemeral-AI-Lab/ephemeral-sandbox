@@ -16,6 +16,7 @@ pub use model::{
 };
 
 pub use error::LayerStackError;
+pub use stack::file_read::{AmendCommit, AmendError, ManifestFileRead};
 pub use stack::publish::merge::{three_way_merge, LineRange, MergeOutcome, Origin};
 pub use stack::publish::model::{
     ContentFingerprint, LayerProtectedDrop, LayerProtectedDropReason, PublishBase,

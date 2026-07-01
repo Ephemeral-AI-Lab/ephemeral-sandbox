@@ -3,4 +3,7 @@ mod impls;
 pub mod model;
 
 pub use core::LayerStackService;
-pub use model::{LayerStackRevision, PublishChangesRequest, PublishChangesResult};
+pub use model::{
+    AmendError, AmendOutcome, LayerStackRevision, ManifestReadWindow, PublishChangesRequest,
+    PublishChangesResult,
+};

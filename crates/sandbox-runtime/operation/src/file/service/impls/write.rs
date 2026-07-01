@@ -3,8 +3,12 @@
 //! writes land in the session overlay through the namespace runner and are
 //! attributed later, on session capture.
 
-use crate::file::FileService;
-use crate::file::{FileOperationError, WriteInput, WriteOutput};
+use sandbox_runtime_layerstack::ManifestFileRead;
+
+use crate::file::service::support::{amend_error, resolve_layer_path};
+use crate::file::{
+    FileEntryKind, FileOperationError, FileService, WriteInput, WriteKind, WriteOutput,
+};
 use crate::layerstack::LayerStackService;
 use crate::workspace_session::WorkspaceSessionService;
 
@@ -23,9 +27,44 @@ impl FileService {
         workspace_session: &WorkspaceSessionService,
         input: WriteInput,
     ) -> Result<WriteOutput, FileOperationError> {
-        let _ = (layerstack, workspace_session, &input);
-        Err(FileOperationError::WorkspaceSession(
-            "file_write backend not yet wired".to_owned(),
-        ))
+        match &input.workspace_session_id {
+            Some(_workspace_session_id) => {
+                let _ = workspace_session;
+                Err(FileOperationError::WorkspaceSession(
+                    "session file operations require the namespace runner (M4)".to_owned(),
+                ))
+            }
+            None => {
+                let workspace_root = layerstack.workspace_root()?;
+                let rel = resolve_layer_path(&workspace_root, &input.path)?;
+                let path = rel.as_str().to_owned();
+                let owner = format!("operation:{}", input.request_id);
+                let content = input.content.into_bytes();
+                let outcome = layerstack
+                    .amend_path(&rel, &owner, 0, |read| match read {
+                        ManifestFileRead::Directory => Err(FileOperationError::NotRegular {
+                            path: path.clone(),
+                            kind: FileEntryKind::Directory,
+                        }),
+                        ManifestFileRead::Symlink => Err(FileOperationError::NotRegular {
+                            path: path.clone(),
+                            kind: FileEntryKind::Symlink,
+                        }),
+                        ManifestFileRead::Absent
+                        | ManifestFileRead::File { .. }
+                        | ManifestFileRead::TooLarge { .. } => Ok(content),
+                    })
+                    .map_err(amend_error)?;
+                Ok(WriteOutput {
+                    kind: if outcome.existed_before {
+                        WriteKind::Update
+                    } else {
+                        WriteKind::Create
+                    },
+                    path,
+                    bytes_written: outcome.bytes_written,
+                })
+            }
+        }
     }
 }

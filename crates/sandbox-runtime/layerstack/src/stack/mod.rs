@@ -7,6 +7,7 @@ use crate::lock::StorageWriterLockLease;
 use crate::model::{manifest_root_hash, Manifest};
 use crate::{ACTIVE_MANIFEST_FILE, LAYERS_DIR, STAGING_DIR};
 
+pub(crate) mod file_read;
 mod layer;
 pub(crate) mod lease;
 mod ops;
