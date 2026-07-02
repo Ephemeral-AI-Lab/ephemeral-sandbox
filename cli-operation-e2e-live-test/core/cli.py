@@ -147,7 +147,9 @@ def operation_timing_summary():
     rows = []
     for operation_key, records in grouped.items():
         values = sorted(record["duration_ms"] for record in records)
-        sub_50 = sum(1 for value in values if value < 50.0)
+        sub_50 = _threshold_summary(values, 50.0)
+        sub_100 = _threshold_summary(values, 100.0)
+        sub_200 = _threshold_summary(values, 200.0)
         rows.append(
             {
                 "operation": operation_key,
@@ -156,14 +158,23 @@ def operation_timing_summary():
                 "p50_ms": round(_percentile(values, 0.50), 3),
                 "p95_ms": round(_percentile(values, 0.95), 3),
                 "max_ms": values[-1],
-                "sub_50ms_count": sub_50,
-                "sub_50ms_pct": round((sub_50 / len(values)) * 100.0, 1),
+                "sub_50ms_count": sub_50["count"],
+                "sub_50ms_pct": sub_50["pct"],
+                "sub_100ms_count": sub_100["count"],
+                "sub_100ms_pct": sub_100["pct"],
+                "sub_200ms_count": sub_200["count"],
+                "sub_200ms_pct": sub_200["pct"],
                 "cli_error_count": sum(
                     1 for record in records if record["returncode"] != 0
                 ),
             }
         )
     return sorted(rows, key=lambda row: row["operation"])
+
+
+def _threshold_summary(values, threshold_ms):
+    count = sum(1 for value in values if value < threshold_ms)
+    return {"count": count, "pct": round((count / len(values)) * 100.0, 1)}
 
 
 def _percentile(values, quantile):

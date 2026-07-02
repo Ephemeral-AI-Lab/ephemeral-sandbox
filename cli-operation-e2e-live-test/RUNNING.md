@@ -79,8 +79,8 @@ Enabled by default in `pytest.ini` — no extra flags needed:
 - **Per-operation timing artifacts**: every run that calls `sandbox-cli` writes
   `latest.md` and `latest.json` under `E2E_OP_METRICS_DIR`. The summary groups
   client-side CLI wall time by operation and includes count/min/p50/p95/max plus
-  the measured percentage of calls under 50 ms. This is measurement only; the
-  suite does not enforce a timing SLO.
+  the measured percentage of calls under 50 ms, 100 ms, and 200 ms. This is
+  measurement only; the suite does not enforce a timing SLO.
 
 Useful overrides:
 

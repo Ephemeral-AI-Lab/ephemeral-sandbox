@@ -45,7 +45,10 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.write_line(
             f"{row['operation']}: n={row['count']} "
             f"p50={row['p50_ms']:.1f}ms p95={row['p95_ms']:.1f}ms "
-            f"max={row['max_ms']:.1f}ms sub50={row['sub_50ms_pct']:.1f}%"
+            f"max={row['max_ms']:.1f}ms "
+            f"sub50={row['sub_50ms_pct']:.1f}% "
+            f"sub100={row['sub_100ms_pct']:.1f}% "
+            f"sub200={row['sub_200ms_pct']:.1f}%"
         )
     terminalreporter.write_line(f"operation timing metrics: {paths['markdown']}")
 
@@ -67,7 +70,7 @@ def _write_operation_timing_artifacts(records, summary, exitstatus):
 
     generated_at = _dt.datetime.now().astimezone().isoformat(timespec="seconds")
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_at": generated_at,
         "argv": sys.argv,
         "exitstatus": exitstatus,
@@ -97,16 +100,17 @@ def _operation_timing_markdown(payload):
         f"- Exit status: `{payload['exitstatus']}`",
         f"- CLI calls measured: `{payload['record_count']}`",
         "- Durations are client-side `sandbox-cli` wall time.",
-        "- `sub50` is measurement only; the suite does not enforce a timing SLO.",
+        "- `sub50`/`sub100`/`sub200` are measurement only; the suite does not enforce a timing SLO.",
         "",
-        "| Operation | Count | Min ms | P50 ms | P95 ms | Max ms | Sub50 | CLI errors |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| Operation | Count | Min ms | P50 ms | P95 ms | Max ms | Sub50 | Sub100 | Sub200 | CLI errors |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in payload["summary"]:
         rows.append(
             f"| `{row['operation']}` | {row['count']} | {row['min_ms']:.1f} | "
             f"{row['p50_ms']:.1f} | {row['p95_ms']:.1f} | {row['max_ms']:.1f} | "
-            f"{row['sub_50ms_pct']:.1f}% | {row['cli_error_count']} |"
+            f"{row['sub_50ms_pct']:.1f}% | {row['sub_100ms_pct']:.1f}% | "
+            f"{row['sub_200ms_pct']:.1f}% | {row['cli_error_count']} |"
         )
     rows.append("")
     return "\n".join(rows)

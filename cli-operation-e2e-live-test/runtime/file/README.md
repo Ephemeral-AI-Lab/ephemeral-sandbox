@@ -58,5 +58,6 @@ the Test Runner Instructions section of the test-case doc.
 
 Every live run also writes the latest per-operation timing summary to
 `docs/obsidian/ephemeral-os/testing/file-operation/operation-timing/`. These are
-client-side `sandbox-cli` wall-time metrics grouped by operation; they are not
-pass/fail assertions.
+client-side `sandbox-cli` wall-time metrics grouped by operation, including
+count/min/p50/p95/max plus sub-50ms, sub-100ms, and sub-200ms percentages; they
+are not pass/fail assertions.
