@@ -185,6 +185,10 @@
   },
   "active": "2b73796146464bdb",
   "lastOpenFiles": [
+    "ephemeral-os/implementation_plan/squash/implementation_prompt.md",
+    "ephemeral-os/implementation_plan/squash/impl_plan_and_progress_tracker.md",
+    "ephemeral-os/implementation_plan/squash/acceptance_criteria.md",
+    "ephemeral-os/implementation_plan/squash/simplicity_review_results.md",
     "ephemeral-os/implementation_plan/squash/adversarial_multi_agent_review_results.md",
     "ephemeral-os/implementation_plan/squash/adversarial_multi_agent_review_prompt.md",
     "ephemeral-os/implementation_plan/squash/adversarial_review.md",
@@ -214,12 +218,8 @@
     "ephemeral-os/implementation_plan/file_operations/file_operations_read_write_edit.md",
     "ephemeral-os/implementation_plan/file_operations",
     "ephemeral-os/implementation_plan/file_operations_read_write_edit_criteria.md",
-    "ephemeral-os/implementation_plan/Untitled.md",
-    "ephemeral-os/testing/file-operation/test-case.md",
-    "ephemeral-os/testing/file-operation/edge-case.md",
     "ephemeral-os/testing/file-operation",
     "ephemeral-os/testing/Untitled",
-    "ephemeral-os/testing/Untitled.md",
     "ephemeral-os/testing",
     "ephemeral-os/docs/Untitled.canvas"
   ]

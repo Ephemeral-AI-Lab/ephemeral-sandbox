@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "implementation_plan/squash/spec.md",
+                "file": "implementation_plan/squash/implementation_prompt.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "spec"
+              "title": "implementation_prompt"
             }
           }
         ]
@@ -185,8 +185,18 @@
   },
   "active": "d5fccc8ee65959ed",
   "lastOpenFiles": [
-    "implementation_plan/squash/adversarial_multi_agent_review_results.md",
+    "implementation_plan/squash/impl_plan_and_progress_tracker.md",
+    "implementation_plan/squash/acceptance_criteria.md",
+    "implementation_plan/squash/implementation_prompt.md",
+    "implementation_plan/squash/simplicity_review_results.md",
     "implementation_plan/squash/spec.md",
+    "implementation_plan/file_operations/impl_plan_and_progress_tracker.md",
+    "implementation_plan/file_operations/fix_spec.md",
+    "implementation_plan/file_operations/live_smoke_evidence.md",
+    "implementation_plan/file_operations/spec.md",
+    "implementation_plan/o1_shared_workspace_base.md",
+    "implementation_plan/daemon-command-syscall-hardening.md",
+    "implementation_plan/squash/adversarial_multi_agent_review_results.md",
     "implementation_plan/squash/adversarial_multi_agent_review_prompt.md",
     "implementation_plan/squash/adversarial_review.md",
     "implementation_plan/squash/adversarial-review-prompt.md",
@@ -204,18 +214,8 @@
     "Chalkboards — meetings and the conversation that never forgets.md",
     "implementation_plan/file_operations/test-case.md",
     "road_to_fully_autnomous_agent_system/spec.md",
-    "implementation_plan/file_operations/side_daemon_cli_spec.md",
-    "implementation_plan/file_operations/impl_plan_and_progress_tracker.md",
-    "implementation_plan/file_operations/fix_spec.md",
-    "implementation_plan/file_operations/live_smoke_evidence.md",
-    "implementation_plan/file_operations/spec.md",
-    "docs/daemon/daemon-cli.md",
-    "docs/cli-gateway-manager-runtime.md",
     "docs/daemon",
-    "docs/Untitled.md",
-    "implementation_plan/daemon-command-syscall-hardening.md",
     "implementation_plan/file_operations",
-    "implementation_plan/o1_shared_workspace_base.md",
     "testing/file-operation",
     "testing",
     "road_to_fully_autnomous_agent_system/ui/arbor.html",
