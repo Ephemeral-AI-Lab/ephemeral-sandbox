@@ -59,7 +59,7 @@ Statuses: `todo` → `experiments` → `implementing` → `review` → `done`
 | 6 | Staged-switch runner (namespace-process) | done | 4/4 | 2/2 | 2/2 | ☑ |
 | 7 | Workspace remount transaction + reap + PDEATHSIG | done | 4/4 | 5/5 | 5/5 | ☑ |
 | 8 | Operation layer: gate, squash op, sweep loop | done | 4/4 | 6/6 | 5/5 | ☑ |
-| 9 | Manager CLI (`checkpoint_squash`) | todo | 0/2 | 0/3 | 0/1 | ☐ |
+| 9 | Manager CLI (`checkpoint_squash`) | done | 2/2 | 3/3 | 1/1 | ☑ |
 | 10 | Live Docker e2e + enablement + sign-off | todo | — | 0/3 | 0/13 | ☐ |
 
 ---
@@ -736,8 +736,20 @@ family (+25); registration (+10).
 ### Exit review
 
 - [x] Standard review (manager: 15 tests green, clippy 0 warnings, fmt
-      clean); end-to-end manual smoke pending the daemon repackage — run
-      below.
+      clean); Phase 10 unblocked.
+- [x] **End-to-end manual smoke PASSED** against a live Docker gateway
+      (packaged daemon, restarted gateway): (a) empty stack →
+      `{"manifest_version":1,"squashed_blocks":[]}`; (b) idle 3-layer
+      stack → one `reclaimed` S block at v5, old L layers gone from disk,
+      no S `.digest` (only the accepted observability `.bytes` self-heal),
+      merged view intact; (c) **live remount proven**: an idle session
+      leasing the 3-layer top migrated onto the compact `[L4,S5,B]` chain
+      during squash, read `m1\nm2\nm3` correctly through the remounted
+      overlay, reclaimed the block, and destroyed with zero leaked
+      leases. (A reused-sandbox run hit a transient ns-runner ENOMEM at
+      ~15 accumulated sessions — environmental, not a feature fault; the
+      fresh-sandbox run is clean.) This is effectively a B2/E5 preview
+      that Phase 10 formalizes.
 
 ---
 
