@@ -648,3 +648,614 @@ mod rewrite_tests {
         ));
     }
 }
+
+mod squash_transaction_tests {
+    use std::collections::BTreeSet;
+    use std::path::PathBuf;
+    use std::sync::atomic::Ordering;
+
+    use crate::stack::squash::partition_blocks;
+    use crate::stack::{SquashOutcome, SquashedBlock, SweepReport};
+    use crate::{LayerChange, LayerPath, LayerRef, LayerStack, Manifest};
+
+    use super::NEXT_FLATTEN_TEST;
+
+    struct SquashFixture {
+        root: PathBuf,
+    }
+
+    impl SquashFixture {
+        fn new(label: &str) -> Self {
+            let root = std::env::temp_dir().join(format!(
+                "layerstack-squashtx-{label}-{}-{}",
+                std::process::id(),
+                NEXT_FLATTEN_TEST.fetch_add(1, Ordering::Relaxed)
+            ));
+            let _ = std::fs::remove_dir_all(&root);
+            std::fs::create_dir_all(&root).expect("create root");
+            Self { root }
+        }
+
+        fn stack(&self) -> LayerStack {
+            LayerStack::open(self.root.clone()).expect("open stack")
+        }
+
+        fn publish(&self, stack: &mut LayerStack, changes: &[(&str, &str)]) -> Manifest {
+            let changes: Vec<LayerChange> = changes
+                .iter()
+                .map(|(path, content)| LayerChange::Write {
+                    path: LayerPath::parse(path).expect("layer path"),
+                    content: content.as_bytes().to_vec(),
+                })
+                .collect();
+            stack.publish_layer(&changes).expect("publish layer")
+        }
+
+        fn layer_dir_names(&self) -> Vec<String> {
+            let mut names: Vec<String> = std::fs::read_dir(self.root.join("layers"))
+                .expect("list layers")
+                .map(|entry| {
+                    entry
+                        .expect("entry")
+                        .file_name()
+                        .to_string_lossy()
+                        .into_owned()
+                })
+                .collect();
+            names.sort();
+            names
+        }
+
+        fn sidecar_names(&self) -> Vec<String> {
+            let dir = self.root.join(".layer-metadata");
+            let Ok(entries) = std::fs::read_dir(dir) else {
+                return Vec::new();
+            };
+            let mut names: Vec<String> = entries
+                .map(|entry| {
+                    entry
+                        .expect("entry")
+                        .file_name()
+                        .to_string_lossy()
+                        .into_owned()
+                })
+                .collect();
+            names.sort();
+            names
+        }
+    }
+
+    impl Drop for SquashFixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn refs(ids: &[&str]) -> Vec<LayerRef> {
+        ids.iter()
+            .map(|id| LayerRef {
+                layer_id: (*id).to_owned(),
+                path: format!("layers/{id}"),
+            })
+            .collect()
+    }
+
+    fn ids(layers: &[LayerRef]) -> Vec<&str> {
+        layers.iter().map(|layer| layer.layer_id.as_str()).collect()
+    }
+
+    // Test 1: boundaries from lease_newest_layers() split the manifest into
+    // maximal >=2 runs; singletons and B* never form blocks.
+    #[test]
+    fn partition_blocks_between_boundaries_and_base() {
+        let layers = refs(&["L6", "L5", "L4", "L3", "L2", "L1"]);
+        let boundaries: BTreeSet<String> = ["L6", "L3"].iter().map(|s| (*s).to_owned()).collect();
+        let blocks = partition_blocks(&layers, &boundaries);
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(ids(&blocks[0]), vec!["L5", "L4"]);
+        assert_eq!(ids(&blocks[1]), vec!["L2", "L1"]);
+
+        let dense: BTreeSet<String> = ["L6", "L4", "L2"].iter().map(|s| (*s).to_owned()).collect();
+        assert!(
+            partition_blocks(&layers, &dense).is_empty(),
+            "singleton runs never form blocks"
+        );
+
+        let mut with_base = refs(&["L3", "L2", "L1"]);
+        with_base.push(LayerRef {
+            layer_id: "B000001-base".to_owned(),
+            path: "base/B000001-base".to_owned(),
+        });
+        let blocks = partition_blocks(&with_base, &BTreeSet::new());
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(
+            ids(&blocks[0]),
+            vec!["L3", "L2", "L1"],
+            "base breaks the run and is never inside a block"
+        );
+    }
+
+    // Test 20 (B1): the only deletion path at commit is the plan-lease
+    // release; its removed set is exactly what left the disk.
+    #[test]
+    fn commit_gc_is_plan_lease_release() {
+        let fixture = SquashFixture::new("gc-release");
+        let mut stack = fixture.stack();
+        fixture.publish(&mut stack, &[("a.txt", "1")]);
+        fixture.publish(&mut stack, &[("b.txt", "2")]);
+        fixture.publish(&mut stack, &[("c.txt", "3")]);
+        let old_lease = stack
+            .acquire_snapshot("pre-squash-observer")
+            .expect("lease");
+        stack.release_lease(&old_lease.lease_id).expect("release");
+        let before: BTreeSet<String> = fixture.layer_dir_names().into_iter().collect();
+
+        let outcome: SquashOutcome = stack.squash().expect("squash");
+        assert_eq!(outcome.blocks.len(), 1);
+        assert_eq!(
+            outcome.removed.len(),
+            3,
+            "idle stack: all three sources reclaimed at commit"
+        );
+        let after: BTreeSet<String> = fixture.layer_dir_names().into_iter().collect();
+        let deleted: BTreeSet<String> = before.difference(&after).cloned().collect();
+        let removed_ids: BTreeSet<String> = outcome
+            .removed
+            .iter()
+            .map(|layer| layer.layer_id.clone())
+            .collect();
+        assert_eq!(
+            deleted, removed_ids,
+            "what left the disk is exactly the release GC's removed set"
+        );
+        assert_eq!(outcome.manifest.depth(), 1);
+        assert_eq!(outcome.manifest.version, 4);
+
+        let merged = stack.read_active_manifest().expect("manifest");
+        let view = crate::MergedView::new(fixture.root.clone());
+        let (bytes, _) = view.read_bytes("a.txt", &merged).expect("read a.txt");
+        assert_eq!(
+            bytes.as_deref(),
+            Some(b"1".as_slice()),
+            "merged view preserved through squash"
+        );
+    }
+
+    // Test 3: a lease acquired between plan and commit pins the sources; the
+    // commit GC (registry at commit instant) deletes nothing.
+    #[test]
+    fn commit_gc_never_deletes_layers_leased_after_plan() {
+        let fixture = SquashFixture::new("late-lease");
+        let mut stack = fixture.stack();
+        fixture.publish(&mut stack, &[("a.txt", "1")]);
+        fixture.publish(&mut stack, &[("b.txt", "2")]);
+        fixture.publish(&mut stack, &[("c.txt", "3")]);
+
+        let plan = stack.plan_squash().expect("plan").expect("has blocks");
+        let late_lease = stack.acquire_snapshot("late-session").expect("late lease");
+        let built = stack.build_blocks(&plan).expect("build");
+        let (manifest, blocks, removed) = stack.commit_squash(&plan, &built).expect("commit");
+
+        assert_eq!(blocks.len(), 1);
+        assert!(
+            removed.is_empty(),
+            "sources leased after plan survive the commit GC"
+        );
+        for layer in &late_lease.manifest.layers {
+            assert!(
+                fixture.root.join(&layer.path).is_dir(),
+                "leased source {} must survive",
+                layer.layer_id
+            );
+        }
+        assert_eq!(manifest.depth(), 1);
+        drop(late_lease);
+    }
+
+    // Test 4: racing publishes only prepend, so the run-presence recheck
+    // compacts through them; a broken run aborts as a storage error with the
+    // old manifest intact.
+    #[test]
+    fn commit_recheck_compacts_through_racing_publish_or_aborts_cleanly() {
+        let fixture = SquashFixture::new("recheck");
+        let mut stack = fixture.stack();
+        fixture.publish(&mut stack, &[("a.txt", "1")]);
+        fixture.publish(&mut stack, &[("b.txt", "2")]);
+
+        let plan = stack.plan_squash().expect("plan").expect("has blocks");
+        let racing = fixture.publish(&mut stack, &[("late.txt", "L")]);
+        assert_eq!(racing.version, 3);
+        let built = stack.build_blocks(&plan).expect("build");
+        let (manifest, _, _) = stack.commit_squash(&plan, &built).expect("commit");
+        assert_eq!(
+            manifest.version, 4,
+            "version = latest + 1, never starved by the racing publish"
+        );
+        assert_eq!(
+            manifest.depth(),
+            2,
+            "publish tail stays above the squashed layer"
+        );
+        stack.release_lease(&plan.plan_lease_id).ok();
+
+        let fixture2 = SquashFixture::new("recheck-broken");
+        let mut stack2 = fixture2.stack();
+        fixture2.publish(&mut stack2, &[("a.txt", "1")]);
+        fixture2.publish(&mut stack2, &[("b.txt", "2")]);
+        let plan2 = stack2.plan_squash().expect("plan").expect("has blocks");
+        let built2 = stack2.build_blocks(&plan2).expect("build");
+        let old_manifest = stack2.read_active_manifest().expect("manifest");
+        let broken = Manifest::new(
+            old_manifest.version + 1,
+            vec![old_manifest.layers[0].clone()],
+            old_manifest.schema_version,
+        )
+        .expect("manifest");
+        crate::fs::write_manifest(fixture2.root.join("manifest.json"), &broken).expect("break run");
+        let error = stack2
+            .commit_squash(&plan2, &built2)
+            .expect_err("broken run must abort");
+        assert!(error.to_string().contains("no longer contiguous"));
+        let manifest_now = stack2.read_active_manifest().expect("manifest");
+        assert_eq!(
+            manifest_now, broken,
+            "manifest untouched by the aborted commit"
+        );
+        assert!(fixture2
+            .layer_dir_names()
+            .iter()
+            .all(|name| !name.starts_with('S')));
+        for block in &built2 {
+            let _ = std::fs::remove_dir_all(&block.staging_dir);
+        }
+        stack2.release_lease(&plan2.plan_lease_id).ok();
+    }
+
+    // Test 5: singleflight per root — a second invocation fails cleanly while
+    // the first outcome (spanning the sweep) is alive.
+    #[test]
+    fn squash_singleflight_per_root() {
+        let fixture = SquashFixture::new("singleflight");
+        let mut stack = fixture.stack();
+        fixture.publish(&mut stack, &[("a.txt", "1")]);
+        fixture.publish(&mut stack, &[("b.txt", "2")]);
+
+        let outcome = stack.squash().expect("first squash");
+        let error = stack.squash().expect_err("second squash while in flight");
+        assert!(error.to_string().contains("already in flight"));
+        drop(outcome);
+        let outcome = stack.squash().expect("squash after flight released");
+        assert!(outcome.blocks.is_empty(), "nothing left to squash");
+    }
+
+    // Test 6: crash shape (orphan promoted S dir + old manifest) is reclaimed
+    // by the boot sweep; a non-crash post-promote failure removes the
+    // promoted S dirs in-process.
+    #[test]
+    fn crash_and_error_paths_around_commit() {
+        let fixture = SquashFixture::new("crash-shape");
+        let mut stack = fixture.stack();
+        fixture.publish(&mut stack, &[("a.txt", "1")]);
+        fixture.publish(&mut stack, &[("b.txt", "2")]);
+        std::fs::create_dir_all(fixture.root.join("layers/S000099-orphan/data"))
+            .expect("plant orphan");
+        std::fs::create_dir_all(fixture.root.join("staging/S000099-zz.staging"))
+            .expect("plant orphan staging");
+        let report = stack.sweep_storage().expect("sweep");
+        assert_eq!(report.removed_layer_ids, vec!["S000099-orphan".to_owned()]);
+        assert_eq!(report.removed_staging_entries, 1);
+        assert!(report.skipped_reason.is_none());
+        assert_eq!(fixture.layer_dir_names().len(), 2, "manifest layers kept");
+
+        let fixture2 = SquashFixture::new("post-promote-fail");
+        let mut stack2 = fixture2.stack();
+        fixture2.publish(&mut stack2, &[("a.txt", "1")]);
+        fixture2.publish(&mut stack2, &[("b.txt", "2")]);
+        fixture2.publish(&mut stack2, &[("c.txt", "3")]);
+        let plan = stack2.plan_squash().expect("plan").expect("has a block");
+        let built = stack2.build_blocks(&plan).expect("build");
+        // A squatter file at the promote destination fails the rename on
+        // every platform, root or not, exercising the in-process error path.
+        std::fs::write(&built[0].layer_dir, b"squatter").expect("block the promote target");
+        stack2
+            .commit_squash(&plan, &built)
+            .expect_err("promote must fail");
+        assert!(
+            !fixture2
+                .layer_dir_names()
+                .iter()
+                .any(|name| name.starts_with('S')
+                    && fixture2.root.join("layers").join(name).is_dir()),
+            "no promoted S dir survives an in-process commit failure"
+        );
+        let manifest_now = stack2.read_active_manifest().expect("manifest");
+        assert_eq!(manifest_now.version, 3, "old manifest intact");
+        std::fs::remove_file(&built[0].layer_dir).expect("unblock");
+        for block in &built {
+            let _ = std::fs::remove_dir_all(&block.staging_dir);
+        }
+        stack2.release_lease(&plan.plan_lease_id).ok();
+    }
+
+    // Build failures inside squash() abort cleanly: staging is removed and
+    // the plan lease is released (a socket file is an unsupported source
+    // entry type, a natural fault with no in-src injection).
+    #[test]
+    fn build_failure_aborts_squash_cleanly() {
+        let fixture = SquashFixture::new("build-fail");
+        let mut stack = fixture.stack();
+        fixture.publish(&mut stack, &[("a.txt", "1")]);
+        let manifest = fixture.publish(&mut stack, &[("b.txt", "2")]);
+        let top_layer = fixture.root.join(&manifest.layers[0].path);
+        // A unix socket is an unsupported source entry type; bind at a short
+        // path (SUN_LEN limit) and move the inode into the layer.
+        let short = std::env::temp_dir().join(format!("sq{}.sock", std::process::id()));
+        let _ = std::fs::remove_file(&short);
+        let _listener = std::os::unix::net::UnixListener::bind(&short).expect("bind socket");
+        std::fs::rename(&short, top_layer.join("weird.sock")).expect("move socket into layer");
+        let baseline_leases = stack.active_lease_count();
+
+        let error = stack
+            .squash()
+            .expect_err("unsupported entry must fail the build");
+        assert!(error.to_string().contains("unsupported source entry"));
+        let staging_entries = std::fs::read_dir(fixture.root.join("staging"))
+            .expect("staging")
+            .count();
+        assert_eq!(staging_entries, 0, "staging cleaned on abort");
+        assert_eq!(
+            stack.active_lease_count(),
+            baseline_leases,
+            "plan lease released on abort"
+        );
+        let manifest_now = stack.read_active_manifest().expect("manifest");
+        assert_eq!(manifest_now.version, 2, "manifest untouched");
+    }
+
+    // Test 7: exactly one syncfs on the storage-root fd, after promote and
+    // before the manifest rename, independent of entry count; commit leaves
+    // content, whiteouts, and symlinks intact.
+    #[test]
+    fn syncfs_commit_durability() {
+        let fixture = SquashFixture::new("syncfs");
+        let mut stack = fixture.stack();
+        let changes: Vec<LayerChange> = (0..50)
+            .map(|index| LayerChange::Write {
+                path: LayerPath::parse(&format!("bulk/f{index}")).expect("path"),
+                content: vec![b'x'; 32],
+            })
+            .collect();
+        stack.publish_layer(&changes).expect("publish bulk");
+        stack
+            .publish_layer(&[
+                LayerChange::Delete {
+                    path: LayerPath::parse("bulk/f0").expect("path"),
+                },
+                LayerChange::Symlink {
+                    path: LayerPath::parse("link").expect("path"),
+                    source_path: "bulk/f1".to_owned(),
+                },
+            ])
+            .expect("publish deletes");
+
+        crate::fs::SYNCFS_CALLS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clear();
+        let outcome = stack.squash().expect("squash");
+        let calls: Vec<crate::fs::SyncfsCall> = crate::fs::SYNCFS_CALLS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        assert_eq!(
+            calls.len(),
+            1,
+            "exactly one syncfs per commit, independent of entry count"
+        );
+        assert_eq!(
+            calls[0].manifest_version_at_call, 2,
+            "syncfs runs before the manifest rename"
+        );
+        assert_eq!(
+            calls[0].promoted_s_dirs,
+            vec![outcome.blocks[0].squashed_layer.layer_id.clone()],
+            "syncfs runs after the promote"
+        );
+
+        let s_dir = fixture.root.join(&outcome.blocks[0].squashed_layer.path);
+        assert!(
+            s_dir.join("bulk/f1").is_file(),
+            "content intact after commit"
+        );
+        assert!(
+            crate::whiteout::is_kernel_whiteout(&s_dir.join("bulk/f0"))
+                || crate::whiteout::logical_whiteout_path_for_target(&s_dir.join("bulk/f0"))
+                    .exists(),
+            "whiteout intact after commit"
+        );
+        assert!(
+            std::fs::symlink_metadata(s_dir.join("link"))
+                .expect("lstat link")
+                .file_type()
+                .is_symlink(),
+            "symlink intact after commit"
+        );
+    }
+
+    // Test 13: a shared run pinned by a second lease survives the first
+    // release; refcount zero reclaims it (with both sidecars).
+    #[test]
+    fn old_layers_not_deleted_until_refcount_zero() {
+        let fixture = SquashFixture::new("refcount");
+        let mut stack = fixture.stack();
+        fixture.publish(&mut stack, &[("a.txt", "1")]);
+        fixture.publish(&mut stack, &[("b.txt", "2")]);
+        fixture.publish(&mut stack, &[("c.txt", "3")]);
+        let lease_a = stack.acquire_snapshot("ws-a").expect("lease a");
+        let lease_b = stack.acquire_snapshot("ws-b").expect("lease b");
+
+        let outcome = stack.squash().expect("squash");
+        assert_eq!(
+            outcome.blocks.len(),
+            1,
+            "block forms below the shared boundary"
+        );
+        assert!(outcome.removed.is_empty(), "everything still pinned");
+
+        stack.release_lease(&lease_a.lease_id).expect("release a");
+        let block: &SquashedBlock = &outcome.blocks[0];
+        let _ = block;
+        for layer in &outcome.blocks[0].replaced {
+            assert!(
+                fixture.root.join(&layer.path).is_dir(),
+                "{} survives while lease b pins it",
+                layer.layer_id
+            );
+        }
+        stack.release_lease(&lease_b.lease_id).expect("release b");
+        for layer in &outcome.blocks[0].replaced {
+            assert!(
+                !fixture.root.join(&layer.path).exists(),
+                "{} reclaimed at refcount zero",
+                layer.layer_id
+            );
+            assert!(
+                !fixture
+                    .root
+                    .join(".layer-metadata")
+                    .join(format!("{}.digest", layer.layer_id))
+                    .exists(),
+                "digest sidecar reclaimed"
+            );
+            assert!(
+                !fixture
+                    .root
+                    .join(".layer-metadata")
+                    .join(format!("{}.bytes", layer.layer_id))
+                    .exists(),
+                "bytes sidecar reclaimed (regression for the leak)"
+            );
+        }
+    }
+
+    // Test 14: boot cleanup matrix — fail-closed on missing/unreadable
+    // manifests, keep-set sweep with B* guard, shared deletion routine.
+    #[test]
+    fn boot_cleanup_matrix() {
+        let fixture = SquashFixture::new("boot-matrix");
+        let mut stack = fixture.stack();
+        std::fs::create_dir_all(fixture.root.join("layers/L000042-victim")).expect("plant");
+        let report: SweepReport = stack.sweep_storage().expect("sweep");
+        assert_eq!(
+            report.skipped_reason.as_deref(),
+            Some("manifest.json is missing"),
+            "missing manifest: fail closed"
+        );
+        assert!(
+            fixture.root.join("layers/L000042-victim").is_dir(),
+            "nothing deleted"
+        );
+
+        std::fs::write(fixture.root.join("manifest.json"), b"{not json").expect("garbage");
+        let report = stack.sweep_storage().expect("sweep");
+        assert!(
+            report
+                .skipped_reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("unreadable")),
+            "unreadable manifest: fail closed"
+        );
+        assert!(fixture.root.join("layers/L000042-victim").is_dir());
+        std::fs::remove_file(fixture.root.join("manifest.json")).expect("clear garbage");
+        std::fs::remove_dir_all(fixture.root.join("layers/L000042-victim")).expect("unplant");
+
+        fixture.publish(&mut stack, &[("a.txt", "1")]);
+        fixture.publish(&mut stack, &[("b.txt", "2")]);
+        let keep: BTreeSet<String> = fixture.layer_dir_names().into_iter().collect();
+        std::fs::create_dir_all(fixture.root.join("layers/S000050-orphan")).expect("plant");
+        std::fs::create_dir_all(fixture.root.join("layers/Bfake-never-swept")).expect("plant B");
+        std::fs::create_dir_all(fixture.root.join("staging/S000050-zz.staging"))
+            .expect("plant staging");
+        std::fs::write(
+            fixture.root.join(".layer-metadata/L000099-gone.digest"),
+            b"d",
+        )
+        .expect("orphan digest");
+        std::fs::write(
+            fixture.root.join(".layer-metadata/L000099-gone.bytes"),
+            b"9",
+        )
+        .expect("orphan bytes");
+
+        let report = stack.sweep_storage().expect("sweep");
+        assert!(report.skipped_reason.is_none());
+        assert_eq!(
+            report.removed_layer_ids,
+            vec!["L000099-gone".to_owned(), "S000050-orphan".to_owned()]
+        );
+        assert_eq!(report.removed_staging_entries, 1);
+        assert!(
+            fixture.root.join("layers/Bfake-never-swept").is_dir(),
+            "B* never deleted"
+        );
+        let now: BTreeSet<String> = fixture
+            .layer_dir_names()
+            .into_iter()
+            .filter(|name| !name.starts_with('B'))
+            .collect();
+        assert_eq!(
+            now, keep,
+            "sweep keeps exactly the active manifest's layers"
+        );
+        assert!(!fixture
+            .root
+            .join(".layer-metadata/L000099-gone.digest")
+            .exists());
+        assert!(!fixture
+            .root
+            .join(".layer-metadata/L000099-gone.bytes")
+            .exists());
+        let sidecars = fixture.sidecar_names();
+        assert_eq!(
+            sidecars.len(),
+            4,
+            "digest+bytes for the two kept layers survive"
+        );
+        std::fs::remove_dir_all(fixture.root.join("layers/Bfake-never-swept")).expect("cleanup");
+    }
+
+    // Test 21: S layers carry zero sidecars; publish on top of S proceeds
+    // (dedup miss is silent) and the substitution map serves the rewrite.
+    #[test]
+    fn squash_commits_with_no_s_layer_sidecars() {
+        let fixture = SquashFixture::new("no-sidecars");
+        let mut stack = fixture.stack();
+        fixture.publish(&mut stack, &[("a.txt", "1")]);
+        fixture.publish(&mut stack, &[("b.txt", "2")]);
+        let old_lease = stack.acquire_snapshot("survivor").expect("lease");
+
+        let outcome = stack.squash().expect("squash");
+        assert!(
+            outcome.blocks.is_empty(),
+            "boundary at head: no block of >=2 below it"
+        );
+        drop(outcome);
+        stack.release_lease(&old_lease.lease_id).expect("release");
+        let outcome = stack.squash().expect("squash");
+        assert_eq!(outcome.blocks.len(), 1);
+        let s_id = outcome.blocks[0].squashed_layer.layer_id.clone();
+
+        let sidecars = fixture.sidecar_names();
+        assert!(
+            sidecars.iter().all(|name| !name.starts_with(&s_id)),
+            "no digest/bytes/ledger for the S layer: {sidecars:?}"
+        );
+
+        let manifest = fixture.publish(&mut stack, &[("on-top.txt", "T")]);
+        assert_eq!(
+            manifest.depth(),
+            2,
+            "publish on top of S proceeds; dedup miss is silent"
+        );
+    }
+}

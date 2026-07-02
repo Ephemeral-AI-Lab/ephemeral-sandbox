@@ -3,7 +3,48 @@
 #[path = "../src/error.rs"]
 mod error;
 #[path = "../src/storage/fs.rs"]
-pub(crate) mod fs;
+pub(crate) mod fs_impl;
+// Syscall-recording shim (tests-only): locally-defined items shadow the glob
+// re-export, so every `crate::fs::syncfs_storage_root` call from the
+// re-included source tree lands here and is observed before delegating.
+pub(crate) mod fs {
+    use std::path::Path;
+    use std::sync::Mutex;
+
+    pub(crate) use super::fs_impl::*;
+
+    #[derive(Debug, Clone)]
+    pub(crate) struct SyncfsCall {
+        pub(crate) manifest_version_at_call: i64,
+        pub(crate) promoted_s_dirs: Vec<String>,
+    }
+
+    pub(crate) static SYNCFS_CALLS: Mutex<Vec<SyncfsCall>> = Mutex::new(Vec::new());
+
+    pub(crate) fn syncfs_storage_root(storage_root: &Path) -> Result<(), crate::LayerStackError> {
+        let manifest_version_at_call =
+            super::fs_impl::read_manifest(storage_root.join(crate::ACTIVE_MANIFEST_FILE))
+                .map(|manifest| manifest.version)
+                .unwrap_or(-1);
+        let promoted_s_dirs = std::fs::read_dir(storage_root.join(crate::LAYERS_DIR))
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                    .filter(|name| name.starts_with('S'))
+                    .collect()
+            })
+            .unwrap_or_default();
+        SYNCFS_CALLS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(SyncfsCall {
+                manifest_version_at_call,
+                promoted_s_dirs,
+            });
+        super::fs_impl::syncfs_storage_root(storage_root)
+    }
+}
 #[path = "../src/storage/lock.rs"]
 pub(crate) mod lock;
 #[path = "../src/model/mod.rs"]

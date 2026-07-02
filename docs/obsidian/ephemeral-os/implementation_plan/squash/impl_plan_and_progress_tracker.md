@@ -53,8 +53,8 @@ Statuses: `todo` → `experiments` → `implementing` → `review` → `done`
 | 0 | Environment & kernel ground truth | done | 10/10 | — | — | ☑ |
 | 1 | Flatten (layerstack pure) | done | 3/3 | 2/2 | 1/1 | ☑ |
 | 2 | Substitution map + rewritten lease | done | 3/3 | 2/2 | 1/1 | ☑ |
-| 3 | Squash transaction + commit GC + boot sweep | experiments | 0/4 | 0/4 | 0/9 | ☐ |
-| 4 | Overlay helpers (move/strict-unmount) | todo | 0/2 | 0/2 | 0/1 | ☐ |
+| 3 | Squash transaction + commit GC + boot sweep | done | 4/4 | 4/4 | 9/9 | ☑ |
+| 4 | Overlay helpers (move/strict-unmount) | experiments | 0/2 | 0/2 | 0/1 | ☐ |
 | 5 | Quiesce (namespace-execution) | todo | 0/5 | 0/3 | 0/2 | ☐ |
 | 6 | Staged-switch runner (namespace-process) | todo | 0/4 | 0/2 | 0/2 | ☐ |
 | 7 | Workspace remount transaction + reap + PDEATHSIG | todo | 0/4 | 0/5 | 0/5 | ☐ |
@@ -263,21 +263,21 @@ cleanup); vocabulary `plan lease`, `commit recheck`, `SquashBlock`,
 
 ### Experiments — must complete BEFORE implementation
 
-- [ ] **X3.1 Release-path API delta.** Verify `release_lease_locked` can
+- [x] **X3.1 Release-path API delta.** Verify `release_lease_locked` can
       return the removed set without breaking existing callers (survey
       all call sites); confirm the reentrant writer lock
       (`storage/lock.rs` `write_depth`) legally supports the nested
       release inside the exclusive commit section.
-- [ ] **X3.2 Commit-sequence dry run.** With fs.rs primitives only
+- [x] **X3.2 Commit-sequence dry run.** With fs.rs primitives only
       (`allocate_layer_dirs`, `write_atomic`, `fsync_dir`, rename),
       rehearse recheck → promote → syncfs → manifest rename in a scratch
       harness; verify promote is a same-fs `rename(2)` (not a copy) and
       the in-process error path can remove a promoted S dir cleanly.
-- [ ] **X3.3 Crash-window rehearsal.** `kill -9` the scratch harness
+- [x] **X3.3 Crash-window rehearsal.** `kill -9` the scratch harness
       between promote and rename; verify on-disk state is exactly
       "old manifest + orphan S dir" and that keep-set sweeping reclaims
       it — before writing the real sweep.
-- [ ] **X3.4 Sweep candidate enumeration.** Confirm the disk listing →
+- [x] **X3.4 Sweep candidate enumeration.** Confirm the disk listing →
       keep-set → shared `remove_layers` shape covers staging, layers, and
       sidecars with ONE routine; verify `read_manifest`'s
       empty-v0-on-missing behavior (fs.rs:170) so the fail-closed guard
@@ -285,39 +285,55 @@ cleanup); vocabulary `plan lease`, `commit recheck`, `SquashBlock`,
 
 ### Implementation
 
-- [ ] `src/stack/squash.rs` — plan (boundaries via
+- [x] `src/stack/squash.rs` — plan (boundaries via
       `lease_newest_layers()`, blocks ≥ 2), build (flatten into staging),
       commit (own ~25-line tail, recheck-first; plan-lease release as the
       only GC; `operation_failed` on abort).
-- [ ] `src/stack/lease/cleanup.rs` — `.digest` + `.bytes` removal with the
+- [x] `src/stack/lease/cleanup.rs` — `.digest` + `.bytes` removal with the
       layer dir; set-based membership; boot storage sweep (fail-closed,
       `B*` guard, keep-set = active manifest) sharing `remove_layers`.
-- [ ] `src/storage/fs.rs` — syncfs helper on the storage-root fd;
+- [x] `src/storage/fs.rs` — syncfs helper on the storage-root fd;
       removed-set plumbing.
-- [ ] Wiring/exports.
+- [x] Wiring/exports.
 
 ### Tests
 
-- [ ] Test 1 `partition_blocks_between_boundaries_and_base`
-- [ ] Test 3 `commit_gc_never_deletes_layers_leased_after_plan`
-- [ ] Test 4 `commit_recheck_compacts_through_racing_publish_or_aborts_cleanly`
-- [ ] Test 5 `squash_singleflight_per_root`
-- [ ] Test 6 `crash_and_error_paths_around_commit`
-- [ ] Test 7 `syncfs_commit_durability` (syscall-recording shim in `tests/`)
-- [ ] Test 13 `old_layers_not_deleted_until_refcount_zero`
-- [ ] Test 14 `boot_cleanup_matrix` (incl. shared-routine + `.bytes`
+- [x] Test 1 `partition_blocks_between_boundaries_and_base`
+- [x] Test 3 `commit_gc_never_deletes_layers_leased_after_plan`
+- [x] Test 4 `commit_recheck_compacts_through_racing_publish_or_aborts_cleanly`
+- [x] Test 5 `squash_singleflight_per_root`
+- [x] Test 6 `crash_and_error_paths_around_commit` (+ a
+      `build_failure_aborts_squash_cleanly` companion: a natural
+      unsupported-entry fault proves staging cleanup and plan-lease
+      release on abort)
+- [x] Test 7 `syncfs_commit_durability` (glob-shadowing
+      syscall-recording shim in `tests/unit.rs` — zero src changes;
+      records call count plus promoted-dirs/manifest-version at call time
+      to pin the after-promote-before-rename ordering)
+- [x] Test 13 `old_layers_not_deleted_until_refcount_zero`
+- [x] Test 14 `boot_cleanup_matrix` (incl. shared-routine + `.bytes`
       regression)
-- [ ] Tests 20 `commit_gc_is_plan_lease_release` + 21
+- [x] Tests 20 `commit_gc_is_plan_lease_release` + 21
       `squash_commits_with_no_s_layer_sidecars`
 
 ### Exit review
 
-- [ ] Experiments logged; impl + tests checked; **`git diff` on
-      `stack/ops/publish.rs` is empty**; crate tests green; clippy/fmt
-      clean.
-- [ ] Milestone note: storage-only squash is now functionally complete
-      behind the (not yet wired) operation — record it.
-- [ ] Spec drift reconciled; Progress table updated; Phase 4 unblocked.
+- [x] Experiments logged; impl + tests checked; **`git diff` on
+      `stack/ops/publish.rs` is empty** (verified: 0 diff lines); crate
+      tests green (74); clippy/fmt clean.
+- [x] Milestone note: **storage-only squash is now functionally complete
+      behind the (not yet wired) operation** — `LayerStack::squash()`
+      plans, builds, and commits with singleflight, the plan-lease-release
+      GC, in-memory substitution recording, and the fail-closed boot
+      sweep; only the operation/CLI surface (phases 8–9) is missing for
+      commit-only use.
+- [x] Spec drift reconciled (none — implemented as specified); Progress
+      table updated; Phase 4 unblocked. NOTE (environment, not this
+      feature): `workspace_session_destroy_operation_success_projects_minimal_json`
+      in `sandbox-runtime/operation` fails on upstream `main` from before
+      this work (response gained `evicted_upperdir_bytes`; test not
+      updated) — verified failing at `96db3ebf8`; left to its owner,
+      revisit at sign-off if still red.
 
 ---
 
@@ -688,6 +704,10 @@ command(s) + key output, or a path to a scratch script.
 | 2026-07-02 | 1 | X1.3 | PASS. Flatten-shaped fold of a 1k-entry two-layer block: 1000 `link(2)` winners in **4.0 ms**, inode identity confirmed (0 bytes copied) — per-generation flatten cost is O(E) metadata ops as claimed. | `docker exec … /probe x11` (bench leg); X0.8 corroborates (1000 links 6.4 ms) |
 | 2026-07-02 | 2 | X2.1 | PASS. `LeaseRegistry::acquire(manifest, owner_request_id)` takes an arbitrary `Manifest` with no validation against the active manifest (`lease/registry.rs:51`) — no new registry API needed. The map mirrors the registry precedent exactly: resolved per canonical root at `LayerStack::open` and cached on the instance (`substitutions` beside `leases`), so its mutex is a leaf lock never held across the writer lock or the registry mutex — no new level in the lock order. First implementation resolved the map at call time; parallel-test interference (a foreign `reset_process_state_for_tests` emptying it mid-test) surfaced immediately and was fixed by matching the resolve-at-open precedent. | code survey `registry.rs`, `stack/mod.rs`; unit-suite failure then green at 63 tests |
 | 2026-07-02 | 2 | X2.2 | PASS — decision recorded below. Determinism: layer ids are unique within a manifest so each raw run matches at most one window; entries apply in fixed recording order. Termination: one bounded pass; every splice strictly shortens the list. Never-straddle: every live lease's newest layer is a boundary and boundaries are excluded from blocks, so a raw run is fully-inside or fully-disjoint for every lease; composition across generations holds because if `[X, S_prev]` formed a block then no lease head sits inside it, so any lease containing `S_prev`'s raw run also contains `X` and the oldest-first pass rescues the chain into the current generation (the dead-`S_prev` case is therefore unreachable and validate-alive is purely defensive). Adversarial shapes (overlapping runs, repeated ids, self-reference) cannot arise from committed blocks and degrade deterministically when injected. Replayed concretely in test 8's five cases incl. the B4 two-generation crossing. | `tests/unit/squash.rs::rewrite_tests` (5 tests green) |
+| 2026-07-02 | 3 | X3.1 | PASS. `release_lease_locked` has exactly one production caller (`stack/mod.rs:104` `LayerStack::release_lease`; the service impl discards the bool) — changing its return to carry the removed set breaks nothing. `ReentrantRwLock::write` (`storage/lock.rs`) increments `write_depth` for a same-thread re-acquire, so nested exclusive work inside the commit's critical section is legal; in practice the commit tail calls `release_lease_locked` directly under its already-held guards, so no nested acquisition is even needed. | call-site grep; `storage/lock.rs` read |
+| 2026-07-02 | 3 | X3.2 | PASS. On the real ext4 volume: promote `staging/S….staging → layers/S…` is a same-fs `rename(2)` — **24 µs, inode preserved** (no copy); `syncfs` on the storage-root fd succeeds post-promote; the in-process error path removes a promoted S dir cleanly. | `docker exec … /probe x12 /eos/workspace/probe-scratch` |
+| 2026-07-02 | 3 | X3.3 | PASS. Child killed (SIGKILL) after promote+syncfs but before the manifest rename leaves exactly "old manifest (v1) + orphan `layers/S…` dir + empty staging"; a keep-set sweep (keep = manifest ids, `B*` guarded) reclaims exactly the orphan and keeps the manifest layer. | `docker exec … /probe x12` legs (d)+(e) |
+| 2026-07-02 | 3 | X3.4 | Confirmed in code. `read_manifest` fabricates an empty v0 manifest when `manifest.json` is missing (`fs.rs:169-172`) ⇒ the fail-closed guard must (a) treat missing/`version < 1`/empty-layers as skip-sweep and (b) catch parse `Err` as skip (daemon still serves — G3 leg). Disk listing → keep-set → the shared `remove_layers` routine covers `layers/*` dirs and both sidecars in one call per id (missing dir is NotFound-tolerated, so sidecar-only orphans ride the same routine); `staging/*` is wiped unconditionally under the sweep's exclusive guard (boot runs before serving; a foreign process owning the root fails `LayerStack::open` first). | code survey `fs.rs`, `cleanup.rs`; probe x12 leg (e) |
 | 2026-07-02 | 2 | X2.3 | PASS. Commit-time recording = `LayerStack::record_substitution` (called by the phase-3 commit tail after the manifest rename, before the plan-lease release returns). Restart path: the map is process-lifetime state (`OnceLock` static keyed by canonical root) — a daemon restart is a new process with an empty map, and no consumer survives (fact 2: sessions die with the daemon; boot sweep reads only the manifest keep-set — verified in `lease/cleanup.rs` + `fs.rs`). Tests simulate restart through `reset_process_state_for_tests`, which now clears substitution maps alongside lease registries in one entrypoint. | `restart_empties_substitution_map_and_no_rewrite_is_attempted` green |
 
 ## Decision log

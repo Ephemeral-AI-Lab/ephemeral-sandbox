@@ -16,10 +16,11 @@ pub mod publish;
 pub(crate) mod squash;
 
 use lease::release_lease_locked;
-pub use lease::RewrittenLease;
 use lease::{
     lock_shared_registry, lock_shared_registry_recover, shared_registry_for_root, LeaseRegistry,
 };
+pub use lease::{RewrittenLease, SweepReport};
+pub use squash::{SquashOutcome, SquashedBlock};
 
 pub use projection::MergedView;
 
@@ -104,7 +105,19 @@ impl LayerStack {
     pub fn release_lease(&mut self, lease_id: &str) -> Result<bool, LayerStackError> {
         let _guard = self.writer_lock.exclusive()?;
         let mut leases = lock_shared_registry(&self.leases)?;
-        release_lease_locked(&self.storage_root, &mut leases, lease_id)
+        Ok(release_lease_locked(&self.storage_root, &mut leases, lease_id)?.is_some())
+    }
+
+    /// Fail-closed boot storage sweep to the active manifest's keep-set.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LayerStackError`] when the writer lock is unavailable or a
+    /// deletion fails; a missing or unreadable manifest is not an error and
+    /// reports a skip instead.
+    pub fn sweep_storage(&mut self) -> Result<lease::SweepReport, LayerStackError> {
+        let _guard = self.writer_lock.exclusive()?;
+        lease::sweep_storage_locked(&self.storage_root)
     }
 
     #[must_use]

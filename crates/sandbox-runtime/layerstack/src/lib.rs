@@ -24,7 +24,9 @@ pub use stack::publish::model::{
     PublishValidatedChangesRequest, PublishValidatedChangesResult, ResolvedChangeset,
     SourceConflict,
 };
-pub use stack::{LayerStack, Lease, MergedView, RewrittenLease};
+pub use stack::{
+    LayerStack, Lease, MergedView, RewrittenLease, SquashOutcome, SquashedBlock, SweepReport,
+};
 pub use workspace_base::{
     build_shared_workspace_base, build_workspace_base, ensure_workspace_base,
     read_workspace_binding, require_workspace_binding, SharedWorkspaceBase, WorkspaceBinding,

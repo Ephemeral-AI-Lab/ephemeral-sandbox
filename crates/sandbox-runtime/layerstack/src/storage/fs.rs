@@ -152,6 +152,25 @@ pub(crate) fn fsync_dir(path: &Path) -> Result<(), LayerStackError> {
     Ok(())
 }
 
+/// One `syncfs(2)` on the storage-root fd: the single durability barrier for
+/// a squash commit, covering every staging write, whiteout, and promote
+/// rename on the filesystem. Non-Linux hosts (unit tests only) fsync the
+/// root directory instead; the supported daemon target is Linux ≥ 5.8 where
+/// `syncfs` reports writeback errors.
+pub(crate) fn syncfs_storage_root(storage_root: &Path) -> Result<(), LayerStackError> {
+    let root = std::fs::File::open(storage_root)?;
+    #[cfg(target_os = "linux")]
+    rustix::fs::syncfs(&root).map_err(|errno| {
+        LayerStackError::Storage(format!(
+            "syncfs on storage root {} failed: {errno}",
+            storage_root.display()
+        ))
+    })?;
+    #[cfg(not(target_os = "linux"))]
+    root.sync_all()?;
+    Ok(())
+}
+
 pub(crate) fn fsync_tree_files(root: &Path) -> Result<(), LayerStackError> {
     for entry in std::fs::read_dir(root)? {
         let entry = entry?;

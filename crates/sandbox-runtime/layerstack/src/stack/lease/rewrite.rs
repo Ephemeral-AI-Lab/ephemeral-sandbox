@@ -47,10 +47,6 @@ pub(crate) fn reset_shared_substitutions_for_tests() {
 impl LayerStack {
     /// Record one committed block's `{S layer → replaced raw run}` in this
     /// root's in-memory substitution map.
-    #[allow(
-        dead_code,
-        reason = "dead only in the lib target until the phase-3 squash commit records blocks"
-    )]
     pub(crate) fn record_substitution(&self, s_layer: LayerRef, raw_run: Vec<LayerRef>) {
         self.substitutions
             .lock()
