@@ -130,12 +130,12 @@ impl DockerEngine {
             for volume in &spec.volumes {
                 create_volume(&docker, volume).await?;
             }
-            let mut binds = spec.binds;
-            binds.extend(
-                spec.volumes
-                    .iter()
-                    .map(|volume| format!("{}:{}", volume.name, volume.target)),
-            );
+            let mut binds = spec
+                .volumes
+                .iter()
+                .map(|volume| format!("{}:{}", volume.name, volume.target))
+                .collect::<Vec<_>>();
+            binds.extend(spec.binds);
             let host_config = HostConfig {
                 binds: Some(binds),
                 port_bindings: Some(port_bindings),
@@ -190,6 +190,60 @@ impl DockerEngine {
                 .upload_to_container(&container, Some(options), archive)
                 .await
                 .map_err(|error| DockerError::Api(format!("upload_to_container: {error}")))
+        })
+    }
+
+    pub(crate) fn seed_volume_from_archive(
+        &self,
+        image: String,
+        volume: VolumeSpec,
+        archive: Bytes,
+    ) -> Result<(), DockerError> {
+        self.run_blocking(move |docker| async move {
+            create_volume(&docker, &volume).await?;
+            let name = format!("{}-seed-{}", volume.name, uuid::Uuid::new_v4());
+            let host_config = HostConfig {
+                binds: Some(vec![format!("{}:{}", volume.name, volume.target)]),
+                ..Default::default()
+            };
+            let config = Config {
+                image: Some(image),
+                cmd: Some(vec!["true".to_owned()]),
+                host_config: Some(host_config),
+                ..Default::default()
+            };
+            let options = CreateContainerOptions {
+                name: name.clone(),
+                platform: None,
+            };
+            docker
+                .create_container(Some(options), config)
+                .await
+                .map_err(|error| DockerError::Api(format!("create seed container: {error}")))?;
+            let uploaded = docker
+                .upload_to_container(
+                    &name,
+                    Some(UploadToContainerOptions {
+                        path: "/".to_owned(),
+                        ..Default::default()
+                    }),
+                    archive,
+                )
+                .await
+                .map_err(|error| DockerError::Api(format!("seed volume archive: {error}")));
+            let removed = docker
+                .remove_container(
+                    &name,
+                    Some(RemoveContainerOptions {
+                        force: true,
+                        v: false,
+                        ..Default::default()
+                    }),
+                )
+                .await
+                .map_err(|error| DockerError::Api(format!("remove seed container: {error}")));
+            uploaded?;
+            removed
         })
     }
 
@@ -254,6 +308,16 @@ impl DockerEngine {
 
     pub(crate) fn remove_volume(&self, volume: String) -> Result<(), DockerError> {
         self.run_blocking(move |docker| async move { remove_volume(&docker, &volume).await })
+    }
+
+    pub(crate) fn volume_exists(&self, volume: String) -> Result<bool, DockerError> {
+        self.run_blocking(move |docker| async move {
+            match docker.inspect_volume(&volume).await {
+                Ok(_) => Ok(true),
+                Err(error) if server_status(&error) == Some(HTTP_NOT_FOUND) => Ok(false),
+                Err(error) => Err(DockerError::Api(format!("inspect_volume: {error}"))),
+            }
+        })
     }
 
     pub(crate) fn list_recoverable(

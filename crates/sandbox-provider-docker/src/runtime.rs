@@ -1,8 +1,9 @@
 //! `SandboxRuntime` over bollard: create a stopped Linux container, remove it,
 //! and recover existing containers by label after a gateway restart.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use sandbox_config::configs::manager::DockerRuntimeConfig;
@@ -12,12 +13,14 @@ use sandbox_manager::{
     SandboxHttpEndpoint, SandboxId, SandboxRecord, SandboxRuntime, SandboxState, SharedBaseMount,
 };
 
-use crate::archive::build_shared_base_seed_archive;
+use crate::archive::{build_shared_base_seed_archive, build_shared_base_volume_archive};
 use crate::engine::{ContainerSpec, DockerEngine, DockerError, VolumeSpec};
 use crate::labels;
 use crate::launch::daemon_launch_argv;
 
 const ENDPOINT_HOST: &str = "127.0.0.1";
+const SHARED_BASE_VOLUME_MOUNT_ROOT: &str = "/eos-shared-base-seed";
+static SEEDED_SHARED_BASE_VOLUMES: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 /// Docker-backed runtime. Creates stopped containers; the installer starts them.
 pub struct DockerSandboxRuntime {
     engine: DockerEngine,
@@ -71,6 +74,50 @@ impl DockerSandboxRuntime {
         }
         Ok(records)
     }
+
+    fn ensure_shared_base_volume(
+        &self,
+        config: &DockerRuntimeConfig,
+        image: &str,
+        shared_base: &SharedBaseMount,
+    ) -> Result<String, ManagerError> {
+        let volume_name = shared_base_volume_name(&shared_base.root_hash);
+        let seeded = SEEDED_SHARED_BASE_VOLUMES.get_or_init(|| Mutex::new(HashSet::new()));
+        let mut seeded = seeded.lock().map_err(|_| ManagerError::RuntimeFailed {
+            message: "shared base volume seed lock poisoned".to_owned(),
+        })?;
+        if seeded.contains(&volume_name) {
+            return Ok(volume_name);
+        }
+        if self
+            .engine
+            .volume_exists(volume_name.clone())
+            .map_err(runtime_failed)?
+        {
+            seeded.insert(volume_name.clone());
+            return Ok(volume_name);
+        }
+        let archive = build_shared_base_volume_archive(
+            Path::new(SHARED_BASE_VOLUME_MOUNT_ROOT),
+            &shared_base.source,
+        )
+        .map_err(|error| ManagerError::RuntimeFailed {
+            message: format!("failed to build shared base volume archive: {error}"),
+        })?;
+        self.engine
+            .seed_volume_from_archive(
+                image.to_owned(),
+                VolumeSpec {
+                    name: volume_name.clone(),
+                    target: SHARED_BASE_VOLUME_MOUNT_ROOT.to_owned(),
+                    labels: build_shared_base_volume_labels(config, shared_base),
+                },
+                archive,
+            )
+            .map_err(runtime_failed)?;
+        seeded.insert(volume_name.clone());
+        Ok(volume_name)
+    }
 }
 
 impl SandboxRuntime for DockerSandboxRuntime {
@@ -106,21 +153,23 @@ impl SandboxRuntime for DockerSandboxRuntime {
             &request.workspace_root,
             shared_base,
         );
+        let image = resolve_image(config, &request.image);
+        let shared_base_volume = self.ensure_shared_base_volume(config, &image, shared_base)?;
         let workspace_paths = runtime_workspace_paths(config)?;
-        let workspace_scratch_volume = workspace_scratch_volume_name(&id);
+        let volumes = runtime_volumes(config, &id, &workspace_paths);
+        let volume_names = volumes
+            .iter()
+            .map(|volume| volume.name.clone())
+            .collect::<Vec<_>>();
         let cmd = daemon_launch_argv(config, &record, &auth_token);
         let spec = ContainerSpec {
             name,
-            image: resolve_image(config, &request.image),
+            image,
             cmd,
             env: container_env(config),
             labels,
-            binds: container_binds(shared_base),
-            volumes: vec![VolumeSpec {
-                name: workspace_scratch_volume.clone(),
-                target: workspace_paths.scratch_root.to_string_lossy().into_owned(),
-                labels: build_volume_labels(config, &id),
-            }],
+            binds: vec![shared_base_volume_bind(&shared_base_volume, shared_base)],
+            volumes,
             daemon_port: config.daemon_port,
             daemon_http_port: config.daemon_http_port,
             privileged: config.privileged,
@@ -148,10 +197,12 @@ impl SandboxRuntime for DockerSandboxRuntime {
                     .engine
                     .remove_container(id.as_str().to_owned())
                     .map_err(runtime_failed);
-                let _ = self
-                    .engine
-                    .remove_volume(workspace_scratch_volume)
-                    .map_err(runtime_failed);
+                for volume_name in volume_names {
+                    let _ = self
+                        .engine
+                        .remove_volume(volume_name)
+                        .map_err(runtime_failed);
+                }
                 return Err(error);
             }
         }
@@ -162,9 +213,12 @@ impl SandboxRuntime for DockerSandboxRuntime {
         self.engine
             .remove_container(record.id.as_str().to_owned())
             .map_err(runtime_failed)?;
-        self.engine
-            .remove_volume(workspace_scratch_volume_name(&record.id))
-            .map_err(runtime_failed)
+        for volume_name in runtime_volume_names(&record.id) {
+            self.engine
+                .remove_volume(volume_name)
+                .map_err(runtime_failed)?;
+        }
+        Ok(())
     }
 }
 
@@ -196,6 +250,45 @@ fn workspace_scratch_volume_name(id: &SandboxId) -> String {
     format!("{}-workspace", id.as_str())
 }
 
+fn layer_stack_volume_name(id: &SandboxId) -> String {
+    format!("{}-layer-stack", id.as_str())
+}
+
+fn shared_base_volume_name(root_hash: &str) -> String {
+    format!("eos-shared-base-{root_hash}")
+}
+
+fn shared_base_volume_bind(volume_name: &str, shared_base: &SharedBaseMount) -> String {
+    format!("{}:{}:ro", volume_name, shared_base.target.display())
+}
+
+fn runtime_volume_names(id: &SandboxId) -> Vec<String> {
+    vec![
+        layer_stack_volume_name(id),
+        workspace_scratch_volume_name(id),
+    ]
+}
+
+fn runtime_volumes(
+    config: &DockerRuntimeConfig,
+    id: &SandboxId,
+    paths: &RuntimeWorkspacePaths,
+) -> Vec<VolumeSpec> {
+    let labels = build_volume_labels(config, id);
+    vec![
+        VolumeSpec {
+            name: layer_stack_volume_name(id),
+            target: paths.layer_stack_root.to_string_lossy().into_owned(),
+            labels: labels.clone(),
+        },
+        VolumeSpec {
+            name: workspace_scratch_volume_name(id),
+            target: paths.scratch_root.to_string_lossy().into_owned(),
+            labels,
+        },
+    ]
+}
+
 fn container_env(config: &DockerRuntimeConfig) -> Vec<String> {
     config
         .container_env
@@ -213,15 +306,6 @@ fn resolve_image(config: &DockerRuntimeConfig, requested: &str) -> String {
     } else {
         requested.to_owned()
     }
-}
-
-fn container_binds(shared_base: &SharedBaseMount) -> Vec<String> {
-    vec![format!(
-        "{}:{}:{}",
-        shared_base.source.display(),
-        shared_base.target.display(),
-        if shared_base.readonly { "ro" } else { "rw" }
-    )]
 }
 
 fn validate_shared_base_source(shared_base: &SharedBaseMount) -> Result<(), ManagerError> {
@@ -322,6 +406,30 @@ fn build_volume_labels(config: &DockerRuntimeConfig, id: &SandboxId) -> HashMap<
     ])
 }
 
+fn build_shared_base_volume_labels(
+    config: &DockerRuntimeConfig,
+    shared_base: &SharedBaseMount,
+) -> HashMap<String, String> {
+    HashMap::from([
+        (
+            labels::GATEWAY_INSTANCE_ID.to_owned(),
+            config.gateway_instance_id.clone(),
+        ),
+        (
+            labels::SHARED_BASE_ROOT_HASH.to_owned(),
+            shared_base.root_hash.clone(),
+        ),
+        (
+            labels::SHARED_BASE_TARGET.to_owned(),
+            shared_base.target.to_string_lossy().into_owned(),
+        ),
+        (
+            labels::SHARED_BASE_READONLY.to_owned(),
+            shared_base.readonly.to_string(),
+        ),
+    ])
+}
+
 fn runtime_failed(error: DockerError) -> ManagerError {
     ManagerError::RuntimeFailed {
         message: error.to_string(),
@@ -349,6 +457,54 @@ mod tests {
     }
 
     #[test]
+    fn layer_stack_volume_name_is_derived_from_sandbox_id() {
+        let id = SandboxId::new("eos-abc").expect("valid id");
+
+        assert_eq!(layer_stack_volume_name(&id), "eos-abc-layer-stack");
+    }
+
+    #[test]
+    fn shared_base_volume_name_is_derived_from_root_hash() {
+        assert_eq!(shared_base_volume_name("abc123"), "eos-shared-base-abc123");
+    }
+
+    #[test]
+    fn shared_base_volume_bind_is_read_only_at_target() {
+        let shared_base = SharedBaseMount {
+            source: PathBuf::from("/host/base"),
+            target: PathBuf::from("/eos/layer-stack/base"),
+            root_hash: "abc123".to_owned(),
+            readonly: true,
+        };
+
+        assert_eq!(
+            shared_base_volume_bind("eos-shared-base-abc123", &shared_base),
+            "eos-shared-base-abc123:/eos/layer-stack/base:ro"
+        );
+    }
+
+    #[test]
+    fn runtime_volumes_mount_layer_stack_and_workspace_scratch_roots() {
+        let config = DockerRuntimeConfig {
+            gateway_instance_id: "gateway-1".to_owned(),
+            ..DockerRuntimeConfig::default()
+        };
+        let id = SandboxId::new("eos-abc").expect("valid id");
+        let paths = RuntimeWorkspacePaths {
+            layer_stack_root: PathBuf::from("/eos/layer-stack"),
+            scratch_root: PathBuf::from("/eos/workspace"),
+        };
+
+        let volumes = runtime_volumes(&config, &id, &paths);
+
+        assert_eq!(volumes.len(), 2);
+        assert_eq!(volumes[0].name, "eos-abc-layer-stack");
+        assert_eq!(volumes[0].target, "/eos/layer-stack");
+        assert_eq!(volumes[1].name, "eos-abc-workspace");
+        assert_eq!(volumes[1].target, "/eos/workspace");
+    }
+
+    #[test]
     fn workspace_scratch_volume_labels_do_not_include_auth_token() {
         let config = DockerRuntimeConfig {
             gateway_instance_id: "gateway-1".to_owned(),
@@ -367,6 +523,33 @@ mod tests {
             Some(&"gateway-1".to_owned())
         );
         assert!(!labels.contains_key(crate::labels::AUTH_TOKEN));
+    }
+
+    #[test]
+    fn shared_base_volume_labels_are_not_per_sandbox_cleanup_labels() {
+        let config = DockerRuntimeConfig {
+            gateway_instance_id: "gateway-1".to_owned(),
+            ..DockerRuntimeConfig::default()
+        };
+        let shared_base = SharedBaseMount {
+            source: PathBuf::from("/host/base"),
+            target: PathBuf::from("/eos/layer-stack/base"),
+            root_hash: "abc123".to_owned(),
+            readonly: true,
+        };
+
+        let labels = build_shared_base_volume_labels(&config, &shared_base);
+
+        assert_eq!(
+            labels.get(crate::labels::GATEWAY_INSTANCE_ID),
+            Some(&"gateway-1".to_owned())
+        );
+        assert_eq!(
+            labels.get(crate::labels::SHARED_BASE_ROOT_HASH),
+            Some(&"abc123".to_owned())
+        );
+        assert!(!labels.contains_key(crate::labels::SANDBOX_ID));
+        assert!(!labels.contains_key(crate::labels::CLEANUP_POLICY));
     }
 
     #[test]
