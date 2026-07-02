@@ -807,7 +807,9 @@ Preconditions:
   no separate mount mode, no option-string length cliff, no lowerdir-list
   introspection (equivalence is proven by behavioral witness reads); the only
   chain cap is the kernel's `OVL_MAX_STACK` (500), and an over-limit staging
-  mount fails the mount syscall itself as a clean pre-PONR `stage_failed` —
+  mount fails the mount-build syscall sequence itself (EINVAL at the
+  over-limit `lowerdir+` fsconfig call on 6.12) as a clean pre-PONR
+  `stage_failed` —
   the removed visible-options helper lacked `userxattr` (deleted files would
   resurface) and must not be copied;
 - all-task quiesce proof holds, or the discovered set is only allowlisted
@@ -833,10 +835,13 @@ workdir  = <run_dir>/work-remount-<nonce>      fresh; OLD's workdir is never reu
  7. probe /workspace                           ── fail → FAULTY (tasks are frozen;
                                                   nothing observes the partial state)
                                                   → report + destroy
- 8. strict umount rollback — umount2(…, 0),    ── EBUSY → PARK: report verified switch;
-    NO lazy/MNT_DETACH fallback                   the old mount stays at the masked
-                                                  rollback point; both leases held
-                                                  until session destroy
+ 8. drop the OLD-root dirfd (only needed as     ── a held O_PATH fd on the moved OLD
+    the step-5 move source), then strict           root pins it and would self-inflict
+    umount rollback — umount2(…, 0),               EBUSY (Phase-0 X0.2 measured this);
+    NO lazy/MNT_DETACH fallback                    real EBUSY → PARK: report verified
+                                                   switch; the old mount stays at the
+                                                   masked rollback point; both leases
+                                                   held until session destroy
  9. report: ALWAYS — two booleans + free-form detail (first_move_succeeded,
     mount_verified); mount_verified=true only when 2–7 ALL succeeded
 ```
@@ -1036,7 +1041,8 @@ alike — both use the same fsconfig builder (`lowerdir+` per layer), so there
 is no option-string length cliff and no second limit. Workspace creation
 past 500 layers fails regardless of squash; bounding the active chain still
 requires actually invoking squash — there is no trigger policy. An
-over-limit rewritten chain fails the staging mount syscall itself as a clean
+over-limit rewritten chain fails the staging mount build itself (measured on
+6.12: EINVAL from the over-limit `lowerdir+` fsconfig call) as a clean
 pre-PONR `stage_failed:<errno>` and leaves the old lease intact; rewritten
 chains are bounded by ≤ 2k+2 for k plan-time boundaries, so the cap is
 unreachable below k ≈ 249 concurrently pinning sessions.
@@ -1223,13 +1229,17 @@ Gate tests:
    crashes.
 2. `G2 production_builder_parity_no_resurrection` — parity holds by
    construction (same builder); this proves it behaviorally: delete
-   `wit/only-in-l1` through OLD (userxattr whiteout in the upperdir),
-   flatten sources into `S`, build staged NEW = `[S]` + same upperdir +
-   fresh workdir; the deleted file stays absent on NEW, and a whiteout
-   flatten re-emitted inside `S` stays masked. Negative control: rebuild
-   NEW once with a deliberately misconfigured *test-local* mount (no
-   `userxattr`) and assert the file resurfaces — proving the assertion has
-   teeth. No mountinfo lowerdir introspection anywhere.
+   `wit/only-in-l1` through OLD (char 0:0 whiteout in the upperdir) and
+   rm-and-recreate a populated lower dir through OLD (upperdir dir marked
+   `user.overlay.opaque=y` — the userxattr encoding), flatten sources into
+   `S`, build staged NEW = `[S]` + same upperdir + fresh workdir; the
+   deleted file stays absent on NEW and the recreated dir stays empty.
+   Negative control: rebuild NEW once with a deliberately misconfigured
+   *test-local* mount (no `userxattr`) and assert the recreated dir's
+   lower entries resurface — proving the assertion has teeth (Phase-0
+   X0.3 measured that plain-file whiteouts are char devices and hold
+   without `userxattr`; the opaque xattr is the metadata that decays).
+   No mountinfo lowerdir introspection anywhere.
 3. `G3 startup_cleanup_reap_then_sweep` — two sessions (one idle, one with
    a live PTY command) plus a hand-planted orphan staging tree and an
    orphan promoted `layers/S…` dir not in the manifest. `SIGKILL` the

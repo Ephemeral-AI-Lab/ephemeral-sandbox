@@ -50,8 +50,8 @@ Statuses: `todo` → `experiments` → `implementing` → `review` → `done`
 
 | Phase | Title | Status | Experiments | Impl | Tests | Exit review |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0 | Environment & kernel ground truth | todo | 0/10 | — | — | ☐ |
-| 1 | Flatten (layerstack pure) | todo | 0/3 | 0/2 | 0/1 | ☐ |
+| 0 | Environment & kernel ground truth | done | 10/10 | — | — | ☑ |
+| 1 | Flatten (layerstack pure) | experiments | 0/3 | 0/2 | 0/1 | ☐ |
 | 2 | Substitution map + rewritten lease | todo | 0/3 | 0/2 | 0/1 | ☐ |
 | 3 | Squash transaction + commit GC + boot sweep | todo | 0/4 | 0/4 | 0/9 | ☐ |
 | 4 | Overlay helpers (move/strict-unmount) | todo | 0/2 | 0/2 | 0/1 | ☐ |
@@ -81,48 +81,48 @@ and output.
 
 ### Experiments — must complete BEFORE any implementation phase
 
-- [ ] **X0.1 Environment preconditions.** `uname -r` (expect ≥ 6.0; hard
+- [x] **X0.1 Environment preconditions.** `uname -r` (expect ≥ 6.0; hard
       floor 5.8 for `syncfs` error reporting); `findmnt -no FSTYPE` on the
       layer-stack root (must NOT be overlay); unprivileged `userxattr`
       overlay mount succeeds in the sandbox userns.
-- [ ] **X0.2 Same-upperdir coexistence (G1 prototype).** Script the full
+- [x] **X0.2 Same-upperdir coexistence (G1 prototype).** Script the full
       G1 sequence with witness files: mount OLD, force copy-up, mount NEW
       at staging with the same upperdir + fresh sibling workdir, probe,
       MS_MOVE pair, probe, strict unmount rollback; then the abort leg
       (stage + unmount without moves, OLD must still copy-up). **This is
       the go/no-go gate for the entire remount half.**
-- [ ] **X0.3 userxattr resurrection control (G2 prototype).** Delete a
+- [x] **X0.3 userxattr resurrection control (G2 prototype).** Delete a
       lowerdir file through OLD, remount NEW over flattened sources with
       the same upperdir: file must stay deleted; repeat once without
       `userxattr` to confirm it resurfaces (the assertion has teeth).
-- [ ] **X0.4 Mount-move semantics.** In the holder-style namespace:
+- [x] **X0.4 Mount-move semantics.** In the holder-style namespace:
       propagation type of the workspace root (MS_MOVE requires a private
       parent — verify); `move_mount` with pre-opened `O_PATH` dirfds +
       `MOVE_MOUNT_F_EMPTY_PATH` works in the userns; moving out of a
       shared-propagation parent fails `EINVAL` (E8's natural induction).
-- [ ] **X0.5 Strict-unmount EBUSY.** Reproduce with an SCM_RIGHTS-parked
+- [x] **X0.5 Strict-unmount EBUSY.** Reproduce with an SCM_RIGHTS-parked
       fd (fd sent over a socketpair to self, local copy closed):
       `umount2(path, 0)` returns EBUSY, the mount stays fully usable, and
       the parked mount unmounts cleanly at namespace death.
-- [ ] **X0.6 syncfs behavior + benchmark.** `syncfs` available and reports
+- [x] **X0.6 syncfs behavior + benchmark.** `syncfs` available and reports
       errors; measure on a 5k-small-file staging tree: single `syncfs` vs
       per-entry fsync walk (expect orders of magnitude — this validates
       deleting the walk); measure worst-case `syncfs` cost when session
       upperdirs share the filesystem and are dirty (it flushes the whole
       fs — quantify the collateral cost and record whether it is
       acceptable at commit frequency).
-- [ ] **X0.7 OVL_MAX_STACK.** Mount at 500 lowerdirs succeeds, 501 fails;
+- [x] **X0.7 OVL_MAX_STACK.** Mount at 500 lowerdirs succeeds, 501 fails;
       record the exact errno for the `stage_failed:<errno>` mapping and
       the creation-path error shape.
-- [ ] **X0.8 Hardlink flatten feasibility.** Cross-directory `link(2)`
+- [x] **X0.8 Hardlink flatten feasibility.** Cross-directory `link(2)`
       within the layer-stack filesystem works in the userns (same-fs
       requirement); no practical nlink ceiling at our scale.
-- [ ] **X0.9 Freeze mechanics + cost.** SIGSTOP → `/proc/*/stat` = `T`
+- [x] **X0.9 Freeze mechanics + cost.** SIGSTOP → `/proc/*/stat` = `T`
       poll latency for 1/10/100 tasks (validates the ~50 ms claim and
       sets the default freeze budget); SIGKILL works on stopped tasks; a
       `setsid()` escapee is found by the full `/proc` ns-scan; measure the
       ns-scan cost on a loaded machine (validates per-invocation stall).
-- [ ] **X0.10 Outside observation channel.** From the daemon side,
+- [x] **X0.10 Outside observation channel.** From the daemon side,
       `/proc/<holder>/mountinfo` is readable; a staging mount appearing
       and the workspace root's mount ID changing are both detectable —
       this is the kill-point mechanism for E7/E8/E10 and needs no src
@@ -130,12 +130,16 @@ and output.
 
 ### Exit review
 
-- [ ] All 10 experiment boxes checked; results (numbers, errnos,
+- [x] All 10 experiment boxes checked; results (numbers, errnos,
       pass/fail) in the Experiment log with commands.
-- [ ] Go/no-go recorded: remount half GO / DESCOPE (rule 4).
-- [ ] Freeze-budget default and `syncfs` cost recorded as inputs to
-      Phases 3 and 5.
-- [ ] Progress table updated; Phase 1 unblocked.
+- [x] Go/no-go recorded: remount half **GO** (X0.2 and X0.3 both pass in
+      the supported environment; no descope).
+- [x] Freeze-budget default and `syncfs` cost recorded as inputs to
+      Phases 3 and 5: freeze of 100 tasks reaches all-`T` in ≤ 2.6 ms, so
+      the 500 ms default budget has ≥ 100× headroom; commit `syncfs` is
+      ~33 ms clean / ~197 ms with 256 MiB foreign dirty data on the shared
+      ext4 — acceptable at explicit-invocation frequency.
+- [x] Progress table updated; Phase 1 unblocked.
 
 ---
 
@@ -656,7 +660,16 @@ command(s) + key output, or a path to a scratch script.
 
 | Date | Phase | ID | Result (pass/fail + numbers/errnos) | Evidence |
 | --- | --- | --- | --- | --- |
-|  |  |  |  |  |
+| 2026-07-02 | 0 | X0.1 | PASS. Kernel `6.12.76-linuxkit` (≥ 6.0). `/eos/layer-stack` = ext4 named volume (`f_type 0xef53`, mountinfo `254:1 ext4 /dev/vda1`); `/eos/workspace` = ext4; base = separate `ro` ext4 mount at `/eos/layer-stack/base`. userns `userxattr` overlay mount + copy-up write OK. NOTE: pre-existing containers created before the layer-stack-volume fix had `/eos/layer-stack` on the container overlayfs rootfs; a fresh sandbox from current `main` has the ext4 volume — precondition holds for current code. | `bin/start-sandbox-docker-gateway`; `sandbox-cli manager create_sandbox --image ubuntu:24.04 --workspace-bind-root /tmp/eos-squash-testbed` → `eos-3312cf45…`; `docker exec … /probe x01` (scratch probe `/tmp/eos-squash-probes/src/main.rs`, aarch64-musl) |
+| 2026-07-02 | 0 | X0.2 | PASS — **GO for the remount half**. OLD `[l2,l1]+U+Wold` and staged NEW `[S]+U+W-remount-1` coexist; all witness reads exact on staged NEW, post-switch, incl. copy-up content, whiteout-masked absence, dir-created-then-emptied, mode 0640; `move_mount` pair OK; strict `umount2(rollback,0)`=0; post-switch copy-up OK. Abort leg: stage+strict-unmount without moves, then OLD copy-up durable in U2. **Finding: a held pre-opened `O_PATH` fd on the OLD mount root pins the moved OLD mount → strict unmount self-EBUSYs; the runner must drop the OLD-root dirfd after the second move, before step 8** (spec C3 updated). | `docker exec … /probe x02 /eos/workspace/probe-scratch` — all 25 checks `[ok]`; first run failed only on the held-fd EBUSY, rerun after dropping fds fully green |
+| 2026-07-02 | 0 | X0.3 | PASS. Kernel encodings on this environment: deleted-file whiteout = **char 0:0 device, zero xattrs** (xattr-independent, does NOT resurface without `userxattr`); recreated-dir opaque marker = **`user.overlay.opaque=y`**. Negative control (same mount, no `userxattr`): mount SUCCEEDS in the userns; opaque marker unread → **2 lower entries resurface** in the recreated dir. G2's teeth are the opaque-dir case, not the plain whiteout (spec G2 updated). | `docker exec … /probe x03 /eos/workspace/probe-scratch` |
+| 2026-07-02 | 0 | X0.4 | PASS. In the holder-style ns (rec-private `/`): the workspace parent volume mount carries no `shared:` tags; `move_mount(O_PATH fd, "", CWD, path, MOVE_MOUNT_F_EMPTY_PATH)` moves a live overlay; classic `mount(MS_MOVE)` parity OK; moving a mount out of a `MS_SHARED` parent fails **EINVAL** (E8 induction confirmed). | `docker exec … /probe x04 /eos/workspace/probe-scratch` |
+| 2026-07-02 | 0 | X0.5 | PASS. fd sent to self via `SCM_RIGHTS`, local copy closed → `umount2(ws,0)` = **EBUSY (16)**; parked mount fully usable (read + copy-up write); overlay visible from outside via `/proc/<pid>/mountinfo` until ns death; after namespace death scratch removable, no residue. | `docker exec … /probe x05 /eos/workspace/probe-scratch` |
+| 2026-07-02 | 0 | X0.6 | PASS. 5000 files + 50 dirs: per-entry fsync walk (5050 fsyncs) = **3.27 s**; single `syncfs` = **33 ms** (99×); `syncfs` with 256 MiB foreign dirty data on the same fs = **197 ms**. All sandbox volumes share one ext4 superblock (`/dev/vda1`), so `syncfs` flushes the whole VM data disk — collateral measured and acceptable at explicit-invocation frequency. `syncfs` returns 0; kernel 6.12 ≥ 5.8 error-reporting floor. | `docker exec … /probe x06 /eos/workspace/probe-scratch` |
+| 2026-07-02 | 0 | X0.7 | PASS. 500 lowerdirs mount + bottom-marker read OK. 501st layer fails at the **`fsconfig lowerdir+` call itself with EINVAL (22)** (not at create/fsmount) — the production builder surfaces it as `MountSyscall{context:"fsconfig lowerdir+"}`, a clean pre-PONR `stage_failed:<errno>` with zero side effects. | `docker exec … /probe x07 /eos/workspace/probe-scratch` |
+| 2026-07-02 | 0 | X0.8 | PASS. Cross-directory `link(2)` within the layer-stack fs works in the userns (inode shared, mode 0640 preserved); 1000 links to one inode in **6.4 ms** (nlink 1002; ext4 ceiling 65 000 — no practical limit at our scale). | `docker exec … /probe x08 /eos/workspace/probe-scratch` |
+| 2026-07-02 | 0 | X0.9 | PASS. SIGSTOP → all-`T` poll: 1 task ~76–152 µs, 10 tasks ~250–600 µs, 100 tasks **1.3–2.6 ms** — the ~50 ms spec claim holds with ≥ 20× margin; default freeze budget 500 ms confirmed generous. SIGKILL on stopped tasks works (reaped as SIGKILL). `setsid()` escapee found by full `/proc` ns/mnt scan; scan of container `/proc` = **74 µs** (container pid-ns scope ≈ sandbox scope). | `docker exec … /probe x09` |
+| 2026-07-02 | 0 | X0.10 | PASS. `/proc/<holder>/mountinfo` readable from outside the userns; staging mount appearance detectable (new mount id); after the `MS_MOVE` pair the workspace root's mount id changes (135 → 138) and the old id is visible at the rollback point — deterministic kill-point mechanism for E7/E8/E10 with zero src hooks. | `docker exec … /probe x10 /eos/workspace/probe-scratch` |
 
 ## Decision log
 
@@ -666,4 +679,7 @@ was updated in the same change.
 
 | Date | Phase | Decision | Spec section updated |
 | --- | --- | --- | --- |
-|  |  |  |  |
+| 2026-07-02 | 0 | **Go/no-go: GO.** X0.2 (same-upperdir coexistence + staged switch) and X0.3 (userxattr parity) both pass in the supported Docker environment; phases 5–7 proceed, no descope. | none needed (spec already gated on this proof) |
+| 2026-07-02 | 0 | **OLD-root dirfd must be dropped before the strict rollback unmount.** X0.2 proved a held pre-opened `O_PATH` fd on the OLD mount root pins the moved OLD mount at rollback, self-inflicting EBUSY at C3 step 8. The runner closes the OLD-root dirfd after the second move (it is only needed as the move-1 source). | §C3 step 8 |
+| 2026-07-02 | 0 | **G2's negative control targets the opaque-dir marker, not the plain-file whiteout.** X0.3 measured: deleted-file whiteouts are char 0:0 devices (xattr-independent — they hold without `userxattr`); the xattr-encoded metadata with resurrection teeth is `user.overlay.opaque` (lower entries resurface without `userxattr`). | §Required tests → Live Docker e2e G2 |
+| 2026-07-02 | 0 | **OVL_MAX_STACK failure point recorded**: the over-limit chain fails the `fsconfig lowerdir+` call (EINVAL), not `fsmount` — still a clean pre-PONR `stage_failed:<errno>` derived from the mount-build error; wording folded into §D. | §D chain-length paragraph |
