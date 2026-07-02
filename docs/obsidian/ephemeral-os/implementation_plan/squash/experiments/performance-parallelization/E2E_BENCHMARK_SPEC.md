@@ -95,7 +95,7 @@ overlap **band** `[0.7·min(W,cores,M), min(W,cores,M)]` rather than a point.
 
 | case | setup | assertion |
 |---|---|---|
-| **CORR-AB-EQUIV** | identical deterministic workload | final active manifest is **byte-identical** and the disposition multiset is identical between `W=1` and `W=cores` runs — parallelism changes timing only, never outcome |
+| **CORR-AB-EQUIV** | identical deterministic workload | **logically equivalent** outcome between `W=1` and `W=cores`: identical disposition multiset, identical set of surviving pre-squash layer ids, identical squashed-block count, identical final manifest layer count. Not byte-identical — squashed layer ids are nonce-named (`S{ver}-{nonce}`), so `manifest_root_hash` differs run-to-run. Parallelism changes timing only, never outcome |
 | **CORR-DISPOSITIONS** | population engineered to yield all four classes concurrently (idle→Migrated, PTY/cwd-pinned→Leased, fd/mount-pinned→Leased, post-PONR kill→Faulty) | each session's reported disposition matches its setup; `blocked_reasons` attribution per block is correct (never-straddle whole-or-none) |
 | **CORR-INVARIANTS** | any migrating run | manifest version monotonic +1; exactly one surviving layer per squashed block; staging empty; zero orphan `work-remount-*` dirs; lease refcount GC removes only unreferenced layers (no premature GC of a pinned source); substitution recording order deterministic |
 | **CORR-GATESTORM** | commands + publishes admitted *during* the sweep (admission-gate storm at `W=cores`) | no lost/duplicated command completion; no session left in a bad finalize state; a command admitted mid-remount serializes behind that session's gate (never interleaves the switch) |
@@ -119,9 +119,11 @@ A case passes iff, over `K` repeats (report median + p95):
 - **Memory**: `peak_rss_delta ≤ C·W` for a small constant `C` (handle+frozen-set
   size), and **not** correlated with `N` (fit slope vs `N` ≈ 0). This is the
   no-RAM-for-speed gate.
-- **Correctness**: AB-equiv byte-identical manifest + identical disposition
-  multiset; all invariant assertions hold; space axis (layer dirs shrink, staging
-  empty); strict teardown (no residue, no orphan workdir, gates-map drained).
+- **Correctness**: AB-equiv logical equivalence (disposition multiset + surviving
+  pre-squash layer-id set + block count + manifest layer count — not byte-identical,
+  since layer ids are nonce-named); all invariant assertions hold; space axis
+  (layer dirs shrink, staging empty); strict teardown (no residue, no orphan
+  workdir, gates-map drained).
 
 ## 8. Harness work required
 
