@@ -1,7 +1,7 @@
 {
   "argv": [
     "/opt/homebrew/bin/pytest",
-    "runtime/file/file_exec",
+    "runtime/file/smoke",
     "--tb=short",
     "-q",
     "--log-cli-level=WARNING"
@@ -10,4176 +10,872 @@
     "E2E_WORKSPACE_ROOT": "/tmp/eos-file-operation-e2e-workspace"
   },
   "exitstatus": 0,
-  "generated_at": "2026-07-02T08:05:23+08:00",
-  "record_count": 596,
+  "generated_at": "2026-07-02T08:23:57+08:00",
+  "record_count": 124,
   "records": [
     {
-      "duration_ms": 33.665,
+      "duration_ms": 25.322,
       "operation": "list_sandboxes",
       "operation_key": "manager.list_sandboxes",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 257.187,
+      "duration_ms": 243.274,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 30.694,
-      "operation": "create_workspace_session",
-      "operation_key": "runtime.create_workspace_session",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 25.266,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 69.855,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 49.393,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 53.961,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 53.452,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 28.833,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.632,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 52.105,
-      "operation": "destroy_workspace_session",
-      "operation_key": "runtime.destroy_workspace_session",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 366.643,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 230.641,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 29.659,
-      "operation": "create_workspace_session",
-      "operation_key": "runtime.create_workspace_session",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 25.874,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 50.814,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 53.257,
+      "duration_ms": 36.717,
       "operation": "file_write",
       "operation_key": "runtime.file_write",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 531.21,
-      "operation": "write_command_stdin",
-      "operation_key": "runtime.write_command_stdin",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 84.094,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 538.84,
-      "operation": "write_command_stdin",
-      "operation_key": "runtime.write_command_stdin",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.929,
-      "operation": "read_command_lines",
-      "operation_key": "runtime.read_command_lines",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.681,
-      "operation": "write_command_stdin",
-      "operation_key": "runtime.write_command_stdin",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 33.639,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.709,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 52.871,
-      "operation": "destroy_workspace_session",
-      "operation_key": "runtime.destroy_workspace_session",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 387.027,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 254.508,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 29.719,
-      "operation": "create_workspace_session",
-      "operation_key": "runtime.create_workspace_session",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 26.639,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 60.351,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.796,
+      "duration_ms": 24.948,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 68.133,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.671,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 51.467,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 64.17,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.19,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 33.449,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 54.02,
-      "operation": "destroy_workspace_session",
-      "operation_key": "runtime.destroy_workspace_session",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 372.232,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 230.816,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 32.142,
-      "operation": "create_workspace_session",
-      "operation_key": "runtime.create_workspace_session",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 26.327,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 48.966,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 49.495,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 51.532,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.28,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 47.583,
-      "operation": "destroy_workspace_session",
-      "operation_key": "runtime.destroy_workspace_session",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 340.523,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 246.236,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 30.054,
-      "operation": "create_workspace_session",
-      "operation_key": "runtime.create_workspace_session",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 25.089,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 53.374,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 55.863,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.671,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.486,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.937,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 29.924,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 52.281,
-      "operation": "destroy_workspace_session",
-      "operation_key": "runtime.destroy_workspace_session",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 344.103,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 561.671,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 40.375,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 62.71,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 33.931,
-      "operation": "snapshot",
-      "operation_key": "observability.snapshot",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 67.004,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.293,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 64.58,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 69.89,
-      "operation": "write_command_stdin",
-      "operation_key": "runtime.write_command_stdin",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.828,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 27.144,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.623,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.001,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 28.667,
+      "duration_ms": 25.195,
       "operation": "file_blame",
       "operation_key": "runtime.file_blame",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 29.943,
+      "duration_ms": 33.538,
+      "operation": "file_edit",
+      "operation_key": "runtime.file_edit",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 27.758,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 29.114,
+      "duration_ms": 25.721,
+      "operation": "file_read",
+      "operation_key": "runtime.file_read",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 25.121,
       "operation": "file_blame",
       "operation_key": "runtime.file_blame",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 30.868,
+      "duration_ms": 24.494,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
-      "returncode": 1,
+      "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 349.404,
+      "duration_ms": 23.061,
+      "operation": "file_blame",
+      "operation_key": "runtime.file_blame",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 352.55,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 237.314,
+      "duration_ms": 256.373,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 27.192,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
+      "duration_ms": 36.35,
+      "operation": "file_write",
+      "operation_key": "runtime.file_write",
       "returncode": 0,
-      "scope": "observability"
+      "scope": "runtime"
     },
     {
-      "duration_ms": 29.563,
+      "duration_ms": 30.17,
+      "operation": "file_edit",
+      "operation_key": "runtime.file_edit",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 24.516,
+      "operation": "file_read",
+      "operation_key": "runtime.file_read",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 26.9,
+      "operation": "file_read",
+      "operation_key": "runtime.file_read",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 27.341,
+      "operation": "file_blame",
+      "operation_key": "runtime.file_blame",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 347.31,
+      "operation": "destroy_sandbox",
+      "operation_key": "manager.destroy_sandbox",
+      "returncode": 0,
+      "scope": "manager"
+    },
+    {
+      "duration_ms": 507.034,
+      "operation": "create_sandbox",
+      "operation_key": "manager.create_sandbox",
+      "returncode": 0,
+      "scope": "manager"
+    },
+    {
+      "duration_ms": 50.766,
+      "operation": "file_write",
+      "operation_key": "runtime.file_write",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 33.275,
+      "operation": "file_edit",
+      "operation_key": "runtime.file_edit",
+      "returncode": 1,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 354.215,
+      "operation": "destroy_sandbox",
+      "operation_key": "manager.destroy_sandbox",
+      "returncode": 0,
+      "scope": "manager"
+    },
+    {
+      "duration_ms": 238.679,
+      "operation": "create_sandbox",
+      "operation_key": "manager.create_sandbox",
+      "returncode": 0,
+      "scope": "manager"
+    },
+    {
+      "duration_ms": 31.729,
       "operation": "create_workspace_session",
       "operation_key": "runtime.create_workspace_session",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 47.233,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 52.899,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 57.407,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 57.726,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.353,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 60.682,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 54.512,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 49.572,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 34.11,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.741,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 55.822,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 54.001,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.349,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 61.784,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 63.828,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 55.834,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.066,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 63.762,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.199,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 46.382,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.401,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.1,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 95.323,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 69.521,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.318,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 65.306,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 58.721,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 63.442,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 28.164,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 71.096,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 72.972,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 51.173,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.738,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 60.755,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 58.397,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.717,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 28.221,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 52.584,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 70.49,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 49.325,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.794,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 48.305,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 53.212,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.374,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 29.475,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 55.831,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 62.582,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 55.253,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.495,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 73.881,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 55.509,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.812,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.59,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.732,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 79.124,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 61.315,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.765,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.218,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 61.942,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 48.599,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.838,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 58.548,
+      "duration_ms": 51.607,
       "operation": "file_write",
       "operation_key": "runtime.file_write",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 59.044,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
+      "duration_ms": 53.203,
+      "operation": "file_edit",
+      "operation_key": "runtime.file_edit",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 46.151,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
+      "duration_ms": 52.149,
+      "operation": "file_read",
+      "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 65.001,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 44.609,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 51.858,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 60.59,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.978,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 52.713,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 58.163,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 66.312,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 49.093,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
+      "duration_ms": 28.694,
+      "operation": "file_read",
+      "operation_key": "runtime.file_read",
+      "returncode": 1,
       "scope": "runtime"
     },
     {
       "duration_ms": 48.009,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 44.565,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 60.833,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 60.635,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 54.347,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 64.531,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 51.656,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 51.299,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 56.313,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 33.38,
-      "operation": "destroy_workspace_session",
-      "operation_key": "runtime.destroy_workspace_session",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.787,
-      "operation": "write_command_stdin",
-      "operation_key": "runtime.write_command_stdin",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 59.493,
       "operation": "destroy_workspace_session",
       "operation_key": "runtime.destroy_workspace_session",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 378.193,
+      "duration_ms": 349.052,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 250.251,
+      "duration_ms": 233.87,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 31.647,
+      "duration_ms": 33.794,
+      "operation": "file_write",
+      "operation_key": "runtime.file_write",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 31.143,
+      "operation": "file_edit",
+      "operation_key": "runtime.file_edit",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 26.336,
+      "operation": "file_read",
+      "operation_key": "runtime.file_read",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 26.775,
+      "operation": "file_read",
+      "operation_key": "runtime.file_read",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 26.736,
+      "operation": "file_blame",
+      "operation_key": "runtime.file_blame",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 332.767,
+      "operation": "destroy_sandbox",
+      "operation_key": "manager.destroy_sandbox",
+      "returncode": 0,
+      "scope": "manager"
+    },
+    {
+      "duration_ms": 226.582,
+      "operation": "create_sandbox",
+      "operation_key": "manager.create_sandbox",
+      "returncode": 0,
+      "scope": "manager"
+    },
+    {
+      "duration_ms": 34.025,
+      "operation": "file_write",
+      "operation_key": "runtime.file_write",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 23.917,
+      "operation": "file_read",
+      "operation_key": "runtime.file_read",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 297.601,
+      "operation": "destroy_sandbox",
+      "operation_key": "manager.destroy_sandbox",
+      "returncode": 0,
+      "scope": "manager"
+    },
+    {
+      "duration_ms": 243.633,
+      "operation": "create_sandbox",
+      "operation_key": "manager.create_sandbox",
+      "returncode": 0,
+      "scope": "manager"
+    },
+    {
+      "duration_ms": 28.752,
       "operation": "create_workspace_session",
       "operation_key": "runtime.create_workspace_session",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 25.2,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 63.77,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
+      "duration_ms": 44.635,
+      "operation": "file_write",
+      "operation_key": "runtime.file_write",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 54.882,
+      "duration_ms": 49.221,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 51.444,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 60.466,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 66.464,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 51.458,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 28.949,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 26.041,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 57.323,
+      "duration_ms": 44.755,
       "operation": "destroy_workspace_session",
       "operation_key": "runtime.destroy_workspace_session",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 368.487,
+      "duration_ms": 328.777,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 492.541,
+      "duration_ms": 521.897,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 35.438,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 96.21,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.535,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 28.926,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.411,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.373,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 359.916,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 240.119,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 25.834,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 31.772,
+      "duration_ms": 48.115,
       "operation": "file_write",
       "operation_key": "runtime.file_write",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 26.422,
+      "duration_ms": 34.693,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 25.451,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 87.358,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.052,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 28.183,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 26.482,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 28.294,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 26.244,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 366.036,
+      "duration_ms": 352.782,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 509.419,
+      "duration_ms": 523.806,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 40.311,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 48.299,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.055,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.98,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 88.381,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 33.267,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 28.318,
+      "duration_ms": 35.126,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 1,
       "scope": "runtime"
     },
     {
-      "duration_ms": 27.699,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 374.209,
+      "duration_ms": 365.202,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 244.503,
+      "duration_ms": 512.153,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 26.053,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 83.251,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 76.268,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 317.989,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 524.094,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 36.318,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 44.684,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.713,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.666,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 110.408,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.464,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 28.281,
+      "duration_ms": 35.3,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 1,
       "scope": "runtime"
     },
     {
-      "duration_ms": 29.372,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.603,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.789,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 374.395,
+      "duration_ms": 367.806,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 215.3,
+      "duration_ms": 257.282,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 27.45,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
+      "duration_ms": 31.45,
+      "operation": "create_workspace_session",
+      "operation_key": "runtime.create_workspace_session",
       "returncode": 0,
-      "scope": "observability"
+      "scope": "runtime"
     },
     {
-      "duration_ms": 36.065,
+      "duration_ms": 50.722,
+      "operation": "exec_command",
+      "operation_key": "runtime.exec_command",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 43.677,
       "operation": "file_write",
       "operation_key": "runtime.file_write",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 27.804,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 26.474,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 86.008,
+      "duration_ms": 52.806,
       "operation": "exec_command",
       "operation_key": "runtime.exec_command",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 29.963,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 31.4,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
+      "duration_ms": 45.49,
+      "operation": "destroy_workspace_session",
+      "operation_key": "runtime.destroy_workspace_session",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 30.195,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.125,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 326.728,
+      "duration_ms": 346.732,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 223.678,
+      "duration_ms": 234.036,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 29.941,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
+      "duration_ms": 30.378,
+      "operation": "create_workspace_session",
+      "operation_key": "runtime.create_workspace_session",
       "returncode": 0,
-      "scope": "observability"
+      "scope": "runtime"
     },
     {
-      "duration_ms": 88.631,
+      "duration_ms": 50.477,
       "operation": "exec_command",
       "operation_key": "runtime.exec_command",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 27.771,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 27.36,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.056,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 28.836,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 91.2,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 369.481,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 222.559,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 26.932,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 34.791,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 25.265,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 24.438,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 82.749,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.894,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 31.434,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.078,
+      "duration_ms": 55.618,
       "operation": "file_write",
       "operation_key": "runtime.file_write",
       "returncode": 1,
       "scope": "runtime"
     },
     {
-      "duration_ms": 34.026,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
+      "duration_ms": 47.708,
+      "operation": "destroy_workspace_session",
+      "operation_key": "runtime.destroy_workspace_session",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 32.604,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.422,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 384.887,
+      "duration_ms": 321.583,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 524.508,
+      "duration_ms": 242.132,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 40.97,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
+      "duration_ms": 29.119,
+      "operation": "create_workspace_session",
+      "operation_key": "runtime.create_workspace_session",
       "returncode": 0,
-      "scope": "observability"
+      "scope": "runtime"
     },
     {
-      "duration_ms": 99.536,
+      "duration_ms": 51.42,
       "operation": "exec_command",
       "operation_key": "runtime.exec_command",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 30.156,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 28.043,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
+      "duration_ms": 50.687,
+      "operation": "file_write",
+      "operation_key": "runtime.file_write",
       "returncode": 1,
       "scope": "runtime"
     },
     {
-      "duration_ms": 325.957,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 242.387,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 26.674,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 81.253,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 28.698,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 319.256,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 516.314,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 38.291,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 100.287,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.723,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 32.141,
+      "duration_ms": 51.099,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 30.31,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
+      "duration_ms": 48.276,
+      "operation": "destroy_workspace_session",
+      "operation_key": "runtime.destroy_workspace_session",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 32.472,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 382.554,
+      "duration_ms": 346.024,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 507.354,
+      "duration_ms": 517.679,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 37.997,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
+      "duration_ms": 44.282,
+      "operation": "create_workspace_session",
+      "operation_key": "runtime.create_workspace_session",
       "returncode": 0,
-      "scope": "observability"
+      "scope": "runtime"
     },
     {
-      "duration_ms": 96.071,
+      "duration_ms": 55.813,
       "operation": "exec_command",
       "operation_key": "runtime.exec_command",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 34.32,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 31.331,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
+      "duration_ms": 54.161,
+      "operation": "file_write",
+      "operation_key": "runtime.file_write",
       "returncode": 1,
       "scope": "runtime"
     },
     {
-      "duration_ms": 30.909,
+      "duration_ms": 55.108,
+      "operation": "destroy_workspace_session",
+      "operation_key": "runtime.destroy_workspace_session",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 351.487,
+      "operation": "destroy_sandbox",
+      "operation_key": "manager.destroy_sandbox",
+      "returncode": 0,
+      "scope": "manager"
+    },
+    {
+      "duration_ms": 514.679,
+      "operation": "create_sandbox",
+      "operation_key": "manager.create_sandbox",
+      "returncode": 0,
+      "scope": "manager"
+    },
+    {
+      "duration_ms": 43.993,
+      "operation": "create_workspace_session",
+      "operation_key": "runtime.create_workspace_session",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 56.043,
+      "operation": "exec_command",
+      "operation_key": "runtime.exec_command",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 47.574,
       "operation": "file_edit",
       "operation_key": "runtime.file_edit",
       "returncode": 1,
       "scope": "runtime"
     },
     {
-      "duration_ms": 357.587,
+      "duration_ms": 50.605,
+      "operation": "file_edit",
+      "operation_key": "runtime.file_edit",
+      "returncode": 1,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 54.456,
+      "operation": "destroy_workspace_session",
+      "operation_key": "runtime.destroy_workspace_session",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 345.391,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 553.866,
+      "duration_ms": 518.181,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 32.499,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 52.193,
+      "duration_ms": 45.718,
       "operation": "file_write",
       "operation_key": "runtime.file_write",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 32.004,
+      "duration_ms": 32.992,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 32.122,
+      "duration_ms": 30.095,
+      "operation": "file_read",
+      "operation_key": "runtime.file_read",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 28.478,
       "operation": "file_blame",
       "operation_key": "runtime.file_blame",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 88.91,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.518,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 367.834,
+      "duration_ms": 376.713,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 528.404,
+      "duration_ms": 499.887,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 33.006,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 98.726,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
+      "duration_ms": 58.541,
+      "operation": "file_write",
+      "operation_key": "runtime.file_write",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 31.474,
+      "duration_ms": 53.116,
+      "operation": "file_write",
+      "operation_key": "runtime.file_write",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 34.518,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 40.455,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 33.102,
+      "duration_ms": 31.675,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 33.305,
+      "duration_ms": 30.612,
       "operation": "file_blame",
       "operation_key": "runtime.file_blame",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 91.117,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 33.651,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.389,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.773,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.138,
+      "duration_ms": 31.005,
       "operation": "file_blame",
       "operation_key": "runtime.file_blame",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 97.018,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.085,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.33,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.417,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.906,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 99.853,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.313,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.42,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 29.11,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.28,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 88.765,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.713,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.46,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.807,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.038,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 93.898,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.796,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.216,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 28.265,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.52,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 91.446,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.029,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.445,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 29.198,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.506,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 92.565,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 33.018,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.966,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 29.723,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.275,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 96.61,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 29.806,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.347,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.451,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.055,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 90.827,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 28.387,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.002,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 26.808,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 25.414,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 87.79,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 28.009,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.587,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 29.222,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.892,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 99.268,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.768,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.059,
-      "operation": "file_edit",
-      "operation_key": "runtime.file_edit",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.658,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 26.652,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.337,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 84.81,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.606,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 30.954,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 31.403,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 383.074,
+      "duration_ms": 355.211,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 256.997,
+      "duration_ms": 235.675,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 27.699,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 1176.09,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
+      "duration_ms": 31.494,
+      "operation": "create_workspace_session",
+      "operation_key": "runtime.create_workspace_session",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 1657.928,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
+      "duration_ms": 41.091,
+      "operation": "file_write",
+      "operation_key": "runtime.file_write",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 29.518,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 23.974,
+      "duration_ms": 45.378,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 21.97,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 22.443,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 22.81,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 21.563,
-      "operation": "file_blame",
-      "operation_key": "runtime.file_blame",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 25.278,
+      "duration_ms": 27.854,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 1,
       "scope": "runtime"
     },
     {
-      "duration_ms": 370.515,
+      "duration_ms": 46.012,
+      "operation": "destroy_workspace_session",
+      "operation_key": "runtime.destroy_workspace_session",
+      "returncode": 0,
+      "scope": "runtime"
+    },
+    {
+      "duration_ms": 329.423,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 515.412,
+      "duration_ms": 236.916,
       "operation": "create_sandbox",
       "operation_key": "manager.create_sandbox",
       "returncode": 0,
       "scope": "manager"
     },
     {
-      "duration_ms": 35.574,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
+      "duration_ms": 32.783,
+      "operation": "create_workspace_session",
+      "operation_key": "runtime.create_workspace_session",
       "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 48.41,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.945,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.053,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.1,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.451,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.741,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.133,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.965,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.021,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 46.312,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.728,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.396,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.683,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 44.386,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.095,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.935,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.612,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.003,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.804,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.643,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.942,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.949,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.953,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.18,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.699,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.078,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.631,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.02,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.78,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 34.359,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 34.408,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.518,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.653,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.527,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.422,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.995,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.356,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.877,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.474,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.683,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.613,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.386,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.737,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 34.763,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.264,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.471,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.564,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.871,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.034,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.701,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.829,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.823,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 33.927,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.612,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 33.576,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 32.78,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.396,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.72,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.082,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.459,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 33.99,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.214,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.785,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.142,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.514,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.251,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.729,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.355,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.263,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.118,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.432,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.216,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 34.819,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.277,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.984,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.147,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.201,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.95,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.689,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.913,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.327,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.597,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.943,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.308,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.339,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.358,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.274,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.809,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.795,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.058,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.652,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.811,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.644,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.679,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.771,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.989,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.001,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.885,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.967,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.27,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.436,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.476,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.817,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.783,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.135,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.026,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 35.154,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.761,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.086,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.643,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.154,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.635,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.181,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.812,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.681,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.214,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.868,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.458,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.776,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.733,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.067,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 49.121,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.385,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 37.577,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.144,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.592,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 36.696,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.388,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.278,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.354,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.936,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 45.137,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.159,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.574,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.867,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.351,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.751,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.869,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.631,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.201,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.063,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.656,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.934,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.772,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.025,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.471,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.426,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.427,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.051,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.434,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.257,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 38.647,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.805,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.507,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.21,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.532,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.212,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.841,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.203,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 39.91,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 44.316,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.947,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.627,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.399,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.104,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 44.65,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 45.714,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 40.498,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.73,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.943,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 44.083,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 45.727,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.794,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.795,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.152,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.188,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.422,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.845,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.31,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 45.816,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.992,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.412,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.845,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.454,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.283,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.872,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.325,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 41.194,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 46.871,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.254,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 42.904,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 46.144,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.135,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 43.882,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 44.52,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 44.146,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
-      "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 46.47,
+      "duration_ms": 56.752,
       "operation": "file_write",
       "operation_key": "runtime.file_write",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 43.239,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
+      "duration_ms": 48.491,
+      "operation": "file_read",
+      "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 43.121,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
+      "duration_ms": 47.197,
+      "operation": "destroy_workspace_session",
+      "operation_key": "runtime.destroy_workspace_session",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 44.386,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
+      "duration_ms": 350.009,
+      "operation": "destroy_sandbox",
+      "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
-      "scope": "runtime"
+      "scope": "manager"
     },
     {
-      "duration_ms": 39.985,
-      "operation": "file_write",
-      "operation_key": "runtime.file_write",
+      "duration_ms": 515.264,
+      "operation": "create_sandbox",
+      "operation_key": "manager.create_sandbox",
       "returncode": 0,
-      "scope": "runtime"
+      "scope": "manager"
     },
     {
-      "duration_ms": 129.947,
+      "duration_ms": 100.915,
       "operation": "exec_command",
       "operation_key": "runtime.exec_command",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 41.012,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 32.242,
+      "duration_ms": 30.24,
       "operation": "file_read",
       "operation_key": "runtime.file_read",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 32.462,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.254,
+      "duration_ms": 31.794,
       "operation": "file_blame",
       "operation_key": "runtime.file_blame",
       "returncode": 0,
       "scope": "runtime"
     },
     {
-      "duration_ms": 377.866,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 517.11,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 37.657,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 1570.897,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
+      "duration_ms": 32.444,
+      "operation": "file_write",
+      "operation_key": "runtime.file_write",
       "returncode": 1,
       "scope": "runtime"
     },
     {
-      "duration_ms": 510.134,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 284.303,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 26.965,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 95.038,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 27.673,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 27.171,
-      "operation": "file_read",
-      "operation_key": "runtime.file_read",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 75.129,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 0,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 369.295,
-      "operation": "destroy_sandbox",
-      "operation_key": "manager.destroy_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 287.46,
-      "operation": "create_sandbox",
-      "operation_key": "manager.create_sandbox",
-      "returncode": 0,
-      "scope": "manager"
-    },
-    {
-      "duration_ms": 25.677,
-      "operation": "layerstack",
-      "operation_key": "observability.layerstack",
-      "returncode": 0,
-      "scope": "observability"
-    },
-    {
-      "duration_ms": 1306.242,
-      "operation": "exec_command",
-      "operation_key": "runtime.exec_command",
-      "returncode": 1,
-      "scope": "runtime"
-    },
-    {
-      "duration_ms": 386.361,
+      "duration_ms": 356.638,
       "operation": "destroy_sandbox",
       "operation_key": "manager.destroy_sandbox",
       "returncode": 0,
@@ -4190,157 +886,113 @@
   "summary": [
     {
       "cli_error_count": 0,
-      "count": 27,
-      "max_ms": 561.671,
-      "min_ms": 215.3,
+      "count": 20,
+      "max_ms": 523.806,
+      "min_ms": 226.582,
       "operation": "manager.create_sandbox",
-      "p50_ms": 257.187,
-      "p95_ms": 546.227,
+      "p50_ms": 256.827,
+      "p95_ms": 521.992,
       "sub_50ms_count": 0,
       "sub_50ms_pct": 0.0
     },
     {
       "cli_error_count": 0,
-      "count": 27,
-      "max_ms": 510.134,
-      "min_ms": 317.989,
+      "count": 20,
+      "max_ms": 376.713,
+      "min_ms": 297.601,
       "operation": "manager.destroy_sandbox",
-      "p50_ms": 369.295,
-      "p95_ms": 386.827,
+      "p50_ms": 349.531,
+      "p95_ms": 368.251,
       "sub_50ms_count": 0,
       "sub_50ms_pct": 0.0
     },
     {
       "cli_error_count": 0,
       "count": 1,
-      "max_ms": 33.665,
-      "min_ms": 33.665,
+      "max_ms": 25.322,
+      "min_ms": 25.322,
       "operation": "manager.list_sandboxes",
-      "p50_ms": 33.665,
-      "p95_ms": 33.665,
+      "p50_ms": 25.322,
+      "p95_ms": 25.322,
       "sub_50ms_count": 1,
       "sub_50ms_pct": 100.0
     },
     {
       "cli_error_count": 0,
-      "count": 50,
-      "max_ms": 41.012,
-      "min_ms": 25.089,
-      "operation": "observability.layerstack",
-      "p50_ms": 29.952,
-      "p95_ms": 40.346,
-      "sub_50ms_count": 50,
+      "count": 9,
+      "max_ms": 44.282,
+      "min_ms": 28.752,
+      "operation": "runtime.create_workspace_session",
+      "p50_ms": 31.494,
+      "p95_ms": 44.166,
+      "sub_50ms_count": 9,
       "sub_50ms_pct": 100.0
     },
     {
       "cli_error_count": 0,
-      "count": 1,
-      "max_ms": 33.931,
-      "min_ms": 33.931,
-      "operation": "observability.snapshot",
-      "p50_ms": 33.931,
-      "p95_ms": 33.931,
-      "sub_50ms_count": 1,
-      "sub_50ms_pct": 100.0
+      "count": 9,
+      "max_ms": 55.108,
+      "min_ms": 44.755,
+      "operation": "runtime.destroy_workspace_session",
+      "p50_ms": 47.708,
+      "p95_ms": 54.847,
+      "sub_50ms_count": 7,
+      "sub_50ms_pct": 77.8
     },
     {
       "cli_error_count": 0,
       "count": 7,
-      "max_ms": 32.142,
-      "min_ms": 29.563,
-      "operation": "runtime.create_workspace_session",
-      "p50_ms": 30.054,
-      "p95_ms": 31.994,
-      "sub_50ms_count": 7,
-      "sub_50ms_pct": 100.0
-    },
-    {
-      "cli_error_count": 1,
-      "count": 8,
-      "max_ms": 59.493,
-      "min_ms": 33.38,
-      "operation": "runtime.destroy_workspace_session",
-      "p50_ms": 52.576,
-      "p95_ms": 58.733,
-      "sub_50ms_count": 2,
-      "sub_50ms_pct": 25.0
-    },
-    {
-      "cli_error_count": 2,
-      "count": 63,
-      "max_ms": 1657.928,
-      "min_ms": 47.233,
+      "max_ms": 100.915,
+      "min_ms": 50.477,
       "operation": "runtime.exec_command",
-      "p50_ms": 82.749,
-      "p95_ms": 1071.476,
-      "sub_50ms_count": 3,
-      "sub_50ms_pct": 4.8
+      "p50_ms": 52.806,
+      "p95_ms": 87.453,
+      "sub_50ms_count": 0,
+      "sub_50ms_pct": 0.0
     },
     {
       "cli_error_count": 0,
-      "count": 30,
-      "max_ms": 42.906,
-      "min_ms": 21.563,
+      "count": 9,
+      "max_ms": 31.794,
+      "min_ms": 23.061,
       "operation": "runtime.file_blame",
-      "p50_ms": 28.975,
-      "p95_ms": 32.93,
-      "sub_50ms_count": 30,
+      "p50_ms": 27.341,
+      "p95_ms": 31.478,
+      "sub_50ms_count": 9,
       "sub_50ms_pct": 100.0
     },
     {
-      "cli_error_count": 2,
-      "count": 32,
-      "max_ms": 95.323,
-      "min_ms": 27.699,
+      "cli_error_count": 3,
+      "count": 7,
+      "max_ms": 53.203,
+      "min_ms": 30.17,
       "operation": "runtime.file_edit",
-      "p50_ms": 54.236,
-      "p95_ms": 81.361,
-      "sub_50ms_count": 14,
-      "sub_50ms_pct": 43.8
+      "p50_ms": 33.538,
+      "p95_ms": 52.424,
+      "sub_50ms_count": 5,
+      "sub_50ms_pct": 71.4
     },
     {
-      "cli_error_count": 31,
-      "count": 110,
-      "max_ms": 69.521,
-      "min_ms": 21.97,
+      "cli_error_count": 4,
+      "count": 24,
+      "max_ms": 52.149,
+      "min_ms": 23.917,
       "operation": "runtime.file_read",
-      "p50_ms": 31.365,
-      "p95_ms": 59.233,
-      "sub_50ms_count": 92,
-      "sub_50ms_pct": 83.6
+      "p50_ms": 30.167,
+      "p95_ms": 50.817,
+      "sub_50ms_count": 22,
+      "sub_50ms_pct": 91.7
     },
     {
-      "cli_error_count": 2,
-      "count": 234,
-      "max_ms": 66.312,
-      "min_ms": 31.078,
+      "cli_error_count": 4,
+      "count": 18,
+      "max_ms": 58.541,
+      "min_ms": 32.444,
       "operation": "runtime.file_write",
-      "p50_ms": 40.212,
-      "p95_ms": 53.715,
-      "sub_50ms_count": 213,
-      "sub_50ms_pct": 91.0
-    },
-    {
-      "cli_error_count": 0,
-      "count": 1,
-      "max_ms": 43.929,
-      "min_ms": 43.929,
-      "operation": "runtime.read_command_lines",
-      "p50_ms": 43.929,
-      "p95_ms": 43.929,
-      "sub_50ms_count": 1,
-      "sub_50ms_pct": 100.0
-    },
-    {
-      "cli_error_count": 0,
-      "count": 5,
-      "max_ms": 538.84,
-      "min_ms": 36.787,
-      "operation": "runtime.write_command_stdin",
-      "p50_ms": 69.89,
-      "p95_ms": 537.314,
-      "sub_50ms_count": 2,
-      "sub_50ms_pct": 40.0
+      "p50_ms": 46.916,
+      "p95_ms": 57.02,
+      "sub_50ms_count": 10,
+      "sub_50ms_pct": 55.6
     }
   ]
 }

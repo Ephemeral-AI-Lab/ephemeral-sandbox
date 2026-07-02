@@ -314,7 +314,7 @@ cli-operation-e2e-live-test/runtime/file/
 │   ├── test_read_smoke.py               # Read Smoke (5)
 │   ├── test_write_smoke.py              # Write Smoke (5)
 │   ├── test_edit_smoke.py               # Edit Smoke (5)
-│   └── test_session_only_linux.py       # Session-Only Cases (5, Linux)
+│   └── test_session_only_linux.py       # Session-Only Cases (5, Docker/Linux sandbox)
 ├── concurrent/
 │   ├── test_concurrent_sessionless.py   # Concurrent Operations — Sessionless (17)
 │   └── test_concurrent_session.py       # Concurrent Operations — Session (9)
@@ -408,12 +408,12 @@ what you create; other agents share the gateway.
       sessionless read before capture.
 - [ ] Ordered multi-edit applies against evolving content.
 
-### Session-Only Cases (Linux; not unit-testable on darwin)
+### Session-Only Cases (Docker/Linux sandbox)
 
-These run through the Linux-gated setns file-op body behind the live namespace
-runner, so the darwin unit harness cannot exercise them (the canned `run_file_op`
-hook proves the operation-layer wiring, not the in-namespace rejection). They are
-proven only here; record a transcript for each.
+These run through the live Docker/Linux namespace runner, so the file-operation
+matrix must execute them against the sandbox gateway instead of treating the
+host operating system as the source of truth. They are proven only here; record
+a transcript for each.
 
 - [ ] Session write updates an existing executable file and preserves its mode.
 - [ ] Session write to an in-session directory is rejected as invalid request /

@@ -1,8 +1,4 @@
-"""Live e2e: Session-Only Cases (Linux; not unit-testable on darwin)."""
-
-import platform
-
-import pytest
+"""Live e2e: Session-Only Cases (Docker/Linux sandbox)."""
 
 from runtime.file.helpers import (
     assert_content,
@@ -13,12 +9,6 @@ from runtime.file.helpers import (
     file_read,
     file_write,
     workspace_session,
-)
-
-
-pytestmark = pytest.mark.skipif(
-    platform.system() != "Linux",
-    reason="session namespace runner invariants need a Linux host setns path",
 )
 
 

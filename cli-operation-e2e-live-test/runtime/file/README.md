@@ -13,7 +13,7 @@ vice versa.
 | `smoke/test_read_smoke.py` | Read Smoke | 5 |
 | `smoke/test_write_smoke.py` | Write Smoke | 5 |
 | `smoke/test_edit_smoke.py` | Edit Smoke | 5 |
-| `smoke/test_session_only_linux.py` | Session-Only Cases (Linux) | 5 |
+| `smoke/test_session_only_linux.py` | Session-Only Cases (Docker/Linux sandbox) | 5 |
 | `concurrent/test_concurrent_sessionless.py` | Concurrent Operations — Sessionless | 17 |
 | `concurrent/test_concurrent_session.py` | Concurrent Operations — Session | 9 |
 | `correctness/test_correctness_sessionless.py` | Correctness: Layerstack, Mount, Conflict — Sessionless | 18 |
