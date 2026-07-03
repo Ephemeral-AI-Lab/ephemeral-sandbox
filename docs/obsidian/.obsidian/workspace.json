@@ -185,6 +185,11 @@
   },
   "active": "2b73796146464bdb",
   "lastOpenFiles": [
+    "ephemeral-os/implementation_plan/daemon-command-syscall-hardening-test-case.md",
+    "ephemeral-os/implementation_plan/daemon-command-syscall-hardening-spec.md",
+    "ephemeral-os/implementation_plan/git-policy/test-case.md",
+    "ephemeral-os/implementation_plan/git-policy",
+    "ephemeral-os/implementation_plan/Untitled",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/loadcombo-ab-diff.json",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/W-tuning.md",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/width-wtune.json",
@@ -194,9 +199,6 @@
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/scripts/loadcombo_ab.py",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/scripts/loadcombo_ab.py.tmp.35454.dadb5203070d",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W2.yml",
-    "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/ab-ab-diff.json",
-    "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/ab-wtune.json",
-    "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W4.yml",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/HANDOFF.md",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/E2E_BENCHMARK_SPEC.md",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/DESIGN.md",
@@ -219,8 +221,6 @@
     "ephemeral-os/implementation_plan/squash/adversarial_review.md",
     "ephemeral-os/implementation_plan/squash/adversarial-review-prompt.md",
     "ephemeral-os/implementation_plan/squash/spec.md",
-    "ephemeral-os/testing/file-operation/operation-timing/latest.md",
-    "ephemeral-os/testing/file-operation/iteration-report.md",
     "ephemeral-os/docs/Untitled.canvas"
   ]
 }

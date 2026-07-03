@@ -132,9 +132,6 @@ fn publish_reject_class(error: &LayerStackServiceError) -> &'static str {
             sandbox_runtime_layerstack::PublishRejectReason::InvalidBaseRevision => {
                 "invalid_base_revision"
             }
-            sandbox_runtime_layerstack::PublishRejectReason::GitMutationForbidden => {
-                "git_mutation_forbidden"
-            }
             sandbox_runtime_layerstack::PublishRejectReason::ProtectedPath => "protected_path",
             sandbox_runtime_layerstack::PublishRejectReason::SourceConflict => "source_conflict",
             sandbox_runtime_layerstack::PublishRejectReason::OpaqueDirProtectedDescendant => {

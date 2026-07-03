@@ -212,24 +212,18 @@ fn nested_gitignore_anchored_patterns_do_not_double_strip(
 }
 
 #[test]
-fn git_mutation_and_protected_paths_reject() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
-{
+fn protected_paths_reject() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let fixture = PublishFixture::new("forbidden")?;
     std::fs::write(fixture.workspace.join("README.md"), "base\n")?;
     let base = fixture.build_base()?;
 
-    for (path, reason) in [
-        (".git/config", PublishRejectReason::GitMutationForbidden),
-        ("pkg/.git/config", PublishRejectReason::GitMutationForbidden),
-        ("manifest.json", PublishRejectReason::ProtectedPath),
-        ("workspace.json", PublishRejectReason::ProtectedPath),
-        ("layers", PublishRejectReason::ProtectedPath),
-        ("staging", PublishRejectReason::ProtectedPath),
-        (".layer-metadata", PublishRejectReason::ProtectedPath),
-        (
-            "pkg/.layer-metadata/file",
-            PublishRejectReason::ProtectedPath,
-        ),
+    for path in [
+        "manifest.json",
+        "workspace.json",
+        "layers",
+        "staging",
+        ".layer-metadata",
+        "pkg/.layer-metadata/file",
     ] {
         let error = fixture
             .stack()?
@@ -240,12 +234,79 @@ fn git_mutation_and_protected_paths_reject() -> Result<(), Box<dyn std::error::E
                     content: b"x".to_vec(),
                 }],
             ))
-            .expect_err("forbidden path rejects publish");
+            .expect_err("protected path rejects publish");
         assert!(
-            matches!(error, LayerStackError::PublishRejected(ref rejection) if rejection.reason == reason),
+            matches!(error, LayerStackError::PublishRejected(ref rejection) if rejection.reason == PublishRejectReason::ProtectedPath),
             "unexpected error for {path}: {error:?}"
         );
     }
+    Ok(())
+}
+
+#[test]
+fn git_paths_route_as_source_and_publish(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = PublishFixture::new("git-allowed")?;
+    std::fs::write(fixture.workspace.join("README.md"), "base\n")?;
+    let base = fixture.build_base()?;
+
+    // `.git` is no longer special-cased: a git command's writes route as
+    // ordinary source (first-writer-wins), not a forbidden mutation. Nested
+    // `.git` (`pkg/.git/...`) is likewise ordinary source.
+    let result = fixture.stack()?.publish_validated_changes(request(
+        base,
+        vec![
+            LayerChange::Write {
+                path: lp(".git/config"),
+                content: b"[core]\n".to_vec(),
+            },
+            LayerChange::Write {
+                path: lp("pkg/.git/HEAD"),
+                content: b"ref: refs/heads/main\n".to_vec(),
+            },
+        ],
+    ))?;
+
+    assert!(!result.no_op);
+    assert_eq!(result.route_summary.source_count, 2);
+    assert_eq!(
+        read_text(&fixture.root, &result.manifest, ".git/config")?,
+        Some("[core]\n".to_owned())
+    );
+    Ok(())
+}
+
+#[test]
+fn concurrent_git_binary_divergence_rejects_as_source_conflict(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = PublishFixture::new("git-binary-conflict")?;
+    std::fs::write(fixture.workspace.join("README.md"), "base\n")?;
+    let base = fixture.build_base()?;
+    let mut stack = fixture.stack()?;
+    // A concurrent publisher advances `.git/index` with binary content (NUL).
+    stack.publish_layer(&[LayerChange::Write {
+        path: lp(".git/index"),
+        content: vec![b'D', b'I', b'R', b'C', 0, 1],
+    }])?;
+
+    // Our publish, from the now-stale base, diverges on the same binary path.
+    // Line merge is ineligible for binary, so OCC rejects cleanly rather than
+    // committing a corrupt merge.
+    let error = stack
+        .publish_validated_changes(request(
+            base,
+            vec![LayerChange::Write {
+                path: lp(".git/index"),
+                content: vec![b'D', b'I', b'R', b'C', 0, 2],
+            }],
+        ))
+        .expect_err("binary git divergence rejects publish");
+
+    assert!(matches!(
+        error,
+        LayerStackError::PublishRejected(rejection)
+            if rejection.reason == PublishRejectReason::SourceConflict
+    ));
     Ok(())
 }
 

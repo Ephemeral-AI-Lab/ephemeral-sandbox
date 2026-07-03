@@ -132,23 +132,23 @@ def test_EX_04_rider_defers_finalization(sandbox, workspace_tracker):
 def test_EX_05_publish_rejection_surfaces_on_terminal_response(sandbox, workspace_tracker):
     with record_case("EX-05") as rec:
         result = assert_ok(
-            exec_bare(sandbox, "mkdir -p /workspace/.git && echo x > /workspace/.git/config")
+            exec_bare(sandbox, "mkdir -p /workspace/layers && echo x > /workspace/layers/evil.txt")
         )
         session = workspace_tracker.track_workspace(result["workspace_session_id"])
         assert result["status"] == "ok", result
         assert result.get("publish_rejected") is True, result
-        assert result.get("publish_reject_class") == "git_mutation_forbidden", result
+        assert result.get("publish_reject_class") == "protected_path", result
         assert_exec_workspace_not_found(exec_in(sandbox, session, "true"), session)
         workspace_tracker.untrack_workspace(session)
 
         discarded = assert_output(
-            exec_bare(sandbox, "test ! -e /workspace/.git/config && echo discarded"),
+            exec_bare(sandbox, "test ! -e /workspace/layers/evil.txt && echo discarded"),
             "discarded",
         )
         discarded_session = workspace_tracker.track_workspace(discarded["workspace_session_id"])
         workspace_tracker.wait_finalized(discarded_session)
 
-        rec.axis("correctness", True, ".git publish was rejected, destroyed, and discarded")
+        rec.axis("correctness", True, "protected-path publish was rejected, destroyed, and discarded")
         assert_teardown_clean(rec, sandbox, workspace_tracker)
 
 

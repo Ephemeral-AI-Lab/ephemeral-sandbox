@@ -117,7 +117,6 @@ impl PublishReject {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PublishRejectReason {
     InvalidBaseRevision,
-    GitMutationForbidden,
     ProtectedPath,
     SourceConflict,
     OpaqueDirProtectedDescendant,

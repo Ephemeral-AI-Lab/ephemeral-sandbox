@@ -10,7 +10,7 @@ use super::model::{
     PublishValidatedChangesRequest,
 };
 use super::opaque_dir::{hidden_descendants, OPAQUE_DIR_EXPANSION_LIMIT};
-use super::route::{forbidden_path, ForbiddenRoute, RouteKind};
+use super::route::{forbidden_path, RouteKind};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SourceValidation {
@@ -152,7 +152,7 @@ fn route_path(
     path: &LayerPath,
     is_dir: bool,
 ) -> Result<RouteKind, LayerStackError> {
-    if let Some((reason, _)) = forbidden_path(path) {
+    if let Some(reason) = forbidden_path(path) {
         return Err(LayerStackError::PublishRejected(Box::new(
             PublishReject::at_path(path.clone(), reason),
         )));
@@ -171,7 +171,7 @@ fn plan_opaque_dir(
     path: &LayerPath,
     source_validations: &mut Vec<SourceValidation>,
 ) -> Result<RouteKind, LayerStackError> {
-    if let Some((reason, _)) = forbidden_path(path) {
+    if let Some(reason) = forbidden_path(path) {
         return Err(LayerStackError::PublishRejected(Box::new(
             PublishReject::at_path(path.clone(), reason),
         )));
@@ -203,14 +203,12 @@ fn plan_opaque_dir(
     let mut saw_source = false;
     let mut saw_ignored = false;
     for descendant in descendants {
-        if let Some((_, forbidden)) = forbidden_path(&descendant) {
-            let reason = match forbidden {
-                ForbiddenRoute::GitMutation | ForbiddenRoute::Protected => {
-                    PublishRejectReason::OpaqueDirProtectedDescendant
-                }
-            };
+        if forbidden_path(&descendant).is_some() {
             return Err(LayerStackError::PublishRejected(Box::new(
-                PublishReject::at_path(descendant, reason),
+                PublishReject::at_path(
+                    descendant,
+                    PublishRejectReason::OpaqueDirProtectedDescendant,
+                ),
             )));
         }
         let descendant_is_dir = matches!(

@@ -91,8 +91,10 @@ conflicts. Rejection reasons are explicit, including:
 - `invalid_base_revision` — the layerstack head moved since this workspace's base.
 - `source_conflict` — a path changed underneath the writer; the rejection
   carries the expected vs. actual content fingerprint for that path.
-- `protected_path` / `git_mutation_forbidden` — writes into paths the layerstack
-  refuses to accept.
+- `protected_path` — writes into layerstack-internal paths (`manifest.json`,
+  `workspace.json`, `layers/`, `staging/`, `.layer-metadata`) the layerstack
+  refuses to accept. (`.git` is not special-cased; git internals route as
+  ordinary source or, if gitignored, as wholesale ignored writes.)
 
 Because the lower layer is the base and each upperdir is a self-contained diff,
 the materials for a three-way merge are present even though today's policy is

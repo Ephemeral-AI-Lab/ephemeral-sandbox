@@ -297,12 +297,12 @@ fn rejected_finalize_publish_surfaces_on_terminal_response_and_destroy_proceeds(
         workspace_session_id: handle.id.clone(),
         base_revision: handle.base_revision(),
         base_manifest: base,
-        changed_paths: vec![".git/config".to_owned()],
+        changed_paths: vec!["manifest.json".to_owned()],
         changed_path_kinds: Default::default(),
         protected_drops: Vec::new(),
         stats: None,
         changes: vec![sandbox_runtime_layerstack::LayerChange::Write {
-            path: lp(".git/config"),
+            path: lp("manifest.json"),
             content: b"forbidden\n".to_vec(),
         }],
         metadata_path_count: 1,
@@ -321,7 +321,7 @@ fn rejected_finalize_publish_surfaces_on_terminal_response_and_destroy_proceeds(
     assert_eq!(output.status, CommandStatus::Ok);
     assert_eq!(
         output.publish_rejected,
-        Some("git_mutation_forbidden"),
+        Some("protected_path"),
         "the completing command's terminal response carries the reject class"
     );
     assert_eq!(
@@ -385,22 +385,22 @@ fn layerstack_service_preserves_structured_publish_rejection(
             base_manifest: base,
             protected_drops: Vec::new(),
             changes: vec![sandbox_runtime_layerstack::LayerChange::Write {
-                path: lp(".git/config"),
+                path: lp("manifest.json"),
                 content: b"bad\n".to_vec(),
             }],
             owner: "operation:test".to_owned(),
         })
-        .expect_err("git mutation rejects publish");
+        .expect_err("protected path rejects publish");
 
     match error {
         sandbox_runtime::layerstack::LayerStackServiceError::PublishRejected { rejection } => {
             assert_eq!(
                 rejection.reason,
-                sandbox_runtime_layerstack::PublishRejectReason::GitMutationForbidden
+                sandbox_runtime_layerstack::PublishRejectReason::ProtectedPath
             );
             assert_eq!(
                 rejection.path.as_ref().map(ToString::to_string).as_deref(),
-                Some(".git/config")
+                Some("manifest.json")
             );
         }
         other => panic!("unexpected error: {other:?}"),

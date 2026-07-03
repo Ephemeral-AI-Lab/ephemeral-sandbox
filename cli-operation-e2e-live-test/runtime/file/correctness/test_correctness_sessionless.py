@@ -521,18 +521,18 @@ def test_blame_survives_deletion(sandbox):
 
 
 def test_forbidden_publishes_do_not_advance_manifest(sandbox):
-    """Forbidden publishes: sessionless `file_write` to `.git/config` and to
-    `layers/evil.txt`.
-    Expected: both fault `operation_failed` with publish rejections
-    `git_mutation_forbidden` and `protected_path` respectively;
-    `manifest_version`/`root_hash` are unchanged and no layer is added."""
+    """Forbidden publishes: sessionless `file_write` to `layers/evil.txt` and
+    `manifest.json` (layerstack-internal paths).
+    Expected: both fault `operation_failed` with publish rejection
+    `protected_path`; `manifest_version`/`root_hash` are unchanged and no layer
+    is added. (`.git` is no longer special-cased — see the git-policy suite.)"""
     before = layerstack(sandbox)
     _assert_publish_rejection(
-        file_write(sandbox, ".git/config", "[core]\nrepositoryformatversion = 0"),
-        "git_mutation_forbidden",
+        file_write(sandbox, "layers/evil.txt", "evil"),
+        "protected_path",
     )
     _assert_publish_rejection(
-        file_write(sandbox, "layers/evil.txt", "evil"),
+        file_write(sandbox, "manifest.json", "{}"),
         "protected_path",
     )
     _assert_stack_unchanged(sandbox, before)

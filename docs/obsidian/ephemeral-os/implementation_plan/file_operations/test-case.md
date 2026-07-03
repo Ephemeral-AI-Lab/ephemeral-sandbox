@@ -728,11 +728,12 @@ a transcript for each.
       Expected: `file_read` faults `not_found`, but `file_blame` (a pure store
       read) still returns the pre-delete ranges owned by
       `operation:<request_id>` — a delete appends no audit event.
-- [x] Forbidden publishes: sessionless `file_write` to `.git/config` and to
-      `layers/evil.txt`.
-      Expected: both fault `operation_failed` with publish rejections
-      `git_mutation_forbidden` and `protected_path` respectively;
-      `manifest_version`/`root_hash` are unchanged and no layer is added.
+- [x] Forbidden publishes: sessionless `file_write` to `layers/evil.txt` and
+      `manifest.json` (layerstack-internal paths).
+      Expected: both fault `operation_failed` with publish rejection
+      `protected_path`; `manifest_version`/`root_hash` are unchanged and no
+      layer is added. (`.git` is no longer special-cased — see the git-policy
+      suite.)
 - [x] Gitignored route: with `logs/` in the base `.gitignore`, a one-shot exec
       writes a multi-line `logs/app.log`.
       Expected: the file is committed on the `ignored` route and
