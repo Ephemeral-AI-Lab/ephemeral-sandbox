@@ -8,7 +8,9 @@ use std::sync::Arc;
 #[cfg(target_os = "linux")]
 use super::RunnerError;
 #[cfg(target_os = "linux")]
-use crate::runner::protocol::{NamespaceRunnerRequest, RunResult};
+use crate::runner::command_security;
+#[cfg(target_os = "linux")]
+use crate::runner::protocol::{CommandSecurityPolicy, NamespaceRunnerRequest, RunResult};
 #[cfg(target_os = "linux")]
 use sandbox_observability::{record, Observer, ObserverConfig, Sink, TraceContext};
 #[cfg(target_os = "linux")]
@@ -51,7 +53,8 @@ fn execute_shell_inner(request: &NamespaceRunnerRequest) -> Result<RunResult, Ru
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
-    install_command_process_group(&mut command);
+    command_security::prepare_command_security_policy(&request.command_security)?;
+    install_command_process_group(&mut command, request.command_security);
 
     let mut child = spawn_child(&mut command, request)?;
     let child_pgid = child_process_group(&child)?;
@@ -86,17 +89,16 @@ const fn result_status(exit_code: i32, timed_out: bool) -> &'static str {
 }
 
 #[cfg(target_os = "linux")]
-fn install_command_process_group(command: &mut Command) {
+fn install_command_process_group(command: &mut Command, policy: CommandSecurityPolicy) {
     // SAFETY: `pre_exec` runs in the forked command child immediately before
-    // `exec`. The closure only calls async-signal-safe `setpgid(2)` and returns
-    // the OS error if it fails.
+    // `exec`. The closure only calls async-signal-safe syscalls over state
+    // prepared before forking and returns the OS error if one fails.
     unsafe {
-        command.pre_exec(|| {
-            if libc::setpgid(0, 0) == 0 {
-                Ok(())
-            } else {
-                Err(std::io::Error::last_os_error())
+        command.pre_exec(move || {
+            if libc::setpgid(0, 0) != 0 {
+                return Err(std::io::Error::last_os_error());
             }
+            command_security::apply_command_security_policy(&policy)
         });
     }
 }

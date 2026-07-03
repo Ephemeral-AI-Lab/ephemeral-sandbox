@@ -4,9 +4,7 @@ use std::time::Instant;
 use serde_json::{json, Value};
 
 use sandbox_config::configs::cli::{GatewayConfig, GatewayConfigOverrides};
-use sandbox_protocol::{
-    render_catalog_help, render_operation_help, CliOperationCatalogDocument,
-};
+use sandbox_protocol::{render_catalog_help, render_operation_help, CliOperationCatalogDocument};
 
 use crate::client::GatewayClient;
 use crate::request_builder::{build_request_from_catalog, BuildRequestInput, RequestBuildError};

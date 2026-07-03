@@ -527,6 +527,8 @@ fn test_command_config() -> sandbox_runtime::command::CommandConfig {
             std::process::id(),
             unique_suffix()
         )),
+        command_security:
+            sandbox_runtime_namespace_process::runner::protocol::CommandSecurityPolicy::off(),
     }
 }
 

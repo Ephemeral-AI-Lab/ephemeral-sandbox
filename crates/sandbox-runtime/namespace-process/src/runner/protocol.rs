@@ -38,10 +38,56 @@ pub struct NamespaceRunnerRequest {
     pub parent: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub observability_log_path: Option<PathBuf>,
+    #[serde(default)]
+    pub command_security: CommandSecurityPolicy,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RunResult {
     pub exit_code: i32,
     pub payload: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CommandSecurityPolicy {
+    pub mode: CommandSecurityMode,
+}
+
+impl CommandSecurityPolicy {
+    #[must_use]
+    pub const fn enforce() -> Self {
+        Self {
+            mode: CommandSecurityMode::Enforce,
+        }
+    }
+
+    #[must_use]
+    pub const fn relaxed() -> Self {
+        Self {
+            mode: CommandSecurityMode::Relaxed,
+        }
+    }
+
+    #[must_use]
+    pub const fn off() -> Self {
+        Self {
+            mode: CommandSecurityMode::Off,
+        }
+    }
+}
+
+impl Default for CommandSecurityPolicy {
+    fn default() -> Self {
+        Self::enforce()
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandSecurityMode {
+    #[default]
+    Enforce,
+    Relaxed,
+    Off,
 }

@@ -4,16 +4,19 @@
 use std::path::PathBuf;
 
 use sandbox_runtime_namespace_execution::NamespaceExecutionTerminalStatus;
+use sandbox_runtime_namespace_process::runner::protocol::CommandSecurityPolicy;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandConfig {
     pub scratch_root: PathBuf,
+    pub command_security: CommandSecurityPolicy,
 }
 
 impl Default for CommandConfig {
     fn default() -> Self {
         Self {
             scratch_root: PathBuf::from("/eos/namespace_execution"),
+            command_security: CommandSecurityPolicy::enforce(),
         }
     }
 }

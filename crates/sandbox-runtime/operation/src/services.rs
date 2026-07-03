@@ -7,6 +7,7 @@ use rustix::io::Errno;
 use rustix::mount::{unmount, UnmountFlags};
 use sandbox_observability::Observer;
 use sandbox_runtime_layerstack::service::StackObservation;
+use sandbox_runtime_namespace_process::runner::protocol::CommandSecurityPolicy;
 
 use crate::command::CommandOperationService;
 use crate::file::FileService;
@@ -96,6 +97,7 @@ impl SandboxRuntimeOperations {
             Arc::clone(&workspace_session),
             crate::command::CommandConfig {
                 scratch_root: config.namespace_execution.scratch_root,
+                command_security: config.command_security,
             },
             observer.clone(),
         ));
@@ -307,6 +309,7 @@ pub struct SandboxRuntimeConfig {
     pub workspace: WorkspaceRuntimeConfig,
     pub namespace_execution: NamespaceExecutionRuntimeConfig,
     pub cgroup_root: Option<std::path::PathBuf>,
+    pub command_security: CommandSecurityPolicy,
 }
 
 #[derive(Debug, Clone, PartialEq)]

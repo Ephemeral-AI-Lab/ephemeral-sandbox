@@ -185,6 +185,7 @@
   },
   "active": "2b73796146464bdb",
   "lastOpenFiles": [
+    "ephemeral-os/implementation_plan/daemon-command-child-policy-lite-spec.md",
     "ephemeral-os/implementation_plan/daemon-command-syscall-hardening-test-case.md",
     "ephemeral-os/implementation_plan/daemon-command-syscall-hardening-spec.md",
     "ephemeral-os/implementation_plan/git-policy/test-case.md",
@@ -220,7 +221,6 @@
     "ephemeral-os/implementation_plan/squash/adversarial_multi_agent_review_prompt.md",
     "ephemeral-os/implementation_plan/squash/adversarial_review.md",
     "ephemeral-os/implementation_plan/squash/adversarial-review-prompt.md",
-    "ephemeral-os/implementation_plan/squash/spec.md",
     "ephemeral-os/docs/Untitled.canvas"
   ]
 }

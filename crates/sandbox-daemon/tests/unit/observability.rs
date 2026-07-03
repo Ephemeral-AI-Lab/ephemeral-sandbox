@@ -471,6 +471,8 @@ fn runtime_config(root: &Path) -> TestResult<sandbox_runtime::SandboxRuntimeConf
         namespace_execution: sandbox_runtime::NamespaceExecutionRuntimeConfig {
             scratch_root: root.join("command-scratch"),
         },
+        command_security:
+            sandbox_runtime_namespace_process::runner::protocol::CommandSecurityPolicy::off(),
     })
 }
 

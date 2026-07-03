@@ -53,6 +53,7 @@ tokio-util = { version = "0.7", features = ["rt"] }
 rustix = { version = "0.38", features = ["fs", "mount", "process", "thread"] }
 nix = "0.29"
 libc = "0.2"
+seccompiler = "0.5"
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env"] }
 proptest = "1"

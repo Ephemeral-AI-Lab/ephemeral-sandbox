@@ -1,4 +1,6 @@
-use sandbox_protocol::{ArgCliSpec, ArgKind, ArgSpec, CliOperationFamilySpec, CliOperationSpec, CliSpec};
+use sandbox_protocol::{
+    ArgCliSpec, ArgKind, ArgSpec, CliOperationFamilySpec, CliOperationSpec, CliSpec,
+};
 
 pub const WORKSPACE_SESSION_FAMILY: CliOperationFamilySpec = CliOperationFamilySpec {
     id: "workspace_session",

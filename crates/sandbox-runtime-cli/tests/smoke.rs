@@ -40,14 +40,27 @@ async fn missing_sandbox_id_is_usage_error() {
 
 #[tokio::test]
 async fn empty_sandbox_id_is_usage_error() {
-    let (code, _, stderr) = run(&["sandbox-runtime-cli", "--sandbox-id", "", "exec_command", "pwd"]).await;
+    let (code, _, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--sandbox-id",
+        "",
+        "exec_command",
+        "pwd",
+    ])
+    .await;
     assert_eq!(code, 2);
     assert!(stderr.contains("runtime sandbox id must be non-empty"));
 }
 
 #[tokio::test]
 async fn manager_operation_typed_here_is_unknown() {
-    let (code, _, stderr) = run(&["sandbox-runtime-cli", "--sandbox-id", "eos-x", "list_sandboxes"]).await;
+    let (code, _, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--sandbox-id",
+        "eos-x",
+        "list_sandboxes",
+    ])
+    .await;
     assert_eq!(code, 2);
     assert!(stderr.contains("unknown operation: list_sandboxes"));
 }
@@ -87,7 +100,13 @@ async fn exec_command_missing_positional_is_usage_error() {
 
 #[tokio::test]
 async fn hidden_squash_layerstack_op_is_not_in_runtime_catalog() {
-    let (code, _, stderr) = run(&["sandbox-runtime-cli", "--sandbox-id", "eos-x", "squash_layerstack"]).await;
+    let (code, _, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--sandbox-id",
+        "eos-x",
+        "squash_layerstack",
+    ])
+    .await;
     assert_eq!(code, 2);
     assert!(stderr.contains("unknown operation: squash_layerstack"));
 }

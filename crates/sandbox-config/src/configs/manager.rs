@@ -27,6 +27,30 @@ pub const DEFAULT_GATEWAY_INSTANCE_ID: &str = "eos-gateway";
 #[serde(default, deny_unknown_fields)]
 pub struct ManagerConfig {
     pub docker: Option<DockerRuntimeConfig>,
+    pub command_security: CommandSecurityConfig,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CommandSecurityConfig {
+    pub mode: CommandSecurityMode,
+}
+
+impl Default for CommandSecurityConfig {
+    fn default() -> Self {
+        Self {
+            mode: CommandSecurityMode::Enforce,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandSecurityMode {
+    #[default]
+    Enforce,
+    Relaxed,
+    Off,
 }
 
 /// Configuration for the Docker-backed sandbox runtime + daemon installer.

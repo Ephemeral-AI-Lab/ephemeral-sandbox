@@ -17,6 +17,7 @@ libc.workspace = true
 [target.'cfg(target_os = "linux")'.dependencies]
 nix = { workspace = true, features = ["signal"] }
 rustix.workspace = true
+seccompiler.workspace = true
 
 [dev-dependencies]
 nix.workspace = true

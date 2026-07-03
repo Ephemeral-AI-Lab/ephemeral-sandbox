@@ -6,7 +6,9 @@ use std::sync::Arc;
 use std::thread;
 
 use sandbox_observability::{SpanStatus, TerminalHook, TraceContext};
-use sandbox_runtime_namespace_process::runner::protocol::{NamespaceRunnerRequest, RunResult};
+use sandbox_runtime_namespace_process::runner::protocol::{
+    CommandSecurityPolicy, NamespaceRunnerRequest, RunResult,
+};
 use serde_json::Value;
 
 use crate::error::NamespaceExecutionError;
@@ -91,6 +93,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         self.registry.live_values(f)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn run_shell_interactive<S: ShellOperation>(
         &self,
         op: S,
@@ -99,6 +102,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         on_complete: impl FnOnce(&Result<S::Output, NamespaceExecutionError>) + Send + 'static,
         cgroup_procs_path: Option<PathBuf>,
         trace_handoff: Option<(TraceContext, PathBuf)>,
+        command_security: CommandSecurityPolicy,
     ) -> Result<InteractiveExecution<S::Output>, NamespaceExecutionError> {
         let request = build_request(
             &target,
@@ -106,6 +110,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
             shell_args(op.command()),
             op.timeout_seconds(),
             trace_handoff,
+            command_security,
         );
         let transcript_path = op.transcript_path().map(Path::to_path_buf);
         let cancelled = Arc::new(AtomicBool::new(false));
@@ -142,7 +147,14 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         target: NamespaceTarget,
         id: NamespaceExecutionId,
     ) -> Result<ExecutionHandle<()>, NamespaceExecutionError> {
-        let request = build_request(&target, &id, serde_json::json!({}), None, None);
+        let request = build_request(
+            &target,
+            &id,
+            serde_json::json!({}),
+            None,
+            None,
+            CommandSecurityPolicy::off(),
+        );
         let child = self.reserve_spawn(&id, || {
             self.launcher.spawn_overlay_mount(
                 request,
@@ -171,7 +183,14 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         target: NamespaceTarget,
         id: NamespaceExecutionId,
     ) -> Result<ExecutionHandle<RunResult>, NamespaceExecutionError> {
-        let request = build_request(&target, &id, serde_json::json!({}), None, None);
+        let request = build_request(
+            &target,
+            &id,
+            serde_json::json!({}),
+            None,
+            None,
+            CommandSecurityPolicy::off(),
+        );
         let child = self.reserve_spawn(&id, || {
             self.launcher.spawn_remount_overlay(
                 request,
@@ -202,7 +221,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         args: Value,
         cgroup_procs_path: Option<PathBuf>,
     ) -> Result<ExecutionHandle<RunResult>, NamespaceExecutionError> {
-        let request = build_request(&target, &id, args, None, None);
+        let request = build_request(&target, &id, args, None, None, CommandSecurityPolicy::off());
         let child = self.reserve_spawn(&id, || {
             self.launcher.spawn_file_op(
                 request,
@@ -331,6 +350,7 @@ fn build_request(
     args: Value,
     timeout_seconds: Option<f64>,
     trace_handoff: Option<(TraceContext, PathBuf)>,
+    command_security: CommandSecurityPolicy,
 ) -> NamespaceRunnerRequest {
     let (trace, parent, observability_log_path) = match trace_handoff {
         Some((trace, path)) => (
@@ -352,5 +372,6 @@ fn build_request(
         trace,
         parent,
         observability_log_path,
+        command_security,
     }
 }

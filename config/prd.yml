@@ -19,9 +19,10 @@ runner:
     hidden_paths:
       - /eos
 
-# Optional. Read only by `sandbox-gateway --backend docker`; the daemon ignores
-# this root section. Host paths resolve against the gateway's working directory.
+# Optional. Host paths resolve against the gateway's working directory.
 manager:
+  command_security:
+    mode: enforce
   docker:
     # Host-built Linux musl sandbox-daemon artifact uploaded into each sandbox
     # container. create_sandbox does not build a custom container image.

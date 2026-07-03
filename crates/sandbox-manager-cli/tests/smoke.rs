@@ -69,7 +69,13 @@ async fn hidden_snapshot_op_is_not_in_manager_catalog() {
 
 #[tokio::test]
 async fn create_sandbox_missing_required_arg_is_usage_error() {
-    let (code, _, stderr) = run(&["sandbox-manager-cli", "create_sandbox", "--image", "ubuntu:24.04"]).await;
+    let (code, _, stderr) = run(&[
+        "sandbox-manager-cli",
+        "create_sandbox",
+        "--image",
+        "ubuntu:24.04",
+    ])
+    .await;
     assert_eq!(code, 2);
     assert!(stderr.contains("--workspace-bind-root is required for create_sandbox"));
 }

@@ -1,4 +1,6 @@
-use sandbox_protocol::{ArgCliSpec, ArgKind, ArgSpec, CliOperationFamilySpec, CliOperationSpec, CliSpec};
+use sandbox_protocol::{
+    ArgCliSpec, ArgKind, ArgSpec, CliOperationFamilySpec, CliOperationSpec, CliSpec,
+};
 
 pub const FILE_FAMILY: CliOperationFamilySpec = CliOperationFamilySpec {
     id: "file",

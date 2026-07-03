@@ -1,4 +1,6 @@
-use sandbox_protocol::{ArgCliSpec, ArgKind, ArgSpec, CliOperationFamilySpec, CliOperationSpec, CliSpec};
+use sandbox_protocol::{
+    ArgCliSpec, ArgKind, ArgSpec, CliOperationFamilySpec, CliOperationSpec, CliSpec,
+};
 
 pub const COMMAND_FAMILY: CliOperationFamilySpec = CliOperationFamilySpec {
     id: "command",
@@ -113,7 +115,9 @@ const WRITE_STDIN_ARGS: &[ArgSpec] = &[
 const WRITE_STDIN_CLI: CliSpec = CliSpec {
     path: &["runtime", "write_command_stdin"],
     usage: "sandbox-runtime-cli --sandbox-id ID write_command_stdin --command-session-id ID TEXT",
-    examples: &["sandbox-runtime-cli --sandbox-id ID write_command_stdin --command-session-id cmd-1 hello"],
+    examples: &[
+        "sandbox-runtime-cli --sandbox-id ID write_command_stdin --command-session-id cmd-1 hello",
+    ],
 };
 
 pub const READ_LINES_SPEC: CliOperationSpec = CliOperationSpec {

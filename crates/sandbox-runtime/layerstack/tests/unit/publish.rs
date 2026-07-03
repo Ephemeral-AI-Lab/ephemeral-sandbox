@@ -244,8 +244,7 @@ fn protected_paths_reject() -> Result<(), Box<dyn std::error::Error + Send + Syn
 }
 
 #[test]
-fn git_paths_route_as_source_and_publish(
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn git_paths_route_as_source_and_publish() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let fixture = PublishFixture::new("git-allowed")?;
     std::fs::write(fixture.workspace.join("README.md"), "base\n")?;
     let base = fixture.build_base()?;

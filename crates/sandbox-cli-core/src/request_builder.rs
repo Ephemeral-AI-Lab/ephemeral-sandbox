@@ -147,9 +147,7 @@ const OBSERVABILITY_SNAPSHOT_OP: &str = "snapshot";
 ///
 /// # Errors
 /// Returns an error when the sandbox id is absent or empty.
-pub fn resolve_runtime_sandbox_id(
-    sandbox_id: Option<String>,
-) -> Result<String, RequestBuildError> {
+pub fn resolve_runtime_sandbox_id(sandbox_id: Option<String>) -> Result<String, RequestBuildError> {
     let sandbox_id =
         sandbox_id.ok_or_else(|| build_error("runtime operations require --sandbox-id"))?;
     if sandbox_id.trim().is_empty() {

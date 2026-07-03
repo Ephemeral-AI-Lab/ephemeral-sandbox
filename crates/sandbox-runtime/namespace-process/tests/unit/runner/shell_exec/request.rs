@@ -1,5 +1,5 @@
 use super::{command_environment, normalize_lexical, shell_argv, shell_cwd};
-use crate::runner::protocol::NamespaceRunnerRequest;
+use crate::runner::protocol::{CommandSecurityPolicy, NamespaceRunnerRequest};
 use std::path::Path;
 
 #[test]
@@ -79,5 +79,6 @@ fn request(args: serde_json::Value) -> NamespaceRunnerRequest {
         trace: None,
         parent: None,
         observability_log_path: None,
+        command_security: CommandSecurityPolicy::off(),
     }
 }

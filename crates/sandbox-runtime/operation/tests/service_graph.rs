@@ -157,6 +157,8 @@ fn runtime_from_config_initializes_layerstack_workspace_base(
                 scratch_root: command_scratch_root,
             },
             cgroup_root: None,
+            command_security:
+                sandbox_runtime_namespace_process::runner::protocol::CommandSecurityPolicy::off(),
         },
         Observer::disabled(),
     );
@@ -278,7 +280,9 @@ fn cli_operation_catalog_metadata_uses_runtime_space() {
     for spec in catalog.operations {
         let cli = spec.cli.expect("runtime catalog spec must be CLI-visible");
         assert_eq!(cli.path.first(), Some(&"runtime"));
-        assert!(cli.usage.starts_with("sandbox-runtime-cli --sandbox-id ID "));
+        assert!(cli
+            .usage
+            .starts_with("sandbox-runtime-cli --sandbox-id ID "));
         assert!(cli.examples.iter().all(|example| {
             example.starts_with("sandbox-runtime-cli --sandbox-id ID ")
                 && !example.contains("daemon")

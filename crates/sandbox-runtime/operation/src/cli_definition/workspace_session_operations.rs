@@ -9,10 +9,14 @@ use crate::SandboxRuntimeOperations;
 use sandbox_protocol::{Request, Response};
 use sandbox_runtime_operations::{CREATE_WORKSPACE_SESSION_SPEC, DESTROY_WORKSPACE_SESSION_SPEC};
 
-const CREATE_WORKSPACE_SESSION: OperationEntry =
-    OperationEntry::cli(&CREATE_WORKSPACE_SESSION_SPEC, dispatch_create_workspace_session);
-const DESTROY_WORKSPACE_SESSION: OperationEntry =
-    OperationEntry::cli(&DESTROY_WORKSPACE_SESSION_SPEC, dispatch_destroy_workspace_session);
+const CREATE_WORKSPACE_SESSION: OperationEntry = OperationEntry::cli(
+    &CREATE_WORKSPACE_SESSION_SPEC,
+    dispatch_create_workspace_session,
+);
+const DESTROY_WORKSPACE_SESSION: OperationEntry = OperationEntry::cli(
+    &DESTROY_WORKSPACE_SESSION_SPEC,
+    dispatch_destroy_workspace_session,
+);
 
 const OPERATIONS: &[OperationEntry] = &[CREATE_WORKSPACE_SESSION, DESTROY_WORKSPACE_SESSION];
 

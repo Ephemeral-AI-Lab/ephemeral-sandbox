@@ -6,8 +6,12 @@ use std::process::{Command, Stdio};
 use anyhow::{anyhow, Context, Result};
 use sandbox_config::configs::{
     daemon::{DaemonConfig, DaemonServerConfig},
+    manager::{CommandSecurityMode as ConfigCommandSecurityMode, ManagerConfig},
     observability::ObservabilityConfig,
     runtime::RuntimeConfig,
+};
+use sandbox_runtime_namespace_process::runner::protocol::{
+    CommandSecurityMode, CommandSecurityPolicy,
 };
 
 const DAEMON_AUTH_TOKEN_ENV: &str = "SANDBOX_DAEMON_AUTH_TOKEN";
@@ -68,6 +72,7 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
 struct DaemonRuntimeConfig {
     daemon: DaemonConfig,
     runtime: RuntimeConfig,
+    manager: ManagerConfig,
     observability: ObservabilityConfig,
 }
 
@@ -98,6 +103,13 @@ fn build_runtime_config(
         namespace_execution: sandbox_runtime::NamespaceExecutionRuntimeConfig {
             scratch_root: config.runtime.namespace_execution.scratch_root.clone(),
         },
+        command_security: CommandSecurityPolicy {
+            mode: match config.manager.command_security.mode {
+                ConfigCommandSecurityMode::Enforce => CommandSecurityMode::Enforce,
+                ConfigCommandSecurityMode::Relaxed => CommandSecurityMode::Relaxed,
+                ConfigCommandSecurityMode::Off => CommandSecurityMode::Off,
+            },
+        },
     }
 }
 
@@ -115,9 +127,11 @@ fn load_runtime_config(path: &Path) -> Result<DaemonRuntimeConfig> {
     let observability = doc
         .section::<ObservabilityConfig>("observability")
         .unwrap_or_default();
+    let manager = doc.section::<ManagerConfig>("manager").unwrap_or_default();
     Ok(DaemonRuntimeConfig {
         daemon,
         runtime,
+        manager,
         observability,
     })
 }

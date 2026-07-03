@@ -98,8 +98,14 @@ where
     };
 
     if operation == OBSERVABILITY_SUBCOMMAND {
-        return run_observability(cli.operation_argv, overrides, global_progress, stdout, stderr)
-            .await;
+        return run_observability(
+            cli.operation_argv,
+            overrides,
+            global_progress,
+            stdout,
+            stderr,
+        )
+        .await;
     }
 
     run_manager(
@@ -173,7 +179,13 @@ where
         return render_help_command(&catalog, &rest, OBSERVABILITY_PROGRAM, stdout, stderr);
     }
     if rest.is_empty() && operation_requires_args(&catalog, &operation) {
-        return render_help_command(&catalog, &[operation], OBSERVABILITY_PROGRAM, stdout, stderr);
+        return render_help_command(
+            &catalog,
+            &[operation],
+            OBSERVABILITY_PROGRAM,
+            stdout,
+            stderr,
+        );
     }
     let Some(client) = client_from(overrides, stderr) else {
         return EXIT_USAGE;
