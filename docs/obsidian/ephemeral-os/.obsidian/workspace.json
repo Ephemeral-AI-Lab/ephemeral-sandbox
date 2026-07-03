@@ -186,8 +186,8 @@
   "active": "d5fccc8ee65959ed",
   "lastOpenFiles": [
     "implementation_plan/daemon-command-syscall-hardening-test-case.md",
-    "implementation_plan/daemon-command-syscall-hardening.md",
     "implementation_plan/daemon-command-syscall-hardening-spec.md",
+    "implementation_plan/daemon-command-syscall-hardening.md",
     "implementation_plan/o1_shared_workspace_base.md",
     "implementation_plan/git-policy/test-case.md",
     "implementation_plan/file_operations/spec.md",

@@ -31,6 +31,7 @@ target-linux-container-gnu/
 /docs/obsidian/ephemeral-os/testing/file-operation/operation-timing/
 /docs/obsidian/ephemeral-os/testing/file-operation/output/
 /docs/obsidian/ephemeral-os/testing/file-operation/outputs/
+/cli-operation-e2e-live-test/**/test-reports/
 /cli-operation-e2e-live-test/repo/eos-shared-workspace-base-cache/
 test-results/
 coverage/

@@ -129,11 +129,12 @@ def test_MED_03_git_reset_hard_revert_is_not_forbidden(tmp_path):
 
 def test_MED_04_git_clean_publishes_untracked_deletions(tmp_path):
     with GitCaseRecorder("MED-04") as rec, git_case(tmp_path, rec) as sandbox:
-        seed_repo(
+        seed_repo(sandbox, rec, {"tracked.txt": "tracked\n"})
+        exec_ok(
             sandbox,
+            sh("mkdir -p scratch\nprintf 'a\\n' > scratch/a\nprintf 'b\\n' > scratch/b"),
             rec,
-            {"tracked.txt": "tracked\n"},
-            extra="mkdir -p scratch\nprintf 'a\\n' > scratch/a\nprintf 'b\\n' > scratch/b",
+            name="write-untracked-scratch",
         )
         before = layerstack(sandbox)
         exec_ok(sandbox, sh("git clean -fdq"), rec, name="git-clean")
@@ -177,7 +178,7 @@ def test_MED_05_binary_git_index_divergence_rejects_cleanly(tmp_path):
             rec,
             name="index-sha-after",
         )
-        assert index_sha["output"] == landed["output"].strip(), (index_sha, landed)
+        assert index_sha["output"] == landed["output"].splitlines()[-1], (index_sha, landed)
         assert_git_operable(sandbox, rec, name="post-index-conflict")
 
         rec.axis(
@@ -230,7 +231,7 @@ def test_MED_06_text_git_log_divergence_merges_or_rejects(tmp_path):
             assert "git-policy-A" in content and "git-policy-B" in content, content
             delta = 2
         assert_manifest_delta(sandbox, before, delta)
-        exec_ok(sandbox, "git -C /workspace log --oneline --max-count=1", rec, name="git-log-ok")
+        exec_ok(sandbox, "git -C /workspace --no-pager log --oneline --max-count=1", rec, name="git-log-ok")
 
         rec.axis(
             "correctness",

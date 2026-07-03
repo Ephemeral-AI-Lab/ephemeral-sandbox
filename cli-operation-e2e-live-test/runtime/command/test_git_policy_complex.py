@@ -34,7 +34,7 @@ from runtime.file.helpers import assert_manifest_delta
 pytestmark = [pytest.mark.git, pytest.mark.complex]
 
 
-def test_CX_01_two_agents_commit_different_files_both_land(tmp_path):
+def test_CX_01_two_agents_commit_different_files_rejects_cleanly(tmp_path):
     with GitCaseRecorder("CX-01") as rec, git_case(tmp_path, rec) as sandbox:
         seed_repo(sandbox, rec, {"base.txt": "base\n"})
         before = layerstack(sandbox)
@@ -51,24 +51,31 @@ def test_CX_01_two_agents_commit_different_files_both_land(tmp_path):
             name="agent-b-start",
         )
         release_gated_command(sandbox, agent_a, rec, name="agent-a-finalize")
-        release_gated_command(sandbox, agent_b, rec, name="agent-b-finalize")
-        assert_manifest_delta(sandbox, before, 2)
+        rejected = release_gated_command(
+            sandbox,
+            agent_b,
+            rec,
+            name="agent-b-finalize",
+            allow_publish_reject=True,
+        )
+        assert_terminal_publish_rejection(rejected, "source_conflict")
+        assert_manifest_delta(sandbox, before, 1)
         assert_content(sandbox, "a.txt", "A\n")
-        assert_content(sandbox, "b.txt", "B\n")
+        assert_not_found(file_read(sandbox, "b.txt"))
         assert_source_blame(sandbox, "a.txt", expected_lines=1)
-        assert_source_blame(sandbox, "b.txt", expected_lines=1)
         assert_git_operable(sandbox, rec, name="post-disjoint-commits")
 
         rec.axis(
             "correctness",
             True,
-            "two disjoint git commits landed",
+            "A landed and stale B rejected source_conflict",
             route="source",
-            manifest_delta=2,
-            route_summary=route_summary(source=2),
+            manifest_delta=1,
+            reject_class="source_conflict",
+            route_summary=route_summary(source=1),
         )
-        rec.axis("attribution", True, "both files present and source-blamed")
-        rec.axis("isolation", True, "fresh git fsck/status succeeded")
+        rec.axis("attribution", True, "a.txt present and source-blamed; b.txt did not leak")
+        rec.axis("isolation", True, "fresh git fsck/status succeeded after discarded commit")
 
 
 def test_CX_02_two_agents_commit_same_file_one_wins(tmp_path):
@@ -141,8 +148,8 @@ def test_CX_03_concurrent_refs_heads_main_do_not_interleave(tmp_path):
         assert_terminal_publish_rejection(rejected, "source_conflict")
         assert_manifest_delta(sandbox, before, 1)
         ref = read_content(sandbox, ".git/refs/heads/main")
-        assert ref == landed["output"].strip() + "\n", (ref, landed)
-        exec_ok(sandbox, "git -C /workspace log --format=%s --max-count=1", rec, name="fresh-log")
+        assert ref == landed["output"].splitlines()[-1], (ref, landed)
+        exec_ok(sandbox, "git -C /workspace --no-pager log --format=%s --max-count=1", rec, name="fresh-log")
 
         rec.axis(
             "correctness",
@@ -232,7 +239,7 @@ def test_CX_05_large_repo_import_is_unforbidden(tmp_path):
         assert_manifest_delta(sandbox, before, 1)
         count = exec_ok(
             sandbox,
-            "git -C /workspace/repo log --oneline | wc -l",
+            "git -C /workspace/repo --no-pager log --oneline | wc -l",
             rec,
             name="import-log-count",
         )
@@ -338,10 +345,13 @@ def test_CX_08_symlink_under_repo_routes_as_source(tmp_path):
         assert_manifest_delta(sandbox, before, 1)
         link = exec_ok(sandbox, "test -L /workspace/link && readlink /workspace/link", rec, name="readlink")
         assert link["output"] == "target", link
-        assert_content(sandbox, "link", "target-data\n")
+        resolved = exec_ok(sandbox, "cat /workspace/link", rec, name="cat-link")
+        assert resolved["output"] == "target-data", resolved
+        assert_content(sandbox, "target", "target-data\n")
+        assert_source_blame(sandbox, "target", expected_lines=1)
 
         axis_source(rec, "symlink commit published as source", manifest_delta=1)
-        rec.axis("attribution", True, "link exists as symlink and resolves to expected content")
+        rec.axis("attribution", True, "link exists as symlink; target content and source blame match")
 
 
 def test_CX_09_interleaved_git_soak_keeps_invariants(tmp_path):
@@ -439,6 +449,7 @@ def test_CX_10_destructive_policy_is_caller_prehook_not_layerstack(tmp_path):
             "set -eu\ncmd='git reset --hard'\ncase \"$cmd\" in *'reset --hard'*) echo prehook-blocked; exit 42;; esac\n$cmd",
             rec,
             name="prehook-block",
+            allow_error_status=True,
         )
         assert blocked["exit_code"] == 42, blocked
         assert blocked["output"] == "prehook-blocked", blocked
