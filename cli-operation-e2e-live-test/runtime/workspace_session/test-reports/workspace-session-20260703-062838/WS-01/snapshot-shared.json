@@ -1,0 +1,57 @@
+{
+  "availability": "available",
+  "daemon": {
+    "daemon_pid": 6,
+    "runtime_dir": "/eos/runtime/daemon"
+  },
+  "errors": [],
+  "lifecycle_state": "ready",
+  "resources": {
+    "history": [],
+    "latest": {
+      "deltas": {},
+      "metrics": {
+        "cpu_usec": 18035,
+        "mem_cur": 3051520,
+        "mem_max_unlimited": true
+      },
+      "sample_delta_ms": null,
+      "ts": 1783031348056
+    }
+  },
+  "sampled_at_unix_ms": 1783031348082,
+  "sandbox_id": "eos-0b0eda5c-fa24-4164-a868-c2bc867279da",
+  "stack": {
+    "active_leases": 1,
+    "layer_count": 1,
+    "layers_bytes": 0
+  },
+  "workspaces": [
+    {
+      "active_namespace_executions": [],
+      "finalize_policy": "no_op",
+      "layers": {
+        "base_root_hash": "6158805bdb0976490e45c9c206d73f474d7b449a55ba489a5af80fa4f6103070",
+        "layer_count": 1
+      },
+      "lifecycle_state": "active",
+      "namespace_fd_count": 3,
+      "network_profile": "shared",
+      "resources": {
+        "history": [],
+        "latest": {
+          "deltas": {},
+          "metrics": {
+            "cgroup_available": false,
+            "cgroup_error": "/sys/fs/cgroup/workspace-00000118be99906bfcf498/memory.current: No such file or directory (os error 2)",
+            "disk_bytes": 0,
+            "files": 0
+          },
+          "sample_delta_ms": null,
+          "ts": 1783031348057
+        }
+      },
+      "workspace_id": "00000118be99906bfcf498"
+    }
+  ]
+}

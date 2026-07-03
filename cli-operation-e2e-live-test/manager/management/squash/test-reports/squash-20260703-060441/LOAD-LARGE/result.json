@@ -1,0 +1,14 @@
+{
+  "manifest_version": 5,
+  "squashed_blocks": [
+    {
+      "replaced_layer_ids": [
+        "L000004-00000009",
+        "L000003-00000005",
+        "L000002-00000000"
+      ],
+      "replaced_layers": "reclaimed",
+      "squashed_layer_id": "S000005-0000000e"
+    }
+  ]
+}

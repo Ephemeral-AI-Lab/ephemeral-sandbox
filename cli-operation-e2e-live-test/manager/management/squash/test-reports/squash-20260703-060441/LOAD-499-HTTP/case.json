@@ -1,0 +1,6 @@
+{
+  "id": "LOAD-499-HTTP",
+  "scenario": "load_499_http",
+  "tier": "hard",
+  "title": "499-layer stack with HTTP disconnect"
+}

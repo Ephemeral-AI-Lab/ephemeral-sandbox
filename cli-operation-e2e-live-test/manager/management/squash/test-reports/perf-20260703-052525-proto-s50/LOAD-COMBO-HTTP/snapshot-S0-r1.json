@@ -1,0 +1,803 @@
+{
+  "disk": {
+    "free_bytes": 120452550656,
+    "layer_dirs": [
+      "L000025-0000005d",
+      "L000009-0000001d",
+      "L000007-00000015",
+      "L000038-00000092",
+      "L000015-00000035",
+      "L000033-0000007d",
+      "L000023-00000055",
+      "L000013-0000002d",
+      "L000021-0000004d",
+      "L000006-00000011",
+      "L000019-00000045",
+      "L000014-00000031",
+      "L000005-0000000c",
+      "L000031-00000075",
+      "L000026-00000061",
+      "L000011-00000025",
+      "L000008-00000019",
+      "L000029-0000006d",
+      "L000017-0000003d",
+      "L000018-00000041",
+      "L000028-00000069",
+      "L000002-00000000",
+      "L000020-00000049",
+      "L000035-00000085",
+      "L000034-00000081",
+      "L000037-0000008d",
+      "L000027-00000065",
+      "L000032-00000079",
+      "L000022-00000051",
+      "L000003-00000004",
+      "L000036-00000089",
+      "L000010-00000021",
+      "L000004-00000008",
+      "L000024-00000059",
+      "L000012-00000029",
+      "L000016-00000039",
+      "L000039-00000097",
+      "L000030-00000071"
+    ],
+    "layers_bytes": 4194898,
+    "remount_residue": 0,
+    "staging_entries": 0
+  },
+  "label": "S0-r1",
+  "layerstack": {
+    "active_lease_count": 17,
+    "layers": [
+      {
+        "booked_by": [],
+        "bytes": 2097152,
+        "layer_id": "L000039-00000097",
+        "leased_by_workspaces": 17
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 2097152,
+        "layer_id": "L000038-00000092",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 15,
+        "layer_id": "L000037-0000008d",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 15,
+        "layer_id": "L000036-00000089",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 15,
+        "layer_id": "L000035-00000085",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 15,
+        "layer_id": "L000034-00000081",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 15,
+        "layer_id": "L000033-0000007d",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 15,
+        "layer_id": "L000032-00000079",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 15,
+        "layer_id": "L000031-00000075",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 15,
+        "layer_id": "L000030-00000071",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000029-0000006d",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000028-00000069",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000027-00000065",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000026-00000061",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000025-0000005d",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000024-00000059",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000023-00000055",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000022-00000051",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000021-0000004d",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000020-00000049",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000019-00000045",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000018-00000041",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000017-0000003d",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 17,
+        "layer_id": "L000016-00000039",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 18,
+        "layer_id": "L000015-00000035",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 17,
+        "layer_id": "L000014-00000031",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 17,
+        "layer_id": "L000013-0000002d",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 17,
+        "layer_id": "L000012-00000029",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 17,
+        "layer_id": "L000011-00000025",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 17,
+        "layer_id": "L000010-00000021",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 17,
+        "layer_id": "L000009-0000001d",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 17,
+        "layer_id": "L000008-00000019",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 17,
+        "layer_id": "L000007-00000015",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 17,
+        "layer_id": "L000006-00000011",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 13,
+        "layer_id": "L000005-0000000c",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 13,
+        "layer_id": "L000004-00000008",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 13,
+        "layer_id": "L000003-00000004",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 13,
+        "layer_id": "L000002-00000000",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000039-00000097"
+        ],
+        "bytes": 0,
+        "layer_id": "B000001-base",
+        "leased_by_workspaces": 0
+      }
+    ],
+    "manifest_version": 39,
+    "root_hash": "ed938d73b8e230616f04b2c985171ad326f4fe018166c7a7097d5b9e72d0c4ff",
+    "total_bytes": 4194898,
+    "trend": [
+      {
+        "active_leases": 0,
+        "layer_count": 3,
+        "layers_bytes": 26,
+        "ts": 1783030240380
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 4,
+        "layers_bytes": 39,
+        "ts": 1783030240386
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 5,
+        "layers_bytes": 52,
+        "ts": 1783030240394
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 5,
+        "layers_bytes": 52,
+        "ts": 1783030240395
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 5,
+        "layers_bytes": 52,
+        "ts": 1783030240479
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 7,
+        "layers_bytes": 86,
+        "ts": 1783030240534
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 8,
+        "layers_bytes": 103,
+        "ts": 1783030240544
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 9,
+        "layers_bytes": 120,
+        "ts": 1783030240556
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 10,
+        "layers_bytes": 137,
+        "ts": 1783030240567
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 11,
+        "layers_bytes": 154,
+        "ts": 1783030240573
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 12,
+        "layers_bytes": 171,
+        "ts": 1783030240582
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 13,
+        "layers_bytes": 188,
+        "ts": 1783030240591
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 14,
+        "layers_bytes": 205,
+        "ts": 1783030240599
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 15,
+        "layers_bytes": 223,
+        "ts": 1783030240607
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 16,
+        "layers_bytes": 240,
+        "ts": 1783030240615
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 17,
+        "layers_bytes": 258,
+        "ts": 1783030240623
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 18,
+        "layers_bytes": 276,
+        "ts": 1783030240630
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 19,
+        "layers_bytes": 294,
+        "ts": 1783030240637
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 20,
+        "layers_bytes": 312,
+        "ts": 1783030240648
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 21,
+        "layers_bytes": 330,
+        "ts": 1783030240656
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 22,
+        "layers_bytes": 348,
+        "ts": 1783030240665
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 23,
+        "layers_bytes": 366,
+        "ts": 1783030240673
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 24,
+        "layers_bytes": 384,
+        "ts": 1783030240679
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 25,
+        "layers_bytes": 402,
+        "ts": 1783030240685
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 26,
+        "layers_bytes": 420,
+        "ts": 1783030240692
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 27,
+        "layers_bytes": 438,
+        "ts": 1783030240699
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 28,
+        "layers_bytes": 456,
+        "ts": 1783030240708
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 29,
+        "layers_bytes": 474,
+        "ts": 1783030240715
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 29,
+        "layers_bytes": 474,
+        "ts": 1783030240716
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 30,
+        "layers_bytes": 489,
+        "ts": 1783030240751
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 31,
+        "layers_bytes": 504,
+        "ts": 1783030240788
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 32,
+        "layers_bytes": 519,
+        "ts": 1783030240826
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 33,
+        "layers_bytes": 534,
+        "ts": 1783030240863
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 34,
+        "layers_bytes": 549,
+        "ts": 1783030240898
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 35,
+        "layers_bytes": 564,
+        "ts": 1783030240933
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 36,
+        "layers_bytes": 579,
+        "ts": 1783030240967
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 37,
+        "layers_bytes": 594,
+        "ts": 1783030241002
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 38,
+        "layers_bytes": 2097746,
+        "ts": 1783030241105
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241196
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241228
+      },
+      {
+        "active_leases": 2,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241263
+      },
+      {
+        "active_leases": 3,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241296
+      },
+      {
+        "active_leases": 4,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241329
+      },
+      {
+        "active_leases": 5,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241361
+      },
+      {
+        "active_leases": 6,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241392
+      },
+      {
+        "active_leases": 7,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241450
+      },
+      {
+        "active_leases": 8,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241490
+      },
+      {
+        "active_leases": 9,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241526
+      },
+      {
+        "active_leases": 10,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241559
+      },
+      {
+        "active_leases": 11,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241591
+      },
+      {
+        "active_leases": 12,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241627
+      },
+      {
+        "active_leases": 13,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241657
+      },
+      {
+        "active_leases": 14,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241688
+      },
+      {
+        "active_leases": 15,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241722
+      },
+      {
+        "active_leases": 16,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241752
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030241784
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030242145
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030242527
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030242885
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030243234
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030243589
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030243939
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030244284
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030244630
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030244982
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030245073
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030245422
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030245495
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030245835
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030245906
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030246251
+      },
+      {
+        "active_leases": 17,
+        "layer_count": 39,
+        "layers_bytes": 4194898,
+        "ts": 1783030246330
+      }
+    ],
+    "view": "layerstack"
+  },
+  "raw_disk": "layers_bytes 4194898\nstaging_entries 0\nremount_residue 0\nlayer_dirs L000025-0000005d,L000009-0000001d,L000007-00000015,L000038-00000092,L000015-00000035,L000033-0000007d,L000023-00000055,L000013-0000002d,L000021-0000004d,L000006-00000011,L000019-00000045,L000014-00000031,L000005-0000000c,L000031-00000075,L000026-00000061,L000011-00000025,L000008-00000019,L000029-0000006d,L000017-0000003d,L000018-00000041,L000028-00000069,L000002-00000000,L000020-00000049,L000035-00000085,L000034-00000081,L000037-0000008d,L000027-00000065,L000032-00000079,L000022-00000051,L000003-00000004,L000036-00000089,L000010-00000021,L000004-00000008,L000024-00000059,L000012-00000029,L000016-00000039,L000039-00000097,L000030-00000071,\nfree_bytes 120452550656\n"
+}

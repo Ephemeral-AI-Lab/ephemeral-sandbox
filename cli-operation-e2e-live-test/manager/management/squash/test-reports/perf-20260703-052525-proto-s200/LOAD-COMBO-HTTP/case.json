@@ -1,0 +1,6 @@
+{
+  "id": "LOAD-COMBO-HTTP",
+  "scenario": "load_combo_http",
+  "tier": "hard",
+  "title": "multi-block active workspace HTTP load"
+}

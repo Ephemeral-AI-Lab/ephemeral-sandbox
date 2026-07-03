@@ -1,0 +1,6 @@
+{
+  "id": "SMK-10",
+  "scenario": "restart",
+  "tier": "smoke",
+  "title": "daemon restart boot reap-then-sweep no-op sweep"
+}

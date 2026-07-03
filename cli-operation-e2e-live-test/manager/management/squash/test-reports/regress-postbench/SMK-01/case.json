@@ -1,0 +1,6 @@
+{
+  "id": "SMK-01",
+  "scenario": "idle",
+  "tier": "smoke",
+  "title": "idle block reclaims at commit (B1)"
+}

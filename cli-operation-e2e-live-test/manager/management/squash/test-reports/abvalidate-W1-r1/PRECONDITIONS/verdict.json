@@ -1,0 +1,54 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/abvalidate-W1-r1/PRECONDITIONS",
+    "commands": "cmd.log.json",
+    "snapshots": [
+      "S0"
+    ]
+  },
+  "axes": {
+    "correctness": {
+      "details": "kernel=6.12.76-linuxkit, layerstack_fstype=ext4, gate=PROVEN",
+      "metrics": {},
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    },
+    "space": {
+      "details": "free_bytes=120407216128",
+      "metrics": {
+        "free_bytes": 120407216128
+      },
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    },
+    "time": {
+      "details": "preconditions checked",
+      "metrics": {},
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "PRECONDITIONS",
+  "errors": [],
+  "generated_at": "2026-07-03T07:40:50+08:00",
+  "notes": [],
+  "run_id": "abvalidate-W1-r1",
+  "schema_version": 1,
+  "status": "PASS",
+  "teardown": {
+    "details": "precondition sandbox destroyed below",
+    "metrics": {},
+    "pass": true
+  },
+  "tier": "preconditions",
+  "timers": {
+    "T_e2e": {
+      "ms": 1195.171,
+      "source": "harness"
+    }
+  },
+  "title": "\u00a71.1 squash live-Docker preconditions"
+}

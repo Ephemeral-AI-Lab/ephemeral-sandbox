@@ -1,0 +1,40 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/runtime/workspace_session/test-reports/workspace-session-20260703-063001/EX-08"
+  },
+  "axes": {
+    "correctness": {
+      "details": "{'status': 'ok', 'exit_code': None, 'wall_time_seconds': 0.0, 'command_total_time_seconds': 0.0, 'start_offset': 0, 'end_offset': 0, 'total_lines': 0, 'original_token_count': 0, 'output': '', 'command_session_id': 'namespace_execution_1'}",
+      "metrics": {},
+      "pass": false,
+      "status": "fail"
+    },
+    "teardown": {
+      "details": "",
+      "metrics": {},
+      "pass": false,
+      "status": "not_run"
+    }
+  },
+  "case_id": "EX-08",
+  "errors": [
+    {
+      "message": "{'status': 'ok', 'exit_code': None, 'wall_time_seconds': 0.0, 'command_total_time_seconds': 0.0, 'start_offset': 0, 'end_offset': 0, 'total_lines': 0, 'original_token_count': 0, 'output': '', 'command_session_id': 'namespace_execution_1'}",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/runtime/workspace_session/test_exec_finalize.py\", line 252, in test_EX_08_drain_retention_cap\n    assert_error(first, message_contains=\"command not found\")\n    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/runtime/workspace_session/helpers.py\", line 410, in assert_error\n    assert is_error(result), result\n           ~~~~~~~~^^^^^^^^\nAssertionError: {'status': 'ok', 'exit_code': None, 'wall_time_seconds': 0.0, 'command_total_time_seconds': 0.0, 'start_offset': 0, 'end_offset': 0, 'total_lines': 0, 'original_token_count': 0, 'output': '', 'command_session_id': 'namespace_execution_1'}\n",
+      "type": "AssertionError"
+    }
+  ],
+  "generated_at": "2026-07-03T06:30:45+08:00",
+  "notes": [],
+  "run_id": "workspace-session-20260703-063001",
+  "schema_version": 1,
+  "status": "FAIL",
+  "tier": "hard",
+  "timers": {
+    "T_e2e": {
+      "ms": 43894.68,
+      "source": "harness"
+    }
+  },
+  "title": "drain retention cap"
+}

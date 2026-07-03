@@ -1,0 +1,14 @@
+{
+  "T_e2e": {
+    "ms": 1541.677,
+    "source": "harness"
+  },
+  "T_squash": {
+    "ms": 35.436,
+    "source": "harness"
+  },
+  "T_squash_invocation_1": {
+    "ms": 35.436,
+    "source": "harness"
+  }
+}

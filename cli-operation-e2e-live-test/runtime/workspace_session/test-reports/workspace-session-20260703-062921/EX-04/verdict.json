@@ -1,0 +1,54 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/runtime/workspace_session/test-reports/workspace-session-20260703-062921/EX-04"
+  },
+  "axes": {
+    "correctness": {
+      "details": "riders resolved before final command completion",
+      "metrics": {},
+      "pass": true,
+      "status": "pass"
+    },
+    "teardown": {
+      "details": "observability snapshot has no case workspaces",
+      "metrics": {
+        "leaked_workspace_ids": [],
+        "snapshot_workspace_count": 0,
+        "workspace_ids": [
+          "00000118be99947ed723c2",
+          "00000218be999667d9017b"
+        ]
+      },
+      "pass": true,
+      "status": "pass"
+    },
+    "timing": {
+      "details": "implicit session finalized within 30 s after terminal status",
+      "metrics": {
+        "observed_ms": 30.318,
+        "wait_finalized_ms": 30.3
+      },
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "EX-04",
+  "errors": [],
+  "generated_at": "2026-07-03T06:29:33+08:00",
+  "notes": [],
+  "run_id": "workspace-session-20260703-062921",
+  "schema_version": 1,
+  "status": "PASS",
+  "tier": "medium",
+  "timers": {
+    "T_e2e": {
+      "ms": 8351.555,
+      "source": "harness"
+    },
+    "T_finalize_after_terminal": {
+      "ms": 30.318,
+      "source": "harness"
+    }
+  },
+  "title": "rider defers finalization"
+}

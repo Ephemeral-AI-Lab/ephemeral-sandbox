@@ -1,0 +1,546 @@
+[
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "create_sandbox",
+      "--image",
+      "ubuntu:24.04",
+      "--workspace-bind-root",
+      "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-117/test_squash_medium_catalog_MED0/med-08"
+    ],
+    "elapsed_ms": 571.893,
+    "exit_code": 0,
+    "parsed_json": {
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 59523
+      },
+      "daemon_http": {
+        "host": "127.0.0.1",
+        "port": 59524
+      },
+      "id": "eos-85317c28-8bc8-4adc-ba31-fdca4c336846",
+      "shared_base": {
+        "readonly": true,
+        "root_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "source": "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-117/test_squash_medium_catalog_MED0/eos-shared-workspace-base-cache/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/base",
+        "target": "/eos/layer-stack/base"
+      },
+      "state": "ready",
+      "workspace_root": "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-117/test_squash_medium_catalog_MED0/med-08"
+    },
+    "stderr": "",
+    "stdout": "{\"id\":\"eos-85317c28-8bc8-4adc-ba31-fdca4c336846\",\"workspace_root\":\"/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-117/test_squash_medium_catalog_MED0/med-08\",\"state\":\"ready\",\"daemon\":{\"host\":\"127.0.0.1\",\"port\":59523},\"daemon_http\":{\"host\":\"127.0.0.1\",\"port\":59524},\"shared_base\":{\"source\":\"/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-117/test_squash_medium_catalog_MED0/eos-shared-workspace-base-cache/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/base\",\"target\":\"/eos/layer-stack/base\",\"root_hash\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"readonly\":true}}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846",
+      "exec_command",
+      "sh -eu -c 'mkdir -p data; yes \"m1\\n\" | head -c 65536 > data/m1.txt'"
+    ],
+    "elapsed_ms": 118.872,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.029131,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.0594765,
+      "workspace_session_id": "00000118be98f2c237478b"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.0594765,\"command_total_time_seconds\":0.029131,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000118be98f2c237478b\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846",
+      "exec_command",
+      "sh -eu -c 'mkdir -p data; yes \"m2\\n\" | head -c 65536 > data/m2.txt'"
+    ],
+    "elapsed_ms": 87.095,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.022870416,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.047483791,
+      "workspace_session_id": "00000218be98f2c81b86b6"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.047483791,\"command_total_time_seconds\":0.022870416,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000218be98f2c81b86b6\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846",
+      "exec_command",
+      "sh -eu -c 'mkdir -p data; yes \"m3\\n\" | head -c 65536 > data/m3.txt'"
+    ],
+    "elapsed_ms": 95.968,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.032127334,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.057268292,
+      "workspace_session_id": "00000318be98f2cd4e4f60"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.057268292,\"command_total_time_seconds\":0.032127334,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000318be98f2cd4e4f60\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846",
+      "create_workspace_session"
+    ],
+    "elapsed_ms": 35.187,
+    "exit_code": 0,
+    "parsed_json": {
+      "finalize_policy": "no_op",
+      "network_profile": "shared",
+      "workspace_session_id": "00000418be98f2d2e5983a"
+    },
+    "stderr": "",
+    "stdout": "{\"workspace_session_id\":\"00000418be98f2d2e5983a\",\"network_profile\":\"shared\",\"finalize_policy\":\"no_op\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846",
+      "file_write",
+      "--path",
+      "data/tail.txt",
+      "--content",
+      "tail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail\ntail"
+    ],
+    "elapsed_ms": 34.246,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 1024,
+      "path": "data/tail.txt",
+      "type": "create"
+    },
+    "stderr": "",
+    "stdout": "{\"type\":\"create\",\"path\":\"data/tail.txt\",\"bytes_written\":1024}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846"
+    ],
+    "elapsed_ms": 26.895,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 1,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 1024,
+          "layer_id": "L000005-00000010",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 65536,
+          "layer_id": "L000004-0000000b",
+          "leased_by_workspaces": 1
+        },
+        {
+          "booked_by": [
+            "L000004-0000000b"
+          ],
+          "bytes": 65536,
+          "layer_id": "L000003-00000006",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-0000000b"
+          ],
+          "bytes": 65536,
+          "layer_id": "L000002-00000001",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-0000000b"
+          ],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 5,
+      "root_hash": "4a5e89aee231d895082bad1ef9dce523218f49bcd7b111c082603e5265b8f03f",
+      "total_bytes": 197632,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 65536,
+          "ts": 1783030670959
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 131072,
+          "ts": 1783030671044
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 196608,
+          "ts": 1783030671142
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 196608,
+          "ts": 1783030671178
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 5,
+          "layers_bytes": 197632,
+          "ts": 1783030671212
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":5,\"root_hash\":\"4a5e89aee231d895082bad1ef9dce523218f49bcd7b111c082603e5265b8f03f\",\"active_lease_count\":1,\"total_bytes\":197632,\"layers\":[{\"layer_id\":\"L000005-00000010\",\"bytes\":1024,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"L000004-0000000b\",\"bytes\":65536,\"leased_by_workspaces\":1,\"booked_by\":[]},{\"layer_id\":\"L000003-00000006\",\"bytes\":65536,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-0000000b\"]},{\"layer_id\":\"L000002-00000001\",\"bytes\":65536,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-0000000b\"]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-0000000b\"]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":65536,\"active_leases\":0,\"ts\":1783030670959},{\"layer_count\":3,\"layers_bytes\":131072,\"active_leases\":0,\"ts\":1783030671044},{\"layer_count\":4,\"layers_bytes\":196608,\"active_leases\":0,\"ts\":1783030671142},{\"layer_count\":4,\"layers_bytes\":196608,\"active_leases\":1,\"ts\":1783030671178},{\"layer_count\":5,\"layers_bytes\":197632,\"active_leases\":1,\"ts\":1783030671212}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 63.791,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 197632\nstaging_entries 0\nremount_residue 0\nlayer_dirs L000004-0000000b,L000003-00000006,L000002-00000001,L000005-00000010,\nfree_bytes 120445972480\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "checkpoint_squash",
+      "--sandbox-id",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846"
+    ],
+    "elapsed_ms": 39.846,
+    "exit_code": 0,
+    "parsed_json": {
+      "manifest_version": 6,
+      "squashed_blocks": [
+        {
+          "replaced_layer_ids": [
+            "L000003-00000006",
+            "L000002-00000001"
+          ],
+          "replaced_layers": "reclaimed",
+          "squashed_layer_id": "S000006-00000015"
+        }
+      ]
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":6,\"squashed_blocks\":[{\"squashed_layer_id\":\"S000006-00000015\",\"replaced_layer_ids\":[\"L000003-00000006\",\"L000002-00000001\"],\"replaced_layers\":\"reclaimed\"}]}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846"
+    ],
+    "elapsed_ms": 26.051,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 1,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 1024,
+          "layer_id": "L000005-00000010",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 65536,
+          "layer_id": "L000004-0000000b",
+          "leased_by_workspaces": 1
+        },
+        {
+          "booked_by": [
+            "L000004-0000000b"
+          ],
+          "bytes": 131072,
+          "layer_id": "S000006-00000015",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-0000000b"
+          ],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 6,
+      "root_hash": "bd09283e2d84df891dd4cdf540a78c903861ed3a096e23585402f32d95fdea69",
+      "total_bytes": 197632,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 65536,
+          "ts": 1783030670959
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 131072,
+          "ts": 1783030671044
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 196608,
+          "ts": 1783030671142
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 196608,
+          "ts": 1783030671178
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 5,
+          "layers_bytes": 197632,
+          "ts": 1783030671212
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 197632,
+          "ts": 1783030671344
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":6,\"root_hash\":\"bd09283e2d84df891dd4cdf540a78c903861ed3a096e23585402f32d95fdea69\",\"active_lease_count\":1,\"total_bytes\":197632,\"layers\":[{\"layer_id\":\"L000005-00000010\",\"bytes\":1024,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"L000004-0000000b\",\"bytes\":65536,\"leased_by_workspaces\":1,\"booked_by\":[]},{\"layer_id\":\"S000006-00000015\",\"bytes\":131072,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-0000000b\"]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-0000000b\"]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":65536,\"active_leases\":0,\"ts\":1783030670959},{\"layer_count\":3,\"layers_bytes\":131072,\"active_leases\":0,\"ts\":1783030671044},{\"layer_count\":4,\"layers_bytes\":196608,\"active_leases\":0,\"ts\":1783030671142},{\"layer_count\":4,\"layers_bytes\":196608,\"active_leases\":1,\"ts\":1783030671178},{\"layer_count\":5,\"layers_bytes\":197632,\"active_leases\":1,\"ts\":1783030671212},{\"layer_count\":4,\"layers_bytes\":197632,\"active_leases\":1,\"ts\":1783030671344}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 63.36,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 197632\nstaging_entries 0\nremount_residue 2\nlayer_dirs L000004-0000000b,S000006-00000015,L000005-00000010,\nfree_bytes 120445976576\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846",
+      "exec_command",
+      "--workspace-session-id",
+      "00000418be98f2d2e5983a",
+      "cat data/m1.txt data/m2.txt data/m3.txt | wc -c"
+    ],
+    "elapsed_ms": 59.371,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.030548042,
+      "end_offset": 1,
+      "exit_code": 0,
+      "original_token_count": 2,
+      "output": "196608",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 1,
+      "wall_time_seconds": 0.03059675,
+      "workspace_session_id": "00000418be98f2d2e5983a"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.03059675,\"command_total_time_seconds\":0.030548042,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":2,\"output\":\"196608\",\"workspace_session_id\":\"00000418be98f2d2e5983a\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846",
+      "destroy_workspace_session",
+      "--workspace-session-id",
+      "00000418be98f2d2e5983a",
+      "--grace-s",
+      "1"
+    ],
+    "elapsed_ms": 45.03,
+    "exit_code": 0,
+    "parsed_json": {
+      "destroyed": true,
+      "evicted_upperdir_bytes": 0,
+      "workspace_session_id": "00000418be98f2d2e5983a"
+    },
+    "stderr": "",
+    "stdout": "{\"workspace_session_id\":\"00000418be98f2d2e5983a\",\"destroyed\":true,\"evicted_upperdir_bytes\":0}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846"
+    ],
+    "elapsed_ms": 31.151,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 0,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 1024,
+          "layer_id": "L000005-00000010",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 65536,
+          "layer_id": "L000004-0000000b",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 131072,
+          "layer_id": "S000006-00000015",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 6,
+      "root_hash": "bd09283e2d84df891dd4cdf540a78c903861ed3a096e23585402f32d95fdea69",
+      "total_bytes": 197632,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 65536,
+          "ts": 1783030670959
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 131072,
+          "ts": 1783030671044
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 196608,
+          "ts": 1783030671142
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 196608,
+          "ts": 1783030671178
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 5,
+          "layers_bytes": 197632,
+          "ts": 1783030671212
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 197632,
+          "ts": 1783030671344
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 197632,
+          "ts": 1783030671494
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 197632,
+          "ts": 1783030671540
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":6,\"root_hash\":\"bd09283e2d84df891dd4cdf540a78c903861ed3a096e23585402f32d95fdea69\",\"active_lease_count\":0,\"total_bytes\":197632,\"layers\":[{\"layer_id\":\"L000005-00000010\",\"bytes\":1024,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"L000004-0000000b\",\"bytes\":65536,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"S000006-00000015\",\"bytes\":131072,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":65536,\"active_leases\":0,\"ts\":1783030670959},{\"layer_count\":3,\"layers_bytes\":131072,\"active_leases\":0,\"ts\":1783030671044},{\"layer_count\":4,\"layers_bytes\":196608,\"active_leases\":0,\"ts\":1783030671142},{\"layer_count\":4,\"layers_bytes\":196608,\"active_leases\":1,\"ts\":1783030671178},{\"layer_count\":5,\"layers_bytes\":197632,\"active_leases\":1,\"ts\":1783030671212},{\"layer_count\":4,\"layers_bytes\":197632,\"active_leases\":1,\"ts\":1783030671344},{\"layer_count\":4,\"layers_bytes\":197632,\"active_leases\":1,\"ts\":1783030671494},{\"layer_count\":4,\"layers_bytes\":197632,\"active_leases\":0,\"ts\":1783030671540}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-85317c28-8bc8-4adc-ba31-fdca4c336846",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 62.754,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 197632\nstaging_entries 0\nremount_residue 0\nlayer_dirs L000004-0000000b,S000006-00000015,L000005-00000010,\nfree_bytes 120445997056\n"
+  }
+]

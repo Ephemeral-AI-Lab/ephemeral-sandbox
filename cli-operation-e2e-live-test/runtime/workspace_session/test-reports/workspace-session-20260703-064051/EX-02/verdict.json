@@ -1,0 +1,41 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/runtime/workspace_session/test-reports/workspace-session-20260703-064051/EX-02"
+  },
+  "axes": {
+    "correctness": {
+      "details": "implicit exec published the file and destroyed its session",
+      "metrics": {},
+      "pass": true,
+      "status": "pass"
+    },
+    "teardown": {
+      "details": "observability snapshot has no case workspaces",
+      "metrics": {
+        "leaked_workspace_ids": [],
+        "snapshot_workspace_count": 0,
+        "workspace_ids": [
+          "00000118be9a38646745e2",
+          "00000218be9a386b540791"
+        ]
+      },
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "EX-02",
+  "errors": [],
+  "generated_at": "2026-07-03T06:41:09+08:00",
+  "notes": [],
+  "run_id": "workspace-session-20260703-064051",
+  "schema_version": 1,
+  "status": "PASS",
+  "tier": "smoke",
+  "timers": {
+    "T_e2e": {
+      "ms": 271.975,
+      "source": "harness"
+    }
+  },
+  "title": "implicit exec publishes then destroys"
+}

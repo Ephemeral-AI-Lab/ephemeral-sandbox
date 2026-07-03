@@ -1,0 +1,53 @@
+# Benchmark gateway+daemon config for the squash remount-sweep width sweep.
+#
+# Derived from config/prd.yml with two benchmark-only additions:
+#   1. observability.max_file_bytes raised (256 MiB) so high-N span capture does
+#      not rotate away early invocations — the 8 MiB default evicted spans at
+#      N=200 (RESULTS.md "200 sessions"). ObservabilityConfig has
+#      deny_unknown_fields, so only `enabled` / `max_file_bytes` may appear here.
+#   2. manager.docker.container_env.EOS_REMOUNT_SWEEP_WIDTH sets the in-container
+#      daemon's remount-sweep width — the A/B / PERF-WIDTH knob. The daemon reads
+#      it per squash (squash.rs sweep_width()); there is no host->container env
+#      passthrough, so the width must ride in via container_env.
+#
+# This is a TEMPLATE: ab_driver.py substitutes __SWEEP_WIDTH__ and
+# __DAEMON_CONFIG_PATH__ per arm and writes a generated file it passes as
+# SANDBOX_GATEWAY_CONFIG_YAML. Do not point the gateway at this file directly.
+#
+# Keep in sync with config/prd.yml if that file's daemon/runtime/runner/manager
+# sections change (this duplicates them so the bench run is self-contained).
+
+daemon:
+  server:
+    socket_path: /eos/runtime/daemon/runtime.sock
+    pid_path: /eos/runtime/daemon/runtime.pid
+    max_worker_threads: 32
+
+runtime:
+  workspace:
+    layer_stack_root: /eos/layer-stack
+    scratch_root: /eos/workspace
+    setup_timeout_s: 30
+    exit_grace_s: 0.25
+    rfc1918_egress: allow
+  namespace_execution:
+    scratch_root: /eos/namespace_execution
+
+runner:
+  mount_mask:
+    hidden_paths:
+      - /eos
+
+observability:
+  enabled: true
+  max_file_bytes: 268435456
+
+manager:
+  docker:
+    daemon_binary_path: dist/sandbox-daemon-linux-arm64
+    daemon_config_yaml_path: __DAEMON_CONFIG_PATH__
+    container_env:
+      HTTP_PROXY: http://http.docker.internal:3128
+      HTTPS_PROXY: http://http.docker.internal:3128
+      NO_PROXY: localhost,127.0.0.1,::1
+      EOS_REMOUNT_SWEEP_WIDTH: "__SWEEP_WIDTH__"

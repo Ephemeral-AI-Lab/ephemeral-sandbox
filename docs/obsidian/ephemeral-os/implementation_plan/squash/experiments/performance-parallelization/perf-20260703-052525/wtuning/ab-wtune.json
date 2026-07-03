@@ -1,0 +1,114 @@
+{
+  "case": "AB-EQUIV",
+  "cores": 4,
+  "label": "ab",
+  "overrides": {
+    "SQUASH_BENCH_REPEATS": "1"
+  },
+  "widths": {
+    "1": {
+      "aggregate": {
+        "invocations": 1,
+        "migrated_dur_ms": {
+          "max_ms": 5.0,
+          "mean_ms": 3.833,
+          "median_ms": 4.0,
+          "min_ms": 2.0,
+          "n": 6,
+          "p95_ms": 5.0,
+          "sum_ms": 23.0
+        },
+        "non_sweep_ms": {
+          "max": 9.0,
+          "p50": 9.0
+        },
+        "overlap_factor": {
+          "max": 1.0,
+          "min": 1.0,
+          "p50": 1.0,
+          "p95": 1.0
+        },
+        "parent_ms": {
+          "max": 32.0,
+          "p50": 32.0,
+          "p95": 32.0
+        },
+        "sweep_wall_ms": {
+          "max": 23.0,
+          "p50": 23.0,
+          "p95": 23.0
+        },
+        "sweep_width_reported": [
+          1
+        ],
+        "swept_reported": [
+          12
+        ]
+      },
+      "repeats": [
+        {
+          "T_squash_ms": 59.832,
+          "block_count": 1,
+          "migrated": 6,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/ab-W1-r1/AB-EQUIV",
+          "returncode": 0,
+          "run_id": "ab-W1-r1",
+          "status": "PASS",
+          "sweep_width_reported": 1
+        }
+      ]
+    },
+    "4": {
+      "aggregate": {
+        "invocations": 1,
+        "migrated_dur_ms": {
+          "max_ms": 7.0,
+          "mean_ms": 5.5,
+          "median_ms": 6.0,
+          "min_ms": 3.0,
+          "n": 6,
+          "p95_ms": 7.0,
+          "sum_ms": 33.0
+        },
+        "non_sweep_ms": {
+          "max": 9.0,
+          "p50": 9.0
+        },
+        "overlap_factor": {
+          "max": 3.3,
+          "min": 3.3,
+          "p50": 3.3,
+          "p95": 3.3
+        },
+        "parent_ms": {
+          "max": 19.0,
+          "p50": 19.0,
+          "p95": 19.0
+        },
+        "sweep_wall_ms": {
+          "max": 10.0,
+          "p50": 10.0,
+          "p95": 10.0
+        },
+        "sweep_width_reported": [
+          4
+        ],
+        "swept_reported": [
+          12
+        ]
+      },
+      "repeats": [
+        {
+          "T_squash_ms": 44.727,
+          "block_count": 1,
+          "migrated": 6,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/ab-W4-r1/AB-EQUIV",
+          "returncode": 0,
+          "run_id": "ab-W4-r1",
+          "status": "PASS",
+          "sweep_width_reported": 4
+        }
+      ]
+    }
+  }
+}

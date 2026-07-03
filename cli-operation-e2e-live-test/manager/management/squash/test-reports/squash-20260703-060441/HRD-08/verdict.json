@@ -1,0 +1,76 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/squash-20260703-060441/HRD-08",
+    "commands": "cmd.log.json",
+    "snapshots": [
+      "S3"
+    ]
+  },
+  "axes": {
+    "correctness": {
+      "details": "admission storm completed without deadlock",
+      "metrics": {},
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    },
+    "space": {
+      "details": "storm cleanup reached baseline",
+      "metrics": {
+        "latencies_ms": [
+          58.012
+        ]
+      },
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    },
+    "time": {
+      "details": "T_e2e=1090.194ms budget=30000ms",
+      "metrics": {
+        "T_e2e_ms": 1090.194,
+        "budget_ms": 30000
+      },
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "HRD-08",
+  "errors": [],
+  "generated_at": "2026-07-03T06:06:17+08:00",
+  "notes": [],
+  "run_id": "squash-20260703-060441",
+  "schema_version": 1,
+  "status": "PASS",
+  "teardown": {
+    "details": "clean",
+    "metrics": {
+      "free_bytes": 120500019200,
+      "layer_dirs": [
+        "S000008-0000001a",
+        "L000007-00000014"
+      ],
+      "layers_bytes": 49152,
+      "remount_residue": 0,
+      "staging_entries": 0
+    },
+    "pass": true
+  },
+  "tier": "hard",
+  "timers": {
+    "T_e2e": {
+      "ms": 1090.936,
+      "source": "harness"
+    },
+    "T_squash": {
+      "ms": 52.093,
+      "source": "harness"
+    },
+    "T_squash_invocation_1": {
+      "ms": 52.093,
+      "source": "harness"
+    }
+  },
+  "title": "admission-gate storm"
+}

@@ -1,0 +1,50 @@
+{
+  "T_e2e": {
+    "count": 9,
+    "max_ms": 2572.063,
+    "mean_ms": 1560.052,
+    "min_ms": 1032.415,
+    "p50_ms": 1467.065,
+    "p95_ms": 2215.253
+  },
+  "T_quiesce": {
+    "count": 3,
+    "max_ms": 1.0,
+    "mean_ms": 0.333,
+    "min_ms": 0.0,
+    "p50_ms": 0.0,
+    "p95_ms": 0.9
+  },
+  "T_remount": {
+    "count": 2,
+    "max_ms": 1.0,
+    "mean_ms": 1.0,
+    "min_ms": 1.0,
+    "p50_ms": 1.0,
+    "p95_ms": 1.0
+  },
+  "T_squash": {
+    "count": 8,
+    "max_ms": 66.921,
+    "mean_ms": 45.377,
+    "min_ms": 32.879,
+    "p50_ms": 40.758,
+    "p95_ms": 65.941
+  },
+  "T_squash_invocation_1": {
+    "count": 8,
+    "max_ms": 66.921,
+    "mean_ms": 45.377,
+    "min_ms": 32.879,
+    "p50_ms": 40.758,
+    "p95_ms": 65.941
+  },
+  "T_squash_invocation_2": {
+    "count": 2,
+    "max_ms": 34.803,
+    "mean_ms": 33.808,
+    "min_ms": 32.814,
+    "p50_ms": 33.808,
+    "p95_ms": 34.704
+  }
+}

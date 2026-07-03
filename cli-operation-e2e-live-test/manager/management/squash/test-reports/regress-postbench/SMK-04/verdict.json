@@ -1,0 +1,72 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/regress-postbench/SMK-04",
+    "commands": "cmd.log.json",
+    "snapshots": [
+      "S0",
+      "S2",
+      "S3"
+    ]
+  },
+  "axes": {
+    "correctness": {
+      "details": "success/fault stdout-stderr contract matched",
+      "metrics": {},
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    },
+    "space": {
+      "details": "layers_bytes 3072->3072, tolerance=0.05",
+      "metrics": {
+        "after_layers_bytes": 3072,
+        "before_layers_bytes": 3072
+      },
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    },
+    "time": {
+      "details": "T_e2e=937.039ms budget=10000ms",
+      "metrics": {
+        "T_e2e_ms": 937.039,
+        "budget_ms": 10000
+      },
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "SMK-04",
+  "errors": [],
+  "generated_at": "2026-07-03T07:54:43+08:00",
+  "notes": [],
+  "run_id": "regress-postbench",
+  "schema_version": 1,
+  "status": "PASS",
+  "teardown": {
+    "details": "clean",
+    "metrics": {
+      "free_bytes": 120397291520,
+      "layer_dirs": [
+        "S000005-0000000d"
+      ],
+      "layers_bytes": 3072,
+      "remount_residue": 0,
+      "staging_entries": 0
+    },
+    "pass": true
+  },
+  "tier": "smoke",
+  "timers": {
+    "T_e2e": {
+      "ms": 937.673,
+      "source": "harness"
+    },
+    "T_squash": {
+      "ms": 27.828,
+      "source": "harness"
+    }
+  },
+  "title": "result contract shape, success and fault"
+}

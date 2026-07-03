@@ -1,0 +1,6 @@
+{
+  "id": "LOAD-LARGE",
+  "scenario": "large_file",
+  "tier": "hard",
+  "title": "large file squash"
+}

@@ -1,0 +1,10 @@
+{
+  "T_e2e": {
+    "ms": 2169.948,
+    "source": "harness"
+  },
+  "T_finalize_after_terminal": {
+    "ms": 32.825,
+    "source": "harness"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "id": "MED-17",
+  "scenario": "restart",
+  "tier": "medium",
+  "title": "persist failure still migrates"
+}

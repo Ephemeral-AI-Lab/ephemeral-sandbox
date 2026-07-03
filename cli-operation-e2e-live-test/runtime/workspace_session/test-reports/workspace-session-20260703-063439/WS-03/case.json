@@ -1,0 +1,5 @@
+{
+  "id": "WS-03",
+  "tier": "smoke",
+  "title": "destroy refuses while a command runs"
+}

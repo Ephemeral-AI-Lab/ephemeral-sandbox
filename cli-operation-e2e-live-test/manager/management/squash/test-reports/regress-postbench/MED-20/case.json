@@ -1,0 +1,6 @@
+{
+  "id": "MED-20",
+  "scenario": "many_tasks",
+  "tier": "medium",
+  "title": "quiesce at 100 tasks"
+}

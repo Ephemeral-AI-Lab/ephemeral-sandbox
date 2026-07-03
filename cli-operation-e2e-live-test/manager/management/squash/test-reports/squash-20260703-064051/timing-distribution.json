@@ -1,0 +1,58 @@
+{
+  "T_e2e": {
+    "count": 11,
+    "max_ms": 2514.826,
+    "mean_ms": 1228.157,
+    "min_ms": 33.735,
+    "p50_ms": 1298.457,
+    "p95_ms": 2076.86
+  },
+  "T_quiesce": {
+    "count": 2,
+    "max_ms": 0.0,
+    "mean_ms": 0.0,
+    "min_ms": 0.0,
+    "p50_ms": 0.0,
+    "p95_ms": 0.0
+  },
+  "T_remount": {
+    "count": 2,
+    "max_ms": 1.0,
+    "mean_ms": 1.0,
+    "min_ms": 1.0,
+    "p50_ms": 1.0,
+    "p95_ms": 1.0
+  },
+  "T_squash": {
+    "count": 10,
+    "max_ms": 43.078,
+    "mean_ms": 35.112,
+    "min_ms": 28.545,
+    "p50_ms": 32.632,
+    "p95_ms": 42.924
+  },
+  "T_squash_invocation_1": {
+    "count": 8,
+    "max_ms": 43.078,
+    "mean_ms": 34.452,
+    "min_ms": 24.617,
+    "p50_ms": 33.359,
+    "p95_ms": 42.958
+  },
+  "T_squash_invocation_2": {
+    "count": 4,
+    "max_ms": 34.847,
+    "mean_ms": 30.191,
+    "min_ms": 25.464,
+    "p50_ms": 30.227,
+    "p95_ms": 34.406
+  },
+  "T_squash_invocation_3": {
+    "count": 1,
+    "max_ms": 25.642,
+    "mean_ms": 25.642,
+    "min_ms": 25.642,
+    "p50_ms": 25.642,
+    "p95_ms": 25.642
+  }
+}

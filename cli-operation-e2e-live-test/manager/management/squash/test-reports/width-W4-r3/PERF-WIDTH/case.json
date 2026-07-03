@@ -1,0 +1,11 @@
+{
+  "ab": {
+    "blocks": 1,
+    "migrate_ratio": 1.0,
+    "sessions": 200
+  },
+  "id": "PERF-WIDTH",
+  "scenario": "ab",
+  "tier": "bench",
+  "title": "remount-sweep width scaling (all-migrate)"
+}

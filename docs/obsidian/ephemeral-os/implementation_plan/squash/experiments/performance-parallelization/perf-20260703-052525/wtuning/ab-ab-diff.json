@@ -1,0 +1,131 @@
+{
+  "arm_a": {
+    "case_id": "AB-EQUIV",
+    "params": {
+      "B": 1,
+      "I": 6,
+      "M_target": 6,
+      "N": 12,
+      "kib": 4,
+      "ratio": 0.5,
+      "repeats": 1
+    },
+    "sweep_width": 1
+  },
+  "arm_b": {
+    "case_id": "AB-EQUIV",
+    "params": {
+      "B": 1,
+      "I": 6,
+      "M_target": 6,
+      "N": 12,
+      "kib": 4,
+      "ratio": 0.5,
+      "repeats": 1
+    },
+    "sweep_width": 4
+  },
+  "checks": {
+    "arms_differ_in_width": {
+      "a": 1,
+      "b": 4,
+      "required": true,
+      "serial_vs_parallel": true
+    },
+    "block_count": {
+      "a": 1,
+      "b": 1,
+      "equal": true,
+      "required": true
+    },
+    "disposition_multiset": {
+      "a": {
+        "Identity": 6,
+        "Migrated": 6
+      },
+      "b": {
+        "Identity": 6,
+        "Migrated": 6
+      },
+      "equal": true,
+      "required": true
+    },
+    "exact_surviving_id_set": {
+      "equal": true,
+      "required": false
+    },
+    "final_by_prefix": {
+      "a": {
+        "B": 1,
+        "L": 1,
+        "S": 2
+      },
+      "b": {
+        "B": 1,
+        "L": 1,
+        "S": 2
+      },
+      "equal": true,
+      "required": true
+    },
+    "final_layer_count": {
+      "a": 4,
+      "b": 4,
+      "equal": true,
+      "required": true
+    },
+    "space_layer_dirs": {
+      "a": {
+        "after": 3,
+        "before": 4
+      },
+      "b": {
+        "after": 3,
+        "before": 4
+      },
+      "equal": true,
+      "required": true
+    },
+    "staging_clean": {
+      "a": 0,
+      "b": 0,
+      "equal": true,
+      "required": true
+    },
+    "surviving_by_prefix": {
+      "a": {
+        "B": 1,
+        "L": 1,
+        "S": 1
+      },
+      "b": {
+        "B": 1,
+        "L": 1,
+        "S": 1
+      },
+      "equal": true,
+      "required": true
+    },
+    "surviving_signature_multiset": {
+      "a": {
+        "B000001-base": 1,
+        "L000007": 1,
+        "S000004": 1
+      },
+      "b": {
+        "B000001-base": 1,
+        "L000007": 1,
+        "S000004": 1
+      },
+      "equal": true,
+      "required": true
+    },
+    "swept": {
+      "a": 12,
+      "b": 12,
+      "equal": true,
+      "required": true
+    }
+  },
+  "pass": true
+}

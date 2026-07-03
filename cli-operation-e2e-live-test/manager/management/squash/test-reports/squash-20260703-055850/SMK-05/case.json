@@ -1,0 +1,6 @@
+{
+  "id": "SMK-05",
+  "scenario": "catalog",
+  "tier": "smoke",
+  "title": "CLI catalog placement"
+}

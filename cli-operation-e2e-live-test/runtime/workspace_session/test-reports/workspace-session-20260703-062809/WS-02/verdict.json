@@ -1,0 +1,40 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/runtime/workspace_session/test-reports/workspace-session-20260703-062809/WS-02"
+  },
+  "axes": {
+    "correctness": {
+      "details": "{'path': 'ws02.txt', 'content': 'there', 'start_line': 1, 'num_lines': 1, ...}\nassert 'there' == 'there\\n'\n  \n  - there\n  ?      -\n  + there",
+      "metrics": {},
+      "pass": false,
+      "status": "fail"
+    },
+    "teardown": {
+      "details": "",
+      "metrics": {},
+      "pass": false,
+      "status": "not_run"
+    }
+  },
+  "case_id": "WS-02",
+  "errors": [
+    {
+      "message": "{'path': 'ws02.txt', 'content': 'there', 'start_line': 1, 'num_lines': 1, ...}\nassert 'there' == 'there\\n'\n  \n  - there\n  ?      -\n  + there",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/runtime/workspace_session/test_workspace_session.py\", line 64, in test_WS_02_no_op_session_survives_command_completion\n    assert read[\"content\"] == \"there\\n\", read\nAssertionError: {'path': 'ws02.txt', 'content': 'there', 'start_line': 1, 'num_lines': 1, ...}\nassert 'there' == 'there\\n'\n  \n  - there\n  ?      -\n  + there\n",
+      "type": "AssertionError"
+    }
+  ],
+  "generated_at": "2026-07-03T06:28:14+08:00",
+  "notes": [],
+  "run_id": "workspace-session-20260703-062809",
+  "schema_version": 1,
+  "status": "FAIL",
+  "tier": "smoke",
+  "timers": {
+    "T_e2e": {
+      "ms": 228.566,
+      "source": "harness"
+    }
+  },
+  "title": "no_op session survives command completion"
+}

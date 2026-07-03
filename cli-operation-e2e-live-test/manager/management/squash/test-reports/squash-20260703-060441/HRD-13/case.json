@@ -1,0 +1,6 @@
+{
+  "id": "HRD-13",
+  "scenario": "bulk",
+  "tier": "hard",
+  "title": "commit durability cost"
+}

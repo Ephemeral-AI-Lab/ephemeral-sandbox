@@ -1,0 +1,174 @@
+{
+  "disk": {
+    "free_bytes": 120406876160,
+    "layer_dirs": [
+      "L000007-00000019",
+      "L000005-00000011",
+      "S000004-00000009",
+      "L000006-00000015"
+    ],
+    "layers_bytes": 20480,
+    "remount_residue": 0,
+    "staging_entries": 0
+  },
+  "label": "S0",
+  "layerstack": {
+    "active_lease_count": 12,
+    "layers": [
+      {
+        "booked_by": [],
+        "bytes": 4096,
+        "layer_id": "L000007-00000019",
+        "leased_by_workspaces": 6
+      },
+      {
+        "booked_by": [
+          "L000007-00000019"
+        ],
+        "bytes": 4096,
+        "layer_id": "L000006-00000015",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000007-00000019"
+        ],
+        "bytes": 4096,
+        "layer_id": "L000005-00000011",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000007-00000019"
+        ],
+        "bytes": 8192,
+        "layer_id": "S000004-00000009",
+        "leased_by_workspaces": 6
+      },
+      {
+        "booked_by": [
+          "L000007-00000019",
+          "S000004-00000009"
+        ],
+        "bytes": 0,
+        "layer_id": "B000001-base",
+        "leased_by_workspaces": 0
+      }
+    ],
+    "manifest_version": 7,
+    "root_hash": "321d3fbe92b685b91895591d17e613a0f5ab56997b0524ffbad63d221c6a5cb2",
+    "total_bytes": 20480,
+    "trend": [
+      {
+        "active_leases": 0,
+        "layer_count": 2,
+        "layers_bytes": 4096,
+        "ts": 1783035719571
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 3,
+        "layers_bytes": 8192,
+        "ts": 1783035719611
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 2,
+        "layers_bytes": 8192,
+        "ts": 1783035719645
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 2,
+        "layers_bytes": 8192,
+        "ts": 1783035719680
+      },
+      {
+        "active_leases": 2,
+        "layer_count": 2,
+        "layers_bytes": 8192,
+        "ts": 1783035719714
+      },
+      {
+        "active_leases": 3,
+        "layer_count": 2,
+        "layers_bytes": 8192,
+        "ts": 1783035719750
+      },
+      {
+        "active_leases": 4,
+        "layer_count": 2,
+        "layers_bytes": 8192,
+        "ts": 1783035719782
+      },
+      {
+        "active_leases": 5,
+        "layer_count": 2,
+        "layers_bytes": 8192,
+        "ts": 1783035719820
+      },
+      {
+        "active_leases": 6,
+        "layer_count": 2,
+        "layers_bytes": 8192,
+        "ts": 1783035719859
+      },
+      {
+        "active_leases": 6,
+        "layer_count": 3,
+        "layers_bytes": 12288,
+        "ts": 1783035719905
+      },
+      {
+        "active_leases": 6,
+        "layer_count": 4,
+        "layers_bytes": 16384,
+        "ts": 1783035719945
+      },
+      {
+        "active_leases": 6,
+        "layer_count": 5,
+        "layers_bytes": 20480,
+        "ts": 1783035719984
+      },
+      {
+        "active_leases": 7,
+        "layer_count": 5,
+        "layers_bytes": 20480,
+        "ts": 1783035720021
+      },
+      {
+        "active_leases": 8,
+        "layer_count": 5,
+        "layers_bytes": 20480,
+        "ts": 1783035720077
+      },
+      {
+        "active_leases": 9,
+        "layer_count": 5,
+        "layers_bytes": 20480,
+        "ts": 1783035720113
+      },
+      {
+        "active_leases": 10,
+        "layer_count": 5,
+        "layers_bytes": 20480,
+        "ts": 1783035720150
+      },
+      {
+        "active_leases": 11,
+        "layer_count": 5,
+        "layers_bytes": 20480,
+        "ts": 1783035720184
+      },
+      {
+        "active_leases": 12,
+        "layer_count": 5,
+        "layers_bytes": 20480,
+        "ts": 1783035720221
+      }
+    ],
+    "view": "layerstack"
+  },
+  "raw_disk": "layers_bytes 20480\nstaging_entries 0\nremount_residue 0\nlayer_dirs L000007-00000019,L000005-00000011,S000004-00000009,L000006-00000015,\nfree_bytes 120406876160\n"
+}

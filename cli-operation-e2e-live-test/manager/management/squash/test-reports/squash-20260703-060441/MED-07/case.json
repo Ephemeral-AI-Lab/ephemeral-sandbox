@@ -1,0 +1,6 @@
+{
+  "id": "MED-07",
+  "scenario": "pin",
+  "tier": "medium",
+  "title": "late lease keeps sources"
+}

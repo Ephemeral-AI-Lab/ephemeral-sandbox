@@ -1,0 +1,41 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/runtime/workspace_session/test-reports/workspace-session-20260703-062921/EX-07"
+  },
+  "axes": {
+    "correctness": {
+      "details": "cancelled and timed-out implicit sessions finalized",
+      "metrics": {},
+      "pass": true,
+      "status": "pass"
+    },
+    "teardown": {
+      "details": "observability snapshot has no case workspaces",
+      "metrics": {
+        "leaked_workspace_ids": [],
+        "snapshot_workspace_count": 0,
+        "workspace_ids": [
+          "00000118be999790ae4f35",
+          "00000218be99979d4e2bfa"
+        ]
+      },
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "EX-07",
+  "errors": [],
+  "generated_at": "2026-07-03T06:29:40+08:00",
+  "notes": [],
+  "run_id": "workspace-session-20260703-062921",
+  "schema_version": 1,
+  "status": "PASS",
+  "tier": "medium",
+  "timers": {
+    "T_e2e": {
+      "ms": 1487.731,
+      "source": "harness"
+    }
+  },
+  "title": "interrupt/timeout paths still finalize"
+}

@@ -1,0 +1,6 @@
+{
+  "id": "MED-06",
+  "scenario": "singleflight",
+  "tier": "medium",
+  "title": "singleflight per root"
+}

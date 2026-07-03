@@ -1,0 +1,6 @@
+{
+  "id": "SMK-03",
+  "scenario": "boundary",
+  "tier": "smoke",
+  "title": "singleton run below a boundary is never touched"
+}

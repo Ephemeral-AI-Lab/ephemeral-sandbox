@@ -1,0 +1,14 @@
+[
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "--help"
+    ],
+    "elapsed_ms": 24.206,
+    "exit_code": 0,
+    "parsed_json": null,
+    "stderr": "",
+    "stdout": "Usage: sandbox-cli manager [OPTIONS] [OPERATION] [OPERATION_ARGV]...\n\nArguments:\n  [OPERATION]          \n  [OPERATION_ARGV]...  \n\nOptions:\n      --gateway-socket <HOST:PORT>       \n      --gateway-auth-token <TOKEN>       \n      --default-sandbox-id <SANDBOX_ID>  \n      --progress                         \n  -h, --help                             Print help\n"
+  }
+]

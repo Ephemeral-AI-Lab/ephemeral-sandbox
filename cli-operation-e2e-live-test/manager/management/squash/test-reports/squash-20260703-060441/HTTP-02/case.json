@@ -1,0 +1,6 @@
+{
+  "id": "HTTP-02",
+  "scenario": "http_pinned",
+  "tier": "medium",
+  "title": "workspace-cwd HTTP server resumes leased"
+}

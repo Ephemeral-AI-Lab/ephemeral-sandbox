@@ -1,0 +1,34 @@
+{
+  "T_e2e": {
+    "count": 2,
+    "max_ms": 18083.249,
+    "mean_ms": 9607.915,
+    "min_ms": 1132.582,
+    "p50_ms": 9607.915,
+    "p95_ms": 17235.716
+  },
+  "T_squash": {
+    "count": 1,
+    "max_ms": 418.73,
+    "mean_ms": 418.73,
+    "min_ms": 418.73,
+    "p50_ms": 418.73,
+    "p95_ms": 418.73
+  },
+  "T_squash_invocation_1": {
+    "count": 1,
+    "max_ms": 418.73,
+    "mean_ms": 418.73,
+    "min_ms": 418.73,
+    "p50_ms": 418.73,
+    "p95_ms": 418.73
+  },
+  "T_squash_invocation_2": {
+    "count": 1,
+    "max_ms": 36.575,
+    "mean_ms": 36.575,
+    "min_ms": 36.575,
+    "p50_ms": 36.575,
+    "p95_ms": 36.575
+  }
+}

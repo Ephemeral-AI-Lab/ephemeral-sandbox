@@ -1,0 +1,6 @@
+{
+  "id": "SMK-08",
+  "scenario": "observability",
+  "tier": "smoke",
+  "title": "the three observability records, and only those"
+}

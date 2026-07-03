@@ -1,0 +1,22 @@
+{
+  "T_e2e": {
+    "ms": 1225.836,
+    "source": "harness"
+  },
+  "T_quiesce": {
+    "ms": 0.0,
+    "source": "derived"
+  },
+  "T_remount": {
+    "ms": 1.0,
+    "source": "derived"
+  },
+  "T_squash": {
+    "ms": 38.124,
+    "source": "harness"
+  },
+  "T_squash_invocation_1": {
+    "ms": 38.124,
+    "source": "harness"
+  }
+}

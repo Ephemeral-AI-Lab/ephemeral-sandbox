@@ -1,0 +1,593 @@
+[
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "create_sandbox",
+      "--image",
+      "ubuntu:24.04",
+      "--workspace-bind-root",
+      "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_smoke_catalog_SMK_6/smk-07"
+    ],
+    "elapsed_ms": 559.839,
+    "exit_code": 0,
+    "parsed_json": {
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 58993
+      },
+      "daemon_http": {
+        "host": "127.0.0.1",
+        "port": 58994
+      },
+      "id": "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "shared_base": {
+        "readonly": true,
+        "root_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "source": "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_smoke_catalog_SMK_6/eos-shared-workspace-base-cache/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/base",
+        "target": "/eos/layer-stack/base"
+      },
+      "state": "ready",
+      "workspace_root": "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_smoke_catalog_SMK_6/smk-07"
+    },
+    "stderr": "",
+    "stdout": "{\"id\":\"eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a\",\"workspace_root\":\"/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_smoke_catalog_SMK_6/smk-07\",\"state\":\"ready\",\"daemon\":{\"host\":\"127.0.0.1\",\"port\":58993},\"daemon_http\":{\"host\":\"127.0.0.1\",\"port\":58994},\"shared_base\":{\"source\":\"/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_smoke_catalog_SMK_6/eos-shared-workspace-base-cache/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/base\",\"target\":\"/eos/layer-stack/base\",\"root_hash\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"readonly\":true}}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "file_write",
+      "--path",
+      "data/p1.txt",
+      "--content",
+      "p1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np1\np"
+    ],
+    "elapsed_ms": 43.379,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 16384,
+      "path": "data/p1.txt",
+      "type": "create"
+    },
+    "stderr": "",
+    "stdout": "{\"type\":\"create\",\"path\":\"data/p1.txt\",\"bytes_written\":16384}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "file_write",
+      "--path",
+      "data/p2.txt",
+      "--content",
+      "p2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np2\np"
+    ],
+    "elapsed_ms": 37.153,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 16384,
+      "path": "data/p2.txt",
+      "type": "create"
+    },
+    "stderr": "",
+    "stdout": "{\"type\":\"create\",\"path\":\"data/p2.txt\",\"bytes_written\":16384}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "file_write",
+      "--path",
+      "data/p3.txt",
+      "--content",
+      "p3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np3\np"
+    ],
+    "elapsed_ms": 38.258,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 16384,
+      "path": "data/p3.txt",
+      "type": "create"
+    },
+    "stderr": "",
+    "stdout": "{\"type\":\"create\",\"path\":\"data/p3.txt\",\"bytes_written\":16384}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "create_workspace_session"
+    ],
+    "elapsed_ms": 32.403,
+    "exit_code": 0,
+    "parsed_json": {
+      "finalize_policy": "no_op",
+      "network_profile": "shared",
+      "workspace_session_id": "00000118be986baf7bef75"
+    },
+    "stderr": "",
+    "stdout": "{\"workspace_session_id\":\"00000118be986baf7bef75\",\"network_profile\":\"shared\",\"finalize_policy\":\"no_op\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "exec_command",
+      "--workspace-session-id",
+      "00000118be986baf7bef75",
+      "--timeout-ms",
+      "120000",
+      "--yield-time-ms",
+      "300",
+      "cd /workspace && read x"
+    ],
+    "elapsed_ms": 351.845,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_1",
+      "command_total_time_seconds": 0.321783583,
+      "end_offset": 0,
+      "exit_code": null,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 0,
+      "wall_time_seconds": 0.321783583,
+      "workspace_session_id": "00000118be986baf7bef75"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.321783583,\"command_total_time_seconds\":0.321783583,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"command_session_id\":\"namespace_execution_1\",\"workspace_session_id\":\"00000118be986baf7bef75\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a"
+    ],
+    "elapsed_ms": 29.594,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 1,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 16384,
+          "layer_id": "L000004-00000008",
+          "leased_by_workspaces": 1
+        },
+        {
+          "booked_by": [
+            "L000004-00000008"
+          ],
+          "bytes": 16384,
+          "layer_id": "L000003-00000004",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-00000008"
+          ],
+          "bytes": 16384,
+          "layer_id": "L000002-00000000",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-00000008"
+          ],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 4,
+      "root_hash": "b1bb9e2bfb2dd23bbbeee775ed24cb1d67519bcebf87ed34f6811d4c42ff75b0",
+      "total_bytes": 49152,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 16384,
+          "ts": 1783030090655
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 32768,
+          "ts": 1783030090692
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 49152,
+          "ts": 1783030090731
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 49152,
+          "ts": 1783030090763
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 49152,
+          "ts": 1783030091115
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":4,\"root_hash\":\"b1bb9e2bfb2dd23bbbeee775ed24cb1d67519bcebf87ed34f6811d4c42ff75b0\",\"active_lease_count\":1,\"total_bytes\":49152,\"layers\":[{\"layer_id\":\"L000004-00000008\",\"bytes\":16384,\"leased_by_workspaces\":1,\"booked_by\":[]},{\"layer_id\":\"L000003-00000004\",\"bytes\":16384,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000008\"]},{\"layer_id\":\"L000002-00000000\",\"bytes\":16384,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000008\"]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000008\"]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":16384,\"active_leases\":0,\"ts\":1783030090655},{\"layer_count\":3,\"layers_bytes\":32768,\"active_leases\":0,\"ts\":1783030090692},{\"layer_count\":4,\"layers_bytes\":49152,\"active_leases\":0,\"ts\":1783030090731},{\"layer_count\":4,\"layers_bytes\":49152,\"active_leases\":1,\"ts\":1783030090763},{\"layer_count\":4,\"layers_bytes\":49152,\"active_leases\":1,\"ts\":1783030091115}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 70.264,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 49152\nstaging_entries 0\nremount_residue 0\nlayer_dirs L000002-00000000,L000003-00000004,L000004-00000008,\nfree_bytes 120490098688\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "checkpoint_squash",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a"
+    ],
+    "elapsed_ms": 38.659,
+    "exit_code": 0,
+    "parsed_json": {
+      "manifest_version": 5,
+      "squashed_blocks": [
+        {
+          "blocked_reasons": [
+            "pinned:cwd_pinned_workspace"
+          ],
+          "replaced_layer_ids": [
+            "L000003-00000004",
+            "L000002-00000000"
+          ],
+          "replaced_layers": "leased",
+          "squashed_layer_id": "S000005-0000000e"
+        }
+      ]
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":5,\"squashed_blocks\":[{\"squashed_layer_id\":\"S000005-0000000e\",\"replaced_layer_ids\":[\"L000003-00000004\",\"L000002-00000000\"],\"replaced_layers\":\"leased\",\"blocked_reasons\":[\"pinned:cwd_pinned_workspace\"]}]}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a"
+    ],
+    "elapsed_ms": 29.73,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 1,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 16384,
+          "layer_id": "L000004-00000008",
+          "leased_by_workspaces": 1
+        },
+        {
+          "booked_by": [
+            "L000004-00000008"
+          ],
+          "bytes": 32768,
+          "layer_id": "S000005-0000000e",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-00000008"
+          ],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 5,
+      "root_hash": "ca680441df62b6a5e3b391f82ab4b29ecd8ae839607f4e33b79e4ccc69326af4",
+      "total_bytes": 49152,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 16384,
+          "ts": 1783030090655
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 32768,
+          "ts": 1783030090692
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 49152,
+          "ts": 1783030090731
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 49152,
+          "ts": 1783030090763
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 49152,
+          "ts": 1783030091115
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 3,
+          "layers_bytes": 49152,
+          "ts": 1783030091255
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":5,\"root_hash\":\"ca680441df62b6a5e3b391f82ab4b29ecd8ae839607f4e33b79e4ccc69326af4\",\"active_lease_count\":1,\"total_bytes\":49152,\"layers\":[{\"layer_id\":\"L000004-00000008\",\"bytes\":16384,\"leased_by_workspaces\":1,\"booked_by\":[]},{\"layer_id\":\"S000005-0000000e\",\"bytes\":32768,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000008\"]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000008\"]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":16384,\"active_leases\":0,\"ts\":1783030090655},{\"layer_count\":3,\"layers_bytes\":32768,\"active_leases\":0,\"ts\":1783030090692},{\"layer_count\":4,\"layers_bytes\":49152,\"active_leases\":0,\"ts\":1783030090731},{\"layer_count\":4,\"layers_bytes\":49152,\"active_leases\":1,\"ts\":1783030090763},{\"layer_count\":4,\"layers_bytes\":49152,\"active_leases\":1,\"ts\":1783030091115},{\"layer_count\":3,\"layers_bytes\":49152,\"active_leases\":1,\"ts\":1783030091255}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 72.048,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 49152\nstaging_entries 0\nremount_residue 0\nlayer_dirs S000005-0000000e,L000002-00000000,L000003-00000004,L000004-00000008,\nfree_bytes 120490082304\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "exec_command",
+      "--workspace-session-id",
+      "00000118be986baf7bef75",
+      "cat data/p1.txt | wc -c"
+    ],
+    "elapsed_ms": 67.453,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.033584167,
+      "end_offset": 1,
+      "exit_code": 0,
+      "original_token_count": 2,
+      "output": "16384",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 1,
+      "wall_time_seconds": 0.033648542,
+      "workspace_session_id": "00000118be986baf7bef75"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.033648542,\"command_total_time_seconds\":0.033584167,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":2,\"output\":\"16384\",\"workspace_session_id\":\"00000118be986baf7bef75\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "write_command_stdin",
+      "--command-session-id",
+      "namespace_execution_1",
+      "--yield-time-ms",
+      "5000",
+      "go\n"
+    ],
+    "elapsed_ms": 36.348,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_1",
+      "command_total_time_seconds": 0.669229833,
+      "end_offset": 1,
+      "exit_code": 0,
+      "original_token_count": 1,
+      "output": "go",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 1,
+      "wall_time_seconds": 0.669268875,
+      "workspace_session_id": "00000118be986baf7bef75"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.669268875,\"command_total_time_seconds\":0.669229833,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":1,\"output\":\"go\",\"command_session_id\":\"namespace_execution_1\",\"workspace_session_id\":\"00000118be986baf7bef75\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "destroy_workspace_session",
+      "--workspace-session-id",
+      "00000118be986baf7bef75",
+      "--grace-s",
+      "1"
+    ],
+    "elapsed_ms": 52.095,
+    "exit_code": 0,
+    "parsed_json": {
+      "destroyed": true,
+      "evicted_upperdir_bytes": 0,
+      "workspace_session_id": "00000118be986baf7bef75"
+    },
+    "stderr": "",
+    "stdout": "{\"workspace_session_id\":\"00000118be986baf7bef75\",\"destroyed\":true,\"evicted_upperdir_bytes\":0}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "checkpoint_squash",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a"
+    ],
+    "elapsed_ms": 34.298,
+    "exit_code": 0,
+    "parsed_json": {
+      "manifest_version": 6,
+      "squashed_blocks": [
+        {
+          "replaced_layer_ids": [
+            "L000004-00000008",
+            "S000005-0000000e"
+          ],
+          "replaced_layers": "reclaimed",
+          "squashed_layer_id": "S000006-00000012"
+        }
+      ]
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":6,\"squashed_blocks\":[{\"squashed_layer_id\":\"S000006-00000012\",\"replaced_layer_ids\":[\"L000004-00000008\",\"S000005-0000000e\"],\"replaced_layers\":\"reclaimed\"}]}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a"
+    ],
+    "elapsed_ms": 30.55,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 0,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 49152,
+          "layer_id": "S000006-00000012",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 6,
+      "root_hash": "f130da707a23b9d09882f004988bbe26606ab9f8e8e6ccd434a48f59f9540e8c",
+      "total_bytes": 49152,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 16384,
+          "ts": 1783030090655
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 32768,
+          "ts": 1783030090692
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 49152,
+          "ts": 1783030090731
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 49152,
+          "ts": 1783030090763
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 49152,
+          "ts": 1783030091115
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 3,
+          "layers_bytes": 49152,
+          "ts": 1783030091255
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 3,
+          "layers_bytes": 49152,
+          "ts": 1783030091425
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 3,
+          "layers_bytes": 49152,
+          "ts": 1783030091462
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 49152,
+          "ts": 1783030091514
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 49152,
+          "ts": 1783030091549
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":6,\"root_hash\":\"f130da707a23b9d09882f004988bbe26606ab9f8e8e6ccd434a48f59f9540e8c\",\"active_lease_count\":0,\"total_bytes\":49152,\"layers\":[{\"layer_id\":\"S000006-00000012\",\"bytes\":49152,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":16384,\"active_leases\":0,\"ts\":1783030090655},{\"layer_count\":3,\"layers_bytes\":32768,\"active_leases\":0,\"ts\":1783030090692},{\"layer_count\":4,\"layers_bytes\":49152,\"active_leases\":0,\"ts\":1783030090731},{\"layer_count\":4,\"layers_bytes\":49152,\"active_leases\":1,\"ts\":1783030090763},{\"layer_count\":4,\"layers_bytes\":49152,\"active_leases\":1,\"ts\":1783030091115},{\"layer_count\":3,\"layers_bytes\":49152,\"active_leases\":1,\"ts\":1783030091255},{\"layer_count\":3,\"layers_bytes\":49152,\"active_leases\":1,\"ts\":1783030091425},{\"layer_count\":3,\"layers_bytes\":49152,\"active_leases\":1,\"ts\":1783030091462},{\"layer_count\":3,\"layers_bytes\":49152,\"active_leases\":0,\"ts\":1783030091514},{\"layer_count\":2,\"layers_bytes\":49152,\"active_leases\":0,\"ts\":1783030091549}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-e52dbb86-013c-46ee-8aec-3d6740b8c54a",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 61.768,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 49152\nstaging_entries 0\nremount_residue 0\nlayer_dirs S000006-00000012,\nfree_bytes 120490135552\n"
+  }
+]

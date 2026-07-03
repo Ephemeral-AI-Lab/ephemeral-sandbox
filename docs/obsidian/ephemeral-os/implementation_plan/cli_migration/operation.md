@@ -41,15 +41,18 @@ sandbox-manager-cli [GLOBAL FLAGS] OPERATION [ARGS…]
 sandbox-manager-cli [GLOBAL FLAGS] observability OPERATION [ARGS…]
 
 # agent surface: drive exactly one sandbox
-sandbox-runtime-cli [GLOBAL FLAGS] [--sandbox-id ID] OPERATION [ARGS…]
+sandbox-runtime-cli [GLOBAL FLAGS] --sandbox-id ID OPERATION [ARGS…]
 ```
 
-**Global flags** — both binaries: `--gateway-socket HOST:PORT` (default
-`127.0.0.1:7878`), `--gateway-auth-token TOKEN` (or
+**Global flags** (optional — apply to both binaries): `--gateway-socket HOST:PORT`
+(default `127.0.0.1:7878`), `--gateway-auth-token TOKEN` (or
 `SANDBOX_GATEWAY_AUTH_TOKEN` via the `bin/sandbox-manager-cli` /
 `bin/sandbox-runtime-cli` wrappers reading `/tmp/eos-gateway.token`).
-Manager-only: `--progress`. Runtime-only: `--sandbox-id ID` (fallback:
-`SANDBOX_DEFAULT_ID` env / config default).
+Manager-only: `--progress`.
+
+**Required runtime flag** — `sandbox-runtime-cli` takes `--sandbox-id ID` on
+**every** invocation. It is a required flag, not one of the optional global
+flags, and has no `SANDBOX_DEFAULT_ID` env var or config-default fallback.
 
 **Output contract**
 
@@ -268,7 +271,7 @@ sandbox-manager-cli inspect_sandbox --sandbox-id eos-7c9e…
 **V3 — unknown id** → stderr, exit 1:
 `{"error":{"kind":"invalid_request","message":"sandbox not found: …"}}`
 
-## `checkpoint_squash`
+## `layerstack_squash`
 
 Squash the sandbox's published layers and live-remount sessions. The
 manager forwards one `squash_layerstack` to the daemon and returns the
@@ -277,7 +280,7 @@ daemon response **verbatim**.
 **V1 — blocks squashed, old layers reclaimed** → stdout, exit 0:
 
 ```sh
-sandbox-manager-cli checkpoint_squash --sandbox-id eos-7c9e…
+sandbox-manager-cli layerstack_squash --sandbox-id eos-7c9e…
 ```
 
 ```json
@@ -364,13 +367,12 @@ sandbox-manager-cli snapshot
 All runtime ops require a sandbox id and are forwarded to that sandbox's
 daemon.
 
-**Sandbox-id resolution variants** (apply to every runtime op):
+**Sandbox-id handling** (`--sandbox-id ID` is required on every runtime op):
 
 | Variant | Command shape | Result |
 |---|---|---|
 | explicit | `sandbox-runtime-cli --sandbox-id eos-7c9e… exec_command pwd` | normal dispatch |
-| env/config default | `SANDBOX_DEFAULT_ID=eos-7c9e…` + `sandbox-runtime-cli exec_command pwd` | normal dispatch |
-| none | `sandbox-runtime-cli exec_command pwd` | stderr exit 2: `"runtime operations require --sandbox-id or SANDBOX_DEFAULT_ID"` |
+| missing | `sandbox-runtime-cli exec_command pwd` | stderr exit 2: `"runtime operations require --sandbox-id"` |
 | empty | `--sandbox-id ""` | stderr exit 2: `"runtime sandbox id must be non-empty"` |
 | unknown sandbox | any op | stderr exit 1: `"sandbox not found: <id>"` (`invalid_request`) |
 | sandbox stopped | any op | stderr exit 1: `"invalid state transition for <id>: stopped -> ready"` |
@@ -379,10 +381,18 @@ daemon.
 
 ## `exec_command`
 
-Start a shell command. Without `--workspace-session-id` it runs in a
-one-shot ephemeral shared-network workspace, destroyed at terminal state.
+Start a shell command in a workspace session. With
+`--workspace-session-id`, run inside that existing session. Without it,
+`exec_command` creates a shared-network session with finalize policy
+`publish_then_destroy`: when the session's last running command reaches
+terminal state it captures and publishes the session's changes to the
+layerstack, then destroys the session. The response carries
+`workspace_session_id` (an identifier, not a liveness promise) so callers
+can attach progress-check commands to a still-running session. File
+operations and remounts run under the session's admission gate and neither
+extend nor trigger this lifecycle.
 
-**V1 — quick command, one-shot workspace** → stdout, exit 0:
+**V1 — quick command, implicit session** → stdout, exit 0:
 
 ```sh
 sandbox-runtime-cli --sandbox-id eos-7c9e… exec_command pwd
@@ -398,12 +408,16 @@ sandbox-runtime-cli --sandbox-id eos-7c9e… exec_command pwd
   "end_offset": 1,
   "total_lines": 1,
   "original_token_count": 3,
-  "output": "/workspace\n"
+  "output": "/workspace\n",
+  "workspace_session_id": "ws-1"
 }
 ```
 
 No `command_session_id`: the command reached terminal state within the
-initial yield, so the ephemeral workspace is already gone.
+initial yield, so there is no running command to follow up on.
+`workspace_session_id` is still returned, but it identifies the implicit
+`publish_then_destroy` session that has already captured, published, and
+destroyed — an identifier, not a liveness promise.
 
 **V2 — command fails (non-zero exit)** → **stdout, exit 0** — an
 operation success carrying `status:"error"`:
@@ -422,12 +436,15 @@ sandbox-runtime-cli --sandbox-id eos-7c9e… exec_command "ls /does-not-exist"
   "end_offset": 1,
   "total_lines": 1,
   "original_token_count": 12,
-  "output": "ls: cannot access '/does-not-exist': No such file or directory\n"
+  "output": "ls: cannot access '/does-not-exist': No such file or directory\n",
+  "workspace_session_id": "ws-1"
 }
 ```
 
 **V3 — still running after the yield** → stdout, exit 0;
-`status:"running"` and a `command_session_id` for follow-up:
+`status:"running"` with a `command_session_id` (to follow up on this
+command) and a `workspace_session_id` (to attach progress-check commands to
+the same session):
 
 ```sh
 sandbox-runtime-cli --sandbox-id eos-7c9e… exec_command --yield-time-ms 0 "sleep 30"
@@ -444,12 +461,20 @@ sandbox-runtime-cli --sandbox-id eos-7c9e… exec_command --yield-time-ms 0 "sle
   "total_lines": 0,
   "original_token_count": 0,
   "output": "",
-  "command_session_id": "namespace_execution_7"
+  "command_session_id": "namespace_execution_7",
+  "workspace_session_id": "ws-1"
 }
 ```
 
-**V4 — inside a persistent session** (state persists across commands in
-the same session's mounted workspace):
+Because the session stays live while this command runs, a second
+`exec_command --workspace-session-id ws-1 …` (a progress-check rider)
+defers the `publish_then_destroy` finalize until the last command in the
+session reaches terminal state.
+
+**V4 — inside an explicit session** — a session from
+`create_workspace_session` has `finalize_policy: no_op`, so its state
+persists across commands in the same mounted workspace until
+`destroy_workspace_session`:
 
 ```sh
 sandbox-runtime-cli --sandbox-id eos-7c9e… exec_command --workspace-session-id ws-1 "echo hi > /workspace/x.txt"
@@ -476,6 +501,32 @@ missing positional → `"COMMAND is required for exec_command"`;
 `--timeout-ms fast` → `"--timeout-ms must be an unsigned integer"`;
 `--shell bash` → `"unknown flag for exec_command: --shell"`.
 
+**V8 — finalize publish rejected** → stdout, exit 0. When this command's
+terminal completion runs the implicit session's `publish_then_destroy`
+finalize and the publish is rejected (e.g. an unresolvable
+`source_conflict`), the session is still destroyed — unpublished upperdir
+changes are discarded — and the terminal response carries
+`publish_rejected`:
+
+```json
+{
+  "status": "ok",
+  "exit_code": 0,
+  "…": "…",
+  "output": "…",
+  "workspace_session_id": "ws-1",
+  "publish_rejected": true
+}
+```
+
+`publish_rejected` appears only on a terminal response whose completion ran
+a rejected finalize; an accompanying reject class names the `PublishReject`
+variant. The same rejection is also observable via the finalize span (error
+status) and a `workspace_session.finalize.publish_failed` event (see
+`sandbox-manager-cli observability trace|events`). Non-conflicting
+concurrent publishes still merge — only unresolvable source conflicts
+reject.
+
 ## `write_command_stdin`
 
 **V1 — feed a line to an interactive command** → stdout, exit 0; returns
@@ -498,9 +549,14 @@ sandbox-runtime-cli --sandbox-id eos-7c9e… write_command_stdin --command-sessi
   "total_lines": 4,
   "original_token_count": 9,
   "output": ">>> print(6*7)\n42\n",
-  "command_session_id": "namespace_execution_7"
+  "command_session_id": "namespace_execution_7",
+  "workspace_session_id": "ws-1"
 }
 ```
+
+`workspace_session_id` (shared `CommandOutput` field) names the session
+hosting this command — here the implicit session the launching
+`exec_command` created.
 
 **V2 — with `--yield-time-ms 2000`** — waits up to 2 s for output after
 the write; same shape.
@@ -547,7 +603,8 @@ sandbox-runtime-cli --sandbox-id eos-7c9e… read_command_lines --command-sessio
   "total_lines": 342,
   "original_token_count": 780,
   "output": "…first 100 transcript lines…",
-  "command_session_id": "namespace_execution_7"
+  "command_session_id": "namespace_execution_7",
+  "workspace_session_id": "ws-1"
 }
 ```
 
@@ -565,6 +622,10 @@ never fault the protocol; the error is in-band).
 
 ## `create_workspace_session`
 
+CLI-created sessions always have `finalize_policy: "no_op"` — they live
+until `destroy_workspace_session`. `publish_then_destroy` is set only by
+`exec_command`'s implicit session and is not exposed as a flag here.
+
 **V1 — default (shared network)** → stdout, exit 0:
 
 ```sh
@@ -572,7 +633,7 @@ sandbox-runtime-cli --sandbox-id eos-7c9e… create_workspace_session
 ```
 
 ```json
-{ "workspace_session_id": "ws-1", "network_profile": "shared" }
+{ "workspace_session_id": "ws-1", "network_profile": "shared", "finalize_policy": "no_op" }
 ```
 
 **V2 — isolated network namespace**:
@@ -582,7 +643,7 @@ sandbox-runtime-cli --sandbox-id eos-7c9e… create_workspace_session --network-
 ```
 
 ```json
-{ "workspace_session_id": "ws-2", "network_profile": "isolated" }
+{ "workspace_session_id": "ws-2", "network_profile": "isolated", "finalize_policy": "no_op" }
 ```
 
 **V3 — invalid profile** → stderr, exit 1:
@@ -592,6 +653,12 @@ sandbox-runtime-cli --sandbox-id eos-7c9e… create_workspace_session --network-
 ```
 
 ## `destroy_workspace_session`
+
+Destroys a session and discards any unpublished upperdir changes regardless
+of its finalize policy. Refuses while the session's command ledger is
+non-empty (V3); it also destroys sessions stuck in `finalize_failed` /
+`finalizing`, the recovery path after a failed `publish_then_destroy`
+finalize.
 
 **V1 — success** → stdout, exit 0:
 
@@ -829,6 +896,7 @@ sandbox-manager-cli observability snapshot --sandbox-id eos-7c9e…
       "workspace_id": "ws-1",
       "lifecycle_state": "active",
       "network_profile": "shared",
+      "finalize_policy": "no_op",
       "layers": { "base_root_hash": "3f9d2c81…", "layer_count": 3 },
       "namespace_fd_count": 4,
       "resources": { "latest": null, "history": [] },
@@ -885,7 +953,7 @@ sandbox-manager-cli observability trace --sandbox-id eos-7c9e…
   "trace": "req-7f3",
   "spans": [
     {
-      "span": { "ts": 1751500000000, "trace": "req-7f3", "span": "d-11", "parent": null, "name": "operation.exec_command", "dur_ms": 44.1, "status": "completed", "attrs": {} },
+      "span": { "ts": 1751500000000, "trace": "req-7f3", "span": "d-11", "parent": null, "name": "operation.exec_command", "dur_ms": 44.1, "status": "completed", "attrs": { "finalize_policy": "publish_then_destroy", "session_created": true } },
       "offset_ms": 0.0,
       "children": [
         {
@@ -903,7 +971,11 @@ sandbox-manager-cli observability trace --sandbox-id eos-7c9e…
 }
 ```
 
-Span `status` ∈ `completed | error | cancelled | timed_out`.
+Span `status` ∈ `completed | error | cancelled | timed_out`. The
+`operation.exec_command` span carries `finalize_policy` and
+`session_created` attrs (replacing the former `one_shot` attr); a
+`publish_then_destroy` session that finalizes on this command's completion
+nests a finalize span under the operation span.
 
 **V2 — specific trace** — `--trace-id req-7f3`; same shape.
 
@@ -1056,7 +1128,7 @@ runtime `squash_layerstack`.
 
 | Op | Scope | Who calls it | Notes |
 |---|---|---|---|
-| `squash_layerstack` | sandbox | manager's `checkpoint_squash` | daemon-local squash + remount sweep; response returned verbatim to the CLI |
+| `squash_layerstack` | sandbox | manager's `layerstack_squash` | daemon-local squash + remount sweep; response returned verbatim to the CLI |
 | `get_observability` | sandbox | CLI observability rewrite | `args.view` selects the daemon view; unknown view → `invalid_request` `"unsupported observability view: X"`; missing view → `"observability request requires a view"` |
 | `snapshot` (manager) | system | CLI `observability snapshot` (no id) | hidden aggregate |
 | `sandbox_daemon_ready` | sandbox | `sandbox-provider-docker` readiness probe | never user-visible |

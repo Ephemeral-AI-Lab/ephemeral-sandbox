@@ -1,0 +1,372 @@
+{
+  "case": "PERF-WIDTH",
+  "cores": 4,
+  "label": "width",
+  "overrides": {
+    "SQUASH_AB_SESSIONS": "200",
+    "SQUASH_BENCH_REPEATS": "3",
+    "SQUASH_MIGRATE_RATIO": "1.0"
+  },
+  "widths": {
+    "1": {
+      "aggregate": {
+        "invocations": 3,
+        "migrated_dur_ms": {
+          "max_ms": 15.0,
+          "mean_ms": 4.942,
+          "median_ms": 5.0,
+          "min_ms": 3.0,
+          "n": 600,
+          "p95_ms": 7.0,
+          "sum_ms": 2965.0
+        },
+        "non_sweep_ms": {
+          "max": 23.0,
+          "p50": 19.0
+        },
+        "overlap_factor": {
+          "max": 1.0,
+          "min": 1.0,
+          "p50": 1.0,
+          "p95": 1.0
+        },
+        "parent_ms": {
+          "max": 1093.0,
+          "p50": 974.0,
+          "p95": 1081.1
+        },
+        "sweep_wall_ms": {
+          "max": 1074.0,
+          "p50": 951.0,
+          "p95": 1061.7
+        },
+        "sweep_width_reported": [
+          1
+        ],
+        "swept_reported": [
+          200
+        ]
+      },
+      "repeats": [
+        {
+          "T_squash_ms": 1124.845,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W1-r1/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W1-r1",
+          "status": "PASS",
+          "sweep_width_reported": 1
+        },
+        {
+          "T_squash_ms": 998.191,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W1-r2/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W1-r2",
+          "status": "PASS",
+          "sweep_width_reported": 1
+        },
+        {
+          "T_squash_ms": 1005.207,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W1-r3/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W1-r3",
+          "status": "PASS",
+          "sweep_width_reported": 1
+        }
+      ]
+    },
+    "16": {
+      "aggregate": {
+        "invocations": 3,
+        "migrated_dur_ms": {
+          "max_ms": 63.0,
+          "mean_ms": 29.018,
+          "median_ms": 28.0,
+          "min_ms": 10.0,
+          "n": 600,
+          "p95_ms": 45.0,
+          "sum_ms": 17411.0
+        },
+        "non_sweep_ms": {
+          "max": 19.0,
+          "p50": 18.0
+        },
+        "overlap_factor": {
+          "max": 15.6,
+          "min": 15.42,
+          "p50": 15.49,
+          "p95": 15.589
+        },
+        "parent_ms": {
+          "max": 395.0,
+          "p50": 391.0,
+          "p95": 394.6
+        },
+        "sweep_wall_ms": {
+          "max": 376.0,
+          "p50": 374.0,
+          "p95": 375.8
+        },
+        "sweep_width_reported": [
+          16
+        ],
+        "swept_reported": [
+          200
+        ]
+      },
+      "repeats": [
+        {
+          "T_squash_ms": 422.536,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W16-r1/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W16-r1",
+          "status": "PASS",
+          "sweep_width_reported": 16
+        },
+        {
+          "T_squash_ms": 426.127,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W16-r2/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W16-r2",
+          "status": "PASS",
+          "sweep_width_reported": 16
+        },
+        {
+          "T_squash_ms": 418.73,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W16-r3/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W16-r3",
+          "status": "PASS",
+          "sweep_width_reported": 16
+        }
+      ]
+    },
+    "2": {
+      "aggregate": {
+        "invocations": 3,
+        "migrated_dur_ms": {
+          "max_ms": 12.0,
+          "mean_ms": 5.222,
+          "median_ms": 5.0,
+          "min_ms": 2.0,
+          "n": 600,
+          "p95_ms": 7.0,
+          "sum_ms": 3133.0
+        },
+        "non_sweep_ms": {
+          "max": 24.0,
+          "p50": 20.0
+        },
+        "overlap_factor": {
+          "max": 1.99,
+          "min": 1.97,
+          "p50": 1.97,
+          "p95": 1.988
+        },
+        "parent_ms": {
+          "max": 561.0,
+          "p50": 559.0,
+          "p95": 560.8
+        },
+        "sweep_wall_ms": {
+          "max": 541.0,
+          "p50": 535.0,
+          "p95": 540.4
+        },
+        "sweep_width_reported": [
+          2
+        ],
+        "swept_reported": [
+          200
+        ]
+      },
+      "repeats": [
+        {
+          "T_squash_ms": 588.765,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W2-r1/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W2-r1",
+          "status": "PASS",
+          "sweep_width_reported": 2
+        },
+        {
+          "T_squash_ms": 555.761,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W2-r2/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W2-r2",
+          "status": "PASS",
+          "sweep_width_reported": 2
+        },
+        {
+          "T_squash_ms": 586.632,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W2-r3/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W2-r3",
+          "status": "PASS",
+          "sweep_width_reported": 2
+        }
+      ]
+    },
+    "4": {
+      "aggregate": {
+        "invocations": 3,
+        "migrated_dur_ms": {
+          "max_ms": 18.0,
+          "mean_ms": 7.262,
+          "median_ms": 7.0,
+          "min_ms": 3.0,
+          "n": 600,
+          "p95_ms": 10.0,
+          "sum_ms": 4357.0
+        },
+        "non_sweep_ms": {
+          "max": 22.0,
+          "p50": 19.0
+        },
+        "overlap_factor": {
+          "max": 3.93,
+          "min": 3.9,
+          "p50": 3.92,
+          "p95": 3.929
+        },
+        "parent_ms": {
+          "max": 405.0,
+          "p50": 390.0,
+          "p95": 403.5
+        },
+        "sweep_wall_ms": {
+          "max": 386.0,
+          "p50": 368.0,
+          "p95": 384.2
+        },
+        "sweep_width_reported": [
+          4
+        ],
+        "swept_reported": [
+          200
+        ]
+      },
+      "repeats": [
+        {
+          "T_squash_ms": 417.307,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W4-r1/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W4-r1",
+          "status": "PASS",
+          "sweep_width_reported": 4
+        },
+        {
+          "T_squash_ms": 406.222,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W4-r2/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W4-r2",
+          "status": "PASS",
+          "sweep_width_reported": 4
+        },
+        {
+          "T_squash_ms": 432.802,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W4-r3/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W4-r3",
+          "status": "PASS",
+          "sweep_width_reported": 4
+        }
+      ]
+    },
+    "8": {
+      "aggregate": {
+        "invocations": 3,
+        "migrated_dur_ms": {
+          "max_ms": 29.0,
+          "mean_ms": 14.587,
+          "median_ms": 14.0,
+          "min_ms": 6.0,
+          "n": 600,
+          "p95_ms": 21.0,
+          "sum_ms": 8752.0
+        },
+        "non_sweep_ms": {
+          "max": 20.0,
+          "p50": 18.0
+        },
+        "overlap_factor": {
+          "max": 7.88,
+          "min": 7.78,
+          "p50": 7.79,
+          "p95": 7.871
+        },
+        "parent_ms": {
+          "max": 401.0,
+          "p50": 397.0,
+          "p95": 400.6
+        },
+        "sweep_wall_ms": {
+          "max": 383.0,
+          "p50": 380.0,
+          "p95": 382.7
+        },
+        "sweep_width_reported": [
+          8
+        ],
+        "swept_reported": [
+          200
+        ]
+      },
+      "repeats": [
+        {
+          "T_squash_ms": 424.174,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W8-r1/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W8-r1",
+          "status": "PASS",
+          "sweep_width_reported": 8
+        },
+        {
+          "T_squash_ms": 410.902,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W8-r2/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W8-r2",
+          "status": "PASS",
+          "sweep_width_reported": 8
+        },
+        {
+          "T_squash_ms": 430.466,
+          "block_count": 1,
+          "migrated": 200,
+          "report_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/width-W8-r3/PERF-WIDTH",
+          "returncode": 0,
+          "run_id": "width-W8-r3",
+          "status": "PASS",
+          "sweep_width_reported": 8
+        }
+      ]
+    }
+  }
+}

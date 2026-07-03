@@ -1,0 +1,54 @@
+{
+  "after_layer_dirs": 2,
+  "before_layer_dirs": 3,
+  "block_count": 1,
+  "block_target": 1,
+  "case_id": "PERF-WIDTH",
+  "final_by_prefix": {
+    "B": 1,
+    "L": 1,
+    "S": 1
+  },
+  "final_layer_count": 3,
+  "final_layer_ids": [
+    "B000001-base",
+    "L000004-00000008",
+    "S000005-000000d5"
+  ],
+  "identity_target": 0,
+  "measured_dispositions": {
+    "Migrated": 200
+  },
+  "migrate_target": 200,
+  "migrate_tolerance": 20,
+  "migrated": 200,
+  "params": {
+    "B": 1,
+    "I": 0,
+    "M_target": 200,
+    "N": 200,
+    "kib": 4,
+    "ratio": 1.0,
+    "repeats": 3
+  },
+  "pre_squash_layer_ids": [
+    "B000001-base",
+    "L000002-00000000",
+    "L000003-00000004",
+    "L000004-00000008"
+  ],
+  "squashed_layer_ids": [
+    "S000005-000000d5"
+  ],
+  "staging_after": 0,
+  "surviving_by_prefix": {
+    "B": 1,
+    "L": 1
+  },
+  "surviving_pre_squash_layer_ids": [
+    "B000001-base",
+    "L000004-00000008"
+  ],
+  "sweep_width_reported": 8,
+  "swept_reported": 200
+}

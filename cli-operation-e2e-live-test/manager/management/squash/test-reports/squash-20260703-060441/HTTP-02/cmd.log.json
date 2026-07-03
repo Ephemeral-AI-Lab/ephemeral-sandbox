@@ -1,0 +1,1560 @@
+[
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "create_sandbox",
+      "--image",
+      "ubuntu:24.04",
+      "--workspace-bind-root",
+      "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_medium_catalog_HTT1/http-02"
+    ],
+    "elapsed_ms": 716.063,
+    "exit_code": 0,
+    "parsed_json": {
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 58981
+      },
+      "daemon_http": {
+        "host": "127.0.0.1",
+        "port": 58982
+      },
+      "id": "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "shared_base": {
+        "readonly": true,
+        "root_hash": "6f4e433712e62cd9aeb1f477e3f45256ec57b7f85e718e49ecde43b8e62bd69d",
+        "source": "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_medium_catalog_HTT1/eos-shared-workspace-base-cache/6f4e433712e62cd9aeb1f477e3f45256ec57b7f85e718e49ecde43b8e62bd69d/base",
+        "target": "/eos/layer-stack/base"
+      },
+      "state": "ready",
+      "workspace_root": "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_medium_catalog_HTT1/http-02"
+    },
+    "stderr": "",
+    "stdout": "{\"id\":\"eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520\",\"workspace_root\":\"/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_medium_catalog_HTT1/http-02\",\"state\":\"ready\",\"daemon\":{\"host\":\"127.0.0.1\",\"port\":58981},\"daemon_http\":{\"host\":\"127.0.0.1\",\"port\":58982},\"shared_base\":{\"source\":\"/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_medium_catalog_HTT1/eos-shared-workspace-base-cache/6f4e433712e62cd9aeb1f477e3f45256ec57b7f85e718e49ecde43b8e62bd69d/base\",\"target\":\"/eos/layer-stack/base\",\"root_hash\":\"6f4e433712e62cd9aeb1f477e3f45256ec57b7f85e718e49ecde43b8e62bd69d\",\"readonly\":true}}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "file_write",
+      "--path",
+      "data/http-0.txt",
+      "--content",
+      "http-0\n"
+    ],
+    "elapsed_ms": 46.548,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 7,
+      "path": "data/http-0.txt",
+      "type": "create"
+    },
+    "stderr": "",
+    "stdout": "{\"type\":\"create\",\"path\":\"data/http-0.txt\",\"bytes_written\":7}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "file_write",
+      "--path",
+      "data/http-1.txt",
+      "--content",
+      "http-1\n"
+    ],
+    "elapsed_ms": 39.506,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 7,
+      "path": "data/http-1.txt",
+      "type": "create"
+    },
+    "stderr": "",
+    "stdout": "{\"type\":\"create\",\"path\":\"data/http-1.txt\",\"bytes_written\":7}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "file_write",
+      "--path",
+      "data/http-2.txt",
+      "--content",
+      "http-2\n"
+    ],
+    "elapsed_ms": 39.321,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 7,
+      "path": "data/http-2.txt",
+      "type": "create"
+    },
+    "stderr": "",
+    "stdout": "{\"type\":\"create\",\"path\":\"data/http-2.txt\",\"bytes_written\":7}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "create_workspace_session"
+    ],
+    "elapsed_ms": 37.427,
+    "exit_code": 0,
+    "parsed_json": {
+      "finalize_policy": "no_op",
+      "network_profile": "shared",
+      "workspace_session_id": "00000118be9868d5e28605"
+    },
+    "stderr": "",
+    "stdout": "{\"workspace_session_id\":\"00000118be9868d5e28605\",\"network_profile\":\"shared\",\"finalize_policy\":\"no_op\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "exec_command",
+      "cp /workspace/eos_squash_http \"/tmp/eos_squash_http\" && chmod 755 \"/tmp/eos_squash_http\""
+    ],
+    "elapsed_ms": 80.454,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.022037167,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.041827875,
+      "workspace_session_id": "00000218be9868d82b2615"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.041827875,\"command_total_time_seconds\":0.022037167,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000218be9868d82b2615\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "exec_command",
+      "--workspace-session-id",
+      "00000118be9868d5e28605",
+      "--timeout-ms",
+      "120000",
+      "--yield-time-ms",
+      "300",
+      "cd /workspace && /workspace/eos_squash_http server"
+    ],
+    "elapsed_ms": 365.181,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_2",
+      "command_total_time_seconds": 0.331433458,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "PORT=36035",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.331433458,
+      "workspace_session_id": "00000118be9868d5e28605"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.331433458,\"command_total_time_seconds\":0.331433458,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"PORT=36035\",\"command_session_id\":\"namespace_execution_2\",\"workspace_session_id\":\"00000118be9868d5e28605\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "exec_command",
+      "cd /tmp && /tmp/eos_squash_http probe 36035"
+    ],
+    "elapsed_ms": 101.766,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.030355417,
+      "end_offset": 1,
+      "exit_code": 0,
+      "original_token_count": 2,
+      "output": "http-ok",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 1,
+      "wall_time_seconds": 0.051431792,
+      "workspace_session_id": "00000318be9868f3426760"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.051431792,\"command_total_time_seconds\":0.030355417,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":2,\"output\":\"http-ok\",\"workspace_session_id\":\"00000318be9868f3426760\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520"
+    ],
+    "elapsed_ms": 34.098,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 1,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 7,
+          "layer_id": "L000004-00000008",
+          "leased_by_workspaces": 1
+        },
+        {
+          "booked_by": [
+            "L000004-00000008"
+          ],
+          "bytes": 7,
+          "layer_id": "L000003-00000004",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-00000008"
+          ],
+          "bytes": 7,
+          "layer_id": "L000002-00000000",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-00000008"
+          ],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 4,
+      "root_hash": "b1bb9e2bfb2dd23bbbeee775ed24cb1d67519bcebf87ed34f6811d4c42ff75b0",
+      "total_bytes": 21,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 7,
+          "ts": 1783030078406
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 14,
+          "ts": 1783030078446
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078486
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078523
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078603
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078967
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030079071
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":4,\"root_hash\":\"b1bb9e2bfb2dd23bbbeee775ed24cb1d67519bcebf87ed34f6811d4c42ff75b0\",\"active_lease_count\":1,\"total_bytes\":21,\"layers\":[{\"layer_id\":\"L000004-00000008\",\"bytes\":7,\"leased_by_workspaces\":1,\"booked_by\":[]},{\"layer_id\":\"L000003-00000004\",\"bytes\":7,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000008\"]},{\"layer_id\":\"L000002-00000000\",\"bytes\":7,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000008\"]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000008\"]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":7,\"active_leases\":0,\"ts\":1783030078406},{\"layer_count\":3,\"layers_bytes\":14,\"active_leases\":0,\"ts\":1783030078446},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":0,\"ts\":1783030078486},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030078523},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030078603},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030078967},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030079071}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 66.153,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 21\nstaging_entries 0\nremount_residue 0\nlayer_dirs L000002-00000000,L000003-00000004,L000004-00000008,\nfree_bytes 120485183488\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "exec_command",
+      "--timeout-ms",
+      "10000",
+      "--yield-time-ms",
+      "100",
+      "cd /tmp && /tmp/eos_squash_http client 36035 3.0"
+    ],
+    "elapsed_ms": 164.668,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 0.124663834,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.124663834,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.124663834,\"command_total_time_seconds\":0.124663834,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 34.461,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 0.160659292,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.160659292,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.160659292,\"command_total_time_seconds\":0.160659292,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "checkpoint_squash",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520"
+    ],
+    "elapsed_ms": 55.514,
+    "exit_code": 0,
+    "parsed_json": {
+      "manifest_version": 5,
+      "squashed_blocks": [
+        {
+          "blocked_reasons": [
+            "pinned:cwd_pinned_workspace"
+          ],
+          "replaced_layer_ids": [
+            "L000003-00000004",
+            "L000002-00000000"
+          ],
+          "replaced_layers": "leased",
+          "squashed_layer_id": "S000005-00000011"
+        }
+      ]
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":5,\"squashed_blocks\":[{\"squashed_layer_id\":\"S000005-00000011\",\"replaced_layer_ids\":[\"L000003-00000004\",\"L000002-00000000\"],\"replaced_layers\":\"leased\",\"blocked_reasons\":[\"pinned:cwd_pinned_workspace\"]}]}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520"
+    ],
+    "elapsed_ms": 32.09,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 2,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 7,
+          "layer_id": "L000004-00000008",
+          "leased_by_workspaces": 2
+        },
+        {
+          "booked_by": [
+            "L000004-00000008"
+          ],
+          "bytes": 14,
+          "layer_id": "S000005-00000011",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-00000008"
+          ],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 5,
+      "root_hash": "30337d9a5a281eac62a8b9948614e7a26baeef07337d033319b57ec5565f7a23",
+      "total_bytes": 21,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 7,
+          "ts": 1783030078406
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 14,
+          "ts": 1783030078446
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078486
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078523
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078603
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078967
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030079071
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030079337
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030079373
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030079428
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":5,\"root_hash\":\"30337d9a5a281eac62a8b9948614e7a26baeef07337d033319b57ec5565f7a23\",\"active_lease_count\":2,\"total_bytes\":21,\"layers\":[{\"layer_id\":\"L000004-00000008\",\"bytes\":7,\"leased_by_workspaces\":2,\"booked_by\":[]},{\"layer_id\":\"S000005-00000011\",\"bytes\":14,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000008\"]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000008\"]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":7,\"active_leases\":0,\"ts\":1783030078406},{\"layer_count\":3,\"layers_bytes\":14,\"active_leases\":0,\"ts\":1783030078446},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":0,\"ts\":1783030078486},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030078523},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030078603},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030078967},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030079071},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030079337},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030079373},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030079428}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 60.436,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 21\nstaging_entries 0\nremount_residue 2\nlayer_dirs S000005-00000011,L000002-00000000,L000003-00000004,L000004-00000008,\nfree_bytes 120485126144\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "exec_command",
+      "cd /tmp && /tmp/eos_squash_http probe 36035"
+    ],
+    "elapsed_ms": 70.218,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.019013958,
+      "end_offset": 1,
+      "exit_code": 0,
+      "original_token_count": 2,
+      "output": "http-ok",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 1,
+      "wall_time_seconds": 0.034881583,
+      "workspace_session_id": "00000618be986913839762"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.034881583,\"command_total_time_seconds\":0.019013958,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":2,\"output\":\"http-ok\",\"workspace_session_id\":\"00000618be986913839762\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "exec_command",
+      "--workspace-session-id",
+      "00000118be9868d5e28605",
+      "cat data/http-0.txt"
+    ],
+    "elapsed_ms": 61.256,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.030259125,
+      "end_offset": 1,
+      "exit_code": 0,
+      "original_token_count": 2,
+      "output": "http-0",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 1,
+      "wall_time_seconds": 0.030360041,
+      "workspace_session_id": "00000118be9868d5e28605"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.030360041,\"command_total_time_seconds\":0.030259125,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":2,\"output\":\"http-0\",\"workspace_session_id\":\"00000118be9868d5e28605\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 28.221,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 0.470805876,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.470805876,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.470805876,\"command_total_time_seconds\":0.470805876,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 50.488,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 0.621652751,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.621652751,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.621652751,\"command_total_time_seconds\":0.621652751,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 29.405,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 0.756646084,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.756646084,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.756646084,\"command_total_time_seconds\":0.756646084,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 24.136,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 0.884217543,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.884217543,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.884217543,\"command_total_time_seconds\":0.884217543,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 27.261,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 1.012560918,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.012560918,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.012560918,\"command_total_time_seconds\":1.012560918,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 24.809,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 1.142836334,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.142836334,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.142836334,\"command_total_time_seconds\":1.142836334,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 27.728,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 1.271344709,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.271344709,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.271344709,\"command_total_time_seconds\":1.271344709,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 37.538,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 1.413246085,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.413246085,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.413246085,\"command_total_time_seconds\":1.413246085,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 38.175,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 1.556416335,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.556416335,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.556416335,\"command_total_time_seconds\":1.556416335,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 36.323,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 1.696308751,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.696308751,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.696308751,\"command_total_time_seconds\":1.696308751,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 50.132,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 1.830047626,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.830047626,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.830047626,\"command_total_time_seconds\":1.830047626,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 37.766,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 1.991864126,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.991864126,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.991864126,\"command_total_time_seconds\":1.991864126,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 37.648,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 2.130463168,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.130463168,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.130463168,\"command_total_time_seconds\":2.130463168,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 36.955,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 2.27169271,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.27169271,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.27169271,\"command_total_time_seconds\":2.27169271,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 34.35,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 2.410898127,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.410898127,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.410898127,\"command_total_time_seconds\":2.410898127,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 35.42,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 2.551081418,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.551081418,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.551081418,\"command_total_time_seconds\":2.551081418,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 35.73,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 2.692678252,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.692678252,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.692678252,\"command_total_time_seconds\":2.692678252,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 35.967,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 2.8336749599999997,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.8336749599999997,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.8336749599999997,\"command_total_time_seconds\":2.8336749599999997,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 34.803,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 2.969202502,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.969202502,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.969202502,\"command_total_time_seconds\":2.969202502,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_4",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 29.07,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_4",
+      "command_total_time_seconds": 3.030590294,
+      "end_offset": 2,
+      "exit_code": 0,
+      "original_token_count": 20,
+      "output": "CLIENT_READY\nCLIENT_STATS {\"failures\":0,\"max_silence_ms\":19.053,\"ok_count\":1470}",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 2,
+      "wall_time_seconds": 3.104214627,
+      "workspace_session_id": "00000418be9868fee849ae"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":3.104214627,\"command_total_time_seconds\":3.030590294,\"start_offset\":0,\"end_offset\":2,\"total_lines\":2,\"original_token_count\":20,\"output\":\"CLIENT_READY\\nCLIENT_STATS {\\\"failures\\\":0,\\\"max_silence_ms\\\":19.053,\\\"ok_count\\\":1470}\",\"command_session_id\":\"namespace_execution_4\",\"workspace_session_id\":\"00000418be9868fee849ae\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "write_command_stdin",
+      "--command-session-id",
+      "namespace_execution_2",
+      "--yield-time-ms",
+      "5000",
+      "\u0003"
+    ],
+    "elapsed_ms": 132.432,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_2",
+      "command_total_time_seconds": 3.717516626,
+      "end_offset": 1,
+      "exit_code": 130,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 1,
+      "status": "cancelled",
+      "total_lines": 1,
+      "wall_time_seconds": 3.813836126,
+      "workspace_session_id": "00000118be9868d5e28605"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"cancelled\",\"exit_code\":130,\"wall_time_seconds\":3.813836126,\"command_total_time_seconds\":3.717516626,\"start_offset\":1,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":0,\"output\":\"\",\"command_session_id\":\"namespace_execution_2\",\"workspace_session_id\":\"00000118be9868d5e28605\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "destroy_workspace_session",
+      "--workspace-session-id",
+      "00000118be9868d5e28605",
+      "--grace-s",
+      "1"
+    ],
+    "elapsed_ms": 44.621,
+    "exit_code": 0,
+    "parsed_json": {
+      "destroyed": true,
+      "evicted_upperdir_bytes": 0,
+      "workspace_session_id": "00000118be9868d5e28605"
+    },
+    "stderr": "",
+    "stdout": "{\"workspace_session_id\":\"00000118be9868d5e28605\",\"destroyed\":true,\"evicted_upperdir_bytes\":0}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "checkpoint_squash",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520"
+    ],
+    "elapsed_ms": 32.103,
+    "exit_code": 0,
+    "parsed_json": {
+      "manifest_version": 6,
+      "squashed_blocks": [
+        {
+          "replaced_layer_ids": [
+            "L000004-00000008",
+            "S000005-00000011"
+          ],
+          "replaced_layers": "reclaimed",
+          "squashed_layer_id": "S000006-00000017"
+        }
+      ]
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":6,\"squashed_blocks\":[{\"squashed_layer_id\":\"S000006-00000017\",\"replaced_layer_ids\":[\"L000004-00000008\",\"S000005-00000011\"],\"replaced_layers\":\"reclaimed\"}]}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520"
+    ],
+    "elapsed_ms": 24.833,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 0,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 21,
+          "layer_id": "S000006-00000017",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 6,
+      "root_hash": "61c434ac52d8ab5cf1b7f1e18b21ed394800b46037f4160c67c7c7ca7c192371",
+      "total_bytes": 21,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 7,
+          "ts": 1783030078406
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 14,
+          "ts": 1783030078446
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078486
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078523
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078603
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030078967
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030079071
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030079337
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 4,
+          "layers_bytes": 21,
+          "ts": 1783030079373
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030079428
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030079593
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030079654
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030079683
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030079834
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030079969
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030080096
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030080224
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030080355
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030080483
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030080625
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030080769
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030080908
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030081060
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030081204
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030081343
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030081484
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030081623
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030081764
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030081905
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030082046
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030082182
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030082316
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030082449
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 21,
+          "ts": 1783030082494
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 21,
+          "ts": 1783030082527
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":6,\"root_hash\":\"61c434ac52d8ab5cf1b7f1e18b21ed394800b46037f4160c67c7c7ca7c192371\",\"active_lease_count\":0,\"total_bytes\":21,\"layers\":[{\"layer_id\":\"S000006-00000017\",\"bytes\":21,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":7,\"active_leases\":0,\"ts\":1783030078406},{\"layer_count\":3,\"layers_bytes\":14,\"active_leases\":0,\"ts\":1783030078446},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":0,\"ts\":1783030078486},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030078523},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030078603},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030078967},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030079071},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030079337},{\"layer_count\":4,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030079373},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030079428},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030079593},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030079654},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030079683},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030079834},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030079969},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030080096},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030080224},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030080355},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030080483},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030080625},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030080769},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030080908},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030081060},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030081204},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030081343},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030081484},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030081623},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030081764},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030081905},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030082046},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":2,\"ts\":1783030082182},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030082316},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":1,\"ts\":1783030082449},{\"layer_count\":3,\"layers_bytes\":21,\"active_leases\":0,\"ts\":1783030082494},{\"layer_count\":2,\"layers_bytes\":21,\"active_leases\":0,\"ts\":1783030082527}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-9729511a-b8a2-4bb5-9ee1-fe6905d7f520",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 55.3,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 21\nstaging_entries 0\nremount_residue 0\nlayer_dirs S000006-00000017,\nfree_bytes 120485179392\n"
+  }
+]

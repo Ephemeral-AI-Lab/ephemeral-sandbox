@@ -1,0 +1,1535 @@
+[
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "create_sandbox",
+      "--image",
+      "ubuntu:24.04",
+      "--workspace-bind-root",
+      "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_hard_catalog_LOAD_3/load-large-http"
+    ],
+    "elapsed_ms": 720.109,
+    "exit_code": 0,
+    "parsed_json": {
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 58885
+      },
+      "daemon_http": {
+        "host": "127.0.0.1",
+        "port": 58886
+      },
+      "id": "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "shared_base": {
+        "readonly": true,
+        "root_hash": "78b069e689fc30226232845b276f6b18b70c67b786b443cd098b6a736bc50f6f",
+        "source": "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_hard_catalog_LOAD_3/eos-shared-workspace-base-cache/78b069e689fc30226232845b276f6b18b70c67b786b443cd098b6a736bc50f6f/base",
+        "target": "/eos/layer-stack/base"
+      },
+      "state": "ready",
+      "workspace_root": "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_hard_catalog_LOAD_3/load-large-http"
+    },
+    "stderr": "",
+    "stdout": "{\"id\":\"eos-4efe272d-7d1e-48c9-89eb-5661bff63965\",\"workspace_root\":\"/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_hard_catalog_LOAD_3/load-large-http\",\"state\":\"ready\",\"daemon\":{\"host\":\"127.0.0.1\",\"port\":58885},\"daemon_http\":{\"host\":\"127.0.0.1\",\"port\":58886},\"shared_base\":{\"source\":\"/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_hard_catalog_LOAD_3/eos-shared-workspace-base-cache/78b069e689fc30226232845b276f6b18b70c67b786b443cd098b6a736bc50f6f/base\",\"target\":\"/eos/layer-stack/base\",\"root_hash\":\"78b069e689fc30226232845b276f6b18b70c67b786b443cd098b6a736bc50f6f\",\"readonly\":true}}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "file_write",
+      "--path",
+      "data/large-head.txt",
+      "--content",
+      "large-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nlarge-head\nl"
+    ],
+    "elapsed_ms": 46.56,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 1024,
+      "path": "data/large-head.txt",
+      "type": "create"
+    },
+    "stderr": "",
+    "stdout": "{\"type\":\"create\",\"path\":\"data/large-head.txt\",\"bytes_written\":1024}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "exec_command",
+      "sh -eu -c 'mkdir -p data; yes \"large-blob\\n\" | head -c 8388608 > data/large-blob.txt'"
+    ],
+    "elapsed_ms": 148.426,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.034325583,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.109101583,
+      "workspace_session_id": "00000118be9841a8be0fa0"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.109101583,\"command_total_time_seconds\":0.034325583,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000118be9841a8be0fa0\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "file_write",
+      "--path",
+      "data/large-tail.txt",
+      "--content",
+      "large-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nlarge-tail\nl"
+    ],
+    "elapsed_ms": 42.163,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 1024,
+      "path": "data/large-tail.txt",
+      "type": "create"
+    },
+    "stderr": "",
+    "stdout": "{\"type\":\"create\",\"path\":\"data/large-tail.txt\",\"bytes_written\":1024}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "exec_command",
+      "cp /workspace/eos_squash_http \"/run/eos_squash_http\" && chmod 755 \"/run/eos_squash_http\""
+    ],
+    "elapsed_ms": 84.217,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.028441167,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.047486125,
+      "workspace_session_id": "00000218be9841b409ac3b"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.047486125,\"command_total_time_seconds\":0.028441167,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000218be9841b409ac3b\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "create_workspace_session"
+    ],
+    "elapsed_ms": 38.438,
+    "exit_code": 0,
+    "parsed_json": {
+      "finalize_policy": "no_op",
+      "network_profile": "shared",
+      "workspace_session_id": "00000318be9841b92afac6"
+    },
+    "stderr": "",
+    "stdout": "{\"workspace_session_id\":\"00000318be9841b92afac6\",\"network_profile\":\"shared\",\"finalize_policy\":\"no_op\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "exec_command",
+      "--workspace-session-id",
+      "00000318be9841b92afac6",
+      "--timeout-ms",
+      "120000",
+      "--yield-time-ms",
+      "300",
+      "cd /tmp && /run/eos_squash_http server"
+    ],
+    "elapsed_ms": 360.708,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_3",
+      "command_total_time_seconds": 0.325167916,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "PORT=43525",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.325167916,
+      "workspace_session_id": "00000318be9841b92afac6"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.325167916,\"command_total_time_seconds\":0.325167916,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"PORT=43525\",\"command_session_id\":\"namespace_execution_3\",\"workspace_session_id\":\"00000318be9841b92afac6\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "exec_command",
+      "cd /tmp && /run/eos_squash_http probe 43525"
+    ],
+    "elapsed_ms": 87.348,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.020848792,
+      "end_offset": 1,
+      "exit_code": 0,
+      "original_token_count": 2,
+      "output": "http-ok",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 1,
+      "wall_time_seconds": 0.041329334,
+      "workspace_session_id": "00000418be9841d124cc06"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.041329334,\"command_total_time_seconds\":0.020848792,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":2,\"output\":\"http-ok\",\"workspace_session_id\":\"00000418be9841d124cc06\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965"
+    ],
+    "elapsed_ms": 32.971,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 1,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 1024,
+          "layer_id": "L000004-00000009",
+          "leased_by_workspaces": 1
+        },
+        {
+          "booked_by": [
+            "L000004-00000009"
+          ],
+          "bytes": 8388608,
+          "layer_id": "L000003-00000005",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-00000009"
+          ],
+          "bytes": 1024,
+          "layer_id": "L000002-00000000",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-00000009"
+          ],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 4,
+      "root_hash": "aa37cc72e252ba078ffed705a6479de62491eda7582eca9215b2c12c7ddd752a",
+      "total_bytes": 8390656,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 1024,
+          "ts": 1783029910223
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 8389632,
+          "ts": 1783029910371
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910414
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910499
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910537
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910897
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910986
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":4,\"root_hash\":\"aa37cc72e252ba078ffed705a6479de62491eda7582eca9215b2c12c7ddd752a\",\"active_lease_count\":1,\"total_bytes\":8390656,\"layers\":[{\"layer_id\":\"L000004-00000009\",\"bytes\":1024,\"leased_by_workspaces\":1,\"booked_by\":[]},{\"layer_id\":\"L000003-00000005\",\"bytes\":8388608,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000009\"]},{\"layer_id\":\"L000002-00000000\",\"bytes\":1024,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000009\"]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000009\"]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":1024,\"active_leases\":0,\"ts\":1783029910223},{\"layer_count\":3,\"layers_bytes\":8389632,\"active_leases\":0,\"ts\":1783029910371},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":0,\"ts\":1783029910414},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":0,\"ts\":1783029910499},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029910537},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029910897},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029910986}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 83.01,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 8390656\nstaging_entries 0\nremount_residue 0\nlayer_dirs L000004-00000009,L000002-00000000,L000003-00000005,\nfree_bytes 120491626496\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "exec_command",
+      "--timeout-ms",
+      "10000",
+      "--yield-time-ms",
+      "100",
+      "cd /tmp && /run/eos_squash_http client 43525 3.0"
+    ],
+    "elapsed_ms": 167.704,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 0.126093,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.126093,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.126093,\"command_total_time_seconds\":0.126093,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 34.717,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 0.161592,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.161592,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.161592,\"command_total_time_seconds\":0.161592,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "checkpoint_squash",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965"
+    ],
+    "elapsed_ms": 59.547,
+    "exit_code": 0,
+    "parsed_json": {
+      "manifest_version": 5,
+      "squashed_blocks": [
+        {
+          "replaced_layer_ids": [
+            "L000003-00000005",
+            "L000002-00000000"
+          ],
+          "replaced_layers": "reclaimed",
+          "squashed_layer_id": "S000005-00000012"
+        }
+      ]
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":5,\"squashed_blocks\":[{\"squashed_layer_id\":\"S000005-00000012\",\"replaced_layer_ids\":[\"L000003-00000005\",\"L000002-00000000\"],\"replaced_layers\":\"reclaimed\"}]}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965"
+    ],
+    "elapsed_ms": 30.34,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 2,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 1024,
+          "layer_id": "L000004-00000009",
+          "leased_by_workspaces": 2
+        },
+        {
+          "booked_by": [
+            "L000004-00000009"
+          ],
+          "bytes": 8389632,
+          "layer_id": "S000005-00000012",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [
+            "L000004-00000009"
+          ],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 5,
+      "root_hash": "6a7b77f545f6dd34072dacee4d0eaf88165c59390509cc6320a67016a1e950e2",
+      "total_bytes": 8390656,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 1024,
+          "ts": 1783029910223
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 8389632,
+          "ts": 1783029910371
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910414
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910499
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910537
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910897
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910986
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029911271
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029911306
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029911366
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":5,\"root_hash\":\"6a7b77f545f6dd34072dacee4d0eaf88165c59390509cc6320a67016a1e950e2\",\"active_lease_count\":2,\"total_bytes\":8390656,\"layers\":[{\"layer_id\":\"L000004-00000009\",\"bytes\":1024,\"leased_by_workspaces\":2,\"booked_by\":[]},{\"layer_id\":\"S000005-00000012\",\"bytes\":8389632,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000009\"]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[\"L000004-00000009\"]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":1024,\"active_leases\":0,\"ts\":1783029910223},{\"layer_count\":3,\"layers_bytes\":8389632,\"active_leases\":0,\"ts\":1783029910371},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":0,\"ts\":1783029910414},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":0,\"ts\":1783029910499},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029910537},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029910897},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029910986},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029911271},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029911306},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029911366}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 62.863,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 8390656\nstaging_entries 0\nremount_residue 4\nlayer_dirs L000004-00000009,S000005-00000012,\nfree_bytes 120491585536\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "exec_command",
+      "cd /tmp && /run/eos_squash_http probe 43525"
+    ],
+    "elapsed_ms": 81.697,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.026407167,
+      "end_offset": 1,
+      "exit_code": 0,
+      "original_token_count": 2,
+      "output": "http-ok",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 1,
+      "wall_time_seconds": 0.045687292,
+      "workspace_session_id": "00000818be9841f2540bb7"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.045687292,\"command_total_time_seconds\":0.026407167,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":2,\"output\":\"http-ok\",\"workspace_session_id\":\"00000818be9841f2540bb7\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 33.18,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 0.431817042,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.431817042,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.431817042,\"command_total_time_seconds\":0.431817042,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 31.225,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 0.566888959,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.566888959,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.566888959,\"command_total_time_seconds\":0.566888959,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 27.514,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 0.696911709,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.696911709,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.696911709,\"command_total_time_seconds\":0.696911709,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 32.734,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 0.830073292,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.830073292,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.830073292,\"command_total_time_seconds\":0.830073292,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 35.245,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 0.967632042,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 0.967632042,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":0.967632042,\"command_total_time_seconds\":0.967632042,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 36.096,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 1.104916251,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.104916251,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.104916251,\"command_total_time_seconds\":1.104916251,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 32.116,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 1.241974792,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.241974792,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.241974792,\"command_total_time_seconds\":1.241974792,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 36.414,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 1.383076668,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.383076668,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.383076668,\"command_total_time_seconds\":1.383076668,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 35.119,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 1.523108001,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.523108001,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.523108001,\"command_total_time_seconds\":1.523108001,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 34.809,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 1.663092501,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.663092501,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.663092501,\"command_total_time_seconds\":1.663092501,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 34.726,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 1.802380793,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.802380793,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.802380793,\"command_total_time_seconds\":1.802380793,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 36.836,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 1.942805668,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 1.942805668,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":1.942805668,\"command_total_time_seconds\":1.942805668,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 33.23,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 2.076983376,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.076983376,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.076983376,\"command_total_time_seconds\":2.076983376,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 35.088,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 2.217239043,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.217239043,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.217239043,\"command_total_time_seconds\":2.217239043,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 37.616,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 2.36017471,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.36017471,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.36017471,\"command_total_time_seconds\":2.36017471,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 35.444,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 2.500495626,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.500495626,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.500495626,\"command_total_time_seconds\":2.500495626,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 36.606,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 2.638646376,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.638646376,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.638646376,\"command_total_time_seconds\":2.638646376,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 38.533,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 2.782244418,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.782244418,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.782244418,\"command_total_time_seconds\":2.782244418,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 33.88,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 2.919577377,
+      "end_offset": 1,
+      "exit_code": null,
+      "original_token_count": 3,
+      "output": "CLIENT_READY",
+      "start_offset": 0,
+      "status": "running",
+      "total_lines": 1,
+      "wall_time_seconds": 2.919577377,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"running\",\"exit_code\":null,\"wall_time_seconds\":2.919577377,\"command_total_time_seconds\":2.919577377,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":3,\"output\":\"CLIENT_READY\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "read_command_lines",
+      "--command-session-id",
+      "namespace_execution_5",
+      "--start-offset",
+      "0",
+      "--limit",
+      "1000"
+    ],
+    "elapsed_ms": 36.233,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_5",
+      "command_total_time_seconds": 3.030297293,
+      "end_offset": 2,
+      "exit_code": 0,
+      "original_token_count": 20,
+      "output": "CLIENT_READY\nCLIENT_STATS {\"failures\":0,\"max_silence_ms\":18.680,\"ok_count\":1491}",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 2,
+      "wall_time_seconds": 3.060853252,
+      "workspace_session_id": "00000518be9841dd50c550"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":3.060853252,\"command_total_time_seconds\":3.030297293,\"start_offset\":0,\"end_offset\":2,\"total_lines\":2,\"original_token_count\":20,\"output\":\"CLIENT_READY\\nCLIENT_STATS {\\\"failures\\\":0,\\\"max_silence_ms\\\":18.680,\\\"ok_count\\\":1491}\",\"command_session_id\":\"namespace_execution_5\",\"workspace_session_id\":\"00000518be9841dd50c550\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "write_command_stdin",
+      "--command-session-id",
+      "namespace_execution_3",
+      "--yield-time-ms",
+      "5000",
+      "\u0003"
+    ],
+    "elapsed_ms": 155.36,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_session_id": "namespace_execution_3",
+      "command_total_time_seconds": 3.687682085,
+      "end_offset": 1,
+      "exit_code": 130,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 1,
+      "status": "cancelled",
+      "total_lines": 1,
+      "wall_time_seconds": 3.786918835,
+      "workspace_session_id": "00000318be9841b92afac6"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"cancelled\",\"exit_code\":130,\"wall_time_seconds\":3.786918835,\"command_total_time_seconds\":3.687682085,\"start_offset\":1,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":0,\"output\":\"\",\"command_session_id\":\"namespace_execution_3\",\"workspace_session_id\":\"00000318be9841b92afac6\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "exec_command",
+      "--workspace-session-id",
+      "00000318be9841b92afac6",
+      "test \"$(wc -c < data/large-blob.txt)\" = \"8388608\" && cat data/large-tail.txt >/dev/null && echo ok"
+    ],
+    "elapsed_ms": 55.74,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.027135875,
+      "end_offset": 1,
+      "exit_code": 0,
+      "original_token_count": 1,
+      "output": "ok",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 1,
+      "wall_time_seconds": 0.0272975,
+      "workspace_session_id": "00000318be9841b92afac6"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.0272975,\"command_total_time_seconds\":0.027135875,\"start_offset\":0,\"end_offset\":1,\"total_lines\":1,\"original_token_count\":1,\"output\":\"ok\",\"workspace_session_id\":\"00000318be9841b92afac6\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "destroy_workspace_session",
+      "--workspace-session-id",
+      "00000318be9841b92afac6",
+      "--grace-s",
+      "1"
+    ],
+    "elapsed_ms": 38.707,
+    "exit_code": 0,
+    "parsed_json": {
+      "destroyed": true,
+      "evicted_upperdir_bytes": 0,
+      "workspace_session_id": "00000318be9841b92afac6"
+    },
+    "stderr": "",
+    "stdout": "{\"workspace_session_id\":\"00000318be9841b92afac6\",\"destroyed\":true,\"evicted_upperdir_bytes\":0}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965"
+    ],
+    "elapsed_ms": 26.742,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 0,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 1024,
+          "layer_id": "L000004-00000009",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 8389632,
+          "layer_id": "S000005-00000012",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 5,
+      "root_hash": "6a7b77f545f6dd34072dacee4d0eaf88165c59390509cc6320a67016a1e950e2",
+      "total_bytes": 8390656,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 1024,
+          "ts": 1783029910223
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 8389632,
+          "ts": 1783029910371
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910414
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910499
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910537
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910897
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029910986
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029911271
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 4,
+          "layers_bytes": 8390656,
+          "ts": 1783029911306
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029911366
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029911543
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029911576
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029911712
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029911842
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029911975
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029912112
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029912250
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029912387
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029912528
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029912668
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029912808
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029912947
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029913087
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029913222
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029913362
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029913505
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029913646
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029913784
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029913927
+        },
+        {
+          "active_leases": 2,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029914064
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029914205
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029914359
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029914418
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 8390656,
+          "ts": 1783029914457
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":5,\"root_hash\":\"6a7b77f545f6dd34072dacee4d0eaf88165c59390509cc6320a67016a1e950e2\",\"active_lease_count\":0,\"total_bytes\":8390656,\"layers\":[{\"layer_id\":\"L000004-00000009\",\"bytes\":1024,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"S000005-00000012\",\"bytes\":8389632,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":1024,\"active_leases\":0,\"ts\":1783029910223},{\"layer_count\":3,\"layers_bytes\":8389632,\"active_leases\":0,\"ts\":1783029910371},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":0,\"ts\":1783029910414},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":0,\"ts\":1783029910499},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029910537},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029910897},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029910986},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029911271},{\"layer_count\":4,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029911306},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029911366},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029911543},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029911576},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029911712},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029911842},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029911975},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029912112},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029912250},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029912387},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029912528},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029912668},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029912808},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029912947},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029913087},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029913222},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029913362},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029913505},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029913646},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029913784},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029913927},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":2,\"ts\":1783029914064},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029914205},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029914359},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":1,\"ts\":1783029914418},{\"layer_count\":3,\"layers_bytes\":8390656,\"active_leases\":0,\"ts\":1783029914457}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-4efe272d-7d1e-48c9-89eb-5661bff63965",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 63.313,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 8390656\nstaging_entries 0\nremount_residue 0\nlayer_dirs L000004-00000009,S000005-00000012,\nfree_bytes 120491606016\n"
+  }
+]

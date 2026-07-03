@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/RESULTS.md",
+                "file": "implementation_plan/cli_migration/spec.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "RESULTS"
+              "title": "spec"
             }
           }
         ]
@@ -183,26 +183,29 @@
       "bases:Create new base": false
     }
   },
-  "active": "7bfb5a3473fb43c0",
+  "active": "d5fccc8ee65959ed",
   "lastOpenFiles": [
+    "implementation_plan/cli_migration/operation.md",
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/loadcombo-ab-diff.json",
+    "implementation_plan/squash/experiments/performance-parallelization/W-tuning.md",
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/width-wtune.json",
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W16.yml",
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W8.yml",
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/scripts/__pycache__/loadcombo_ab.cpython-314.pyc",
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/scripts/loadcombo_ab.py",
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/scripts/loadcombo_ab.py.tmp.35454.dadb5203070d",
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W2.yml",
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/ab-ab-diff.json",
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/ab-wtune.json",
+    "implementation_plan/cli_migration/spec.md",
+    "implementation_plan/finalize-policy/spec.md",
+    "implementation_plan/squash/experiments/performance-parallelization/HANDOFF.md",
+    "implementation_plan/squash/experiments/performance-parallelization/E2E_BENCHMARK_SPEC.md",
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/RESULTS.md",
     "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/DESIGN.md",
     "implementation_plan/squash/acceptance_criteria.md",
-    "implementation_plan/finalize-policy/spec.md",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/RESULTS.md",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/logs/attribution-baseline-s200.json",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/logs/attribution-baseline-s200.txt",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/logs/pytest-baseline-s200.log",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/logs/attribution-baseline-s50.json",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/logs/attribution-baseline-s50.txt",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/logs/pytest-baseline-s50.log",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/scripts/run_combo.sh",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/scripts/analyze_spans.py",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/scripts",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/logs",
     "implementation_plan/finalize-policy/adversarial_review_prompt.md",
     "implementation_plan/squash/performance_parallelization_handoff.md",
-    "implementation_plan/cli_migration/operation.md",
-    "implementation_plan/cli_migration/spec.md",
     "implementation_plan/daemon-command-syscall-hardening.md",
     "implementation_plan/o1_shared_workspace_base.md",
     "implementation_plan/squash/iteration-report.md",
@@ -216,10 +219,6 @@
     "implementation_plan/file_operations/fix_spec.md",
     "implementation_plan/file_operations/live_smoke_evidence.md",
     "implementation_plan/file_operations/spec.md",
-    "implementation_plan/squash/adversarial_multi_agent_review_results.md",
-    "implementation_plan/squash/adversarial_multi_agent_review_prompt.md",
-    "implementation_plan/squash/adversarial_review.md",
-    "implementation_plan/squash/adversarial-review-prompt.md",
-    "implementation_plan/file_operations/acceptance_criteria.md"
+    "implementation_plan/squash/adversarial_multi_agent_review_results.md"
   ]
 }

@@ -1,0 +1,6 @@
+{
+  "attempted_sessions": 60,
+  "constructible": false,
+  "reason": "leg-b:not_constructible_at_ci_scale",
+  "required_pinned_singletons": 501
+}

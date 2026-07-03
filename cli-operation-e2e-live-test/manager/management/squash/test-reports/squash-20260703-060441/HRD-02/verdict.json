@@ -1,0 +1,91 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/squash-20260703-060441/HRD-02",
+    "commands": "cmd.log.json",
+    "snapshots": [
+      "S3"
+    ]
+  },
+  "axes": {
+    "correctness": {
+      "details": "five rolling generations squashed with live witnesses",
+      "metrics": {},
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    },
+    "space": {
+      "details": "rolling generations converged",
+      "metrics": {},
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    },
+    "time": {
+      "details": "T_e2e=2664.818ms budget=30000ms",
+      "metrics": {
+        "T_e2e_ms": 2664.818,
+        "budget_ms": 30000
+      },
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "HRD-02",
+  "errors": [],
+  "generated_at": "2026-07-03T06:06:04+08:00",
+  "notes": [],
+  "run_id": "squash-20260703-060441",
+  "schema_version": 1,
+  "status": "PASS",
+  "teardown": {
+    "details": "clean",
+    "metrics": {
+      "free_bytes": 120499802112,
+      "layer_dirs": [
+        "S000032-0000007e"
+      ],
+      "layers_bytes": 204800,
+      "remount_residue": 0,
+      "staging_entries": 0
+    },
+    "pass": true
+  },
+  "tier": "hard",
+  "timers": {
+    "T_e2e": {
+      "ms": 2665.64,
+      "source": "harness"
+    },
+    "T_squash": {
+      "ms": 47.146,
+      "source": "harness"
+    },
+    "T_squash_invocation_1": {
+      "ms": 41.376,
+      "source": "harness"
+    },
+    "T_squash_invocation_2": {
+      "ms": 44.992,
+      "source": "harness"
+    },
+    "T_squash_invocation_3": {
+      "ms": 44.312,
+      "source": "harness"
+    },
+    "T_squash_invocation_4": {
+      "ms": 42.347,
+      "source": "harness"
+    },
+    "T_squash_invocation_5": {
+      "ms": 47.146,
+      "source": "harness"
+    },
+    "T_squash_invocation_6": {
+      "ms": 32.943,
+      "source": "harness"
+    }
+  },
+  "title": "B4 replay two generations"
+}

@@ -1,0 +1,6 @@
+{
+  "id": "LOAD-499",
+  "scenario": "load_499",
+  "tier": "hard",
+  "title": "499-layer stack squashes in-cap"
+}

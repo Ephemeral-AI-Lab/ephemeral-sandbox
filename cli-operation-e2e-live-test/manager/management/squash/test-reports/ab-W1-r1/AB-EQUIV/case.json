@@ -1,0 +1,11 @@
+{
+  "ab": {
+    "blocks": 1,
+    "migrate_ratio": 0.5,
+    "sessions": 12
+  },
+  "id": "AB-EQUIV",
+  "scenario": "ab",
+  "tier": "bench",
+  "title": "A/B logical equivalence (mixed migrate/identity, one block)"
+}

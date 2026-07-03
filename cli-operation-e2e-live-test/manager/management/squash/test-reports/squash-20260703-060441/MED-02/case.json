@@ -1,0 +1,6 @@
+{
+  "id": "MED-02",
+  "scenario": "opaque",
+  "tier": "medium",
+  "title": "opaque dir is dual-encoded and never resurrects"
+}

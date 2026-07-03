@@ -1,0 +1,6 @@
+{
+  "id": "HRD-09",
+  "scenario": "migrate",
+  "tier": "hard",
+  "title": "one-shot finalize mid-switch"
+}

@@ -1,0 +1,58 @@
+{
+  "T_e2e": {
+    "count": 2,
+    "max_ms": 43043.834,
+    "mean_ms": 22125.833,
+    "min_ms": 1207.832,
+    "p50_ms": 22125.833,
+    "p95_ms": 40952.034
+  },
+  "T_http_disconnect": {
+    "count": 1,
+    "max_ms": 31.058,
+    "mean_ms": 31.058,
+    "min_ms": 31.058,
+    "p50_ms": 31.058,
+    "p95_ms": 31.058
+  },
+  "T_squash": {
+    "count": 1,
+    "max_ms": 311.389,
+    "mean_ms": 311.389,
+    "min_ms": 311.389,
+    "p50_ms": 311.389,
+    "p95_ms": 311.389
+  },
+  "T_squash_invocation_1": {
+    "count": 1,
+    "max_ms": 210.164,
+    "mean_ms": 210.164,
+    "min_ms": 210.164,
+    "p50_ms": 210.164,
+    "p95_ms": 210.164
+  },
+  "T_squash_invocation_2": {
+    "count": 1,
+    "max_ms": 236.336,
+    "mean_ms": 236.336,
+    "min_ms": 236.336,
+    "p50_ms": 236.336,
+    "p95_ms": 236.336
+  },
+  "T_squash_invocation_3": {
+    "count": 1,
+    "max_ms": 311.389,
+    "mean_ms": 311.389,
+    "min_ms": 311.389,
+    "p50_ms": 311.389,
+    "p95_ms": 311.389
+  },
+  "T_squash_invocation_4": {
+    "count": 1,
+    "max_ms": 37.058,
+    "mean_ms": 37.058,
+    "min_ms": 37.058,
+    "p50_ms": 37.058,
+    "p95_ms": 37.058
+  }
+}

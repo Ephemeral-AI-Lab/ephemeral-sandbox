@@ -1,0 +1,40 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/runtime/workspace_session/test-reports/workspace-session-20260703-062826/EX-01"
+  },
+  "axes": {
+    "correctness": {
+      "details": "implicit exec returned session id and finalized it",
+      "metrics": {},
+      "pass": true,
+      "status": "pass"
+    },
+    "teardown": {
+      "details": "observability snapshot has no case workspaces",
+      "metrics": {
+        "leaked_workspace_ids": [],
+        "snapshot_workspace_count": 0,
+        "workspace_ids": [
+          "00000118be9986d778537a"
+        ]
+      },
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "EX-01",
+  "errors": [],
+  "generated_at": "2026-07-03T06:28:27+08:00",
+  "notes": [],
+  "run_id": "workspace-session-20260703-062826",
+  "schema_version": 1,
+  "status": "PASS",
+  "tier": "smoke",
+  "timers": {
+    "T_e2e": {
+      "ms": 168.681,
+      "source": "harness"
+    }
+  },
+  "title": "implicit exec response contract"
+}

@@ -1,10 +1,25 @@
 # Live E2E Benchmark Spec — Squash Remount-Sweep (performance + correctness)
 
-Status: proposed. Extends the existing squash live-Docker suite
+Status: highest-leverage subset **implemented + measured** (see `W-tuning.md`);
+the remainder (straggler/fault/crash injection, RSS sampler, full N×W×M×B
+nightly matrix) stays proposed. Extends the existing squash live-Docker suite
 (`cli-operation-e2e-live-test/manager/management/squash/`) into a fuller
 benchmark that jointly proves the remount-sweep parallelization (commit
 `fab1c01b9`) **scales within budget** and is **outcome-preserving** under
 concurrency, fault injection, and scale.
+
+**Landed (`bench` tier, `test_squash_bench.py`):** the `M`/`B` scenario knobs
+(`SQUASH_MIGRATE_RATIO`/`SQUASH_BLOCK_COUNT` via `_scenario_ab`, measured `M` from
+harvested dispositions, exact `B`), the A/B driver + comparator
+(`scripts/ab_driver.py`, `ab_compare.py`, `loadcombo_ab.py`), the `analyze_spans.py`
+p95/aggregate extension, the `config/bench.yml` raised-log-cap config, and the
+`sweep_width`/`swept` squash-span attrs. **CORR-AB-EQUIV PASS** (`W=1` vs `W=cores`)
+on `AB-EQUIV` and LOAD-COMBO `N=200`. **PERF-WIDTH** curve done → **default `W = 4`**
+(fixed constant `DEFAULT_REMOUNT_SWEEP_WIDTH`, the measured `sweep_wall` knee; `N=200`,
+`M=1.0`: `951→368 ms`, 2.58×; no gain past `W=4`, per-migrated p95 `10→45 ms` from
+oversubscription). Constant, not `available_parallelism()`, for a deterministic shipped
+width; `EOS_REMOUNT_SWEEP_WIDTH` overrides per host. Not promoted to config
+(`W-tuning.md`).
 
 Grounding: attribution + before/after in
 `experiments/performance-parallelization/perf-20260703-052525/{RESULTS,DESIGN}.md`.
@@ -90,6 +105,9 @@ extended to emit p50/p95):
 Speedup expectation (measured baseline, 4 cores): `PERF-WIDTH` at `W=4`,
 `N=200`, `M≈0.35` gave `overlap≈3.9×`, `sweep_wall 1043→267 ms`. Cases assert the
 overlap **band** `[0.7·min(W,cores,M), min(W,cores,M)]` rather than a point.
+Measured tuning run (`N=200`, `M=1.0`, `K=3`; `W-tuning.md`): `overlap` at `W=4`
+`= 3.92` (band top), `sweep_wall` knee at `W=cores` (`951→368 ms`), plateau past
+cores with a rising per-migrated tail — hence default `W = cores`.
 
 ## 6. Correctness matrix (under parallelism)
 

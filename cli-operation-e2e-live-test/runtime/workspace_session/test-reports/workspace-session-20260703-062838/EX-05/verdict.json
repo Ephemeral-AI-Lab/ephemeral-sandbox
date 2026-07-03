@@ -1,0 +1,41 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/runtime/workspace_session/test-reports/workspace-session-20260703-062838/EX-05"
+  },
+  "axes": {
+    "correctness": {
+      "details": ".git publish was rejected, destroyed, and discarded",
+      "metrics": {},
+      "pass": true,
+      "status": "pass"
+    },
+    "teardown": {
+      "details": "observability snapshot has no case workspaces",
+      "metrics": {
+        "leaked_workspace_ids": [],
+        "snapshot_workspace_count": 0,
+        "workspace_ids": [
+          "00000118be998cc2eff4e3",
+          "00000218be998cc900a8e9"
+        ]
+      },
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "EX-05",
+  "errors": [],
+  "generated_at": "2026-07-03T06:28:52+08:00",
+  "notes": [],
+  "run_id": "workspace-session-20260703-062838",
+  "schema_version": 1,
+  "status": "PASS",
+  "tier": "medium",
+  "timers": {
+    "T_e2e": {
+      "ms": 262.478,
+      "source": "harness"
+    }
+  },
+  "title": "publish rejection surfaces on the terminal response"
+}

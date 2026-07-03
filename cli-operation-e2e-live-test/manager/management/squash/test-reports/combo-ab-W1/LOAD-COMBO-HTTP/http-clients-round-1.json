@@ -1,0 +1,30 @@
+[
+  {
+    "failures": 0,
+    "max_silence_ms": 16.87,
+    "ok_count": 1537,
+    "round": 1,
+    "server_index": 0
+  },
+  {
+    "failures": 0,
+    "max_silence_ms": 9.297,
+    "ok_count": 1546,
+    "round": 1,
+    "server_index": 1
+  },
+  {
+    "failures": 0,
+    "max_silence_ms": 17.014,
+    "ok_count": 1533,
+    "round": 1,
+    "server_index": 2
+  },
+  {
+    "failures": 0,
+    "max_silence_ms": 16.563,
+    "ok_count": 1535,
+    "round": 1,
+    "server_index": 3
+  }
+]

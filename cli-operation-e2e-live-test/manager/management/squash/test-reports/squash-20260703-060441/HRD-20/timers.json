@@ -1,0 +1,94 @@
+{
+  "T_e2e": {
+    "ms": 5510.315,
+    "source": "harness"
+  },
+  "T_squash": {
+    "ms": 53.673,
+    "source": "harness"
+  },
+  "T_squash_invocation_1": {
+    "ms": 28.108,
+    "source": "harness"
+  },
+  "T_squash_invocation_10": {
+    "ms": 38.957,
+    "source": "harness"
+  },
+  "T_squash_invocation_11": {
+    "ms": 40.562,
+    "source": "harness"
+  },
+  "T_squash_invocation_12": {
+    "ms": 30.972,
+    "source": "harness"
+  },
+  "T_squash_invocation_13": {
+    "ms": 45.047,
+    "source": "harness"
+  },
+  "T_squash_invocation_14": {
+    "ms": 35.439,
+    "source": "harness"
+  },
+  "T_squash_invocation_15": {
+    "ms": 35.601,
+    "source": "harness"
+  },
+  "T_squash_invocation_16": {
+    "ms": 48.509,
+    "source": "harness"
+  },
+  "T_squash_invocation_17": {
+    "ms": 37.206,
+    "source": "harness"
+  },
+  "T_squash_invocation_18": {
+    "ms": 32.056,
+    "source": "harness"
+  },
+  "T_squash_invocation_19": {
+    "ms": 53.673,
+    "source": "harness"
+  },
+  "T_squash_invocation_2": {
+    "ms": 32.843,
+    "source": "harness"
+  },
+  "T_squash_invocation_20": {
+    "ms": 30.304,
+    "source": "harness"
+  },
+  "T_squash_invocation_21": {
+    "ms": 28.19,
+    "source": "harness"
+  },
+  "T_squash_invocation_3": {
+    "ms": 40.436,
+    "source": "harness"
+  },
+  "T_squash_invocation_4": {
+    "ms": 34.044,
+    "source": "harness"
+  },
+  "T_squash_invocation_5": {
+    "ms": 39.321,
+    "source": "harness"
+  },
+  "T_squash_invocation_6": {
+    "ms": 32.067,
+    "source": "harness"
+  },
+  "T_squash_invocation_7": {
+    "ms": 44.475,
+    "source": "harness"
+  },
+  "T_squash_invocation_8": {
+    "ms": 32.863,
+    "source": "harness"
+  },
+  "T_squash_invocation_9": {
+    "ms": 50.328,
+    "source": "harness"
+  }
+}

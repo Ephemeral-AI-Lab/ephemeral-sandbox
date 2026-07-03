@@ -1,0 +1,5 @@
+{
+  "id": "EX-02",
+  "tier": "smoke",
+  "title": "implicit exec publishes then destroys"
+}

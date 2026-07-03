@@ -1,0 +1,438 @@
+[
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "create_sandbox",
+      "--image",
+      "ubuntu:24.04",
+      "--workspace-bind-root",
+      "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_medium_catalog_MED5/med-06"
+    ],
+    "elapsed_ms": 565.474,
+    "exit_code": 0,
+    "parsed_json": {
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 58943
+      },
+      "daemon_http": {
+        "host": "127.0.0.1",
+        "port": 58944
+      },
+      "id": "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578",
+      "shared_base": {
+        "readonly": true,
+        "root_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "source": "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_medium_catalog_MED5/eos-shared-workspace-base-cache/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/base",
+        "target": "/eos/layer-stack/base"
+      },
+      "state": "ready",
+      "workspace_root": "/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_medium_catalog_MED5/med-06"
+    },
+    "stderr": "",
+    "stdout": "{\"id\":\"eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578\",\"workspace_root\":\"/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_medium_catalog_MED5/med-06\",\"state\":\"ready\",\"daemon\":{\"host\":\"127.0.0.1\",\"port\":58943},\"daemon_http\":{\"host\":\"127.0.0.1\",\"port\":58944},\"shared_base\":{\"source\":\"/private/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/pytest-of-yifanxu/pytest-109/test_squash_medium_catalog_MED5/eos-shared-workspace-base-cache/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/base\",\"target\":\"/eos/layer-stack/base\",\"root_hash\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"readonly\":true}}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578",
+      "exec_command",
+      "sh -eu -c 'mkdir -p data; yes \"sf-0\\n\" | head -c 65536 > data/sf-0.txt'"
+    ],
+    "elapsed_ms": 101.697,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.025556875,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.049273708,
+      "workspace_session_id": "00000118be985e7c344ff9"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.049273708,\"command_total_time_seconds\":0.025556875,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000118be985e7c344ff9\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578",
+      "exec_command",
+      "sh -eu -c 'mkdir -p data; yes \"sf-1\\n\" | head -c 65536 > data/sf-1.txt'"
+    ],
+    "elapsed_ms": 82.994,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.021648375,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.045302708,
+      "workspace_session_id": "00000218be985e81b97546"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.045302708,\"command_total_time_seconds\":0.021648375,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000218be985e81b97546\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578",
+      "exec_command",
+      "sh -eu -c 'mkdir -p data; yes \"sf-2\\n\" | head -c 65536 > data/sf-2.txt'"
+    ],
+    "elapsed_ms": 81.495,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.022493333,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.048159292,
+      "workspace_session_id": "00000318be985e86756cc8"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.048159292,\"command_total_time_seconds\":0.022493333,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000318be985e86756cc8\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578",
+      "exec_command",
+      "sh -eu -c 'mkdir -p data; yes \"sf-3\\n\" | head -c 65536 > data/sf-3.txt'"
+    ],
+    "elapsed_ms": 80.969,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.018861791,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.043518041,
+      "workspace_session_id": "00000418be985e8b66e5e2"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.043518041,\"command_total_time_seconds\":0.018861791,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000418be985e8b66e5e2\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578",
+      "exec_command",
+      "sh -eu -c 'mkdir -p data; yes \"sf-4\\n\" | head -c 65536 > data/sf-4.txt'"
+    ],
+    "elapsed_ms": 83.584,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.027832459,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.048542334,
+      "workspace_session_id": "00000518be985e90323dc0"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.048542334,\"command_total_time_seconds\":0.027832459,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000518be985e90323dc0\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578",
+      "exec_command",
+      "sh -eu -c 'mkdir -p data; yes \"sf-5\\n\" | head -c 65536 > data/sf-5.txt'"
+    ],
+    "elapsed_ms": 92.802,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.027612584,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.055089584,
+      "workspace_session_id": "00000618be985e954d65ea"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.055089584,\"command_total_time_seconds\":0.027612584,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000618be985e954d65ea\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "checkpoint_squash",
+      "--sandbox-id",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578"
+    ],
+    "elapsed_ms": 32.395,
+    "exit_code": 1,
+    "parsed_json": {
+      "error": {
+        "details": {},
+        "kind": "operation_failed",
+        "message": "layer-stack storage error: a squash is already in flight for /eos/layer-stack"
+      }
+    },
+    "stderr": "{\"error\":{\"kind\":\"operation_failed\",\"message\":\"layer-stack storage error: a squash is already in flight for /eos/layer-stack\",\"details\":{}}}\n",
+    "stdout": ""
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "checkpoint_squash",
+      "--sandbox-id",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578"
+    ],
+    "elapsed_ms": 36.848,
+    "exit_code": 0,
+    "parsed_json": {
+      "manifest_version": 8,
+      "squashed_blocks": [
+        {
+          "replaced_layer_ids": [
+            "L000007-0000001a",
+            "L000006-00000015",
+            "L000005-00000010",
+            "L000004-0000000b",
+            "L000003-00000006",
+            "L000002-00000001"
+          ],
+          "replaced_layers": "reclaimed",
+          "squashed_layer_id": "S000008-0000001f"
+        }
+      ]
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":8,\"squashed_blocks\":[{\"squashed_layer_id\":\"S000008-0000001f\",\"replaced_layer_ids\":[\"L000007-0000001a\",\"L000006-00000015\",\"L000005-00000010\",\"L000004-0000000b\",\"L000003-00000006\",\"L000002-00000001\"],\"replaced_layers\":\"reclaimed\"}]}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578"
+    ],
+    "elapsed_ms": 28.915,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 0,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 393216,
+          "layer_id": "S000008-0000001f",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 8,
+      "root_hash": "54e63b74d659d2e0fa1b555317a6741a941100ebea41fb62b05291a3e7c7d9fb",
+      "total_bytes": 393216,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 65536,
+          "ts": 1783030034122
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 131072,
+          "ts": 1783030034206
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 196608,
+          "ts": 1783030034288
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 5,
+          "layers_bytes": 262144,
+          "ts": 1783030034369
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 6,
+          "layers_bytes": 327680,
+          "ts": 1783030034453
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 7,
+          "layers_bytes": 393216,
+          "ts": 1783030034545
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 7,
+          "layers_bytes": 393216,
+          "ts": 1783030034579
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 393216,
+          "ts": 1783030034583
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":8,\"root_hash\":\"54e63b74d659d2e0fa1b555317a6741a941100ebea41fb62b05291a3e7c7d9fb\",\"active_lease_count\":0,\"total_bytes\":393216,\"layers\":[{\"layer_id\":\"S000008-0000001f\",\"bytes\":393216,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":65536,\"active_leases\":0,\"ts\":1783030034122},{\"layer_count\":3,\"layers_bytes\":131072,\"active_leases\":0,\"ts\":1783030034206},{\"layer_count\":4,\"layers_bytes\":196608,\"active_leases\":0,\"ts\":1783030034288},{\"layer_count\":5,\"layers_bytes\":262144,\"active_leases\":0,\"ts\":1783030034369},{\"layer_count\":6,\"layers_bytes\":327680,\"active_leases\":0,\"ts\":1783030034453},{\"layer_count\":7,\"layers_bytes\":393216,\"active_leases\":0,\"ts\":1783030034545},{\"layer_count\":7,\"layers_bytes\":393216,\"active_leases\":1,\"ts\":1783030034579},{\"layer_count\":2,\"layers_bytes\":393216,\"active_leases\":0,\"ts\":1783030034583}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 75.773,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 393216\nstaging_entries 0\nremount_residue 0\nlayer_dirs S000008-0000001f,\nfree_bytes 120499662848\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578"
+    ],
+    "elapsed_ms": 30.068,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 0,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 393216,
+          "layer_id": "S000008-0000001f",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 8,
+      "root_hash": "54e63b74d659d2e0fa1b555317a6741a941100ebea41fb62b05291a3e7c7d9fb",
+      "total_bytes": 393216,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 65536,
+          "ts": 1783030034122
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 131072,
+          "ts": 1783030034206
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 196608,
+          "ts": 1783030034288
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 5,
+          "layers_bytes": 262144,
+          "ts": 1783030034369
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 6,
+          "layers_bytes": 327680,
+          "ts": 1783030034453
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 7,
+          "layers_bytes": 393216,
+          "ts": 1783030034545
+        },
+        {
+          "active_leases": 1,
+          "layer_count": 7,
+          "layers_bytes": 393216,
+          "ts": 1783030034579
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 393216,
+          "ts": 1783030034583
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":8,\"root_hash\":\"54e63b74d659d2e0fa1b555317a6741a941100ebea41fb62b05291a3e7c7d9fb\",\"active_lease_count\":0,\"total_bytes\":393216,\"layers\":[{\"layer_id\":\"S000008-0000001f\",\"bytes\":393216,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":65536,\"active_leases\":0,\"ts\":1783030034122},{\"layer_count\":3,\"layers_bytes\":131072,\"active_leases\":0,\"ts\":1783030034206},{\"layer_count\":4,\"layers_bytes\":196608,\"active_leases\":0,\"ts\":1783030034288},{\"layer_count\":5,\"layers_bytes\":262144,\"active_leases\":0,\"ts\":1783030034369},{\"layer_count\":6,\"layers_bytes\":327680,\"active_leases\":0,\"ts\":1783030034453},{\"layer_count\":7,\"layers_bytes\":393216,\"active_leases\":0,\"ts\":1783030034545},{\"layer_count\":7,\"layers_bytes\":393216,\"active_leases\":1,\"ts\":1783030034579},{\"layer_count\":2,\"layers_bytes\":393216,\"active_leases\":0,\"ts\":1783030034583}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-6c3fc466-b4f8-4223-a7a5-3e291ae70578",
+      "sh",
+      "-c",
+      "set -eu; printf 'layers_bytes '; du -sb /eos/layer-stack/layers | awk '{print $1}'; printf 'staging_entries '; find /eos/layer-stack/staging -mindepth 1 2>/dev/null | wc -l; printf 'remount_residue '; find /eos -name '.remount-*' -o -name 'remount-*' 2>/dev/null | wc -l; printf 'layer_dirs '; find /eos/layer-stack/layers -maxdepth 1 -mindepth 1 -type d -printf '%f,'; printf '\\n'; printf 'free_bytes '; df -B1 /eos/layer-stack | awk 'NR==2{print $4}'"
+    ],
+    "elapsed_ms": 71.409,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "layers_bytes 393216\nstaging_entries 0\nremount_residue 0\nlayer_dirs S000008-0000001f,\nfree_bytes 120499662848\n"
+  }
+]

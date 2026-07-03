@@ -1,0 +1,6 @@
+{
+  "id": "MED-19",
+  "scenario": "migrate",
+  "tier": "medium",
+  "title": "masks never observable"
+}

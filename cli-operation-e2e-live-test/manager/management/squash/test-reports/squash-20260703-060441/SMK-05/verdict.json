@@ -1,0 +1,57 @@
+{
+  "artifacts": {
+    "case_dir": "/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/cli-operation-e2e-live-test/manager/management/squash/test-reports/squash-20260703-060441/SMK-05",
+    "commands": "cmd.log.json",
+    "snapshots": []
+  },
+  "axes": {
+    "correctness": {
+      "details": "manager catalog source exposes checkpoint_squash only",
+      "metrics": {},
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    },
+    "space": {
+      "details": "n/a",
+      "metrics": {},
+      "n_a": true,
+      "pass": true,
+      "status": "pass"
+    },
+    "time": {
+      "details": "T_e2e=24.765ms budget=10000ms",
+      "metrics": {
+        "T_e2e_ms": 24.765,
+        "budget_ms": 10000
+      },
+      "n_a": false,
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "SMK-05",
+  "errors": [],
+  "generated_at": "2026-07-03T06:08:08+08:00",
+  "notes": [],
+  "run_id": "squash-20260703-060441",
+  "schema_version": 1,
+  "status": "PASS",
+  "teardown": {
+    "details": "no sandbox",
+    "metrics": {},
+    "pass": true
+  },
+  "tier": "smoke",
+  "timers": {
+    "T_e2e": {
+      "ms": 25.439,
+      "source": "harness"
+    },
+    "T_squash": {
+      "ms": 24.765,
+      "source": "harness"
+    }
+  },
+  "title": "CLI catalog placement"
+}

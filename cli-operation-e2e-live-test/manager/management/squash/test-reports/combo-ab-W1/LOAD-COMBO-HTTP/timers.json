@@ -1,0 +1,30 @@
+{
+  "T_e2e": {
+    "ms": 42305.487,
+    "source": "harness"
+  },
+  "T_http_disconnect": {
+    "ms": 17.014,
+    "source": "harness"
+  },
+  "T_squash": {
+    "ms": 529.126,
+    "source": "harness"
+  },
+  "T_squash_invocation_1": {
+    "ms": 463.48,
+    "source": "harness"
+  },
+  "T_squash_invocation_2": {
+    "ms": 493.975,
+    "source": "harness"
+  },
+  "T_squash_invocation_3": {
+    "ms": 529.126,
+    "source": "harness"
+  },
+  "T_squash_invocation_4": {
+    "ms": 43.101,
+    "source": "harness"
+  }
+}

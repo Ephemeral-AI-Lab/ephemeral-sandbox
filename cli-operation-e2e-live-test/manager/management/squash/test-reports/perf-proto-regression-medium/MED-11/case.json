@@ -1,0 +1,6 @@
+{
+  "id": "MED-11",
+  "scenario": "mount_ns",
+  "tier": "medium",
+  "title": "nested mount namespace blocks remount"
+}

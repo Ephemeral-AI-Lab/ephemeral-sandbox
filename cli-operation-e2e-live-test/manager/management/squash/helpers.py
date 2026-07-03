@@ -5,6 +5,7 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import os
+from collections import Counter, defaultdict
 import platform
 import re
 import shutil
@@ -78,6 +79,9 @@ CASES = [
     {"id": "HRD-18", "tier": "hard", "title": "G2 parity negative control", "scenario": "opaque"},
     {"id": "HRD-19", "tier": "hard", "title": "mid-sweep daemon kill and unreadable manifest", "scenario": "restart"},
     {"id": "HRD-20", "tier": "hard", "title": "soak marathon", "scenario": "soak"},
+    {"id": "AB-EQUIV", "tier": "bench", "title": "A/B logical equivalence (mixed migrate/identity, one block)", "scenario": "ab", "ab": {"sessions": 12, "migrate_ratio": 0.5, "blocks": 1}},
+    {"id": "AB-BLOCKS", "tier": "bench", "title": "exact squashable-block-count knob (B)", "scenario": "ab", "ab": {"sessions": 16, "migrate_ratio": 0.5, "blocks": 8}},
+    {"id": "PERF-WIDTH", "tier": "bench", "title": "remount-sweep width scaling (all-migrate)", "scenario": "ab", "ab": {"sessions": 200, "migrate_ratio": 1.0, "blocks": 1}},
 ]
 
 CASE_BY_ID = {case["id"]: case for case in CASES}
@@ -97,6 +101,9 @@ CASE_E2E_BUDGET_MS = {
     "LOAD-COMBO-HTTP": 1_800_000,
     "HRD-12": 1_800_000,
     "HRD-20": 1_800_000,
+    "AB-EQUIV": 600_000,
+    "AB-BLOCKS": 600_000,
+    "PERF-WIDTH": 1_800_000,
 }
 CASE_SQUASH_BUDGET_MS = {
     "MED-18": 15_000,
@@ -108,6 +115,9 @@ CASE_SQUASH_BUDGET_MS = {
     "LOAD-LARGE-HTTP": 120_000,
     "LOAD-COMBO-HTTP": 180_000,
     "HRD-11": 20_000,
+    "AB-EQUIV": 60_000,
+    "AB-BLOCKS": 60_000,
+    "PERF-WIDTH": 180_000,
 }
 FILE_WRITE_PUBLISH_LIMIT_BYTES = 16 * 1024
 MAX_EXEC_CAPTURE_KIB = 8 * 1024
@@ -392,6 +402,8 @@ OBS_NDJSON_PATHS = (
     "/eos/runtime/daemon/observability/observability.ndjson",
     "/eos/runtime/daemon/observability/observability.ndjson.1",
 )
+REMOUNT_SPAN = "workspace_session.remount"
+SQUASH_SPAN = "layerstack.squash"
 
 
 def harvest_observability(rec, sandbox_id):
@@ -2253,6 +2265,241 @@ def _scenario_load_combo_http(case, rec, sandbox_factory):
             "after_layer_dirs": after_dirs,
             "before_layers_bytes": (before_first or after_last)["disk"].get("layers_bytes"),
             "after_layers_bytes": after_final["disk"].get("layers_bytes"),
+        },
+    )
+    assert rec.axes["space"]["pass"], rec.axes["space"]["details"]
+
+
+AB_MEASURE_RETRIES = 25
+AB_MEASURE_INTERVAL_S = 0.2
+
+
+def _ab_params(case):
+    """Resolve the (N, M, B) benchmark topology from env knobs + case defaults.
+
+    ``M`` is bumped to at least ``B`` when any session migrates so every block
+    keeps its own boundary session; the achieved migrated count is measured from
+    spans, not trusted from this target.
+    """
+    defaults = case.get("ab", {})
+    n = int(os.environ.get(
+        "SQUASH_AB_SESSIONS",
+        os.environ.get("SQUASH_COMBO_SESSIONS", defaults.get("sessions", 12)),
+    ))
+    ratio = float(os.environ.get("SQUASH_MIGRATE_RATIO", defaults.get("migrate_ratio", 1.0)))
+    blocks = int(os.environ.get("SQUASH_BLOCK_COUNT", defaults.get("blocks", 1)))
+    kib = int(os.environ.get("SQUASH_AB_KIB", defaults.get("kib", 4)))
+    assert 1 <= n <= 512, n
+    assert 1 <= blocks <= n, (blocks, n)
+    assert 0.0 <= ratio <= 1.0, ratio
+    assert 1 <= kib <= MAX_EXEC_CAPTURE_KIB, kib
+    migrate = int(round(ratio * n))
+    if migrate > 0:
+        migrate = max(migrate, blocks)
+    migrate = min(migrate, n)
+    return {
+        "N": n,
+        "M_target": migrate,
+        "B": blocks,
+        "I": n - migrate,
+        "ratio": ratio,
+        "kib": kib,
+        "repeats": int(os.environ.get("SQUASH_BENCH_REPEATS", "1")),
+    }
+
+
+def _ab_disposition_name(raw):
+    return str(raw).split("{", 1)[0].strip()
+
+
+def _prefix_counts(layer_ids):
+    counts = Counter(str(layer_id)[:1] for layer_id in layer_ids)
+    return {prefix: counts[prefix] for prefix in sorted(counts)}
+
+
+def _read_remount_spans(rec, sandbox_id):
+    """Grep the daemon span log for squash parents and their remount children.
+
+    Grep server-side so the ~O(N·ticks) periodic resource-sample records never
+    cross the wire. Returns (remounts_by_trace, squash_by_trace).
+    """
+    paths = " ".join(OBS_NDJSON_PATHS)
+    proc = docker(
+        rec,
+        sandbox_id,
+        "sh",
+        "-c",
+        f"grep -hE 'workspace_session\\.remount|layerstack\\.squash' {paths} 2>/dev/null || true",
+        timeout=120,
+    )
+    remounts_by_trace = defaultdict(list)
+    squash_by_trace = {}
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if record.get("kind") != "span":
+            continue
+        name = record.get("name")
+        trace = record.get("trace")
+        if name == REMOUNT_SPAN:
+            attrs = record.get("attrs", {})
+            remounts_by_trace[trace].append({
+                "disposition": _ab_disposition_name(attrs.get("disposition", "?")),
+                "dur_ms": float(record.get("dur_ms", 0.0)),
+                "ts": float(record.get("ts", 0.0)),
+                "trace": trace,
+            })
+        elif name == SQUASH_SPAN:
+            attrs = record.get("attrs", {})
+            squash_by_trace[trace] = {
+                "ts": float(record.get("ts", 0.0)),
+                "dur_ms": float(record.get("dur_ms", 0.0)),
+                "blocks": attrs.get("blocks"),
+                "sweep_width": attrs.get("sweep_width"),
+                "swept": attrs.get("swept"),
+            }
+    return remounts_by_trace, squash_by_trace
+
+
+def _measure_ab_dispositions(rec, sandbox_id, expected_min):
+    """Return the measured squash trace's disposition facts, polling for flush.
+
+    The measured sweep is the squash trace carrying the most remount children
+    (the identity-anchor squash swept zero sessions); ties break on latest ts.
+    """
+    last_seen = None
+    for _ in range(AB_MEASURE_RETRIES):
+        remounts_by_trace, squash_by_trace = _read_remount_spans(rec, sandbox_id)
+        candidates = sorted(
+            (len(remounts_by_trace.get(trace, [])), squash_by_trace[trace]["ts"], trace)
+            for trace in squash_by_trace
+        )
+        if candidates:
+            count, _ts, trace = candidates[-1]
+            last_seen = (count, trace)
+            if count >= expected_min:
+                spans = remounts_by_trace[trace]
+                return {
+                    "trace": trace,
+                    "counts": dict(Counter(span["disposition"] for span in spans)),
+                    "spans": spans,
+                    "squash": squash_by_trace[trace],
+                }
+        time.sleep(AB_MEASURE_INTERVAL_S)
+    raise AssertionError(
+        f"measured squash spans not flushed: expected >= {expected_min} remounts, saw {last_seen}"
+    )
+
+
+def _scenario_ab(case, rec, sandbox_factory):
+    params = _ab_params(case)
+    n, migrate_target, blocks, identity = params["N"], params["M_target"], params["B"], params["I"]
+    kib = params["kib"]
+
+    per_block = [migrate_target // blocks] * blocks
+    for extra in range(migrate_target % blocks):
+        per_block[extra] += 1
+
+    sandbox_id = sandbox_factory(rec)
+    identity_sessions = []
+    migrate_sessions = []
+    try:
+        if identity > 0:
+            _publish(rec, sandbox_id, "ab-anchor-1", kib=kib)
+            _publish(rec, sandbox_id, "ab-anchor-2", kib=kib)
+            _assert_contract(_squash(rec, sandbox_id), 1)
+            for _ in range(identity):
+                identity_sessions.append(_create_session(rec, sandbox_id))
+        for block in range(blocks):
+            _publish(rec, sandbox_id, f"ab-b{block}-body1", kib=kib)
+            _publish(rec, sandbox_id, f"ab-b{block}-body2", kib=kib)
+            _publish(rec, sandbox_id, f"ab-b{block}-cap", kib=kib)
+            for _ in range(per_block[block]):
+                migrate_sessions.append(_create_session(rec, sandbox_id))
+        sessions = identity_sessions + migrate_sessions
+        assert len(sessions) == n, (len(sessions), n)
+
+        before = snapshot(rec, sandbox_id, "S0")
+        pre_ids = _layers(rec, sandbox_id)
+        result = _squash(rec, sandbox_id, timeout=900)
+        after = snapshot(rec, sandbox_id, "S2")
+        post_ids = _layers(rec, sandbox_id)
+        result_blocks = _assert_contract(result, blocks)
+
+        measured = _measure_ab_dispositions(rec, sandbox_id, expected_min=len(sessions))
+        migrated = measured["counts"].get("Migrated", 0)
+        tolerance = max(2, int(round(0.1 * n)))
+        surviving = sorted(set(pre_ids) & set(post_ids))
+        facts = {
+            "case_id": case["id"],
+            "params": params,
+            "sweep_width_reported": measured["squash"].get("sweep_width"),
+            "swept_reported": measured["squash"].get("swept"),
+            "measured_dispositions": measured["counts"],
+            "migrated": migrated,
+            "migrate_target": migrate_target,
+            "migrate_tolerance": tolerance,
+            "identity_target": identity,
+            "block_count": len(result_blocks),
+            "block_target": blocks,
+            "squashed_layer_ids": sorted(block["squashed_layer_id"] for block in result_blocks),
+            "pre_squash_layer_ids": sorted(pre_ids),
+            "surviving_pre_squash_layer_ids": surviving,
+            "surviving_by_prefix": _prefix_counts(surviving),
+            "final_layer_ids": sorted(post_ids),
+            "final_layer_count": len(post_ids),
+            "final_by_prefix": _prefix_counts(post_ids),
+            "before_layer_dirs": len(before["disk"].get("layer_dirs", [])),
+            "after_layer_dirs": len(after["disk"].get("layer_dirs", [])),
+            "staging_after": after["disk"].get("staging_entries", 0),
+        }
+        rec.write_json("ab-facts.json", facts)
+        rec.write_json("ab-remount-spans.json", measured["spans"])
+
+        assert abs(migrated - migrate_target) <= tolerance, (
+            f"measured migrated={migrated} target={migrate_target} tol={tolerance} "
+            f"dispositions={measured['counts']}"
+        )
+    finally:
+        for session in reversed(migrate_sessions + identity_sessions):
+            _destroy_session(rec, sandbox_id, session)
+
+    _assert_contract(_squash(rec, sandbox_id, timeout=900))
+    _teardown_contract(rec, sandbox_id)
+
+    rec.axis(
+        "correctness",
+        True,
+        (
+            f"N={n} blocks={facts['block_count']}=={blocks} "
+            f"migrated={migrated} (target {migrate_target}±{tolerance}) "
+            f"width={facts['sweep_width_reported']}"
+        ),
+        metrics={
+            "N": n,
+            "migrated": migrated,
+            "migrate_target": migrate_target,
+            "identity_measured": measured["counts"].get("Identity", 0),
+            "blocks": facts["block_count"],
+            "sweep_width": facts["sweep_width_reported"],
+        },
+    )
+    space_ok = (
+        facts["after_layer_dirs"] < facts["before_layer_dirs"]
+        and facts["staging_after"] == 0
+    )
+    rec.axis(
+        "space",
+        space_ok,
+        f"layer dirs {facts['before_layer_dirs']}->{facts['after_layer_dirs']}; staging empty",
+        metrics={
+            "before_layer_dirs": facts["before_layer_dirs"],
+            "after_layer_dirs": facts["after_layer_dirs"],
         },
     )
     assert rec.axes["space"]["pass"], rec.axes["space"]["details"]

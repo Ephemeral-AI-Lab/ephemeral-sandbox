@@ -1,0 +1,99 @@
+{
+  "T_http_disconnect_ms": 28.932,
+  "active_sessions": 200,
+  "background_commands": 8,
+  "http_servers": 4,
+  "http_stats": [
+    {
+      "failures": 0,
+      "max_silence_ms": 9.453,
+      "ok_count": 1527,
+      "round": 1,
+      "server_index": 0
+    },
+    {
+      "failures": 0,
+      "max_silence_ms": 8.579,
+      "ok_count": 1524,
+      "round": 1,
+      "server_index": 1
+    },
+    {
+      "failures": 0,
+      "max_silence_ms": 13.031,
+      "ok_count": 1519,
+      "round": 1,
+      "server_index": 2
+    },
+    {
+      "failures": 0,
+      "max_silence_ms": 12.212,
+      "ok_count": 1519,
+      "round": 1,
+      "server_index": 3
+    },
+    {
+      "failures": 0,
+      "max_silence_ms": 15.505,
+      "ok_count": 1528,
+      "round": 2,
+      "server_index": 0
+    },
+    {
+      "failures": 0,
+      "max_silence_ms": 14.933,
+      "ok_count": 1531,
+      "round": 2,
+      "server_index": 1
+    },
+    {
+      "failures": 0,
+      "max_silence_ms": 13.976,
+      "ok_count": 1532,
+      "round": 2,
+      "server_index": 2
+    },
+    {
+      "failures": 0,
+      "max_silence_ms": 15.22,
+      "ok_count": 1526,
+      "round": 2,
+      "server_index": 3
+    },
+    {
+      "failures": 0,
+      "max_silence_ms": 23.049,
+      "ok_count": 1523,
+      "round": 3,
+      "server_index": 0
+    },
+    {
+      "failures": 0,
+      "max_silence_ms": 28.932,
+      "ok_count": 1520,
+      "round": 3,
+      "server_index": 1
+    },
+    {
+      "failures": 0,
+      "max_silence_ms": 28.163,
+      "ok_count": 1525,
+      "round": 3,
+      "server_index": 2
+    },
+    {
+      "failures": 0,
+      "max_silence_ms": 26.219,
+      "ok_count": 1520,
+      "round": 3,
+      "server_index": 3
+    }
+  ],
+  "large_edits": 6,
+  "large_kib_each": 2048,
+  "replaced_layers": 103,
+  "rounds": 3,
+  "small_edits": 24,
+  "small_layers": 72,
+  "squash_blocks": 3
+}

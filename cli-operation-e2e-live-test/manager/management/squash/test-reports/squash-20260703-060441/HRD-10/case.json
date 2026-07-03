@@ -1,0 +1,6 @@
+{
+  "id": "HRD-10",
+  "scenario": "dense",
+  "tier": "hard",
+  "title": "dense-pinning adversarial floor"
+}

@@ -1,0 +1,6 @@
+{
+  "id": "SMK-04",
+  "scenario": "contract",
+  "tier": "smoke",
+  "title": "result contract shape, success and fault"
+}

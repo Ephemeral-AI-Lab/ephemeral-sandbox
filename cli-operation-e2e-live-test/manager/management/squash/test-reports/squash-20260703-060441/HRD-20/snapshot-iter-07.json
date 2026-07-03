@@ -1,0 +1,234 @@
+{
+  "disk": {
+    "free_bytes": 120499920896,
+    "layer_dirs": [
+      "S000023-00000057",
+      "L000019-00000045",
+      "S000020-0000004b"
+    ],
+    "layers_bytes": 15360,
+    "remount_residue": 2,
+    "staging_entries": 0
+  },
+  "label": "iter-07",
+  "layerstack": {
+    "active_lease_count": 1,
+    "layers": [
+      {
+        "booked_by": [],
+        "bytes": 2048,
+        "layer_id": "S000023-00000057",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [],
+        "bytes": 1024,
+        "layer_id": "L000019-00000045",
+        "leased_by_workspaces": 1
+      },
+      {
+        "booked_by": [
+          "L000019-00000045"
+        ],
+        "bytes": 12288,
+        "layer_id": "S000020-0000004b",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [
+          "L000019-00000045"
+        ],
+        "bytes": 0,
+        "layer_id": "B000001-base",
+        "leased_by_workspaces": 0
+      }
+    ],
+    "manifest_version": 23,
+    "root_hash": "94938d702bae027994f397d362be14fdbf259670a0ab3cfe4a69dbc215777fd3",
+    "total_bytes": 15360,
+    "trend": [
+      {
+        "active_leases": 0,
+        "layer_count": 2,
+        "layers_bytes": 1024,
+        "ts": 1783030018701
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 2,
+        "layers_bytes": 1024,
+        "ts": 1783030018738
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 2,
+        "layers_bytes": 1024,
+        "ts": 1783030018781
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 2,
+        "layers_bytes": 1024,
+        "ts": 1783030018810
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 3,
+        "layers_bytes": 2048,
+        "ts": 1783030018939
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 4,
+        "layers_bytes": 3072,
+        "ts": 1783030018977
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 2,
+        "layers_bytes": 3072,
+        "ts": 1783030019010
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 3,
+        "layers_bytes": 4096,
+        "ts": 1783030019140
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 4,
+        "layers_bytes": 5120,
+        "ts": 1783030019173
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 5,
+        "layers_bytes": 6144,
+        "ts": 1783030019205
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 5,
+        "layers_bytes": 6144,
+        "ts": 1783030019241
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 3,
+        "layers_bytes": 6144,
+        "ts": 1783030019281
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 4,
+        "layers_bytes": 7168,
+        "ts": 1783030019421
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 4,
+        "layers_bytes": 7168,
+        "ts": 1783030019470
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 2,
+        "layers_bytes": 7168,
+        "ts": 1783030019504
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 3,
+        "layers_bytes": 8192,
+        "ts": 1783030019643
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 4,
+        "layers_bytes": 9216,
+        "ts": 1783030019681
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 4,
+        "layers_bytes": 9216,
+        "ts": 1783030019716
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 3,
+        "layers_bytes": 9216,
+        "ts": 1783030019755
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 4,
+        "layers_bytes": 10240,
+        "ts": 1783030019895
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 5,
+        "layers_bytes": 11264,
+        "ts": 1783030019932
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 6,
+        "layers_bytes": 12288,
+        "ts": 1783030019968
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 4,
+        "layers_bytes": 12288,
+        "ts": 1783030020000
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 5,
+        "layers_bytes": 13312,
+        "ts": 1783030020112
+      },
+      {
+        "active_leases": 2,
+        "layer_count": 5,
+        "layers_bytes": 13312,
+        "ts": 1783030020144
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 5,
+        "layers_bytes": 13312,
+        "ts": 1783030020187
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 3,
+        "layers_bytes": 13312,
+        "ts": 1783030020231
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 4,
+        "layers_bytes": 14336,
+        "ts": 1783030020366
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 5,
+        "layers_bytes": 15360,
+        "ts": 1783030020403
+      },
+      {
+        "active_leases": 1,
+        "layer_count": 4,
+        "layers_bytes": 15360,
+        "ts": 1783030020436
+      }
+    ],
+    "view": "layerstack"
+  },
+  "raw_disk": "layers_bytes 15360\nstaging_entries 0\nremount_residue 2\nlayer_dirs S000023-00000057,L000019-00000045,S000020-0000004b,\nfree_bytes 120499920896\n"
+}

@@ -1,0 +1,32 @@
+{
+  "availability": "available",
+  "daemon": {
+    "daemon_pid": 7,
+    "runtime_dir": "/eos/runtime/daemon"
+  },
+  "errors": [],
+  "lifecycle_state": "ready",
+  "resources": {
+    "history": [],
+    "latest": {
+      "deltas": {
+        "cpu_usec": 3398
+      },
+      "metrics": {
+        "cpu_usec": 32207,
+        "mem_cur": 3289088,
+        "mem_max_unlimited": true
+      },
+      "sample_delta_ms": 92,
+      "ts": 1783032072390
+    }
+  },
+  "sampled_at_unix_ms": 1783032072417,
+  "sandbox_id": "eos-38453b5c-bd05-45a6-8688-0586b28144fa",
+  "stack": {
+    "active_leases": 0,
+    "layer_count": 1,
+    "layers_bytes": 0
+  },
+  "workspaces": []
+}

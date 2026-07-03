@@ -1,0 +1,19 @@
+{
+  "manifest_version": 8,
+  "squashed_blocks": [
+    {
+      "blocked_reasons": [
+        "pinned:cwd_pinned_workspace"
+      ],
+      "replaced_layer_ids": [
+        "L000006-00000010",
+        "L000005-0000000c",
+        "L000004-00000008",
+        "L000003-00000004",
+        "L000002-00000000"
+      ],
+      "replaced_layers": "leased",
+      "squashed_layer_id": "S000008-0000001a"
+    }
+  ]
+}

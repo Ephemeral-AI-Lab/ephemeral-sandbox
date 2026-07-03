@@ -100,7 +100,7 @@ just for catalog constants.
 
 | Space | Ops (visible) | Hidden / wire-only |
 |---|---|---|
-| `manager` | `create_sandbox`, `destroy_sandbox`, `list_sandboxes`, `inspect_sandbox`, `checkpoint_squash` | `snapshot` (aggregate; `cli: None`) |
+| `manager` | `create_sandbox`, `destroy_sandbox`, `list_sandboxes`, `inspect_sandbox`, `layerstack_squash` | `snapshot` (aggregate; `cli: None`) |
 | `runtime` | `exec_command`, `write_command_stdin`, `read_command_lines`, `create_workspace_session`, `destroy_workspace_session`, `file_blame`, `file_read`, `file_write`, `file_edit` | `squash_layerstack` (`cli: None`) |
 | `observability` | `snapshot`, `trace`, `events`, `cgroup`, `layerstack` | rewritten to daemon-private `get_observability` (or manager `snapshot` when no `--sandbox-id`) |
 
@@ -114,7 +114,7 @@ Full variants and expected outputs: [[operation]].
 | `sandbox-runtime-operations` | lib (spec-only) | runtime CLI operation specs + catalog | contain dispatch or service code |
 | `sandbox-cli-core` | lib | gateway client, config discovery, catalog request building, response rendering, help plumbing | know any concrete operation or space policy |
 | `sandbox-manager-cli` | bin | operator CLI: manager + observability catalogs, system-scope requests, `--progress` streaming | depend on manager/runtime implementation crates |
-| `sandbox-runtime-cli` | bin | agent CLI: runtime catalog, sandbox-scope requests, sandbox-id resolution | depend on manager/runtime implementation crates |
+| `sandbox-runtime-cli` | bin | agent CLI: runtime catalog, sandbox-scope requests, required `--sandbox-id` | depend on manager/runtime implementation crates |
 | `sandbox-gateway` | bin+lib | gateway server only | own any CLI client code |
 
 Placement: **all new crates at `crates/` top level.** `sandbox-runtime-cli`
@@ -167,8 +167,12 @@ tooling. Static wins.
 ### D3 — One shared CLI config section
 
 `sandbox-config/src/configs/cli.rs` keeps a single schema (socket, auth
-token, `default_sandbox_id`). `sandbox-manager-cli` simply ignores
-`default_sandbox_id`. Forking the schema adds types for nothing.
+token) shared by both binaries. The former `default_sandbox_id` field is
+**dropped**: `sandbox-runtime-cli` requires an explicit `--sandbox-id` on
+every invocation (no `SANDBOX_DEFAULT_ID` env or config fallback), and
+`sandbox-manager-cli` never used it. Resolution lives in `sandbox-cli-core`,
+so the legacy `sandbox-cli` runtime space inherits the same requirement
+during the compat window. Forking the schema would add types for nothing.
 
 ### D4 — Compat window, then removal
 
@@ -230,8 +234,9 @@ on `main`, additive edits, never revert concurrent work.
       `--workspace-root` alias. Always system scope (observability
       per-sandbox views stamp sandbox scope exactly as today).
 - [ ] `crates/sandbox-runtime-cli`: runtime catalog only. Grammar:
-      `sandbox-runtime-cli --sandbox-id ID <op> [args…]` with
-      `SANDBOX_DEFAULT_ID`/config fallback. Always sandbox scope.
+      `sandbox-runtime-cli --sandbox-id ID <op> [args…]`. `--sandbox-id` is
+      required on every invocation — no `SANDBOX_DEFAULT_ID` env or config
+      fallback. Always sandbox scope.
 - [ ] Exit: both binaries pass a smoke matrix mirroring
       [[operation]] happy paths + local error variants; old
       `sandbox-cli` still green.
@@ -283,7 +288,12 @@ on `main`, additive edits, never revert concurrent work.
 - **Parallel workers.** Other agents edit this repo concurrently; the
   spec-extraction phases touch popular files
   (`management_operations.rs`, runtime `cli_definition/*`). Keep moves
-  mechanical, avoid reformatting, land each phase quickly.
+  mechanical, avoid reformatting, land each phase quickly. Note: the
+  [[finalize-policy/spec|finalize-policy change]] rewrote the runtime op
+  descriptions (`exec_command`, `destroy_workspace_session`) and response
+  fields (`workspace_session_id`, `finalize_policy`, `publish_rejected`) in
+  these same files — Phase 1 carries that post-finalize-policy text
+  verbatim, and [[operation]] is the updated equivalence contract.
 
 ## 8. Acceptance criteria
 
@@ -314,5 +324,6 @@ on `main`, additive edits, never revert concurrent work.
 | edit | spec consts' `CliSpec.usage`/`examples` (per-binary strings) |
 | edit | `bin/start-sandbox-docker-gateway` (build line) |
 | edit | `cli-operation-e2e-live-test/core/{cli,config}.py` |
+| edit | `sandbox-config/src/configs/cli.rs` (drop `default_sandbox_id`; runtime CLI requires explicit `--sandbox-id`) |
 | edit | `README.md`, `CLAUDE.md`, workspace `Cargo.toml` members |
 | delete (P5) | `sandbox-gateway/src/cli/`, `[[bin]] sandbox-cli`, `bin/sandbox-cli` |

@@ -1,0 +1,124 @@
+{
+  "arm_a": {
+    "T_http_disconnect_ms": 17.014,
+    "all_axes_pass": true,
+    "axes_pass": {
+      "correctness": true,
+      "space": true,
+      "time": true
+    },
+    "block_total": 3,
+    "disposition_classes": [
+      "Identity",
+      "Migrated"
+    ],
+    "disposition_totals": {
+      "Identity": 201,
+      "Migrated": 212
+    },
+    "measured_squashes": 3,
+    "overlap_p50": 1.0,
+    "replaced_total": 103,
+    "report_dir": "cli-operation-e2e-live-test/manager/management/squash/test-reports/combo-ab-W1/LOAD-COMBO-HTTP",
+    "sweep_wall_p50": 450.0,
+    "sweep_width_reported": [
+      1
+    ],
+    "teardown_pass": true
+  },
+  "arm_b": {
+    "T_http_disconnect_ms": 28.932,
+    "all_axes_pass": true,
+    "axes_pass": {
+      "correctness": true,
+      "space": true,
+      "time": true
+    },
+    "block_total": 3,
+    "disposition_classes": [
+      "Identity",
+      "Migrated"
+    ],
+    "disposition_totals": {
+      "Identity": 201,
+      "Migrated": 212
+    },
+    "measured_squashes": 3,
+    "overlap_p50": 3.88,
+    "replaced_total": 103,
+    "report_dir": "cli-operation-e2e-live-test/manager/management/squash/test-reports/combo-ab-W4/LOAD-COMBO-HTTP",
+    "sweep_wall_p50": 209.0,
+    "sweep_width_reported": [
+      4
+    ],
+    "teardown_pass": true
+  },
+  "checks": {
+    "arms_differ_in_width": {
+      "a": [
+        1
+      ],
+      "b": [
+        4
+      ],
+      "required": true,
+      "serial_vs_parallel": true
+    },
+    "block_total": {
+      "a": 3,
+      "b": 3,
+      "equal": true,
+      "required": false
+    },
+    "both_all_axes_pass": {
+      "a": true,
+      "b": true,
+      "ok": true,
+      "required": true
+    },
+    "both_teardown_clean": {
+      "a": true,
+      "b": true,
+      "ok": true,
+      "required": true
+    },
+    "disposition_classes": {
+      "a": [
+        "Identity",
+        "Migrated"
+      ],
+      "b": [
+        "Identity",
+        "Migrated"
+      ],
+      "ok": true,
+      "required": true
+    },
+    "disposition_totals": {
+      "a": {
+        "Identity": 201,
+        "Migrated": 212
+      },
+      "b": {
+        "Identity": 201,
+        "Migrated": 212
+      },
+      "required": false
+    },
+    "http_disconnect_under_budget": {
+      "a": 17.014,
+      "b": 28.932,
+      "ok": true,
+      "required": true
+    },
+    "parallel_overlaps_and_no_slower": {
+      "a_overlap": 1.0,
+      "a_wall_ms": 450.0,
+      "b_overlap": 3.88,
+      "b_wall_ms": 209.0,
+      "ok": true,
+      "required": true
+    }
+  },
+  "pass": true
+}

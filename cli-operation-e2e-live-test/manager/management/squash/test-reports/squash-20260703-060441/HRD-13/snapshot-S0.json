@@ -1,0 +1,55 @@
+{
+  "disk": {
+    "free_bytes": 120498343936,
+    "layer_dirs": [
+      "L000003-00000006",
+      "L000002-00000001"
+    ],
+    "layers_bytes": 1384,
+    "remount_residue": 0,
+    "staging_entries": 0
+  },
+  "label": "S0",
+  "layerstack": {
+    "active_lease_count": 0,
+    "layers": [
+      {
+        "booked_by": [],
+        "bytes": 692,
+        "layer_id": "L000003-00000006",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [],
+        "bytes": 692,
+        "layer_id": "L000002-00000001",
+        "leased_by_workspaces": 0
+      },
+      {
+        "booked_by": [],
+        "bytes": 0,
+        "layer_id": "B000001-base",
+        "leased_by_workspaces": 0
+      }
+    ],
+    "manifest_version": 3,
+    "root_hash": "6fd26f7e101965d935575a14ef368095d7ad3f7efdebf004388e145d427db4e4",
+    "total_bytes": 1384,
+    "trend": [
+      {
+        "active_leases": 0,
+        "layer_count": 2,
+        "layers_bytes": 692,
+        "ts": 1783030003650
+      },
+      {
+        "active_leases": 0,
+        "layer_count": 3,
+        "layers_bytes": 1384,
+        "ts": 1783030004000
+      }
+    ],
+    "view": "layerstack"
+  },
+  "raw_disk": "layers_bytes 1384\nstaging_entries 0\nremount_residue 0\nlayer_dirs L000003-00000006,L000002-00000001,\nfree_bytes 120498343936\n"
+}

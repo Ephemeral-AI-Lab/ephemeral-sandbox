@@ -1,0 +1,6 @@
+{
+  "id": "MED-09",
+  "scenario": "pin",
+  "tier": "medium",
+  "title": "escaped-pgid child with an fd pin"
+}

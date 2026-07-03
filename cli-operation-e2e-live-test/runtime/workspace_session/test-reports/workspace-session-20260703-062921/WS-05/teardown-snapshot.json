@@ -1,0 +1,21 @@
+{
+  "availability": "available",
+  "daemon": {
+    "daemon_pid": 7,
+    "runtime_dir": "/eos/runtime/daemon"
+  },
+  "errors": [],
+  "lifecycle_state": "ready",
+  "resources": {
+    "history": [],
+    "latest": null
+  },
+  "sampled_at_unix_ms": 1783031395098,
+  "sandbox_id": "eos-a264e94e-3b95-4b0a-8656-c6d98bfa67d8",
+  "stack": {
+    "active_leases": 0,
+    "layer_count": 1,
+    "layers_bytes": 0
+  },
+  "workspaces": []
+}

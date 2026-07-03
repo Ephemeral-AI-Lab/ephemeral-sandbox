@@ -1,0 +1,6 @@
+{
+  "id": "LOAD-LARGE-HTTP",
+  "scenario": "large_file_http",
+  "tier": "hard",
+  "title": "large file squash with HTTP disconnect"
+}
