@@ -527,20 +527,23 @@ sandbox-runtime-namespace-process --all-targets` (clean); the Linux-gated unit
 tests must run on Linux/CI, since the dev host is macOS and the module is
 `#[cfg(target_os = "linux")]`.
 
-**Pending — spec/doc only, not yet applied:**
+**Also applied — ownership move (C) and knob/relaxed removal (D):** net-negative
+LOC across `protocol.rs`, `shell_security.rs`, `manager.rs`, `serve.rs`,
+`services.rs`, and the e2e (renamed to `runtime/shell_security/`, rewritten
+enforce-only). See §15 for the file-by-file ledger.
+
+**Pending — doc only, not yet applied:**
 
 | File | Kind | Est. LOC |
 |---|---|---:|
-| `daemon-command-child-policy-refined-spec.md` | new (this doc) | ~500 |
-| two superseded specs | frontmatter edit | +4 |
-| e2e `shell_security/test_spec.md` | edit (repoint) | +2 |
+| two superseded specs (`…lite`, `…syscall-hardening`) | frontmatter edit | +4 |
 
 ## 17. Workflow diagram — command-child policy enforcement
 
 ```mermaid
 flowchart TD
-    A["Client: exec_command"] --> B["sandbox-daemon serve.rs<br/>config mode → SandboxRuntimeConfig.shell_security"]
-    B --> C["operation services.rs<br/>engine built with REQUIRED shell_security (once, at construction)"]
+    A["Client: exec_command"] --> B["sandbox-daemon serve.rs<br/>build runtime config (no shell-security knob)"]
+    B --> C["operation services.rs<br/>from_config binds enforce() into the command engine (once, at construction)"]
     C --> D["namespace-execution engine.rs<br/>run_shell_interactive reads self.shell_security<br/>→ build NamespaceRunnerRequest.shell_security"]
     D --> E["ns-runner helper (KEEPS privileges)<br/>setns / mount / overlay / mask /eos"]
     E --> F["shell_exec.rs: prepare_shell_security_policy<br/>build BPF deny-table in PARENT, pre-fork (OnceLock)"]

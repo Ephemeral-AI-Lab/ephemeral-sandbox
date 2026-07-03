@@ -15,8 +15,6 @@ use seccompiler::{
     SeccompFilter, SeccompRule, TargetArch,
 };
 
-use crate::runner::protocol::{ShellSecurityMode, ShellSecurityPolicy};
-
 const PR_CAPBSET_DROP: libc::c_int = 24;
 const PR_SET_NO_NEW_PRIVS: libc::c_int = 38;
 const PR_CAP_AMBIENT: libc::c_int = 47;
@@ -157,20 +155,14 @@ const SYS_CAPSET: libc::c_long = 91;
 #[cfg(target_arch = "aarch64")]
 const SYS_SECCOMP: libc::c_long = 277;
 
-pub(crate) fn prepare_shell_security_policy(policy: &ShellSecurityPolicy) -> io::Result<()> {
-    match policy.mode {
-        ShellSecurityMode::Off => Ok(()),
-        ShellSecurityMode::Enforce => prepare_seccomp_program(&ENFORCE_PROGRAMS),
-    }
+pub(crate) fn prepare_shell_security_policy() -> io::Result<()> {
+    prepare_seccomp_program(&ENFORCE_PROGRAMS)
 }
 
-pub(crate) fn apply_shell_security_policy(policy: &ShellSecurityPolicy) -> io::Result<()> {
+pub(crate) fn apply_shell_security_policy() -> io::Result<()> {
     set_no_new_privs()?;
     drop_capabilities()?;
-    match policy.mode {
-        ShellSecurityMode::Off => Ok(()),
-        ShellSecurityMode::Enforce => install_prepared_filters(&ENFORCE_PROGRAMS),
-    }
+    install_prepared_filters(&ENFORCE_PROGRAMS)
 }
 
 fn prepare_seccomp_program(slot: &'static OnceLock<SeccompPrograms>) -> io::Result<()> {

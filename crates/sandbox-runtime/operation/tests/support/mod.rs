@@ -392,7 +392,6 @@ pub(crate) fn build_command_service(
         exec_spans.clone(),
         MAX_ACTIVE_COMMANDS,
         SETUP_TIMEOUT_S,
-        sandbox_runtime_namespace_process::runner::protocol::ShellSecurityPolicy::off(),
     ));
     CommandOperationService::with_engine(
         Arc::clone(workspace),
@@ -424,7 +423,6 @@ pub(crate) fn build_observed_services(
         exec_spans.clone(),
         MAX_ACTIVE_COMMANDS,
         SETUP_TIMEOUT_S,
-        sandbox_runtime_namespace_process::runner::protocol::ShellSecurityPolicy::off(),
     ));
     let command = Arc::new(CommandOperationService::with_engine(
         Arc::clone(&workspace),

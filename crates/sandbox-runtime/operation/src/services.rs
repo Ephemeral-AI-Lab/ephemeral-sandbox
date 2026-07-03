@@ -7,7 +7,6 @@ use rustix::io::Errno;
 use rustix::mount::{unmount, UnmountFlags};
 use sandbox_observability::Observer;
 use sandbox_runtime_layerstack::service::StackObservation;
-use sandbox_runtime_namespace_process::runner::protocol::ShellSecurityPolicy;
 
 use crate::command::CommandOperationService;
 use crate::file::FileService;
@@ -98,7 +97,6 @@ impl SandboxRuntimeOperations {
             crate::command::CommandConfig {
                 scratch_root: config.namespace_execution.scratch_root,
             },
-            ShellSecurityPolicy::enforce(),
             observer.clone(),
         ));
         boot_reap_then_sweep(&workspace_session, &layerstack, &observer);

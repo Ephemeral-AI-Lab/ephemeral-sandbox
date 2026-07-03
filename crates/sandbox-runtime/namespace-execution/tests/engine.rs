@@ -8,9 +8,7 @@ mod support;
 use std::sync::Arc;
 
 use sandbox_observability::{NoopHook, SpanStatus, TraceContext};
-use sandbox_runtime_namespace_process::runner::protocol::{
-    NamespaceRunnerRequest, ShellSecurityPolicy,
-};
+use sandbox_runtime_namespace_process::runner::protocol::NamespaceRunnerRequest;
 use serde_json::json;
 use support::{
     run_result, sample_target, ErrShellOp, FakeLauncher, FakeObserver, OkShellOp, PanicShellOp,
@@ -26,13 +24,7 @@ fn test_engine(
     observer: Arc<FakeObserver>,
     max_active: usize,
 ) -> NamespaceExecutionEngine {
-    NamespaceExecutionEngine::with_launcher(
-        Box::new(fake.clone()),
-        observer,
-        max_active,
-        30.0,
-        ShellSecurityPolicy::off(),
-    )
+    NamespaceExecutionEngine::with_launcher(Box::new(fake.clone()), observer, max_active, 30.0)
 }
 
 fn assert_request_target_fields(
@@ -74,19 +66,11 @@ fn shell_execution_resolves_finalized_output_and_records_terminal() {
 }
 
 #[test]
-fn shell_request_carries_engine_shell_security_policy() {
+fn shell_request_does_not_carry_shell_security_policy() {
     let fake = FakeLauncher::new();
     let observer = Arc::new(FakeObserver::new());
-    // The runner binds the policy the engine was constructed with into every
-    // shell request — no per-call or per-operation argument, so any caller of
-    // run_shell_interactive is covered.
-    let engine: NamespaceExecutionEngine = NamespaceExecutionEngine::with_launcher(
-        Box::new(fake.clone()),
-        observer,
-        4,
-        30.0,
-        ShellSecurityPolicy::enforce(),
-    );
+    let engine: NamespaceExecutionEngine =
+        NamespaceExecutionEngine::with_launcher(Box::new(fake.clone()), observer, 4, 30.0);
 
     let exec = engine
         .run_shell_interactive(OkShellOp, sample_target(), id("cs"), |_| {}, None, None)
@@ -94,10 +78,8 @@ fn shell_request_carries_engine_shell_security_policy() {
     fake.complete_latest(run_result(0, "ok"));
     let _ = exec.wait();
 
-    assert_eq!(
-        fake.recorded_requests()[0].shell_security,
-        ShellSecurityPolicy::enforce()
-    );
+    let value = serde_json::to_value(&fake.recorded_requests()[0]).expect("request serializes");
+    assert!(value.get("shell_security").is_none());
 }
 
 #[test]
@@ -374,13 +356,8 @@ fn mount_overlay_nonzero_exit_is_terminal_error() {
 fn mount_overlay_passes_setup_timeout_to_launcher() {
     let fake = FakeLauncher::new();
     let observer = Arc::new(FakeObserver::new());
-    let engine: NamespaceExecutionEngine = NamespaceExecutionEngine::with_launcher(
-        Box::new(fake.clone()),
-        observer,
-        4,
-        12.5,
-        ShellSecurityPolicy::off(),
-    );
+    let engine: NamespaceExecutionEngine =
+        NamespaceExecutionEngine::with_launcher(Box::new(fake.clone()), observer, 4, 12.5);
 
     let handle = engine
         .mount_overlay(sample_target(), id("timeout"))
@@ -394,7 +371,7 @@ fn mount_overlay_passes_setup_timeout_to_launcher() {
 #[test]
 fn engine_allocates_monotonic_namespace_execution_ids() {
     let engine: NamespaceExecutionEngine =
-        NamespaceExecutionEngine::new(Arc::new(NoopHook), 4, 30.0, ShellSecurityPolicy::off());
+        NamespaceExecutionEngine::new(Arc::new(NoopHook), 4, 30.0);
 
     assert_eq!(engine.allocate_id().0, "namespace_execution_1");
     assert_eq!(engine.allocate_id().0, "namespace_execution_2");

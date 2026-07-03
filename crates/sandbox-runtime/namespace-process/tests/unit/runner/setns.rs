@@ -9,10 +9,11 @@ fn namespace_order_is_user_mnt_pid_net_and_skips_missing_fds() {
         pid: None,
         net: Some(Fd(12)),
     };
-    let order: Vec<(&str, i32)> = super::namespace_fd_order_with_types(&ns_fds)
-        .into_iter()
-        .map(|(name, fd, _nstype)| (name, fd))
-        .collect();
+    let order: Vec<(&str, i32)> =
+        crate::runner::setns::namespaces::namespace_fd_order_with_types(&ns_fds)
+            .into_iter()
+            .map(|(name, fd, _nstype)| (name, fd))
+            .collect();
     assert_eq!(order, vec![("user", 10), ("mnt", 11), ("net", 12)]);
 }
 

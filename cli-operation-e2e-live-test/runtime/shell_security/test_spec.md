@@ -10,10 +10,10 @@ cd cli-operation-e2e-live-test
 E2E_REBUILD_BINARY=1 pytest runtime/shell_security -v
 ```
 
-The command child is always hardened in `enforce` mode: `no_new_privs`, a
-targeted capability drop, and the seccomp-lite deny table. There is no
-operator-facing mode knob — the daemon applies `enforce` unconditionally, so the
-suite validates enforce behavior only.
+The child spawned by `shell_exec` is always hardened in `enforce` mode:
+`no_new_privs`, a targeted capability drop, and the seccomp-lite deny table.
+There is no operator-facing mode knob — `shell_exec` applies `enforce`
+unconditionally, so the suite validates enforce behavior only.
 
 The package install smoke rewrites the disposable sandbox's Ubuntu source file to
 the main archive pockets, uses a root-owned archive cache under `/tmp`, uses apt's

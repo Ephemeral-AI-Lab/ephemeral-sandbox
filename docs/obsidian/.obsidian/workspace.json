@@ -185,6 +185,7 @@
   },
   "active": "2b73796146464bdb",
   "lastOpenFiles": [
+    "ephemeral-os/implementation_plan/security-policy.md",
     "ephemeral-os/implementation_plan/daemon-shell-security-knob-removal-adversarial-review-prompt.md",
     "ephemeral-os/implementation_plan/daemon-command-child-policy-refined-adversarial-review-prompt.md",
     "ephemeral-os/implementation_plan/daemon-command-child-policy-refined-spec.md",
@@ -220,7 +221,6 @@
     "ephemeral-os/implementation_plan/squash/simplicity_review_results.md",
     "ephemeral-os/implementation_plan/squash/implementation_prompt.md",
     "ephemeral-os/implementation_plan/squash/acceptance_criteria.md",
-    "ephemeral-os/implementation_plan/squash/adversarial_multi_agent_review_results.md",
     "ephemeral-os/docs/Untitled.canvas"
   ]
 }

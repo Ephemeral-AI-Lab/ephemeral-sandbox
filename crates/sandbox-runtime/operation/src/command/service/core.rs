@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use sandbox_observability::{Observer, SpanRegistry};
 use sandbox_runtime_namespace_execution::{NamespaceExecutionEngine, NamespaceExecutionId};
-use sandbox_runtime_namespace_process::runner::protocol::ShellSecurityPolicy;
 
 use crate::command::{CommandConfig, CommandExecValue};
 use crate::namespace_execution::RuntimeNamespaceExecutionSnapshot;
@@ -25,7 +24,6 @@ impl CommandOperationService {
     pub fn new(
         workspace: Arc<WorkspaceSessionService>,
         config: CommandConfig,
-        shell_security: ShellSecurityPolicy,
         obs: Observer,
     ) -> Self {
         let exec_spans = Arc::new(SpanRegistry::new(obs.clone()));
@@ -33,7 +31,6 @@ impl CommandOperationService {
             exec_spans.clone(),
             MAX_ACTIVE_COMMANDS,
             COMMAND_ENGINE_SETUP_TIMEOUT_S,
-            shell_security,
         ));
         Self::with_engine(workspace, config, engine, exec_spans, obs)
     }

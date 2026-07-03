@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::json;
 
-use crate::runner::protocol::{ShellSecurityPolicy, NamespaceRunnerRequest};
+use crate::runner::protocol::NamespaceRunnerRequest;
 
 #[test]
 fn command_timeout_survives_as_timed_out_result() {
@@ -20,7 +20,6 @@ fn command_timeout_survives_as_timed_out_result() {
         trace: None,
         parent: None,
         observability_log_path: None,
-        shell_security: ShellSecurityPolicy::off(),
     };
 
     let result =
@@ -50,7 +49,6 @@ fn trace_handoff_writes_namespace_process_spawn_span() {
         trace: Some("req-child".to_owned()),
         parent: Some("d-5".to_owned()),
         observability_log_path: Some(log_path.clone()),
-        shell_security: ShellSecurityPolicy::off(),
     };
 
     let result = crate::runner::shell_exec::execute_shell(&request).expect("command runs");

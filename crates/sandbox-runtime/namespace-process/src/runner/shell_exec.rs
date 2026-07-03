@@ -8,7 +8,7 @@ use std::sync::Arc;
 #[cfg(target_os = "linux")]
 use super::RunnerError;
 #[cfg(target_os = "linux")]
-use crate::runner::protocol::{NamespaceRunnerRequest, RunResult, ShellSecurityPolicy};
+use crate::runner::protocol::{NamespaceRunnerRequest, RunResult};
 #[cfg(target_os = "linux")]
 use crate::runner::shell_security;
 #[cfg(target_os = "linux")]
@@ -53,8 +53,8 @@ fn execute_shell_inner(request: &NamespaceRunnerRequest) -> Result<RunResult, Ru
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
-    shell_security::prepare_shell_security_policy(&request.shell_security)?;
-    install_command_process_group(&mut command, request.shell_security);
+    shell_security::prepare_shell_security_policy()?;
+    install_command_process_group(&mut command);
 
     let mut child = spawn_child(&mut command, request)?;
     let child_pgid = child_process_group(&child)?;
@@ -89,8 +89,8 @@ const fn result_status(exit_code: i32, timed_out: bool) -> &'static str {
 }
 
 #[cfg(target_os = "linux")]
-fn install_command_process_group(command: &mut Command, policy: ShellSecurityPolicy) {
-    // SAFETY: `pre_exec` runs in the forked command child immediately before
+fn install_command_process_group(command: &mut Command) {
+    // SAFETY: `pre_exec` runs in the forked shell-exec child immediately before
     // `exec`. The closure only calls async-signal-safe syscalls over state
     // prepared before forking and returns the OS error if one fails.
     unsafe {
@@ -98,7 +98,7 @@ fn install_command_process_group(command: &mut Command, policy: ShellSecurityPol
             if libc::setpgid(0, 0) != 0 {
                 return Err(std::io::Error::last_os_error());
             }
-            shell_security::apply_shell_security_policy(&policy)
+            shell_security::apply_shell_security_policy()
         });
     }
 }

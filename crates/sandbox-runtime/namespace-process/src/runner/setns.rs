@@ -11,14 +11,11 @@ mod file_op;
 #[cfg(target_os = "linux")]
 mod mount_overlay;
 #[cfg(target_os = "linux")]
-mod namespaces;
+pub(crate) mod namespaces;
 #[cfg(target_os = "linux")]
 pub(crate) mod remount_overlay;
 #[cfg(target_os = "linux")]
 mod shell;
-
-#[cfg(all(target_os = "linux", test))]
-pub(crate) use namespaces::namespace_fd_order_with_types;
 
 #[cfg(target_os = "linux")]
 pub(crate) fn run_setns(request: &NamespaceRunnerRequest) -> Result<RunResult, RunnerError> {

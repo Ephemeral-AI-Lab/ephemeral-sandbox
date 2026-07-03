@@ -6,6 +6,7 @@ use std::process::{Command, Stdio};
 use anyhow::{anyhow, Context, Result};
 use sandbox_config::configs::{
     daemon::{DaemonConfig, DaemonServerConfig},
+    manager::ManagerConfig,
     observability::ObservabilityConfig,
     runtime::RuntimeConfig,
 };
@@ -65,7 +66,7 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
     Ok(())
 }
 
-struct DaemonRuntimeConfig {
+pub(crate) struct DaemonRuntimeConfig {
     daemon: DaemonConfig,
     runtime: RuntimeConfig,
     observability: ObservabilityConfig,
@@ -101,9 +102,10 @@ fn build_runtime_config(
     }
 }
 
-fn load_runtime_config(path: &Path) -> Result<DaemonRuntimeConfig> {
+pub(crate) fn load_runtime_config(path: &Path) -> Result<DaemonRuntimeConfig> {
     let doc = sandbox_config::load_path(path)
         .with_context(|| format!("load daemon config {}", path.display()))?;
+    validate_manager_config_section(&doc)?;
     let daemon = doc
         .section::<DaemonConfig>("daemon")
         .context("deserialize daemon config section")?;
@@ -120,6 +122,16 @@ fn load_runtime_config(path: &Path) -> Result<DaemonRuntimeConfig> {
         runtime,
         observability,
     })
+}
+
+fn validate_manager_config_section(doc: &sandbox_config::ConfigDocument) -> Result<()> {
+    match doc.section::<ManagerConfig>("manager") {
+        Ok(_) => Ok(()),
+        Err(sandbox_config::ConfigError::MissingSection { section }) if section == "manager" => {
+            Ok(())
+        }
+        Err(error) => Err(error).context("deserialize manager config section"),
+    }
 }
 
 fn daemon_worker_threads(max_worker_threads: usize) -> usize {

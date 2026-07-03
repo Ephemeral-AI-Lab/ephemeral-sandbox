@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use sandbox_config::configs::daemon::DaemonServerConfig;
 
-use crate::serve_cli::{daemon_config_path_arg, DaemonCliConfig};
+use crate::serve_cli::{daemon_config_path_arg, load_runtime_config, DaemonCliConfig};
 
 fn server_defaults() -> DaemonServerConfig {
     DaemonServerConfig {
@@ -179,4 +179,53 @@ fn config_yaml_preparse_returns_explicit_path() -> Result<()> {
 fn config_yaml_preparse_requires_explicit_path() {
     let err = daemon_config_path_arg(&["--spawn".to_owned()]).expect_err("config path required");
     assert_eq!(err.to_string(), "serve requires --config-yaml PATH");
+}
+
+#[test]
+fn daemon_config_rejects_stale_manager_shell_security_key() {
+    let path = unique_config_path("stale-manager-shell-security");
+    std::fs::write(
+        &path,
+        r#"
+daemon:
+  server:
+    socket_path: /eos/runtime/daemon/runtime.sock
+    pid_path: /eos/runtime/daemon/runtime.pid
+    max_worker_threads: 2
+runtime:
+  workspace:
+    layer_stack_root: /eos/layer-stack
+    scratch_root: /eos/workspace
+    setup_timeout_s: 30
+    exit_grace_s: 0.25
+    rfc1918_egress: allow
+  namespace_execution:
+    scratch_root: /eos/namespace_execution
+manager:
+  shell_security:
+    mode: enforce
+"#,
+    )
+    .expect("write stale config");
+
+    let error = match load_runtime_config(&path) {
+        Ok(_) => panic!("stale manager shell_security key should be rejected"),
+        Err(error) => error,
+    };
+    let message = format!("{error:#}");
+
+    assert!(message.contains("deserialize manager config section"));
+    assert!(message.contains("shell_security"));
+    let _ = std::fs::remove_file(path);
+}
+
+fn unique_config_path(label: &str) -> PathBuf {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock after epoch")
+        .as_nanos();
+    std::env::temp_dir().join(format!(
+        "eos-daemon-{label}-{}-{nanos}.yml",
+        std::process::id(),
+    ))
 }

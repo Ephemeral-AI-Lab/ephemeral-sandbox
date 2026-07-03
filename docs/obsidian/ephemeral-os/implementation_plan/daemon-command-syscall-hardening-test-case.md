@@ -6,16 +6,26 @@ tags:
   - security
   - implementation-plan
   - test-case
-status: draft
+status: superseded
 spec: daemon-command-syscall-hardening-spec.md
+superseded-by: daemon-command-child-policy-refined-spec.md
 ---
 
 # Daemon Command Syscall Hardening — Test Cases
 
-Runnable test catalog for [[daemon-command-syscall-hardening-spec]]. It defines
-the live e2e suite that verifies the inward syscall boundary the daemon installs
-at the user-command `pre_exec`: dangerous syscalls denied, root-in-sandbox
-behaviors preserved, and the exact `NoNewPrivs`/`Seccomp`/capability state.
+> **Superseded design note.** The authoritative spec is now
+> [[daemon-command-child-policy-refined-spec]]: the command child is hardened
+> **unconditionally in `enforce`** (no config mode knob; `relaxed` removed), the
+> policy is renamed `command_security` → `shell_security`, and the live suite
+> lives at `cli-operation-e2e-live-test/runtime/shell_security/`. The CS-01…CS-06
+> behavioral cases below carry over; the mode matrix and the old naming do not,
+> and the embedded code listings predate the live suite (which differs in probe
+> and symbol names).
+
+Runnable test catalog for the command-child syscall boundary. It defines the live
+e2e suite that verifies the inward syscall boundary the daemon installs at the
+user-command `pre_exec`: dangerous syscalls denied, root-in-sandbox behaviors
+preserved, and the exact `NoNewPrivs`/`Seccomp`/capability state.
 
 ## What this validates (traceability)
 
@@ -28,7 +38,6 @@ behaviors preserved, and the exact `NoNewPrivs`/`Seccomp`/capability state.
 | Filter also holds against the image's real `util-linux` tools | CS-05 |
 | Package managers keep working on arbitrary images | CS-06 |
 | Arch guard correct on aarch64 **and** x86_64 (correction #2) | Run matrix |
-| `relaxed`/`off` modes behave | Mode matrix (env-gated) |
 | Filter-builder + cap-set correctness (no daemon needed) | Rust unit tests |
 
 ## Approach
@@ -48,10 +57,10 @@ Default image is `ubuntu:24.04` (`core/config.py`), overridable via `E2E_IMAGE`.
 ## Folder layout
 
 ```
-cli-operation-e2e-live-test/runtime/command_security/
+cli-operation-e2e-live-test/runtime/shell_security/
 ├── __init__.py                 # empty package marker
 ├── helpers.py                  # probe source, compile, run/parse, cap-bit decode
-├── test_command_security.py    # CS-01 … CS-06
+├── test_shell_security.py      # CS-01 … CS-06
 └── test_spec.md                # in-tree pointer back to this catalog
 ```
 
@@ -226,7 +235,7 @@ def has_cap(cap_hex, bit):
     return (int(cap_hex, 16) >> bit) & 1 == 1
 ```
 
-## `test_command_security.py`
+## `test_shell_security.py`
 
 ```python
 """Live coverage for daemon command syscall hardening (spec: enforce mode)."""
@@ -235,7 +244,7 @@ import pytest
 
 from core.config import IMAGE
 from manager.management import helpers as mgmt
-from runtime.command_security.helpers import (
+from runtime.shell_security.helpers import (
     ALLOWED, DENIED, CAP_CHOWN, CAP_DAC_OVERRIDE, CAP_FOWNER,
     CAP_NET_ADMIN, CAP_SYS_ADMIN, CAP_SYS_MODULE, CAP_SETFCAP,
     compile_probe, exec_cmd, has_cap, run_probe,
@@ -339,10 +348,10 @@ export PATH="$PWD/bin:$PATH"
 cd cli-operation-e2e-live-test
 
 # rebuild the in-container daemon so the new policy is live, then run the suite
-E2E_REBUILD_BINARY=1 pytest runtime/command_security -v
+E2E_REBUILD_BINARY=1 pytest runtime/shell_security -v
 
 # smoke subset only
-pytest runtime/command_security -m smoke -v
+pytest runtime/shell_security -m smoke -v
 ```
 
 Prereqs: Docker running, and the host `rustc` has the matching musl target
@@ -361,21 +370,15 @@ numbers are correct; x86_64 additionally exercises the X32 reject path implicitl
 (the probe only issues native-ABI calls, so a mis-built guard that kills native
 x86_64 traffic would fail CS-01).
 
-## Mode matrix (env-gated, optional)
+## Mode matrix — removed
 
-`command_security.mode` is daemon-level config, so `relaxed`/`off` need a gateway
-started with a different `config/*.yml`. Run these as a separate pass, not in the
-default suite (which asserts `enforce`):
+There is no longer a configurable mode. The command child is hardened
+unconditionally in `enforce`; the `relaxed` mode and the
+`manager.shell_security.mode` knob were removed, and `off()` survives only as an
+internal constructor for the privileged setup engine (never the command child).
+The suite asserts `enforce` and nothing else.
 
-| Mode | Setup | Expectation |
-|---|---|---|
-| `relaxed` | gateway config `command_security.mode: relaxed`, rebuild | CS-02 `unshare`→`OK`; all non-namespace denials still `EPERM`; CS-04 seccomp still `2` |
-| `off` | `command_security.mode: off`, rebuild | probe denied set → `OK` (no seccomp); CS-04 `seccomp=0`; cap drop still applied (`CapEff` lacks SYS_ADMIN) |
-
-Gate with an env flag so CI defaults to `enforce`, e.g.
-`E2E_COMMAND_SECURITY_MODE=relaxed pytest runtime/command_security/…`.
-
-## Rust unit coverage (`namespace-process/tests/unit/command_security.rs`)
+## Rust unit coverage (`namespace-process/tests/unit/shell_security.rs`)
 
 No daemon required — these guard the builder in isolation:
 
@@ -387,8 +390,8 @@ No daemon required — these guard the builder in isolation:
   `ENOSYS`; `execve`/`execveat` resolve to `ALLOW`.
 - `clone` flag mask includes every `CLONE_NEW*` bit; a plain `SIGCHLD` clone
   (fork) is allowed; a `CLONE_NEWUSER` clone is denied.
-- `enforce` vs `relaxed` vs `off` produce the expected instruction deltas
-  (relaxed drops the namespace-syscall denials; off produces no filter).
+- `enforce` builds the deny filter; the internal `off()` produces no filter
+  (setup engine only). `relaxed` no longer exists.
 
 ## Notes / caveats
 

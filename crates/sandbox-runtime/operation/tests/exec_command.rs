@@ -375,7 +375,6 @@ fn destroy_workspace_session_waits_for_existing_session_exec_until_active_insert
             exec_spans.clone(),
             256,
             30.0,
-            sandbox_runtime_namespace_process::runner::protocol::ShellSecurityPolicy::off(),
         ),
     );
     let config = sandbox_runtime::command::CommandConfig {

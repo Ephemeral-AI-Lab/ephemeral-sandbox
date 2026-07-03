@@ -100,7 +100,6 @@ fn service_graph_runtime_operations_exposes_command_lane(
     let command = Arc::new(CommandOperationService::new(
         Arc::clone(&workspace),
         CommandConfig::default(),
-        sandbox_runtime_namespace_process::runner::protocol::ShellSecurityPolicy::off(),
         Observer::disabled(),
     ));
     let operations = SandboxRuntimeOperations::new(

@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "implementation_plan/daemon-shell-security-knob-removal-adversarial-review-prompt.md",
+                "file": "implementation_plan/daemon-command-syscall-hardening-test-case.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "daemon-shell-security-knob-removal-adversarial-review-prompt"
+              "title": "daemon-command-syscall-hardening-test-case"
             }
           }
         ]
@@ -183,16 +183,17 @@
       "bases:Create new base": false
     }
   },
-  "active": "d5fccc8ee65959ed",
+  "active": "7bfb5a3473fb43c0",
   "lastOpenFiles": [
+    "implementation_plan/security-policy.md",
     "implementation_plan/daemon-command-child-policy-refined-spec.md",
-    "implementation_plan/daemon-shell-security-knob-removal-adversarial-review-prompt.md",
-    "implementation_plan/daemon-command-child-policy-refined-adversarial-review-prompt.md",
-    "implementation_plan/daemon-command-child-policy-lite-spec.md",
     "implementation_plan/daemon-command-syscall-hardening-test-case.md",
+    "implementation_plan/daemon-command-child-policy-refined-adversarial-review-prompt.md",
+    "implementation_plan/daemon-command-syscall-hardening-spec.md",
+    "implementation_plan/daemon-shell-security-knob-removal-adversarial-review-prompt.md",
+    "implementation_plan/daemon-command-child-policy-lite-spec.md",
     "implementation_plan/o1_shared_workspace_base.md",
     "implementation_plan/daemon-command-syscall-hardening.md",
-    "implementation_plan/daemon-command-syscall-hardening-spec.md",
     "implementation_plan/git-policy/test-case.md",
     "implementation_plan/file_operations/spec.md",
     "implementation_plan/squash/test-case.md",
@@ -219,7 +220,6 @@
     "implementation_plan/finalize-policy/adversarial_review_prompt.md",
     "implementation_plan/squash/performance_parallelization_handoff.md",
     "implementation_plan/squash/iteration-report.md",
-    "implementation_plan/squash/test_implementation_prompt.md",
-    "implementation_plan/squash/spec.md"
+    "implementation_plan/squash/test_implementation_prompt.md"
   ]
 }

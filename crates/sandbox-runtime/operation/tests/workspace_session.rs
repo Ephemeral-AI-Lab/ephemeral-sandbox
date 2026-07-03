@@ -895,7 +895,6 @@ fn operations_with_fake(
     let command = Arc::new(CommandOperationService::new(
         Arc::clone(&workspace),
         sandbox_runtime::command::CommandConfig::default(),
-        sandbox_runtime_namespace_process::runner::protocol::ShellSecurityPolicy::off(),
         Observer::disabled(),
     ));
     Ok(SandboxRuntimeOperations::new(

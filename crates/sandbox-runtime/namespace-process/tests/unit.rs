@@ -7,8 +7,6 @@ pub mod runner;
 
 pub(crate) use holder::network::parse_network_config;
 pub(crate) use holder::Handshake;
-#[cfg(target_os = "linux")]
-pub(crate) use runner::setns::namespace_fd_order_with_types;
 
 #[cfg(target_os = "linux")]
 pub(crate) use runner::shell_exec::request::{
@@ -68,6 +66,22 @@ mod runner_error_tests {
         assert_eq!(value["exit_code"], 0);
         assert_eq!(value["payload"]["status"], "ok");
         assert!(value.get("runner_trace").is_none());
+    }
+
+    #[test]
+    fn shell_security_field_is_rejected_on_runner_wire() {
+        let error = serde_json::from_value::<super::runner::protocol::NamespaceRunnerRequest>(
+            serde_json::json!({
+                "request_id": "req-off",
+                "args": {},
+                "workspace_root": "/workspace",
+                "layer_paths": [],
+                "shell_security": { "mode": "off" }
+            }),
+        )
+        .expect_err("shell_security should not be part of the runner wire protocol");
+
+        assert!(error.to_string().contains("shell_security"));
     }
 }
 
