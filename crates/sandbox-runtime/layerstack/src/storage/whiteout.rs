@@ -67,6 +67,42 @@ pub(crate) fn write_kernel_whiteout(path: &Path) -> Result<(), LayerStackError> 
     Ok(())
 }
 
+/// Mark `dir` opaque inside a layer directory: the `.wh..wh..opq` marker for
+/// the name-based readers plus, on Linux, the kernel overlay opaque xattr so
+/// live session mounts mask lower content and hide the marker itself — the
+/// same dual encoding squash `flatten` writes.
+#[cfg(target_os = "linux")]
+pub(crate) fn write_opaque_dir_marker(dir: &Path) -> Result<(), LayerStackError> {
+    write_kernel_whiteout(&dir.join(OPAQUE_MARKER))?;
+    let trusted = rustix::fs::lsetxattr(
+        dir,
+        TRUSTED_OVERLAY_OPAQUE_XATTR,
+        b"y",
+        rustix::fs::XattrFlags::empty(),
+    );
+    let user = rustix::fs::lsetxattr(
+        dir,
+        USER_OVERLAY_OPAQUE_XATTR,
+        b"y",
+        rustix::fs::XattrFlags::empty(),
+    );
+    if trusted.is_err() && user.is_err() {
+        return Err(LayerStackError::Storage(format!(
+            "failed to mark opaque dir {}: trusted={:?}, user={:?}",
+            dir.display(),
+            trusted.err(),
+            user.err()
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn write_opaque_dir_marker(dir: &Path) -> Result<(), LayerStackError> {
+    std::fs::write(dir.join(OPAQUE_MARKER), b"")?;
+    Ok(())
+}
+
 pub(crate) fn logical_whiteout_path_for_target(path: &Path) -> PathBuf {
     let name = path.file_name().unwrap_or_default();
     let mut whiteout_name = OsString::from(LOGICAL_WHITEOUT_PREFIX);

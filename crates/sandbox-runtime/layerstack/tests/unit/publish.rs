@@ -818,6 +818,70 @@ fn wh_lookalikes_still_publish() -> Result<(), Box<dyn std::error::Error + Send 
 }
 
 #[test]
+fn opaque_dir_publish_writes_kernel_opaque_encoding(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = PublishFixture::new("opaque-encoding")?;
+    std::fs::create_dir_all(fixture.workspace.join("target"))?;
+    std::fs::write(fixture.workspace.join("target/old.txt"), "old\n")?;
+    let base = fixture.build_base()?;
+
+    let result = fixture.stack()?.publish_validated_changes(request(
+        base,
+        vec![LayerChange::OpaqueDir { path: lp("target") }],
+    ))?;
+
+    let opaque_dir = result
+        .manifest
+        .layers
+        .iter()
+        .map(|layer| fixture.root.join(&layer.path).join("target"))
+        .find(|dir| dir.join(".wh..wh..opq").symlink_metadata().is_ok())
+        .expect("published layer holds the opaque marker");
+    let marker = opaque_dir.join(".wh..wh..opq");
+
+    // Sessions mount raw layer dirs as overlayfs lowerdirs, so the opaque
+    // encoding must be kernel-native: a whiteout-encoded marker (never listed
+    // in the merged mount) plus the overlay opaque xattr on the directory
+    // (lower content stays masked) — the same dual encoding squash flatten
+    // writes. Off Linux only the name-based marker exists.
+    #[cfg(target_os = "linux")]
+    {
+        assert!(
+            crate::whiteout::is_kernel_whiteout(&marker),
+            "opaque marker must be kernel-whiteout-encoded"
+        );
+        let has_opaque_xattr = ["user.overlay.opaque", "trusted.overlay.opaque"]
+            .iter()
+            .any(|name| {
+                let mut value = [0_u8; 1];
+                matches!(
+                    rustix::fs::lgetxattr(&opaque_dir, *name, &mut value),
+                    Ok(1) if value[0] == b'y'
+                )
+            });
+        assert!(
+            has_opaque_xattr,
+            "opaque dir must carry the kernel overlay opaque xattr"
+        );
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let meta = std::fs::symlink_metadata(&marker)?;
+        assert!(
+            meta.is_file() && meta.len() == 0,
+            "literal marker off Linux"
+        );
+    }
+
+    assert_eq!(
+        read_text(&fixture.root, &result.manifest, "target/old.txt")?,
+        None,
+        "merged view still masks opaque lower content"
+    );
+    Ok(())
+}
+
+#[test]
 fn digest_deduped_publish_reports_no_op() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let fixture = PublishFixture::new("dedupe-no-op")?;
     std::fs::write(fixture.workspace.join("README.md"), "base\n")?;

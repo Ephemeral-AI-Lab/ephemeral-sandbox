@@ -185,6 +185,13 @@
   },
   "active": "2b73796146464bdb",
   "lastOpenFiles": [
+    "ephemeral-os/implementation_plan/web-ui/design.md.tmp.27160.33db0038bc43",
+    "ephemeral-os/implementation_plan/web-ui/e2e-journey.md",
+    "ephemeral-os/implementation_plan/web-ui/web-ui-design.md.tmp.27160.51841c7bb1e3",
+    "ephemeral-os/implementation_plan/wh-reserved-namespace/goal-prompt.md",
+    "ephemeral-os/implementation_plan/wh-reserved-namespace/test-case.md",
+    "ephemeral-os/implementation_plan/wh-reserved-namespace/spec.md",
+    "ephemeral-os/implementation_plan/wh-reserved-namespace",
     "ephemeral-os/implementation_plan/web-ui/implementation-plan.md.tmp.27160.d0630dc81f5c",
     "ephemeral-os/implementation_plan/export_changes/spec.md.tmp.39741.653b0e79f70e",
     "ephemeral-os/implementation_plan/web-ui/design.md",
@@ -209,18 +216,11 @@
     "ephemeral-os/implementation_plan/daemon-command-syscall-hardening-spec.md",
     "ephemeral-os/implementation_plan/git-policy/test-case.md",
     "ephemeral-os/implementation_plan/git-policy",
-    "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/loadcombo-ab-diff.json",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/W-tuning.md",
-    "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/width-wtune.json",
-    "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W16.yml",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/HANDOFF.md",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/E2E_BENCHMARK_SPEC.md",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/DESIGN.md",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/RESULTS.md",
-    "ephemeral-os/implementation_plan/squash/performance_parallelization_handoff.md",
-    "ephemeral-os/implementation_plan/finalize-policy/adversarial_review_prompt.md",
-    "ephemeral-os/implementation_plan/finalize-policy/spec.md",
-    "ephemeral-os/implementation_plan/cli_migration/operation.md",
     "ephemeral-os/docs/Untitled.canvas"
   ]
 }

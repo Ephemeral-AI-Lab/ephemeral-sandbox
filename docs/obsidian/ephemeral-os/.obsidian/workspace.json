@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "implementation_plan/export_changes/spec.md",
+                "file": "implementation_plan/wh-reserved-namespace/test-case.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "spec"
+              "title": "test-case"
             }
           }
         ]
@@ -183,13 +183,20 @@
       "bases:Create new base": false
     }
   },
-  "active": "7bfb5a3473fb43c0",
+  "active": "d5fccc8ee65959ed",
   "lastOpenFiles": [
+    "implementation_plan/web-ui/design.md.tmp.27160.33db0038bc43",
+    "implementation_plan/web-ui/e2e-journey.md",
+    "implementation_plan/web-ui/web-ui-design.md.tmp.27160.51841c7bb1e3",
+    "implementation_plan/wh-reserved-namespace/goal-prompt.md",
+    "implementation_plan/wh-reserved-namespace/spec.md",
+    "implementation_plan/wh-reserved-namespace/test-case.md",
+    "implementation_plan/export_changes/spec.md",
+    "implementation_plan/wh-reserved-namespace",
     "implementation_plan/web-ui/implementation-plan.md.tmp.27160.d0630dc81f5c",
     "implementation_plan/web-ui/design.md",
     "implementation_plan/export_changes/spec.md.tmp.39741.653b0e79f70e",
     "implementation_plan/web-ui/web-ui-design.md",
-    "implementation_plan/export_changes/spec.md",
     "implementation_plan/web-ui/implementation-plan.md",
     "implementation_plan/export_changes/adversarial-review-prompt.md",
     "implementation_plan/web-ui/http-server.md",
@@ -212,14 +219,7 @@
     "implementation_plan/squash/test-case.md",
     "implementation_plan/file_operations/acceptance_criteria.md",
     "implementation_plan/cli_migration/operation.md",
-    "implementation_plan/cli_migration/spec.md",
     "implementation_plan/git-policy",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/loadcombo-ab-diff.json",
-    "implementation_plan/squash/experiments/performance-parallelization/W-tuning.md",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/width-wtune.json",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W16.yml",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W8.yml",
-    "implementation_plan/finalize-policy/spec.md",
-    "implementation_plan/squash/experiments/performance-parallelization/HANDOFF.md"
+    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/loadcombo-ab-diff.json"
   ]
 }
