@@ -12,7 +12,7 @@ updated: 2026-07-07
 
 # Manager Export Changes — sandbox delta to local filesystem
 
-Revised three times on 2026-07-07. First, the CLI-surface simplification:
+Revised four times on 2026-07-07. First, the CLI-surface simplification:
 `--dest` and `--format` only. Second, the data-path correction: the daemon
 **unmounts the host workspace bind after building the base**
 (`operation/src/services.rs:84`, `detach_workspace_bind_after_base` — it
@@ -27,6 +27,22 @@ runs on the host, so it owns the host-apply half and both CLIs stay pure
 catalog clients — the manager CLI's charter ("a thin protocol client …
 never a manager/runtime engine" refers to engines behind the wire; the
 apply engine lives in `sandbox-manager`, server-side).
+
+Fourth, an adversarial review (2026-07-07) hardened the host boundary and
+corrected several oversold claims. The applier is a host process holding
+operator privileges while consuming tar bytes authored inside the sandbox,
+so a compromised daemon is in scope. The host-apply model is no longer a
+blind tar-order stream: it resolves every path component with a no-follow,
+dest-rooted fd walk and rejects any entry that escapes dest (invariant 9),
+it buffers per directory and runs `apply_layer`'s three passes in order so
+opaque clears cannot destroy just-written winners (invariant 2), and it
+states an explicit metadata/fidelity boundary (invariant 10). Corrected
+claims: the spool is cleaned by an explicit export-boot reap, not the
+session reap (which never walks scratch for unknown dirs); the wire
+envelope is `MAX_REQUEST_BYTES` (16 MiB, `sandbox-protocol/src/limits.rs:1`),
+not the 8 MiB runner-result cap; each forward opens a fresh TCP connection
+with no pooling; and byte-zero re-run holds for file winners only — opaque
+clears and whiteouts re-apply.
 
 ## Goal
 
@@ -69,8 +85,8 @@ Speed and space, explicitly (the two optimization targets):
 | Cost | Bound | Mechanism |
 | --- | --- | --- |
 | time, enumerate | O(Σ delta-layer entries) | one newest-first metadata fold over non-base layer dirs |
-| time, content read | O(merged delta bytes) | winners only — a path overwritten by a newer layer is never read from the older one |
-| time, re-export host writes | O(new bytes) | manager-side skip-unchanged: entries carry source (size, mtime); the applier stamps mtimes on write and skips equal files |
+| time, content read | O(merged delta bytes) | winners only — a path overwritten by a newer layer is never read from the older one; hardlinked winners are read and emitted as duplicate content (tar carries no cross-winner hardlink) |
+| time, re-export host writes | O(new bytes) | manager-side skip-unchanged: entries carry source (size, second-granular mtime); the applier stamps mtimes on write and skips equal files (same-second same-size churn is a documented false-skip hole) |
 | space, daemon intermediate | O(compressed delta) | one spool file under scratch — no staging tree, no per-layer copies; unlinked when the last chunk is served |
 | space, wire | zstd delta × 4/3 | compression before base64 framing; the delta, not the image, crosses the daemon protocol |
 | memory | O(unique changed paths) | the winner map holds path → (layer dir, kind), never content |
@@ -176,10 +192,27 @@ sandbox-manager-cli ── one export_changes request ──▶ manager (host pr
 
 Each forward is one bounded request on the existing generic forward path
 (`router/forward.rs`: record lookup, Ready gate, `invoke_with_timeout` at
-`REQUEST_READ_TIMEOUT_S`) — the chunk loop is many small bounded requests,
-never one long-lived stream. The spool-building start request is the one
-long call, same profile as `checkpoint_squash`; squash first if the delta
-has grown huge.
+`REQUEST_READ_TIMEOUT_S` = 30 s, `sandbox-protocol/src/limits.rs:2`) — the
+chunk loop is many small bounded requests, never one long-lived stream.
+Each forward opens a fresh TCP connection (`daemon_client.rs`: connect →
+write → shutdown → read; no pooling), so a large delta pays per-round-trip
+connection overhead: a 1 GiB compressed delta at 2 MiB raw/chunk is ~512
+sequential forwards, tens of seconds of wall-clock before any transport
+latency. Every response rides the 16 MiB `MAX_REQUEST_BYTES` envelope
+(`limits.rs:1`); a 2 MiB raw chunk base64-frames to ≈ 2.8 MiB, well under
+it.
+
+The spool-building start request is the one long call and it must complete
+the whole fold **and** the compressed spool write inside a single
+`REQUEST_READ_TIMEOUT_S`. This is export's hard scaling limit: a delta
+whose fold-plus-spool exceeds 30 s cannot start, and there is no
+partial-progress or resumption path. The bound is O(Σ delta-layer entries)
+for the fold plus O(compressed delta bytes) for the spool write — not the
+image. Squash first collapses the delta layer count and is the documented
+mitigation, but the spec names the ceiling honestly rather than calling
+this "the same profile as `checkpoint_squash`": squash hardlinks winners
+and splices the manifest, while export walks metadata, reads winner
+content, and writes a full compressed spool — a strictly heavier call.
 
 Scope and trace follow the checkpoint_squash idiom exactly: the manager CLI
 op arrives system-scoped with `sandbox_id` in args, and the dispatcher
@@ -216,12 +249,35 @@ are no longer needed once spooled) → return:
 { "chunk": "…", "offset": 0, "len": 2097152, "total": 6291456, "eof": false }
 ```
 
-Default and maximum `limit` 2 MiB raw (≈ 2.8 MiB encoded — comfortably
-under the 8 MiB result-envelope precedent). Serving the final byte unlinks
-the spool. A new `export_layerstack` replaces any prior spool; leftovers
-are reaped with scratch at boot. The manager drives the loop synchronously
-inside one `export_changes` invocation, so overlapping readers do not
-arise from this design.
+Default and maximum `limit` 2 MiB raw (≈ 2.8 MiB encoded — under the 16 MiB
+`MAX_REQUEST_BYTES` envelope). Serving the final byte unlinks the spool.
+
+Concurrency and lifetime: `export_layerstack` is singleflight per
+layerstack root (the squash `begin_flight` precedent — the second
+concurrent fold is **rejected** with an already-in-flight error, not
+queued and not silently replacing the first), so two folds never race.
+Spools are keyed by `export_id` and coexist: a fold never unlinks another
+export's spool, so two `export_changes` invocations that serialize their
+folds page independently, each `read_export_chunk` pinned to its own spool
+by `export_id`. This resolves the earlier contradiction between "replaces
+any prior spool" and singleflight — neither happens; folds serialize and
+spools are per-export.
+
+The `{export_id → spool path, total}` registry is **in-memory** in the
+layerstack service (the command/session-registry precedent — no runtime op
+persists cross-request state). Two consequences the spec owns explicitly:
+(1) a daemon restart between chunks drops the registry, so subsequent
+`read_export_chunk` calls fail with an export-not-found error and the whole
+`export_changes` aborts — re-running is the recovery, and the fold is cheap
+relative to the wire; (2) a crashed export leaves a nonce-named spool under
+`<scratch_root>/.export/` that the dropped registry no longer references.
+The session boot reap is registry-driven and never walks scratch for
+unknown directories (`workspace/src/lifecycle/persistence.rs:77-113`,
+`operation/src/services.rs:146-189` — it iterates `manager.json` handles
+and sweeps only `layer_stack_root`), so export ships its **own** boot step:
+on daemon start, remove `<scratch_root>/.export/` wholesale before serving.
+Without it the spool leaks permanently; "reaped with scratch at boot" was
+false and is now a named deliverable.
 
 ## Output contract
 
@@ -278,9 +334,17 @@ itself; dir dest untouched, tar dest is a valid empty archive):
 }
 ```
 
-Counts, not path dumps: the result line stays bounded. Per-path deletion and
-skip detail belongs to the observability record (`LAYERSTACK_EXPORT`), the
-same division of labor squash uses for byte accounting.
+Counts, not path dumps: the result line stays bounded. `bytes_written`,
+`files_written`, `symlinks_written`, `deletes_applied`, and `opaque_clears`
+are **this run's work** — bytes actually written and operations actually
+performed by this invocation, not current dest state — so they are
+legitimate result fields under the squash counts-only rule (squash's own
+result carries `squashed_blocks` counts and no byte totals;
+`layerstack/service/impls/squash.rs`). `skipped_unchanged` is bounded by the
+delta entry count (already surfaced via the daemon's `entries`), so it stays
+in the line. Genuinely unbounded per-path deletion and skip detail belongs
+to the observability record (`LAYERSTACK_EXPORT`), the same division of
+labor squash uses.
 
 `live_workspace_sessions` (both formats, omitted when empty — the
 `faulty_sessions` precedent) lists the sessions alive at snapshot time.
@@ -290,56 +354,104 @@ re-export to include them. Session ids come from the existing session
 registry; no upperdir walk, no dirty-check machinery.
 
 Faults: daemon-side failures surface as the existing `operation_failed`;
-manager-side failures (dest guard, sandbox not Ready, forward errors,
-corrupt stream, archive rename) surface through the existing `ManagerError`
-→ error-line path — no dedicated error kind. A partially applied dir dest
-is recovered by re-running (invariant 4).
+manager-side failures (dest guard incl. deny-list, sandbox not Ready,
+forward errors, a hostile/corrupt stream rejected by the applier, archive
+rename) surface through the existing `ManagerError` → error-line path — no
+dedicated error kind. A daemon restart between chunks drops the in-memory
+spool registry, so the next `read_export_chunk` returns export-not-found and
+the invocation aborts; re-running rebuilds the spool. A partially applied
+dir dest is recovered by re-running (invariant 4).
 
 ## Vocabulary and invariants
 
 | Name | Meaning |
 | --- | --- |
-| delta manifest | The active manifest's layers with every `B*` layer removed — the ordered (newest-first) set of published change layers. Computed from one snapshot; a predicate over `Manifest`, not a new type. |
+| delta manifest | The active manifest's layers with every `B*` layer removed — the ordered (newest-first) set of published change layers. Computed from one snapshot; a predicate over `Manifest`, not a new type. The `B*` predicate (`layer_id.starts_with('B')`, the squash `partition_blocks` boundary at `stack/squash.rs`) matches the shared-base convention but is NOT a manifest invariant — nothing enforces exactly one base at the bottom — so the fold asserts it found ≥ 1 base and errors on a zero-base manifest rather than exporting a base as a delta layer. |
 | export lease | An ordinary `acquire_snapshot` lease held from fold start to spool completion. Its only job is the existing never-mutate-leased guarantee: squash/GC cannot delete a layer dir mid-read. Zero new lease API. |
 | winner fold | Pure newest-first fold over the delta layers' entries producing the winner map. Per path, the newest verdict wins: `File{layer_dir}`, `Symlink{layer_dir}`, `Directory`, `Delete` (whiteout winner), `OpaqueDir` (opaque cut — masks every older layer AND the base under that directory) — the same masking rules `MergedView`/`apply_layer` already encode (`is_kernel_whiteout_meta`, logical `.wh.` prefix, `OPAQUE_MARKER`). Reuses the per-layer walk idiom of `projection/apply.rs`; reads metadata only, never content. |
 | winner map | `BTreeMap<LayerPath, Winner>` — O(unique changed paths) memory, deterministic emit order for free. |
-| spool | The daemon's one intermediate artifact: winners streamed through `tar::Builder` into one zstd encoder, written to `<scratch_root>/.export/<nonce>.tar.zst`. Entries carry the source file's mode and mtime; `Delete` winners are emitted in the logical OCI encoding (`.wh.<name>`), opaque cuts as `.wh..wh..opq` — never kernel char-dev whiteouts, which need privileges to extract. Unlinked when the last chunk is served, replaced by the next export, reaped with scratch at boot. |
+| spool | The daemon's one intermediate artifact: winners streamed through `tar::Builder` into one zstd encoder, written to `<scratch_root>/.export/<nonce>.tar.zst`. Entries carry the source file's **mode and second-granular mtime** (tar's `mtime` is seconds); uid/gid, xattrs, and cross-winner hardlinks are NOT carried (invariant 10). `Delete` winners are emitted in the logical OCI encoding (`.wh.<name>`), opaque cuts as `.wh..wh..opq` — never kernel char-dev whiteouts, which need privileges to extract. A user file whose name begins with `.wh.` cannot appear here as content: capture already collapses such names to deletions at publish (`overlay/capture.rs:381-384`), so the ambiguity is inherited from the store, not introduced by export (invariant 10). Unlinked when the last chunk is served; each spool is `export_id`-keyed so a new export never unlinks another's; a leftover is removed by the export boot step, not the session reap. |
 | chunk paging | `read_export_chunk` serves the spool by byte offset in base64 frames (≤ 2 MiB raw). The read_command_lines shape: stable offsets, caller-driven, stateless between calls except the spool file itself. |
-| host apply | The manager's dir-mode renderer, streaming the decoded tar: directories ensured (a dest-side symlink or file at a directory position is replaced by a real directory, so writes can never be redirected outside dest); file entries compared (size, mtime) against dest — equal skips, else write then stamp the entry mtime; symlinks recreated; `.wh.<name>` entries `remove_path` the target; `.wh..wh..opq` clears the directory before its siblings apply (existing `apply_layer` semantics — this is what removes base-origin files the sandbox masked with an opaque dir). |
-| skip-unchanged | (size, mtime) equality between a tar entry and its dest file. Sound because host apply stamps the entry mtime on every write; stateless because the destination itself carries the watermark. |
-| dest guard | Manager-side, before any forward: dest absolute; dir format: create if missing, must be a directory; tar formats: parent must exist, dest must not be a directory; archives written to a nonce-named sibling temp file, renamed into place on success. |
+| host apply | The manager's dir-mode renderer. It is NOT a blind tar-order stream (that would let a dotfile child written before a later `.wh..wh..opq` be destroyed by the clear — invariant 2). It reproduces `apply_layer`'s per-directory three-pass order (`projection/apply.rs:11-63`): for each directory, (1) opaque clear, (2) whiteout deletions, (3) content — directories ensured, files compared and written, symlinks recreated. Path safety is a hard precondition, not a side effect (invariant 9): every entry name is rejected if absolute, if it contains a `..` component, or if it normalizes outside dest (whiteout targets validated AFTER the `.wh.` prefix strip); the applier reaches each entry by a dest-rooted `O_NOFOLLOW` open-parent fd walk, so a symlink at any path component — pre-existing or planted by an earlier entry — is never followed out of dest; hardlink tar entries are rejected. Within a directory: ensure-dir replaces a dest symlink/file at a directory position with a real directory; a file/symlink winner does `remove_path` then create (never writes through an existing symlink); `.wh.<name>` `remove_path`s the validated target; `.wh..wh..opq` clears the directory before its siblings apply — this is what removes base-origin files the sandbox masked with an opaque dir. |
+| skip-unchanged | (size, second-truncated mtime) equality between a tar entry and its dest file. Both sides are truncated to whole seconds before comparing (tar carries seconds; `File::set_times` writes nanoseconds — comparing at nanosecond precision would make every re-export re-copy). Sound because host apply stamps the entry's second-granular mtime on every write; stateless because the destination carries the watermark. Known hole (documented, not fixed): a same-second, same-size content change published and re-exported inside one wall-clock second false-skips — add content-hash comparison later if fidelity under sub-second churn matters. |
+| dest guard | Manager-side, before any forward: dest absolute (relative rejected — the manager's CWD is not the caller's); dir format: create if missing, must be a directory; tar formats: parent must exist, dest must not be a directory; archives written to a nonce-named sibling temp file, renamed into place on success. Deny-list (dir mode deletes and overwrites with manager privileges, so bare "operator authority" is not enough): reject dest equal to `/`, to `$HOME`, to the manager state/registry directory, or to any path inside `<scratch_root>/.export/`. Beyond the deny-list, in-place override is operator authority by design (B1). |
 
 Invariants:
 
 1. **Read-only on layer-stack storage** — export never writes under
    `layer_stack_root`: no staging, no manifest mutation, no sidecars, no
    substitution state. The spool lives under scratch and is transient.
-2. **Merged-delta equivalence** — the delta stream applied onto an empty
-   destination equals `MergedView` over the delta manifest for every path,
-   including directory-only shapes, deletion masking, and opaque cuts. One
-   fold, one truth, one unit test pinning them together.
+2. **Merged-delta equivalence and apply ordering** — the delta stream
+   applied onto an empty destination equals `MergedView` over the delta
+   manifest for every path, including directory-only shapes, deletion
+   masking, and opaque cuts. Equivalence depends on apply ORDER, not just
+   content: the applier reproduces `apply_layer`'s per-directory three-pass
+   order (opaque clear → whiteout → content, `projection/apply.rs:11-63`),
+   because emit order is BTreeMap path order and a dotfile child
+   (`cfg/.env`) sorts before its directory's `cfg/.wh..wh..opq` — a blind
+   tar-order stream would write the winner then clear it away. One fold,
+   one truth; the unit test pins BOTH content equivalence and the
+   opaque-clear-does-not-destroy-a-dotfile-winner ordering case.
 3. **Lease pins sources** — every layer dir the fold or emit reads is pinned
    by the export lease until the spool is complete. A concurrent squash sees
    the lease's newest layer as a boundary, exactly like a session lease; a
    concurrent publish prepends layers the snapshot simply doesn't include.
-4. **Idempotent re-run** — re-exporting the same manifest version onto the
-   same dest writes zero content bytes on the host (every file entry skips)
-   and converges to the identical tree. This is also the crash-recovery
-   story for a partially applied dir dest.
+4. **Idempotent re-run (file winners)** — re-exporting the same manifest
+   version onto the same dest writes zero *content* bytes on the host: every
+   file entry skips on (size, second-mtime). Deletions and opaque clears
+   still re-apply — a whiteout re-`remove_path`s an already-absent target (a
+   no-op on the tree but a non-zero `deletes_applied` count), and an opaque
+   clear re-clears its directory, removing anything the host added there
+   since the last run (permitted by B1's fidelity condition). So
+   `deletes_applied`/`opaque_clears` are non-zero on re-run and the tree is
+   identical only for the file-winner subset; the qualifier matters for any
+   delta carrying an opaque cut. This is still the crash-recovery story for
+   a partially applied dir dest: re-run converges.
 5. **Published-only** — no session upperdir, no namespace entry, no live
    mount is ever read. The snapshot manifest is the sole source of truth
    (same axis as the file-operations sessionless backend).
 6. **The detach stays; the manager is the only host writer** — export never
-   mounts, binds, or re-attaches anything host-visible in the daemon, and
-   no runtime-CLI-reachable surface can write to the host. Delivery is
-   bytes over the daemon protocol into the manager, full stop.
+   mounts, binds, or re-attaches anything host-visible in the daemon.
+   `export_layerstack`/`read_export_chunk` are `cli: None`, so the runtime
+   CLI catalog rejects them client-side (`request_builder.rs:280-289`; test
+   in `sandbox-runtime-cli/tests/smoke.rs`), but the daemon dispatches by
+   name across all registered ops regardless of `cli` (`operation.rs:59-70`)
+   and the gateway does no catalog validation — so anyone who can reach the
+   gateway can invoke them by name. This does not weaken the invariant: both
+   ops only WRITE under scratch and only DELIVER bytes to their caller;
+   neither has a host-visible write path. The worst a name-dispatch caller
+   gets is a spool under scratch (a nuisance the boot reap and `export_id`
+   keying bound) and its own bytes back. Delivery to the host filesystem
+   happens only in the manager, full stop.
 7. **Archive atomicity** — a tar-format dest is complete-or-absent:
-   manager-side temp + one rename. The spool is nonce-named and
-   unlink-on-eof, so a crashed export leaves at most one dead file in
-   scratch for boot reap.
+   manager-side temp + one rename, so a manager crash mid-apply leaves the
+   nonce-named `.tmp` sibling (never a half-written dest) for the operator
+   to discard or the next run to overwrite. The spool is nonce-named and
+   unlink-on-eof, so a crashed export leaves at most one dead file under
+   `<scratch_root>/.export/` for the export boot step (NOT the session reap,
+   which never walks scratch — see the daemon-ops section).
 8. **No durability ceremony** — host apply does not fsync; durability of
    the host directory is the host's concern, and invariant 4 makes re-run
    the cheap answer to any doubt.
+9. **Host-boundary safety** — the applier is a host process with operator
+   privileges consuming sandbox-authored tar; a compromised daemon is in
+   scope. Every entry name is rejected if absolute, if it contains a `..`
+   component, or if it normalizes outside dest (whiteout targets validated
+   after prefix strip); every path is reached by a dest-rooted `O_NOFOLLOW`
+   open-parent fd walk so no symlink component is ever followed out of dest;
+   hardlink entries are rejected. Daemon-claimed numbers (`total`, `len`,
+   `spool_bytes`, entry counts) are untrusted — the manager never
+   pre-allocates on them, loops on actual EOF, and caps both decompressed
+   output (tar mode, against a zstd bomb) and per-run entry count (against a
+   millions-of-empty-files bomb). No canonicalization means no export.
+10. **Fidelity boundary** — the stream carries content, file/dir mode
+    (second-granular mtime), symlink targets, logical deletions, and opaque
+    cuts. It does NOT carry uid/gid (files land owned by the manager
+    process), user xattrs, or cross-winner hardlinks (hardlinked winners are
+    emitted as duplicate content). Filenames beginning with `.wh.` cannot be
+    represented as content — capture collapses them to deletions upstream
+    (`overlay/capture.rs:381-384`). "Lossless OCI-style layer" (B4) means
+    lossless for that carried set, not for ownership, xattrs, or hardlinks.
 
 ## A. Expected file/folder structure with LoC change
 
@@ -361,15 +473,23 @@ crates/sandbox-runtime/layerstack/
 └── tests/unit/{export_delta.rs (new ~180), export_stream.rs (new ~160)} · tests/unit.rs (+2)
 
 crates/sandbox-runtime/operation/
-├── src/layerstack/service/impls/export.rs  (new ~120)  export_layerstack + read_export_chunk
+├── src/layerstack/service/impls/export.rs  (new ~130)  export_layerstack + read_export_chunk
 │                                                       daemon ops, BOTH cli: None (squash
-│                                                       precedent — no catalog spec, invisible
-│                                                       to the runtime CLI): singleflight per
-│                                                       root, lease scope (fold → spool), spool
-│                                                       registry {export_id → path, total},
-│                                                       chunk reads, unlink-on-eof, live session
-│                                                       ids in the start result
+│                                                       precedent — rejected by the runtime CLI
+│                                                       catalog, still name-dispatchable at the
+│                                                       daemon, inv. 6): singleflight per root
+│                                                       (begin_flight precedent, second fold
+│                                                       rejected), lease scope (fold → spool),
+│                                                       in-memory spool registry {export_id →
+│                                                       path, total} (dies with the daemon —
+│                                                       restart aborts paging), export_id-keyed
+│                                                       spools, chunk reads, unlink-on-eof, live
+│                                                       session ids in the start result
 ├── src/layerstack/service/{model,mod}.rs   (+30)       ExportOutcome, ExportChunk DTOs, exports
+├── src/services.rs                         (+6)        export boot step: remove
+│                                                       <scratch_root>/.export/ on daemon start
+│                                                       (the session reap never walks scratch —
+│                                                       H1); wired beside boot_reap_then_sweep
 ├── src/operation.rs                        (+4)        two entries join the layerstack group
 └── tests/layerstack_export.rs (new ~180)   daemon-op dispatch: spool + paging to eof, empty
                                             delta, singleflight, spool replacement
@@ -379,7 +499,12 @@ crates/sandbox-manager-operations/
                                                         the existing "management" family; joins
                                                         SPECS (spec-only crate — dispatch stays
                                                         in sandbox-manager); checkpoint_squash's
-                                                        related list gains "export_changes"
+                                                        related list gains "export_changes".
+                                                        MUST land in the SAME change as the
+                                                        dispatcher entry (no SPECS↔OPERATIONS
+                                                        parity test exists today, and
+                                                        OBSERVABILITY_SNAPSHOT already drifts —
+                                                        H6); the parity test lands with it
 
 crates/sandbox-manager/
 ├── src/operation/management/service/impls/export_changes.rs (new ~80)
@@ -402,25 +527,36 @@ crates/sandbox-manager/
 │                                                       import + ManagerOperationEntry::new(
 │                                                       &EXPORT_CHANGES_SPEC,
 │                                                       dispatch_export_changes) in OPERATIONS
+│                                                       (lands with the catalog spec — H6)
 ├── src/operation/management/mod.rs         (+1)        re-export dispatch_export_changes
 ├── Cargo.toml                              (+3)        tar.workspace, zstd.workspace, base64
-└── tests/manager_export.rs (new ~240)      catalog + forward loop against a fake daemon;
-                                            apply semantics: winners, deletions, opaque
-                                            clears, skip, idempotent re-run, archive atomicity
+└── tests/manager_export.rs (new ~280)      catalog + forward loop against a fake AND a
+                                            HOSTILE daemon; apply semantics: winners,
+                                            deletions, opaque clears, dotfile-under-opaque
+                                            ordering (inv. 2), skip, idempotent re-run,
+                                            archive atomicity; security: reject `..`/absolute/
+                                            hardlink entries and symlink-then-traverse, dest
+                                            deny-list, decompression + entry-count caps (inv.
+                                            9); SPECS↔OPERATIONS parity assertion (H6)
 
 crates/sandbox-observability/
 └── src/record.rs                           (+3)        LAYERSTACK_EXPORT
 
-Cargo.toml (workspace)                      (+1)        zstd (tar already present; base64 if not
-                                                        already the payload-encoding dep)
+Cargo.toml (workspace)                      (+1)        zstd — NET-NEW (`tar` and `base64` 0.22
+                                                        already present; no zstd usage exists in
+                                                        the workspace today, so this is new
+                                                        surface, not reuse). sandbox-manager
+                                                        also gains base64.workspace (it does not
+                                                        depend on base64 today; the runner does)
 
 sandbox-runtime-cli / sandbox-runtime-operations         (+0)
 sandbox-protocol / sandbox-daemon / sandbox-gateway / sandbox-config   (+0)
 ```
 
-Totals: **5 new source files ≈ 670 LoC**, **≈ +120 LoC** in existing files,
-**≈ 760 LoC** of tests → ≈ 1,550 LoC end to end. Zero changes to the
-protocol crate, daemon transport, gateway, config, and — after the
+Totals: **5 new source files ≈ 680 LoC**, **≈ +140 LoC** in existing files
+(the export boot step, canonicalization guard, and parity test add a
+little), **≈ 800 LoC** of tests → ≈ 1,620 LoC end to end. Zero changes to
+the protocol crate, daemon transport, gateway, config, and — after the
 ownership move — zero changes to both CLIs and the runtime catalog.
 
 Build order: winner fold (pure) → emit-stream → daemon ops (spool +
@@ -462,7 +598,10 @@ no backup, no dry-run; the workspace's own VCS is the review-and-undo
 surface, and invariant 4 makes re-running always safe. A dest with no base
 copy at all gets the sparse delta tree, not a workspace: full copies at
 arbitrary locations are composition (seed copy first, then export — see
-the `dir-full` deferral for the no-base-copy case).
+the `dir-full` deferral for the no-base-copy case). Fidelity is over
+content, mode, symlink targets, and deletions (invariant 10) — uid/gid,
+xattrs, and hardlinks are not reproduced, so "equals the sandbox view"
+means the carried set, not ownership or extended metadata.
 
 ### B2. Re-export after more publishes — incremental by property
 
@@ -494,11 +633,16 @@ of being resolved away by the fold.
 ```
 
 Honesty boundary: a path that *leaves* the delta between exports without a
-masking winner (today only `amend_path` rewriting head can do this) is not
-re-converged on a stale dest — the delta no longer describes it. The
-contract is "dest reflects this delta", not "dest is synchronized with
-delta history"; a fresh dest or re-seeded copy is the escape hatch. Stated
-here so nobody retrofits rsync semantics later.
+masking winner is not re-converged on a stale dest — the delta no longer
+describes it. `amend_path` rewriting head is one producer; squash is
+another — flattening a block `[L-with-file, L-with-whiteout]` can drop a
+path that no surviving layer re-emits (`stack/squash/flatten.rs`,
+newest-wins per subtree), and lease-release GC removes layer dirs once
+unreferenced (`lease/cleanup.rs`). None of these leaves a whiteout
+describing the vanished path. The contract is "dest reflects THIS delta",
+not "dest is synchronized with delta history"; a fresh dest or re-seeded
+copy is the escape hatch. Stated here so nobody retrofits rsync semantics
+later.
 
 ### B4. Archive — lossless, transportable delta
 
@@ -510,8 +654,11 @@ entries: src/ · src/a.rs · src/.wh.b.rs        (logical OCI encoding)
 result: files_written 1, whiteouts_emitted 1, bytes_written = archive size
 ```
 
-The archive is a valid OCI-style layer: deletions survive, it applies later
-onto any base copy, and it compressed before crossing the wire.
+The archive is a valid OCI-style layer for the carried set (invariant 10):
+content, mode, symlink targets, and deletions survive and apply later onto
+any base copy; uid/gid, xattrs, and hardlinks do not, and `.wh.`-prefixed
+filenames were already collapsed to deletions upstream. It compressed before
+crossing the wire.
 
 ### B5. Concurrent squash — the lease does all the work
 
@@ -623,3 +770,49 @@ operations compose: squash to compact, export to deliver.
     selector; each forward is one bounded request on the existing
     `router/forward.rs` path; dest must be absolute because the manager's
     CWD is not the caller's.
+14. **Three winner-fold implementations — keep separate, cross-check by
+    test** (adversarial review, 2026-07-07): after export ships, newest-wins
+    lives in `MergedView::read_entry` (on-demand reads), squash
+    `flatten::collect_winners` (staging trees, content-hardlinking), and the
+    export fold (metadata-only, streaming). They are not unified: each has a
+    different output shape and forcing one abstraction would bloat all three.
+    But export is the second consumer of the fold, which is exactly the
+    trigger squash's "no shared abstraction before it's needed" reserved, so
+    the divergence risk is paid down with a test — invariant 2 pins
+    fold↔`MergedView`, and a fixture test asserts the export fold and
+    `flatten` agree on winner SELECTION for a shared layer stack. Extraction
+    stays deferred but is now explicitly a decision, not an omission.
+15. **JSON chunk paging over the two faster transports** (adversarial
+    review, 2026-07-07): `SandboxRecord.daemon_http` exists and hyper is a
+    workspace dep, so an HTTP stream could kill the base64 4/3 tax and the
+    ~512-round-trip loop; and the manager owns Docker, so a `upload_archive`
+    download twin could bypass the daemon protocol entirely. Both are
+    rejected for v1 for the same reason: the daemon protocol is where lease
+    pinning and snapshot consistency live. A Docker-level volume read cannot
+    see the lease and would tear against a concurrent squash GC or a partial
+    layer write; the `daemon_http` surface is unauthenticated and adding a
+    large-payload streaming path to it widens the attack surface the detach
+    invariant works to keep narrow. JSON chunk paging reuses the audited,
+    bounded `router/forward.rs` path and adds zero transport surface. If
+    re-export volume ever makes the base64 tax dominate, the HTTP stream is
+    the documented next step — not a v1 requirement.
+16. **Host-boundary hardening is a v1 gate, not a follow-up** (adversarial
+    review, 2026-07-07): the applier consumes sandbox-authored tar as a
+    host process with operator privileges, so canonicalization (reject
+    absolute/`..`/hardlink, `O_NOFOLLOW` fd walk, validate whiteout targets
+    after prefix strip), per-directory three-pass ordering, and
+    untrusted-count caps (invariants 2, 9) are preconditions of the first
+    merge, tested against a hostile fake daemon. "Ensure-dir replaces a
+    symlink" was never a sufficient defense.
+17. **Boot cleanup is export-owned** (adversarial review, 2026-07-07): the
+    session boot reap is registry-driven and never walks scratch for unknown
+    directories, so the spool would leak forever under it. Export adds its
+    own boot step to remove `<scratch_root>/.export/`. The prior "reaped
+    with scratch at boot" claim was false and is corrected to a deliverable.
+18. **Honest envelope and timeout** (adversarial review, 2026-07-07): the
+    wire envelope is `MAX_REQUEST_BYTES` (16 MiB), not the 8 MiB
+    runner-result cap the earlier draft cited; the start request must fit one
+    30 s `REQUEST_READ_TIMEOUT_S`, which is export's hard scaling ceiling
+    (squash-first is the mitigation); and each forward opens a fresh TCP
+    connection, so the chunk loop's cost is stated, not hidden behind "same
+    profile as checkpoint_squash".

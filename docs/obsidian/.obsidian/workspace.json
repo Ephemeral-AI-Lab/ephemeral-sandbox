@@ -185,6 +185,8 @@
   },
   "active": "2b73796146464bdb",
   "lastOpenFiles": [
+    "ephemeral-os/implementation_plan/web-ui/implementation-plan.md.tmp.27160.d0630dc81f5c",
+    "ephemeral-os/implementation_plan/export_changes/spec.md.tmp.39741.653b0e79f70e",
     "ephemeral-os/implementation_plan/web-ui/design.md",
     "ephemeral-os/implementation_plan/web-ui/implementation-plan.md",
     "ephemeral-os/implementation_plan/export_changes/adversarial-review-prompt.md",
@@ -211,7 +213,6 @@
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/W-tuning.md",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/width-wtune.json",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W16.yml",
-    "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W8.yml",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/HANDOFF.md",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/E2E_BENCHMARK_SPEC.md",
     "ephemeral-os/implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/DESIGN.md",
@@ -220,7 +221,6 @@
     "ephemeral-os/implementation_plan/finalize-policy/adversarial_review_prompt.md",
     "ephemeral-os/implementation_plan/finalize-policy/spec.md",
     "ephemeral-os/implementation_plan/cli_migration/operation.md",
-    "ephemeral-os/implementation_plan/cli_migration/spec.md",
     "ephemeral-os/docs/Untitled.canvas"
   ]
 }

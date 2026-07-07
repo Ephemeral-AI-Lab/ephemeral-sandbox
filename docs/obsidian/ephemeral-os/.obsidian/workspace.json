@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "implementation_plan/web-ui/design.md",
+                "file": "implementation_plan/export_changes/spec.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "design"
+              "title": "spec"
             }
           }
         ]
@@ -183,11 +183,13 @@
       "bases:Create new base": false
     }
   },
-  "active": "d5fccc8ee65959ed",
+  "active": "7bfb5a3473fb43c0",
   "lastOpenFiles": [
+    "implementation_plan/web-ui/implementation-plan.md.tmp.27160.d0630dc81f5c",
+    "implementation_plan/web-ui/design.md",
+    "implementation_plan/export_changes/spec.md.tmp.39741.653b0e79f70e",
     "implementation_plan/web-ui/web-ui-design.md",
     "implementation_plan/export_changes/spec.md",
-    "implementation_plan/web-ui/design.md",
     "implementation_plan/web-ui/implementation-plan.md",
     "implementation_plan/export_changes/adversarial-review-prompt.md",
     "implementation_plan/web-ui/http-server.md",
@@ -217,9 +219,7 @@
     "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/width-wtune.json",
     "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W16.yml",
     "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/wtuning/generated/bench-W8.yml",
-    "implementation_plan/squash/experiments/performance-parallelization/perf-20260703-052525/scripts/__pycache__/loadcombo_ab.cpython-314.pyc",
     "implementation_plan/finalize-policy/spec.md",
-    "implementation_plan/squash/experiments/performance-parallelization/HANDOFF.md",
-    "implementation_plan/squash/experiments/performance-parallelization/E2E_BENCHMARK_SPEC.md"
+    "implementation_plan/squash/experiments/performance-parallelization/HANDOFF.md"
   ]
 }
