@@ -124,6 +124,27 @@ Stage-2 caveats unchanged (unset `EOS_EXPORT_MAX_DECOMPRESSED_BYTES` /
 in-container disk). Dir mode still buffers the compressed delta in manager
 RAM (pass 2 needs it); archives stream through ~1 MiB.
 
+### Stage-2 spot check: the 1 GiB point, MEASURED (explicit request, 2026-07-08)
+
+Run on the caps-unset release gateway (standard caps restored after), single
+1 GiB urandom file + sha manifest, publish wall 7.6 s (setup, not export):
+
+| arm | reps (ms) | median | sha256 |
+| --- | --- | --- | --- |
+| cold dir | 7915.5 · 7951.4 · 7611.5 | **7.92 s** | verified every rep (1,073,741,902 bytes applied) |
+| warm re-export | 7405.2 · 6543.3 | 6.97 s (files_written 0, bytes_written 0, wire re-streams by design) | — |
+| tar-zst | 5549.1 | 5.55 s (archive 1,073,767,074 B = spool size; incompressible ×1.000024) | — |
+
+The trio-fitted model predicted 8.5 s — the measured 7.92 s confirms it
+within 7% at ~50× the fitted range, with no nonlinearity (the baseline
+model's 12.9 s prediction for the old chunk path remains unmeasured at this
+size; the old path with a debug-profile gateway — the default dev setup —
+was observed by the operator at ~10 minutes for 1 GB, consistent with
+debug-built base64/serde over ~1.4 GB of JSON strings across 513 forwards).
+End-to-end throughput 1 GiB / 7.92 s ≈ 136 MB/s — the relay floor with
+codec + write on top, as modeled. 50 MiB and 250 MiB stay deferred to a
+full stage-2 sweep.
+
 ## Regression surface (all through the NEW transport)
 
 - Catalog 30 (easy/medium/hard) + runnable 6: run
