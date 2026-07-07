@@ -187,7 +187,7 @@ fn service_graph_cli_operation_catalog_exports_runtime_cli_operations() {
             .iter()
             .map(|family| family.id)
             .collect::<Vec<_>>(),
-        ["command", "workspace_session"]
+        ["command", "file", "workspace_session"]
     );
     assert_eq!(
         names,
@@ -195,6 +195,10 @@ fn service_graph_cli_operation_catalog_exports_runtime_cli_operations() {
             "exec_command",
             "write_command_stdin",
             "read_command_lines",
+            "file_blame",
+            "file_read",
+            "file_write",
+            "file_edit",
             "create_workspace_session",
             "destroy_workspace_session",
         ]
@@ -243,11 +247,7 @@ fn service_graph_cli_catalog_keeps_non_cli_helpers_out() {
         "transcript",
         "status_lookup",
         "finalize_command",
-        "file_blame",
         "file_list",
-        "file_read",
-        "file_write",
-        "file_edit",
     ] {
         assert!(!names.contains(&helper), "{helper} leaked into catalog");
     }

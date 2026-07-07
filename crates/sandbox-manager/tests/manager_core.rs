@@ -425,6 +425,7 @@ fn cli_operation_catalog_contains_only_manager_operations() {
             "list_sandboxes",
             "inspect_sandbox",
             "checkpoint_squash",
+            "export_changes",
         ]
     );
     assert!(catalog.operations.iter().all(|spec| !matches!(

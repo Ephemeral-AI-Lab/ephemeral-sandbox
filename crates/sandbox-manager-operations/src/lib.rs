@@ -166,7 +166,7 @@ pub const CHECKPOINT_SQUASH_SPEC: CliOperationSpec = CliOperationSpec {
     description: "Squash every squashable block of the selected sandbox's published layers into equivalent flattened layers and migrate live workspace sessions onto the compact chains. Forwards one squash_layerstack request to the sandbox daemon.",
     args: CHECKPOINT_SQUASH_ARGS,
     cli: Some(CHECKPOINT_SQUASH_CLI),
-    related: &["list_sandboxes", "inspect_sandbox"],
+    related: &["list_sandboxes", "inspect_sandbox", "export_changes"],
 };
 
 const CHECKPOINT_SQUASH_ARGS: &[ArgSpec] = &[ArgSpec::required(
@@ -185,6 +185,59 @@ const CHECKPOINT_SQUASH_CLI: CliSpec = CliSpec {
     examples: &["sandbox-manager-cli checkpoint_squash --sandbox-id sbox-1"],
 };
 
+pub const EXPORT_CHANGES_SPEC: CliOperationSpec = CliOperationSpec {
+    name: "export_changes",
+    family: "management",
+    summary: "Export a sandbox's published changes to a host path.",
+    description: "Fold every published layer above the base (newest-wins, \
+                  whiteout/opaque aware) into a compressed delta stream, \
+                  fetch it from the sandbox daemon, and apply it onto \
+                  --dest or write it as an archive. Forwards \
+                  export_layerstack and read_export_chunk requests to the \
+                  sandbox daemon.",
+    args: EXPORT_CHANGES_ARGS,
+    cli: Some(CliSpec {
+        path: &["manager", "export_changes"],
+        usage: "sandbox-manager-cli export_changes --sandbox-id ID --dest PATH [--format dir|tar|tar-zst]",
+        examples: &[
+            "sandbox-manager-cli export_changes --sandbox-id sbox-1 --dest /home/me/myproject",
+            "sandbox-manager-cli export_changes --sandbox-id sbox-1 --dest /tmp/delta.tar.zst --format tar-zst",
+        ],
+    }),
+    related: &["inspect_sandbox", "checkpoint_squash"],
+};
+
+const EXPORT_CHANGES_ARGS: &[ArgSpec] = &[
+    ArgSpec::required(
+        "sandbox_id",
+        ArgKind::String,
+        "Sandbox id.",
+        Some(ArgCliSpec {
+            flag: Some("--sandbox-id"),
+            positional: None,
+        }),
+    ),
+    ArgSpec::required(
+        "dest",
+        ArgKind::Path,
+        "Absolute host destination: directory for dir format, archive file for tar formats.",
+        Some(ArgCliSpec {
+            flag: Some("--dest"),
+            positional: None,
+        }),
+    ),
+    ArgSpec::optional(
+        "format",
+        ArgKind::String,
+        "Output format: dir, tar, or tar-zst.",
+        Some("dir"),
+        Some(ArgCliSpec {
+            flag: Some("--format"),
+            positional: None,
+        }),
+    ),
+];
+
 const FAMILIES: &[&CliOperationFamilySpec] = &[&MANAGEMENT_FAMILY];
 
 const SPECS: &[&CliOperationSpec] = &[
@@ -193,6 +246,7 @@ const SPECS: &[&CliOperationSpec] = &[
     &LIST_SANDBOXES_SPEC,
     &INSPECT_SANDBOX_SPEC,
     &CHECKPOINT_SQUASH_SPEC,
+    &EXPORT_CHANGES_SPEC,
 ];
 
 #[must_use]

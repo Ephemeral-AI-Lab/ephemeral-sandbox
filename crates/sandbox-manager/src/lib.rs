@@ -3,6 +3,7 @@
 mod daemon_client;
 mod daemon_install;
 mod error;
+mod export_apply;
 mod model;
 mod operation;
 mod progress;

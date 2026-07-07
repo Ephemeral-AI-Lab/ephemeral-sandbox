@@ -34,6 +34,7 @@ impl OperationEntry {
 
 const CLI_FAMILIES: &[&CliOperationFamilySpec] = &[
     &sandbox_runtime_operations::COMMAND_FAMILY,
+    &sandbox_runtime_operations::FILE_FAMILY,
     &sandbox_runtime_operations::WORKSPACE_SESSION_FAMILY,
 ];
 static CLI_SPECS: OnceLock<&'static [&'static CliOperationSpec]> = OnceLock::new();
@@ -77,8 +78,8 @@ pub(crate) fn known_operation_name(operation: &str) -> Option<&'static str> {
 
 const OPERATION_ENTRY_GROUPS: &[&[OperationEntry]] = &[
     command_operations::operation_entries(),
-    workspace_session_operations::operation_entries(),
     file_operations::operation_entries(),
+    workspace_session_operations::operation_entries(),
     crate::layerstack::squash_operation_entries(),
     crate::layerstack::export_operation_entries(),
 ];

@@ -16,33 +16,16 @@ use sandbox_runtime_operations::{
 const FILE_NOT_FOUND: &str = "not_found";
 const READ_LIMIT_MAX: u64 = 2000;
 
-// File operations are daemon HTTP endpoints. Keep them dispatchable by name for
-// `/files/*`, but out of the runtime CLI catalog.
-const FILE_BLAME: OperationEntry = OperationEntry {
-    name: FILE_BLAME_SPEC.name,
-    cli: None,
-    dispatch: dispatch_file_blame,
-};
+// `file_list` is daemon HTTP-only; the other file operations stay in the runtime CLI.
+const FILE_BLAME: OperationEntry = OperationEntry::cli(&FILE_BLAME_SPEC, dispatch_file_blame);
 const FILE_LIST: OperationEntry = OperationEntry {
     name: FILE_LIST_SPEC.name,
     cli: None,
     dispatch: dispatch_file_list,
 };
-const FILE_READ: OperationEntry = OperationEntry {
-    name: FILE_READ_SPEC.name,
-    cli: None,
-    dispatch: dispatch_file_read,
-};
-const FILE_WRITE: OperationEntry = OperationEntry {
-    name: FILE_WRITE_SPEC.name,
-    cli: None,
-    dispatch: dispatch_file_write,
-};
-const FILE_EDIT: OperationEntry = OperationEntry {
-    name: FILE_EDIT_SPEC.name,
-    cli: None,
-    dispatch: dispatch_file_edit,
-};
+const FILE_READ: OperationEntry = OperationEntry::cli(&FILE_READ_SPEC, dispatch_file_read);
+const FILE_WRITE: OperationEntry = OperationEntry::cli(&FILE_WRITE_SPEC, dispatch_file_write);
+const FILE_EDIT: OperationEntry = OperationEntry::cli(&FILE_EDIT_SPEC, dispatch_file_edit);
 
 const OPERATIONS: &[OperationEntry] = &[FILE_BLAME, FILE_LIST, FILE_READ, FILE_WRITE, FILE_EDIT];
 

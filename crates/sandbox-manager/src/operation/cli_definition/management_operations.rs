@@ -1,16 +1,16 @@
 use std::path::PathBuf;
 
 use sandbox_manager_operations::{
-    CHECKPOINT_SQUASH_SPEC, CREATE_SANDBOX_SPEC, DESTROY_SANDBOX_SPEC, INSPECT_SANDBOX_SPEC,
-    LIST_SANDBOXES_SPEC, OBSERVABILITY_SNAPSHOT_SPEC,
+    CHECKPOINT_SQUASH_SPEC, CREATE_SANDBOX_SPEC, DESTROY_SANDBOX_SPEC, EXPORT_CHANGES_SPEC,
+    INSPECT_SANDBOX_SPEC, LIST_SANDBOXES_SPEC, OBSERVABILITY_SNAPSHOT_SPEC,
 };
 use sandbox_protocol::{Request, Response};
 use serde_json::{json, Value};
 
 use crate::operation::dispatch::ManagerOperationEntry;
 use crate::operation::management::{
-    create_sandbox, destroy_sandbox, dispatch_checkpoint_squash, inspect_sandbox, list_sandboxes,
-    observability_snapshot, CreateSandboxInput, SnapshotOptions,
+    create_sandbox, destroy_sandbox, dispatch_checkpoint_squash, dispatch_export_changes,
+    inspect_sandbox, list_sandboxes, observability_snapshot, CreateSandboxInput, SnapshotOptions,
 };
 use crate::operation::ManagerServices;
 use crate::{
@@ -28,6 +28,7 @@ const OPERATIONS: &[ManagerOperationEntry] = &[
     ManagerOperationEntry::new(&LIST_SANDBOXES_SPEC, dispatch_list_sandboxes),
     ManagerOperationEntry::new(&INSPECT_SANDBOX_SPEC, dispatch_inspect_sandbox),
     ManagerOperationEntry::new(&CHECKPOINT_SQUASH_SPEC, dispatch_checkpoint_squash),
+    ManagerOperationEntry::new(&EXPORT_CHANGES_SPEC, dispatch_export_changes),
 ];
 
 pub(crate) fn operation_entries() -> &'static [ManagerOperationEntry] {

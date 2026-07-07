@@ -39,15 +39,7 @@ pub const FILE_LIST_SPEC: CliOperationSpec = CliOperationSpec {
     summary: "List one directory level from the snapshot or a session.",
     description: "List the entries of a repository-relative or workspace-root-absolute directory (name, kind, size). With workspace_session_id the listing reads that live session's mounted workspace; without it the listing projects the latest published snapshot. Omit path to list the workspace root.",
     args: FILE_LIST_ARGS,
-    cli: Some(CliSpec {
-        path: &["runtime", "file_list"],
-        usage: "sandbox-runtime-cli --sandbox-id ID file_list [--path DIR] [--workspace-session-id ID]",
-        examples: &[
-            "sandbox-runtime-cli --sandbox-id ID file_list",
-            "sandbox-runtime-cli --sandbox-id ID file_list --path src",
-            "sandbox-runtime-cli --sandbox-id ID file_list --path src --workspace-session-id ws-1",
-        ],
-    }),
+    cli: None,
     related: &["file_read", "file_write", "file_blame"],
 };
 

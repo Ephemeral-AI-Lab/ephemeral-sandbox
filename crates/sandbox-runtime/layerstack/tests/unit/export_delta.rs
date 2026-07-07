@@ -403,8 +403,12 @@ fn fold_agrees_with_flatten_on_winner_selection() {
     let fold = fold_delta_winners(fixture.root(), &manifest).expect("fold");
 
     let staging = fixture.base.join("flattened");
-    flatten_block_into_with_lower(&staging, &[l2.clone(), l1.clone()], &[base.clone()])
-        .expect("flatten");
+    flatten_block_into_with_lower(
+        &staging,
+        &[l2.clone(), l1.clone()],
+        std::slice::from_ref(&base),
+    )
+    .expect("flatten");
 
     for (winner_path, winner) in &fold.winners {
         let flattened = staging.join(winner_path.as_str());

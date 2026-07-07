@@ -29,7 +29,8 @@ async fn catalog_returns_all_three_execution_spaces() {
     let runtime_ops = operation_names(&body["runtime"]);
     assert!(runtime_ops.contains(&"exec_command".to_owned()));
     assert!(runtime_ops.contains(&"read_command_lines".to_owned()));
-    assert!(!runtime_ops.contains(&"file_read".to_owned()));
+    assert!(runtime_ops.contains(&"file_read".to_owned()));
+    assert!(!runtime_ops.contains(&"file_list".to_owned()));
 
     let observability_ops = operation_names(&body["observability"]);
     assert!(observability_ops.contains(&"snapshot".to_owned()));
