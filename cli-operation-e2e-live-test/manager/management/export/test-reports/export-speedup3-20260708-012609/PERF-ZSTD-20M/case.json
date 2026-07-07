@@ -1,0 +1,5 @@
+{
+  "id": "PERF-ZSTD-20M",
+  "tier": "bench",
+  "title": "20 MiB zeros: compressibility contrast (dir + tar-zst)"
+}

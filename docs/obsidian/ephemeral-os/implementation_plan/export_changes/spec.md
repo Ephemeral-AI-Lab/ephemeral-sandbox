@@ -661,9 +661,11 @@ crates/sandbox-manager/src/…/impls/export_changes.rs (+~80)  stream-first deli
                                                              while reading, REQUEST_READ_TIMEOUT_S
                                                              deadline, Content-Length completeness
                                                              gate), chunk-paging fallback kept
-Cargo.toml (workspace)                             (+0/-0)   tokio-util gains the "io" feature
-                                                             (ReaderStream for the response body);
-                                                             no new dependency enters the tree
+Cargo.toml (workspace)                             (+0/-0)   no new dependency enters the tree
+                                                             (the response body is a ~30-line
+                                                             `Body` impl over `tokio::fs::File`;
+                                                             the sandbox-runtime crate gains
+                                                             uuid.workspace for token entropy)
 ```
 
 ### Adversarial review record — decision 19 revision (2026-07-08)
@@ -697,8 +699,11 @@ resolved in this revision:
    (HashMap miss skips the constant-time compare). Leaks only the
    existence of an in-flight export on a loopback surface; the token
    compare itself stays constant-time. Accepted with this note.
-5. **[Low → resolved] The LoC delta omitted the `tokio-util` "io" feature
-   bump.** Added above; no new crate enters the workspace.
+5. **[Low → resolved] The LoC delta initially omitted the response-body
+   mechanics.** Landed as a dependency-free `Body` impl over
+   `tokio::fs::File` (no `tokio-util` feature bump after all); no new crate
+   enters the workspace, and `sandbox-runtime` gains only the existing
+   workspace `uuid` for token entropy.
 
 Build order: winner fold (pure) → emit-stream → daemon ops (spool +
 chunks) → manager applier (pure over a byte stream, testable without a
@@ -991,3 +996,17 @@ operations compose: squash to compact, export to deliver.
     are unchanged. The manager falls back to `read_export_chunk` whenever
     the start result carries no token (older daemon) or the record has no
     `daemon_http` endpoint.
+    Post-implementation measurement addendum (2026-07-08): the response
+    body is produced as 1 MiB frames by one sequential blocking reader
+    through a small bounded channel (a first cut polled `tokio::fs` in
+    64 KiB frames — ~320 thread-pool handoffs per 20 MiB — and measurably
+    throttled the stream). With that fixed, the residual per-byte wall is
+    the deployment's own host↔container data plane: Docker Desktop's
+    per-connection relay measures ~140–180 MB/s on this machine via two
+    independent paths (curl against `/export`, and `docker exec cat` of
+    the same 20 MiB at ~116 MB/s), so ~5.7 ms/MiB is a TRANSPORT FLOOR the
+    single-connection constraint cannot go under on this deployment — any
+    delivery design that keeps the daemon inside the container pays it.
+    The one escape (a shared bind-mount handoff) would give the daemon a
+    host-visible write path and is forbidden by invariant 6 by design.
+    Floors are cited per size in `export-speedup-results.md`.

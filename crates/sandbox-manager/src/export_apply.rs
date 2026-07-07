@@ -59,11 +59,23 @@ pub(crate) struct DirApplyStats {
     pub(crate) bytes_written: u64,
 }
 
-/// Apply the compressed delta stream onto `dest` (an existing directory,
-/// already canonicalized by the dest guard). No filesystem mutation happens
-/// until the whole stream has been validated.
-pub(crate) fn apply_dir_delta(compressed: &[u8], dest: &Path) -> Result<DirApplyStats, String> {
-    let plan = plan_stream(compressed)?;
+/// Apply the compressed delta arriving from `delivery` onto `dest` (an
+/// existing directory, already canonicalized by the dest guard). The
+/// validation pass consumes the delivery stream as it arrives — the only
+/// overlap is the socket buffer filling while this single worker drains it —
+/// teeing the compressed bytes into memory for the apply pass. No filesystem
+/// mutation happens until the whole stream has been received and validated;
+/// a transport error surfaces before any write.
+pub(crate) fn apply_dir_delta(
+    delivery: &mut impl Read,
+    dest: &Path,
+) -> Result<DirApplyStats, String> {
+    let mut compressed: Vec<u8> = Vec::new();
+    let plan = plan_stream(TeeReader {
+        inner: &mut *delivery,
+        sink: &mut compressed,
+    })?;
+    drain_delivery(delivery, &mut compressed)?;
     let root = open_dest_root(dest)?;
     let mut stats = DirApplyStats::default();
     for dir in &plan.opaque_dirs {
@@ -74,15 +86,17 @@ pub(crate) fn apply_dir_delta(compressed: &[u8], dest: &Path) -> Result<DirApply
         remove_validated_target(&root, target)?;
         stats.deletes_applied += 1;
     }
-    apply_content(compressed, &plan, &root, &mut stats)?;
+    apply_content(&compressed, &plan, &root, &mut stats)?;
     Ok(stats)
 }
 
-/// Render the stream as an archive file: `TarZst` writes the bytes as
-/// received; `Tar` decompresses them (capped). Complete-or-absent via a
-/// nonce-named sibling temp file and one rename.
+/// Render the delivery stream as an archive file while it arrives: `TarZst`
+/// writes the bytes as received; `Tar` decompresses them (capped).
+/// Complete-or-absent via a nonce-named sibling temp file and one rename —
+/// a transport error (truncation, overrun, timeout) aborts before the
+/// rename, so a torn stream never becomes a valid-looking archive.
 pub(crate) fn write_archive(
-    compressed: &[u8],
+    delivery: &mut impl Read,
     dest: &Path,
     format: ArchiveFormat,
 ) -> Result<u64, String> {
@@ -91,13 +105,10 @@ pub(crate) fn write_archive(
         let mut file = std::fs::File::create(&temp)
             .map_err(|error| format!("create archive temp {}: {error}", temp.display()))?;
         let bytes = match format {
-            ArchiveFormat::TarZst => {
-                file.write_all(compressed)
-                    .map_err(|error| format!("write archive: {error}"))?;
-                compressed.len() as u64
-            }
+            ArchiveFormat::TarZst => std::io::copy(delivery, &mut file)
+                .map_err(|error| format!("write archive: {error}"))?,
             ArchiveFormat::Tar => {
-                let mut decoder = capped_decoder(compressed)?;
+                let mut decoder = capped_decoder(delivery)?;
                 std::io::copy(&mut decoder, &mut file).map_err(map_cap_error)?
             }
         };
@@ -111,6 +122,37 @@ pub(crate) fn write_archive(
         let _ = std::fs::remove_file(&temp);
     }
     result
+}
+
+/// Tee every byte the validation pass consumes into the apply-pass buffer.
+struct TeeReader<'a, R> {
+    inner: R,
+    sink: &'a mut Vec<u8>,
+}
+
+impl<R: Read> Read for TeeReader<'_, R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let read = self.inner.read(buf)?;
+        self.sink.extend_from_slice(&buf[..read]);
+        Ok(read)
+    }
+}
+
+/// The tar reader stops at the end-of-archive marker, which can sit before
+/// the compressed stream's final bytes; drain the rest so the apply pass
+/// sees the identical byte sequence and transport completeness (truncation,
+/// overrun) is still verified end-to-end.
+fn drain_delivery(delivery: &mut impl Read, sink: &mut Vec<u8>) -> Result<(), String> {
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        let read = delivery
+            .read(&mut buf)
+            .map_err(|error| format!("export stream read failed: {error}"))?;
+        if read == 0 {
+            return Ok(());
+        }
+        sink.extend_from_slice(&buf[..read]);
+    }
 }
 
 #[derive(Debug)]
@@ -144,7 +186,7 @@ struct ApplyPlan {
 /// prefix strip), hardlinks, and unsupported entry types; enforce the entry
 /// and decompressed-byte caps. A hostile stream is rejected with zero
 /// filesystem writes.
-fn plan_stream(compressed: &[u8]) -> Result<ApplyPlan, String> {
+fn plan_stream(compressed: impl Read) -> Result<ApplyPlan, String> {
     let decoder = capped_decoder(compressed)?;
     let mut archive = tar::Archive::new(decoder);
     let mut plan = ApplyPlan {
@@ -616,9 +658,9 @@ impl<R: Read> Read for CappedReader<R> {
     }
 }
 
-fn capped_decoder(
-    compressed: &[u8],
-) -> Result<CappedReader<zstd::stream::read::Decoder<'static, std::io::BufReader<&[u8]>>>, String> {
+fn capped_decoder<R: Read>(
+    compressed: R,
+) -> Result<CappedReader<zstd::stream::read::Decoder<'static, std::io::BufReader<R>>>, String> {
     let decoder = zstd::stream::read::Decoder::new(compressed)
         .map_err(|error| format!("export stream is not zstd-framed: {error}"))?;
     Ok(CappedReader {

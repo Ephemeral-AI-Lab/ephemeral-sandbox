@@ -1,0 +1,52 @@
+{
+  "axes": {
+    "correctness": {
+      "details": "dep tree crossed: files_written=620, symlinks_written=1, .bin links=1",
+      "pass": true,
+      "status": "pass"
+    },
+    "host_safety": {
+      "details": "no literal markers; nothing outside dest",
+      "pass": true,
+      "status": "pass"
+    },
+    "incremental": {
+      "details": "source-only edit: server.js rewritten, dep tree skipped_unchanged",
+      "pass": true,
+      "skipped_unchanged": 620,
+      "status": "pass"
+    },
+    "runnable": {
+      "container_run": {
+        "exit_code": 0,
+        "image": "node:22-slim",
+        "mount_at": "/workspace",
+        "output_match": true,
+        "pass": true
+      },
+      "details": "container verify green; host smoke pass",
+      "host_run": {
+        "exit_code": 0,
+        "reason": "",
+        "status": "pass"
+      },
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "RUN-01",
+  "defects": [],
+  "elapsed_ms": 30508.563,
+  "generated_at": "2026-07-08T01:28:49+08:00",
+  "run_id": "export-regress-20260708-012729",
+  "status": "pass",
+  "teardown": {
+    "details": "clean",
+    "export_dir_empty": true,
+    "lease_registry_empty": true,
+    "outside_dest_clean": true,
+    "pass": true
+  },
+  "tier": "runnable",
+  "title": "Node/Express: npm install exports a runnable server"
+}

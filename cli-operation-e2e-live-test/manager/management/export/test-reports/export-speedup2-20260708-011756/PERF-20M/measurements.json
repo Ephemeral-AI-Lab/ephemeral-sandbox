@@ -1,0 +1,175 @@
+{
+  "case": "PERF-20M",
+  "chunk_bytes": 2097152,
+  "chunks": 11,
+  "medians": {
+    "cold_dir": 186.142,
+    "cold_dir_mib_per_s": 107.445,
+    "tar_zst": 152.764,
+    "warm_dir": 183.575
+  },
+  "payload_bytes": 20971520,
+  "publish_wall_ms": 181.669,
+  "reps": [
+    {
+      "phase": "cold_dir",
+      "rep": 0,
+      "result": {
+        "bytes_written": 20971598,
+        "deletes_applied": 0,
+        "files_written": 2,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 186.142
+    },
+    {
+      "phase": "cold_dir",
+      "rep": 1,
+      "result": {
+        "bytes_written": 20971598,
+        "deletes_applied": 0,
+        "files_written": 2,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 205.71
+    },
+    {
+      "phase": "cold_dir",
+      "rep": 2,
+      "result": {
+        "bytes_written": 20971598,
+        "deletes_applied": 0,
+        "files_written": 2,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 183.943
+    },
+    {
+      "phase": "warm_dir",
+      "rep": 0,
+      "result": {
+        "bytes_written": 0,
+        "deletes_applied": 0,
+        "files_written": 0,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 2,
+        "symlinks_written": 0
+      },
+      "wall_ms": 183.575
+    },
+    {
+      "phase": "warm_dir",
+      "rep": 1,
+      "result": {
+        "bytes_written": 0,
+        "deletes_applied": 0,
+        "files_written": 0,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 2,
+        "symlinks_written": 0
+      },
+      "wall_ms": 175.397
+    },
+    {
+      "phase": "warm_dir",
+      "rep": 2,
+      "result": {
+        "bytes_written": 0,
+        "deletes_applied": 0,
+        "files_written": 0,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 2,
+        "symlinks_written": 0
+      },
+      "wall_ms": 186.931
+    },
+    {
+      "phase": "tar_zst",
+      "rep": 0,
+      "result": {
+        "bytes_written": 20972674,
+        "files_written": 2,
+        "format": "tar-zst",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "symlinks_written": 0,
+        "whiteouts_emitted": 0
+      },
+      "spool_bytes": 20972674,
+      "wall_ms": 163.449
+    },
+    {
+      "phase": "tar_zst",
+      "rep": 1,
+      "result": {
+        "bytes_written": 20972674,
+        "files_written": 2,
+        "format": "tar-zst",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "symlinks_written": 0,
+        "whiteouts_emitted": 0
+      },
+      "spool_bytes": 20972674,
+      "wall_ms": 152.764
+    },
+    {
+      "phase": "tar_zst",
+      "rep": 2,
+      "result": {
+        "bytes_written": 20972674,
+        "files_written": 2,
+        "format": "tar-zst",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "symlinks_written": 0,
+        "whiteouts_emitted": 0
+      },
+      "spool_bytes": 20972674,
+      "wall_ms": 147.89
+    }
+  ],
+  "spool_bytes": 20972674
+}

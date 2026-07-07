@@ -1,0 +1,13 @@
+{
+  "bytes_written": 4,
+  "deletes_applied": 0,
+  "files_written": 2,
+  "format": "dir",
+  "layers_exported": [
+    "L000002-00000001"
+  ],
+  "manifest_version": 2,
+  "opaque_clears": 1,
+  "skipped_unchanged": 0,
+  "symlinks_written": 0
+}

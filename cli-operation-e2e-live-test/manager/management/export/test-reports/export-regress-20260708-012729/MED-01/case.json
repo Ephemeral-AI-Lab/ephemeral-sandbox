@@ -1,0 +1,5 @@
+{
+  "id": "MED-01",
+  "tier": "medium",
+  "title": "idempotent re-run writes zero content bytes"
+}

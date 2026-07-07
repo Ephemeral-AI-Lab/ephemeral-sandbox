@@ -1,0 +1,120 @@
+{
+  "case": "PERF-ZSTD-20M",
+  "chunk_bytes": 2097152,
+  "chunks": 1,
+  "medians": {
+    "cold_dir": 55.51,
+    "cold_dir_mib_per_s": 360.295,
+    "tar_zst": 35.185
+  },
+  "payload_bytes": 20971520,
+  "publish_wall_ms": 148.095,
+  "reps": [
+    {
+      "phase": "cold_dir",
+      "rep": 0,
+      "result": {
+        "bytes_written": 20971598,
+        "deletes_applied": 0,
+        "files_written": 2,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 51.956
+    },
+    {
+      "phase": "cold_dir",
+      "rep": 1,
+      "result": {
+        "bytes_written": 20971598,
+        "deletes_applied": 0,
+        "files_written": 2,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 55.51
+    },
+    {
+      "phase": "cold_dir",
+      "rep": 2,
+      "result": {
+        "bytes_written": 20971598,
+        "deletes_applied": 0,
+        "files_written": 2,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 59.169
+    },
+    {
+      "phase": "tar_zst",
+      "rep": 0,
+      "result": {
+        "bytes_written": 852,
+        "files_written": 2,
+        "format": "tar-zst",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "symlinks_written": 0,
+        "whiteouts_emitted": 0
+      },
+      "spool_bytes": 852,
+      "wall_ms": 37.433
+    },
+    {
+      "phase": "tar_zst",
+      "rep": 1,
+      "result": {
+        "bytes_written": 852,
+        "files_written": 2,
+        "format": "tar-zst",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "symlinks_written": 0,
+        "whiteouts_emitted": 0
+      },
+      "spool_bytes": 852,
+      "wall_ms": 35.185
+    },
+    {
+      "phase": "tar_zst",
+      "rep": 2,
+      "result": {
+        "bytes_written": 852,
+        "files_written": 2,
+        "format": "tar-zst",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "symlinks_written": 0,
+        "whiteouts_emitted": 0
+      },
+      "spool_bytes": 852,
+      "wall_ms": 33.824
+    }
+  ],
+  "spool_bytes": 852
+}

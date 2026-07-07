@@ -1,0 +1,34 @@
+{
+  "axes": {
+    "correctness": {
+      "details": "empty delta, all counts zero, version 1",
+      "pass": true,
+      "status": "pass"
+    },
+    "host_safety": {
+      "details": "dest byte-identical, nothing outside dest",
+      "pass": true,
+      "status": "pass"
+    },
+    "incremental": {
+      "details": "n/a",
+      "pass": true,
+      "status": "n/a"
+    }
+  },
+  "case_id": "EZ-02",
+  "defects": [],
+  "elapsed_ms": 706.465,
+  "generated_at": "2026-07-08T01:27:34+08:00",
+  "run_id": "export-regress-20260708-012729",
+  "status": "pass",
+  "teardown": {
+    "details": "clean",
+    "export_dir_empty": true,
+    "lease_registry_empty": true,
+    "outside_dest_clean": true,
+    "pass": true
+  },
+  "tier": "easy",
+  "title": "base-only manifest is a clean no-op"
+}

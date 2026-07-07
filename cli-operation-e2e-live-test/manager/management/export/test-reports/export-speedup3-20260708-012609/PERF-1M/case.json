@@ -1,0 +1,5 @@
+{
+  "id": "PERF-1M",
+  "tier": "bench",
+  "title": "1 MiB urandom: cold/warm dir + tar-zst walls"
+}

@@ -1,0 +1,34 @@
+{
+  "axes": {
+    "correctness": {
+      "details": "sha256 verified on every cold dest and the archive; counts exact",
+      "pass": true,
+      "status": "pass"
+    },
+    "host_safety": {
+      "details": "no literal markers; nothing outside dest",
+      "pass": true,
+      "status": "pass"
+    },
+    "incremental": {
+      "details": "n/a (no warm arm in this case)",
+      "pass": true,
+      "status": "n/a"
+    }
+  },
+  "case_id": "PERF-ZSTD-20M",
+  "defects": [],
+  "elapsed_ms": 1244.093,
+  "generated_at": "2026-07-08T01:01:11+08:00",
+  "run_id": "export-speedup-20260708-010056",
+  "status": "pass",
+  "teardown": {
+    "details": "clean",
+    "export_dir_empty": true,
+    "lease_registry_empty": true,
+    "outside_dest_clean": true,
+    "pass": true
+  },
+  "tier": "bench",
+  "title": "20 MiB zeros: compressibility contrast (dir + tar-zst)"
+}

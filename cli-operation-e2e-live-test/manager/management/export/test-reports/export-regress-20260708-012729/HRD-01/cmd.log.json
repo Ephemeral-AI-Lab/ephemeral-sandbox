@@ -1,0 +1,208 @@
+[
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "create_sandbox",
+      "--image",
+      "ubuntu:24.04",
+      "--workspace-bind-root",
+      "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd01-8tger8dj"
+    ],
+    "elapsed_ms": 331.116,
+    "exit_code": 0,
+    "parsed_json": {
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 55038
+      },
+      "daemon_http": {
+        "host": "127.0.0.1",
+        "port": 55039
+      },
+      "id": "eos-38bd7a68-32de-4bb2-98b7-fa5963b8874a",
+      "shared_base": {
+        "readonly": true,
+        "root_hash": "08096f1a8284823ebdc97d8c3b357264731b6ff833c23c8e32df55d695bd0abe",
+        "source": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/08096f1a8284823ebdc97d8c3b357264731b6ff833c23c8e32df55d695bd0abe/base",
+        "target": "/eos/layer-stack/base"
+      },
+      "state": "ready",
+      "workspace_root": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd01-8tger8dj"
+    },
+    "stderr": "",
+    "stdout": "{\"id\":\"eos-38bd7a68-32de-4bb2-98b7-fa5963b8874a\",\"workspace_root\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd01-8tger8dj\",\"state\":\"ready\",\"daemon\":{\"host\":\"127.0.0.1\",\"port\":55038},\"daemon_http\":{\"host\":\"127.0.0.1\",\"port\":55039},\"shared_base\":{\"source\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/08096f1a8284823ebdc97d8c3b357264731b6ff833c23c8e32df55d695bd0abe/base\",\"target\":\"/eos/layer-stack/base\",\"root_hash\":\"08096f1a8284823ebdc97d8c3b357264731b6ff833c23c8e32df55d695bd0abe\",\"readonly\":true}}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-38bd7a68-32de-4bb2-98b7-fa5963b8874a",
+      "exec_command",
+      "printf 'delta\\n' > seed.txt"
+    ],
+    "elapsed_ms": 57.088,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.007470084,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.027502959,
+      "workspace_session_id": "00000118c01204049a7459"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.027502959,\"command_total_time_seconds\":0.007470084,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000118c01204049a7459\"}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-38bd7a68-32de-4bb2-98b7-fa5963b8874a",
+      "mkdir",
+      "-p",
+      "/eos/workspace/.export"
+    ],
+    "elapsed_ms": 55.103,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "export_changes",
+      "--sandbox-id",
+      "eos-38bd7a68-32de-4bb2-98b7-fa5963b8874a",
+      "--dest",
+      "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd01-07f_97fj/a/b/dest",
+      "--format",
+      "dir"
+    ],
+    "elapsed_ms": 26.553,
+    "exit_code": 1,
+    "parsed_json": {
+      "error": {
+        "details": {},
+        "kind": "operation_failed",
+        "message": "export failed: rejected entry name with '..': ../../escape.txt"
+      }
+    },
+    "stderr": "{\"error\":{\"kind\":\"operation_failed\",\"message\":\"export failed: rejected entry name with '..': ../../escape.txt\",\"details\":{}}}\n",
+    "stdout": ""
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-38bd7a68-32de-4bb2-98b7-fa5963b8874a",
+      "sh",
+      "-c",
+      "ls -1 /eos/workspace/.export 2>/dev/null | wc -l"
+    ],
+    "elapsed_ms": 47.525,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "0\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-38bd7a68-32de-4bb2-98b7-fa5963b8874a"
+    ],
+    "elapsed_ms": 28.81,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 0,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 6,
+          "layer_id": "L000002-00000001",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 2,
+      "root_hash": "bcd4682efc9385ae5b5ae8775b8928a4342bb89bb96b33ba7564165cffcad608",
+      "total_bytes": 6,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 6,
+          "ts": 1783445260939
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 6,
+          "ts": 1783445261087
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":2,\"root_hash\":\"bcd4682efc9385ae5b5ae8775b8928a4342bb89bb96b33ba7564165cffcad608\",\"active_lease_count\":0,\"total_bytes\":6,\"layers\":[{\"layer_id\":\"L000002-00000001\",\"bytes\":6,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":6,\"active_leases\":0,\"ts\":1783445260939},{\"layer_count\":2,\"layers_bytes\":6,\"active_leases\":0,\"ts\":1783445261087}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-38bd7a68-32de-4bb2-98b7-fa5963b8874a",
+      "sh",
+      "-c",
+      "ls -1 /eos/workspace/.export 2>/dev/null | wc -l"
+    ],
+    "elapsed_ms": 56.794,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "0\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "destroy_sandbox",
+      "--sandbox-id",
+      "eos-38bd7a68-32de-4bb2-98b7-fa5963b8874a"
+    ],
+    "elapsed_ms": 264.933,
+    "exit_code": 0,
+    "parsed_json": {
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 55038
+      },
+      "daemon_http": {
+        "host": "127.0.0.1",
+        "port": 55039
+      },
+      "id": "eos-38bd7a68-32de-4bb2-98b7-fa5963b8874a",
+      "shared_base": {
+        "readonly": true,
+        "root_hash": "08096f1a8284823ebdc97d8c3b357264731b6ff833c23c8e32df55d695bd0abe",
+        "source": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/08096f1a8284823ebdc97d8c3b357264731b6ff833c23c8e32df55d695bd0abe/base",
+        "target": "/eos/layer-stack/base"
+      },
+      "state": "stopped",
+      "workspace_root": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd01-8tger8dj"
+    },
+    "stderr": "",
+    "stdout": "{\"id\":\"eos-38bd7a68-32de-4bb2-98b7-fa5963b8874a\",\"workspace_root\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd01-8tger8dj\",\"state\":\"stopped\",\"daemon\":{\"host\":\"127.0.0.1\",\"port\":55038},\"daemon_http\":{\"host\":\"127.0.0.1\",\"port\":55039},\"shared_base\":{\"source\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/08096f1a8284823ebdc97d8c3b357264731b6ff833c23c8e32df55d695bd0abe/base\",\"target\":\"/eos/layer-stack/base\",\"root_hash\":\"08096f1a8284823ebdc97d8c3b357264731b6ff833c23c8e32df55d695bd0abe\",\"readonly\":true}}\n"
+  }
+]

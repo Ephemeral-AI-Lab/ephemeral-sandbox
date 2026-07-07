@@ -1,0 +1,5 @@
+{
+  "id": "MED-09",
+  "tier": "medium",
+  "title": "metadata fidelity: mode carried, uid/gid + xattrs not"
+}

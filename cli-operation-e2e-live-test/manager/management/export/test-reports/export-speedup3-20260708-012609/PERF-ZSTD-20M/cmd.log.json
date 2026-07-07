@@ -1,0 +1,360 @@
+[
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "create_sandbox",
+      "--image",
+      "ubuntu:24.04",
+      "--workspace-bind-root",
+      "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-perf-zstd-20m-foele8gd"
+    ],
+    "elapsed_ms": 316.712,
+    "exit_code": 0,
+    "parsed_json": {
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 55014
+      },
+      "daemon_http": {
+        "host": "127.0.0.1",
+        "port": 55015
+      },
+      "id": "eos-76155f19-6289-4072-9080-db94f62e86cd",
+      "shared_base": {
+        "readonly": true,
+        "root_hash": "a33f2193fca17e501730deb947ef3cc9491f988213a12290143b3f338f094525",
+        "source": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/a33f2193fca17e501730deb947ef3cc9491f988213a12290143b3f338f094525/base",
+        "target": "/eos/layer-stack/base"
+      },
+      "state": "ready",
+      "workspace_root": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-perf-zstd-20m-foele8gd"
+    },
+    "stderr": "",
+    "stdout": "{\"id\":\"eos-76155f19-6289-4072-9080-db94f62e86cd\",\"workspace_root\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-perf-zstd-20m-foele8gd\",\"state\":\"ready\",\"daemon\":{\"host\":\"127.0.0.1\",\"port\":55014},\"daemon_http\":{\"host\":\"127.0.0.1\",\"port\":55015},\"shared_base\":{\"source\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/a33f2193fca17e501730deb947ef3cc9491f988213a12290143b3f338f094525/base\",\"target\":\"/eos/layer-stack/base\",\"root_hash\":\"a33f2193fca17e501730deb947ef3cc9491f988213a12290143b3f338f094525\",\"readonly\":true}}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-76155f19-6289-4072-9080-db94f62e86cd",
+      "exec_command",
+      "head -c 20971520 /dev/zero > payload.bin && sha256sum payload.bin > payload.sha"
+    ],
+    "elapsed_ms": 144.099,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.02577725,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.114518125,
+      "workspace_session_id": "00000118c011f20cfb80c8"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.114518125,\"command_total_time_seconds\":0.02577725,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000118c011f20cfb80c8\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "export_changes",
+      "--sandbox-id",
+      "eos-76155f19-6289-4072-9080-db94f62e86cd",
+      "--dest",
+      "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-dest-perf-zstd-20m-g_c0j9qe/cold0",
+      "--format",
+      "dir"
+    ],
+    "elapsed_ms": 49.764,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 20971598,
+      "deletes_applied": 0,
+      "files_written": 2,
+      "format": "dir",
+      "layers_exported": [
+        "L000002-00000001"
+      ],
+      "manifest_version": 2,
+      "opaque_clears": 0,
+      "skipped_unchanged": 0,
+      "symlinks_written": 0
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":2,\"format\":\"dir\",\"layers_exported\":[\"L000002-00000001\"],\"files_written\":2,\"symlinks_written\":0,\"deletes_applied\":0,\"opaque_clears\":0,\"skipped_unchanged\":0,\"bytes_written\":20971598}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "export_changes",
+      "--sandbox-id",
+      "eos-76155f19-6289-4072-9080-db94f62e86cd",
+      "--dest",
+      "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-dest-perf-zstd-20m-mrjmz687/cold1",
+      "--format",
+      "dir"
+    ],
+    "elapsed_ms": 58.083,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 20971598,
+      "deletes_applied": 0,
+      "files_written": 2,
+      "format": "dir",
+      "layers_exported": [
+        "L000002-00000001"
+      ],
+      "manifest_version": 2,
+      "opaque_clears": 0,
+      "skipped_unchanged": 0,
+      "symlinks_written": 0
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":2,\"format\":\"dir\",\"layers_exported\":[\"L000002-00000001\"],\"files_written\":2,\"symlinks_written\":0,\"deletes_applied\":0,\"opaque_clears\":0,\"skipped_unchanged\":0,\"bytes_written\":20971598}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "export_changes",
+      "--sandbox-id",
+      "eos-76155f19-6289-4072-9080-db94f62e86cd",
+      "--dest",
+      "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-dest-perf-zstd-20m-2xn31rp9/cold2",
+      "--format",
+      "dir"
+    ],
+    "elapsed_ms": 59.589,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 20971598,
+      "deletes_applied": 0,
+      "files_written": 2,
+      "format": "dir",
+      "layers_exported": [
+        "L000002-00000001"
+      ],
+      "manifest_version": 2,
+      "opaque_clears": 0,
+      "skipped_unchanged": 0,
+      "symlinks_written": 0
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":2,\"format\":\"dir\",\"layers_exported\":[\"L000002-00000001\"],\"files_written\":2,\"symlinks_written\":0,\"deletes_applied\":0,\"opaque_clears\":0,\"skipped_unchanged\":0,\"bytes_written\":20971598}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "export_changes",
+      "--sandbox-id",
+      "eos-76155f19-6289-4072-9080-db94f62e86cd",
+      "--dest",
+      "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-bench-perf-zstd-20m-qqnd9um0/delta-0.tar.zst",
+      "--format",
+      "tar-zst"
+    ],
+    "elapsed_ms": 34.639,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 848,
+      "files_written": 2,
+      "format": "tar-zst",
+      "layers_exported": [
+        "L000002-00000001"
+      ],
+      "manifest_version": 2,
+      "symlinks_written": 0,
+      "whiteouts_emitted": 0
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":2,\"format\":\"tar-zst\",\"layers_exported\":[\"L000002-00000001\"],\"files_written\":2,\"symlinks_written\":0,\"whiteouts_emitted\":0,\"bytes_written\":848}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "export_changes",
+      "--sandbox-id",
+      "eos-76155f19-6289-4072-9080-db94f62e86cd",
+      "--dest",
+      "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-bench-perf-zstd-20m-qqnd9um0/delta-1.tar.zst",
+      "--format",
+      "tar-zst"
+    ],
+    "elapsed_ms": 38.779,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 848,
+      "files_written": 2,
+      "format": "tar-zst",
+      "layers_exported": [
+        "L000002-00000001"
+      ],
+      "manifest_version": 2,
+      "symlinks_written": 0,
+      "whiteouts_emitted": 0
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":2,\"format\":\"tar-zst\",\"layers_exported\":[\"L000002-00000001\"],\"files_written\":2,\"symlinks_written\":0,\"whiteouts_emitted\":0,\"bytes_written\":848}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "export_changes",
+      "--sandbox-id",
+      "eos-76155f19-6289-4072-9080-db94f62e86cd",
+      "--dest",
+      "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-bench-perf-zstd-20m-qqnd9um0/delta-2.tar.zst",
+      "--format",
+      "tar-zst"
+    ],
+    "elapsed_ms": 39.334,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 848,
+      "files_written": 2,
+      "format": "tar-zst",
+      "layers_exported": [
+        "L000002-00000001"
+      ],
+      "manifest_version": 2,
+      "symlinks_written": 0,
+      "whiteouts_emitted": 0
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":2,\"format\":\"tar-zst\",\"layers_exported\":[\"L000002-00000001\"],\"files_written\":2,\"symlinks_written\":0,\"whiteouts_emitted\":0,\"bytes_written\":848}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-76155f19-6289-4072-9080-db94f62e86cd"
+    ],
+    "elapsed_ms": 25.757,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 0,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 20971598,
+          "layer_id": "L000002-00000001",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 2,
+      "root_hash": "bcd4682efc9385ae5b5ae8775b8928a4342bb89bb96b33ba7564165cffcad608",
+      "total_bytes": 20971598,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 20971598,
+          "ts": 1783445183855
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 20971598,
+          "ts": 1783445183886
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 20971598,
+          "ts": 1783445183955
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 20971598,
+          "ts": 1783445184023
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 20971598,
+          "ts": 1783445184096
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 20971598,
+          "ts": 1783445184133
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 20971598,
+          "ts": 1783445184174
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":2,\"root_hash\":\"bcd4682efc9385ae5b5ae8775b8928a4342bb89bb96b33ba7564165cffcad608\",\"active_lease_count\":0,\"total_bytes\":20971598,\"layers\":[{\"layer_id\":\"L000002-00000001\",\"bytes\":20971598,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":20971598,\"active_leases\":0,\"ts\":1783445183855},{\"layer_count\":2,\"layers_bytes\":20971598,\"active_leases\":0,\"ts\":1783445183886},{\"layer_count\":2,\"layers_bytes\":20971598,\"active_leases\":0,\"ts\":1783445183955},{\"layer_count\":2,\"layers_bytes\":20971598,\"active_leases\":0,\"ts\":1783445184023},{\"layer_count\":2,\"layers_bytes\":20971598,\"active_leases\":0,\"ts\":1783445184096},{\"layer_count\":2,\"layers_bytes\":20971598,\"active_leases\":0,\"ts\":1783445184133},{\"layer_count\":2,\"layers_bytes\":20971598,\"active_leases\":0,\"ts\":1783445184174}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-76155f19-6289-4072-9080-db94f62e86cd",
+      "sh",
+      "-c",
+      "ls -1 /eos/workspace/.export 2>/dev/null | wc -l"
+    ],
+    "elapsed_ms": 52.675,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "0\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "destroy_sandbox",
+      "--sandbox-id",
+      "eos-76155f19-6289-4072-9080-db94f62e86cd"
+    ],
+    "elapsed_ms": 304.614,
+    "exit_code": 0,
+    "parsed_json": {
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 55014
+      },
+      "daemon_http": {
+        "host": "127.0.0.1",
+        "port": 55015
+      },
+      "id": "eos-76155f19-6289-4072-9080-db94f62e86cd",
+      "shared_base": {
+        "readonly": true,
+        "root_hash": "a33f2193fca17e501730deb947ef3cc9491f988213a12290143b3f338f094525",
+        "source": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/a33f2193fca17e501730deb947ef3cc9491f988213a12290143b3f338f094525/base",
+        "target": "/eos/layer-stack/base"
+      },
+      "state": "stopped",
+      "workspace_root": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-perf-zstd-20m-foele8gd"
+    },
+    "stderr": "",
+    "stdout": "{\"id\":\"eos-76155f19-6289-4072-9080-db94f62e86cd\",\"workspace_root\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-perf-zstd-20m-foele8gd\",\"state\":\"stopped\",\"daemon\":{\"host\":\"127.0.0.1\",\"port\":55014},\"daemon_http\":{\"host\":\"127.0.0.1\",\"port\":55015},\"shared_base\":{\"source\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/a33f2193fca17e501730deb947ef3cc9491f988213a12290143b3f338f094525/base\",\"target\":\"/eos/layer-stack/base\",\"root_hash\":\"a33f2193fca17e501730deb947ef3cc9491f988213a12290143b3f338f094525\",\"readonly\":true}}\n"
+  }
+]

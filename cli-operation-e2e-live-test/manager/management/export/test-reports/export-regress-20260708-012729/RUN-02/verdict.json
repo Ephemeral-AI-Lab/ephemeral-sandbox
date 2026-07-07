@@ -1,0 +1,51 @@
+{
+  "axes": {
+    "correctness": {
+      "details": "dist/index.js + node_modules/.bin/tsc crossed; base stayed home",
+      "pass": true,
+      "status": "pass"
+    },
+    "host_safety": {
+      "details": "no literal markers; nothing outside dest",
+      "pass": true,
+      "status": "pass"
+    },
+    "incremental": {
+      "details": "n/a",
+      "pass": true,
+      "status": "n/a"
+    },
+    "runnable": {
+      "container_run": {
+        "exit_code": 0,
+        "image": "node:22-slim",
+        "mount_at": "/workspace",
+        "output_match": true,
+        "pass": true
+      },
+      "details": "compiled output ran in-container; host pass",
+      "host_run": {
+        "exit_code": 0,
+        "reason": "",
+        "status": "pass"
+      },
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "RUN-02",
+  "defects": [],
+  "elapsed_ms": 34847.122,
+  "generated_at": "2026-07-08T01:29:24+08:00",
+  "run_id": "export-regress-20260708-012729",
+  "status": "pass",
+  "teardown": {
+    "details": "clean",
+    "export_dir_empty": true,
+    "lease_registry_empty": true,
+    "outside_dest_clean": true,
+    "pass": true
+  },
+  "tier": "runnable",
+  "title": "Node/TypeScript: compiled dist runs from a fresh dest"
+}

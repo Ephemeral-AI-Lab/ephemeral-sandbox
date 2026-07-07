@@ -1,0 +1,7 @@
+{
+  "error": {
+    "details": {},
+    "kind": "operation_failed",
+    "message": "export failed: export decompressed-byte cap exceeded (268435456 bytes)"
+  }
+}

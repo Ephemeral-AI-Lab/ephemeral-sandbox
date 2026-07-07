@@ -1,0 +1,5 @@
+{
+  "id": "RUN-06",
+  "tier": "runnable",
+  "title": "ABI escape hatch: host npm rebuild makes the tree host-native"
+}

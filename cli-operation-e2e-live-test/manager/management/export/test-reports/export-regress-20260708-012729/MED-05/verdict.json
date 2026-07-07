@@ -1,0 +1,35 @@
+{
+  "axes": {
+    "correctness": {
+      "details": "only the v2 winner crossed; one file written",
+      "pass": true,
+      "status": "pass"
+    },
+    "host_safety": {
+      "details": "n/a",
+      "pass": true,
+      "status": "n/a"
+    },
+    "incremental": {
+      "content_bytes_written": 3,
+      "details": "content bytes == v2 size only",
+      "pass": true,
+      "status": "pass"
+    }
+  },
+  "case_id": "MED-05",
+  "defects": [],
+  "elapsed_ms": 882.328,
+  "generated_at": "2026-07-08T01:28:13+08:00",
+  "run_id": "export-regress-20260708-012729",
+  "status": "pass",
+  "teardown": {
+    "details": "clean",
+    "export_dir_empty": true,
+    "lease_registry_empty": true,
+    "outside_dest_clean": true,
+    "pass": true
+  },
+  "tier": "medium",
+  "title": "newest-wins fold: older content never exported"
+}

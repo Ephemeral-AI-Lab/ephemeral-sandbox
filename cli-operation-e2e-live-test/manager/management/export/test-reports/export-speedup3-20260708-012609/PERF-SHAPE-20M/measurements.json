@@ -1,0 +1,121 @@
+{
+  "case": "PERF-SHAPE-20M",
+  "chunk_bytes": 2097152,
+  "medians": {
+    "cold_dir": 177.359,
+    "cold_dir_mib_per_s": 112.766,
+    "warm_dir": 156.968
+  },
+  "payload_bytes": 20971520,
+  "publish_wall_ms": 247.665,
+  "reps": [
+    {
+      "phase": "cold_dir",
+      "rep": 0,
+      "result": {
+        "bytes_written": 20973000,
+        "deletes_applied": 0,
+        "files_written": 21,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 188.16
+    },
+    {
+      "phase": "cold_dir",
+      "rep": 1,
+      "result": {
+        "bytes_written": 20973000,
+        "deletes_applied": 0,
+        "files_written": 21,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 177.359
+    },
+    {
+      "phase": "cold_dir",
+      "rep": 2,
+      "result": {
+        "bytes_written": 20973000,
+        "deletes_applied": 0,
+        "files_written": 21,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 170.645
+    },
+    {
+      "phase": "warm_dir",
+      "rep": 0,
+      "result": {
+        "bytes_written": 0,
+        "deletes_applied": 0,
+        "files_written": 0,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 21,
+        "symlinks_written": 0
+      },
+      "wall_ms": 191.553
+    },
+    {
+      "phase": "warm_dir",
+      "rep": 1,
+      "result": {
+        "bytes_written": 0,
+        "deletes_applied": 0,
+        "files_written": 0,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 21,
+        "symlinks_written": 0
+      },
+      "wall_ms": 154.313
+    },
+    {
+      "phase": "warm_dir",
+      "rep": 2,
+      "result": {
+        "bytes_written": 0,
+        "deletes_applied": 0,
+        "files_written": 0,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 21,
+        "symlinks_written": 0
+      },
+      "wall_ms": 156.968
+    }
+  ]
+}

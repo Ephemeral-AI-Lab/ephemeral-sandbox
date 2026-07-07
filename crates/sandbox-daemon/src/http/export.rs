@@ -17,12 +17,12 @@ use http_body_util::BodyExt as _;
 use hyper::body::{Body, Frame, Incoming};
 use sandbox_protocol::{EXPORT_STREAM_PATH_PREFIX, EXPORT_STREAM_TOKEN_HEADER};
 use sandbox_runtime::ClaimedExportStream;
-use tokio::io::{AsyncRead, ReadBuf};
 
 use super::response::{self, BoxBody};
 use super::server::HttpState;
 
-const STREAM_READ_BYTES: usize = 64 * 1024;
+const STREAM_FRAME_BYTES: usize = 1024 * 1024;
+const STREAM_CHANNEL_FRAMES: usize = 4;
 
 pub(crate) async fn handle(state: Arc<HttpState>, req: Request<Incoming>) -> Response<BoxBody> {
     if req.method() != Method::GET {
@@ -70,9 +70,7 @@ fn unavailable() -> Response<BoxBody> {
 
 fn stream_response(claimed: ClaimedExportStream) -> Response<BoxBody> {
     let total = claimed.total;
-    let body = SpoolBody {
-        file: tokio::fs::File::from_std(claimed.file),
-    };
+    let body = spool_body(claimed.file);
     let mut response = Response::new(body.boxed());
     response.headers_mut().insert(
         CONTENT_TYPE,
@@ -84,12 +82,38 @@ fn stream_response(claimed: ClaimedExportStream) -> Response<BoxBody> {
     response
 }
 
-/// Streams the claimed (already unlinked) spool fd as body frames. A read
-/// error terminates the body early instead of erroring: the manager's
-/// completeness gate (received == Content-Length) converts the truncation
-/// into a clean abort.
+/// Streams the claimed (already unlinked) spool fd as 1 MiB body frames fed
+/// by ONE sequential blocking reader through a small bounded channel — no
+/// per-read thread-pool handoff in the response path, and the only overlap
+/// is the channel/socket buffer filling while the peer drains (the sanctioned
+/// single-stream overlap). A read error terminates the body early instead of
+/// erroring: the manager's completeness gate (received == Content-Length)
+/// converts the truncation into a clean abort. A dropped body hangs up the
+/// channel and the reader exits on its next send.
+fn spool_body(file: std::fs::File) -> SpoolBody {
+    let (sender, receiver) = tokio::sync::mpsc::channel::<Bytes>(STREAM_CHANNEL_FRAMES);
+    tokio::task::spawn_blocking(move || {
+        use std::io::Read as _;
+
+        let mut file = file;
+        loop {
+            let mut buf = vec![0u8; STREAM_FRAME_BYTES];
+            match file.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(read) => {
+                    buf.truncate(read);
+                    if sender.blocking_send(Bytes::from(buf)).is_err() {
+                        break;
+                    }
+                }
+            }
+        }
+    });
+    SpoolBody { receiver }
+}
+
 struct SpoolBody {
-    file: tokio::fs::File,
+    receiver: tokio::sync::mpsc::Receiver<Bytes>,
 }
 
 impl Body for SpoolBody {
@@ -100,20 +124,10 @@ impl Body for SpoolBody {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
-        let this = self.get_mut();
-        let mut buf = [0u8; STREAM_READ_BYTES];
-        let mut read_buf = ReadBuf::new(&mut buf);
-        match Pin::new(&mut this.file).poll_read(cx, &mut read_buf) {
+        match self.get_mut().receiver.poll_recv(cx) {
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Ok(())) => {
-                let filled = read_buf.filled();
-                if filled.is_empty() {
-                    Poll::Ready(None)
-                } else {
-                    Poll::Ready(Some(Ok(Frame::data(Bytes::copy_from_slice(filled)))))
-                }
-            }
-            Poll::Ready(Err(_)) => Poll::Ready(None),
+            Poll::Ready(Some(bytes)) => Poll::Ready(Some(Ok(Frame::data(bytes)))),
+            Poll::Ready(None) => Poll::Ready(None),
         }
     }
 }

@@ -1,0 +1,35 @@
+{
+  "axes": {
+    "correctness": {
+      "P1": true,
+      "details": "P1 catalog + surface",
+      "pass": true,
+      "status": "pass"
+    },
+    "host_safety": {
+      "P2": true,
+      "P3": true,
+      "P4": true,
+      "details": "P2/P3/P4 asserted",
+      "pass": true,
+      "status": "pass"
+    },
+    "incremental": {
+      "details": "n/a",
+      "pass": true,
+      "status": "n/a"
+    }
+  },
+  "case_id": "PRECONDITIONS",
+  "defects": [],
+  "elapsed_ms": 3479.833,
+  "generated_at": "2026-07-08T01:26:14+08:00",
+  "run_id": "export-speedup3-20260708-012609",
+  "status": "pass",
+  "teardown": {
+    "details": "preconditions sandbox destroyed below",
+    "pass": true
+  },
+  "tier": "preconditions",
+  "title": "\u00a71.1 export preconditions"
+}

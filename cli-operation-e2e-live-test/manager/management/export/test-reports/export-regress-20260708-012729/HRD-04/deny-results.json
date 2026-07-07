@@ -1,0 +1,23 @@
+{
+  "/": {
+    "error": {
+      "details": {},
+      "kind": "invalid_request",
+      "message": "invalid export destination /: the filesystem root is denied"
+    }
+  },
+  "/Users/yifanxu": {
+    "error": {
+      "details": {},
+      "kind": "invalid_request",
+      "message": "invalid export destination /Users/yifanxu: the home directory is denied"
+    }
+  },
+  "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd04-5nre5501/.export/x": {
+    "error": {
+      "details": {},
+      "kind": "invalid_request",
+      "message": "invalid export destination /var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd04-5nre5501/.export/x: paths inside a .export spool directory are denied"
+    }
+  }
+}

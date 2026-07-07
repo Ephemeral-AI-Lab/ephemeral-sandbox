@@ -1,0 +1,37 @@
+{
+  "axes": {
+    "correctness": {
+      "details": "file mode 0o640 carried; directory reproduced (mode 0o755, not carried)",
+      "pass": true,
+      "status": "pass"
+    },
+    "host_safety": {
+      "details": "uid==manager, user xattr absent, dir mode not carried (documented boundary)",
+      "dir_mode": "0o755",
+      "owner_is_manager": true,
+      "pass": true,
+      "status": "pass",
+      "user_xattr_absent": true
+    },
+    "incremental": {
+      "details": "n/a",
+      "pass": true,
+      "status": "n/a"
+    }
+  },
+  "case_id": "MED-09",
+  "defects": [],
+  "elapsed_ms": 800.252,
+  "generated_at": "2026-07-08T01:28:16+08:00",
+  "run_id": "export-regress-20260708-012729",
+  "status": "pass",
+  "teardown": {
+    "details": "clean",
+    "export_dir_empty": true,
+    "lease_registry_empty": true,
+    "outside_dest_clean": true,
+    "pass": true
+  },
+  "tier": "medium",
+  "title": "metadata fidelity: mode carried, uid/gid + xattrs not"
+}

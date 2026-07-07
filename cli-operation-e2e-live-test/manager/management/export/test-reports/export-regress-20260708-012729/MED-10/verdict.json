@@ -1,0 +1,34 @@
+{
+  "axes": {
+    "correctness": {
+      "details": "delta applied onto a fresh base copy == merged view",
+      "pass": true,
+      "status": "pass"
+    },
+    "host_safety": {
+      "details": "nothing outside the second dir; no markers",
+      "pass": true,
+      "status": "pass"
+    },
+    "incremental": {
+      "details": "n/a",
+      "pass": true,
+      "status": "n/a"
+    }
+  },
+  "case_id": "MED-10",
+  "defects": [],
+  "elapsed_ms": 826.073,
+  "generated_at": "2026-07-08T01:28:17+08:00",
+  "run_id": "export-regress-20260708-012729",
+  "status": "pass",
+  "teardown": {
+    "details": "clean",
+    "export_dir_empty": true,
+    "lease_registry_empty": true,
+    "outside_dest_clean": true,
+    "pass": true
+  },
+  "tier": "medium",
+  "title": "delta re-applies onto a fresh base copy"
+}

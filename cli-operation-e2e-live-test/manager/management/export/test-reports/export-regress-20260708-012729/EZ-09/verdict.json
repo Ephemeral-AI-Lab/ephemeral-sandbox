@@ -1,0 +1,34 @@
+{
+  "axes": {
+    "correctness": {
+      "details": "live session reported, then omitted after destroy",
+      "pass": true,
+      "status": "pass"
+    },
+    "host_safety": {
+      "details": "n/a",
+      "pass": true,
+      "status": "n/a"
+    },
+    "incremental": {
+      "details": "n/a",
+      "pass": true,
+      "status": "n/a"
+    }
+  },
+  "case_id": "EZ-09",
+  "defects": [],
+  "elapsed_ms": 844.617,
+  "generated_at": "2026-07-08T01:27:40+08:00",
+  "run_id": "export-regress-20260708-012729",
+  "status": "pass",
+  "teardown": {
+    "details": "clean",
+    "export_dir_empty": true,
+    "lease_registry_empty": true,
+    "outside_dest_clean": true,
+    "pass": true
+  },
+  "tier": "easy",
+  "title": "a live session is reported, export still succeeds"
+}

@@ -1,0 +1,34 @@
+{
+  "axes": {
+    "correctness": {
+      "details": "1 converged, 1 in-flight-rejected",
+      "pass": true,
+      "status": "pass"
+    },
+    "host_safety": {
+      "details": "each dest internally consistent; no cross-spool bytes",
+      "pass": true,
+      "status": "pass"
+    },
+    "incremental": {
+      "details": "n/a",
+      "pass": true,
+      "status": "n/a"
+    }
+  },
+  "case_id": "HRD-06",
+  "defects": [],
+  "elapsed_ms": 740.893,
+  "generated_at": "2026-07-08T01:27:48+08:00",
+  "run_id": "export-regress-20260708-012729",
+  "status": "pass",
+  "teardown": {
+    "details": "clean",
+    "export_dir_empty": true,
+    "lease_registry_empty": true,
+    "outside_dest_clean": true,
+    "pass": true
+  },
+  "tier": "hard",
+  "title": "two concurrent exports of the same sandbox"
+}

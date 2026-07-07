@@ -1,0 +1,175 @@
+{
+  "case": "PERF-1M",
+  "chunk_bytes": 2097152,
+  "chunks": 1,
+  "medians": {
+    "cold_dir": 37.47,
+    "cold_dir_mib_per_s": 26.688,
+    "tar_zst": 30.802,
+    "warm_dir": 30.117
+  },
+  "payload_bytes": 1048576,
+  "publish_wall_ms": 69.683,
+  "reps": [
+    {
+      "phase": "cold_dir",
+      "rep": 0,
+      "result": {
+        "bytes_written": 1048654,
+        "deletes_applied": 0,
+        "files_written": 2,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 37.47
+    },
+    {
+      "phase": "cold_dir",
+      "rep": 1,
+      "result": {
+        "bytes_written": 1048654,
+        "deletes_applied": 0,
+        "files_written": 2,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 31.362
+    },
+    {
+      "phase": "cold_dir",
+      "rep": 2,
+      "result": {
+        "bytes_written": 1048654,
+        "deletes_applied": 0,
+        "files_written": 2,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 0,
+        "symlinks_written": 0
+      },
+      "wall_ms": 37.602
+    },
+    {
+      "phase": "warm_dir",
+      "rep": 0,
+      "result": {
+        "bytes_written": 0,
+        "deletes_applied": 0,
+        "files_written": 0,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 2,
+        "symlinks_written": 0
+      },
+      "wall_ms": 40.361
+    },
+    {
+      "phase": "warm_dir",
+      "rep": 1,
+      "result": {
+        "bytes_written": 0,
+        "deletes_applied": 0,
+        "files_written": 0,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 2,
+        "symlinks_written": 0
+      },
+      "wall_ms": 29.603
+    },
+    {
+      "phase": "warm_dir",
+      "rep": 2,
+      "result": {
+        "bytes_written": 0,
+        "deletes_applied": 0,
+        "files_written": 0,
+        "format": "dir",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "opaque_clears": 0,
+        "skipped_unchanged": 2,
+        "symlinks_written": 0
+      },
+      "wall_ms": 30.117
+    },
+    {
+      "phase": "tar_zst",
+      "rep": 0,
+      "result": {
+        "bytes_written": 1049241,
+        "files_written": 2,
+        "format": "tar-zst",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "symlinks_written": 0,
+        "whiteouts_emitted": 0
+      },
+      "spool_bytes": 1049241,
+      "wall_ms": 32.979
+    },
+    {
+      "phase": "tar_zst",
+      "rep": 1,
+      "result": {
+        "bytes_written": 1049241,
+        "files_written": 2,
+        "format": "tar-zst",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "symlinks_written": 0,
+        "whiteouts_emitted": 0
+      },
+      "spool_bytes": 1049241,
+      "wall_ms": 30.605
+    },
+    {
+      "phase": "tar_zst",
+      "rep": 2,
+      "result": {
+        "bytes_written": 1049241,
+        "files_written": 2,
+        "format": "tar-zst",
+        "layers_exported": [
+          "L000002-00000001"
+        ],
+        "manifest_version": 2,
+        "symlinks_written": 0,
+        "whiteouts_emitted": 0
+      },
+      "spool_bytes": 1049241,
+      "wall_ms": 30.802
+    }
+  ],
+  "spool_bytes": 1049241
+}

@@ -1,0 +1,5 @@
+{
+  "id": "EZ-06",
+  "tier": "easy",
+  "title": "relative --dest is rejected before any forward"
+}

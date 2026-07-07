@@ -1,0 +1,361 @@
+[
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "create_sandbox",
+      "--image",
+      "ubuntu:24.04",
+      "--workspace-bind-root",
+      "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd07-wxizij2n"
+    ],
+    "elapsed_ms": 318.195,
+    "exit_code": 0,
+    "parsed_json": {
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 55050
+      },
+      "daemon_http": {
+        "host": "127.0.0.1",
+        "port": 55051
+      },
+      "id": "eos-f260ee47-e580-4c66-b570-4dd6a4e14855",
+      "shared_base": {
+        "readonly": true,
+        "root_hash": "83fa89645b97c37c427578402677547ea0b2c73ef680c785193c1168dd0e0511",
+        "source": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/83fa89645b97c37c427578402677547ea0b2c73ef680c785193c1168dd0e0511/base",
+        "target": "/eos/layer-stack/base"
+      },
+      "state": "ready",
+      "workspace_root": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd07-wxizij2n"
+    },
+    "stderr": "",
+    "stdout": "{\"id\":\"eos-f260ee47-e580-4c66-b570-4dd6a4e14855\",\"workspace_root\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd07-wxizij2n\",\"state\":\"ready\",\"daemon\":{\"host\":\"127.0.0.1\",\"port\":55050},\"daemon_http\":{\"host\":\"127.0.0.1\",\"port\":55051},\"shared_base\":{\"source\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/83fa89645b97c37c427578402677547ea0b2c73ef680c785193c1168dd0e0511/base\",\"target\":\"/eos/layer-stack/base\",\"root_hash\":\"83fa89645b97c37c427578402677547ea0b2c73ef680c785193c1168dd0e0511\",\"readonly\":true}}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-f260ee47-e580-4c66-b570-4dd6a4e14855",
+      "exec_command",
+      "printf 'l0\\n' > src/l0.txt"
+    ],
+    "elapsed_ms": 59.454,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.007546375,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.03141575,
+      "workspace_session_id": "00000118c01205f3c34366"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.03141575,\"command_total_time_seconds\":0.007546375,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000118c01205f3c34366\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-f260ee47-e580-4c66-b570-4dd6a4e14855",
+      "exec_command",
+      "printf 'l1\\n' > src/l1.txt"
+    ],
+    "elapsed_ms": 63.296,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.00896725,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.030483584,
+      "workspace_session_id": "00000218c01205f7a198ca"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.030483584,\"command_total_time_seconds\":0.00896725,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000218c01205f7a198ca\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-f260ee47-e580-4c66-b570-4dd6a4e14855",
+      "exec_command",
+      "printf 'l2\\n' > src/l2.txt"
+    ],
+    "elapsed_ms": 55.101,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.007280792,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.028274542,
+      "workspace_session_id": "00000318c01205fb120094"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.028274542,\"command_total_time_seconds\":0.007280792,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000318c01205fb120094\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-f260ee47-e580-4c66-b570-4dd6a4e14855",
+      "exec_command",
+      "printf 'l3\\n' > src/l3.txt"
+    ],
+    "elapsed_ms": 54.744,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.006738875,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.02878375,
+      "workspace_session_id": "00000418c01205fe5505e1"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.02878375,\"command_total_time_seconds\":0.006738875,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000418c01205fe5505e1\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "runtime",
+      "--sandbox-id",
+      "eos-f260ee47-e580-4c66-b570-4dd6a4e14855",
+      "exec_command",
+      "printf 'v2\\n' > src/a.rs && rm -f src/b.rs"
+    ],
+    "elapsed_ms": 62.672,
+    "exit_code": 0,
+    "parsed_json": {
+      "command_total_time_seconds": 0.007291292,
+      "end_offset": 0,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": "",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 0,
+      "wall_time_seconds": 0.03019375,
+      "workspace_session_id": "00000518c0120601f37ae4"
+    },
+    "stderr": "",
+    "stdout": "{\"status\":\"ok\",\"exit_code\":0,\"wall_time_seconds\":0.03019375,\"command_total_time_seconds\":0.007291292,\"start_offset\":0,\"end_offset\":0,\"total_lines\":0,\"original_token_count\":0,\"output\":\"\",\"workspace_session_id\":\"00000518c0120601f37ae4\"}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "checkpoint_squash",
+      "--sandbox-id",
+      "eos-f260ee47-e580-4c66-b570-4dd6a4e14855"
+    ],
+    "elapsed_ms": 30.01,
+    "exit_code": 0,
+    "parsed_json": {
+      "manifest_version": 7,
+      "squashed_blocks": [
+        {
+          "blocked_reasons": [
+            "pinned:lease_holder_not_swept"
+          ],
+          "replaced_layer_ids": [
+            "L000005-00000010",
+            "L000004-0000000b",
+            "L000003-00000006",
+            "L000002-00000001"
+          ],
+          "replaced_layers": "leased",
+          "squashed_layer_id": "S000007-0000001b"
+        }
+      ]
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":7,\"squashed_blocks\":[{\"squashed_layer_id\":\"S000007-0000001b\",\"replaced_layer_ids\":[\"L000005-00000010\",\"L000004-0000000b\",\"L000003-00000006\",\"L000002-00000001\"],\"replaced_layers\":\"leased\",\"blocked_reasons\":[\"pinned:lease_holder_not_swept\"]}]}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "export_changes",
+      "--sandbox-id",
+      "eos-f260ee47-e580-4c66-b570-4dd6a4e14855",
+      "--dest",
+      "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-dest-hrd07-vs09hwk0/dest",
+      "--format",
+      "dir"
+    ],
+    "elapsed_ms": 33.445,
+    "exit_code": 0,
+    "parsed_json": {
+      "bytes_written": 15,
+      "deletes_applied": 1,
+      "files_written": 5,
+      "format": "dir",
+      "layers_exported": [
+        "L000006-00000015",
+        "L000005-00000010",
+        "L000004-0000000b",
+        "L000003-00000006",
+        "L000002-00000001"
+      ],
+      "manifest_version": 6,
+      "opaque_clears": 0,
+      "skipped_unchanged": 0,
+      "symlinks_written": 0
+    },
+    "stderr": "",
+    "stdout": "{\"manifest_version\":6,\"format\":\"dir\",\"layers_exported\":[\"L000006-00000015\",\"L000005-00000010\",\"L000004-0000000b\",\"L000003-00000006\",\"L000002-00000001\"],\"files_written\":5,\"symlinks_written\":0,\"deletes_applied\":1,\"opaque_clears\":0,\"skipped_unchanged\":0,\"bytes_written\":15}\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "observability",
+      "layerstack",
+      "--sandbox-id",
+      "eos-f260ee47-e580-4c66-b570-4dd6a4e14855"
+    ],
+    "elapsed_ms": 22.41,
+    "exit_code": 0,
+    "parsed_json": {
+      "active_lease_count": 0,
+      "layers": [
+        {
+          "booked_by": [],
+          "bytes": 3,
+          "layer_id": "L000006-00000015",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 12,
+          "layer_id": "S000007-0000001b",
+          "leased_by_workspaces": 0
+        },
+        {
+          "booked_by": [],
+          "bytes": 0,
+          "layer_id": "B000001-base",
+          "leased_by_workspaces": 0
+        }
+      ],
+      "manifest_version": 7,
+      "root_hash": "330649f7c360f79f00af1193c46b19767202fe1ec68eedab68be86e13a8967a5",
+      "total_bytes": 15,
+      "trend": [
+        {
+          "active_leases": 0,
+          "layer_count": 2,
+          "layers_bytes": 3,
+          "ts": 1783445269249
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 6,
+          "ts": 1783445269313
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 4,
+          "layers_bytes": 9,
+          "ts": 1783445269368
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 5,
+          "layers_bytes": 12,
+          "ts": 1783445269423
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 6,
+          "layers_bytes": 15,
+          "ts": 1783445269485
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 15,
+          "ts": 1783445269516
+        },
+        {
+          "active_leases": 0,
+          "layer_count": 3,
+          "layers_bytes": 15,
+          "ts": 1783445269516
+        }
+      ],
+      "view": "layerstack"
+    },
+    "stderr": "",
+    "stdout": "{\"view\":\"layerstack\",\"manifest_version\":7,\"root_hash\":\"330649f7c360f79f00af1193c46b19767202fe1ec68eedab68be86e13a8967a5\",\"active_lease_count\":0,\"total_bytes\":15,\"layers\":[{\"layer_id\":\"L000006-00000015\",\"bytes\":3,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"S000007-0000001b\",\"bytes\":12,\"leased_by_workspaces\":0,\"booked_by\":[]},{\"layer_id\":\"B000001-base\",\"bytes\":0,\"leased_by_workspaces\":0,\"booked_by\":[]}],\"trend\":[{\"layer_count\":2,\"layers_bytes\":3,\"active_leases\":0,\"ts\":1783445269249},{\"layer_count\":3,\"layers_bytes\":6,\"active_leases\":0,\"ts\":1783445269313},{\"layer_count\":4,\"layers_bytes\":9,\"active_leases\":0,\"ts\":1783445269368},{\"layer_count\":5,\"layers_bytes\":12,\"active_leases\":0,\"ts\":1783445269423},{\"layer_count\":6,\"layers_bytes\":15,\"active_leases\":0,\"ts\":1783445269485},{\"layer_count\":3,\"layers_bytes\":15,\"active_leases\":0,\"ts\":1783445269516},{\"layer_count\":3,\"layers_bytes\":15,\"active_leases\":0,\"ts\":1783445269516}]}\n"
+  },
+  {
+    "cmd": [
+      "docker",
+      "exec",
+      "eos-f260ee47-e580-4c66-b570-4dd6a4e14855",
+      "sh",
+      "-c",
+      "ls -1 /eos/workspace/.export 2>/dev/null | wc -l"
+    ],
+    "elapsed_ms": 58.033,
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "0\n"
+  },
+  {
+    "cmd": [
+      "sandbox-cli",
+      "manager",
+      "destroy_sandbox",
+      "--sandbox-id",
+      "eos-f260ee47-e580-4c66-b570-4dd6a4e14855"
+    ],
+    "elapsed_ms": 216.94,
+    "exit_code": 0,
+    "parsed_json": {
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 55050
+      },
+      "daemon_http": {
+        "host": "127.0.0.1",
+        "port": 55051
+      },
+      "id": "eos-f260ee47-e580-4c66-b570-4dd6a4e14855",
+      "shared_base": {
+        "readonly": true,
+        "root_hash": "83fa89645b97c37c427578402677547ea0b2c73ef680c785193c1168dd0e0511",
+        "source": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/83fa89645b97c37c427578402677547ea0b2c73ef680c785193c1168dd0e0511/base",
+        "target": "/eos/layer-stack/base"
+      },
+      "state": "stopped",
+      "workspace_root": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd07-wxizij2n"
+    },
+    "stderr": "",
+    "stdout": "{\"id\":\"eos-f260ee47-e580-4c66-b570-4dd6a4e14855\",\"workspace_root\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-export-hrd07-wxizij2n\",\"state\":\"stopped\",\"daemon\":{\"host\":\"127.0.0.1\",\"port\":55050},\"daemon_http\":{\"host\":\"127.0.0.1\",\"port\":55051},\"shared_base\":{\"source\":\"/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/83fa89645b97c37c427578402677547ea0b2c73ef680c785193c1168dd0e0511/base\",\"target\":\"/eos/layer-stack/base\",\"root_hash\":\"83fa89645b97c37c427578402677547ea0b2c73ef680c785193c1168dd0e0511\",\"readonly\":true}}\n"
+  }
+]

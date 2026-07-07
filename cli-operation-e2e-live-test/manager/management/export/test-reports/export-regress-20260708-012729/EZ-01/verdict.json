@@ -1,0 +1,34 @@
+{
+  "axes": {
+    "correctness": {
+      "details": "a.rs rewritten, b.rs deleted, counts exact",
+      "pass": true,
+      "status": "pass"
+    },
+    "host_safety": {
+      "details": "no literal markers on the host",
+      "pass": true,
+      "status": "pass"
+    },
+    "incremental": {
+      "details": "n/a (first export)",
+      "pass": true,
+      "status": "n/a"
+    }
+  },
+  "case_id": "EZ-01",
+  "defects": [],
+  "elapsed_ms": 735.526,
+  "generated_at": "2026-07-08T01:27:34+08:00",
+  "run_id": "export-regress-20260708-012729",
+  "status": "pass",
+  "teardown": {
+    "details": "clean",
+    "export_dir_empty": true,
+    "lease_registry_empty": true,
+    "outside_dest_clean": true,
+    "pass": true
+  },
+  "tier": "easy",
+  "title": "dir export onto the seed reproduces the merged view"
+}
