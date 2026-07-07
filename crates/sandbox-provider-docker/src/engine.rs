@@ -303,10 +303,12 @@ impl DockerEngine {
                 .start_container(&container, None::<StartContainerOptions<String>>)
                 .await
                 .map_err(|error| DockerError::Api(format!("start_container: {error}")))?;
-            let inspected = docker
-                .inspect_container(&container, None)
-                .await
-                .map_err(|error| DockerError::Api(format!("inspect_container: {error}")))?;
+            let inspected = inspect_until_ports_published(
+                &docker,
+                &container,
+                &[daemon_port, daemon_http_port],
+            )
+            .await?;
             let port = published_port(&inspected, daemon_port)?;
             let http_port = published_port(&inspected, daemon_http_port)?;
             let auth_token = label_value(&inspected, labels::AUTH_TOKEN)?;
@@ -554,6 +556,42 @@ fn connect(endpoint: Option<&str>) -> Result<Docker, DockerError> {
         None => Docker::connect_with_local_defaults(),
     };
     docker.map_err(|error| DockerError::Connect(error.to_string()))
+}
+
+/// Inspect the container until every requested port has a published host
+/// binding. Docker can report an empty port map for a brief window right
+/// after `start_container`; retry within a small bounded budget and return
+/// the last inspection so the caller surfaces the ordinary
+/// `no published host port` error if the binding never appears.
+async fn inspect_until_ports_published(
+    docker: &Docker,
+    container: &str,
+    ports: &[u16],
+) -> Result<ContainerInspectResponse, DockerError> {
+    const PORT_PUBLISH_ATTEMPTS: u32 = 40;
+    const PORT_PUBLISH_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(50);
+    let mut inspected = inspect_container(docker, container).await?;
+    for _ in 0..PORT_PUBLISH_ATTEMPTS {
+        if ports
+            .iter()
+            .all(|port| published_port(&inspected, *port).is_ok())
+        {
+            break;
+        }
+        tokio::time::sleep(PORT_PUBLISH_RETRY_DELAY).await;
+        inspected = inspect_container(docker, container).await?;
+    }
+    Ok(inspected)
+}
+
+async fn inspect_container(
+    docker: &Docker,
+    container: &str,
+) -> Result<ContainerInspectResponse, DockerError> {
+    docker
+        .inspect_container(container, None)
+        .await
+        .map_err(|error| DockerError::Api(format!("inspect_container: {error}")))
 }
 
 fn published_port(

@@ -352,10 +352,13 @@ def test_complex_hot_file_storm_inside_one_session(sandbox, workspace_session):
     assert_ok(file_write(sandbox, path, seed, workspace_session_id=workspace_session))
     command_session_id = _start_shell(sandbox, workspace_session)
     try:
+        # Emit the __READ__ marker via %s so the PTY echo of this script never
+        # contains the literal; otherwise split("__READ__") cuts inside the
+        # echoed input and a script fragment becomes a "payload" line.
         script = (
             "for i in $(seq 1 12); do "
             "cat session-concurrent/storm/hot.txt; "
-            "printf '\\n__READ__\\n'; sleep 0.02; "
+            "printf '\\n__%s__\\n' READ; sleep 0.02; "
             "done\n"
         )
         start = write_command_stdin(sandbox, command_session_id, script, yield_time_ms=0)
@@ -389,12 +392,16 @@ def test_complex_hot_file_storm_inside_one_session(sandbox, workspace_session):
             lambda output: output.count("__READ__") >= 12,
         )
         for chunk in transcript.split("__READ__"):
+            # Noise filter: shell diagnostics ("sh:"), prompt-prefixed lines
+            # ("#"), and the transcript's copy of the script itself (any
+            # stripped line that is a substring of what we wrote to stdin).
             payload_lines = [
                 line.strip()
                 for line in chunk.splitlines()
                 if line.strip()
                 and not line.startswith("sh:")
                 and not line.startswith("#")
+                and line.strip() not in script
             ]
             if payload_lines:
                 assert payload_lines[-1] in allowed, transcript
