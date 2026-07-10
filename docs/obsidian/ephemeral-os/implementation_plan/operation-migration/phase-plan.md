@@ -392,15 +392,15 @@ repointing are one commit.
   `inspect_sandbox` and its token through Docker control-plane metadata
   without logging or persisting the token, convert all lifecycle call sites,
   and move the `file_list` probe to the documented HTTP endpoint.
-- [ ] Make the router scope-kind-first; reject gateway-arriving requests
+- [x] Make the router scope-kind-first; reject gateway-arriving requests
   whose route visibility is internal (manager services keep calling the
   daemon-client port directly for internal forwarding).
-- [ ] Depend on the catalog with `manager` + `observability` features;
+- [x] Depend on the catalog with `manager` + `observability` features;
   import manager public specs, the observability system-snapshot
   declaration, and runtime internal forwarding identifiers from the
   catalog; delete duplicated string literals.
-- [ ] Retain only the declared migration route for sandbox observability.
-- [ ] Add tests: public route-subset/handler bijection for
+- [x] Retain only the declared migration route for sandbox observability.
+- [x] Add tests: public route-subset/handler bijection for
   `execution_owner = Manager`, internal registry match, manager-router
   rejection parameterized over every canonical internal route (including
   both workspace-session lifecycle routes), and live direct-daemon
@@ -432,6 +432,9 @@ repointing are one commit.
 | 2026-07-10 | Manager port and adapter ownership | `rg -n 'trait SandboxDaemonClient|trait SandboxDaemonInstaller|struct StartedDaemon|TcpSandboxDaemonClient|LocalSandboxDaemonInstaller|ProtocolLimits|sandbox_protocol|TcpStream|TcpListener|std::process::Command|tokio::net' crates/sandbox-manager/src crates/sandbox-gateway/src --glob '*.rs'`; `cargo test -p sandbox-gateway --all-features` | The two ports and neutral DTO remain in manager; TCP/protocol and local-process implementations appear only in gateway; all 18 gateway tests passed. | None. |
 | 2026-07-10 | Manager dependency boundary | `cargo metadata --format-version 1 --no-deps \| jq -r '.packages[] \| select(.name == "sandbox-manager") \| .dependencies[] \| select(.path != null) \| .name' \| sort`; `cargo tree -p sandbox-manager -e normal \| rg 'sandbox-(protocol|operation-client|gateway|daemon|provider-docker)'` | Path dependencies are exactly `sandbox-operation-catalog`, `sandbox-operation-contract`, and `sandbox-runtime-layerstack`; forbidden application/adapter/client/protocol edges produced no matches (exit 1). | None. |
 | 2026-07-10 | Trusted E2E lifecycle transport | `cd e2e && PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider --confcutdir=core core/test_direct_daemon.py -q`; `rg '\b(internal_runtime\|internal_runtime_result)\b' e2e --glob '*.py'`; lifecycle call-site scan with `rg -n -C 3 '"(create\|destroy)_workspace_session"' e2e --glob '*.py'`; `python3 -m pytest --collect-only -q` over the changed live suites; post-commit `cargo check --workspace --all-targets --all-features` and `cargo test -p sandbox-manager --all-features` | Direct-helper security suite passed 8/8; old helper search returned no matches (exit 1); every real lifecycle call uses the exact two-operation direct helper, while WS-05 remains the intentional public-rejection probe; all 240 selected live tests collected; workspace check passed and all 59 manager tests passed. `file_list` now uses `POST /files/list`. | None. |
+| 2026-07-10 | Scoped manager routing and handler projection | `cargo test -p sandbox-manager --test manager_router manager_public_routes_and_handler_keys_are_bijective`; `cargo test -p sandbox-manager --test manager_router manager_router_rejects_every_canonical_internal_route_before_forwarding`; `cargo test -p sandbox-manager --test manager_router manager_router_forwards_the_exact_observability_migration_route` | Each focused test passed 1/1. Dispatch keys are `(scope kind, operation)`; every canonical runtime-internal route is rejected before daemon forwarding; the sole declared observability migration route is still forwarded. | None. |
+| 2026-07-10 | Catalog-owned manager declarations | `rg -n 'sandbox-operation-catalog|features =.*manager|features =.*observability' crates/sandbox-manager/Cargo.toml`; catalog-import scan under `crates/sandbox-manager/src`; `rg -n 'internal::migration::ROUTE|internal::runtime::ROUTES' crates/sandbox-manager/src/router/dispatch.rs`; `rg '"export_layerstack"|"read_export_chunk"|"squash_layerstack"' crates/sandbox-manager/src` | Cargo enables exactly the catalog `manager` and `observability` domain features; manager public specs, observability snapshot, canonical internal routes, and forwarding identifiers are imported from the catalog. The forbidden literal scan returned no matches (exit 1). | None. |
+| 2026-07-10 | Scoped-routing checkpoint | Post-commit `cargo check --workspace --all-targets --all-features`; `cargo test -p sandbox-manager --all-features` | Workspace check passed; all 64 manager tests passed (14 core, 31 export, 12 router, 7 store). | None. |
 
 ---
 
