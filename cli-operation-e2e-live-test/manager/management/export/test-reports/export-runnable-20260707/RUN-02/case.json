@@ -1,5 +1,0 @@
-{
-  "id": "RUN-02",
-  "tier": "runnable",
-  "title": "Node/TypeScript: compiled dist runs from a fresh dest"
-}

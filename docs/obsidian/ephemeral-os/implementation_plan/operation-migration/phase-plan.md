@@ -100,14 +100,14 @@ atomic change.
   behavior, internal daemon RPC behavior.
 - [x] Run the current unit/integration suites; record the live E2E baseline
   from the current `cli-operation-e2e-live-test/` location.
-- [ ] Atomic purge/move change: untrack and delete the 7,977 tracked E2E
+- [x] Atomic purge/move change: untrack and delete the 7,977 tracked E2E
   report files (4,274,972 lines) and the two tracked
   `web/console/*.tsbuildinfo` files; add durable `.gitignore` rules
   (`e2e/**/test-reports/`, `*.tsbuildinfo`); move the 87 maintained E2E
   files to root `e2e/`; replace parent-count root discovery
   (`core/config.py`, `conftest.py`, `measure.py:18`) with one tested
   root-marker resolver.
-- [ ] Rerun the E2E smoke from `e2e/` to prove relocation.
+- [x] Rerun the E2E smoke from `e2e/` to prove relocation.
 
 ### Acceptance criteria
 
@@ -135,6 +135,8 @@ atomic change.
 | 2026-07-10 | Route inventory and ownership audit | Declaration, registration, and dispatch `rg` commands in `evidence/phase-0/route-audit.md` | 26 names / 27 expanded keys: 19 public, 6 canonical internal, 1 handshake, 1 HTTP-only exception; every key has one class. | Workspace-session lifecycle routes exposed an omission in the draft spec; correction recorded below. |
 | 2026-07-10 | Behavioral characterization | `cargo test -p sandbox-cli --all-features --test compatibility`; focused console unknown/limit tests; focused daemon snapshot/layerstack test; existing exact CLI/MCP/runtime groups in `cargo-test-workspace-baseline.txt` | Added tests passed 2/2, 1/1, 1/1, and 1/1; exact fixtures and hashes are listed in `evidence/phase-0/characterization.md`. | None. |
 | 2026-07-10 | Rust and live E2E baselines | `cargo test --workspace --all-features`; `bin/start-sandbox-docker-gateway --rebuild-binary`; `(cd cli-operation-e2e-live-test && python3 -m pytest)`; exact two-node rerun in `pytest-live-targeted-rerun.txt` | Rust: 730 passed, 0 failed, 1 ignored. Live first run: 355 passed, 6 skipped, 1 failed, 1 error; both red nodes then passed 2/2 in 25.12s. Token scan found no gateway-token match in evidence. | Full-run reds were external package-index 404s and a non-reproducible Docker port-readiness transient; retained verbatim as baseline evidence, not a spec deviation. |
+| 2026-07-10 | Atomic generated-weight purge and E2E relocation | `git clean -fdX -- cli-operation-e2e-live-test`; `git rm -r` the four inventoried report trees; `git rm web/console/*.tsbuildinfo`; `git mv cli-operation-e2e-live-test e2e`; `git ls-files \| rg 'test-reports/\|\.tsbuildinfo$'`; `[ ! -e cli-operation-e2e-live-test ]` | Deleted 7,977 tracked report files and 2 tracked TypeScript build-info files; generated-content search has no matches; old root is absent. Moved all 87 maintained files and added the resolver plus its test. | None. |
+| 2026-07-10 | Root-marker resolver and relocated smoke | `(cd e2e && python3 -m pytest -q core/test_root.py)`; `(cd e2e && E2E_REBUILD_BINARY=0 python3 -m pytest -q -m smoke)`; see `evidence/phase-0/relocation-tests.txt` | Resolver 2/2 passed; relocated smoke 19/19 passed with 346 deselected in 23.22s. | None. |
 | 2026-07-10 | Route-audit correction: workspace-session lifecycle ownership | `rg -n 'create_workspace_session\|destroy_workspace_session' crates/sandbox-runtime/operation/src/operation_adapter crates/sandbox-runtime/operation/src/operation.rs crates/sandbox-operations/runtime/tests/catalog.rs` | Both hidden operations are dispatchable daemon-owned runtime routes; classified `SandboxRequired` / `Sandbox` / `Internal` / `Runtime` and added to the normative internal set. | Spec route taxonomy, visibility chokepoints, target tree, and Phase 5 text amended in the same commit; Phase 2, Phase 4, and Phase 5 execution steps updated. |
 | | | | | |
 

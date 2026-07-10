@@ -1,6 +1,0 @@
-{
-  "id": "SMK-06",
-  "scenario": "migrate",
-  "tier": "smoke",
-  "title": "idle session migrates via plain staged switch (B2)"
-}

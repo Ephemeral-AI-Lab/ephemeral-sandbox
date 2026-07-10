@@ -1,6 +1,0 @@
-{
-  "id": "HRD-16",
-  "scenario": "pin",
-  "tier": "hard",
-  "title": "ENOSPC on both sides"
-}

@@ -1,6 +1,0 @@
-{
-  "id": "HTTP-01",
-  "scenario": "http_migrate",
-  "tier": "medium",
-  "title": "running HTTP server migrates live"
-}

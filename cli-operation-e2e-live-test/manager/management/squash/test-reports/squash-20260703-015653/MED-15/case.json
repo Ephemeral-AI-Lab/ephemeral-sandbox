@@ -1,6 +1,0 @@
-{
-  "id": "MED-15",
-  "scenario": "restart",
-  "tier": "medium",
-  "title": "boot reap-then-sweep with orphans and live sessions"
-}

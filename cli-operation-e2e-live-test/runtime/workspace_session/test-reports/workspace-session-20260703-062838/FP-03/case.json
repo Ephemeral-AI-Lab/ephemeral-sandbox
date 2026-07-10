@@ -1,5 +1,0 @@
-{
-  "id": "FP-03",
-  "tier": "medium",
-  "title": "back-to-back implicit execs are independent sessions"
-}

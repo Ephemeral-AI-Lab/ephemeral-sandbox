@@ -1,5 +1,0 @@
-{
-  "id": "FP-04",
-  "tier": "hard",
-  "title": "finalize-vs-destroy interleave storm"
-}

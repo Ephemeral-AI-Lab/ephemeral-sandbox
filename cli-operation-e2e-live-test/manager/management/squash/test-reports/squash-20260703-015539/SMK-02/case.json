@@ -1,6 +1,0 @@
-{
-  "id": "SMK-02",
-  "scenario": "noop",
-  "tier": "smoke",
-  "title": "nothing to squash is a clean no-op"
-}

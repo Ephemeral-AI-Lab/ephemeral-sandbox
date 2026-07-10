@@ -1,5 +1,0 @@
-{
-  "id": "EX-03",
-  "tier": "smoke",
-  "title": "session exec carries the session id"
-}

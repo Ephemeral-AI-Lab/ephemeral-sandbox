@@ -1,7 +1,0 @@
-{
-  "error": {
-    "details": {},
-    "kind": "internal_error",
-    "message": "sandbox daemon forwarding failed: daemon returned an empty response"
-  }
-}

@@ -1,5 +1,0 @@
-{
-  "id": "EX-07",
-  "tier": "medium",
-  "title": "interrupt/timeout paths still finalize"
-}

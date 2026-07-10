@@ -1,7 +1,0 @@
-{
-  "error": {
-    "details": {},
-    "kind": "operation_failed",
-    "message": "export failed: rejected entry name with '..': ../../escape.txt"
-  }
-}

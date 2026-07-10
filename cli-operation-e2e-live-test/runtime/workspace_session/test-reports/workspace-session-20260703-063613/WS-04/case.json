@@ -1,5 +1,0 @@
-{
-  "id": "WS-04",
-  "tier": "medium",
-  "title": "destroy always discards; sync op racing destroy loses cleanly"
-}

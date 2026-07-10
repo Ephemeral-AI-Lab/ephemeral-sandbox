@@ -1,6 +1,0 @@
-{
-  "id": "MED-14",
-  "scenario": "restart",
-  "tier": "medium",
-  "title": "daemon crash between promote and manifest rename"
-}

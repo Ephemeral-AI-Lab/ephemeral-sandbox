@@ -1,6 +1,0 @@
-{
-  "id": "MED-04",
-  "scenario": "bulk",
-  "tier": "medium",
-  "title": "hardlink flatten is metadata-bound"
-}

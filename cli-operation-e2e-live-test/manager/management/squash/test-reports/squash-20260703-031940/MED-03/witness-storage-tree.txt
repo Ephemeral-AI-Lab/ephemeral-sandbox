@@ -1,7 +1,0 @@
-find: '/eos/layer-stack/layers/S000005-0000000f/wit/dce': No such file or directory
-
--- ls --
-ls: cannot access '/eos/layer-stack/layers/S000005-0000000f/wit/dce': No such file or directory
-
--- stat drop --
-stat: cannot statx '/eos/layer-stack/layers/S000005-0000000f/wit/dce/drop': No such file or directory

@@ -1,5 +1,0 @@
-{
-  "id": "PERF-SHAPE-20M",
-  "tier": "bench",
-  "title": "20 x 1 MiB files: entry-count overhead vs single-file"
-}

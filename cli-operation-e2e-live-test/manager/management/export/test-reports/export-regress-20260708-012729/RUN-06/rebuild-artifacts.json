@@ -1,8 +1,0 @@
-[
-  {
-    "magic_after": "cffaedfe",
-    "path": "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
-    "sha256_after": "56614c9ed32228ef2c498281bb288e0586ba37c81987cdcbce35d4011bd32fe8",
-    "sha256_before": "2bdcfde76d902d1b83aa957fc359aa37b98e7291d6103f57da4a802ee1cb1aef"
-  }
-]

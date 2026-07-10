@@ -1,5 +1,0 @@
-{
-  "id": "HRD-02",
-  "tier": "hard",
-  "title": "symlink-then-traverse: write-through blocked"
-}

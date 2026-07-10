@@ -1,6 +1,0 @@
-{
-  "id": "SMK-07",
-  "scenario": "pin",
-  "tier": "smoke",
-  "title": "interactive PTY shell blocks cleanly (leased)"
-}

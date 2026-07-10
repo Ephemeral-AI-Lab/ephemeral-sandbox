@@ -1,0 +1,311 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e
+configfile: pytest.ini
+plugins: anyio-4.12.1, cov-7.0.0
+collected 2 items
+
+core/test_root.py::test_find_repo_root_skips_partial_marker_directory
+-------------------------------- live log setup --------------------------------
+20:02:59.375 INFO e2e.cli: → sandbox-manager-cli list_sandboxes
+20:02:59.397 INFO e2e.cli: ← sandbox-manager-cli list_sandboxes  (exit=0, 0.02s)
+20:02:59.397 INFO e2e.gateway: gateway already running — reusing
+PASSED                                                                   [ 50%]------------------------------ live log logreport ------------------------------
+20:02:59.402 INFO e2e.timing: ⏱  core/test_root.py::test_find_repo_root_skips_partial_marker_directory — 0.027s total
+
+core/test_root.py::test_find_repo_root_fails_without_markers PASSED      [100%]
+------------------------------ live log logreport ------------------------------
+20:02:59.404 INFO e2e.timing: ⏱  core/test_root.py::test_find_repo_root_fails_without_markers — 0.001s total
+
+
+--------------------- sandbox-cli operation timing metrics ---------------------
+durations are client-side sandbox-cli wall time; no timing SLO is enforced
+manager.list_sandboxes: n=1 p50=21.8ms p95=21.8ms max=21.8ms sub50=100.0% sub100=100.0% sub200=100.0%
+operation timing metrics: /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/docs/obsidian/ephemeral-os/testing/file-operation/operation-timing/latest.md
+============================== slowest durations ===============================
+0.03s setup    core/test_root.py::test_find_repo_root_skips_partial_marker_directory
+0.00s call     core/test_root.py::test_find_repo_root_skips_partial_marker_directory
+0.00s setup    core/test_root.py::test_find_repo_root_fails_without_markers
+0.00s call     core/test_root.py::test_find_repo_root_fails_without_markers
+0.00s teardown core/test_root.py::test_find_repo_root_fails_without_markers
+0.00s teardown core/test_root.py::test_find_repo_root_skips_partial_marker_directory
+============================== 2 passed in 0.04s ===============================
+============================= test session starts ==============================
+platform darwin -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e
+configfile: pytest.ini
+plugins: anyio-4.12.1, cov-7.0.0
+collected 365 items / 346 deselected / 19 selected
+
+manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-01]
+-------------------------------- live log setup --------------------------------
+20:02:59.934 INFO e2e.cli: → sandbox-manager-cli list_sandboxes
+20:02:59.958 INFO e2e.cli: ← sandbox-manager-cli list_sandboxes  (exit=0, 0.02s)
+20:02:59.959 INFO e2e.gateway: gateway already running — reusing
+PASSED                                                                   [  5%]------------------------------ live log logreport ------------------------------
+20:03:04.025 INFO e2e.timing: ⏱  manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-01] — 4.091s total
+
+manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-02] PASSED [ 10%]
+------------------------------ live log logreport ------------------------------
+20:03:05.045 INFO e2e.timing: ⏱  manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-02] — 1.019s total
+
+manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-03] PASSED [ 15%]
+------------------------------ live log logreport ------------------------------
+20:03:06.209 INFO e2e.timing: ⏱  manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-03] — 1.162s total
+
+manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-04] PASSED [ 21%]
+------------------------------ live log logreport ------------------------------
+20:03:07.380 INFO e2e.timing: ⏱  manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-04] — 1.168s total
+
+manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-05] PASSED [ 26%]
+------------------------------ live log logreport ------------------------------
+20:03:07.418 INFO e2e.timing: ⏱  manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-05] — 0.036s total
+
+manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-06] PASSED [ 31%]
+------------------------------ live log logreport ------------------------------
+20:03:08.782 INFO e2e.timing: ⏱  manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-06] — 1.362s total
+
+manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-07] PASSED [ 36%]
+------------------------------ live log logreport ------------------------------
+20:03:10.448 INFO e2e.timing: ⏱  manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-07] — 1.663s total
+
+manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-08] PASSED [ 42%]
+------------------------------ live log logreport ------------------------------
+20:03:11.825 INFO e2e.timing: ⏱  manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-08] — 1.374s total
+
+manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-09] PASSED [ 47%]
+------------------------------ live log logreport ------------------------------
+20:03:12.999 INFO e2e.timing: ⏱  manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-09] — 1.172s total
+
+manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-10] PASSED [ 52%]
+------------------------------ live log logreport ------------------------------
+20:03:15.718 INFO e2e.timing: ⏱  manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-10] — 2.717s total
+
+observability/test_observability.py::test_aggregate_snapshot_includes_ready_sandbox
+-------------------------------- live log setup --------------------------------
+20:03:15.720 INFO e2e.cli: → sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed
+20:03:16.100 INFO e2e.cli: ← sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed  (exit=0, 0.38s)
+-------------------------------- live log call ---------------------------------
+20:03:16.101 INFO e2e.cli: → sandbox-observability-cli snapshot
+20:03:16.127 INFO e2e.cli: ← sandbox-observability-cli snapshot  (exit=0, 0.03s)
+PASSED                                                                   [ 57%]
+------------------------------ live log teardown -------------------------------
+20:03:16.128 INFO e2e.cli: → sandbox-manager-cli destroy_sandbox --sandbox-id eos-1c584efb-13c4-4576-b398-aee012838651
+20:03:16.469 INFO e2e.cli: ← sandbox-manager-cli destroy_sandbox --sandbox-id eos-1c584efb-13c4-4576-b398-aee012838651  (exit=0, 0.34s)
+------------------------------ live log logreport ------------------------------
+20:03:16.469 INFO e2e.timing: ⏱  observability/test_observability.py::test_aggregate_snapshot_includes_ready_sandbox — 0.749s total
+
+observability/test_observability.py::test_scoped_snapshot_returns_selected_sandbox
+-------------------------------- live log setup --------------------------------
+20:03:16.470 INFO e2e.cli: → sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed
+20:03:16.890 INFO e2e.cli: ← sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed  (exit=0, 0.42s)
+-------------------------------- live log call ---------------------------------
+20:03:16.891 INFO e2e.cli: → sandbox-observability-cli snapshot --sandbox-id eos-1420c327-a246-4936-813e-4d114d413feb
+20:03:16.928 INFO e2e.cli: ← sandbox-observability-cli snapshot --sandbox-id eos-1420c327-a246-4936-813e-4d114d413feb  (exit=0, 0.04s)
+PASSED                                                                   [ 63%]
+------------------------------ live log teardown -------------------------------
+20:03:16.929 INFO e2e.cli: → sandbox-manager-cli destroy_sandbox --sandbox-id eos-1420c327-a246-4936-813e-4d114d413feb
+20:03:17.289 INFO e2e.cli: ← sandbox-manager-cli destroy_sandbox --sandbox-id eos-1420c327-a246-4936-813e-4d114d413feb  (exit=0, 0.36s)
+------------------------------ live log logreport ------------------------------
+20:03:17.290 INFO e2e.timing: ⏱  observability/test_observability.py::test_scoped_snapshot_returns_selected_sandbox — 0.819s total
+
+runtime/workspace_session/test_exec_finalize.py::test_EX_01_implicit_exec_response_contract
+-------------------------------- live log setup --------------------------------
+20:03:17.291 INFO e2e.cli: → sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed
+20:03:17.641 INFO e2e.cli: ← sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed  (exit=0, 0.35s)
+-------------------------------- live log call ---------------------------------
+20:03:17.643 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-58190f1c-06ba-4ef4-8fd7-e518e3fb674d exec_command echo hi
+20:03:17.704 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-58190f1c-06ba-4ef4-8fd7-e518e3fb674d exec_command echo hi  (exit=0, 0.06s)
+20:03:17.705 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-58190f1c-06ba-4ef4-8fd7-e518e3fb674d exec_command --workspace-session-id 00000118c0ec0e1543df1a true
+20:03:17.739 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-58190f1c-06ba-4ef4-8fd7-e518e3fb674d exec_command --workspace-session-id 00000118c0ec0e1543df1a true  (exit=1, 0.03s)
+20:03:17.739 INFO e2e.cli: → sandbox-observability-cli snapshot --sandbox-id eos-58190f1c-06ba-4ef4-8fd7-e518e3fb674d
+20:03:17.766 INFO e2e.cli: ← sandbox-observability-cli snapshot --sandbox-id eos-58190f1c-06ba-4ef4-8fd7-e518e3fb674d  (exit=0, 0.03s)
+PASSED                                                                   [ 68%]
+------------------------------ live log teardown -------------------------------
+20:03:17.768 INFO e2e.cli: → sandbox-manager-cli destroy_sandbox --sandbox-id eos-58190f1c-06ba-4ef4-8fd7-e518e3fb674d
+20:03:18.119 INFO e2e.cli: ← sandbox-manager-cli destroy_sandbox --sandbox-id eos-58190f1c-06ba-4ef4-8fd7-e518e3fb674d  (exit=0, 0.35s)
+------------------------------ live log logreport ------------------------------
+20:03:18.120 INFO e2e.timing: ⏱  runtime/workspace_session/test_exec_finalize.py::test_EX_01_implicit_exec_response_contract — 0.829s total
+
+runtime/workspace_session/test_exec_finalize.py::test_EX_02_implicit_exec_publishes_then_destroys
+-------------------------------- live log setup --------------------------------
+20:03:18.121 INFO e2e.cli: → sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed
+20:03:18.554 INFO e2e.cli: ← sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed  (exit=0, 0.43s)
+-------------------------------- live log call ---------------------------------
+20:03:18.556 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870 exec_command echo v1 > /workspace/e2e-implicit.txt
+20:03:18.622 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870 exec_command echo v1 > /workspace/e2e-implicit.txt  (exit=0, 0.07s)
+20:03:18.622 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870 exec_command --workspace-session-id 00000118c0ec0e4b759c83 --yield-time-ms 0 true
+20:03:18.648 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870 exec_command --workspace-session-id 00000118c0ec0e4b759c83 --yield-time-ms 0 true  (exit=1, 0.02s)
+20:03:18.648 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870 exec_command cat /workspace/e2e-implicit.txt
+20:03:18.706 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870 exec_command cat /workspace/e2e-implicit.txt  (exit=0, 0.06s)
+20:03:18.706 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870 exec_command --workspace-session-id 00000218c0ec0e50d16bf1 --yield-time-ms 0 true
+20:03:18.731 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870 exec_command --workspace-session-id 00000218c0ec0e50d16bf1 --yield-time-ms 0 true  (exit=1, 0.03s)
+20:03:18.732 INFO e2e.cli: → sandbox-observability-cli snapshot --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870
+20:03:18.755 INFO e2e.cli: ← sandbox-observability-cli snapshot --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870  (exit=0, 0.02s)
+20:03:18.756 INFO e2e.cli: → sandbox-observability-cli snapshot --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870
+20:03:18.780 INFO e2e.cli: ← sandbox-observability-cli snapshot --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870  (exit=0, 0.02s)
+PASSED                                                                   [ 73%]
+------------------------------ live log teardown -------------------------------
+20:03:18.782 INFO e2e.cli: → sandbox-manager-cli destroy_sandbox --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870
+20:03:19.105 INFO e2e.cli: ← sandbox-manager-cli destroy_sandbox --sandbox-id eos-78c5731a-64cf-47b6-a88e-596296c71870  (exit=0, 0.32s)
+------------------------------ live log logreport ------------------------------
+20:03:19.106 INFO e2e.timing: ⏱  runtime/workspace_session/test_exec_finalize.py::test_EX_02_implicit_exec_publishes_then_destroys — 0.985s total
+
+runtime/workspace_session/test_exec_finalize.py::test_EX_03_session_exec_carries_the_session_id
+-------------------------------- live log setup --------------------------------
+20:03:19.107 INFO e2e.cli: → sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed
+20:03:19.471 INFO e2e.cli: ← sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed  (exit=0, 0.36s)
+-------------------------------- live log call ---------------------------------
+20:03:19.480 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d exec_command --workspace-session-id 00000118c0ec0e80b2b216 --yield-time-ms 0 sleep 0.3; echo ex03
+20:03:19.510 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d exec_command --workspace-session-id 00000118c0ec0e80b2b216 --yield-time-ms 0 sleep 0.3; echo ex03  (exit=0, 0.03s)
+20:03:19.511 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d read_command_lines --command-session-id namespace_execution_1 --start-offset 0 --limit 1000
+20:03:19.534 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d read_command_lines --command-session-id namespace_execution_1 --start-offset 0 --limit 1000  (exit=0, 0.02s)
+20:03:19.635 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d read_command_lines --command-session-id namespace_execution_1 --start-offset 0 --limit 1000
+20:03:19.662 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d read_command_lines --command-session-id namespace_execution_1 --start-offset 0 --limit 1000  (exit=0, 0.03s)
+20:03:19.772 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d read_command_lines --command-session-id namespace_execution_1 --start-offset 0 --limit 1000
+20:03:19.796 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d read_command_lines --command-session-id namespace_execution_1 --start-offset 0 --limit 1000  (exit=0, 0.02s)
+20:03:19.906 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d read_command_lines --command-session-id namespace_execution_1 --start-offset 0 --limit 1000
+20:03:19.933 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d read_command_lines --command-session-id namespace_execution_1 --start-offset 0 --limit 1000  (exit=0, 0.03s)
+20:03:19.953 INFO e2e.cli: → sandbox-observability-cli snapshot --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d
+20:03:19.978 INFO e2e.cli: ← sandbox-observability-cli snapshot --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d  (exit=0, 0.03s)
+PASSED                                                                   [ 78%]
+------------------------------ live log teardown -------------------------------
+20:03:19.981 INFO e2e.cli: → sandbox-manager-cli destroy_sandbox --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d
+20:03:20.349 INFO e2e.cli: ← sandbox-manager-cli destroy_sandbox --sandbox-id eos-590f557e-4dfb-47ce-b68d-f914b459d91d  (exit=0, 0.37s)
+------------------------------ live log logreport ------------------------------
+20:03:20.351 INFO e2e.timing: ⏱  runtime/workspace_session/test_exec_finalize.py::test_EX_03_session_exec_carries_the_session_id — 1.243s total
+
+runtime/workspace_session/test_workspace_session.py::test_WS_01_create_response_contract
+-------------------------------- live log setup --------------------------------
+20:03:20.353 INFO e2e.cli: → sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed
+20:03:20.728 INFO e2e.cli: ← sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed  (exit=0, 0.38s)
+-------------------------------- live log call ---------------------------------
+20:03:20.737 INFO e2e.cli: → sandbox-observability-cli snapshot --sandbox-id eos-044badfc-2284-4aac-b3b3-1568d9220302
+20:03:20.762 INFO e2e.cli: ← sandbox-observability-cli snapshot --sandbox-id eos-044badfc-2284-4aac-b3b3-1568d9220302  (exit=0, 0.02s)
+20:03:20.874 INFO e2e.cli: → sandbox-observability-cli snapshot --sandbox-id eos-044badfc-2284-4aac-b3b3-1568d9220302
+20:03:20.899 INFO e2e.cli: ← sandbox-observability-cli snapshot --sandbox-id eos-044badfc-2284-4aac-b3b3-1568d9220302  (exit=0, 0.02s)
+PASSED                                                                   [ 84%]
+------------------------------ live log teardown -------------------------------
+20:03:20.901 INFO e2e.cli: → sandbox-manager-cli destroy_sandbox --sandbox-id eos-044badfc-2284-4aac-b3b3-1568d9220302
+20:03:21.225 INFO e2e.cli: ← sandbox-manager-cli destroy_sandbox --sandbox-id eos-044badfc-2284-4aac-b3b3-1568d9220302  (exit=0, 0.32s)
+------------------------------ live log logreport ------------------------------
+20:03:21.226 INFO e2e.timing: ⏱  runtime/workspace_session/test_workspace_session.py::test_WS_01_create_response_contract — 0.873s total
+
+runtime/workspace_session/test_workspace_session.py::test_WS_02_no_op_session_survives_command_completion
+-------------------------------- live log setup --------------------------------
+20:03:21.227 INFO e2e.cli: → sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed
+20:03:21.589 INFO e2e.cli: ← sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed  (exit=0, 0.36s)
+-------------------------------- live log call ---------------------------------
+20:03:21.597 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-dc7c9ece-61ec-4b3f-a396-a6931a5ba575 exec_command --workspace-session-id 00000118c0ec0efeeca40b echo hi
+20:03:21.633 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-dc7c9ece-61ec-4b3f-a396-a6931a5ba575 exec_command --workspace-session-id 00000118c0ec0efeeca40b echo hi  (exit=0, 0.04s)
+20:03:21.634 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-dc7c9ece-61ec-4b3f-a396-a6931a5ba575 exec_command --workspace-session-id 00000118c0ec0efeeca40b echo there > /workspace/ws02.txt
+20:03:21.672 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-dc7c9ece-61ec-4b3f-a396-a6931a5ba575 exec_command --workspace-session-id 00000118c0ec0efeeca40b echo there > /workspace/ws02.txt  (exit=0, 0.04s)
+20:03:21.673 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-dc7c9ece-61ec-4b3f-a396-a6931a5ba575 file_read --path ws02.txt --workspace-session-id 00000118c0ec0efeeca40b
+20:03:21.701 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-dc7c9ece-61ec-4b3f-a396-a6931a5ba575 file_read --path ws02.txt --workspace-session-id 00000118c0ec0efeeca40b  (exit=0, 0.03s)
+20:03:21.723 INFO e2e.cli: → sandbox-observability-cli snapshot --sandbox-id eos-dc7c9ece-61ec-4b3f-a396-a6931a5ba575
+20:03:21.748 INFO e2e.cli: ← sandbox-observability-cli snapshot --sandbox-id eos-dc7c9ece-61ec-4b3f-a396-a6931a5ba575  (exit=0, 0.02s)
+PASSED                                                                   [ 89%]
+------------------------------ live log teardown -------------------------------
+20:03:21.751 INFO e2e.cli: → sandbox-manager-cli destroy_sandbox --sandbox-id eos-dc7c9ece-61ec-4b3f-a396-a6931a5ba575
+20:03:22.075 INFO e2e.cli: ← sandbox-manager-cli destroy_sandbox --sandbox-id eos-dc7c9ece-61ec-4b3f-a396-a6931a5ba575  (exit=0, 0.32s)
+------------------------------ live log logreport ------------------------------
+20:03:22.077 INFO e2e.timing: ⏱  runtime/workspace_session/test_workspace_session.py::test_WS_02_no_op_session_survives_command_completion — 0.849s total
+
+runtime/workspace_session/test_workspace_session.py::test_WS_03_destroy_refuses_while_command_runs
+-------------------------------- live log setup --------------------------------
+20:03:22.079 INFO e2e.cli: → sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed
+20:03:22.459 INFO e2e.cli: ← sandbox-manager-cli create_sandbox --image ubuntu:24.04 --workspace-bind-root /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/repo/testbed  (exit=0, 0.38s)
+-------------------------------- live log call ---------------------------------
+20:03:22.467 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-d55712c9-5417-4368-807e-b629995f2ae1 exec_command --workspace-session-id 00000118c0ec0f32ca1fb1 --yield-time-ms 0 sleep 30
+20:03:22.493 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-d55712c9-5417-4368-807e-b629995f2ae1 exec_command --workspace-session-id 00000118c0ec0f32ca1fb1 --yield-time-ms 0 sleep 30  (exit=0, 0.02s)
+20:03:22.495 INFO e2e.cli: → sandbox-runtime-cli --sandbox-id eos-d55712c9-5417-4368-807e-b629995f2ae1 write_command_stdin --command-session-id namespace_execution_1 --yield-time-ms 30000 
+20:03:22.630 INFO e2e.cli: ← sandbox-runtime-cli --sandbox-id eos-d55712c9-5417-4368-807e-b629995f2ae1 write_command_stdin --command-session-id namespace_execution_1 --yield-time-ms 30000   (exit=0, 0.14s)
+20:03:22.650 INFO e2e.cli: → sandbox-observability-cli snapshot --sandbox-id eos-d55712c9-5417-4368-807e-b629995f2ae1
+20:03:22.676 INFO e2e.cli: ← sandbox-observability-cli snapshot --sandbox-id eos-d55712c9-5417-4368-807e-b629995f2ae1  (exit=0, 0.03s)
+PASSED                                                                   [ 94%]
+------------------------------ live log teardown -------------------------------
+20:03:22.679 INFO e2e.cli: → sandbox-manager-cli destroy_sandbox --sandbox-id eos-d55712c9-5417-4368-807e-b629995f2ae1
+20:03:22.996 INFO e2e.cli: ← sandbox-manager-cli destroy_sandbox --sandbox-id eos-d55712c9-5417-4368-807e-b629995f2ae1  (exit=0, 0.32s)
+------------------------------ live log logreport ------------------------------
+20:03:22.997 INFO e2e.timing: ⏱  runtime/workspace_session/test_workspace_session.py::test_WS_03_destroy_refuses_while_command_runs — 0.918s total
+
+test_smoke.py::test_gateway_responds_with_sandbox_list
+-------------------------------- live log call ---------------------------------
+20:03:22.998 INFO e2e.cli: → sandbox-manager-cli list_sandboxes
+20:03:23.030 INFO e2e.cli: ← sandbox-manager-cli list_sandboxes  (exit=0, 0.03s)
+PASSED                                                                   [100%]------------------------------ live log logreport ------------------------------
+20:03:23.032 INFO e2e.timing: ⏱  test_smoke.py::test_gateway_responds_with_sandbox_list — 0.034s total
+
+
+------------------- reserved .wh. namespace verdict summary --------------------
+wh-reserved verdict summary: /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/runtime/reserved_paths/test-reports/whres-20260710-200259/SUMMARY.md
+--------------------- sandbox-cli operation timing metrics ---------------------
+durations are client-side sandbox-cli wall time; no timing SLO is enforced
+manager.create_sandbox: n=8 p50=377.2ms p95=428.6ms max=433.4ms sub50=0.0% sub100=0.0% sub200=0.0%
+manager.destroy_sandbox: n=8 p50=332.2ms p95=365.1ms max=368.1ms sub50=0.0% sub100=0.0% sub200=0.0%
+manager.list_sandboxes: n=2 p50=27.9ms p95=31.5ms max=31.9ms sub50=100.0% sub100=100.0% sub200=100.0%
+observability.snapshot: n=10 p50=25.0ms p95=32.5ms max=37.5ms sub50=100.0% sub100=100.0% sub200=100.0%
+runtime.exec_command: n=10 p50=34.9ms p95=63.8ms max=65.8ms sub50=70.0% sub100=100.0% sub200=100.0%
+runtime.file_read: n=1 p50=27.5ms p95=27.5ms max=27.5ms sub50=100.0% sub100=100.0% sub200=100.0%
+runtime.read_command_lines: n=4 p50=24.9ms p95=26.6ms max=26.6ms sub50=100.0% sub100=100.0% sub200=100.0%
+runtime.write_command_stdin: n=1 p50=135.1ms p95=135.1ms max=135.1ms sub50=0.0% sub100=0.0% sub200=100.0%
+operation timing metrics: /Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/docs/obsidian/ephemeral-os/testing/file-operation/operation-timing/latest.md
+============================== slowest durations ===============================
+2.69s setup    manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-01]
+2.35s call     manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-10]
+1.32s call     manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-07]
+1.09s call     manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-01]
+1.01s call     manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-08]
+0.99s call     manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-06]
+0.84s call     manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-03]
+0.83s call     manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-09]
+0.81s call     manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-04]
+0.72s call     manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-02]
+0.51s call     runtime/workspace_session/test_exec_finalize.py::test_EX_03_session_exec_carries_the_session_id
+0.43s setup    runtime/workspace_session/test_exec_finalize.py::test_EX_02_implicit_exec_publishes_then_destroys
+0.42s setup    observability/test_observability.py::test_scoped_snapshot_returns_selected_sandbox
+0.38s setup    observability/test_observability.py::test_aggregate_snapshot_includes_ready_sandbox
+0.38s setup    runtime/workspace_session/test_workspace_session.py::test_WS_03_destroy_refuses_while_command_runs
+0.38s setup    runtime/workspace_session/test_workspace_session.py::test_WS_01_create_response_contract
+0.37s teardown runtime/workspace_session/test_exec_finalize.py::test_EX_03_session_exec_carries_the_session_id
+0.37s teardown manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-06]
+0.37s setup    runtime/workspace_session/test_exec_finalize.py::test_EX_03_session_exec_carries_the_session_id
+0.36s teardown manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-10]
+0.36s setup    runtime/workspace_session/test_workspace_session.py::test_WS_02_no_op_session_survives_command_completion
+0.36s teardown observability/test_observability.py::test_scoped_snapshot_returns_selected_sandbox
+0.36s teardown manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-04]
+0.36s teardown manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-08]
+0.35s teardown runtime/workspace_session/test_exec_finalize.py::test_EX_01_implicit_exec_response_contract
+0.35s setup    runtime/workspace_session/test_exec_finalize.py::test_EX_01_implicit_exec_response_contract
+0.34s teardown observability/test_observability.py::test_aggregate_snapshot_includes_ready_sandbox
+0.34s teardown manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-07]
+0.33s teardown manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-09]
+0.33s teardown runtime/workspace_session/test_workspace_session.py::test_WS_02_no_op_session_survives_command_completion
+0.32s teardown runtime/workspace_session/test_workspace_session.py::test_WS_01_create_response_contract
+0.32s teardown runtime/workspace_session/test_exec_finalize.py::test_EX_02_implicit_exec_publishes_then_destroys
+0.32s teardown manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-03]
+0.32s teardown runtime/workspace_session/test_workspace_session.py::test_WS_03_destroy_refuses_while_command_runs
+0.31s teardown manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-01]
+0.30s teardown manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-02]
+0.23s call     runtime/workspace_session/test_exec_finalize.py::test_EX_02_implicit_exec_publishes_then_destroys
+0.22s call     runtime/workspace_session/test_workspace_session.py::test_WS_03_destroy_refuses_while_command_runs
+0.17s call     runtime/workspace_session/test_workspace_session.py::test_WS_01_create_response_contract
+0.16s call     runtime/workspace_session/test_workspace_session.py::test_WS_02_no_op_session_survives_command_completion
+0.13s call     runtime/workspace_session/test_exec_finalize.py::test_EX_01_implicit_exec_response_contract
+0.04s call     observability/test_observability.py::test_scoped_snapshot_returns_selected_sandbox
+0.03s call     manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-05]
+0.03s call     test_smoke.py::test_gateway_responds_with_sandbox_list
+0.03s call     observability/test_observability.py::test_aggregate_snapshot_includes_ready_sandbox
+0.00s setup    manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-09]
+0.00s setup    manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-07]
+0.00s setup    manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-04]
+0.00s setup    manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-05]
+0.00s setup    manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-08]
+0.00s setup    manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-10]
+0.00s setup    manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-03]
+0.00s setup    manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-02]
+0.00s setup    manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-06]
+0.00s teardown test_smoke.py::test_gateway_responds_with_sandbox_list
+0.00s teardown manager/management/squash/test_squash_smoke.py::test_squash_smoke_catalog[SMK-05]
+0.00s setup    test_smoke.py::test_gateway_responds_with_sandbox_list
+===================== 19 passed, 346 deselected in 23.22s ======================

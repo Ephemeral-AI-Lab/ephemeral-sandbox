@@ -1,6 +1,0 @@
-{
-  "id": "HRD-12",
-  "scenario": "overcap",
-  "tier": "hard",
-  "title": "E9 over-cap chains fail closed"
-}

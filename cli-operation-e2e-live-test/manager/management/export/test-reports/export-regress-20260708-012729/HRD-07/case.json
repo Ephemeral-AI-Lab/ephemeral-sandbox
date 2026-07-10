@@ -1,5 +1,0 @@
-{
-  "id": "HRD-07",
-  "tier": "hard",
-  "title": "export under concurrent checkpoint_squash"
-}

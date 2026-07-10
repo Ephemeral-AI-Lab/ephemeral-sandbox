@@ -1,6 +1,0 @@
-{
-  "id": "MED-08",
-  "scenario": "migrate",
-  "tier": "medium",
-  "title": "live migration under a running batch command"
-}

@@ -1,3 +1,0 @@
-[
-  "fresh CLI session after docker restart is not asserted because the manager retains the pre-restart forwarded endpoint; boot recovery is asserted from daemon log and disk state."
-]

@@ -1,5 +1,0 @@
-{
-  "id": "RUN-04",
-  "tier": "runnable",
-  "title": "Python/Flask venv: runs at /workspace, xfails at /elsewhere"
-}

@@ -1,6 +1,0 @@
-{
-  "id": "SMK-09",
-  "scenario": "idempotence",
-  "tier": "smoke",
-  "title": "immediate idempotence"
-}

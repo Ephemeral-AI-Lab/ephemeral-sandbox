@@ -1,5 +1,0 @@
-{
-  "id": "RUN-05",
-  "tier": "runnable",
-  "title": "Python/pytest + numpy wheel: exported suite passes"
-}

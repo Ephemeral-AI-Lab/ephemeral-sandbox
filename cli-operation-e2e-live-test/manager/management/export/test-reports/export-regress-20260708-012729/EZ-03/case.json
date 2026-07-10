@@ -1,5 +1,0 @@
-{
-  "id": "EZ-03",
-  "tier": "easy",
-  "title": "tar-zst writes a valid whiteout-preserving archive"
-}

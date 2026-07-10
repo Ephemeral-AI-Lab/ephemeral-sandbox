@@ -1,5 +1,0 @@
-{
-  "id": "WS-02",
-  "tier": "smoke",
-  "title": "no_op session survives command completion"
-}

@@ -1,5 +1,0 @@
-{
-  "id": "RUN-01",
-  "tier": "runnable",
-  "title": "Node/Express: npm install exports a runnable server"
-}

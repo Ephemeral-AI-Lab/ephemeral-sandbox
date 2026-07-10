@@ -1,6 +1,0 @@
-{
-  "id": "MED-10",
-  "scenario": "child_mount",
-  "tier": "medium",
-  "title": "child mount pins after creator exited"
-}

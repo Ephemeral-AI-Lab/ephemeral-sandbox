@@ -281,4 +281,8 @@ Result: 2 passed in 25.12 seconds. The full first-run evidence is
 the exact rerun is `pytest-live-targeted-rerun.txt` (SHA-256
 `639a9467eacd4a4d80363e9a687aa138ce3a27bef2cd2280548afe371dfd9500`).
 These are recorded as environmental baseline transients, not specification
-deviations. The relocated smoke and the Phase 0 standing gate remain to run.
+deviations. After relocation, the root-resolver tests passed 2/2 and the
+broader smoke tier passed 19/19 from `e2e/`; normalized output is in
+`relocation-tests.txt` (SHA-256
+`63e84581b0cf7778e6927fca6208c93124937b797f1c3f3a75baf200c4cb0b5e`).
+The Phase 0 standing gate remains to run.

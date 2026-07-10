@@ -1,5 +1,0 @@
-{
-  "returncode": 0,
-  "stderr": "",
-  "stdout": "create_workspace_session\n\nFamily\n  Workspace Session\n\nDescription\n  Create a runtime workspace session with finalize policy no_op: the session lives until destroy_workspace_session. When network profile is omitted, the runtime creates a shared-network workspace.\n\nUsage\n  sandbox-runtime-cli --sandbox-id ID create_workspace_session [--network-profile PROFILE]\n\nArguments\n  --network-profile string optional\n    Network profile: 'shared' joins the host network namespace (still isolated in mount/pid/user) or 'isolated' uses a dedicated network namespace. Defaults to 'shared' when omitted.\n\n\nExamples\n  sandbox-runtime-cli --sandbox-id ID create_workspace_session\n  sandbox-runtime-cli --sandbox-id ID create_workspace_session --network-profile shared\n  sandbox-runtime-cli --sandbox-id ID create_workspace_session --network-profile isolated\n\nRelated Operations\n  destroy_workspace_session\n  exec_command\n"
-}

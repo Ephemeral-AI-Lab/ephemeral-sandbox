@@ -1,5 +1,0 @@
-{
-  "id": "MED-06",
-  "tier": "medium",
-  "title": "symlink winner recreate; dir<->symlink replacement"
-}

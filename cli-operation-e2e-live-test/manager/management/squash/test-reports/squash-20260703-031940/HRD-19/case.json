@@ -1,6 +1,0 @@
-{
-  "id": "HRD-19",
-  "scenario": "restart",
-  "tier": "hard",
-  "title": "mid-sweep daemon kill and unreadable manifest"
-}

@@ -1,6 +1,0 @@
-{
-  "id": "MED-12",
-  "scenario": "pin",
-  "tier": "medium",
-  "title": "strict-unmount EBUSY parks with both leases"
-}
