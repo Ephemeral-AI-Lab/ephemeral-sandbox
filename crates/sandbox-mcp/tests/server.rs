@@ -192,9 +192,16 @@ fn result(response: &Value) -> &Value {
 }
 
 fn structured(response: &Value) -> &Value {
-    result(response)
+    let result = result(response);
+    assert_eq!(result["content"], json!([]), "{response}");
+    let value = result
         .get("structuredContent")
-        .unwrap_or_else(|| panic!("expected structured tool content: {response}"))
+        .unwrap_or_else(|| panic!("expected structured tool content: {response}"));
+    assert!(
+        value.is_object(),
+        "structured content is not an object: {response}"
+    );
+    value
 }
 
 fn assert_tool_error<'a>(response: &'a Value, kind: &str) -> &'a Value {
@@ -332,6 +339,12 @@ fn assert_schema(set: OperationSet, tool: &Value, spec: &CliOperationSpecDocumen
             assert!(
                 !properties.contains_key(hidden),
                 "{} exposes {hidden}",
+                spec.name
+            );
+            let encoded = serde_json::to_string(schema).expect("serialize tool schema");
+            assert!(
+                !encoded.contains(&format!("\"{hidden}\":")),
+                "{} nests hidden field {hidden}: {encoded}",
                 spec.name
             );
         }
@@ -673,7 +686,7 @@ fn absent_unknown_and_combined_sets_fail_without_waiting_for_stdin() {
             );
             std::thread::sleep(Duration::from_millis(10));
         };
-        assert!(!status.success(), "invalid set started a server: {args:?}");
+        assert_eq!(status.code(), Some(2), "unexpected status for {args:?}");
 
         let mut stdout = String::new();
         child
