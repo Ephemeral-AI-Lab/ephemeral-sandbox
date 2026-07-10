@@ -49,7 +49,7 @@ Statuses: `blocked` → `ready` → `in progress` → `gate review` → `approve
 | --- | --- | --- | --- | --- | --- |
 | 0 | Characterize, freeze inventory, purge generated weight | approved | 2026-07-10 | 2026-07-10 | Codex |
 | 1 | Create contract, narrow protocol in place | approved | 2026-07-10 | 2026-07-10 | Codex |
-| 2 | Merge and refeature the catalogs | in progress | 2026-07-10 | — | — |
+| 2 | Merge and refeature the catalogs | gate review | 2026-07-10 | — | — |
 | 3 | Extract the shared gateway client | blocked | — | — | — |
 | 4 | Clean the manager application in place | blocked | — | — | — |
 | 5 | Clean the runtime application in place | blocked | — | — | — |
@@ -271,33 +271,39 @@ repointing are one commit.
 
 ### Acceptance criteria
 
-- [ ] Exactly one catalog package exists; no `sandbox-*-operations` package
+- [x] Exactly one catalog package exists; no `sandbox-*-operations` package
   remains. *Evidence: `cargo metadata` package list.*
-- [ ] `crates/sandbox-operations/` contains exactly `contract/` and
+- [x] `crates/sandbox-operations/` contains exactly `contract/` and
   `catalog/` (client arrives in Phase 3): `ls crates/sandbox-operations/`.
-- [ ] The merged semantic document contains every public operation exactly
+- [x] The merged semantic document contains every public operation exactly
   once; public route keys are globally unique; route expansion is
   deterministic; every declaration has one execution owner. *Evidence:
   `cargo test -p sandbox-operation-catalog --all-features`.*
-- [ ] Per-binary authority closure holds:
+- [x] Per-binary authority closure holds:
   `cargo tree -p sandbox-cli --no-default-features --features manager -f "{p} {f}"`
   shows `sandbox-operation-catalog` with only the `manager` feature; repeat
   for `runtime` and `observability`.
-- [ ] The catalog's only workspace dependency is the contract.
+- [x] The catalog's only workspace dependency is the contract.
   *Evidence: `cargo metadata`.*
-- [ ] The migration declaration and resolver exist under
+- [x] The migration declaration and resolver exist under
   `internal::migration` and are excluded from the public document.
   *Evidence: catalog test.*
-- [ ] CLI bidirectional projection-integrity tests pass; the CLI-bearing
+- [x] CLI bidirectional projection-integrity tests pass; the CLI-bearing
   compatibility JSON matches the Phase 0 fixture byte-for-byte.
-- [ ] Standing gate passed. (Handler bijection is deferred to Phases 4–6.)
+- [x] Standing gate passed. (Handler bijection is deferred to Phases 4–6.)
 
 ### Progress log
 
 | Date | Item | Command / evidence | Result | Deviations |
 | --- | --- | --- | --- | --- |
 | 2026-07-10 | Atomic catalog merge (changes 1–6) | `git show --stat --oneline 509022ea3`; `cargo check --workspace --all-targets --all-features`; `cargo test -p sandbox-operation-contract -p sandbox-operation-catalog --all-features`; `cargo test -p sandbox-cli --all-features --test compatibility --test projection_integrity --test help --test request_builder` | Commit `509022ea3` merged all three catalogs and deleted/repointed all legacy packages in one change; the post-commit workspace check passed; contract 12/12, catalog integrity 5/5 plus all domain suites, compatibility 2/2, projection 1/1, help 3/3, and request-builder 9/9 passed. | None. |
-| | | | | |
+| 2026-07-10 | Package and namespace inventory | `cargo metadata --format-version 1 --no-deps \| jq -r '.packages[].name' \| rg 'sandbox-(operation-catalog\|manager-operations\|runtime-operations\|observability-operations)'`; `ls -1 crates/sandbox-operations` | Package output is exactly `sandbox-operation-catalog`; namespace output is exactly `catalog`, `contract`. | None. |
+| 2026-07-10 | Catalog semantic integrity and migration isolation | `cargo test -p sandbox-operation-catalog --all-features` | Integrity 5/5, manager 2/2, observability 2/2, runtime 2/2; excerpts: `public_route_manifest_is_exact_and_policy_consistent ... ok`, `migration_resolver_only_rewrites_sandbox_observability_requests ... ok`, `internal_and_migration_routes_never_leak_into_public_documents ... ok`. | None. |
+| 2026-07-10 | Per-binary catalog feature closure | `cargo tree -p sandbox-cli --no-default-features --features manager -f "{p} {f}"`; repeated with `runtime` and `observability` | The catalog line is respectively `sandbox-operation-catalog ... manager`, `... runtime`, and `... observability`; no other catalog domain feature appears in each tree. | None. |
+| 2026-07-10 | Catalog dependency closure | `cargo metadata --format-version 1 --no-deps \| jq -r '.packages[] \| select(.name == "sandbox-operation-catalog") \| .dependencies[] \| select(.path != null) \| .name'` | Output is exactly `sandbox-operation-contract`. | None. |
+| 2026-07-10 | CLI projection and compatibility | `cargo test -p sandbox-cli --all-features --test compatibility --test projection_integrity` | Compatibility 2/2 and projection integrity 1/1; excerpts: `all_feature_compatibility_catalog_matches_phase_zero_fixture ... ok`, `unknown_operation_errors_and_exit_codes_match_phase_zero_fixture ... ok`, `cli_projection_is_bidirectional_with_public_routes ... ok`. | None. |
+| 2026-07-10 | Standing-gate correction: runtime file-list ownership proof | `cargo test --workspace --all-features`; `cargo test -p sandbox-runtime --test service_graph service_graph_workspace_session_source_boundaries_stay_private`; `git show --stat --oneline c7af1e4c2` | The first full run exposed one stale source-structure assertion for the pre-merge local `FILE_LIST`; the focused test passed after aligning the assertion with catalog ownership, and commit `c7af1e4c2` records the test-only correction. | None; implementation already matched the specification. |
+| 2026-07-10 | Standing gate | `cargo check --workspace --all-targets --all-features`; `cargo test --workspace --all-features`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo fmt --all -- --check` | Check finished successfully; the restarted full workspace and doc-test suite passed with zero failures; clippy finished in 1m38s with no warnings; format check exited 0. | None. |
 
 ---
 
