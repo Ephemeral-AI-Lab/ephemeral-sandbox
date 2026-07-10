@@ -382,8 +382,8 @@ repointing are one commit.
 
 ### Change list
 
-- [ ] Rename `operation/cli_definition` to `operations/registry`.
-- [ ] Verify the `SandboxDaemonClient` port stays in manager and its
+- [x] Rename `operation/cli_definition` to `operations/registry`.
+- [x] Verify the `SandboxDaemonClient` port stays in manager and its
   concrete TCP implementation stays in gateway; same for
   `SandboxDaemonInstaller` / `StartedDaemon`.
 - [ ] Split the live E2E raw-gateway helper from a trusted direct-daemon
@@ -408,9 +408,9 @@ repointing are one commit.
 
 ### Acceptance criteria
 
-- [ ] Manager workspace dependencies are exactly: contract, catalog,
+- [x] Manager workspace dependencies are exactly: contract, catalog,
   `sandbox-runtime-layerstack`. *Evidence: `cargo metadata`.*
-- [ ] `rg 'cli_definition' crates/sandbox-manager` returns nothing.
+- [x] `rg 'cli_definition' crates/sandbox-manager` returns nothing.
 - [ ] Every system-scoped public route with `execution_owner = Manager` has
   exactly one handler. *Evidence: bijection test in
   `cargo test -p sandbox-manager`.*
@@ -428,7 +428,9 @@ repointing are one commit.
 
 | Date | Item | Command / evidence | Result | Deviations |
 | --- | --- | --- | --- | --- |
-| | | | | |
+| 2026-07-10 | Manager registry rename | `test ! -e crates/sandbox-manager/src/operation`; `test -d crates/sandbox-manager/src/operations/registry`; `rg 'cli_definition' crates/sandbox-manager`; `cargo test -p sandbox-manager --all-features` | Old tree is absent, new registry tree exists, source search returned no matches (exit 1), and all 59 manager tests passed. | None. |
+| 2026-07-10 | Manager port and adapter ownership | `rg -n 'trait SandboxDaemonClient|trait SandboxDaemonInstaller|struct StartedDaemon|TcpSandboxDaemonClient|LocalSandboxDaemonInstaller|ProtocolLimits|sandbox_protocol|TcpStream|TcpListener|std::process::Command|tokio::net' crates/sandbox-manager/src crates/sandbox-gateway/src --glob '*.rs'`; `cargo test -p sandbox-gateway --all-features` | The two ports and neutral DTO remain in manager; TCP/protocol and local-process implementations appear only in gateway; all 18 gateway tests passed. | None. |
+| 2026-07-10 | Manager dependency boundary | `cargo metadata --format-version 1 --no-deps \| jq -r '.packages[] \| select(.name == "sandbox-manager") \| .dependencies[] \| select(.path != null) \| .name' \| sort`; `cargo tree -p sandbox-manager -e normal \| rg 'sandbox-(protocol|operation-client|gateway|daemon|provider-docker)'` | Path dependencies are exactly `sandbox-operation-catalog`, `sandbox-operation-contract`, and `sandbox-runtime-layerstack`; forbidden application/adapter/client/protocol edges produced no matches (exit 1). | None. |
 
 ---
 
