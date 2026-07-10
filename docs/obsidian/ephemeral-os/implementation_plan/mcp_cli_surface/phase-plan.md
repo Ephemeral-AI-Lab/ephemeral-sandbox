@@ -36,11 +36,12 @@ verifiable phases. The detailed target contracts are [[mcp]], [[cli]], and
 | 2. Consolidate the CLI package | complete | 1 | one package, three separately grantable binaries |
 | 3. Add the MCP adapter | complete | 1, 2 | one set-configured stdio server with three registrations |
 | 4. Replace export HTTP streaming | complete | 1 | `export_changes` uses authenticated RPC chunk paging only |
-| 5. Move console operation callers | not started | 2, 4 | console uses gateway RPC for operations and narrow daemon proxies |
+| 5. Move console operation callers | in progress | 2, 4 | console uses gateway RPC for operations and narrow daemon proxies |
 | 6. Enforce daemon HTTP allowlist | not started | 4, 5 | only health, forward, and file list remain direct daemon HTTP |
 | 7. Release verification and cutover | not started | 1–6 | end-to-end proof, documentation, and release-ready boundary |
 
-Phases 0 through 4 are complete. Phase 5 has not started.
+Phases 0 through 4 are complete. Phase 5 is in progress; no later phase has
+started.
 
 ## Fixed decisions and non-negotiable invariants
 
@@ -543,7 +544,7 @@ related manager operation/export tests
 
 ## Phase 5 — Move console operation callers to gateway RPC
 
-**Status:** not started
+**Status:** in progress
 
 **Depends on:** Phases 2 and 4
 
@@ -755,6 +756,7 @@ When work lands, update only the relevant phase in this file:
 
 | Date | Phase | Update | Evidence |
 | --- | --- | --- | --- |
+| 2026-07-10 | 5 | Started the console RPC migration after confirming the Phase 2 and Phase 4 gates and re-reading the binding console, CLI, operation, and daemon HTTP contracts. | implementation and direct acceptance proof pending |
 | 2026-07-10 | 4 | Completed authenticated RPC-only export paging with strict start/page completeness checks, pre-mutation failure handling, and removal of the manager HTTP export client. | commit `0644fd64b`; 30 focused manager export tests on default and Rust 1.85 toolchains, full manager suite, runtime EOF cleanup proof, lint/format/search checks, and independent review |
 | 2026-07-10 | 4 | Started the manager export transport migration after confirming the Phase 1 gate and re-reading the binding export, RPC, CLI, MCP, and daemon HTTP contracts. | implementation and direct acceptance proof pending |
 | 2026-07-10 | 3 | Completed the fixed-set catalog-driven MCP adapter, shared value request construction, structured error/result boundary, and real stdio/fake-gateway coverage for all three registrations. | commits `7bee540ca`, `e15839cda`; 75 focused tests, Rust 1.85 check, exact fixture/routing assertions, lint, formatting, and dependency-boundary proof |
