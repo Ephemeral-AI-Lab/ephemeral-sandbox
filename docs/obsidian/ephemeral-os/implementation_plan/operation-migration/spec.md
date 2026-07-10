@@ -8,7 +8,7 @@ tags:
   - migration
   - implementation-plan
 status: draft
-updated: 2026-07-10
+updated: 2026-07-11
 ---
 
 # Sandbox operation ownership migration
@@ -777,7 +777,9 @@ inserts a `view` argument or rewrites the operation name.
    cutover: concrete public names replace `get_observability` + `view`. CLI
    syntax, MCP tool names, console request envelope, and response shapes
    remain unchanged after all in-repository clients and servers are migrated
-   together; the web console changes only its observability `op` values.
+   together. For this observability cutover, the web console changes only its
+   observability `op` values; the independent lifecycle-control change is
+   described in item 3.
 3. The console `/api/rpc` endpoint rejects operations absent from the public
    route manifest with a console-side invalid-request error. Requests for
    canonical internal operations were previously forwarded and could be
@@ -1251,7 +1253,10 @@ observability query, MCP tool call, and console RPC call.
   directories, no super-crates.
 - [ ] Every intentionally external component is listed in the "Remains
   outside" table and owns no public operation metadata or business handler.
-- [ ] The live E2E suite runs from `e2e/`; `web/console` is unchanged.
+- [ ] The live E2E suite runs from `e2e/`; `web/console` remains at its
+  existing path with no source move, and its source changes are limited to
+  approved behavior changes 2–3 (concrete observability operation values and
+  retirement of manual workspace-session create/destroy controls).
 - [ ] All required-removal and stale-reference gates pass.
 
 ### Dependency integrity
