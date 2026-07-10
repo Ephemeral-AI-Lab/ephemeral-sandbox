@@ -9,7 +9,7 @@ use sandbox_gateway::{
     DEFAULT_MAX_CONCURRENT_CONNECTIONS, SANDBOX_GATEWAY_AUTH_TOKEN_ENV, SANDBOX_GATEWAY_SOCKET_ENV,
 };
 use sandbox_manager::{
-    CreateSandboxRequest, CreateSandboxResult, ManagerError, ManagerServices,
+    CreateSandboxRequest, CreateSandboxResult, ExportApplyCaps, ManagerError, ManagerServices,
     SandboxDaemonEndpoint, SandboxDaemonInstaller, SandboxManagerRouter, SandboxRecord,
     SandboxRuntime, SandboxStore, StartedDaemon, TcpSandboxDaemonClient,
 };
@@ -118,10 +118,15 @@ fn build_docker_services(
     let path = config_yaml.ok_or("--config-yaml is required when --backend docker")?;
     let document = sandbox_config::load_path(path)?;
     let manager_config: ManagerConfig = document.section("manager")?;
+    manager_config.validate()?;
+    let export_caps = ExportApplyCaps {
+        max_stream_bytes: manager_config.export.max_stream_bytes,
+        max_decompressed_bytes: manager_config.export.max_decompressed_bytes,
+        max_apply_entries: manager_config.export.max_apply_entries,
+    };
     let docker_config = manager_config
         .docker
         .ok_or("config is missing the manager.docker section")?;
-    docker_config.validate()?;
 
     let store = Arc::new(match manager_config.registry_path {
         Some(path) => SandboxStore::load(path)?,
@@ -140,12 +145,14 @@ fn build_docker_services(
         Err(error) => eprintln!("sandbox recovery failed; keeping loaded registry: {error}"),
     }
 
-    Ok(Arc::new(ManagerServices::new(
+    let mut services = ManagerServices::new(
         store,
         Arc::new(runtime),
         Arc::new(DockerSandboxDaemonInstaller::new(docker_config)),
         Arc::new(TcpSandboxDaemonClient::new()),
-    )))
+    );
+    services.export_caps = export_caps;
+    Ok(Arc::new(services))
 }
 
 fn resolve_bind_addr(cli_socket: Option<String>) -> String {

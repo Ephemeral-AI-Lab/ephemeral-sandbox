@@ -12,9 +12,9 @@ use crate::configs::validate::{
     require_absolute, require_non_empty, require_u64_at_least, ConfigFieldError,
 };
 
-/// Host-side caps for the `export_changes` apply path (`manager.export`).
-/// Retired the `EOS_EXPORT_MAX_DECOMPRESSED_BYTES` / `EOS_EXPORT_MAX_ENTRIES`
-/// env side channels; the gateway injects these into the manager applier.
+/// Host-side caps for the `export_changes` apply path (`manager.export`),
+/// the sole tuning path since the env side channels retired; the gateway
+/// injects these into the manager applier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ManagerExportConfig {
@@ -48,7 +48,11 @@ impl ManagerExportConfig {
             1,
             "manager.export.max_decompressed_bytes",
         )?;
-        require_u64_at_least(self.max_apply_entries, 1, "manager.export.max_apply_entries")
+        require_u64_at_least(
+            self.max_apply_entries,
+            1,
+            "manager.export.max_apply_entries",
+        )
     }
 }
 

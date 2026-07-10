@@ -53,7 +53,8 @@ sandbox-config
 `crates/sandbox-protocol`; daemon request dispatch lives in
 `crates/sandbox-daemon`; runtime operation dispatch lives in
 `crates/sandbox-runtime/operation`; CLI operation specs (spec-only) live in
-`crates/sandbox-manager-operations` and `crates/sandbox-runtime-operations`;
+`crates/sandbox-manager-operations`, `crates/sandbox-runtime-operations`, and
+`crates/sandbox-observability-operations`;
 CAS fixtures live with `sandbox-runtime-layerstack`.
 
 ## The pieces
@@ -61,7 +62,8 @@ CAS fixtures live with `sandbox-runtime-layerstack`.
 - `crates/sandbox-runtime/layerstack/tests/fixtures/` - runtime-owned CAS
   fixtures.
 - `crates/` - the workspace: `sandbox-daemon`, `sandbox-protocol`,
-  `sandbox-manager`, `sandbox-gateway`, `sandbox-cli`,
+  `sandbox-manager`, `sandbox-gateway`, `sandbox-cli`, `sandbox-mcp`,
+  `sandbox-console`,
   `sandbox-manager-operations`, `sandbox-runtime-operations`,
   `sandbox-observability-operations`, `sandbox-runtime/operation`,
   `sandbox-runtime/workspace`, `sandbox-runtime/namespace-execution`,
@@ -77,6 +79,9 @@ CAS fixtures live with `sandbox-runtime-layerstack`.
 # expose repo-local sandbox tools for this shell
 export PATH="$PWD/bin:$PATH"
 
+# build all three CLI executables and the stdio MCP executable
+cargo build -p sandbox-cli --all-features -p sandbox-mcp
+
 # package the Docker daemon binary if needed and start/restart the public gateway
 start-sandbox-docker-gateway
 
@@ -87,6 +92,11 @@ start-sandbox-console-stack        # then open http://127.0.0.1:7880
 sandbox-manager-cli list_sandboxes
 sandbox-runtime-cli --sandbox-id eos-abc exec_command pwd
 sandbox-observability-cli snapshot --sandbox-id eos-abc
+
+# each help surface lists only its own catalog
+sandbox-manager-cli help
+sandbox-runtime-cli --sandbox-id eos-abc help
+sandbox-observability-cli help
 
 # one-time per machine: bootstrap the musl cross toolchain (zig + cargo-zigbuild)
 setup-musl-cross
@@ -102,6 +112,45 @@ cargo run -p xtask -- package --profile release
 cargo test -p sandbox-runtime
 cargo test -p sandbox-daemon
 ```
+
+## MCP registrations
+
+Register each authority independently. Replace `/absolute/path/to/ephemeral-os`
+with this checkout's absolute path after building `sandbox-mcp` as shown
+above. Do not register a combined server; none exists.
+
+```json
+{
+  "mcpServers": {
+    "ephemeral-os-management": {
+      "command": "/absolute/path/to/ephemeral-os/target/debug/sandbox-mcp",
+      "args": ["--set", "management"]
+    },
+    "ephemeral-os-runtime": {
+      "command": "/absolute/path/to/ephemeral-os/target/debug/sandbox-mcp",
+      "args": ["--set", "runtime"]
+    },
+    "ephemeral-os-observability": {
+      "command": "/absolute/path/to/ephemeral-os/target/debug/sandbox-mcp",
+      "args": ["--set", "observability"]
+    }
+  }
+}
+```
+
+The server accepts exactly one fixed `--set management|runtime|observability`
+and exposes only `initialize`, `notifications/initialized`, `ping`,
+`tools/list`, and `tools/call`. Tool definitions come from the same three
+canonical operation catalogs used by the CLI binaries.
+
+## Web console transport
+
+The web console does not invoke MCP servers or CLI executables. Browser
+management, command, file read/write/edit/blame, and observability requests go
+to the console server's `POST /api/rpc`; the server keeps gateway credentials
+private and sends authenticated gateway RPC through `sandbox_cli::core`.
+Only file listing, health, and application forwarding use the limited daemon
+HTTP surface below.
 
 ## Daemon HTTP allowlist
 

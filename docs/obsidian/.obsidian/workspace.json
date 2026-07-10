@@ -185,6 +185,7 @@
   },
   "active": "2b73796146464bdb",
   "lastOpenFiles": [
+    "ephemeral-os/implementation_plan/config/implementation-plan.md.tmp.60863.b95e2b342add",
     "ephemeral-os/implementation_plan/config/goal-prompt.md",
     "ephemeral-os/implementation_plan/config/implementation-plan.md",
     "ephemeral-os/implementation_plan/mcp_cli_surface/phase-plan.md",
@@ -220,7 +221,6 @@
     "ephemeral-os/implementation_plan/web-ui/design.md",
     "ephemeral-os/implementation_plan/web-ui/implementation-plan.md",
     "ephemeral-os/implementation_plan/export_changes/adversarial-review-prompt.md",
-    "ephemeral-os/implementation_plan/web-ui/http-server.md",
     "ephemeral-os/docs/Untitled.canvas"
   ]
 }

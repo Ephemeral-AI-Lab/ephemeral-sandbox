@@ -13,7 +13,7 @@ use sandbox_protocol::{error_kind, CliOperationScope, Request, Response};
 use serde_json::{json, Value};
 
 use crate::export_apply::{
-    apply_dir_delta, write_archive, ArchiveFormat, DirApplyStats, MAX_STREAM_BYTES,
+    apply_dir_delta, write_archive, ArchiveFormat, DirApplyStats, ExportApplyCaps,
 };
 use crate::operation::ManagerServices;
 use crate::router::forward_sandbox_request;
@@ -93,16 +93,23 @@ fn run_export_changes(
     let expected_total = start["spool_bytes"].as_u64().ok_or_else(|| {
         export_failed("daemon start result carries no spool_bytes").into_response()
     })?;
-    if expected_total > MAX_STREAM_BYTES {
+    let max_stream_bytes = services.export_caps.max_stream_bytes;
+    if expected_total > max_stream_bytes {
         return Err(export_failed(&format!(
-            "export stream cap exceeded ({MAX_STREAM_BYTES} compressed bytes)"
+            "export stream cap exceeded ({max_stream_bytes} compressed bytes)"
         ))
         .into_response());
     }
     let compressed = page_stream(services, request, sandbox_id, export_id, expected_total)?;
     let dest_path =
         prepare_dest(services, dest, &normalized, format).map_err(ManagerError::into_response)?;
-    render(compressed.as_slice(), format, &dest_path, &start)
+    render(
+        compressed.as_slice(),
+        format,
+        &dest_path,
+        &start,
+        services.export_caps,
+    )
 }
 
 /// Render the complete validated paged buffer per the requested format. The
@@ -113,10 +120,11 @@ fn render(
     format: ExportFormat,
     dest_path: &Path,
     start: &Value,
+    caps: ExportApplyCaps,
 ) -> Result<Value, Response> {
     match format {
         ExportFormat::Dir => {
-            let stats = apply_dir_delta(&mut delivery, dest_path)
+            let stats = apply_dir_delta(&mut delivery, dest_path, caps)
                 .map_err(|message| export_failed(&message).into_response())?;
             Ok(dir_result(start, &stats))
         }
@@ -125,7 +133,7 @@ fn render(
                 ExportFormat::Tar => ArchiveFormat::Tar,
                 _ => ArchiveFormat::TarZst,
             };
-            let bytes_written = write_archive(&mut delivery, dest_path, archive_format)
+            let bytes_written = write_archive(&mut delivery, dest_path, archive_format, caps)
                 .map_err(|message| export_failed(&message).into_response())?;
             Ok(archive_result(start, format, bytes_written))
         }
@@ -211,9 +219,10 @@ fn page_stream(
         let next_offset = requested_offset
             .checked_add(bytes.len() as u64)
             .ok_or_else(|| export_failed("export stream length overflow").into_response())?;
-        if next_offset > MAX_STREAM_BYTES {
+        let max_stream_bytes = services.export_caps.max_stream_bytes;
+        if next_offset > max_stream_bytes {
             return Err(export_failed(&format!(
-                "export stream cap exceeded ({MAX_STREAM_BYTES} compressed bytes)"
+                "export stream cap exceeded ({max_stream_bytes} compressed bytes)"
             ))
             .into_response());
         }

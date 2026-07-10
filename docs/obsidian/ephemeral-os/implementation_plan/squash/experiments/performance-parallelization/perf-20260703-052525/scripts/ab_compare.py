@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """CORR-AB-EQUIV comparator: diff two arms' ab-facts.json for LOGICAL equivalence.
 
-The serial control (``EOS_REMOUNT_SWEEP_WIDTH=1``) and the parallel arm
-(``=cores``) run the identical deterministic workload; the only permitted
+The serial control (``remount_sweep_width: 1``) and the parallel arm
+(``= cores``) run the identical deterministic workload; the only permitted
 difference is timing. Squashed layer ids carry a per-process nonce
 (``S{ver}-{nonce}``), so manifests are NOT byte-identical and ``manifest_root_hash``
 differs run-to-run — this asserts logical outcome instead:

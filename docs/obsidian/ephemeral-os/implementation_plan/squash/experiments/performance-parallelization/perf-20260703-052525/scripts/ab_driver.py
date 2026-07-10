@@ -2,9 +2,9 @@
 """A/B + PERF-WIDTH driver for the squash remount-sweep benchmark.
 
 Runs the SAME deterministic bench scenario across sweep widths. The width is the
-in-container daemon's ``EOS_REMOUNT_SWEEP_WIDTH``, which has no host->container
-passthrough, so each width needs its own daemon container env: this driver
-regenerates ``config/bench.yml`` per width and restarts the gateway (NOT
+in-container daemon's ``runtime.layerstack.remount_sweep_width`` config key,
+uploaded with the daemon YAML on every create_sandbox: this driver regenerates
+``config/bench.yml`` per width and restarts the gateway (NOT
 ``--rebuild-binary`` — the daemon is packaged once up front), then runs K repeats
 and harvests spans (``SQUASH_HARVEST_OBS=1``).
 

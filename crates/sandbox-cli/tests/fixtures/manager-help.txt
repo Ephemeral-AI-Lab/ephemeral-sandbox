@@ -1,0 +1,25 @@
+Sandbox Manager Help
+
+Management
+  Manage sandbox records, compact layer stacks, and export published changes.
+
+  create_sandbox
+    Create a host-side sandbox record and runtime sandbox.
+
+  destroy_sandbox
+    Destroy a host-side sandbox and remove it from the registry.
+
+  list_sandboxes
+    List sandbox records known to the manager.
+
+  inspect_sandbox
+    Inspect one sandbox record.
+
+  squash_layerstacks
+    Squash a sandbox's layer stack and live-remount its sessions.
+
+  export_changes
+    Export a sandbox's published changes to a host path.
+
+Use:
+  sandbox-manager-cli OPERATION

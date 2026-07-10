@@ -1,0 +1,204 @@
+{
+  "tools": [
+    {
+      "name": "exec_command",
+      "description": "Start a shell command in a workspace session. With workspace_session_id, run inside that existing session. Without it, exec_command creates an automatic session with finalize policy publish_then_destroy: after its last command reaches terminal state, the runtime captures and publishes the session's changes to the layerstack, then destroys the session. Explicitly managed sessions remain alive until internal teardown and discard unpublished changes when torn down. File operations and remounts run under the session's admission gate and neither extend nor trigger the session lifecycle. If the command is still running after the initial wait, the response includes a command_session_id usable with read_command_lines or write_command_stdin; a still-running command stays terminable through write_command_stdin (Ctrl-C or Ctrl-D).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Target sandbox id (selects the daemon to query)."
+          },
+          "workspace_session_id": {
+            "type": "string",
+            "description": "Existing workspace session id to run inside. Omit to create a session with finalize policy publish_then_destroy."
+          },
+          "cmd": {
+            "type": "string",
+            "description": "Shell command text."
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Command timeout in milliseconds."
+          },
+          "yield_time_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Initial output wait in milliseconds."
+          }
+        },
+        "required": ["sandbox_id", "cmd"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "write_command_stdin",
+      "description": "Append text to the stdin stream of a running command session and return a bounded output yield.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Target sandbox id (selects the daemon to query)."
+          },
+          "command_session_id": {
+            "type": "string",
+            "description": "Command session id returned by exec_command."
+          },
+          "stdin": {
+            "type": "string",
+            "description": "Text to write to stdin."
+          },
+          "yield_time_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Output wait after writing stdin."
+          }
+        },
+        "required": ["sandbox_id", "command_session_id", "stdin"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "read_command_lines",
+      "description": "Read rendered command output for a command session using stable line offsets.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Target sandbox id (selects the daemon to query)."
+          },
+          "command_session_id": {
+            "type": "string",
+            "description": "Command session id returned by exec_command."
+          },
+          "start_offset": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "First transcript line offset. Defaults to 0.",
+            "default": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Maximum transcript rows to return. Defaults to 200; maximum 1000.",
+            "default": 200
+          }
+        },
+        "required": ["sandbox_id", "command_session_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "file_read",
+      "description": "Read a UTF-8 text window from a repository-relative or workspace-root-absolute path. With workspace_session_id the read runs inside that live session's mounted workspace; without it the read projects the latest published snapshot.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Target sandbox id (selects the daemon to query)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Repository-relative or workspace-root-absolute path to read."
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "1-indexed line number to start reading from. Defaults to 1.",
+            "default": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Maximum number of lines to read. Defaults to 2000; must be 1..=2000.",
+            "default": 2000
+          },
+          "workspace_session_id": {
+            "type": "string",
+            "description": "Existing workspace session id to read inside. Omit to read the snapshot."
+          }
+        },
+        "required": ["sandbox_id", "path"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "file_write",
+      "description": "Write content to a repository-relative or workspace-root-absolute path. With workspace_session_id the write lands in that live session's mounted workspace and is attributed on capture; without it the write publishes one layer attributed to operation:<request_id>.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Target sandbox id (selects the daemon to query)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Repository-relative or workspace-root-absolute path to write."
+          },
+          "content": {
+            "type": "string",
+            "description": "File content to write."
+          },
+          "workspace_session_id": {
+            "type": "string",
+            "description": "Existing workspace session id to write inside. Omit to publish a layer."
+          }
+        },
+        "required": ["sandbox_id", "path", "content"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "file_edit",
+      "description": "Apply an ordered list of exact-string replacements to a repository-relative or workspace-root-absolute path. Each old_string must be found and unique unless replace_all is set. With workspace_session_id the edit runs inside that live session; without it the edit publishes one layer attributed to operation:<request_id>.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Target sandbox id (selects the daemon to query)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Repository-relative or workspace-root-absolute path to edit."
+          },
+          "edits": {
+            "type": "array",
+            "description": "JSON array of { old_string, new_string, replace_all? } edits, applied in order."
+          },
+          "workspace_session_id": {
+            "type": "string",
+            "description": "Existing workspace session id to edit inside. Omit to publish a layer."
+          }
+        },
+        "required": ["sandbox_id", "path", "edits"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "file_blame",
+      "description": "Return each line's owner for a published path, tiling the whole file from the latest auditability event. The owner is an opaque string (workspace_session:<id> | operation:<id> | original | unknown).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Target sandbox id (selects the daemon to query)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Repository-relative path to blame."
+          }
+        },
+        "required": ["sandbox_id", "path"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

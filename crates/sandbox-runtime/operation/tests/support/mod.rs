@@ -555,7 +555,7 @@ pub(crate) fn observed_layerstack_service(obs: Observer) -> Arc<LayerStackServic
             obs,
             test_file_service(),
         )
-            .expect("create layerstack test service"),
+        .expect("create layerstack test service"),
     )
 }
 

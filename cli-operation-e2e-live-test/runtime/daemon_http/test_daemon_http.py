@@ -8,6 +8,8 @@ servers through ``sandbox-cli runtime exec_command``, then calls the published
   * ``/forward/shared/<port>/...`` reaches a server in the shared network.
   * ``/forward/isolated=<workspace_id>/<port>/...`` reaches a server bound to
     ``0.0.0.0`` inside an isolated workspace session.
+  * ``POST /files/list`` sees published and live-session directory state.
+  * Removed file, observability, and export operation routes return ``404``.
   * invalid routes map to ``400``/``404``.
 
 Each success test binds port ``0`` inside the sandbox and forwards to the
@@ -245,6 +247,79 @@ def test_forward_rejects_invalid_routes(tmp_path):
             mgmt.destroy_sandbox(sandbox_id)
 
 
+def test_file_list_and_removed_operation_routes(tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "published.txt").write_text("published\n", encoding="utf-8")
+    sandbox_id = None
+    workspace_id = None
+    try:
+        created = mgmt.create_sandbox(image=IMAGE, workspace_root=str(workspace))
+        sandbox_id = created.get("id")
+        assert sandbox_id, f"create_sandbox failed: {created}"
+        host, port = daemon_http_endpoint(created, sandbox_id)
+        base = f"http://{host}:{port}"
+
+        status, body, content_type = http_post(base + "/files/list", {})
+        assert status == 200, body
+        assert "application/json" in content_type, content_type
+        root = json.loads(body)
+        assert not is_error(root), root
+        assert "published.txt" in entry_names(root), root
+
+        session = internal_runtime(sandbox_id, "create_workspace_session", {})
+        assert not is_error(session), session
+        workspace_id = session["workspace_session_id"]
+        written = runtime(
+            sandbox_id,
+            "file_write",
+            "--path",
+            "live.txt",
+            "--content",
+            "live\n",
+            "--workspace-session-id",
+            workspace_id,
+        )
+        assert not is_error(written), written
+
+        status, body, _ = http_post(
+            base + "/files/list",
+            {"workspace_session_id": workspace_id},
+        )
+        assert status == 200, body
+        live = json.loads(body)
+        assert not is_error(live), live
+        names = entry_names(live)
+        assert "published.txt" in names, live
+        assert "live.txt" in names, live
+
+        removed = [
+            "/files/read",
+            "/files/write",
+            "/files/edit",
+            "/files/blame",
+            "/observability/snapshot",
+            "/observability/trace",
+            "/observability/events",
+            "/observability/cgroup",
+            "/observability/layerstack",
+            "/export/legacy",
+            "/files/list/extra",
+        ]
+        for path in removed:
+            status, body, _ = http_post(base + path, {})
+            assert status == 404, f"POST {path} -> {status}: {body}"
+    finally:
+        if sandbox_id:
+            if workspace_id:
+                internal_runtime(
+                    sandbox_id,
+                    "destroy_workspace_session",
+                    {"workspace_session_id": workspace_id, "grace_s": 1},
+                )
+            mgmt.destroy_sandbox(sandbox_id)
+
+
 def daemon_http_endpoint(created, sandbox_id):
     endpoint = created.get("daemon_http")
     if not endpoint:
@@ -255,10 +330,29 @@ def daemon_http_endpoint(created, sandbox_id):
 
 
 def http_get(url, attempts=20):
+    return http_request(url, attempts=attempts)
+
+
+def http_post(url, document, attempts=20):
+    return http_request(
+        url,
+        method="POST",
+        body=json.dumps(document).encode("utf-8"),
+        attempts=attempts,
+    )
+
+
+def http_request(url, method="GET", body=None, attempts=20):
     last_error = None
     for _ in range(attempts):
         try:
-            with urllib.request.urlopen(url, timeout=10) as response:
+            request = urllib.request.Request(
+                url,
+                data=body,
+                headers={"Content-Type": "application/json"} if body is not None else {},
+                method=method,
+            )
+            with urllib.request.urlopen(request, timeout=10) as response:
                 return (
                     response.status,
                     response.read().decode("utf-8", "replace"),
@@ -270,7 +364,11 @@ def http_get(url, attempts=20):
         except urllib.error.URLError as error:
             last_error = error
             time.sleep(0.25)
-    raise AssertionError(f"GET {url} never connected: {last_error}")
+    raise AssertionError(f"{method} {url} never connected: {last_error}")
+
+
+def entry_names(document):
+    return {entry["name"] for entry in document.get("entries", [])}
 
 
 def read_port(output):

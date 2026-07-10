@@ -244,6 +244,15 @@ fn expected_names(set: OperationSet) -> &'static [&'static str] {
     }
 }
 
+fn tools_list_fixture(set: OperationSet) -> Value {
+    let fixture = match set {
+        OperationSet::Management => include_str!("fixtures/management-tools-list.json"),
+        OperationSet::Runtime => include_str!("fixtures/runtime-tools-list.json"),
+        OperationSet::Observability => include_str!("fixtures/observability-tools-list.json"),
+    };
+    serde_json::from_str(fixture).expect("tools/list fixture JSON")
+}
+
 fn assert_schema(set: OperationSet, tool: &Value, spec: &CliOperationSpecDocument) {
     assert_eq!(tool["description"], spec.description);
     let schema = tool["inputSchema"].as_object().expect("tool input schema");
@@ -369,6 +378,7 @@ fn lifecycle_and_tools_list_match_all_three_catalogs() {
     ] {
         let mut process = McpProcess::start_initialized(set_name(set), "127.0.0.1:9");
         let response = process.request("tools/list", Some(json!({})));
+        assert_eq!(result(&response), &tools_list_fixture(set));
         let tools = result(&response)["tools"].as_array().expect("MCP tools");
         let names = tools
             .iter()

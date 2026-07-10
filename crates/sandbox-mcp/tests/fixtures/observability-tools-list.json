@@ -1,0 +1,119 @@
+{
+  "tools": [
+    {
+      "name": "snapshot",
+      "description": "Show current state from the runtime registry for one sandbox, or aggregate ready manager-known sandboxes when --sandbox-id is omitted: sandbox lifecycle state, workspaces (with layer counts), in-flight executions, and the latest resource sample per scope. Served live; does not read the log.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Optional target sandbox id. When omitted, the manager queries all ready sandboxes."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "trace",
+      "description": "Fold the log into a span waterfall for one trace: spans nested by parent, offset by start, with attached events inline. Use --trace-id last for the most recent root trace.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Target sandbox id (selects the daemon to query)."
+          },
+          "trace_id": {
+            "type": "string",
+            "description": "Trace id to render, or 'last' for the most recent root trace.",
+            "default": "last"
+          }
+        },
+        "required": ["sandbox_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "events",
+      "description": "Fold the log into a flat, cross-trace stream of point-in-time events (lease, errors, …), newest first. Filter by exact name and/or a start timestamp, and cap to the newest N with --last-n.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Target sandbox id (selects the daemon to query)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Filter to events with this exact name (e.g. lease.acquired)."
+          },
+          "since_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Only events at or after this unix-ms timestamp."
+          },
+          "last_n": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Keep only the N newest matched events."
+          }
+        },
+        "required": ["sandbox_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "cgroup",
+      "description": "Fold the sample log for one scope into a time series with deltas: cgroup counters (cpu/mem/io from /sys/fs/cgroup) plus the disk sample (upperdir bytes/files) carried in the same record.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Target sandbox id (selects the daemon to query)."
+          },
+          "scope": {
+            "type": "string",
+            "description": "Resource scope: 'sandbox' or a workspace id.",
+            "default": "sandbox"
+          },
+          "window_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Lookback window in milliseconds (max 600000).",
+            "default": 60000
+          }
+        },
+        "required": ["sandbox_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layerstack",
+      "description": "Show the active manifest as a per-layer inventory: disk bytes, how many workspaces lease each layer, and which leased layers book each base. Served live from the runtime; does not read the log.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Target sandbox id (selects the daemon to query)."
+          },
+          "workspace_id": {
+            "type": "string",
+            "description": "Show one workspace's lower layers and private upperdir."
+          },
+          "window_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Lookback window in milliseconds for the stack trend (max 600000).",
+            "default": 60000
+          }
+        },
+        "required": ["sandbox_id"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

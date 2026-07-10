@@ -214,8 +214,10 @@ also returns `files_written`, `symlinks_written`, `deletes_applied`,
 `opaque_clears`, `skipped_unchanged`, and `bytes_written`. `tar` / `tar-zst`
 mode returns `files_written`, `symlinks_written`, `whiteouts_emitted`, and
 `bytes_written`. Either result may include `live_workspace_sessions` as
-metadata. The MCP adapter composes internal `export_layerstack` and repeated
-`read_export_chunk` gateway RPC calls; it never calls daemon HTTP `/export/*`.
+metadata. The MCP adapter sends the public `export_changes` request once; the
+manager composes internal `export_layerstack` and repeated
+`read_export_chunk` gateway RPC calls. Neither component calls daemon HTTP
+`/export/*`.
 
 ## Runtime tools
 

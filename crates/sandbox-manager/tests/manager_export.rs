@@ -16,9 +16,9 @@ use std::time::Duration;
 
 use base64::Engine as _;
 use sandbox_manager::{
-    CreateSandboxRequest, CreateSandboxResult, ManagerError, ManagerServices, SandboxDaemonClient,
-    SandboxDaemonEndpoint, SandboxDaemonInstaller, SandboxHttpEndpoint, SandboxId, SandboxRecord,
-    SandboxRuntime, SandboxState, SandboxStore, StartedDaemon,
+    CreateSandboxRequest, CreateSandboxResult, ExportApplyCaps, ManagerError, ManagerServices,
+    SandboxDaemonClient, SandboxDaemonEndpoint, SandboxDaemonInstaller, SandboxHttpEndpoint,
+    SandboxId, SandboxRecord, SandboxRuntime, SandboxState, SandboxStore, StartedDaemon,
 };
 use sandbox_protocol::{error_kind, CliOperationScope, Request, Response};
 use serde_json::{json, Value};
@@ -225,13 +225,23 @@ fn temp_base(label: &str) -> PathBuf {
 }
 
 fn env_with_store(label: &str, store: Arc<SandboxStore>) -> Env {
+    env_with_store_and_caps(label, store, ExportApplyCaps::default())
+}
+
+fn env_with_caps(label: &str, caps: ExportApplyCaps) -> Env {
+    env_with_store_and_caps(label, Arc::new(SandboxStore::new()), caps)
+}
+
+fn env_with_store_and_caps(label: &str, store: Arc<SandboxStore>, caps: ExportApplyCaps) -> Env {
     let daemon = Arc::new(ExportDaemon::default());
-    let services = Arc::new(ManagerServices::new(
+    let mut services = ManagerServices::new(
         Arc::clone(&store),
         Arc::new(FakeRuntime),
         Arc::new(FakeInstaller),
         Arc::clone(&daemon) as Arc<dyn SandboxDaemonClient>,
-    ));
+    );
+    services.export_caps = caps;
+    let services = Arc::new(services);
     store
         .insert(SandboxRecord {
             id: sandbox_id("sbox-1"),
@@ -927,7 +937,16 @@ fn traversal_entries_are_rejected_with_nothing_applied() {
 fn absolute_entry_names_are_rejected_with_nothing_outside_dest() {
     let env = env("absolute-slip");
     let dest = env.base.join("dest");
-    let sentinel = env.base.join("abs-escape.txt");
+    // The sentinel must fit add_raw's 100-byte GNU name field, so it lives
+    // under short /tmp instead of the (long) per-test temp base.
+    let sentinel = PathBuf::from(format!(
+        "/tmp/eos-abs-escape-{}-{}.txt",
+        std::process::id(),
+        env.base
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    ));
     std::fs::write(&sentinel, "untouched\n").expect("sentinel");
 
     let absolute = hostile_apply(
@@ -952,6 +971,7 @@ fn absolute_entry_names_are_rejected_with_nothing_outside_dest() {
         "error names the rejection: {absolute}"
     );
     assert_eq!(read_to_string(&sentinel), "untouched\n");
+    let _ = std::fs::remove_file(&sentinel);
 }
 
 #[test]
@@ -1090,25 +1110,23 @@ fn reserved_wh_path_component_is_rejected() {
     assert!(error_message(&result).contains(".wh."));
 }
 
-// Serialize the two cap tests: each lowers a global cap via env var for the
-// duration of its apply, and no honest test decompresses past 64 KiB or
-// carries more than a handful of entries, so a concurrent apply is unaffected.
-fn cap_guard() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: Mutex<()> = Mutex::new(());
-    LOCK.lock().unwrap_or_else(|poison| poison.into_inner())
-}
-
+// Each cap test lowers its cap through the injected `ExportApplyCaps` (the
+// gateway maps `manager.export` here), so caps are per-environment state and
+// the tests need no cross-test serialization.
 #[test]
 fn decompression_bomb_is_capped() {
-    let _guard = cap_guard();
-    std::env::set_var("EOS_EXPORT_MAX_DECOMPRESSED_BYTES", "65536");
-    let env = env("zstd-bomb");
+    let env = env_with_caps(
+        "zstd-bomb",
+        ExportApplyCaps {
+            max_decompressed_bytes: 65_536,
+            ..ExportApplyCaps::default()
+        },
+    );
     let dest = env.base.join("dest");
     let bomb = build_stream(|builder| {
         add_file(builder, "big.bin", &vec![0_u8; 131_072], 0o644, 0);
     });
     let result = hostile_apply(&env, &dest, bomb);
-    std::env::remove_var("EOS_EXPORT_MAX_DECOMPRESSED_BYTES");
 
     assert_eq!(result["error"]["kind"], json!(error_kind::OPERATION_FAILED));
     assert!(
@@ -1123,9 +1141,13 @@ fn decompression_bomb_is_capped() {
 
 #[test]
 fn entry_count_bomb_is_capped() {
-    let _guard = cap_guard();
-    std::env::set_var("EOS_EXPORT_MAX_ENTRIES", "1000");
-    let env = env("entry-bomb");
+    let env = env_with_caps(
+        "entry-bomb",
+        ExportApplyCaps {
+            max_apply_entries: 1000,
+            ..ExportApplyCaps::default()
+        },
+    );
     let dest = env.base.join("dest");
     let bomb = build_stream(|builder| {
         for index in 0..1500 {
@@ -1133,12 +1155,42 @@ fn entry_count_bomb_is_capped() {
         }
     });
     let result = hostile_apply(&env, &dest, bomb);
-    std::env::remove_var("EOS_EXPORT_MAX_ENTRIES");
 
     assert_eq!(result["error"]["kind"], json!(error_kind::OPERATION_FAILED));
     assert!(
         error_message(&result).contains("entry-count cap"),
         "error names the cap: {result}"
+    );
+}
+
+// The compressed-stream cap rejects on the daemon-declared spool size before
+// any chunk is paged.
+#[test]
+fn stream_cap_rejects_oversized_spool() {
+    let env = env_with_caps(
+        "stream-cap",
+        ExportApplyCaps {
+            max_stream_bytes: 4096,
+            ..ExportApplyCaps::default()
+        },
+    );
+    let dest = env.base.join("dest");
+    env.daemon
+        .push_start(start_value(3, &["L000003-a"], (1, 0, 0, 0), 8192, None));
+
+    let result = dispatch(&env, &export_request("sbox-1", &dest, None));
+
+    assert_eq!(result["error"]["kind"], json!(error_kind::OPERATION_FAILED));
+    assert!(
+        error_message(&result).contains("export stream cap exceeded"),
+        "error names the cap: {result}"
+    );
+    assert!(
+        env.daemon
+            .invocations()
+            .iter()
+            .all(|(op, _)| op != "read_export_chunk"),
+        "no chunk is paged once the declared total exceeds the cap"
     );
 }
 

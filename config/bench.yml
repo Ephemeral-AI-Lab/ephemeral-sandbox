@@ -5,10 +5,10 @@
 #      not rotate away early invocations — the 8 MiB default evicted spans at
 #      N=200 (RESULTS.md "200 sessions"). ObservabilityConfig has
 #      deny_unknown_fields, so only `enabled` / `max_file_bytes` may appear here.
-#   2. manager.docker.container_env.EOS_REMOUNT_SWEEP_WIDTH sets the in-container
-#      daemon's remount-sweep width — the A/B / PERF-WIDTH knob. The daemon reads
-#      it per squash (squash.rs sweep_width()); there is no host->container env
-#      passthrough, so the width must ride in via container_env.
+#   2. runtime.layerstack.remount_sweep_width sets the in-container daemon's
+#      remount-sweep width — the A/B / PERF-WIDTH knob. The Docker installer
+#      uploads this file per create_sandbox, so the daemon reads the width from
+#      its own config section; no container_env smuggling.
 #
 # This is a TEMPLATE: ab_driver.py substitutes __SWEEP_WIDTH__ and
 # __DAEMON_CONFIG_PATH__ per arm and writes a generated file it passes as
@@ -32,6 +32,8 @@ runtime:
     rfc1918_egress: allow
   namespace_execution:
     scratch_root: /eos/namespace_execution
+  layerstack:
+    remount_sweep_width: __SWEEP_WIDTH__
 
 runner:
   mount_mask:
@@ -50,4 +52,3 @@ manager:
       HTTP_PROXY: http://http.docker.internal:3128
       HTTPS_PROXY: http://http.docker.internal:3128
       NO_PROXY: localhost,127.0.0.1,::1
-      EOS_REMOUNT_SWEEP_WIDTH: "__SWEEP_WIDTH__"

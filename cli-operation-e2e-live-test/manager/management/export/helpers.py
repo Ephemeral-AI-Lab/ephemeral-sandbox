@@ -1564,12 +1564,35 @@ def _manager_registry_dir():
 
 
 def case_hrd_05(rec):
-    """inv 9: decompression and entry-count bombs are capped, no disk exhaustion."""
-    seed, sandbox_id = _hostile_sandbox(rec, "hrd05")
+    """inv 9: decompression and entry-count bombs are capped, no disk exhaustion.
+
+    The caps ride ``manager.export`` in the gateway YAML (config consolidation
+    phase 1), so this case owns a lowered-caps gateway for its duration and
+    restores the baseline gateway afterwards — the config-family custody
+    pattern; the parametrized case carries the ``config`` marker so it runs in
+    the serial config lane.
+    """
+    from config import helpers as config_helpers
+
+    max_decompressed = 256 * 1024 * 1024
+    max_entries = 50_000
+    arm_dir = Path(tempfile.mkdtemp(prefix="eos-export-hrd05-config-"))
+    lowered = config_helpers.make_config(
+        {
+            "manager": {
+                "export": {
+                    "max_decompressed_bytes": max_decompressed,
+                    "max_apply_entries": max_entries,
+                }
+            }
+        },
+        arm_dir / "gateway-lowered-caps.yml",
+    )
+    config_helpers.start_gateway(lowered)
+    seed = sandbox_id = None
     dest_base, dest = _fresh_dest("hrd05")
-    max_decompressed = int(os.environ.get("EXPORT_TEST_MAX_DECOMPRESSED_BYTES", str(256 * 1024 * 1024)))
-    max_entries = int(os.environ.get("EXPORT_TEST_MAX_ENTRIES", str(50_000)))
     try:
+        seed, sandbox_id = _hostile_sandbox(rec, "hrd05")
         free_before = shutil.disk_usage(dest_base).free
         inject_spool(rec, sandbox_id, craft_zstd_bomb(max_decompressed + 64 * 1024 * 1024))
         zstd_bomb = export_changes(rec, sandbox_id, dest)
@@ -1593,9 +1616,13 @@ def case_hrd_05(rec):
         rec.axis("incremental", True, "n/a", n_a=True)
         teardown(rec, sandbox_id)
     finally:
-        destroy_sandbox(rec, sandbox_id)
-        shutil.rmtree(seed, ignore_errors=True)
+        if sandbox_id is not None:
+            destroy_sandbox(rec, sandbox_id)
+        if seed is not None:
+            shutil.rmtree(seed, ignore_errors=True)
         shutil.rmtree(dest_base, ignore_errors=True)
+        shutil.rmtree(arm_dir, ignore_errors=True)
+        config_helpers.restore_baseline_gateway()
 
 
 def case_hrd_06(rec):

@@ -185,6 +185,7 @@
   },
   "active": "d5fccc8ee65959ed",
   "lastOpenFiles": [
+    "implementation_plan/config/implementation-plan.md.tmp.60863.b95e2b342add",
     "implementation_plan/config/implementation-plan.md",
     "implementation_plan/config/goal-prompt.md",
     "implementation_plan/mcp_cli_surface/operation-contract.md",
@@ -216,7 +217,6 @@
     "implementation_plan/export_changes/spec.md.tmp.39741.36a8d9f15dc1",
     "implementation_plan/web-ui/implementation-plan.md",
     "implementation_plan/daemon-command-syscall-hardening.md",
-    "implementation_plan/wh-reserved-namespace/spec.md",
     "implementation_plan/web-ui/design.md.tmp.27160.33db0038bc43",
     "implementation_plan/web-ui/web-ui-design.md.tmp.27160.51841c7bb1e3",
     "implementation_plan/wh-reserved-namespace",

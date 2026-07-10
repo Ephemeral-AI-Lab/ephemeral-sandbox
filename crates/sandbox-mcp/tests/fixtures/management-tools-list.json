@@ -1,0 +1,108 @@
+{
+  "tools": [
+    {
+      "name": "create_sandbox",
+      "description": "Create a host-side sandbox record, create the runtime sandbox, and start its daemon.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Container image used to create the sandbox."
+          },
+          "workspace_root": {
+            "type": "string",
+            "description": "Absolute host workspace directory bind-mounted into this sandbox."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of sandboxes to create (minimum 1). Values greater than 1 use a shared read-only workspace base.",
+            "default": 1
+          }
+        },
+        "required": ["image", "workspace_root"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "destroy_sandbox",
+      "description": "Stop the sandbox daemon, destroy the runtime sandbox, and remove the host-side sandbox record.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Sandbox id."
+          }
+        },
+        "required": ["sandbox_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_sandboxes",
+      "description": "List sandbox records known to the manager, including lifecycle state and configured daemon endpoint metadata.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "inspect_sandbox",
+      "description": "Inspect one sandbox record, including lifecycle state, workspace root, and configured daemon endpoint metadata.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Sandbox id."
+          }
+        },
+        "required": ["sandbox_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "squash_layerstacks",
+      "description": "Squash every squashable block of the selected sandbox's published layers into equivalent flattened layers and migrate live workspace sessions onto the compact chains. Forwards one squash_layerstack request to the sandbox daemon.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Sandbox id."
+          }
+        },
+        "required": ["sandbox_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "export_changes",
+      "description": "Fold every published layer above the base (newest-wins, whiteout/opaque aware) into a compressed delta stream, fetch it from the sandbox daemon, and apply it onto --dest or write it as an archive. Forwards export_layerstack and read_export_chunk requests to the sandbox daemon.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "description": "Sandbox id."
+          },
+          "dest": {
+            "type": "string",
+            "description": "Absolute host destination: directory for dir format, archive file for tar formats."
+          },
+          "format": {
+            "type": "string",
+            "description": "Output format: dir, tar, or tar-zst.",
+            "default": "dir"
+          }
+        },
+        "required": ["sandbox_id", "dest"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

@@ -160,36 +160,67 @@ verification harness.
 demonstrated tuning demand; retires all three `EOS_*` side channels and the
 `bench.yml` container_env smuggle.
 
+### Phase 1 drift note (2026-07-10, recorded while landing)
+
+A concurrent refactor series (`refactor(manager): page exports through
+authenticated RPC` + the uncommitted export-stream removal that followed it)
+deleted the daemon HTTP export spool stream while phase 1 was in flight:
+`sandbox-daemon/src/http/export.rs` left the module tree, the manager now
+pages every export through `read_export_chunk` RPC, and the protocol's
+`export_stream.rs` (token vocabulary + TTL) is gone. Consequences applied
+here, per the spec's own no-dead-schema policy:
+
+- `daemon.http.export` (`frame_bytes`, `channel_frames`) is **dropped from
+  phase 1** — its one consumer no longer exists. A schema test now pins the
+  opposite contract: `daemon.http` is an *unknown key*.
+- P1-F4 is adapted from frame-shape to **chunk-shape invariance**: the
+  transport-shape knob end to end is `runtime.layerstack.export_chunk_bytes`
+  (the RPC page size), exercised with a multi-chunk spool.
+- Phase 2's `token_ttl_s` work item is void (its target was deleted); its
+  spec entry needs the same drift treatment when phase 2 starts.
+- `manager.export.max_stream_bytes` now also gates the daemon-declared
+  `spool_bytes` before the first page — a strictly earlier rejection than the
+  spec described.
+
 ### Work items
 
-- [ ] Schema: `configs/runtime.rs` — new `runtime.layerstack` subsection
+- [x] Schema: `configs/runtime.rs` — new `runtime.layerstack` subsection
       (`remount_sweep_width`, `export_chunk_bytes`, `spool_zstd_level`),
       `#[serde(default)]`, validation (`width >= 1`, `chunk >= 1`,
       `zstd level 1..=22`)
-- [ ] Schema: `configs/manager.rs` — new `manager.export` subsection
+- [x] Schema: `configs/manager.rs` — new `manager.export` subsection
       (`max_stream_bytes`, `max_decompressed_bytes`, `max_apply_entries`),
-      defaults preserving today's values, validation `>= 1`
-- [ ] Schema: `configs/daemon.rs` — new `daemon.http.export` subsection
-      (`frame_bytes >= 4096`, `channel_frames >= 1`)
-- [ ] `configs/validate.rs` — range helpers needed above
-- [ ] Wiring: squash remount sweep reads width from `RuntimeConfig`
-      (constructor path); `sweep_width()` env fn deleted
+      defaults preserving today's values, validation `>= 1`;
+      `ManagerConfig::validate()` added (export + docker), called by the
+      gateway
+- [x] ~~Schema: `configs/daemon.rs` — new `daemon.http.export` subsection~~
+      dropped per drift note; `config_daemon_rejects_unknown_http_subsection`
+      pins the surface's absence
+- [x] `configs/validate.rs` — `require_i32_in_range` added
+- [x] Wiring: squash remount sweep reads width from the layerstack service
+      config (constructor path); `sweep_width()` env fn deleted
       (`operation/src/layerstack/service/impls/squash.rs`)
-- [ ] Wiring: export chunk fallback cap and spool zstd level flow from
-      `RuntimeConfig` through the operation layer (`emit_stream` takes the
-      level as a parameter; layerstack crate stays config-free)
-- [ ] Wiring: `sandbox-manager/src/export_apply.rs` — three caps from
-      `ManagerConfig`; `env_cap`, `max_decompressed_bytes()`,
-      `max_apply_entries()` env fns deleted
-- [ ] Wiring: daemon HTTP export stream takes `frame_bytes`/`channel_frames`
-      as constructor params (`sandbox-daemon/src/http/export.rs`)
-- [ ] `config/bench.yml` — `container_env.EOS_REMOUNT_SWEEP_WIDTH` smuggle
+- [x] Wiring: export chunk cap and spool zstd level flow from
+      `RuntimeConfig` through the operation layer (`emit_delta_stream` takes
+      the level as a parameter; layerstack crate stays config-free)
+- [x] Wiring: `sandbox-manager/src/export_apply.rs` — `ExportApplyCaps`
+      value type injected by the gateway from `ManagerConfig`; `env_cap`,
+      `max_decompressed_bytes()`, `max_apply_entries()` env fns deleted
+- [x] ~~Wiring: daemon HTTP export stream frame params~~ void per drift note
+      (surface deleted concurrently)
+- [x] `config/bench.yml` — `container_env.EOS_REMOUNT_SWEEP_WIDTH` smuggle
       replaced by `runtime.layerstack.remount_sweep_width: __SWEEP_WIDTH__`;
       header comment updated
-- [ ] Bench driver (`ab_driver.py`) substitution updated to the YAML key
-- [ ] Schema tests in `crates/sandbox-config/tests/` — defaults, overrides,
-      validation rejections for all three new subsections
-- [ ] Unskip + adapt `TestPhase1` in `test_phase_knobs.py` (P1-F1..P1-F4)
+- [x] Bench driver (`ab_driver.py`) substitution updated to the YAML key
+      (docstrings in `ab_driver.py`/`ab_compare.py`; the textual
+      `__SWEEP_WIDTH__` replace already lands on the YAML key)
+- [x] Schema tests in `crates/sandbox-config/tests/` — defaults, overrides,
+      validation rejections for the two landed subsections + the
+      `daemon.http` unknown-key pin + a bench-template round-trip test
+- [x] Unskip + adapt `TestPhase1` in `test_phase_knobs.py` (P1-F1..P1-F4,
+      F4 as chunk-shape invariance); export HRD-05 moved onto a lowered-caps
+      generated-config gateway (config-family custody pattern, `config`
+      marker) since its ambient-env channel died with the `EOS_EXPORT_*` vars
 
 ### Acceptance criteria
 

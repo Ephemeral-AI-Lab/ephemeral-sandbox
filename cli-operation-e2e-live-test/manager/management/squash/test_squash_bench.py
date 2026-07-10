@@ -2,8 +2,9 @@
 
 Deterministic (N, M, B) topology cases used by the A/B driver and the
 sweep-width tuning sweep. Run explicitly (not part of smoke/medium/hard); the
-sweep width the daemon uses is set out of band via the daemon container env
-``EOS_REMOUNT_SWEEP_WIDTH`` (see ``config/bench.yml`` + ``ab_driver.sh``).
+sweep width the daemon uses is set out of band via the daemon config key
+``runtime.layerstack.remount_sweep_width`` (see ``config/bench.yml`` +
+``ab_driver.py``).
 """
 
 import pytest

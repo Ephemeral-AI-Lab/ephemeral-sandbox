@@ -14,6 +14,7 @@ mod store;
 pub use daemon_client::{SandboxDaemonClient, TcpSandboxDaemonClient};
 pub use daemon_install::{LocalSandboxDaemonInstaller, SandboxDaemonInstaller, StartedDaemon};
 pub use error::ManagerError;
+pub use export_apply::ExportApplyCaps;
 pub use model::{
     SandboxDaemonEndpoint, SandboxHttpEndpoint, SandboxId, SandboxRecord, SandboxState,
     SharedBaseMount,

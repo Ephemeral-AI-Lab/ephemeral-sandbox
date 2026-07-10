@@ -1,0 +1,31 @@
+Sandbox Runtime Help
+
+Command
+  Run, interact with, and inspect commands.
+
+  exec_command
+    Start a command in a workspace session.
+
+  write_command_stdin
+    Write text to a running command stdin.
+
+  read_command_lines
+    Read command output by line offset.
+
+File
+  Read, write, edit, and inspect workspace files.
+
+  file_read
+    Read a text file from the snapshot or a session.
+
+  file_write
+    Overwrite a file in the snapshot or a session.
+
+  file_edit
+    Apply ordered string edits to a file.
+
+  file_blame
+    Show per-line ownership for a published file.
+
+Use:
+  sandbox-runtime-cli --sandbox-id ID OPERATION

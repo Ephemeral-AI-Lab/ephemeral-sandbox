@@ -1,0 +1,22 @@
+Sandbox Observability Help
+
+Observability
+  Inspect traces, events, and resource stats for a sandbox.
+
+  snapshot
+    Show live sandbox state.
+
+  trace
+    Render one flow as a span waterfall.
+
+  events
+    List domain-fact events across traces.
+
+  cgroup
+    Resource series for a scope (cpu/mem/io + disk).
+
+  layerstack
+    Per-layer leasing/booking inventory, and stack series.
+
+Use:
+  sandbox-observability-cli OPERATION

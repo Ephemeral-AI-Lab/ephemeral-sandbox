@@ -183,6 +183,36 @@ fn load_test_override_rejects_symlink_to_prd_baseline() {
     assert!(err.to_string().contains("prd.yml"));
 }
 
+#[test]
+fn bench_template_round_trips_after_width_substitution() {
+    // The bench driver substitutes the sweep width straight into
+    // runtime.layerstack; a rendered arm file must load through every schema
+    // section with no env side channel left in the template.
+    let template = fs::read_to_string(workspace_root().join("config").join("bench.yml"))
+        .expect("bench.yml is readable");
+    assert!(
+        !template.contains("EOS_"),
+        "bench.yml must carry no env side channels"
+    );
+    let rendered = template
+        .replace("__SWEEP_WIDTH__", "8")
+        .replace("__DAEMON_CONFIG_PATH__", "/tmp/eos-bench-daemon.yml");
+    let doc = parse_doc(&rendered);
+
+    let runtime: configs::runtime::RuntimeConfig = doc.section("runtime").expect("runtime section");
+    runtime.validate().expect("bench runtime config is valid");
+    assert_eq!(runtime.layerstack.remount_sweep_width, 8);
+
+    let daemon: configs::daemon::DaemonConfig = doc.section("daemon").expect("daemon section");
+    daemon.validate().expect("bench daemon config is valid");
+
+    let manager: configs::manager::ManagerConfig = doc.section("manager").expect("manager section");
+    manager.validate().expect("bench manager config is valid");
+
+    doc.section::<configs::observability::ObservabilityConfig>("observability")
+        .expect("observability section");
+}
+
 fn test_workspace_dir(label: &str) -> PathBuf {
     workspace_root()
         .join("target")
