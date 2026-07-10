@@ -48,7 +48,7 @@ Statuses: `blocked` → `ready` → `in progress` → `gate review` → `approve
 | Phase | Title | Status | Started | Gate approved | Approver |
 | --- | --- | --- | --- | --- | --- |
 | 0 | Characterize, freeze inventory, purge generated weight | approved | 2026-07-10 | 2026-07-10 | Codex |
-| 1 | Create contract, narrow protocol in place | in progress | 2026-07-10 | — | — |
+| 1 | Create contract, narrow protocol in place | gate review | 2026-07-10 | — | — |
 | 2 | Merge and refeature the catalogs | blocked | — | — | — |
 | 3 | Extract the shared gateway client | blocked | — | — | — |
 | 4 | Clean the manager application in place | blocked | — | — | — |
@@ -191,23 +191,23 @@ atomic change.
 
 ### Acceptance criteria
 
-- [ ] Applications construct and handle `OperationRequest`/
+- [x] Applications construct and handle `OperationRequest`/
   `OperationResponse` without importing `sandbox-protocol`:
   `cargo tree -i sandbox-protocol -e normal,dev,build` lists no
   `sandbox-manager` or `sandbox-runtime` dependent.
-- [ ] Manager contains no concrete transport/process adapter:
+- [x] Manager contains no concrete transport/process adapter:
   `rg 'TcpSandboxDaemonClient|LocalSandboxDaemonInstaller|ProtocolLimits' crates/sandbox-manager/src`
   returns nothing.
-- [ ] The readiness identifier has one production definition:
+- [x] The readiness identifier has one production definition:
   `rg -l 'sandbox_daemon_ready' crates/*/src` names only
   `sandbox-protocol`.
-- [ ] Semantic renames are complete:
+- [x] Semantic renames are complete:
   `rg 'CliOperation|CliSpec|ArgCliSpec' crates/*/src crates/*/*/src` matches
   only `sandbox-cli/src/projection` (CLI-owned types).
-- [ ] Protocol wire-compatibility tests pass for all behavior not
+- [x] Protocol wire-compatibility tests pass for all behavior not
   explicitly broken later. *Evidence: `cargo test -p sandbox-protocol`.*
-- [ ] Contract has no workspace dependencies (`cargo metadata`).
-- [ ] Standing gate passed.
+- [x] Contract has no workspace dependencies (`cargo metadata`).
+- [x] Standing gate passed.
 
 ### Progress log
 
@@ -222,6 +222,13 @@ atomic change.
 | 2026-07-10 | Local daemon installer ownership (change 8) | `cargo test -p sandbox-gateway --test local_daemon_installer`; `rg 'LocalSandboxDaemonInstaller\|\bnix::\|\buuid::' crates/sandbox-manager/src crates/sandbox-manager/tests` | Gateway launch/process/socket proofs passed 3/3; ownership search produced no matches (expected `rg` exit 1), so manager retains no concrete installer, `nix`, or `uuid` use. | None. |
 | 2026-07-10 | Test split and application conversion (changes 9–10) | `cargo test -p sandbox-operation-contract -p sandbox-protocol -p sandbox-cli -p sandbox-mcp -p sandbox-console -p sandbox-manager -p sandbox-runtime -p sandbox-daemon -p sandbox-gateway -p sandbox-provider-docker --all-features`; `cargo fmt --all -- --check` | Every selected owner package test binary passed after both adapter moves; formatting check was clean. | None. |
 | 2026-07-10 | Phase 1 code-complete compile | `git diff --check`; `cargo check --workspace --all-targets --all-features` | Diff validation and the full all-target, all-feature workspace compile exited 0. | None. |
+| 2026-07-10 | Acceptance: applications are protocol-independent | `cargo tree -i sandbox-protocol -e normal,dev,build` | Exit 0; inverse tree lists CLI, console, daemon, gateway, MCP, and provider-docker only; neither `sandbox-manager` nor `sandbox-runtime` appears. | None. |
+| 2026-07-10 | Acceptance: manager has no concrete adapter | `rg 'TcpSandboxDaemonClient\|LocalSandboxDaemonInstaller\|ProtocolLimits' crates/sandbox-manager/src` | No output (expected `rg` exit 1). | None. |
+| 2026-07-10 | Acceptance: readiness has one definition | `rg -l 'sandbox_daemon_ready' crates/*/src` | Exit 0; sole result: `crates/sandbox-protocol/src/handshake.rs`. | None. |
+| 2026-07-10 | Acceptance: semantic renames are complete | `rg 'CliOperation\|CliSpec\|ArgCliSpec' crates/*/src crates/*/*/src` | No output (expected `rg` exit 1); no legacy semantic or projection type names remain. | None. |
+| 2026-07-10 | Acceptance: protocol wire compatibility | `cargo test -p sandbox-protocol` | Exit 0; protocol tests passed 9/9 and doc tests passed. | None. |
+| 2026-07-10 | Acceptance: contract dependency closure | `cargo metadata --format-version 1 \| jq -c '.packages[] \| select(.name == "sandbox-operation-contract") \| {name, dependencies: [.dependencies[] \| {name, source}]}'` | Exit 0; dependencies are only registry `serde` and `serde_json`; there are no workspace dependencies. | None. |
+| 2026-07-10 | Phase 1 standing gate | `cargo check --workspace --all-targets --all-features`; `cargo test --workspace --all-features`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo fmt --all -- --check` | All exited 0; every workspace and doc-test group passed, with one intentional benchmark test ignored; clippy finished with warnings denied and formatting was clean. | None. |
 | | | | | |
 
 ---
