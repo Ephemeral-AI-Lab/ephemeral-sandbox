@@ -63,7 +63,7 @@ const EXEC_COMMAND_ARGS: &[ArgSpec] = &[
 
 const EXEC_COMMAND_CLI: CliSpec = CliSpec {
     path: &["runtime", "exec_command"],
-    usage: "sandbox-runtime-cli --sandbox-id ID exec_command [--workspace-session-id ID] COMMAND",
+    usage: "sandbox-runtime-cli --sandbox-id ID exec_command [--workspace-session-id ID] [--timeout-ms N] [--yield-time-ms N] COMMAND",
     examples: &[
         "sandbox-runtime-cli --sandbox-id ID exec_command pwd",
         "sandbox-runtime-cli --sandbox-id ID exec_command --workspace-session-id ws-1 pwd",
@@ -114,7 +114,7 @@ const WRITE_STDIN_ARGS: &[ArgSpec] = &[
 
 const WRITE_STDIN_CLI: CliSpec = CliSpec {
     path: &["runtime", "write_command_stdin"],
-    usage: "sandbox-runtime-cli --sandbox-id ID write_command_stdin --command-session-id ID TEXT",
+    usage: "sandbox-runtime-cli --sandbox-id ID write_command_stdin --command-session-id ID [--yield-time-ms N] TEXT",
     examples: &[
         "sandbox-runtime-cli --sandbox-id ID write_command_stdin --command-session-id cmd-1 hello",
     ],
@@ -144,7 +144,7 @@ const READ_LINES_ARGS: &[ArgSpec] = &[
         "start_offset",
         ArgKind::Integer,
         "First transcript line offset. Defaults to 0.",
-        None,
+        Some("0"),
         Some(ArgCliSpec {
             flag: Some("--start-offset"),
             positional: None,
@@ -154,7 +154,7 @@ const READ_LINES_ARGS: &[ArgSpec] = &[
         "limit",
         ArgKind::Integer,
         "Maximum transcript rows to return. Defaults to 200; maximum 1000.",
-        None,
+        Some("200"),
         Some(ArgCliSpec {
             flag: Some("--limit"),
             positional: None,

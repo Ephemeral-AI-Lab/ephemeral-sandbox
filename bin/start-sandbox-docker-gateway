@@ -76,11 +76,13 @@ done
 printf 'building host binaries\n'
 cargo build --quiet --manifest-path "$repo_root/Cargo.toml" \
     -p sandbox-gateway --bin sandbox-gateway \
-    -p sandbox-cli --features sandbox-cli/manager,sandbox-cli/runtime,sandbox-cli/observability \
-    --bin sandbox-manager-cli \
-    --bin sandbox-runtime-cli \
-    --bin sandbox-observability-cli \
     -p xtask --bin xtask
+cargo build --quiet --manifest-path "$repo_root/Cargo.toml" \
+    -p sandbox-cli --no-default-features --features manager --bin sandbox-manager-cli
+cargo build --quiet --manifest-path "$repo_root/Cargo.toml" \
+    -p sandbox-cli --no-default-features --features runtime --bin sandbox-runtime-cli
+cargo build --quiet --manifest-path "$repo_root/Cargo.toml" \
+    -p sandbox-cli --no-default-features --features observability --bin sandbox-observability-cli
 for host_bin in "$gateway_bin" "$manager_cli_bin" "$runtime_cli_bin" "$observability_cli_bin" "$xtask_bin"; do
     if [ ! -x "$host_bin" ]; then
         printf 'built host binary not found at %s\n' "$host_bin" >&2

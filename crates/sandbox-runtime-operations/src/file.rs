@@ -98,7 +98,7 @@ const FILE_READ_ARGS: &[ArgSpec] = &[
         "offset",
         ArgKind::Integer,
         "1-indexed line number to start reading from. Defaults to 1.",
-        None,
+        Some("1"),
         Some(ArgCliSpec {
             flag: Some("--offset"),
             positional: None,
@@ -108,7 +108,7 @@ const FILE_READ_ARGS: &[ArgSpec] = &[
         "limit",
         ArgKind::Integer,
         "Maximum number of lines to read. Defaults to 2000; must be 1..=2000.",
-        None,
+        Some("2000"),
         Some(ArgCliSpec {
             flag: Some("--limit"),
             positional: None,

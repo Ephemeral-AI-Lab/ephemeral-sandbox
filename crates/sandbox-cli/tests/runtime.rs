@@ -53,7 +53,42 @@ async fn operation_help_uses_runtime_program_name() {
     .await;
     assert_eq!(code, 0);
     assert!(stderr.is_empty());
-    assert!(stdout.contains("Usage\n  sandbox-runtime-cli --sandbox-id ID exec_command"));
+    assert!(stdout.contains(
+        "Usage\n  sandbox-runtime-cli --sandbox-id ID exec_command \
+[--workspace-session-id ID] [--timeout-ms N] [--yield-time-ms N] COMMAND"
+    ));
+    assert!(stdout.contains("COMMAND string required"));
+    assert!(stdout.contains("Examples\n  sandbox-runtime-cli --sandbox-id ID exec_command pwd"));
+
+    let (code, stdout, stderr) = run(&["sandbox-runtime-cli", "help", "write_command_stdin"]).await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert!(stdout.contains(
+        "Usage\n  sandbox-runtime-cli --sandbox-id ID write_command_stdin \
+--command-session-id ID [--yield-time-ms N] TEXT"
+    ));
+
+    let (code, stdout, stderr) = run(&["sandbox-runtime-cli", "help", "file_read"]).await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert!(stdout.contains("Usage\n  sandbox-runtime-cli --sandbox-id ID file_read"));
+    assert!(stdout.contains("Default: 1"));
+    assert!(stdout.contains("Default: 2000"));
+
+    let (code, stdout, stderr) = run(&["sandbox-runtime-cli", "help", "read_command_lines"]).await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert!(stdout.contains("Default: 0"));
+    assert!(stdout.contains("Default: 200"));
+}
+
+#[tokio::test]
+async fn bare_invocation_prints_runtime_catalog_help() {
+    let (code, stdout, stderr) = run(&["sandbox-runtime-cli"]).await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert!(stdout.contains("Sandbox Runtime Help"));
+    assert!(stdout.contains("Use:\n  sandbox-runtime-cli --sandbox-id ID OPERATION"));
 }
 
 #[tokio::test]
@@ -187,6 +222,53 @@ async fn success_is_one_stdout_json_line_and_uses_sandbox_scope() {
     );
     assert_eq!(request["args"], json!({"cmd": "pwd"}));
     assert_eq!(request["_stream_logs"], false);
+}
+
+#[tokio::test]
+async fn omitted_read_arguments_use_catalog_defaults() {
+    let response = json!({"status": "running"});
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        &addr,
+        "--sandbox-id",
+        "eos-x",
+        "read_command_lines",
+        "--command-session-id",
+        "cmd-1",
+    ])
+    .await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(
+        request["args"],
+        json!({"command_session_id": "cmd-1", "start_offset": 0, "limit": 200})
+    );
+
+    let response = json!({"path": "README.md"});
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        &addr,
+        "--sandbox-id",
+        "eos-x",
+        "file_read",
+        "--path",
+        "README.md",
+    ])
+    .await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(
+        request["args"],
+        json!({"path": "README.md", "offset": 1, "limit": 2000})
+    );
 }
 
 #[tokio::test]

@@ -39,6 +39,13 @@ async fn operation_help_uses_standalone_program_name() {
     assert!(stderr.is_empty());
     assert!(stdout.contains("Usage\n  sandbox-observability-cli trace"));
     assert!(!stdout.contains("sandbox-manager-cli observability"));
+    assert!(stdout.contains("--sandbox-id string required"));
+    assert!(stdout.contains("--trace-id string optional"));
+    assert!(stdout.contains("Default: last"));
+    assert!(stdout.contains(
+        "Examples\n  sandbox-observability-cli trace --sandbox-id eos-abc \
+--trace-id req-7f3"
+    ));
 }
 
 #[tokio::test]
@@ -194,6 +201,36 @@ async fn parser_and_config_failures_are_json_usage_errors() {
     assert_eq!(code, 2);
     assert!(stdout.is_empty());
     assert_eq!(parse_json_line(&stderr)["error"]["kind"], "config_error");
+}
+
+#[tokio::test]
+async fn stray_positional_argument_fails_before_gateway_io() {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind unreachable gateway");
+    let addr = listener.local_addr().expect("gateway address").to_string();
+    let (code, stdout, stderr) = run(&[
+        "sandbox-observability-cli",
+        "--gateway-socket",
+        &addr,
+        "snapshot",
+        "extra",
+    ])
+    .await;
+
+    assert_eq!(code, 2);
+    assert!(stdout.is_empty());
+    let error = parse_json_line(&stderr);
+    assert_eq!(error["error"]["kind"], "invalid_request");
+    assert!(error["error"]["message"]
+        .as_str()
+        .expect("error message")
+        .contains("unexpected positional argument"));
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), listener.accept())
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]

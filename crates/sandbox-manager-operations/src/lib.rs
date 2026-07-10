@@ -53,7 +53,7 @@ const CREATE_SANDBOX_ARGS: &[ArgSpec] = &[
         "count",
         ArgKind::Integer,
         "Number of sandboxes to create. Values greater than 1 use a shared read-only workspace base.",
-        None,
+        Some("1"),
         Some(ArgCliSpec {
             flag: Some("--count"),
             positional: None,
