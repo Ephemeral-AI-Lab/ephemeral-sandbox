@@ -51,7 +51,7 @@ Statuses: `blocked` → `ready` → `in progress` → `gate review` → `approve
 | 1 | Create contract, narrow protocol in place | approved | 2026-07-10 | 2026-07-10 | Codex |
 | 2 | Merge and refeature the catalogs | approved | 2026-07-10 | 2026-07-10 | Codex |
 | 3 | Extract the shared gateway client | approved | 2026-07-10 | 2026-07-10 | Codex |
-| 4 | Clean the manager application in place | gate review | 2026-07-10 | — | — |
+| 4 | Clean the manager application in place | approved | 2026-07-10 | 2026-07-10 | Codex |
 | 5 | Clean the runtime application in place | blocked | — | — | — |
 | 6 | Extract observability application, remove multiplexing | blocked | — | — | — |
 | 7 | Update documentation, scripts, law statements | blocked | — | — | — |
