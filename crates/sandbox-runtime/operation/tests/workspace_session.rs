@@ -906,7 +906,7 @@ fn operations_with_fake(
 }
 
 fn runtime_request(op: &str, args: serde_json::Value) -> OperationRequest {
-    OperationRequest::new(op, "req-test", OperationScope::system(), args)
+    OperationRequest::new(op, "req-test", OperationScope::sandbox("sbox-test"), args)
 }
 
 fn layerstack_service() -> Result<Arc<LayerStackService>, Box<dyn std::error::Error + Send + Sync>>

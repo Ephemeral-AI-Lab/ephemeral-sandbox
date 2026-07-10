@@ -421,7 +421,7 @@ fn destroy_workspace_session_waits_for_existing_session_exec_until_active_insert
     let destroy_request = OperationRequest::new(
         "destroy_workspace_session",
         "req-destroy-race",
-        OperationScope::system(),
+        OperationScope::sandbox("sbox-test"),
         json!({ "workspace_session_id": workspace_session_id.0 }),
     );
     let destroy_handle = std::thread::spawn(move || {

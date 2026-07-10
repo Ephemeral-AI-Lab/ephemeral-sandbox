@@ -15,6 +15,7 @@ use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use base64::Engine as _;
 use sandbox_observability::record::names;
 use sandbox_operation_catalog::internal::runtime::{EXPORT_LAYERSTACK, READ_EXPORT_CHUNK};
+use sandbox_operation_contract::OperationScopeKind;
 use sandbox_runtime_layerstack::{
     emit_delta_stream, fold_delta_winners, DeltaStreamStats, LayerRef, LayerStack,
 };
@@ -25,12 +26,14 @@ use crate::operations::dispatch::OperationEntry;
 use crate::services::SandboxRuntimeOperations;
 
 const EXPORT_LAYERSTACK_ENTRY: OperationEntry = OperationEntry {
+    scope_kind: OperationScopeKind::Sandbox,
     name: EXPORT_LAYERSTACK,
     spec: None,
     dispatch: dispatch_export_layerstack,
 };
 
 const READ_EXPORT_CHUNK_ENTRY: OperationEntry = OperationEntry {
+    scope_kind: OperationScopeKind::Sandbox,
     name: READ_EXPORT_CHUNK,
     spec: None,
     dispatch: dispatch_read_export_chunk,

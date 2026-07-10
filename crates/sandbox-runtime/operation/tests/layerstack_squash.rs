@@ -5,7 +5,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use sandbox_operation_contract::{OperationRequest, OperationScope};
+use sandbox_operation_contract::{OperationRequest, OperationScope, OperationScopeKind};
 use sandbox_runtime::workspace_session::SweptDisposition;
 use sandbox_runtime::SandboxRuntimeOperations;
 use sandbox_runtime_layerstack::{LayerChange, LayerPath, LayerStack};
@@ -20,7 +20,7 @@ fn squash_request() -> OperationRequest {
     OperationRequest::new(
         "squash_layerstack",
         "req-squash-test",
-        OperationScope::system(),
+        OperationScope::sandbox("sbox-test"),
         json!({}),
     )
 }
@@ -54,15 +54,10 @@ fn publish(root: &std::path::Path, path: &str, content: &str) {
         .expect("publish");
 }
 
-// squash_layerstack dispatches by name but appears in no CLI catalog — the
-// internal registration is the whole mechanism (no
-// OperationEntry::internal exists).
 #[test]
-fn squash_layerstack_registers_with_cli_none() {
-    assert_eq!(
-        sandbox_runtime::known_operation_name("squash_layerstack"),
-        Some("squash_layerstack")
-    );
+fn squash_layerstack_is_internal_and_absent_from_the_public_catalog() {
+    assert!(sandbox_runtime::runtime_internal_handler_keys()
+        .any(|key| { key == (OperationScopeKind::Sandbox, "squash_layerstack") }));
     let catalog = sandbox_operation_catalog::runtime::runtime_catalog();
     let encoded = sandbox_operation_contract::catalog_to_value(catalog).to_string();
     assert!(
@@ -205,7 +200,7 @@ fn admission_gate_serializes_destroy_against_file_ops() {
             &OperationRequest::new(
                 "destroy_workspace_session",
                 "req-destroy-gate",
-                OperationScope::system(),
+                OperationScope::sandbox("sbox-test"),
                 json!({ "workspace_session_id": destroy_id }),
             ),
         )

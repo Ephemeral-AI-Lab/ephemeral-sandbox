@@ -649,6 +649,28 @@ fn dispatch_file_read_limit_out_of_range_is_invalid_request() {
     }
 }
 
+#[test]
+fn dispatch_rejects_a_runtime_operation_under_the_wrong_scope_kind() {
+    let env = env();
+    let operations = dispatch_operations(&env);
+    let sandbox_response = sandbox_runtime::dispatch_operation(
+        &operations,
+        &runtime_request("file_read", json!({ "path": "readme.txt" })),
+    )
+    .into_json_value();
+    assert_eq!(sandbox_response["path"], "readme.txt");
+
+    let system_request = OperationRequest::new(
+        "file_read",
+        "req-wrong-scope",
+        OperationScope::system(),
+        json!({ "path": "readme.txt" }),
+    );
+    let system_response =
+        sandbox_runtime::dispatch_operation(&operations, &system_request).into_json_value();
+    assert_eq!(system_response["error"]["kind"], "unknown_op");
+}
+
 fn dispatch_operations(env: &Env) -> SandboxRuntimeOperations {
     let command = Arc::new(CommandOperationService::new(
         Arc::clone(&env.workspace_session),
@@ -664,7 +686,7 @@ fn dispatch_operations(env: &Env) -> SandboxRuntimeOperations {
 }
 
 fn runtime_request(op: &str, args: serde_json::Value) -> OperationRequest {
-    OperationRequest::new(op, "req-test", OperationScope::system(), args)
+    OperationRequest::new(op, "req-test", OperationScope::sandbox("sbox-test"), args)
 }
 
 // ---------- layerstack helpers ----------

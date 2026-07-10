@@ -16,6 +16,7 @@ use std::sync::{Mutex, PoisonError};
 use sandbox_observability::record::names;
 use sandbox_observability::TraceContext;
 use sandbox_operation_catalog::internal::runtime::SQUASH_LAYERSTACK;
+use sandbox_operation_contract::OperationScopeKind;
 use sandbox_runtime_layerstack::LayerStack;
 use serde_json::{json, Value};
 
@@ -25,6 +26,7 @@ use crate::workspace_crate::WorkspaceSessionId;
 use crate::workspace_session::{SweptDisposition, SweptSession};
 
 const SQUASH_LAYERSTACK_ENTRY: OperationEntry = OperationEntry {
+    scope_kind: OperationScopeKind::Sandbox,
     name: SQUASH_LAYERSTACK,
     spec: None,
     dispatch: dispatch_squash_layerstack,

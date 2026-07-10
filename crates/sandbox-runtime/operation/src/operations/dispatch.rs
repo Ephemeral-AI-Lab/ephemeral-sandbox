@@ -1,9 +1,10 @@
-use super::registry::{command_operations, file_operations, workspace_session_operations};
+use super::registry;
 use crate::services::SandboxRuntimeOperations;
-use sandbox_operation_contract::OperationSpec;
+use sandbox_operation_contract::{OperationScopeKind, OperationSpec};
 
 #[derive(Clone, Copy)]
 pub(crate) struct OperationEntry {
+    pub(crate) scope_kind: OperationScopeKind,
     pub(crate) name: &'static str,
     pub(crate) spec: Option<&'static OperationSpec>,
     pub(crate) dispatch: OperationDispatch,
@@ -18,6 +19,7 @@ impl OperationEntry {
     #[must_use]
     pub(crate) const fn public(spec: &'static OperationSpec, dispatch: OperationDispatch) -> Self {
         Self {
+            scope_kind: OperationScopeKind::Sandbox,
             name: spec.name,
             spec: Some(spec),
             dispatch,
@@ -29,10 +31,8 @@ pub(crate) fn dispatch_operation(
     operations: &SandboxRuntimeOperations,
     request: &sandbox_operation_contract::OperationRequest,
 ) -> sandbox_operation_contract::OperationResponse {
-    operation_entry_groups()
-        .iter()
-        .flat_map(|entries| entries.iter())
-        .find(|entry| entry.name == request.op)
+    operation_entries()
+        .find(|entry| entry.scope_kind == request.scope.kind() && entry.name == request.op)
         .map_or_else(
             sandbox_operation_contract::OperationResponse::unknown_op,
             |entry| {
@@ -42,21 +42,23 @@ pub(crate) fn dispatch_operation(
         )
 }
 
-pub(crate) fn known_operation_name(operation: &str) -> Option<&'static str> {
-    operation_entry_groups()
-        .iter()
-        .flat_map(|entries| entries.iter())
-        .find_map(|entry| (entry.name == operation).then_some(entry.name))
+pub(crate) fn runtime_public_handler_keys(
+) -> impl Iterator<Item = (OperationScopeKind, &'static str)> {
+    registry::public_operation_entries().map(|entry| (entry.scope_kind, entry.name))
 }
 
-const OPERATION_ENTRY_GROUPS: &[&[OperationEntry]] = &[
-    command_operations::operation_entries(),
-    file_operations::operation_entries(),
-    workspace_session_operations::operation_entries(),
-    crate::layerstack::squash_operation_entries(),
-    crate::layerstack::export_operation_entries(),
-];
+pub(crate) fn runtime_internal_handler_keys(
+) -> impl Iterator<Item = (OperationScopeKind, &'static str)> {
+    registry::internal_operation_entries().map(|entry| (entry.scope_kind, entry.name))
+}
 
-fn operation_entry_groups() -> &'static [&'static [OperationEntry]] {
-    OPERATION_ENTRY_GROUPS
+pub(crate) fn runtime_http_only_handler_keys(
+) -> impl Iterator<Item = (OperationScopeKind, &'static str)> {
+    registry::http_only_operation_entries().map(|entry| (entry.scope_kind, entry.name))
+}
+
+fn operation_entries() -> impl Iterator<Item = &'static OperationEntry> {
+    registry::public_operation_entries()
+        .chain(registry::internal_operation_entries())
+        .chain(registry::http_only_operation_entries())
 }

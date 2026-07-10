@@ -260,30 +260,6 @@ fn service_graph_catalog_keeps_internal_helpers_out() {
 }
 
 #[test]
-fn hidden_http_and_lifecycle_operations_remain_registered_for_daemon_dispatch() {
-    assert_eq!(
-        sandbox_runtime::known_operation_name("exec_command"),
-        Some("exec_command")
-    );
-    assert_eq!(
-        sandbox_runtime::known_operation_name("create_workspace_session"),
-        Some("create_workspace_session")
-    );
-    assert_eq!(
-        sandbox_runtime::known_operation_name("destroy_workspace_session"),
-        Some("destroy_workspace_session")
-    );
-    assert_eq!(
-        sandbox_runtime::known_operation_name("file_list"),
-        Some("file_list")
-    );
-    assert_eq!(
-        sandbox_runtime::known_operation_name("RAW_UNKNOWN_OPERATION_SECRET"),
-        None
-    );
-}
-
-#[test]
 fn service_graph_workspace_session_source_boundaries_stay_private() {
     let workspace_session_sources = rust_sources("src/workspace_session");
     for (path, source) in workspace_session_sources {

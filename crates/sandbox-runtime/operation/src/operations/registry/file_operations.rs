@@ -11,15 +11,15 @@ use sandbox_operation_catalog::internal::runtime::FILE_LIST;
 use sandbox_operation_catalog::runtime::{
     FILE_BLAME_SPEC, FILE_EDIT_SPEC, FILE_READ_SPEC, FILE_WRITE_SPEC,
 };
-use sandbox_operation_contract::{error, OperationRequest, OperationResponse};
+use sandbox_operation_contract::{error, OperationRequest, OperationResponse, OperationScopeKind};
 use sandbox_runtime_layerstack::LayerPath;
 
 const FILE_NOT_FOUND: &str = "not_found";
 const READ_LIMIT_MAX: u64 = 2000;
 
-// `file_list` is daemon HTTP-only; the other file operations stay in the runtime CLI.
 const FILE_BLAME: OperationEntry = OperationEntry::public(&FILE_BLAME_SPEC, dispatch_file_blame);
 const FILE_LIST_ENTRY: OperationEntry = OperationEntry {
+    scope_kind: OperationScopeKind::Sandbox,
     name: FILE_LIST,
     spec: None,
     dispatch: dispatch_file_list,
@@ -28,16 +28,15 @@ const FILE_READ: OperationEntry = OperationEntry::public(&FILE_READ_SPEC, dispat
 const FILE_WRITE: OperationEntry = OperationEntry::public(&FILE_WRITE_SPEC, dispatch_file_write);
 const FILE_EDIT: OperationEntry = OperationEntry::public(&FILE_EDIT_SPEC, dispatch_file_edit);
 
-const OPERATIONS: &[OperationEntry] = &[
-    FILE_BLAME,
-    FILE_LIST_ENTRY,
-    FILE_READ,
-    FILE_WRITE,
-    FILE_EDIT,
-];
+const PUBLIC_OPERATIONS: &[OperationEntry] = &[FILE_BLAME, FILE_READ, FILE_WRITE, FILE_EDIT];
+const HTTP_ONLY_OPERATIONS: &[OperationEntry] = &[FILE_LIST_ENTRY];
 
-pub(crate) const fn operation_entries() -> &'static [OperationEntry] {
-    OPERATIONS
+pub(crate) const fn public_operation_entries() -> &'static [OperationEntry] {
+    PUBLIC_OPERATIONS
+}
+
+pub(crate) const fn http_only_operation_entries() -> &'static [OperationEntry] {
+    HTTP_ONLY_OPERATIONS
 }
 
 fn dispatch_file_blame(

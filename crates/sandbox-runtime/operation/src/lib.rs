@@ -30,14 +30,24 @@ pub use workspace_crate::{NetworkProfile, WorkspaceSessionId};
 pub use workspace_session::WorkspaceSessionService;
 
 #[must_use]
-pub fn known_operation_name(operation: &str) -> Option<&'static str> {
-    operations::dispatch::known_operation_name(operation)
-}
-
-#[must_use]
 pub fn dispatch_operation(
     operations: &SandboxRuntimeOperations,
     request: &sandbox_operation_contract::OperationRequest,
 ) -> sandbox_operation_contract::OperationResponse {
     operations::dispatch::dispatch_operation(operations, request)
+}
+
+pub fn runtime_public_handler_keys(
+) -> impl Iterator<Item = (sandbox_operation_contract::OperationScopeKind, &'static str)> {
+    operations::dispatch::runtime_public_handler_keys()
+}
+
+pub fn runtime_internal_handler_keys(
+) -> impl Iterator<Item = (sandbox_operation_contract::OperationScopeKind, &'static str)> {
+    operations::dispatch::runtime_internal_handler_keys()
+}
+
+pub fn runtime_http_only_handler_keys(
+) -> impl Iterator<Item = (sandbox_operation_contract::OperationScopeKind, &'static str)> {
+    operations::dispatch::runtime_http_only_handler_keys()
 }

@@ -6,7 +6,7 @@ use std::io::Read;
 use std::sync::Arc;
 
 use base64::Engine as _;
-use sandbox_operation_contract::{OperationRequest, OperationScope};
+use sandbox_operation_contract::{OperationRequest, OperationScope, OperationScopeKind};
 use sandbox_runtime::SandboxRuntimeOperations;
 use sandbox_runtime_layerstack::{LayerChange, LayerPath, LayerStack};
 use serde_json::{json, Value};
@@ -18,7 +18,7 @@ fn export_request() -> OperationRequest {
     OperationRequest::new(
         "export_layerstack",
         "req-export-test",
-        OperationScope::system(),
+        OperationScope::sandbox("sbox-test"),
         json!({}),
     )
 }
@@ -31,7 +31,7 @@ fn chunk_request(export_id: &str, offset: u64, limit: Option<u64>) -> OperationR
     OperationRequest::new(
         "read_export_chunk",
         "req-export-test",
-        OperationScope::system(),
+        OperationScope::sandbox("sbox-test"),
         args,
     )
 }
@@ -121,18 +121,11 @@ fn decode_entry_names(bytes: &[u8]) -> Vec<String> {
         .collect()
 }
 
-// export_layerstack and read_export_chunk dispatch by name but appear in no
-// Public catalog exclusion is the whole mechanism (inv 6).
 #[test]
-fn export_operations_register_with_cli_none() {
-    assert_eq!(
-        sandbox_runtime::known_operation_name("export_layerstack"),
-        Some("export_layerstack")
-    );
-    assert_eq!(
-        sandbox_runtime::known_operation_name("read_export_chunk"),
-        Some("read_export_chunk")
-    );
+fn export_operations_are_internal_and_absent_from_the_public_catalog() {
+    let internal = sandbox_runtime::runtime_internal_handler_keys().collect::<Vec<_>>();
+    assert!(internal.contains(&(OperationScopeKind::Sandbox, "export_layerstack")));
+    assert!(internal.contains(&(OperationScopeKind::Sandbox, "read_export_chunk")));
     let catalog = sandbox_operation_catalog::runtime::runtime_catalog();
     let encoded = sandbox_operation_contract::catalog_to_value(catalog).to_string();
     assert!(

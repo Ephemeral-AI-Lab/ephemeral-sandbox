@@ -9,26 +9,28 @@ use crate::SandboxRuntimeOperations;
 use sandbox_operation_catalog::internal::runtime::{
     CREATE_WORKSPACE_SESSION, DESTROY_WORKSPACE_SESSION,
 };
-use sandbox_operation_contract::{OperationRequest, OperationResponse};
+use sandbox_operation_contract::{OperationRequest, OperationResponse, OperationScopeKind};
 
 const CREATE_WORKSPACE_SESSION_ENTRY: OperationEntry = OperationEntry {
+    scope_kind: OperationScopeKind::Sandbox,
     name: CREATE_WORKSPACE_SESSION,
     spec: None,
     dispatch: dispatch_create_workspace_session,
 };
 const DESTROY_WORKSPACE_SESSION_ENTRY: OperationEntry = OperationEntry {
+    scope_kind: OperationScopeKind::Sandbox,
     name: DESTROY_WORKSPACE_SESSION,
     spec: None,
     dispatch: dispatch_destroy_workspace_session,
 };
 
-const OPERATIONS: &[OperationEntry] = &[
+const INTERNAL_OPERATIONS: &[OperationEntry] = &[
     CREATE_WORKSPACE_SESSION_ENTRY,
     DESTROY_WORKSPACE_SESSION_ENTRY,
 ];
 
-pub(crate) const fn operation_entries() -> &'static [OperationEntry] {
-    OPERATIONS
+pub(crate) const fn internal_operation_entries() -> &'static [OperationEntry] {
+    INTERNAL_OPERATIONS
 }
 
 fn dispatch_create_workspace_session(

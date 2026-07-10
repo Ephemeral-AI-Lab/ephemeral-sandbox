@@ -18,10 +18,11 @@ const WRITE_COMMAND_STDIN: OperationEntry =
 const READ_COMMAND_LINES: OperationEntry =
     OperationEntry::public(&READ_LINES_SPEC, dispatch_read_command_lines);
 
-const OPERATIONS: &[OperationEntry] = &[EXEC_COMMAND, WRITE_COMMAND_STDIN, READ_COMMAND_LINES];
+const PUBLIC_OPERATIONS: &[OperationEntry] =
+    &[EXEC_COMMAND, WRITE_COMMAND_STDIN, READ_COMMAND_LINES];
 
-pub(crate) const fn operation_entries() -> &'static [OperationEntry] {
-    OPERATIONS
+pub(crate) const fn public_operation_entries() -> &'static [OperationEntry] {
+    PUBLIC_OPERATIONS
 }
 
 fn dispatch_exec_command(
