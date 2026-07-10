@@ -36,12 +36,11 @@ verifiable phases. The detailed target contracts are [[mcp]], [[cli]], and
 | 2. Consolidate the CLI package | complete | 1 | one package, three separately grantable binaries |
 | 3. Add the MCP adapter | complete | 1, 2 | one set-configured stdio server with three registrations |
 | 4. Replace export HTTP streaming | complete | 1 | `export_changes` uses authenticated RPC chunk paging only |
-| 5. Move console operation callers | in progress | 2, 4 | console uses gateway RPC for operations and narrow daemon proxies |
+| 5. Move console operation callers | complete | 2, 4 | console uses gateway RPC for operations and narrow daemon proxies |
 | 6. Enforce daemon HTTP allowlist | not started | 4, 5 | only health, forward, and file list remain direct daemon HTTP |
 | 7. Release verification and cutover | not started | 1–6 | end-to-end proof, documentation, and release-ready boundary |
 
-Phases 0 through 4 are complete. Phase 5 is in progress; no later phase has
-started.
+Phases 0 through 5 are complete. Phase 6 has not started.
 
 ## Fixed decisions and non-negotiable invariants
 
@@ -544,7 +543,7 @@ related manager operation/export tests
 
 ## Phase 5 — Move console operation callers to gateway RPC
 
-**Status:** in progress
+**Status:** complete
 
 **Depends on:** Phases 2 and 4
 
@@ -553,15 +552,15 @@ alive after clients have a canonical gateway path.
 
 ### Scope and tasks
 
-- [ ] Change console imports from `sandbox-cli-core` to `sandbox-cli::core`
+- [x] Change console imports from `sandbox-cli-core` to `sandbox-cli::core`
   without enabling a CLI-set feature.
-- [ ] Replace generic `/api/sandboxes/:id/files/:op` proxying with exact,
+- [x] Replace generic `/api/sandboxes/:id/files/:op` proxying with exact,
   read-only `/api/sandboxes/:id/files/list` proxying.
-- [ ] Remove `/api/sandboxes/:id/observability/:view` daemon HTTP proxying.
-- [ ] Change frontend/API callers for file read/write/edit/blame and all
+- [x] Remove `/api/sandboxes/:id/observability/:view` daemon HTTP proxying.
+- [x] Change frontend/API callers for file read/write/edit/blame and all
   observability views to console authenticated `/api/rpc` request envelopes.
-- [ ] Retain console daemon HTTP health and forwarding proxy behaviour.
-- [ ] Update console catalog/tests to use the canonical three catalogs and
+- [x] Retain console daemon HTTP health and forwarding proxy behaviour.
+- [x] Update console catalog/tests to use the canonical three catalogs and
   public operation names.
 
 ### Files expected to change
@@ -575,25 +574,58 @@ crates/sandbox-console/tests/console/{catalog.rs,daemon_api.rs,health.rs,proxy.r
 
 ### Acceptance criteria
 
-- [ ] Console `/api/rpc` successfully carries a representative runtime file
+- [x] Console `/api/rpc` successfully carries a representative runtime file
   call and a representative observability call through the gateway.
-- [ ] The console exposes only `files/list` as its daemon file-operation
+- [x] The console exposes only `files/list` as its daemon file-operation
   proxy; direct console proxy routes for read/write/edit/blame/observability
   are absent or return `404`.
-- [ ] Console health and preview forwarding still resolve `daemon_http` and
+- [x] Console health and preview forwarding still resolve `daemon_http` and
   preserve existing request/response semantics.
-- [ ] Browser-facing code never receives the gateway authentication token.
-- [ ] `cargo test -p sandbox-console` passes, including exact route assertions.
+- [x] Browser-facing code never receives the gateway authentication token.
+- [x] `cargo test -p sandbox-console` passes, including exact route assertions.
 
 ### Evidence to record
 
-```text
-Commit/PR:
-Commands:
-Console route matrix:
-/api/rpc integration evidence:
-Known deviations/waivers:
-```
+- Commit/PR: implementation commit `f2cc10651` on the repository's direct
+  `main` workflow; no PR.
+- Commands: `cargo test -p sandbox-console` passed 29 tests; the same 29 tests
+  passed under the MSRV with `cargo +1.85.0 test -p sandbox-console`.
+  `cargo +1.85.0 clippy -p sandbox-console --all-targets -- -D warnings`,
+  `cargo fmt --package sandbox-console -- --check`, and `git diff --check`
+  passed. `npm run build` under `web/console` passed TypeScript and the Vite
+  production build (the installed Node 22.7 version and bundle-size warnings
+  were non-fatal). A dependency-tree check showed only the default,
+  feature-free `sandbox-cli` core dependency for the console.
+- Console route matrix: fake-daemon integration proved exact
+  `POST /api/sandboxes/eos-1/files/list` forwards to `POST /files/list` with
+  its body unchanged; `GET` on that exact path returns `405`. Table-driven
+  assertions proved file read/write/edit/blame, every observability view,
+  list suffixes, and nested sandbox paths return `404` without any gateway
+  endpoint lookup. The unchanged health and shared/isolated preview tests
+  continued to cover endpoint resolution, request/response forwarding,
+  errors, caching, and upgrade tunnelling.
+- `/api/rpc` integration evidence: fake-gateway tests captured exact
+  authenticated `file_read` and scoped `get_observability` requests, including
+  sandbox scope and the private observability `view`, and returned their
+  results through the console. Aggregate snapshot remains `snapshot` with
+  system scope. A spoofed browser auth token and `_stream_logs` field were
+  discarded/overridden; only the server-configured token reached the gateway,
+  and neither request token appeared in browser response headers or body.
+- Frontend/catalog proof: `npm run build` compiled the migrated adapters;
+  positive source searches found RPC-only file read/write/blame and scoped
+  observability plus the sole `postJson` list call. Negative source and built-
+  asset searches found no legacy operation URLs or gateway-token names. No
+  frontend `file_edit` caller exists; the current editor saves through the
+  migrated `file_write` call, while the former edit proxy is covered by the
+  `404` matrix. A direct Node check accepted a valid canonical `json_array`
+  argument and rejected scalar/malformed values. Catalog integration asserts
+  exact `management`, `runtime`, and `observability` names and memberships,
+  including `file_edit.edits` as `json_array`.
+- Independent contract/security review: pass with no blocking findings.
+- Known deviations/waivers: none. The Phase 6 daemon HTTP removal work and
+  Phase 7 Docker gateway rebuild remain intentionally unstarted. Concurrent
+  config, benchmark, daemon, gateway, manager, and experiment edits were
+  preserved and excluded from the implementation commit.
 
 ## Phase 6 — Enforce the daemon HTTP allowlist
 
@@ -756,6 +788,7 @@ When work lands, update only the relevant phase in this file:
 
 | Date | Phase | Update | Evidence |
 | --- | --- | --- | --- |
+| 2026-07-10 | 5 | Completed the console operation cutover to authenticated gateway RPC, exact list-only daemon proxy, canonical public catalogs, and server-only credential boundary. | commit `f2cc10651`; 29 console tests on default and Rust 1.85 toolchains, frontend production build, JSON-array parser check, lint/format/search/dependency checks, and independent review |
 | 2026-07-10 | 5 | Started the console RPC migration after confirming the Phase 2 and Phase 4 gates and re-reading the binding console, CLI, operation, and daemon HTTP contracts. | implementation and direct acceptance proof pending |
 | 2026-07-10 | 4 | Completed authenticated RPC-only export paging with strict start/page completeness checks, pre-mutation failure handling, and removal of the manager HTTP export client. | commit `0644fd64b`; 30 focused manager export tests on default and Rust 1.85 toolchains, full manager suite, runtime EOF cleanup proof, lint/format/search checks, and independent review |
 | 2026-07-10 | 4 | Started the manager export transport migration after confirming the Phase 1 gate and re-reading the binding export, RPC, CLI, MCP, and daemon HTTP contracts. | implementation and direct acceptance proof pending |
