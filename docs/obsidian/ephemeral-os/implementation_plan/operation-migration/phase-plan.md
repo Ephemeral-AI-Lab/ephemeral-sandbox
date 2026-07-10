@@ -524,16 +524,16 @@ one commit.
 - [x] Move the pure query/structured-response tests from
   `sandbox-daemon/tests/unit/{observability,observability_layerstack}.rs`;
   keep daemon wiring/lifecycle tests in place.
-- [ ] Route the six declared `(scope kind, operation)` combinations from
+- [x] Route the six declared `(scope kind, operation)` combinations from
   the manifest: `(system, snapshot)` → manager; `(sandbox, snapshot/trace/
   events/cgroup/layerstack)` → observability application in the daemon.
-- [ ] Multiplexer cutover (one commit): delete `get_observability` and the
+- [x] Multiplexer cutover (one commit): delete `get_observability` and the
   synthetic `view` argument from the CLI request path, manager
   (`observability_snapshot`), daemon dispatch, the catalog's
   `internal::migration` module, console validation,
   `web/console/src/api/observability.ts`, MCP tests, and E2E expectations;
   console validation becomes public-manifest-only.
-- [ ] Add the shadowing proof: system `snapshot` and sandbox `snapshot`
+- [x] Add the shadowing proof: system `snapshot` and sandbox `snapshot`
   route to different owners and cannot shadow each other.
 
 ### Acceptance criteria
@@ -566,6 +566,7 @@ one commit.
 | 2026-07-10 | Phase 6 started | Dashboard entry criteria and Phase 5 acceptance checklist | Phase 5 is approved and every Phase 5 acceptance item is checked; Phase 6 is unblocked. | None. |
 | 2026-07-10 | Atomic observability namespace conversion | `git diff-tree -r -M100% --summary d50d77c77^ d50d77c77 -- crates/sandbox-observability`; `find crates/sandbox-observability -mindepth 1 -maxdepth 1 -print \| sort`; `cargo metadata --format-version 1 --no-deps`; `cargo check --workspace --all-targets --all-features`; `cargo test -p sandbox-observability -p sandbox-observability-application --all-features` | Commit `d50d77c77` moved the primitives manifest, source, and all nine tests at 100% identity; the namespace contains exactly `application/` and `primitives/`; metadata resolves both packages at their new paths; workspace check and both package suites passed. The gateway freshness watch now covers contract, catalog, primitives, and application inputs. | None. |
 | 2026-07-10 | Observability application extraction, input port, daemon adapter, and pure tests | `cargo metadata --format-version 1 --no-deps \| jq -r '.packages[] \| select(.name == "sandbox-observability-application") \| .dependencies[] \| [.name, .kind, (.features \| join(",")), (.uses_default_features \| tostring)] \| @tsv'`; `cargo clippy -p sandbox-observability-application -p sandbox-daemon --all-targets --all-features -- -D warnings`; `cargo check --workspace --all-targets --all-features`; `cargo test -p sandbox-observability-application -p sandbox-daemon --all-features` | Commit `1431b41e5` moved query/response behavior into the application, introduced neutral snapshot DTOs plus the app-owned input port and daemon adapter, and retained sampling/rotation/lifecycle in daemon. Metadata showed exactly the four permitted workspace dependencies plus external `serde_json`; strict clippy and workspace check passed; daemon passed 51/51 and application passed 8/8, including registry bijection, error precedence, nested trace/event folding, layerstack, and concrete DTO mapping. | None. |
+| 2026-07-10 | Atomic concrete-route multiplexer cutover and shadowing proof | `git show --stat --oneline a7aa8f7bf`; `cargo check --workspace --all-targets --all-features`; `cargo test -p sandbox-operation-catalog -p sandbox-cli -p sandbox-mcp -p sandbox-console -p sandbox-observability-application -p sandbox-daemon -p sandbox-manager --all-features`; `npm --prefix web/console run build`; `rg -n 'get_observability' crates web/console/src e2e --glob '!**/test-reports/**' --glob '!**/__pycache__/**'` | Commit `a7aa8f7bf` changed the CLI/shared request path, manager aggregate/router, daemon dispatch, console, MCP, web console, E2E expectations, contract/catalog migration declarations, and their tests together. The post-commit workspace check passed; catalog integrity 4/4, CLI compatibility 2/2 and observability 10/10, MCP 9/9, console 39/39, application 8/8, daemon 51/51, manager router 11/11 and manager core 14/14 passed. The web build passed, all five sandbox concrete routes dispatch end-to-end, the system/sandbox `snapshot` ownership test passed, and the legacy-name scan returned no output (expected `rg` exit 1). | None. |
 
 ---
 
