@@ -52,7 +52,7 @@ Statuses: `blocked` → `ready` → `in progress` → `gate review` → `approve
 | 2 | Merge and refeature the catalogs | approved | 2026-07-10 | 2026-07-10 | Codex |
 | 3 | Extract the shared gateway client | approved | 2026-07-10 | 2026-07-10 | Codex |
 | 4 | Clean the manager application in place | approved | 2026-07-10 | 2026-07-10 | Codex |
-| 5 | Clean the runtime application in place | in progress | 2026-07-10 | — | — |
+| 5 | Clean the runtime application in place | gate review | 2026-07-10 | — | — |
 | 6 | Extract observability application, remove multiplexing | blocked | — | — | — |
 | 7 | Update documentation, scripts, law statements | blocked | — | — | — |
 | 8 | Enforce boundaries and cut over | blocked | — | — | — |
@@ -464,19 +464,19 @@ repointing are one commit.
 
 ### Acceptance criteria
 
-- [ ] Runtime app workspace dependencies are exactly: contract, catalog,
+- [x] Runtime app workspace dependencies are exactly: contract, catalog,
   the four runtime primitives it uses, and `sandbox-observability`.
   *Evidence: `cargo metadata`.*
-- [ ] `rg 'operation_adapter' crates/sandbox-runtime/operation` returns
+- [x] `rg 'operation_adapter' crates/sandbox-runtime/operation` returns
   nothing.
-- [ ] Every runtime public entry and every canonical internal entry has
+- [x] Every runtime public entry and every canonical internal entry has
   exactly one handler; public and internal registries are disjoint.
   *Evidence: `cargo test -p sandbox-runtime`.*
-- [ ] Canonical internal and HTTP-only operation names have one production
+- [x] Canonical internal and HTTP-only operation names have one production
   definition each:
   `rg '"create_workspace_session"|"destroy_workspace_session"|"squash_layerstack"|"export_layerstack"|"read_export_chunk"|"file_list"' crates/*/src crates/*/*/src`
   matches only the catalog's `internal/runtime.rs`.
-- [ ] Standing gate passed.
+- [x] Standing gate passed.
 
 ### Progress log
 
