@@ -294,21 +294,27 @@ def test_file_list_and_removed_operation_routes(tmp_path):
         assert "live.txt" in names, live
 
         removed = [
-            "/files/read",
-            "/files/write",
-            "/files/edit",
-            "/files/blame",
-            "/observability/snapshot",
-            "/observability/trace",
-            "/observability/events",
-            "/observability/cgroup",
-            "/observability/layerstack",
-            "/export/legacy",
-            "/files/list/extra",
+            ("POST", "/files/read"),
+            ("POST", "/files/write"),
+            ("POST", "/files/edit"),
+            ("POST", "/files/blame"),
+            ("POST", "/observability/snapshot"),
+            ("POST", "/observability/trace"),
+            ("POST", "/observability/events"),
+            ("POST", "/observability/cgroup"),
+            ("POST", "/observability/layerstack"),
+            ("GET", "/export/legacy"),
+            ("POST", "/export/legacy"),
+            ("POST", "/files/list/extra"),
         ]
-        for path in removed:
-            status, body, _ = http_post(base + path, {})
-            assert status == 404, f"POST {path} -> {status}: {body}"
+        for method, path in removed:
+            body = b"{}" if method == "POST" else None
+            status, response, _ = http_request(
+                base + path,
+                method=method,
+                body=body,
+            )
+            assert status == 404, f"{method} {path} -> {status}: {response}"
     finally:
         if sandbox_id:
             if workspace_id:

@@ -15,6 +15,7 @@ def test_aggregate_snapshot_includes_ready_sandbox(sandbox):
     matching = [item for item in snapshots if item.get("sandbox_id") == sandbox]
     assert len(matching) == 1, result
     assert matching[0]["lifecycle_state"] == "ready", matching[0]
+    assert matching[0]["availability"] in {"available", "partial"}, matching[0]
 
 
 @pytest.mark.smoke
