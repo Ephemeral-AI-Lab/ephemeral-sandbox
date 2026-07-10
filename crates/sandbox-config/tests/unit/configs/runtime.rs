@@ -45,6 +45,82 @@ fn config_validation_rejects_invalid_runtime_workspace_values() {
     assert_invalid(cfg, "runtime.namespace_execution.scratch_root");
 }
 
+#[test]
+fn config_layerstack_defaults_preserve_shipped_policy() {
+    // prd.yml carries no runtime.layerstack key, so the section must load to
+    // today's exact constants.
+    let config = prd_config();
+    assert_eq!(config.layerstack, LayerstackConfig::default());
+    assert_eq!(config.layerstack.remount_sweep_width, 4);
+    assert_eq!(config.layerstack.export_chunk_bytes, 2 * 1024 * 1024);
+    assert_eq!(config.layerstack.spool_zstd_level, 3);
+}
+
+#[test]
+fn config_layerstack_overrides_deserialize() {
+    let config = layerstack_config(
+        "  layerstack:
+    remount_sweep_width: 1
+    export_chunk_bytes: 4096
+    spool_zstd_level: 19
+",
+    )
+    .expect("layerstack overrides deserialize");
+    config.validate().expect("layerstack overrides are valid");
+    assert_eq!(config.layerstack.remount_sweep_width, 1);
+    assert_eq!(config.layerstack.export_chunk_bytes, 4096);
+    assert_eq!(config.layerstack.spool_zstd_level, 19);
+}
+
+#[test]
+fn config_layerstack_rejects_unknown_key() {
+    let error = layerstack_config("  layerstack:\n    sweep_width: 4\n")
+        .expect_err("unknown layerstack key must be rejected");
+    assert!(error.to_string().contains("sweep_width"), "{error}");
+}
+
+#[test]
+fn config_validation_rejects_layerstack_edge_values() {
+    let mut cfg = prd_config();
+    cfg.layerstack.remount_sweep_width = 0;
+    assert_invalid(cfg, "runtime.layerstack.remount_sweep_width");
+
+    let mut cfg = prd_config();
+    cfg.layerstack.export_chunk_bytes = 0;
+    assert_invalid(cfg, "runtime.layerstack.export_chunk_bytes");
+
+    let mut cfg = prd_config();
+    cfg.layerstack.spool_zstd_level = 0;
+    assert_invalid(cfg, "runtime.layerstack.spool_zstd_level");
+
+    let mut cfg = prd_config();
+    cfg.layerstack.spool_zstd_level = 23;
+    assert_invalid(cfg, "runtime.layerstack.spool_zstd_level");
+
+    // The zstd bounds themselves are accepted.
+    let mut cfg = prd_config();
+    cfg.layerstack.spool_zstd_level = 1;
+    cfg.validate().expect("zstd level 1 is valid");
+    cfg.layerstack.spool_zstd_level = 22;
+    cfg.validate().expect("zstd level 22 is valid");
+}
+
+fn layerstack_config(layerstack_yaml: &str) -> Result<RuntimeConfig, crate::ConfigError> {
+    let yaml = format!(
+        "runtime:
+  workspace:
+    layer_stack_root: /eos/layer-stack
+    scratch_root: /eos/workspace
+    setup_timeout_s: 30
+    exit_grace_s: 0.25
+    rfc1918_egress: allow
+  namespace_execution:
+    scratch_root: /eos/namespace_execution
+{layerstack_yaml}"
+    );
+    crate::ConfigDocument::parse(std::path::Path::new("<test>"), &yaml)?.section("runtime")
+}
+
 fn prd_config() -> RuntimeConfig {
     crate::load_baseline()
         .expect("prd config loads")

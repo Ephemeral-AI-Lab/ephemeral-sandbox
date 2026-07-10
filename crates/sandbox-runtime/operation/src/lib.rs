@@ -23,8 +23,8 @@ pub use sandbox_runtime_layerstack::{
     describe_layer_delta, LayerDeltaDescription, LayerDeltaEntry, LayerDeltaEntryKind,
 };
 pub use services::{
-    NamespaceExecutionRuntimeConfig, Rfc1918Egress, SandboxRuntimeConfig, SandboxRuntimeOperations,
-    WorkspaceResourceCaps, WorkspaceRuntimeConfig,
+    LayerstackRuntimeConfig, NamespaceExecutionRuntimeConfig, Rfc1918Egress, SandboxRuntimeConfig,
+    SandboxRuntimeOperations, WorkspaceResourceCaps, WorkspaceRuntimeConfig,
 };
 pub use workspace_crate::{NetworkProfile, WorkspaceSessionId};
 pub use workspace_session::WorkspaceSessionService;

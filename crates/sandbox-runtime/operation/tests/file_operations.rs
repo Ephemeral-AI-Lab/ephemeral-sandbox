@@ -89,6 +89,7 @@ fn env() -> Env {
         LayerStackService::new(
             root,
             base.join("scratch"),
+            sandbox_runtime::LayerstackRuntimeConfig::default(),
             Observer::disabled(),
             Arc::clone(&file),
         )

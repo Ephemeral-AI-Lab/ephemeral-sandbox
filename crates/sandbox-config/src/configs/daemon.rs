@@ -13,6 +13,8 @@ use crate::configs::validate::{require_absolute, require_usize_at_least, ConfigF
 #[serde(deny_unknown_fields)]
 pub struct DaemonConfig {
     pub server: DaemonServerConfig,
+    #[serde(default)]
+    pub http: DaemonHttpConfig,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -21,6 +23,32 @@ pub struct DaemonServerConfig {
     pub socket_path: PathBuf,
     pub pid_path: PathBuf,
     pub max_worker_threads: usize,
+}
+
+/// Daemon HTTP surface tuning (`daemon.http`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct DaemonHttpConfig {
+    pub export: DaemonHttpExportConfig,
+}
+
+/// Export spool stream framing (`daemon.http.export`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct DaemonHttpExportConfig {
+    /// Body frame size of the spool stream response.
+    pub frame_bytes: usize,
+    /// Bounded frame-channel depth between the spool reader and the response.
+    pub channel_frames: usize,
+}
+
+impl Default for DaemonHttpExportConfig {
+    fn default() -> Self {
+        Self {
+            frame_bytes: 1024 * 1024,
+            channel_frames: 4,
+        }
+    }
 }
 
 impl DaemonConfig {
@@ -35,6 +63,16 @@ impl DaemonConfig {
             self.server.max_worker_threads,
             1,
             "daemon.server.max_worker_threads",
+        )?;
+        require_usize_at_least(
+            self.http.export.frame_bytes,
+            4096,
+            "daemon.http.export.frame_bytes",
+        )?;
+        require_usize_at_least(
+            self.http.export.channel_frames,
+            1,
+            "daemon.http.export.channel_frames",
         )?;
         Ok(())
     }

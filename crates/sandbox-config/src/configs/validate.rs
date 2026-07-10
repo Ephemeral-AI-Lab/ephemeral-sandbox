@@ -117,6 +117,23 @@ pub fn require_f64_at_least(
     }
 }
 
+/// Require `minimum <= value <= maximum`.
+pub fn require_i32_in_range(
+    value: i32,
+    minimum: i32,
+    maximum: i32,
+    field: &'static str,
+) -> Result<(), ConfigFieldError> {
+    if (minimum..=maximum).contains(&value) {
+        Ok(())
+    } else {
+        Err(ConfigFieldError::new(
+            field,
+            format!("must be between {minimum} and {maximum}"),
+        ))
+    }
+}
+
 /// Require a finite ratio in `(0.0, 1.0]`.
 pub fn require_ratio(value: f64, field: &'static str) -> Result<(), ConfigFieldError> {
     if value.is_finite() && value > 0.0 && value <= 1.0 {

@@ -547,7 +547,13 @@ pub(crate) fn observed_layerstack_service(obs: Observer) -> Arc<LayerStackServic
     sandbox_runtime_layerstack::build_workspace_base(&root, &workspace, false)
         .expect("build layerstack test base");
     Arc::new(
-        LayerStackService::new(root, base.join("scratch"), obs, test_file_service())
+        LayerStackService::new(
+            root,
+            base.join("scratch"),
+            sandbox_runtime::LayerstackRuntimeConfig::default(),
+            obs,
+            test_file_service(),
+        )
             .expect("create layerstack test service"),
     )
 }

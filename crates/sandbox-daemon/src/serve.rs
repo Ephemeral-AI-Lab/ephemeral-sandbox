@@ -99,6 +99,11 @@ fn build_runtime_config(
         namespace_execution: sandbox_runtime::NamespaceExecutionRuntimeConfig {
             scratch_root: config.runtime.namespace_execution.scratch_root.clone(),
         },
+        layerstack: sandbox_runtime::LayerstackRuntimeConfig {
+            remount_sweep_width: config.runtime.layerstack.remount_sweep_width,
+            export_chunk_bytes: config.runtime.layerstack.export_chunk_bytes,
+            spool_zstd_level: config.runtime.layerstack.spool_zstd_level,
+        },
     }
 }
 

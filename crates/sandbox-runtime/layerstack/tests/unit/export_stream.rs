@@ -123,7 +123,7 @@ fn emit_round_trips_winners_with_mode_and_second_mtime() {
     );
     winners.insert(path("link.md"), DeltaWinner::Symlink { source: link });
 
-    let stats = emit_delta_stream(&winners, &fixture.spool()).expect("emit");
+    let stats = emit_delta_stream(&winners, &fixture.spool(), 3).expect("emit");
     assert_eq!(stats.files, 1);
     assert_eq!(stats.symlinks, 1);
     assert_eq!(stats.whiteouts, 0);
@@ -170,7 +170,7 @@ fn emit_encodes_deletions_and_opaques_logically() {
     winners.insert(path("src/b.rs"), DeltaWinner::Delete);
     winners.insert(path("top.txt"), DeltaWinner::Delete);
 
-    let stats = emit_delta_stream(&winners, &fixture.spool()).expect("emit");
+    let stats = emit_delta_stream(&winners, &fixture.spool(), 3).expect("emit");
     assert_eq!(stats.whiteouts, 2);
     assert_eq!(stats.opaques, 1);
     assert_eq!(stats.files, 0);
@@ -196,7 +196,7 @@ fn emit_empty_winner_map_is_a_valid_empty_archive() {
     let fixture = StreamFixture::new("empty");
     let winners = BTreeMap::new();
 
-    let stats: DeltaStreamStats = emit_delta_stream(&winners, &fixture.spool()).expect("emit");
+    let stats: DeltaStreamStats = emit_delta_stream(&winners, &fixture.spool(), 3).expect("emit");
     assert_eq!(stats, DeltaStreamStats::default());
 
     let spool_bytes = std::fs::metadata(fixture.spool())

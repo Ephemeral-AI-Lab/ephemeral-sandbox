@@ -64,12 +64,16 @@ pub(crate) struct DirApplyStats {
 pub(crate) fn apply_dir_delta(
     delivery: &mut impl Read,
     dest: &Path,
+    caps: ExportApplyCaps,
 ) -> Result<DirApplyStats, String> {
     let mut compressed: Vec<u8> = Vec::new();
-    let plan = plan_stream(TeeReader {
-        inner: &mut *delivery,
-        sink: &mut compressed,
-    })?;
+    let plan = plan_stream(
+        TeeReader {
+            inner: &mut *delivery,
+            sink: &mut compressed,
+        },
+        caps,
+    )?;
     drain_delivery(delivery, &mut compressed)?;
     let root = open_dest_root(dest)?;
     let mut stats = DirApplyStats::default();
@@ -81,7 +85,7 @@ pub(crate) fn apply_dir_delta(
         remove_validated_target(&root, target)?;
         stats.deletes_applied += 1;
     }
-    apply_content(&compressed, &plan, &root, &mut stats)?;
+    apply_content(&compressed, &plan, &root, &mut stats, caps)?;
     Ok(stats)
 }
 
@@ -93,6 +97,7 @@ pub(crate) fn write_archive(
     delivery: &mut impl Read,
     dest: &Path,
     format: ArchiveFormat,
+    caps: ExportApplyCaps,
 ) -> Result<u64, String> {
     let temp = archive_temp_path(dest)?;
     let result = (|| -> Result<u64, String> {
@@ -102,8 +107,9 @@ pub(crate) fn write_archive(
             ArchiveFormat::TarZst => std::io::copy(delivery, &mut file)
                 .map_err(|error| format!("write archive: {error}"))?,
             ArchiveFormat::Tar => {
-                let mut decoder = capped_decoder(delivery)?;
-                std::io::copy(&mut decoder, &mut file).map_err(map_cap_error)?
+                let mut decoder = capped_decoder(delivery, caps.max_decompressed_bytes)?;
+                std::io::copy(&mut decoder, &mut file)
+                    .map_err(|error| map_cap_error(error, caps.max_decompressed_bytes))?
             }
         };
         file.flush()
@@ -180,20 +186,20 @@ struct ApplyPlan {
 /// prefix strip), hardlinks, and unsupported entry types; enforce the entry
 /// and decompressed-byte caps. A hostile stream is rejected with zero
 /// filesystem writes.
-fn plan_stream(compressed: impl Read) -> Result<ApplyPlan, String> {
-    let decoder = capped_decoder(compressed)?;
+fn plan_stream(compressed: impl Read, caps: ExportApplyCaps) -> Result<ApplyPlan, String> {
+    let decoder = capped_decoder(compressed, caps.max_decompressed_bytes)?;
     let mut archive = tar::Archive::new(decoder);
     let mut plan = ApplyPlan {
         entries: Vec::new(),
         opaque_dirs: Vec::new(),
         whiteout_targets: Vec::new(),
     };
-    let entry_cap = max_apply_entries();
+    let entry_cap = caps.max_apply_entries;
     let entries = archive
         .entries()
         .map_err(|error| format!("export stream is not a tar archive: {error}"))?;
     for entry in entries {
-        let entry = entry.map_err(map_cap_error)?;
+        let entry = entry.map_err(|error| map_cap_error(error, caps.max_decompressed_bytes))?;
         if plan.entries.len() as u64 >= entry_cap {
             return Err(format!(
                 "export entry-count cap exceeded ({entry_cap} entries)"
@@ -318,15 +324,16 @@ fn apply_content(
     plan: &ApplyPlan,
     root: &OwnedFd,
     stats: &mut DirApplyStats,
+    caps: ExportApplyCaps,
 ) -> Result<(), String> {
-    let decoder = capped_decoder(compressed)?;
+    let decoder = capped_decoder(compressed, caps.max_decompressed_bytes)?;
     let mut archive = tar::Archive::new(decoder);
     let entries = archive
         .entries()
         .map_err(|error| format!("export stream is not a tar archive: {error}"))?;
     let mut planned = plan.entries.iter();
     for entry in entries {
-        let mut entry = entry.map_err(map_cap_error)?;
+        let mut entry = entry.map_err(|error| map_cap_error(error, caps.max_decompressed_bytes))?;
         let planned_entry = planned
             .next()
             .ok_or_else(|| "export stream changed between passes".to_owned())?;
@@ -357,19 +364,33 @@ fn apply_content(
                     let mut winner_bytes = Vec::new();
                     entry
                         .read_to_end(&mut winner_bytes)
-                        .map_err(map_cap_error)?;
+                        .map_err(|error| map_cap_error(error, caps.max_decompressed_bytes))?;
                     if dest_file_content_equals(&parent, name, &winner_bytes)? {
                         stats.skipped_unchanged += 1;
                         continue;
                     }
                     remove_recursive_at(&parent, name)?;
                     let mut reader = winner_bytes.as_slice();
-                    let written = write_file(&parent, name, *mode, *mtime, &mut reader)?;
+                    let written = write_file(
+                        &parent,
+                        name,
+                        *mode,
+                        *mtime,
+                        &mut reader,
+                        caps.max_decompressed_bytes,
+                    )?;
                     stats.bytes_written += written;
                     stats.files_written += 1;
                 } else {
                     remove_recursive_at(&parent, name)?;
-                    let written = write_file(&parent, name, *mode, *mtime, &mut entry)?;
+                    let written = write_file(
+                        &parent,
+                        name,
+                        *mode,
+                        *mtime,
+                        &mut entry,
+                        caps.max_decompressed_bytes,
+                    )?;
                     stats.bytes_written += written;
                     stats.files_written += 1;
                 }
@@ -593,6 +614,7 @@ fn write_file(
     mode: u32,
     mtime: u64,
     content: &mut impl Read,
+    max_decompressed_bytes: u64,
 ) -> Result<u64, String> {
     let fd = rustix::fs::openat(
         parent,
@@ -602,7 +624,8 @@ fn write_file(
     )
     .map_err(|errno| format!("create file {name}: {errno}"))?;
     let mut file = std::fs::File::from(fd);
-    let written = std::io::copy(content, &mut file).map_err(map_cap_error)?;
+    let written = std::io::copy(content, &mut file)
+        .map_err(|error| map_cap_error(error, max_decompressed_bytes))?;
     file.flush()
         .map_err(|error| format!("flush {name}: {error}"))?;
     rustix::fs::fchmod(&file, Mode::from_raw_mode(mode as rustix::fs::RawMode))
@@ -654,21 +677,19 @@ impl<R: Read> Read for CappedReader<R> {
 
 fn capped_decoder<R: Read>(
     compressed: R,
+    max_decompressed_bytes: u64,
 ) -> Result<CappedReader<zstd::stream::read::Decoder<'static, std::io::BufReader<R>>>, String> {
     let decoder = zstd::stream::read::Decoder::new(compressed)
         .map_err(|error| format!("export stream is not zstd-framed: {error}"))?;
     Ok(CappedReader {
         inner: decoder,
-        remaining: max_decompressed_bytes(),
+        remaining: max_decompressed_bytes,
     })
 }
 
-fn map_cap_error(error: std::io::Error) -> String {
+fn map_cap_error(error: std::io::Error, max_decompressed_bytes: u64) -> String {
     if error.to_string().contains(DECOMPRESSED_CAP_SENTINEL) {
-        format!(
-            "{DECOMPRESSED_CAP_SENTINEL} ({} bytes)",
-            max_decompressed_bytes()
-        )
+        format!("{DECOMPRESSED_CAP_SENTINEL} ({max_decompressed_bytes} bytes)")
     } else {
         format!("export stream read failed: {error}")
     }

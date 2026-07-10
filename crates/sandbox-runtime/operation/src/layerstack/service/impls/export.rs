@@ -43,8 +43,6 @@ pub(crate) const fn operation_entries() -> &'static [OperationEntry] {
     OPERATIONS
 }
 
-const MAX_CHUNK_BYTES: u64 = 2 * 1024 * 1024;
-
 fn dispatch_export_layerstack(
     operations: &SandboxRuntimeOperations,
     request: &sandbox_protocol::Request,
@@ -76,7 +74,12 @@ fn run_export_layerstack(
                 .layerstack
                 .export_spool_dir()
                 .join(format!("{export_id}.tar.zst"));
-            let spooled = fold_and_spool(&root, &lease.manifest, &spool_path);
+            let spooled = fold_and_spool(
+                &root,
+                &lease.manifest,
+                &spool_path,
+                operations.layerstack.config.spool_zstd_level,
+            );
             let released = stack
                 .release_lease(&lease.lease_id)
                 .map_err(|error| error.to_string());
@@ -153,9 +156,11 @@ fn fold_and_spool(
     root: &Path,
     manifest: &sandbox_runtime_layerstack::Manifest,
     spool_path: &Path,
+    spool_zstd_level: i32,
 ) -> Result<(Vec<LayerRef>, DeltaStreamStats), String> {
     let fold = fold_delta_winners(root, manifest).map_err(|error| error.to_string())?;
-    let stats = emit_delta_stream(&fold.winners, spool_path).map_err(|error| error.to_string())?;
+    let stats = emit_delta_stream(&fold.winners, spool_path, spool_zstd_level)
+        .map_err(|error| error.to_string())?;
     Ok((fold.delta_layers, stats))
 }
 
@@ -205,8 +210,9 @@ fn dispatch_read_export_chunk(
         Ok(offset) => offset,
         Err(response) => return response,
     };
+    let chunk_cap = operations.layerstack.config.export_chunk_bytes;
     let limit = match request.optional_u64("limit") {
-        Ok(limit) => limit.unwrap_or(MAX_CHUNK_BYTES).min(MAX_CHUNK_BYTES),
+        Ok(limit) => limit.unwrap_or(chunk_cap).min(chunk_cap),
         Err(response) => return response,
     };
     match run_read_export_chunk(operations, &export_id, offset, limit) {

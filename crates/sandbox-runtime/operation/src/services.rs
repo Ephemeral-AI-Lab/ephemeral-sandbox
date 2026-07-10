@@ -87,6 +87,7 @@ impl SandboxRuntimeOperations {
             LayerStackService::new(
                 layer_stack_root,
                 workspace_scratch_root,
+                config.layerstack,
                 observer.clone(),
                 Arc::clone(&file),
             )
@@ -329,7 +330,27 @@ fn file_auditability_dir(layer_stack_root: &Path) -> std::path::PathBuf {
 pub struct SandboxRuntimeConfig {
     pub workspace: WorkspaceRuntimeConfig,
     pub namespace_execution: NamespaceExecutionRuntimeConfig,
+    pub layerstack: LayerstackRuntimeConfig,
     pub cgroup_root: Option<std::path::PathBuf>,
+}
+
+/// Layer-stack tuning injected by the daemon from `runtime.layerstack`;
+/// `Default` preserves the shipped policy for callers without that section.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LayerstackRuntimeConfig {
+    pub remount_sweep_width: usize,
+    pub export_chunk_bytes: u64,
+    pub spool_zstd_level: i32,
+}
+
+impl Default for LayerstackRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            remount_sweep_width: 4,
+            export_chunk_bytes: 2 * 1024 * 1024,
+            spool_zstd_level: 3,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

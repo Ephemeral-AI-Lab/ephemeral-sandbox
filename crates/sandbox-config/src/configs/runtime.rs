@@ -8,7 +8,8 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 use crate::configs::validate::{
-    require_absolute, require_f64_at_least, require_f64_gt, ConfigFieldError,
+    require_absolute, require_f64_at_least, require_f64_gt, require_i32_in_range,
+    require_u64_at_least, require_usize_at_least, ConfigFieldError,
 };
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -16,6 +17,8 @@ use crate::configs::validate::{
 pub struct RuntimeConfig {
     pub workspace: WorkspaceConfig,
     pub namespace_execution: NamespaceExecutionConfig,
+    #[serde(default)]
+    pub layerstack: LayerstackConfig,
 }
 
 impl RuntimeConfig {
@@ -25,7 +28,58 @@ impl RuntimeConfig {
     /// Returns an error when a field violates runtime policy.
     pub fn validate(&self) -> Result<(), ConfigFieldError> {
         self.workspace.validate()?;
-        self.namespace_execution.validate()
+        self.namespace_execution.validate()?;
+        self.layerstack.validate()
+    }
+}
+
+/// Layer-stack tuning knobs the daemon injects into the runtime layerstack
+/// service at startup.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct LayerstackConfig {
+    /// Remount-sweep concurrency width. The default is the measured
+    /// `sweep_wall` knee (`W-tuning.md`, `N=200`/`M=1.0`): overlap peaks and
+    /// wall bottoms out at `W=4`; `1` restores the serial sweep.
+    pub remount_sweep_width: usize,
+    /// Byte cap per `read_export_chunk` page (the export stream fallback).
+    pub export_chunk_bytes: u64,
+    /// zstd compression level for the export spool.
+    pub spool_zstd_level: i32,
+}
+
+impl Default for LayerstackConfig {
+    fn default() -> Self {
+        Self {
+            remount_sweep_width: 4,
+            export_chunk_bytes: 2 * 1024 * 1024,
+            spool_zstd_level: 3,
+        }
+    }
+}
+
+impl LayerstackConfig {
+    /// Validate semantic constraints that YAML deserialization cannot express.
+    ///
+    /// # Errors
+    /// Returns an error when a field violates layerstack runtime policy.
+    pub fn validate(&self) -> Result<(), ConfigFieldError> {
+        require_usize_at_least(
+            self.remount_sweep_width,
+            1,
+            "runtime.layerstack.remount_sweep_width",
+        )?;
+        require_u64_at_least(
+            self.export_chunk_bytes,
+            1,
+            "runtime.layerstack.export_chunk_bytes",
+        )?;
+        require_i32_in_range(
+            self.spool_zstd_level,
+            1,
+            22,
+            "runtime.layerstack.spool_zstd_level",
+        )
     }
 }
 

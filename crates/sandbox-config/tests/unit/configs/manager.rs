@@ -107,12 +107,91 @@ fn validate_rejects_empty_daemon_binary_path() {
     assert_invalid(&docker, "manager.docker.daemon_binary_path");
 }
 
+#[test]
+fn config_manager_export_defaults_preserve_shipped_policy() {
+    // prd.yml carries no manager.export key, so the section must load to
+    // today's exact constants.
+    let manager: ManagerConfig = crate::load_baseline()
+        .expect("prd config loads")
+        .section("manager")
+        .expect("manager section deserializes");
+    assert_eq!(manager.export, ManagerExportConfig::default());
+    assert_eq!(manager.export.max_stream_bytes, 2 * 1024 * 1024 * 1024);
+    assert_eq!(
+        manager.export.max_decompressed_bytes,
+        8 * 1024 * 1024 * 1024
+    );
+    assert_eq!(manager.export.max_apply_entries, 1_000_000);
+    manager.validate().expect("prd manager config is valid");
+}
+
+#[test]
+fn config_manager_export_overrides_deserialize() {
+    let doc = crate::ConfigDocument::parse(
+        std::path::Path::new("<test>"),
+        "manager:\n  export:\n    max_stream_bytes: 4096\n    max_apply_entries: 1\n",
+    )
+    .expect("document parses");
+    let manager: ManagerConfig = doc
+        .section("manager")
+        .expect("manager section deserializes");
+    manager.validate().expect("export overrides are valid");
+    assert_eq!(manager.export.max_stream_bytes, 4096);
+    assert_eq!(
+        manager.export.max_decompressed_bytes,
+        8 * 1024 * 1024 * 1024
+    );
+    assert_eq!(manager.export.max_apply_entries, 1);
+}
+
+#[test]
+fn config_manager_export_rejects_unknown_key() {
+    let doc = crate::ConfigDocument::parse(
+        std::path::Path::new("<test>"),
+        "manager:\n  export:\n    max_stream_mb: 1\n",
+    )
+    .expect("document parses");
+    let error = doc
+        .section::<ManagerConfig>("manager")
+        .expect_err("unknown export key must be rejected");
+    assert!(error.to_string().contains("max_stream_mb"), "{error}");
+}
+
+#[test]
+fn config_validation_rejects_zero_export_caps() {
+    let mut manager = ManagerConfig::default();
+    manager.export.max_stream_bytes = 0;
+    assert_invalid_manager(&manager, "manager.export.max_stream_bytes");
+
+    let mut manager = ManagerConfig::default();
+    manager.export.max_decompressed_bytes = 0;
+    assert_invalid_manager(&manager, "manager.export.max_decompressed_bytes");
+
+    let mut manager = ManagerConfig::default();
+    manager.export.max_apply_entries = 0;
+    assert_invalid_manager(&manager, "manager.export.max_apply_entries");
+}
+
+#[test]
+fn manager_validate_delegates_to_docker_section() {
+    let mut manager = ManagerConfig::default();
+    let mut docker = prd_docker();
+    docker.gateway_instance_id = String::new();
+    manager.docker = Some(docker);
+    assert_invalid_manager(&manager, "manager.docker.gateway_instance_id");
+}
+
 fn prd_docker() -> DockerRuntimeConfig {
     let manager: ManagerConfig = crate::load_baseline()
         .expect("prd config loads")
         .section("manager")
         .expect("manager section deserializes");
     manager.docker.expect("manager.docker section present")
+}
+
+fn assert_invalid_manager(config: &ManagerConfig, field: &str) {
+    let err = config.validate().expect_err("config should be invalid");
+    assert!(err.to_string().contains(field), "{err}");
 }
 
 fn assert_invalid(config: &DockerRuntimeConfig, field: &str) {

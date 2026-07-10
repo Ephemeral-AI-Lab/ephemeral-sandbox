@@ -60,7 +60,10 @@ fn run_squash_layerstack(operations: &SandboxRuntimeOperations) -> Result<Value,
 
             let ids = operations.workspace_session.session_ids();
             span.attr("swept", ids.len());
-            span.attr("sweep_width", sweep_width());
+            span.attr(
+                "sweep_width",
+                operations.layerstack.config.remount_sweep_width,
+            );
             let swept = remount_sweep(operations, &ids, operations.layerstack.obs.context());
             if swept
                 .iter()
@@ -157,7 +160,11 @@ fn remount_sweep(
     if ids.is_empty() {
         return Vec::new();
     }
-    let width = sweep_width().min(ids.len());
+    let width = operations
+        .layerstack
+        .config
+        .remount_sweep_width
+        .min(ids.len());
     if width <= 1 {
         return ids
             .iter()
@@ -186,24 +193,4 @@ fn remount_sweep(
         .into_iter()
         .filter_map(|slot| slot.into_inner().unwrap_or_else(PoisonError::into_inner))
         .collect()
-}
-
-/// Default remount-sweep concurrency width. Fixed at the measured `sweep_wall`
-/// knee (`W-tuning.md`, `N=200`/`M=1.0`): overlap peaks and wall bottoms out at
-/// `W=4`, and pushing past it only inflates the per-migrated tail (p95 `10→45 ms`)
-/// for no wall gain. `EOS_REMOUNT_SWEEP_WIDTH` overrides it (hosts with a
-/// different core count should tune this).
-const DEFAULT_REMOUNT_SWEEP_WIDTH: usize = 4;
-
-/// Bounded remount-sweep concurrency width. Defaults to
-/// `DEFAULT_REMOUNT_SWEEP_WIDTH`; the work is wait-bound (subprocess wait, freeze
-/// poll, fsync), so a small fan-out overlaps those waits without buffering
-/// anything. `1` restores the serial sweep. Overridable via
-/// `EOS_REMOUNT_SWEEP_WIDTH` for tuning.
-fn sweep_width() -> usize {
-    std::env::var("EOS_REMOUNT_SWEEP_WIDTH")
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .filter(|width| *width >= 1)
-        .unwrap_or(DEFAULT_REMOUNT_SWEEP_WIDTH)
 }

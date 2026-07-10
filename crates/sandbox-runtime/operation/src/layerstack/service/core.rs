@@ -8,6 +8,7 @@ use sandbox_protocol::EXPORT_STREAM_TOKEN_TTL_S;
 
 use crate::file::FileService;
 use crate::layerstack::LayerStackServiceError;
+use crate::services::LayerstackRuntimeConfig;
 
 pub(crate) const EXPORT_SPOOL_DIR: &str = ".export";
 
@@ -32,6 +33,7 @@ pub struct ClaimedExportStream {
 pub struct LayerStackService {
     pub(crate) layer_stack_root: PathBuf,
     pub(crate) scratch_root: PathBuf,
+    pub(crate) config: LayerstackRuntimeConfig,
     pub(crate) obs: Observer,
     pub(crate) file: Arc<FileService>,
     pub(crate) audit_gate: Mutex<()>,
@@ -42,6 +44,7 @@ impl LayerStackService {
     pub fn new(
         layer_stack_root: PathBuf,
         scratch_root: PathBuf,
+        config: LayerstackRuntimeConfig,
         obs: Observer,
         file: Arc<FileService>,
     ) -> Result<Self, LayerStackServiceError> {
@@ -54,6 +57,7 @@ impl LayerStackService {
         Ok(Self {
             layer_stack_root,
             scratch_root,
+            config,
             obs,
             file,
             audit_gate: Mutex::new(()),

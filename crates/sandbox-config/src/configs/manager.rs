@@ -12,6 +12,46 @@ use crate::configs::validate::{
     require_absolute, require_non_empty, require_u64_at_least, ConfigFieldError,
 };
 
+/// Host-side caps for the `export_changes` apply path (`manager.export`).
+/// Retired the `EOS_EXPORT_MAX_DECOMPRESSED_BYTES` / `EOS_EXPORT_MAX_ENTRIES`
+/// env side channels; the gateway injects these into the manager applier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ManagerExportConfig {
+    /// Compressed byte cap for one export delivery stream.
+    pub max_stream_bytes: u64,
+    /// Decompressed byte cap guarding against zstd bombs.
+    pub max_decompressed_bytes: u64,
+    /// Entry-count cap guarding against archive entry bombs.
+    pub max_apply_entries: u64,
+}
+
+impl Default for ManagerExportConfig {
+    fn default() -> Self {
+        Self {
+            max_stream_bytes: 2 * 1024 * 1024 * 1024,
+            max_decompressed_bytes: 8 * 1024 * 1024 * 1024,
+            max_apply_entries: 1_000_000,
+        }
+    }
+}
+
+impl ManagerExportConfig {
+    /// Validate semantic constraints that YAML deserialization cannot express.
+    ///
+    /// # Errors
+    /// Returns an error when a field violates export apply policy.
+    pub fn validate(&self) -> Result<(), ConfigFieldError> {
+        require_u64_at_least(self.max_stream_bytes, 1, "manager.export.max_stream_bytes")?;
+        require_u64_at_least(
+            self.max_decompressed_bytes,
+            1,
+            "manager.export.max_decompressed_bytes",
+        )?;
+        require_u64_at_least(self.max_apply_entries, 1, "manager.export.max_apply_entries")
+    }
+}
+
 pub const DEFAULT_CONTAINER_WORKSPACE_ROOT: &str = "/workspace";
 pub const DEFAULT_CONTAINER_DAEMON_BINARY_PATH: &str = "/eos/bin/sandbox-daemon";
 pub const DEFAULT_CONTAINER_DAEMON_CONFIG_PATH: &str = "/eos/config/daemon.yml";
@@ -31,7 +71,22 @@ pub struct ManagerConfig {
     /// reconciling against the containers the runtime actually recovers.
     /// `None` keeps the registry in process memory only.
     pub registry_path: Option<PathBuf>,
+    pub export: ManagerExportConfig,
     pub docker: Option<DockerRuntimeConfig>,
+}
+
+impl ManagerConfig {
+    /// Validate semantic constraints that YAML deserialization cannot express.
+    ///
+    /// # Errors
+    /// Returns an error when a field violates manager policy.
+    pub fn validate(&self) -> Result<(), ConfigFieldError> {
+        self.export.validate()?;
+        if let Some(docker) = &self.docker {
+            docker.validate()?;
+        }
+        Ok(())
+    }
 }
 
 /// Configuration for the Docker-backed sandbox runtime + daemon installer.

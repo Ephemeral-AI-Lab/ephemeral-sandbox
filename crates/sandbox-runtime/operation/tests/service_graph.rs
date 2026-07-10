@@ -37,6 +37,7 @@ fn layerstack_service() -> Result<Arc<LayerStackService>, Box<dyn std::error::Er
     Ok(Arc::new(LayerStackService::new(
         root,
         base.join("scratch"),
+        sandbox_runtime::LayerstackRuntimeConfig::default(),
         Observer::disabled(),
         file_service(),
     )?))
@@ -157,6 +158,7 @@ fn runtime_from_config_initializes_layerstack_workspace_base(
             namespace_execution: NamespaceExecutionRuntimeConfig {
                 scratch_root: command_scratch_root,
             },
+            layerstack: sandbox_runtime::LayerstackRuntimeConfig::default(),
             cgroup_root: None,
         },
         Observer::disabled(),

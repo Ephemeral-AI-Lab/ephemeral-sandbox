@@ -15,7 +15,6 @@ use crate::whiteout::{LOGICAL_WHITEOUT_PREFIX, OPAQUE_MARKER};
 
 use super::delta::DeltaWinner;
 
-const ZSTD_SPOOL_LEVEL: i32 = 3;
 const MARKER_MODE: u32 = 0o644;
 
 /// Entry counts of one emitted spool, mirrored into the daemon start result.
@@ -28,7 +27,8 @@ pub struct DeltaStreamStats {
 }
 
 /// Stream the winner map into a `tar.zst` spool at `spool_path`, in
-/// deterministic winner-map order.
+/// deterministic winner-map order, compressed at `spool_zstd_level` (the
+/// caller injects the level; this crate stays config-free).
 ///
 /// # Errors
 ///
@@ -37,12 +37,13 @@ pub struct DeltaStreamStats {
 pub fn emit_delta_stream(
     winners: &BTreeMap<LayerPath, DeltaWinner>,
     spool_path: &Path,
+    spool_zstd_level: i32,
 ) -> Result<DeltaStreamStats, LayerStackError> {
     if let Some(parent) = spool_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
     let spool = std::fs::File::create(spool_path)?;
-    let encoder = zstd::stream::write::Encoder::new(spool, ZSTD_SPOOL_LEVEL)?;
+    let encoder = zstd::stream::write::Encoder::new(spool, spool_zstd_level)?;
     let mut builder = tar::Builder::new(encoder);
     let mut stats = DeltaStreamStats::default();
     for (path, winner) in winners {

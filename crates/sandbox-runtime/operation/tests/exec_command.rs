@@ -941,6 +941,7 @@ fn layerstack_service() -> Result<Arc<LayerStackService>, Box<dyn std::error::Er
     Ok(Arc::new(LayerStackService::new(
         root,
         base.join("scratch"),
+        sandbox_runtime::LayerstackRuntimeConfig::default(),
         sandbox_observability::Observer::disabled(),
         support::test_file_service(),
     )?))
