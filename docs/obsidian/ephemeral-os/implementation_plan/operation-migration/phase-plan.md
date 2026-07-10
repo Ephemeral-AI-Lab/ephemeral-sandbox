@@ -506,7 +506,7 @@ one commit.
 
 ### Change list
 
-- [ ] Namespace conversion (one commit): relocate the primitives package to
+- [x] Namespace conversion (one commit): relocate the primitives package to
   `crates/sandbox-observability/primitives/` (package name, crate name, and
   content unchanged) and create `sandbox-observability-application` at
   `crates/sandbox-observability/application/`; update workspace member
@@ -564,6 +564,7 @@ one commit.
 | Date | Item | Command / evidence | Result | Deviations |
 | --- | --- | --- | --- | --- |
 | 2026-07-10 | Phase 6 started | Dashboard entry criteria and Phase 5 acceptance checklist | Phase 5 is approved and every Phase 5 acceptance item is checked; Phase 6 is unblocked. | None. |
+| 2026-07-10 | Atomic observability namespace conversion | `git diff-tree -r -M100% --summary d50d77c77^ d50d77c77 -- crates/sandbox-observability`; `find crates/sandbox-observability -mindepth 1 -maxdepth 1 -print \| sort`; `cargo metadata --format-version 1 --no-deps`; `cargo check --workspace --all-targets --all-features`; `cargo test -p sandbox-observability -p sandbox-observability-application --all-features` | Commit `d50d77c77` moved the primitives manifest, source, and all nine tests at 100% identity; the namespace contains exactly `application/` and `primitives/`; metadata resolves both packages at their new paths; workspace check and both package suites passed. The gateway freshness watch now covers contract, catalog, primitives, and application inputs. | None. |
 
 ---
 
