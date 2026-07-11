@@ -1,5 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, Select, Tooltip } from "@mantine/core";
+import {
+  Alert,
+  Badge,
+  Box,
+  Button,
+  Flex,
+  Group,
+  Paper,
+  ScrollArea,
+  Select,
+  Stack,
+  Text,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
 import {
   fetchLayerStack,
   fetchLayerStackLayer,
@@ -14,21 +28,17 @@ import { usePoll } from "@/poll/usePoll";
 import { useSandbox } from "@/pages/sandbox/SandboxContext";
 import { SquashDialog } from "@/components/SquashDialog";
 import { ResourceSparkline } from "@/components/ResourceSparkline";
-import { cn } from "@/lib/cn";
 import { formatBytes, shortHash } from "@/lib/format";
 
 const ALL_WORKSPACES = "__all__";
 const depthRings = new Map<string, number[]>();
 
 function recordDepth(sandboxId: string, depth: number): number[] {
-  let ring = depthRings.get(sandboxId);
-  if (!ring) {
-    ring = [];
-    depthRings.set(sandboxId, ring);
-  }
-  if (ring.length === 0 || ring[ring.length - 1] !== depth) {
+  const ring = depthRings.get(sandboxId) ?? [];
+  if (ring.length === 0 || ring.at(-1) !== depth) {
     ring.push(depth);
     if (ring.length > 24) ring.shift();
+    depthRings.set(sandboxId, ring);
   }
   return [...ring];
 }
@@ -37,7 +47,6 @@ export function LayerStackView() {
   const { sandboxId, snapshot } = useSandbox();
   const [workspaceId, setWorkspaceId] = useState(ALL_WORKSPACES);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
-
   const workspaces = snapshot?.sandboxes[0]?.workspaces ?? [];
   const stack = usePoll({
     key: ["observability", sandboxId, "layerstack"],
@@ -57,91 +66,64 @@ export function LayerStackView() {
     enabled: selectedLayerId !== null,
   });
 
-  const layers = useMemo(() => stack.data?.layers ?? [], [stack.data]);
+  const layers = stack.data?.layers ?? [];
   const squashableRuns = useMemo(() => squashRuns(layers), [layers]);
   const depthTrend = stack.data ? recordDepth(sandboxId, layers.length) : [];
   const maxBytes = Math.max(1, ...layers.map((layer) => layer.bytes));
-  const selectedLayer =
-    layers.find((layer) => layer.layer_id === selectedLayerId) ?? null;
-  const workspaceData =
-    workspaceDetail.data?.workspace === workspaceId ? workspaceDetail.data : null;
-  const layerData =
-    layerDetail.data?.layer_id === selectedLayerId ? layerDetail.data : null;
+  const selectedLayer = layers.find((layer) => layer.layer_id === selectedLayerId) ?? null;
+  const workspaceData = workspaceDetail.data?.workspace === workspaceId ? workspaceDetail.data : null;
+  const layerData = layerDetail.data?.layer_id === selectedLayerId ? layerDetail.data : null;
 
   useEffect(() => {
-    if (workspaceId === ALL_WORKSPACES) return;
-    if (!workspaces.some((workspace) => workspace.workspace_id === workspaceId)) {
+    if (workspaceId !== ALL_WORKSPACES && !workspaces.some((workspace) => workspace.workspace_id === workspaceId)) {
       setWorkspaceId(ALL_WORKSPACES);
     }
   }, [workspaceId, workspaces]);
-
   useEffect(() => {
     if (layers.length === 0) {
-      if (selectedLayerId !== null) setSelectedLayerId(null);
-      return;
-    }
-    if (
-      selectedLayerId === null ||
-      !layers.some((layer) => layer.layer_id === selectedLayerId)
-    ) {
+      setSelectedLayerId(null);
+    } else if (!selectedLayerId || !layers.some((layer) => layer.layer_id === selectedLayerId)) {
       setSelectedLayerId(layers[0].layer_id);
     }
   }, [layers, selectedLayerId]);
 
-  if (stack.isError) {
-    return (
-      <div className="m-4 rounded border border-danger/40 bg-danger-soft p-3 text-xs">
-        {(stack.error as Error).message}
-      </div>
-    );
+  if (stack.isError && !stack.data) {
+    return <Alert color="red" title="Layer stack unavailable" m="md">{(stack.error as Error).message}</Alert>;
   }
 
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-mid">
-        <span>
-          manifest v
-          <span className="font-mono text-ink">
-            {stack.data?.manifest_version ?? "..."}
-          </span>
-        </span>
-        <span className="font-mono" title="root hash">
-          {stack.data ? shortHash(stack.data.root_hash, 12) : "..."}
-        </span>
-        <span>
-          {layers.length} layers · {formatBytes(stack.data?.total_bytes ?? 0)}
-        </span>
-        <span>{stack.data?.active_lease_count ?? 0} active leases</span>
-        <label className="ml-auto text-[11px] text-ink-faint">workspace</label>
+    <Stack gap="md" p="md" data-layer-stack-view>
+      <Group gap="md" align="end" wrap="wrap">
+        <Text size="xs">manifest v <Text component="span" ff="monospace">{stack.data?.manifest_version ?? "..."}</Text></Text>
+        <Text ff="monospace" size="xs" title="root hash">{stack.data ? shortHash(stack.data.root_hash, 12) : "..."}</Text>
+        <Text size="xs">{layers.length} layers · {formatBytes(stack.data?.total_bytes ?? 0)}</Text>
+        <Text size="xs">{stack.data?.active_lease_count ?? 0} active leases</Text>
         <Select
-          className="w-64"
+          label="Workspace"
+          size="xs"
           value={workspaceId}
           onChange={(value) => setWorkspaceId(value ?? ALL_WORKSPACES)}
           data={[
             { value: ALL_WORKSPACES, label: "all workspaces" },
-            ...workspaces.map((workspace) => ({
-              value: workspace.workspace_id,
-              label: `workspace · ${workspace.workspace_id}`,
-            })),
+            ...workspaces.map((workspace) => ({ value: workspace.workspace_id, label: `workspace · ${workspace.workspace_id}` })),
           ]}
+          ml="auto"
+          style={{ width: "16rem" }}
         />
         <SquashDialog
           sandboxId={sandboxId}
           layerCount={layers.length}
-          trigger={(open) => (
-              <Button size="compact-xs" variant="filled" onClick={open}>
-                Squash ({layers.length})
-              </Button>
-          )}
+          trigger={(open) => <Button variant="filled" onClick={open}>Squash ({layers.length})</Button>}
         />
-      </div>
+      </Group>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="rounded-lg border border-line bg-surface p-3">
+      {stack.isError ? <Alert color="yellow" title="Showing the last confirmed stack">{(stack.error as Error).message}</Alert> : null}
+      <Flex gap="md" direction={{ base: "column", lg: "row" }} align="stretch">
+        <Paper withBorder p="sm" style={{ flex: 1, minWidth: 0 }}>
           {layers.length === 0 ? (
-            <p className="text-xs text-ink-faint">no layers yet</p>
+            <Text size="sm" c="dimmed">no layers yet</Text>
           ) : (
-            <ul className="flex flex-col gap-1">
+            <Stack component="ul" gap={4} m={0} p={0} style={{ listStyle: "none" }}>
               {layers.map((layer, index) => (
                 <LayerRow
                   key={layer.layer_id}
@@ -154,43 +136,23 @@ export function LayerStackView() {
                   onSelect={setSelectedLayerId}
                 />
               ))}
-            </ul>
+            </Stack>
           )}
-        </section>
-
-        <section className="flex min-w-0 flex-col gap-3">
-          <LayerDeltaPanel
-            layer={selectedLayer}
-            data={layerData}
-            isError={layerDetail.isError && !layerData}
-            error={layerDetail.error}
-            isFetching={layerDetail.isFetching && !layerData}
-          />
-          <WorkspacePanel
-            workspaceId={workspaceId}
-            workspaceCount={workspaces.length}
-            data={workspaceData}
-            isError={workspaceDetail.isError && !workspaceData}
-            error={workspaceDetail.error}
-            isFetching={workspaceDetail.isFetching && !workspaceData}
-          />
-          <div className="rounded-lg border border-line bg-surface p-3">
-            <h3 className="mb-2 text-xs font-semibold text-ink-mid">
-              stack depth
-            </h3>
+        </Paper>
+        <Stack gap="md" style={{ flex: "0 1 20rem", minWidth: 0 }}>
+          <LayerDeltaPanel layer={selectedLayer} data={layerData} isError={layerDetail.isError && !layerData} error={layerDetail.error} isFetching={layerDetail.isFetching && !layerData} />
+          <WorkspacePanel workspaceId={workspaceId} workspaceCount={workspaces.length} data={workspaceData} isError={workspaceDetail.isError && !workspaceData} error={workspaceDetail.error} isFetching={workspaceDetail.isFetching && !workspaceData} />
+          <Paper withBorder p="md">
+            <Text component="h3" size="sm" fw={600} c="dimmed" mb="xs">Stack depth</Text>
             <ResourceSparkline values={depthTrend} width={220} height={36} label="stack depth" />
-            <p className="mt-1 text-[11px] text-ink-faint">
-              {layers.length} now · trend accumulates while this view polls
-            </p>
-          </div>
-          <div className="rounded-lg border border-line bg-surface p-3 text-[11px] leading-4 text-ink-mid">
-            <span className="font-medium text-ink">Squashable</span> marks
-            contiguous published layers with no live leases or bookings. The
-            base layer stays.
-          </div>
-        </section>
-      </div>
-    </div>
+            <Text size="xs" c="dimmed" mt="xs">{layers.length} now · trend accumulates while this view polls</Text>
+          </Paper>
+          <Alert color="blue" title="Squashable layers">
+            Contiguous published layers with no live leases or bookings are marked. The base layer stays.
+          </Alert>
+        </Stack>
+      </Flex>
+    </Stack>
   );
 }
 
@@ -211,72 +173,44 @@ function LayerRow({
   selected: boolean;
   onSelect: (layerId: string) => void;
 }) {
-  const level = total - index - 1;
   const isBase = index === total - 1;
+  const level = total - index - 1;
+  const leased = layer.leased_by_workspaces > 0 || layer.booked_by.length > 0;
   return (
-    <li>
-      <button
-        type="button"
+    <Box component="li">
+      <UnstyledButton
         aria-pressed={selected}
+        data-layer-row={layer.layer_id}
         onClick={() => onSelect(layer.layer_id)}
-        className={cn(
-          "flex w-full items-center gap-3 rounded border px-2 py-1.5 text-left",
-          selected
-            ? "border-accent bg-accent-soft"
-            : squashable
-              ? "border-accent/40 bg-accent-soft/40 hover:bg-accent-soft"
-              : "border-line hover:bg-surface-hover",
-        )}
+        p="sm"
+        style={{
+          background: selected ? "var(--mantine-color-eyeBlue-0)" : squashable ? "var(--mantine-color-eyeBlue-0)" : undefined,
+          border: `1px solid ${selected ? "var(--mantine-color-eyeBlue-5)" : "var(--mantine-color-neutral-3)"}`,
+          borderRadius: "var(--mantine-radius-sm)",
+          display: "block",
+          width: "100%",
+        }}
       >
-        <span className="w-8 shrink-0 font-mono text-[11px] text-ink-faint">
-          {isBase ? "base" : `L${level}`}
-        </span>
-        <span className="w-40 shrink-0 truncate font-mono text-xs" title={layer.layer_id}>
-          {layer.layer_id}
-        </span>
-        <span className="hidden min-w-0 flex-1 sm:block">
-          <span
-            className="block h-2 rounded-sm bg-accent/50"
-            style={{ width: `${Math.max((layer.bytes / maxBytes) * 100, 2)}%` }}
-            title={`${layer.bytes} bytes`}
-          />
-        </span>
-        <span className="w-16 shrink-0 text-right font-mono text-[11px] text-ink-mid">
-          {formatBytes(layer.bytes)}
-        </span>
-        <Tooltip
-          label={`${layer.leased_by_workspaces} workspace lease(s)${layer.booked_by.length > 0 ? ` · booked by ${layer.booked_by.join(", ")}` : ""}`}
-          openDelay={300}
-        >
-          <span
-            className={cn(
-              "w-20 shrink-0 text-right text-[11px]",
-              layer.leased_by_workspaces > 0 || layer.booked_by.length > 0
-                ? "text-warn"
-                : "text-ink-faint",
-            )}
-          >
-            {layer.leased_by_workspaces} leases
-            {layer.booked_by.length > 0 ? ` +${layer.booked_by.length}b` : ""}
-          </span>
-        </Tooltip>
-        {squashable ? (
-          <span className="shrink-0 rounded bg-accent/10 px-1 text-[10px] font-medium text-accent">
-            squashable
-          </span>
-        ) : null}
-      </button>
-    </li>
+        <Group gap="sm" wrap="nowrap">
+          <Text ff="monospace" size="xs" c="dimmed" w={32}>{isBase ? "base" : `L${level}`}</Text>
+          <Text ff="monospace" size="xs" truncate style={{ flex: "0 1 10rem" }} title={layer.layer_id}>{layer.layer_id}</Text>
+          <Box visibleFrom="sm" style={{ flex: 1, minWidth: 0 }}>
+            <Box title={`${layer.bytes} bytes`} style={{ background: "var(--mantine-color-eyeBlue-4)", borderRadius: "var(--mantine-radius-xs)", height: 8, width: `${Math.max((layer.bytes / maxBytes) * 100, 2)}%` }} />
+          </Box>
+          <Text ff="monospace" size="xs" c="dimmed" ta="right" w={64}>{formatBytes(layer.bytes)}</Text>
+          <Tooltip label={`${layer.leased_by_workspaces} workspace lease(s)${layer.booked_by.length ? ` · booked by ${layer.booked_by.join(", ")}` : ""}`} openDelay={300}>
+            <Text size="xs" c={leased ? "warning.8" : "dimmed"} ta="right" w={72}>
+              {layer.leased_by_workspaces} leases{layer.booked_by.length ? ` +${layer.booked_by.length}b` : ""}
+            </Text>
+          </Tooltip>
+          {squashable ? <Badge variant="light">squashable</Badge> : null}
+        </Group>
+      </UnstyledButton>
+    </Box>
   );
 }
 
-function LayerDeltaPanel({
-  layer,
-  data,
-  isError,
-  error,
-  isFetching,
-}: {
+function LayerDeltaPanel({ layer, data, isError, error, isFetching }: {
   layer: StackLayer | null;
   data: LayerStackLayerResult | null;
   isError: boolean;
@@ -284,79 +218,37 @@ function LayerDeltaPanel({
   isFetching: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-line bg-surface p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <h3 className="text-xs font-semibold text-ink-mid">changed paths</h3>
-        {layer ? (
-          <span className="min-w-0 truncate font-mono text-[11px] text-ink-faint">
-            {shortHash(layer.layer_id, 10)}
-          </span>
-        ) : null}
-      </div>
-      {layer ? (
-        <p className="mb-2 text-[11px] text-ink-faint">
-          {formatBytes(layer.bytes)}
-        </p>
-      ) : null}
-      {isError ? (
-        <div className="rounded border border-danger/40 bg-danger-soft p-2 text-[11px] text-ink">
-          {(error as Error).message}
-        </div>
-      ) : isFetching ? (
-        <p className="text-[11px] text-ink-faint">loading...</p>
-      ) : data ? (
-        <LayerEntryList entries={data.entries} truncated={data.truncated} />
-      ) : (
-        <p className="text-[11px] text-ink-faint">no layer selected</p>
-      )}
-    </div>
+    <Paper withBorder p="md">
+      <Group gap="xs" mb="xs">
+        <Text component="h3" size="sm" fw={600} c="dimmed">Changed paths</Text>
+        {layer ? <Text ff="monospace" size="xs" c="dimmed" truncate>{shortHash(layer.layer_id, 10)}</Text> : null}
+      </Group>
+      {layer ? <Text size="xs" c="dimmed" mb="sm">{formatBytes(layer.bytes)}</Text> : null}
+      {isError ? <Alert color="red">{(error as Error).message}</Alert> : isFetching ? <Text size="xs" c="dimmed">loading…</Text> : data ? <LayerEntryList entries={data.entries} truncated={data.truncated} /> : <Text size="xs" c="dimmed">no layer selected</Text>}
+    </Paper>
   );
 }
 
-function LayerEntryList({
-  entries,
-  truncated,
-}: {
-  entries: LayerStackLayerEntry[];
-  truncated: boolean;
-}) {
-  if (entries.length === 0) {
-    return <p className="text-[11px] text-ink-faint">no changed paths</p>;
-  }
+function LayerEntryList({ entries, truncated }: { entries: LayerStackLayerEntry[]; truncated: boolean }) {
+  if (entries.length === 0) return <Text size="xs" c="dimmed">no changed paths</Text>;
   return (
-    <div className="min-w-0">
-      <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto pr-1">
-        {entries.map((entry) => (
-          <li key={`${entry.kind}:${entry.path}`} className="flex min-w-0 items-center gap-2">
-            <span
-              className={cn(
-                "w-16 shrink-0 rounded border px-1 py-0.5 text-center text-[10px]",
-                entryKindClass(entry.kind),
-              )}
-            >
-              {entryKindLabel(entry.kind)}
-            </span>
-            <span className="min-w-0 truncate font-mono text-[11px]" title={entry.path}>
-              {entry.path}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {truncated ? (
-        <p className="mt-2 text-[11px] text-warn">showing first 500 entries</p>
-      ) : null}
-    </div>
+    <Stack gap="xs">
+      <ScrollArea.Autosize mah={256} type="auto" viewportProps={{ "aria-label": "Layer entries", tabIndex: 0 }}>
+        <Stack component="ul" gap={4} m={0} p={0} style={{ listStyle: "none" }}>
+          {entries.map((entry) => (
+            <Group component="li" key={`${entry.kind}:${entry.path}`} gap="xs" wrap="nowrap">
+              <Badge color={entryKindColor(entry.kind)} variant="light" style={{ flexShrink: 0 }}>{entryKindLabel(entry.kind)}</Badge>
+              <Text ff="monospace" size="xs" truncate title={entry.path}>{entry.path}</Text>
+            </Group>
+          ))}
+        </Stack>
+      </ScrollArea.Autosize>
+      {truncated ? <Text size="xs" c="warning.8">Showing the first 500 entries returned by the backend.</Text> : null}
+    </Stack>
   );
 }
 
-function WorkspacePanel({
-  workspaceId,
-  workspaceCount,
-  data,
-  isError,
-  error,
-  isFetching,
-}: {
+function WorkspacePanel({ workspaceId, workspaceCount, data, isError, error, isFetching }: {
   workspaceId: string;
   workspaceCount: number;
   data: LayerStackWorkspaceResult | null;
@@ -365,68 +257,44 @@ function WorkspacePanel({
   isFetching: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-line bg-surface p-3">
-      <h3 className="mb-2 text-xs font-semibold text-ink-mid">workspace mounts</h3>
+    <Paper withBorder p="md">
+      <Text component="h3" size="sm" fw={600} c="dimmed" mb="sm">Workspace mounts</Text>
       {workspaceId === ALL_WORKSPACES ? (
-        <p className="text-[11px] text-ink-faint">
-          {workspaceCount} live workspace{workspaceCount === 1 ? "" : "s"}
-        </p>
-      ) : isError ? (
-        <div className="rounded border border-danger/40 bg-danger-soft p-2 text-[11px] text-ink">
-          {(error as Error).message}
-        </div>
-      ) : isFetching ? (
-        <p className="text-[11px] text-ink-faint">loading...</p>
-      ) : data ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between text-[11px] text-ink-faint">
-            <span className="font-mono text-ink-mid">{data.workspace}</span>
-            <span>{formatBytes(data.upper_bytes ?? 0)} upper</span>
-          </div>
-          <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto pr-1">
-            {data.mounts.map((mount) => (
-              <li key={mount.layer_id} className="min-w-0 rounded border border-line px-2 py-1">
-                <div className="truncate font-mono text-[11px]" title={mount.layer_id}>
-                  {mount.layer_id}
-                </div>
-                <div className="text-[10px] text-ink-faint">
-                  shared with {mount.shared_with.length}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <p className="text-[11px] text-ink-faint">no workspace selected</p>
-      )}
-    </div>
+        <Text size="xs" c="dimmed">{workspaceCount} live workspace{workspaceCount === 1 ? "" : "s"}</Text>
+      ) : isError ? <Alert color="red">{(error as Error).message}</Alert> : isFetching ? <Text size="xs" c="dimmed">loading…</Text> : data ? (
+        <Stack gap="xs">
+          <Group justify="space-between">
+            <Text ff="monospace" size="xs">{data.workspace}</Text>
+            <Text size="xs" c="dimmed">{formatBytes(data.upper_bytes ?? 0)} upper</Text>
+          </Group>
+          <ScrollArea.Autosize mah={160} type="auto" viewportProps={{ "aria-label": "Workspace mount list", tabIndex: 0 }}>
+            <Stack component="ul" gap={4} m={0} p={0} style={{ listStyle: "none" }}>
+              {data.mounts.map((mount) => (
+                <Paper component="li" withBorder key={mount.layer_id} p="xs">
+                  <Text ff="monospace" size="xs" truncate title={mount.layer_id}>{mount.layer_id}</Text>
+                  <Text size="xs" c="dimmed">shared with {mount.shared_with.length}</Text>
+                </Paper>
+              ))}
+            </Stack>
+          </ScrollArea.Autosize>
+        </Stack>
+      ) : <Text size="xs" c="dimmed">no workspace selected</Text>}
+    </Paper>
   );
 }
 
 function entryKindLabel(kind: LayerStackLayerEntryKind): string {
-  switch (kind) {
-    case "directory":
-      return "dir";
-    case "opaque_dir":
-      return "opaque";
-    case "symlink":
-      return "link";
-    default:
-      return kind;
-  }
+  if (kind === "directory") return "dir";
+  if (kind === "opaque_dir") return "opaque";
+  if (kind === "symlink") return "link";
+  return kind;
 }
 
-function entryKindClass(kind: LayerStackLayerEntryKind): string {
-  switch (kind) {
-    case "delete":
-      return "border-danger/30 bg-danger-soft text-danger";
-    case "directory":
-      return "border-accent/30 bg-accent-soft text-accent";
-    case "opaque_dir":
-      return "border-warn/40 bg-warn-soft text-warn";
-    default:
-      return "border-line bg-surface-hover text-ink-mid";
-  }
+function entryKindColor(kind: LayerStackLayerEntryKind): string {
+  if (kind === "delete") return "red";
+  if (kind === "directory") return "blue";
+  if (kind === "opaque_dir") return "yellow";
+  return "gray";
 }
 
 function squashRuns(layers: StackLayer[]): Set<number> {
@@ -440,9 +308,7 @@ function squashRuns(layers: StackLayer[]): Set<number> {
   };
   for (let index = 0; index < layers.length; index += 1) {
     const layer = layers[index];
-    const isBase = index === layers.length - 1;
-    const free =
-      !isBase && layer.leased_by_workspaces === 0 && layer.booked_by.length === 0;
+    const free = index !== layers.length - 1 && layer.leased_by_workspaces === 0 && layer.booked_by.length === 0;
     if (free && runStart === null) runStart = index;
     if (!free) flush(index);
   }

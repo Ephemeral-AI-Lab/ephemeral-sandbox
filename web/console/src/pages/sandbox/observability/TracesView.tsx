@@ -1,6 +1,19 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ChevronDown, ChevronRight, Flag } from "lucide-react";
+import {
+  Alert,
+  Box,
+  Button,
+  Drawer,
+  Group,
+  Paper,
+  Stack,
+  Text,
+  UnstyledButton,
+} from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   fetchEvents,
   fetchTrace,
@@ -8,34 +21,33 @@ import {
 } from "@/api/observability";
 import { usePoll } from "@/poll/usePoll";
 import { useSandbox } from "@/pages/sandbox/SandboxContext";
-import { cn } from "@/lib/cn";
 import { formatTimestamp } from "@/lib/format";
 
 const STATUS_COLORS: Record<string, string> = {
-  completed: "bg-ok",
-  error: "bg-danger",
-  cancelled: "bg-idle",
-  timed_out: "bg-warn",
+  completed: "var(--mantine-color-success-6)",
+  error: "var(--mantine-color-danger-6)",
+  cancelled: "var(--mantine-color-neutral-6)",
+  timed_out: "var(--mantine-color-warning-6)",
 };
 
 /**
- * Traces: a list (the `last` selector plus trace ids discovered from recent
- * events — no trace-enumeration op exists) and the waterfall of the selected
- * trace with nested bars, status colors, pinned ⚑ events, and per-span attrs.
- * `traces/:traceId` is the deep-link target of event rows and blame owners.
+ * Traces are discovered from the latest 200 events because the service has no
+ * trace-enumeration operation. The selected trace remains addressable even
+ * when it is outside that discovery window.
  */
 export function TracesView() {
   const { sandboxId } = useSandbox();
   const params = useParams();
   const navigate = useNavigate();
   const selected = params.traceId ?? "last";
+  const narrow = useMediaQuery("(max-width: 47.99em)");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const recentEvents = usePoll({
     key: ["observability", sandboxId, "events", "for-traces"],
     fn: () => fetchEvents(sandboxId, { lastN: 200 }),
     mode: "slow",
   });
-
   const trace = usePoll({
     key: ["observability", sandboxId, "trace", selected],
     fn: () => fetchTrace(sandboxId, selected),
@@ -52,55 +64,83 @@ export function TracesView() {
         ordered.push({ id: event.trace, ts: event.ts });
       }
     }
-    ordered.sort((a, b) => b.ts - a.ts);
-    return ordered;
+    return ordered.sort((a, b) => b.ts - a.ts);
   }, [recentEvents.data]);
 
-  return (
-    <div className="flex h-full min-h-0">
-      <aside className="flex w-72 shrink-0 flex-col border-r border-line bg-surface">
-        <div className="border-b border-line px-3 py-2 text-xs font-semibold uppercase tracking-wide text-ink-mid">
-          Traces
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-          <TraceRow
-            id="last"
-            label="last trace"
-            hint="the most recent flow"
-            active={selected === "last"}
-            onClick={() => void navigate("../traces")}
-          />
-          {knownTraces.map((known) => (
-            <TraceRow
-              key={known.id}
-              id={known.id}
-              label={known.id}
-              hint={formatTimestamp(known.ts)}
-              active={selected === known.id}
-              onClick={() => void navigate(`../traces/${encodeURIComponent(known.id)}`)}
-            />
-          ))}
-          {knownTraces.length === 0 ? (
-            <p className="px-2 py-3 text-[11px] text-ink-faint">
-              No traces discovered from recent events yet — deep links and
-              the last selector still resolve.
-            </p>
-          ) : null}
-        </div>
-      </aside>
+  const selectTrace = (id: string) => {
+    setPickerOpen(false);
+    void navigate(id === "last" ? "../traces" : `../traces/${encodeURIComponent(id)}`);
+  };
+  const picker = (
+    <TracePicker
+      knownTraces={knownTraces}
+      onSelect={selectTrace}
+      selected={selected}
+    />
+  );
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
+  return (
+    <Box data-traces-view display="flex" style={{ flex: 1, height: "100%", minHeight: 0, minWidth: 0 }}>
+      {!narrow ? (
+        <Paper withBorder radius={0} w={288} style={{ flexShrink: 0, minHeight: 0 }}>
+          {picker}
+        </Paper>
+      ) : (
+        <Drawer opened={pickerOpen} onClose={() => setPickerOpen(false)} title="Trace selector" size="85%">
+          {picker}
+        </Drawer>
+      )}
+      <Stack gap="sm" p="md" style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
+        {narrow ? (
+          <Button variant="default" onClick={() => setPickerOpen(true)} style={{ alignSelf: "flex-start" }}>
+            Choose trace
+          </Button>
+        ) : null}
         {trace.isError ? (
-          <div className="rounded border border-danger/40 bg-danger-soft p-3 text-xs">
+          <Alert color="red" title="Trace unavailable">
             {(trace.error as Error).message}
-          </div>
+          </Alert>
         ) : trace.data ? (
           <Waterfall traceId={trace.data.trace} roots={trace.data.spans} />
         ) : (
-          <div className="animate-pulse text-xs text-ink-faint">loading trace…</div>
+          <Text size="sm" c="dimmed">loading trace…</Text>
         )}
-      </div>
-    </div>
+      </Stack>
+    </Box>
+  );
+}
+
+function TracePicker({
+  knownTraces,
+  onSelect,
+  selected,
+}: {
+  knownTraces: { id: string; ts: number }[];
+  onSelect: (id: string) => void;
+  selected: string;
+}) {
+  return (
+    <Stack gap={2} p="sm" style={{ height: "100%" }}>
+      <Text size="xs" fw={600} c="dimmed" tt="uppercase" px="xs" py="xs">Traces</Text>
+      <Box style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+        <TraceRow id="last" label="last trace" hint="the most recent flow" active={selected === "last"} onClick={() => onSelect("last")} />
+        {knownTraces.map((known) => (
+          <TraceRow
+            key={known.id}
+            id={known.id}
+            label={known.id}
+            hint={formatTimestamp(known.ts)}
+            active={selected === known.id}
+            onClick={() => onSelect(known.id)}
+          />
+        ))}
+        {knownTraces.length === 0 ? (
+          <Text size="xs" c="dimmed" p="sm">
+            No traces discovered from the latest 200 events yet. Deep links and the last selector still resolve.
+          </Text>
+        ) : null}
+      </Box>
+    </Stack>
   );
 }
 
@@ -118,157 +158,195 @@ function TraceRow({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <UnstyledButton
+      aria-current={active ? "page" : undefined}
       onClick={onClick}
-      className={cn(
-        "mb-0.5 block w-full rounded px-2 py-1.5 text-left",
-        active ? "bg-accent-soft" : "hover:bg-surface-hover",
-      )}
+      px="xs"
+      py={6}
+      style={{
+        borderRadius: "var(--mantine-radius-sm)",
+        display: "block",
+        width: "100%",
+        background: active ? "var(--mantine-color-eyeBlue-0)" : undefined,
+      }}
       title={id}
     >
-      <span
-        className={cn(
-          "block truncate font-mono text-xs",
-          active ? "font-medium text-accent" : "text-ink",
-        )}
-      >
+      <Text ff="monospace" fw={active ? 600 : 400} size="xs" c={active ? "eyeBlue.8" : undefined} truncate>
         {label}
-      </span>
-      <span className="block text-[10px] text-ink-faint">{hint}</span>
-    </button>
+      </Text>
+      <Text size="xs" c="dimmed" truncate>{hint}</Text>
+    </UnstyledButton>
   );
 }
 
 interface FlatSpan {
-  node: TraceNode;
   depth: number;
+  node: TraceNode;
 }
 
-function flatten(nodes: TraceNode[], depth: number): FlatSpan[] {
-  return nodes.flatMap((node) => [
-    { node, depth },
-    ...flatten(node.children, depth + 1),
-  ]);
+function flatten(nodes: TraceNode[]): FlatSpan[] {
+  const flattened: FlatSpan[] = [];
+  const stack = [...nodes].reverse().map((node) => ({ depth: 0, node }));
+  while (stack.length > 0) {
+    const row = stack.pop()!;
+    flattened.push(row);
+    for (let index = row.node.children.length - 1; index >= 0; index -= 1) {
+      stack.push({ depth: row.depth + 1, node: row.node.children[index] });
+    }
+  }
+  return flattened;
 }
 
 export function Waterfall({ traceId, roots }: { traceId: string; roots: TraceNode[] }) {
-  const rows = useMemo(() => flatten(roots, 0), [roots]);
+  const rows = useMemo(() => flatten(roots), [roots]);
   const totalMs = useMemo(
-    () =>
-      Math.max(
-        1,
-        ...rows.map((row) => row.node.offset_ms + (row.node.span.dur_ms ?? 0)),
-      ),
+    () => Math.max(1, ...rows.map((row) => row.node.offset_ms + (row.node.span.dur_ms ?? 0))),
     [rows],
   );
+  const [openSpans, setOpenSpans] = useState<Set<string>>(() => new Set());
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    estimateSize: (index) => openSpans.has(rows[index]?.node.span.span) ? 124 : 34,
+    getItemKey: (index) => rows[index]?.node.span.span ?? index,
+    getScrollElement: () => scrollRef.current,
+    initialRect: { height: 480, width: 800 },
+    overscan: 14,
+  });
+  const virtualRows = virtualizer.getVirtualItems();
+  const renderedRows = virtualRows.length > 0
+    ? virtualRows
+    : rows.slice(0, Math.min(rows.length, 20)).map((row, index) => ({
+        index,
+        key: row.node.span.span,
+        start: index * 34,
+      }));
+
+  useEffect(() => virtualizer.measure(), [openSpans, virtualizer]);
 
   if (rows.length === 0) {
-    return (
-      <p className="text-xs text-ink-faint">
-        Trace <span className="font-mono">{traceId}</span> has no spans.
-      </p>
-    );
+    return <Text size="sm" c="dimmed">Trace <Text component="span" ff="monospace">{traceId}</Text> has no spans.</Text>;
   }
 
   return (
-    <div>
-      <div className="mb-2 flex items-baseline gap-3">
-        <h3 className="font-mono text-sm font-semibold">{traceId}</h3>
-        <span className="text-xs text-ink-mid">total {totalMs.toFixed(0)}ms</span>
-      </div>
-      <div className="flex flex-col">
-        {rows.map((row) => (
-          <SpanRow
-            key={row.node.span.span}
-            row={row}
-            totalMs={totalMs}
-          />
-        ))}
-      </div>
-    </div>
+    <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
+      <Group gap="md">
+        <Text ff="monospace" fw={600} size="sm">{traceId}</Text>
+        <Text size="xs" c="dimmed">total {totalMs.toFixed(0)}ms · {rows.length.toLocaleString()} spans</Text>
+      </Group>
+      <Paper
+        withBorder
+        data-trace-waterfall
+        ref={scrollRef}
+        style={{ flex: 1, minHeight: 0, overflow: "auto", position: "relative" }}
+      >
+        <Box style={{ height: virtualizer.getTotalSize(), minWidth: "42rem", position: "relative" }}>
+          {renderedRows.map((virtualRow) => {
+            const row = rows[virtualRow.index];
+            const spanId = row.node.span.span;
+            return (
+              <Box
+                data-index={virtualRow.index}
+                data-trace-span={spanId}
+                key={virtualRow.key}
+                ref={virtualizer.measureElement}
+                style={{ left: 0, position: "absolute", top: 0, transform: `translateY(${virtualRow.start}px)`, width: "100%" }}
+              >
+                <SpanRow
+                  open={openSpans.has(spanId)}
+                  row={row}
+                  totalMs={totalMs}
+                  onToggle={() => setOpenSpans((current) => {
+                    const next = new Set(current);
+                    next.has(spanId) ? next.delete(spanId) : next.add(spanId);
+                    return next;
+                  })}
+                />
+              </Box>
+            );
+          })}
+        </Box>
+      </Paper>
+    </Stack>
   );
 }
 
-function SpanRow({ row, totalMs }: { row: FlatSpan; totalMs: number }) {
-  const [open, setOpen] = useState(false);
+function SpanRow({
+  open,
+  row,
+  totalMs,
+  onToggle,
+}: {
+  open: boolean;
+  row: FlatSpan;
+  totalMs: number;
+  onToggle: () => void;
+}) {
   const span = row.node.span;
   const duration = span.dur_ms ?? 0;
+  const attrs = Object.entries(span.attrs);
   const left = (row.node.offset_ms / totalMs) * 100;
   const width = Math.max((duration / totalMs) * 100, 0.5);
-  const attrs = Object.entries(span.attrs);
 
   return (
-    <div className="border-b border-line/60 py-0.5">
-      <div className="flex h-6 items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          className="flex w-64 shrink-0 items-center gap-1 truncate text-left hover:text-accent"
-          style={{ paddingLeft: `${row.depth * 14}px` }}
-          title={`${span.name} attrs`}
+    <Box style={{ borderBottom: "1px solid var(--mantine-color-neutral-3)", padding: "2px 6px" }}>
+      <Group gap="sm" wrap="nowrap" style={{ height: 27 }}>
+        <UnstyledButton
+          aria-expanded={attrs.length > 0 ? open : undefined}
+          onClick={onToggle}
+          style={{ alignItems: "center", display: "flex", flex: "0 0 16rem", gap: 4, minWidth: 0, paddingLeft: row.depth * 14 }}
+          title={`${span.name} attributes`}
         >
-          {attrs.length > 0 ? (
-            open ? (
-              <ChevronDown size={11} className="shrink-0 text-ink-faint" />
-            ) : (
-              <ChevronRight size={11} className="shrink-0 text-ink-faint" />
-            )
-          ) : (
-            <span className="w-[11px] shrink-0" />
-          )}
-          <span className="truncate font-mono text-xs">{span.name}</span>
-        </button>
-        <div className="relative h-4 min-w-0 flex-1 rounded-sm bg-app">
-          <div
-            className={cn(
-              "absolute top-0 h-4 rounded-sm",
-              STATUS_COLORS[span.status] ?? "bg-idle",
-            )}
-            style={{ left: `${left}%`, width: `${width}%`, opacity: 0.75 }}
+          {attrs.length > 0 ? open ? <ChevronDown size={12} /> : <ChevronRight size={12} /> : <Box w={12} />}
+          <Text ff="monospace" size="xs" truncate>{span.name}</Text>
+        </UnstyledButton>
+        <Box style={{ background: "var(--mantine-color-neutral-1)", borderRadius: "var(--mantine-radius-xs)", flex: 1, height: 16, minWidth: 0, overflow: "hidden", position: "relative" }}>
+          <Box
+            style={{ background: STATUS_COLORS[span.status] ?? "var(--mantine-color-neutral-6)", borderRadius: "var(--mantine-radius-xs)", height: 16, left: `${left}%`, opacity: 0.75, position: "absolute", top: 0, width: `${width}%` }}
             title={`${span.name} · ${duration.toFixed(1)}ms · ${span.status}`}
           />
           {row.node.events.map((event) => (
-            <span
+            <Box
+              component="span"
               key={`${event.event.name}-${event.event.ts}`}
-              className="absolute -top-0.5 text-warn"
-              style={{
-                left: `${Math.min(Math.max((event.offset_ms / totalMs) * 100, 0), 99)}%`,
-              }}
+              style={{ color: "var(--mantine-color-warning-6)", left: `${Math.min(Math.max((event.offset_ms / totalMs) * 100, 0), 99)}%`, position: "absolute", top: -2 }}
               title={`⚑ ${event.event.name}`}
             >
-              <Flag size={10} />
-            </span>
+              <Flag size={11} />
+            </Box>
           ))}
-        </div>
-        <span className="w-20 shrink-0 text-right font-mono text-[11px] text-ink-mid">
-          {duration.toFixed(1)}ms
-        </span>
-        <span className="w-20 shrink-0 text-right text-[11px] text-ink-faint">
-          {span.status}
-        </span>
-      </div>
+        </Box>
+        <Text ff="monospace" size="xs" c="dimmed" ta="right" w={80}>{duration.toFixed(1)}ms</Text>
+        <Text size="xs" c="dimmed" ta="right" w={80}>{span.status}</Text>
+      </Group>
       {open && attrs.length > 0 ? (
-        <dl
-          className="mb-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded border border-line bg-app px-2 py-1.5 text-[11px]"
-          style={{ marginLeft: `${row.depth * 14 + 16}px` }}
+        <Box
+          component="dl"
+          style={{
+            background: "var(--mantine-color-neutral-0)",
+            border: "1px solid var(--mantine-color-neutral-3)",
+            borderRadius: "var(--mantine-radius-sm)",
+            display: "grid",
+            gap: "2px 12px",
+            gridTemplateColumns: "auto minmax(0, 1fr)",
+            margin: `4px 0 4px ${row.depth * 14 + 16}px`,
+            padding: 8,
+          }}
         >
-          {attrs.map(([key, value]) => (
-            <SpanAttr key={key} name={key} value={value} />
-          ))}
-        </dl>
+          {attrs.map(([name, value]) => <SpanAttr key={name} name={name} value={value} />)}
+        </Box>
       ) : null}
-    </div>
+    </Box>
   );
 }
 
 function SpanAttr({ name, value }: { name: string; value: unknown }) {
   return (
     <>
-      <dt className="font-mono text-ink-faint">{name}</dt>
-      <dd className="break-all font-mono text-ink">
+      <Text component="dt" ff="monospace" size="xs" c="dimmed">{name}</Text>
+      <Text component="dd" ff="monospace" m={0} size="xs" style={{ overflowWrap: "anywhere" }}>
         {typeof value === "string" ? value : JSON.stringify(value)}
-      </dd>
+      </Text>
     </>
   );
 }
@@ -279,11 +357,7 @@ export function traceLink(sandboxId: string, traceId: string): string {
 
 export function TraceCell({ sandboxId, traceId }: { sandboxId: string; traceId: string }) {
   return (
-    <Link
-      to={traceLink(sandboxId, traceId)}
-      className="font-mono text-accent hover:underline"
-      title={traceId}
-    >
+    <Link to={traceLink(sandboxId, traceId)} style={{ color: "var(--mantine-primary-color-filled)", fontFamily: "var(--mantine-font-family-monospace)" }} title={traceId}>
       {traceId.length > 12 ? `${traceId.slice(0, 12)}…` : traceId}
     </Link>
   );

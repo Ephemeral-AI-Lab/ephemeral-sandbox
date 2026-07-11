@@ -1,11 +1,30 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Input, Select } from "@mantine/core";
-import { fetchEvents } from "@/api/observability";
+import {
+  Alert,
+  Box,
+  Button,
+  Group,
+  Paper,
+  Select,
+  Table,
+  Text,
+  TextInput,
+  UnstyledButton,
+} from "@mantine/core";
+import {
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { fetchEvents, type TraceEvent } from "@/api/observability";
 import { usePoll } from "@/poll/usePoll";
 import { useSandbox } from "@/pages/sandbox/SandboxContext";
 import { TraceCell } from "@/pages/sandbox/observability/TracesView";
-import { cn } from "@/lib/cn";
 import { formatTimestamp } from "@/lib/format";
 
 const SINCE_CHOICES = [
@@ -14,6 +33,11 @@ const SINCE_CHOICES = [
   { label: "last 15m", ms: 15 * 60_000 },
   { label: "last 1h", ms: 60 * 60_000 },
 ];
+const VIRTUALIZE_AT = 200;
+
+function eventKey(event: TraceEvent): string {
+  return `${event.trace}-${event.ts}-${event.name}`;
+}
 
 /**
  * EventStream: newest-first table over the `events` view with the API's
@@ -28,6 +52,9 @@ export function EventsView() {
   const lastN = Number(searchParams.get("last") ?? 200);
   const [tail, setTail] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [sorting, setSorting] = useState<SortingState>([{ id: "ts", desc: true }]);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const events = usePoll({
     key: ["observability", sandboxId, "events", name, sinceMs, lastN],
@@ -55,128 +82,199 @@ export function EventsView() {
     setSearchParams(params, { replace: true });
   };
 
-  const rows = [...(events.data?.events ?? [])].sort((a, b) => b.ts - a.ts);
+  const columns = useMemo<ColumnDef<TraceEvent>[]>(
+    () => [
+      {
+        accessorKey: "ts",
+        header: "timestamp",
+        cell: ({ row }) => (
+          <Text ff="monospace" size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
+            {formatTimestamp(row.original.ts)}
+          </Text>
+        ),
+      },
+      {
+        accessorKey: "name",
+        header: "name",
+        cell: ({ row }) => <Text ff="monospace" size="xs">{row.original.name}</Text>,
+      },
+      {
+        accessorKey: "trace",
+        header: "trace",
+        cell: ({ row }) => <TraceCell sandboxId={sandboxId} traceId={row.original.trace} />,
+      },
+      {
+        id: "attrs",
+        header: "attributes",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const key = row.id;
+          const attrsText = JSON.stringify(row.original.attrs);
+          const isOpen = expanded === key;
+          return (
+            <UnstyledButton
+              aria-expanded={isOpen}
+              onClick={() => setExpanded(isOpen ? null : key)}
+              style={{
+                display: "block",
+                fontFamily: "var(--mantine-font-family-monospace)",
+                fontSize: "var(--mantine-font-size-xs)",
+                maxWidth: "32rem",
+                overflow: isOpen ? "visible" : "hidden",
+                textAlign: "left",
+                textOverflow: isOpen ? "clip" : "ellipsis",
+                whiteSpace: isOpen ? "normal" : "nowrap",
+                wordBreak: "break-word",
+              }}
+              title="Toggle full attributes"
+            >
+              {attrsText}
+            </UnstyledButton>
+          );
+        },
+      },
+    ],
+    [expanded, sandboxId],
+  );
+  const table = useReactTable({
+    columns,
+    data: events.data?.events ?? [],
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: eventKey,
+    getSortedRowModel: getSortedRowModel(),
+    onSortingChange: setSorting,
+    state: { sorting },
+  });
+  const rows = table.getRowModel().rows;
+  const shouldVirtualize = rows.length > VIRTUALIZE_AT;
+  const rowVirtualizer = useVirtualizer({
+    count: shouldVirtualize ? rows.length : 0,
+    estimateSize: () => 34,
+    getItemKey: (index) => rows[index]?.id ?? index,
+    getScrollElement: () => scrollRef.current,
+    overscan: 12,
+  });
+  const virtualRows = shouldVirtualize ? rowVirtualizer.getVirtualItems() : [];
+  const paddingTop = virtualRows[0]?.start ?? 0;
+  const paddingBottom = shouldVirtualize
+    ? rowVirtualizer.getTotalSize() - (virtualRows.at(-1)?.end ?? 0)
+    : 0;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2">
-        <label className="text-[11px] text-ink-faint" htmlFor="event-name">
-          name
-        </label>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            apply({ name: (event.currentTarget.elements.namedItem("name") as HTMLInputElement).value });
-          }}
-        >
-          <Input
+    <Box data-events-view display="flex" style={{ flex: 1, flexDirection: "column", height: "100%", minHeight: 0 }}>
+      <Paper withBorder radius={0} px="md" py="sm">
+        <Group gap="sm" align="end" wrap="wrap">
+          <TextInput
+            label="Name"
             id="event-name"
             name="name"
             defaultValue={name}
             placeholder="lease.acquired"
-            className="w-52 font-mono"
+            size="xs"
+            styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)", width: "13rem" } }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                apply({ name: event.currentTarget.value });
+              }
+            }}
           />
-        </form>
-        <label className="text-[11px] text-ink-faint">since</label>
-        <Select
-          className="w-32"
-          value={String(sinceMs)}
-          onChange={(value) => apply({ since: Number(value ?? 0) })}
-          data={SINCE_CHOICES.map((choice) => ({
-            value: String(choice.ms),
-            label: choice.label,
-          }))}
-        />
-        <label className="text-[11px] text-ink-faint" htmlFor="event-last">
-          last-N
-        </label>
-        <Input
-          id="event-last"
-          value={String(lastN)}
-          onChange={(event) => {
-            const parsed = Number(event.target.value);
-            if (Number.isFinite(parsed) && parsed > 0) apply({ last: parsed });
-          }}
-          className="w-20 font-mono"
-          inputMode="numeric"
-        />
-        <button
-          type="button"
-          aria-pressed={tail}
-          onClick={() => setTail((current) => !current)}
-          className={cn(
-            "ml-auto flex items-center gap-1.5 rounded border px-2 py-1 text-[11px]",
-            tail
-              ? "border-accent bg-accent-soft text-accent"
-              : "border-line text-ink-mid hover:bg-surface-hover",
-          )}
-        >
-          <span
-            className={cn(
-              "size-1.5 rounded-full",
-              tail ? "animate-pulse bg-accent" : "bg-idle",
-            )}
+          <Select
+            label="Since"
+            size="xs"
+            value={String(sinceMs)}
+            onChange={(value) => apply({ since: Number(value ?? 0) })}
+            data={SINCE_CHOICES.map((choice) => ({ value: String(choice.ms), label: choice.label }))}
+            style={{ width: "8rem" }}
           />
-          tail
-        </button>
-      </div>
+          <TextInput
+            label="Last N"
+            id="event-last"
+            size="xs"
+            value={String(lastN)}
+            onChange={(event) => {
+              const parsed = Number(event.target.value);
+              if (Number.isFinite(parsed) && parsed > 0) apply({ last: parsed });
+            }}
+            inputMode="numeric"
+            styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)", width: "5rem" } }}
+          />
+          <Button
+            aria-label={tail ? "tail" : "resume tail"}
+            aria-pressed={tail}
+            color={tail ? "eyeBlue" : "gray"}
+            data-event-tail-state={tail ? "live" : "paused"}
+            onClick={() => setTail((current) => !current)}
+          >
+            {tail ? "Live tail" : "Paused"}
+          </Button>
+        </Group>
+      </Paper>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <Box ref={scrollRef} style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+        {events.isError ? (
+          <Alert color="red" title={events.data ? "Refresh paused on last confirmed events" : "Events unavailable"} m="md">
+            {(events.error as Error).message}
+          </Alert>
+        ) : null}
         {rows.length === 0 ? (
-          <div className="mx-auto mt-16 max-w-md rounded-lg border border-line bg-surface p-8 text-center">
-            <div className="text-sm font-semibold">No events</div>
-            <p className="mt-2 text-xs text-ink-mid">
+          <Paper withBorder p="xl" m="xl" maw={420} mx="auto" ta="center">
+            <Text fw={600}>No events</Text>
+            <Text size="sm" c="dimmed" mt="xs">
               Nothing matches these filters yet. Domain facts (leases,
               publishes) appear here as they happen.
-            </p>
-          </div>
+            </Text>
+          </Paper>
         ) : (
-          <table className="w-full border-collapse text-xs">
-            <thead className="sticky top-0 bg-surface">
-              <tr className="border-b border-line text-left text-[11px] text-ink-faint">
-                <th className="px-4 py-1.5 font-medium">ts</th>
-                <th className="px-2 py-1.5 font-medium">name</th>
-                <th className="px-2 py-1.5 font-medium">trace</th>
-                <th className="px-2 py-1.5 font-medium">attrs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((event) => {
-                const key = `${event.trace}-${event.ts}-${event.name}`;
-                const attrsText = JSON.stringify(event.attrs);
-                const isOpen = expanded === key;
-                return (
-                  <tr
-                    key={key}
-                    className="h-8 border-b border-line/60 align-top hover:bg-surface-hover"
-                  >
-                    <td className="whitespace-nowrap px-4 py-1.5 font-mono text-ink-mid">
-                      {formatTimestamp(event.ts)}
-                    </td>
-                    <td className="px-2 py-1.5 font-mono">{event.name}</td>
-                    <td className="px-2 py-1.5">
-                      <TraceCell sandboxId={sandboxId} traceId={event.trace} />
-                    </td>
-                    <td className="max-w-96 px-2 py-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setExpanded(isOpen ? null : key)}
-                        className={cn(
-                          "block w-full break-all text-left font-mono text-[11px] text-ink-mid hover:text-ink",
-                          !isOpen && "truncate",
-                        )}
-                        title="toggle full attrs"
-                      >
-                        {attrsText}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <Table highlightOnHover stickyHeader stickyHeaderOffset={0} miw={720} verticalSpacing="xs" horizontalSpacing="sm">
+            <Table.Thead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <Table.Tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <Table.Th key={header.id}>
+                      {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                        <UnstyledButton
+                          onClick={header.column.getToggleSortingHandler()}
+                          style={{ fontWeight: 600 }}
+                        >
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {header.column.getIsSorted() === "asc" ? " ↑" : header.column.getIsSorted() === "desc" ? " ↓" : ""}
+                        </UnstyledButton>
+                      ) : flexRender(header.column.columnDef.header, header.getContext())}
+                    </Table.Th>
+                  ))}
+                </Table.Tr>
+              ))}
+            </Table.Thead>
+            <Table.Tbody>
+              {paddingTop > 0 ? <Table.Tr><Table.Td colSpan={4} style={{ height: paddingTop, padding: 0 }} /></Table.Tr> : null}
+              {(shouldVirtualize ? virtualRows.map((item) => rows[item.index]) : rows).map((row) => (
+                <Table.Tr
+                  key={row.id}
+                  aria-selected={selected === row.id}
+                  data-event-row={row.id}
+                  tabIndex={0}
+                  onClick={() => setSelected(row.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setSelected(row.id);
+                    }
+                  }}
+                  style={selected === row.id ? { background: "var(--mantine-color-eyeBlue-0)" } : undefined}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <Table.Td key={cell.id} style={{ verticalAlign: "top" }}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </Table.Td>
+                  ))}
+                </Table.Tr>
+              ))}
+              {paddingBottom > 0 ? <Table.Tr><Table.Td colSpan={4} style={{ height: paddingBottom, padding: 0 }} /></Table.Tr> : null}
+            </Table.Tbody>
+          </Table>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router";
 import uPlot from "uplot";
-import { Select } from "@mantine/core";
+import { Alert, Box, Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import "uplot/dist/uPlot.min.css";
 import { fetchCgroup, type ResourceSample } from "@/api/observability";
 import { usePoll } from "@/poll/usePoll";
@@ -12,6 +12,41 @@ const WINDOWS = [
   { label: "300s", ms: 300_000 },
   { label: "600s (max)", ms: 600_000 },
 ];
+
+const CHARTS = [
+  {
+    title: "CPU (Δ cpu_usec / s)",
+    value: (sample: ResourceSample) => {
+      const delta = sample.deltas["cpu_usec"];
+      const period = sample.sample_delta_ms ?? 1000;
+      return typeof delta === "number" && period > 0 ? delta / (period * 1000) : null;
+    },
+  },
+  {
+    title: "Memory (mem_cur bytes)",
+    value: (sample: ResourceSample) => {
+      const memory = sample.metrics["mem_cur"];
+      return typeof memory === "number" ? memory : null;
+    },
+  },
+  {
+    title: "IO (Δ read+write bytes)",
+    value: (sample: ResourceSample) => {
+      const read = sample.deltas["io_rbytes"];
+      const write = sample.deltas["io_wbytes"];
+      return typeof read !== "number" && typeof write !== "number"
+        ? null
+        : (typeof read === "number" ? read : 0) + (typeof write === "number" ? write : 0);
+    },
+  },
+  {
+    title: "Disk upperdir (bytes)",
+    value: (sample: ResourceSample) => {
+      const disk = sample.metrics["disk_bytes"];
+      return typeof disk === "number" ? disk : null;
+    },
+  },
+] as const;
 
 /**
  * Resource charts over the `cgroup` view: CPU and IO counters render as
@@ -46,11 +81,11 @@ export function ResourcesView() {
   };
 
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[11px] text-ink-faint">scope</label>
+    <Stack gap="md" p="md" data-resources-view>
+      <Group gap="sm" align="end" wrap="wrap">
         <Select
-          className="w-64"
+          label="Scope"
+          size="xs"
           value={scope}
           onChange={(value) => apply({ scope: value ?? "sandbox" })}
           data={[
@@ -60,72 +95,39 @@ export function ResourcesView() {
               label: `workspace · ${workspace.workspace_id}`,
             })),
           ]}
+          style={{ width: "16rem" }}
         />
-        <label className="text-[11px] text-ink-faint">window</label>
         <Select
-          className="w-36"
+          label="Window"
+          size="xs"
           value={String(windowMs)}
           onChange={(value) => apply({ window: Number(value ?? WINDOWS[0].ms) })}
           data={WINDOWS.map((window) => ({ value: String(window.ms), label: window.label }))}
+          style={{ width: "9rem" }}
         />
-        <span className="ml-auto text-[11px] text-ink-faint">
+        <Text size="xs" c="dimmed" ml="auto">
           auto-refresh · {samples.length} samples
-        </span>
-      </div>
+        </Text>
+      </Group>
 
       {series.isError && !series.data ? (
-        <div className="rounded border border-danger/40 bg-danger-soft p-2 text-xs text-ink">
+        <Alert color="red" title="Resource metrics unavailable">
           {(series.error as Error).message} — retrying automatically.
-        </div>
+        </Alert>
       ) : null}
 
       {unavailable ? (
-        <div className="rounded border border-warn/40 bg-warn-soft p-2 text-xs text-ink">
+        <Alert color="yellow" title="cgroup metrics unavailable">
           cgroup metrics are unavailable in this container (
           {String(samples[samples.length - 1]?.metrics["cgroup_error"] ?? "")})
           — disk metrics still render for workspace scopes.
-        </div>
+        </Alert>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <ChartPane
-          title="CPU (Δ cpu_usec / s)"
-          samples={samples}
-          value={(sample) => {
-            const delta = sample.deltas["cpu_usec"];
-            if (typeof delta !== "number") return null;
-            const period = sample.sample_delta_ms ?? 1000;
-            return period > 0 ? delta / (period * 1000) : null;
-          }}
-        />
-        <ChartPane
-          title="Memory (mem_cur bytes)"
-          samples={samples}
-          value={(sample) => {
-            const mem = sample.metrics["mem_cur"];
-            return typeof mem === "number" ? mem : null;
-          }}
-        />
-        <ChartPane
-          title="IO (Δ read+write bytes)"
-          samples={samples}
-          value={(sample) => {
-            const read = sample.deltas["io_rbytes"];
-            const write = sample.deltas["io_wbytes"];
-            if (typeof read !== "number" && typeof write !== "number") return null;
-            return (typeof read === "number" ? read : 0) + (typeof write === "number" ? write : 0);
-          }}
-        />
-        <ChartPane
-          title="Disk upperdir (bytes)"
-          samples={samples}
-          value={(sample) => {
-            const disk = sample.metrics["disk_bytes"];
-            return typeof disk === "number" ? disk : null;
-          }}
-        />
-      </div>
-    </div>
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+        {CHARTS.map((chart) => <ChartPane key={chart.title} {...chart} samples={samples} />)}
+      </SimpleGrid>
+    </Stack>
   );
 }
 
@@ -187,25 +189,57 @@ function ChartPane({
       host,
     );
     plotRef.current = plot;
-    const onResize = () => plot.setSize({ width: host.clientWidth, height: 140 });
-    window.addEventListener("resize", onResize);
+    const resize = () => plot.setSize({ width: Math.max(host.clientWidth, 1), height: 140 });
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
+    observer?.observe(host);
     return () => {
-      window.removeEventListener("resize", onResize);
+      observer?.disconnect();
       plot.destroy();
       plotRef.current = null;
     };
+  }, [hasData]);
+
+  useEffect(() => {
+    if (hasData) plotRef.current?.setData(data);
   }, [data, hasData]);
 
+  const summary = useMemo(() => {
+    const values: number[] = [];
+    for (const sample of samples) {
+      const metric = value(sample);
+      if (metric !== null) values.push(metric);
+    }
+    return values.length === 0
+      ? null
+      : { latest: values.at(-1)!, min: Math.min(...values), max: Math.max(...values) };
+  }, [samples, value]);
+
   return (
-    <section className="rounded-lg border border-line bg-surface p-3">
-      <h3 className="mb-2 text-xs font-semibold text-ink-mid">{title}</h3>
+    <Paper withBorder p="md" component="section">
+      <Text component="h3" size="sm" fw={600} c="dimmed" mb="sm">{title}</Text>
       {hasData ? (
-        <div ref={hostRef} />
+        <Box ref={hostRef} />
       ) : (
-        <div className="flex h-[140px] items-center justify-center text-[11px] text-ink-faint">
+        <Box h={140} style={{ alignItems: "center", display: "flex", justifyContent: "center" }}>
           no samples in this window
-        </div>
+        </Box>
       )}
-    </section>
+      {summary ? (
+        <Group component="dl" gap="md" mt="sm" aria-label={`${title} numerical summary`}>
+          <Metric label="Latest" value={summary.latest} />
+          <Metric label="Minimum" value={summary.min} />
+          <Metric label="Maximum" value={summary.max} />
+        </Group>
+      ) : null}
+    </Paper>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <Box>
+      <Text component="dt" size="xs" c="dimmed">{label}</Text>
+      <Text component="dd" m={0} ff="monospace" size="xs">{value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
+    </Box>
   );
 }

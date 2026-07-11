@@ -1,7 +1,7 @@
-import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { TraceNode } from "@/api/observability";
 import { Waterfall } from "@/pages/sandbox/observability/TracesView";
+import { renderWithAppProviders } from "../utils/renderWithAppProviders";
 
 describe("Waterfall trace contract", () => {
   it("positions and labels attached EventNode payloads by their server offset", () => {
@@ -33,7 +33,7 @@ describe("Waterfall trace contract", () => {
       },
     ] as unknown as TraceNode[];
 
-    const { getByTitle } = render(<Waterfall traceId="trace-1" roots={roots} />);
+    const { getByTitle } = renderWithAppProviders(<Waterfall traceId="trace-1" roots={roots} />);
     const marker = getByTitle("⚑ lease.acquired");
 
     expect((marker as HTMLElement).style.left).toBe("50%");
