@@ -1329,3 +1329,26 @@
 - Cases run/passed/failed/skipped: 2/2/0/0
 - Wall time: 2938.963 ms
 - Description: suite completed with pytest exit status `0`; artifacts in `/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/manager/management/squash/test-reports/squash-20260711-033351`.
+## squash-20260711-085521 START — 2026-07-11T09:01:06+08:00
+- Command/tier: `/opt/homebrew/lib/python3.14/site-packages/pytest/__main__.py` (preconditions)
+- Cases run/passed/failed/skipped: pending
+- Wall time: pending
+- Description: live e2e run started; per-case verdicts will be written under `/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/manager/management/squash/test-reports/squash-20260711-085521`.
+
+## squash-20260711-085521 FINAL — 2026-07-11T09:13:08+08:00
+- Command/tier: `/opt/homebrew/lib/python3.14/site-packages/pytest/__main__.py`
+- Cases run/passed/failed/skipped: 61/61/0/0
+- Wall time: 1066911.285 ms
+- Description: suite completed with pytest exit status `atexit`; artifacts in `/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/manager/management/squash/test-reports/squash-20260711-085521`.
+
+## squash-20260711-091741 START — 2026-07-11T09:23:37+08:00
+- Command/tier: `/opt/homebrew/lib/python3.14/site-packages/pytest/__main__.py` (preconditions)
+- Cases run/passed/failed/skipped: pending
+- Wall time: pending
+- Description: live e2e run started; per-case verdicts will be written under `/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/manager/management/squash/test-reports/squash-20260711-091741`.
+
+## squash-20260711-091741 FINAL — 2026-07-11T09:34:49+08:00
+- Command/tier: `/opt/homebrew/lib/python3.14/site-packages/pytest/__main__.py`
+- Cases run/passed/failed/skipped: 61/61/0/0
+- Wall time: 1027319.834 ms
+- Description: suite completed with pytest exit status `atexit`; artifacts in `/Users/yifanxu/machine_learning/LoVC/ephemeral-ai/ephemeral-os/e2e/manager/management/squash/test-reports/squash-20260711-091741`.

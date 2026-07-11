@@ -185,6 +185,9 @@
   },
   "active": "d5fccc8ee65959ed",
   "lastOpenFiles": [
+    "implementation_plan/operation-migration/evidence/phase-8/authoritative-forbidden-token-inventory.tsv",
+    "implementation_plan/operation-migration/evidence/phase-8",
+    "implementation_plan/operation-migration/evidence/phase-0/IMMUTABLE.md",
     "implementation_plan/operation-migration/adversarial-architecture-review-prompt.md",
     "implementation_plan/operation-migration/implementation-prompt.md",
     "implementation_plan/operation-migration/evidence/phase-0/artifact-invariants.txt",
@@ -196,7 +199,6 @@
     "implementation_plan/operation-migration/evidence/phase-0/relocation-tests.txt",
     "implementation_plan/operation-migration/evidence/phase-0/pytest-live-baseline.txt",
     "implementation_plan/operation-migration/evidence/phase-0/gateway-rebuild-baseline.txt",
-    "implementation_plan/operation-migration/evidence/phase-0/cargo-test-workspace-baseline.txt",
     "implementation_plan/operation-migration/evidence/phase-0/characterization.md",
     "implementation_plan/operation-migration/evidence/phase-0/route-audit.md",
     "implementation_plan/operation-migration/evidence/phase-0/baseline-inventory.md",
@@ -218,7 +220,6 @@
     "implementation_plan/mcp_cli_surface/http.md",
     "implementation_plan/cli_migration/spec.md",
     "implementation_plan/mcp_cli_surface/cli.md",
-    "implementation_plan/export_changes/speedup-10x-prompt.md",
-    "implementation_plan/export_changes/export-speedup-results.md"
+    "implementation_plan/export_changes/speedup-10x-prompt.md"
   ]
 }

@@ -185,6 +185,9 @@
   },
   "active": "2b73796146464bdb",
   "lastOpenFiles": [
+    "ephemeral-os/implementation_plan/operation-migration/evidence/phase-8/authoritative-forbidden-token-inventory.tsv",
+    "ephemeral-os/implementation_plan/operation-migration/evidence/phase-8",
+    "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/IMMUTABLE.md",
     "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/artifact-invariants.txt",
     "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/route-cross-check-current.txt",
     "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/standing-cargo-fmt.txt",
@@ -194,8 +197,6 @@
     "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/relocation-tests.txt",
     "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/pytest-live-baseline.txt",
     "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/gateway-rebuild-baseline.txt",
-    "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/cargo-test-workspace-baseline.txt",
-    "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/pytest-live-targeted-rerun.txt",
     "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/characterization.md",
     "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/route-audit.md",
     "ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/baseline-inventory.md",
@@ -220,7 +221,6 @@
     "ephemeral-os/implementation_plan/export_changes/runnable-export-test-case.md",
     "ephemeral-os/implementation_plan/export_changes/run-prompt.md",
     "ephemeral-os/implementation_plan/export_changes/goal-prompt.md",
-    "ephemeral-os/implementation_plan/export_changes/test-case.md",
     "ephemeral-os/docs/Untitled.canvas"
   ]
 }
