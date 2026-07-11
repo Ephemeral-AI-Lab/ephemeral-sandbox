@@ -4,6 +4,7 @@
 
 use std::path::{Component, Path, PathBuf};
 
+use http::header::{HeaderValue, CONTENT_SECURITY_POLICY};
 use http::StatusCode;
 use hyper::Response;
 
@@ -19,7 +20,7 @@ const PLACEHOLDER_PAGE: &str = "<!doctype html>\
 
 pub async fn serve(assets_dir: Option<&Path>, uri_path: &str) -> Response<BoxBody> {
     let Some(assets_dir) = assets_dir else {
-        return response::html(StatusCode::OK, PLACEHOLDER_PAGE);
+        return console_document(response::html(StatusCode::OK, PLACEHOLDER_PAGE));
     };
     let Some(relative) = sanitize(uri_path) else {
         return response::text(StatusCode::BAD_REQUEST, "invalid asset path");
@@ -32,8 +33,10 @@ pub async fn serve(assets_dir: Option<&Path>, uri_path: &str) -> Response<BoxBod
     match read_file(&candidate).await {
         Some(body) => file_response(&candidate, body),
         None => match read_file(&assets_dir.join("index.html")).await {
-            Some(body) => response::no_store(response::html(StatusCode::OK, body)),
-            None => response::html(StatusCode::OK, PLACEHOLDER_PAGE),
+            Some(body) => {
+                console_document(response::no_store(response::html(StatusCode::OK, body)))
+            }
+            None => console_document(response::html(StatusCode::OK, PLACEHOLDER_PAGE)),
         },
     }
 }
@@ -71,6 +74,18 @@ fn file_response(path: &Path, body: Vec<u8>) -> Response<BoxBody> {
             http::HeaderValue::from_static("public, max-age=31536000, immutable"),
         );
     }
+    if content_type.starts_with("text/html") {
+        console_document(response)
+    } else {
+        response
+    }
+}
+
+fn console_document(mut response: Response<BoxBody>) -> Response<BoxBody> {
+    response.headers_mut().append(
+        CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static("frame-src 'self'"),
+    );
     response
 }
 

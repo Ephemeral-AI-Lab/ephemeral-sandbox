@@ -21,6 +21,7 @@ pub async fn handle(
         &endpoint,
         "/files/list",
         req,
+        None,
         state.config.proxy_connect_timeout,
         state.config.proxy_response_timeout,
     )

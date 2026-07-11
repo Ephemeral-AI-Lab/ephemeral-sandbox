@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { ExternalLink, RotateCw } from "lucide-react";
-import { Button, Input, Select } from "@mantine/core";
+import { Button, Input, Loader, Select } from "@mantine/core";
 import { useSandbox } from "@/pages/sandbox/SandboxContext";
 import { previewScopes } from "@/pages/sandbox/SandboxHeader";
 
 /**
  * The embedded web viewer: an iframe over the console's `/s/:id/...`
- * preview proxy — purely client-side, no new server surface. Scope, port,
- * and path live in the query string so the view survives refresh and every
- * PortPreview launcher can deep-link here.
+ * preview proxy. The frame is deliberately opaque to the Console: scope,
+ * port, and initial path live in the query string so launchers can deep-link
+ * without reading or synchronizing in-frame navigation.
  */
 export function PreviewTab() {
   const { sandboxId, snapshot } = useSandbox();
@@ -20,8 +20,7 @@ export function PreviewTab() {
   const [pathDraft, setPathDraft] = useState(path);
   const [portDraft, setPortDraft] = useState(port);
   const [reloadKey, setReloadKey] = useState(0);
-  const [blocked, setBlocked] = useState<string | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => setPathDraft(path), [path]);
   useEffect(() => setPortDraft(port), [port]);
@@ -38,47 +37,16 @@ export function PreviewTab() {
     return `/s/${encodeURIComponent(sandboxId)}/${scopeSegment}/${port}/${cleanPath}`;
   }, [sandboxId, scope, port, path, portValid]);
 
+  useEffect(() => {
+    setIsLoading(Boolean(previewUrl));
+  }, [previewUrl, reloadKey]);
+
   const apply = (next: { scope?: string; port?: string; path?: string }) => {
     const params = new URLSearchParams(searchParams);
     if (next.scope !== undefined) params.set("scope", next.scope);
     if (next.port !== undefined) params.set("port", next.port);
     if (next.path !== undefined) params.set("path", next.path);
     setSearchParams(params, { replace: true });
-  };
-
-  useEffect(() => {
-    setBlocked(null);
-    if (!previewUrl) return;
-    const controller = new AbortController();
-    void fetch(previewUrl, { signal: controller.signal })
-      .then((response) => {
-        const frameOptions = response.headers.get("x-frame-options") ?? "";
-        const csp = response.headers.get("content-security-policy") ?? "";
-        if (/deny/i.test(frameOptions)) {
-          setBlocked("the app sends X-Frame-Options: DENY");
-        } else if (/frame-ancestors[^;]*'none'/i.test(csp)) {
-          setBlocked("the app sends CSP frame-ancestors 'none'");
-        }
-        controller.abort();
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, [previewUrl, reloadKey]);
-
-  const syncFromIframe = () => {
-    const frame = iframeRef.current;
-    if (!frame) return;
-    try {
-      const current = frame.contentWindow?.location.pathname;
-      if (!current) return;
-      const prefix = `/s/${encodeURIComponent(sandboxId)}/${scope === "shared" ? "shared" : `isolated=${scope}`}/${port}`;
-      if (current.startsWith(prefix)) {
-        const inner = current.slice(prefix.length) || "/";
-        setPathDraft(inner + (frame.contentWindow?.location.search ?? ""));
-      }
-    } catch {
-      setBlocked("the app refuses to render inside a frame");
-    }
   };
 
   return (
@@ -141,7 +109,7 @@ export function PreviewTab() {
         <Button
           size="compact-xs"
           onClick={() => {
-            if (previewUrl) window.open(previewUrl, "_blank", "noopener");
+            if (previewUrl) window.open(previewUrl, "_blank", "noopener,noreferrer");
           }}
           disabled={!previewUrl}
           title="open in a new tab"
@@ -159,31 +127,26 @@ export function PreviewTab() {
         </div>
       ) : null}
 
-      {blocked ? (
-        <div className="flex items-center gap-3 border-b border-danger/40 bg-danger-soft px-3 py-1.5 text-[11px] text-ink">
-          Embedding blocked: {blocked}.
-          <Button
-            size="compact-xs"
-            onClick={() => {
-              if (previewUrl) window.open(previewUrl, "_blank", "noopener");
-            }}
-          >
-            <ExternalLink size={11} />
-            open in a new tab instead
-          </Button>
-        </div>
-      ) : null}
-
-      <div className="min-h-0 flex-1 bg-app">
+      <div className="relative min-h-0 flex-1 bg-app" aria-busy={isLoading}>
         {previewUrl ? (
-          <iframe
-            key={`${previewUrl}-${reloadKey}`}
-            ref={iframeRef}
-            src={previewUrl}
-            onLoad={syncFromIframe}
-            title={`preview of ${sandboxId} port ${port}`}
-            className="h-full w-full border-0 bg-white"
-          />
+          <>
+            {isLoading ? (
+              <div className="absolute top-0 w-full flex items-center gap-2 bg-surface/90 px-3 py-1.5 text-[11px] text-ink-mid" role="status">
+                <Loader size="xs" />
+                Loading preview…
+              </div>
+            ) : null}
+            <iframe
+              key={`${previewUrl}-${reloadKey}`}
+              src={previewUrl}
+              onLoad={() => setIsLoading(false)}
+              sandbox="allow-scripts"
+              allow=""
+              referrerPolicy="no-referrer"
+              title={`preview of ${sandboxId} port ${port}`}
+              className="h-full w-full border-0 bg-white"
+            />
+          </>
         ) : (
           <div className="mx-auto mt-16 max-w-md rounded-lg border border-line bg-surface p-8 text-center">
             <div className="text-sm font-semibold">Pick a port to preview</div>
