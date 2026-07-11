@@ -197,6 +197,10 @@ authenticated `/api/rpc` bridge—for those operations. See
 [`docs/daemon-http/README.md`](docs/daemon-http/README.md) for request and
 forwarding details.
 
+The optional `file_list` JSON fields are `path`, `workspace_session_id`, and
+`limit`. `limit` must be at least 1 and is always clamped to the daemon's fixed
+`runtime.file.max_list_entries` safety cap.
+
 ## Contract owners
 
 The adapter-neutral operation envelope is owned by

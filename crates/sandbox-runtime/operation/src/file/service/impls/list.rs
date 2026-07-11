@@ -31,6 +31,13 @@ impl FileService {
         workspace_session: &WorkspaceSessionService,
         input: ListInput,
     ) -> Result<ListOutput, FileOperationError> {
+        if input.limit == Some(0) {
+            return Err(FileOperationError::InvalidListLimit(0));
+        }
+        let limit = input
+            .limit
+            .unwrap_or(self.caps().max_list_entries)
+            .min(self.caps().max_list_entries);
         match &input.workspace_session_id {
             Some(workspace_session_id) => {
                 let handler = workspace_session
@@ -46,7 +53,7 @@ impl FileService {
                     &rel_str,
                     FileRunnerOp::ListDir {
                         rel: rel_str.clone(),
-                        limit: self.caps().max_list_entries,
+                        limit,
                     },
                 )
                 .map_err(|error| match error {
@@ -75,7 +82,7 @@ impl FileService {
                 let workspace_root = layerstack.workspace_root()?;
                 let rel = resolve_list_rel(&workspace_root, input.path.as_deref())?;
                 let rel_str = rel.as_ref().map_or("", |rel| rel.as_str()).to_owned();
-                match layerstack.list_current_dir(rel.as_ref(), self.caps().max_list_entries)? {
+                match layerstack.list_current_dir(rel.as_ref(), limit)? {
                     ManifestDirList::Absent => Err(FileOperationError::NotFound(rel_str)),
                     ManifestDirList::NotDirectory => Err(FileOperationError::NotDirectory(rel_str)),
                     ManifestDirList::Entries { entries, truncated } => Ok(ListOutput {

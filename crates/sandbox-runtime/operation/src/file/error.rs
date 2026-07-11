@@ -35,6 +35,8 @@ pub enum FileOperationError {
     NotRegular { path: String, kind: FileEntryKind },
     #[error("path is not a directory: {0}")]
     NotDirectory(String),
+    #[error("list limit must be at least 1 (received {0})")]
+    InvalidListLimit(usize),
     #[error("file is too large ({size} bytes; limit {limit}): {path}")]
     FileTooLarge {
         path: String,

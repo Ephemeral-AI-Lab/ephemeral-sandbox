@@ -974,6 +974,7 @@ fn target() -> NamespaceTarget {
 fn list_of(path: Option<&str>) -> ListInput {
     ListInput {
         path: path.map(str::to_owned),
+        limit: None,
         workspace_session_id: None,
     }
 }
@@ -1082,6 +1083,7 @@ fn session_list_runs_through_run_file_op() {
     let listed = env
         .list(ListInput {
             path: None,
+            limit: Some(1),
             workspace_session_id: Some(id.clone()),
         })
         .expect("session list");
@@ -1093,7 +1095,7 @@ fn session_list_runs_through_run_file_op() {
     assert!(
         matches!(
             &ops[0].1,
-            FileRunnerOp::ListDir { rel, .. } if rel.is_empty()
+            FileRunnerOp::ListDir { rel, limit } if rel.is_empty() && *limit == 1
         ),
         "root listing sends an empty rel: {ops:?}"
     );
@@ -1107,9 +1109,42 @@ fn session_list_runs_through_run_file_op() {
     assert!(matches!(
         env.list(ListInput {
             path: Some("gone".into()),
+            limit: None,
             workspace_session_id: Some(id),
         }),
         Err(FileOperationError::NotFound(_))
+    ));
+}
+
+#[test]
+fn list_limit_is_validated_and_clamped_to_runtime_policy() {
+    let env = env();
+    assert!(matches!(
+        env.list(ListInput {
+            path: None,
+            limit: Some(0),
+            workspace_session_id: None,
+        }),
+        Err(FileOperationError::InvalidListLimit(0))
+    ));
+
+    let id = env.create_session();
+    env.fake
+        .push_run_file_op_result(Ok(run_result_ok(&FileRunnerResult::ListDir {
+            existed: true,
+            entries: Vec::new(),
+            truncated: false,
+        })));
+    env.list(ListInput {
+        path: None,
+        limit: Some(usize::MAX),
+        workspace_session_id: Some(id),
+    })
+    .expect("bounded session list");
+
+    assert!(matches!(
+        &env.fake.run_file_op_calls()[0].1,
+        FileRunnerOp::ListDir { limit: 2_000, .. }
     ));
 }
 
@@ -1127,6 +1162,24 @@ fn dispatch_file_list_shapes_json_and_validates() {
     assert_eq!(response["entries"][0]["name"], "nested.txt");
     assert_eq!(response["entries"][0]["kind"], "file");
     assert_eq!(response["entries"][0]["size"], 4);
+
+    let response = sandbox_runtime::dispatch_operation(
+        &operations,
+        &runtime_request("file_list", json!({ "limit": 1 })),
+    )
+    .into_json_value();
+    assert_eq!(
+        response["entries"].as_array().expect("entries array").len(),
+        1
+    );
+    assert_eq!(response["truncated"], true);
+
+    let response = sandbox_runtime::dispatch_operation(
+        &operations,
+        &runtime_request("file_list", json!({ "limit": 0 })),
+    )
+    .into_json_value();
+    assert_eq!(response["error"]["kind"], "invalid_request");
 
     let response =
         sandbox_runtime::dispatch_operation(&operations, &runtime_request("file_list", json!({})))

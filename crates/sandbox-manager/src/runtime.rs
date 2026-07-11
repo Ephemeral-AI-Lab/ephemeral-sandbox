@@ -15,13 +15,15 @@ pub struct CreateSandboxResult {
 }
 
 /// Cumulative, read-only resource counters reported by the container runtime.
+/// A missing value means the runtime did not report that counter; callers must
+/// not substitute zero because zero is a valid observed value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SandboxResourceMetrics {
-    pub cpu_usage_usec: u64,
+    pub cpu_usage_usec: Option<u64>,
     pub memory_current_bytes: Option<u64>,
     pub memory_limit_bytes: Option<u64>,
-    pub io_read_bytes: u64,
-    pub io_write_bytes: u64,
+    pub io_read_bytes: Option<u64>,
+    pub io_write_bytes: Option<u64>,
 }
 
 pub trait SandboxRuntime: Send + Sync {

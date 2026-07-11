@@ -140,10 +140,15 @@ fn dispatch_file_edit(
 }
 
 fn parse_list_input(request: &OperationRequest) -> Result<ListInput, OperationResponse> {
+    let limit = request.optional_usize("limit")?;
+    if limit == Some(0) {
+        return Err(request.invalid_argument("limit must be at least 1"));
+    }
     Ok(ListInput {
         path: request
             .optional_string("path")?
             .filter(|path| !path.trim().is_empty()),
+        limit,
         workspace_session_id: parse_workspace_session_id(request)?,
     })
 }
@@ -263,6 +268,7 @@ fn file_operation_error_response(error: FileOperationError) -> OperationResponse
         | FileOperationError::NotUtf8(_)
         | FileOperationError::NotRegular { .. }
         | FileOperationError::NotDirectory(_)
+        | FileOperationError::InvalidListLimit(_)
         | FileOperationError::FileTooLarge { .. }
         | FileOperationError::OutputTooLarge { .. }
         | FileOperationError::EditNotFound { .. }

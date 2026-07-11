@@ -74,12 +74,14 @@ pub(crate) struct ImageCommandResult {
 }
 
 /// Cumulative counters obtained from Docker's read-only container stats API.
+/// Optional counters preserve Docker's distinction between unavailable data and
+/// an observed zero.
 pub(crate) struct ContainerResourceMetrics {
-    pub(crate) cpu_usage_usec: u64,
+    pub(crate) cpu_usage_usec: Option<u64>,
     pub(crate) memory_current_bytes: Option<u64>,
     pub(crate) memory_limit_bytes: Option<u64>,
-    pub(crate) io_read_bytes: u64,
-    pub(crate) io_write_bytes: u64,
+    pub(crate) io_read_bytes: Option<u64>,
+    pub(crate) io_write_bytes: Option<u64>,
 }
 
 /// Result of starting a container and resolving its published daemon ports (the
@@ -521,7 +523,7 @@ fn container_resource_metrics(stats: &bollard::container::Stats) -> ContainerRes
     ContainerResourceMetrics {
         // Docker's total CPU usage counter is nanoseconds; the observability
         // contract uses microseconds to match cgroup v2's cpu.stat usage_usec.
-        cpu_usage_usec: stats.cpu_stats.cpu_usage.total_usage / 1_000,
+        cpu_usage_usec: Some(stats.cpu_stats.cpu_usage.total_usage / 1_000),
         memory_current_bytes: stats.memory_stats.usage,
         memory_limit_bytes: stats.memory_stats.limit,
         io_read_bytes,
@@ -529,28 +531,35 @@ fn container_resource_metrics(stats: &bollard::container::Stats) -> ContainerRes
     }
 }
 
-fn block_io_totals(stats: &bollard::container::Stats) -> (u64, u64) {
+fn block_io_totals(stats: &bollard::container::Stats) -> (Option<u64>, Option<u64>) {
     let mut reads = 0_u64;
     let mut writes = 0_u64;
-    for entry in stats
-        .blkio_stats
-        .io_service_bytes_recursive
-        .as_deref()
-        .unwrap_or_default()
+    let primary_available =
+        if let Some(entries) = stats.blkio_stats.io_service_bytes_recursive.as_deref() {
+            for entry in entries {
+                match entry.op.to_ascii_lowercase().as_str() {
+                    "read" => reads = reads.saturating_add(entry.value),
+                    "write" => writes = writes.saturating_add(entry.value),
+                    _ => {}
+                }
+            }
+            true
+        } else {
+            false
+        };
+    if reads != 0 || writes != 0 {
+        (Some(reads), Some(writes))
+    } else if stats.storage_stats.read_size_bytes.is_some()
+        || stats.storage_stats.write_size_bytes.is_some()
     {
-        match entry.op.to_ascii_lowercase().as_str() {
-            "read" => reads = reads.saturating_add(entry.value),
-            "write" => writes = writes.saturating_add(entry.value),
-            _ => {}
-        }
-    }
-    if reads == 0 && writes == 0 {
         (
-            stats.storage_stats.read_size_bytes.unwrap_or(0),
-            stats.storage_stats.write_size_bytes.unwrap_or(0),
+            stats.storage_stats.read_size_bytes,
+            stats.storage_stats.write_size_bytes,
         )
+    } else if primary_available {
+        (Some(0), Some(0))
     } else {
-        (reads, writes)
+        (None, None)
     }
 }
 

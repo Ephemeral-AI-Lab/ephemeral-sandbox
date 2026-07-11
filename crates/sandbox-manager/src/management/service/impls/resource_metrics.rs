@@ -129,26 +129,23 @@ fn sample_value(sample: ResourceSample, previous: Option<ResourceSample>) -> Val
     });
     let deltas = previous.map_or_else(Map::new, |prior| {
         let mut deltas = Map::new();
-        deltas.insert(
-            "cpu_usec".to_owned(),
-            json!(sample
-                .metrics
-                .cpu_usage_usec
-                .saturating_sub(prior.metrics.cpu_usage_usec)),
+        insert_counter_delta(
+            &mut deltas,
+            "cpu_usec",
+            sample.metrics.cpu_usage_usec,
+            prior.metrics.cpu_usage_usec,
         );
-        deltas.insert(
-            "io_rbytes".to_owned(),
-            json!(sample
-                .metrics
-                .io_read_bytes
-                .saturating_sub(prior.metrics.io_read_bytes)),
+        insert_counter_delta(
+            &mut deltas,
+            "io_rbytes",
+            sample.metrics.io_read_bytes,
+            prior.metrics.io_read_bytes,
         );
-        deltas.insert(
-            "io_wbytes".to_owned(),
-            json!(sample
-                .metrics
-                .io_write_bytes
-                .saturating_sub(prior.metrics.io_write_bytes)),
+        insert_counter_delta(
+            &mut deltas,
+            "io_wbytes",
+            sample.metrics.io_write_bytes,
+            prior.metrics.io_write_bytes,
         );
         deltas
     });
@@ -163,9 +160,9 @@ fn sample_value(sample: ResourceSample, previous: Option<ResourceSample>) -> Val
 fn metrics_value(metrics: SandboxResourceMetrics) -> Value {
     let mut values = Map::new();
     values.insert("metrics_source".to_owned(), json!("docker_engine"));
-    values.insert("cpu_usec".to_owned(), json!(metrics.cpu_usage_usec));
-    values.insert("io_rbytes".to_owned(), json!(metrics.io_read_bytes));
-    values.insert("io_wbytes".to_owned(), json!(metrics.io_write_bytes));
+    insert_metric(&mut values, "cpu_usec", metrics.cpu_usage_usec);
+    insert_metric(&mut values, "io_rbytes", metrics.io_read_bytes);
+    insert_metric(&mut values, "io_wbytes", metrics.io_write_bytes);
     if let Some(memory_current_bytes) = metrics.memory_current_bytes {
         values.insert("mem_cur".to_owned(), json!(memory_current_bytes));
     }
@@ -173,4 +170,21 @@ fn metrics_value(metrics: SandboxResourceMetrics) -> Value {
         values.insert("mem_max".to_owned(), json!(memory_limit_bytes));
     }
     Value::Object(values)
+}
+
+fn insert_counter_delta(
+    values: &mut Map<String, Value>,
+    key: &str,
+    current: Option<u64>,
+    previous: Option<u64>,
+) {
+    if let (Some(current), Some(previous)) = (current, previous) {
+        values.insert(key.to_owned(), json!(current.saturating_sub(previous)));
+    }
+}
+
+fn insert_metric(values: &mut Map<String, Value>, key: &str, value: Option<u64>) {
+    if let Some(value) = value {
+        values.insert(key.to_owned(), json!(value));
+    }
 }

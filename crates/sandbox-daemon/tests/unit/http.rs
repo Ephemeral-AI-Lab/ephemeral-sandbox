@@ -141,6 +141,31 @@ async fn file_list_preserves_root_published_live_and_transport_contracts() -> Te
         "published snapshot entry: {root}"
     );
 
+    let bounded = send_request(
+        server.addr,
+        "POST",
+        "/files/list",
+        &[("Content-Type", "application/json")],
+        br#"{"limit":1}"#,
+    )
+    .await?;
+    assert_eq!(bounded.status, 200);
+    let bounded: Value = serde_json::from_slice(&bounded.body)?;
+    assert_eq!(bounded["entries"].as_array().expect("entries array").len(), 1);
+    assert_eq!(bounded["truncated"], true);
+
+    let zero_limit = send_request(
+        server.addr,
+        "POST",
+        "/files/list",
+        &[("Content-Type", "application/json")],
+        br#"{"limit":0}"#,
+    )
+    .await?;
+    assert_eq!(zero_limit.status, 200);
+    let zero_limit: Value = serde_json::from_slice(&zero_limit.body)?;
+    assert_eq!(zero_limit["error"]["kind"], "invalid_request");
+
     let live = send_request(
         server.addr,
         "POST",

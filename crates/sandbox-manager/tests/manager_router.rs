@@ -22,7 +22,17 @@ use sandbox_operation_contract::{
 };
 use serde_json::{json, Value};
 
-struct FakeRuntime;
+struct FakeRuntime {
+    counters_available: bool,
+}
+
+impl Default for FakeRuntime {
+    fn default() -> Self {
+        Self {
+            counters_available: true,
+        }
+    }
+}
 
 impl SandboxRuntime for FakeRuntime {
     fn list_images(&self) -> Result<Vec<String>, ManagerError> {
@@ -47,11 +57,11 @@ impl SandboxRuntime for FakeRuntime {
         _id: &SandboxId,
     ) -> Result<SandboxResourceMetrics, ManagerError> {
         Ok(SandboxResourceMetrics {
-            cpu_usage_usec: 42,
+            cpu_usage_usec: self.counters_available.then_some(42),
             memory_current_bytes: Some(1_024),
             memory_limit_bytes: Some(2_048),
-            io_read_bytes: 4_096,
-            io_write_bytes: 8_192,
+            io_read_bytes: self.counters_available.then_some(4_096),
+            io_write_bytes: self.counters_available.then_some(8_192),
         })
     }
 }
@@ -137,8 +147,17 @@ fn services() -> (
     Arc<SandboxStore>,
     Arc<RecordingDaemonClient>,
 ) {
+    services_with_runtime(Arc::new(FakeRuntime::default()))
+}
+
+fn services_with_runtime(
+    runtime: Arc<dyn SandboxRuntime>,
+) -> (
+    Arc<ManagerServices>,
+    Arc<SandboxStore>,
+    Arc<RecordingDaemonClient>,
+) {
     let store = Arc::new(SandboxStore::new());
-    let runtime = Arc::new(FakeRuntime);
     let installer = Arc::new(FakeInstaller);
     let daemon_client = Arc::new(RecordingDaemonClient::default());
     let services = Arc::new(ManagerServices::new(
@@ -220,6 +239,44 @@ async fn manager_router_reads_sandbox_resource_metrics_from_the_runtime() {
         response["series"][0]["metrics"]["metrics_source"],
         "docker_engine"
     );
+    assert!(daemon_client
+        .invocations
+        .lock()
+        .expect("invocations lock")
+        .is_empty());
+}
+
+#[tokio::test]
+async fn manager_router_does_not_report_unavailable_counters_as_zero() {
+    let (services, store, daemon_client) = services_with_runtime(Arc::new(FakeRuntime {
+        counters_available: false,
+    }));
+    store
+        .insert(ready_record(
+            "sbox-1",
+            Some(SandboxDaemonEndpoint::new(
+                "127.0.0.1",
+                7000,
+                "token-sbox-1",
+            )),
+        ))
+        .expect("insert sandbox");
+    let router = router(services);
+
+    let response = router
+        .dispatch_request(request(
+            CGROUP_SPEC.name,
+            OperationScope::sandbox("sbox-1"),
+            json!({}),
+        ))
+        .await
+        .into_json_value();
+
+    let metrics = &response["series"][0]["metrics"];
+    assert_eq!(metrics["metrics_source"], "docker_engine");
+    assert!(metrics.get("cpu_usec").is_none());
+    assert!(metrics.get("io_rbytes").is_none());
+    assert!(metrics.get("io_wbytes").is_none());
     assert!(daemon_client
         .invocations
         .lock()

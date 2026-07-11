@@ -8,6 +8,7 @@ use crate::workspace_crate::WorkspaceSessionId;
 #[derive(Debug, Clone)]
 pub struct ListInput {
     pub path: Option<String>,
+    pub limit: Option<usize>,
     pub workspace_session_id: Option<WorkspaceSessionId>,
 }
 

@@ -54,11 +54,11 @@ impl SandboxRuntime for FakeRuntime {
         _id: &SandboxId,
     ) -> Result<SandboxResourceMetrics, ManagerError> {
         Ok(SandboxResourceMetrics {
-            cpu_usage_usec: 12_000,
+            cpu_usage_usec: Some(12_000),
             memory_current_bytes: Some(24_000_000),
             memory_limit_bytes: Some(64_000_000),
-            io_read_bytes: 4_000,
-            io_write_bytes: 2_000,
+            io_read_bytes: Some(4_000),
+            io_write_bytes: Some(2_000),
         })
     }
 }
