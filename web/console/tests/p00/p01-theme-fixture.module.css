@@ -1,0 +1,52 @@
+:global(html),
+:global(body),
+:global(#root) {
+  min-height: 100%;
+}
+
+:global(body) {
+  margin: 0;
+  background: var(--mantine-color-warm-0);
+}
+
+.specimen {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: var(--mantine-spacing-lg);
+  color: var(--mantine-color-text);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-lg);
+}
+
+.logo {
+  display: block;
+  flex: none;
+  object-fit: contain;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mantine-spacing-md);
+  max-width: 70rem;
+}
+
+.panel {
+  min-width: 0;
+}
+
+/* Mirrors CONSOLE_BREAKPOINTS.sm (48em); the fractional value prevents overlap. */
+@media (max-width: 47.99em) {
+  .specimen {
+    padding: var(--mantine-spacing-md);
+  }
+
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
