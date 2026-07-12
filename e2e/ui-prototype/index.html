@@ -1,0 +1,1692 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="UI-first prototype for the EphemeralOS live E2E test catalog, validation evidence, compound scenarios, runs, and reusable workspaces."
+    />
+    <title>EphemeralOS · Live E2E Control Room</title>
+    <link rel="stylesheet" href="./styles.css?v=3" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <svg class="icon-sprite" aria-hidden="true">
+      <defs>
+        <symbol id="icon-grid" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+          <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+          <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+          <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+        </symbol>
+        <symbol id="icon-activity" viewBox="0 0 24 24">
+          <path d="M3 12h4l2.5-6 5 12 2.5-6h4"></path>
+        </symbol>
+        <symbol id="icon-history" viewBox="0 0 24 24">
+          <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
+          <path d="M3 3v5h5M12 7v5l3 2"></path>
+        </symbol>
+        <symbol id="icon-folder" viewBox="0 0 24 24">
+          <path d="M3 6.5h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        </symbol>
+        <symbol id="icon-terminal" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+          <path d="m7 9 3 3-3 3M13 15h4"></path>
+        </symbol>
+        <symbol id="icon-server" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="6" rx="2"></rect>
+          <rect x="3" y="14" width="18" height="6" rx="2"></rect>
+          <path d="M7 7h.01M7 17h.01"></path>
+        </symbol>
+        <symbol id="icon-eye" viewBox="0 0 24 24">
+          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path>
+          <circle cx="12" cy="12" r="2.5"></circle>
+        </symbol>
+        <symbol id="icon-layers" viewBox="0 0 24 24">
+          <path d="m12 3 9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5"></path>
+        </symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24">
+          <path d="m5 12 4 4L19 6"></path>
+        </symbol>
+        <symbol id="icon-x" viewBox="0 0 24 24">
+          <path d="m6 6 12 12M18 6 6 18"></path>
+        </symbol>
+        <symbol id="icon-alert" viewBox="0 0 24 24">
+          <path d="M12 3 2.5 20h19z"></path>
+          <path d="M12 9v4M12 17h.01"></path>
+        </symbol>
+        <symbol id="icon-clock" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 7v5l3 2"></path>
+        </symbol>
+        <symbol id="icon-play" viewBox="0 0 24 24">
+          <path d="m8 5 11 7-11 7z"></path>
+        </symbol>
+        <symbol id="icon-search" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-4-4"></path>
+        </symbol>
+        <symbol id="icon-tag" viewBox="0 0 24 24">
+          <path d="M20 13 13 20 4 11V4h7z"></path>
+          <circle cx="8.5" cy="8.5" r="1"></circle>
+        </symbol>
+        <symbol id="icon-shield" viewBox="0 0 24 24">
+          <path d="M12 3 4.5 6v5c0 5 3 8.5 7.5 10 4.5-1.5 7.5-5 7.5-10V6z"></path>
+          <path d="m9 12 2 2 4-4"></path>
+        </symbol>
+        <symbol id="icon-copy" viewBox="0 0 24 24">
+          <rect x="8" y="8" width="12" height="12" rx="2"></rect>
+          <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>
+        </symbol>
+        <symbol id="icon-file" viewBox="0 0 24 24">
+          <path d="M6 3h8l4 4v14H6z"></path>
+          <path d="M14 3v5h5M9 13h6M9 17h6"></path>
+        </symbol>
+        <symbol id="icon-chevron" viewBox="0 0 24 24">
+          <path d="m9 18 6-6-6-6"></path>
+        </symbol>
+        <symbol id="icon-arrow" viewBox="0 0 24 24">
+          <path d="M5 12h14M14 7l5 5-5 5"></path>
+        </symbol>
+        <symbol id="icon-box" viewBox="0 0 24 24">
+          <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"></path>
+          <path d="m4 7.5 8 4.5 8-4.5M12 12v9"></path>
+        </symbol>
+      </defs>
+    </svg>
+
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <a class="brand" href="#catalog" aria-label="EphemeralOS E2E home">
+          <span class="brand-mark">
+            <svg class="icon"><use href="#icon-layers"></use></svg>
+          </span>
+          <span>
+            <strong>EphemeralOS</strong>
+            <small>Live E2E</small>
+          </span>
+        </a>
+
+        <nav class="primary-nav">
+          <p class="nav-label">Control room</p>
+          <a href="#catalog" aria-label="Catalog">
+            <svg class="icon"><use href="#icon-grid"></use></svg>
+            <span>Catalog</span>
+          </a>
+          <a href="#live-run" aria-label="Live run">
+            <svg class="icon"><use href="#icon-activity"></use></svg>
+            <span>Live run</span>
+            <span class="nav-live-dot" aria-label="One run active"></span>
+          </a>
+          <a href="#runs" aria-label="Runs">
+            <svg class="icon"><use href="#icon-history"></use></svg>
+            <span>Runs</span>
+          </a>
+          <a href="#workspaces" aria-label="Workspaces">
+            <svg class="icon"><use href="#icon-folder"></use></svg>
+            <span>Workspaces</span>
+          </a>
+
+          <p class="nav-label nav-label-spaced">Domains</p>
+          <a class="runtime-nav" href="#runtime" aria-label="Runtime">
+            <span class="domain-glyph runtime-glyph">R</span>
+            <span>Runtime</span>
+            <span class="nav-count">226</span>
+          </a>
+          <a class="manager-nav" href="#manager" aria-label="Manager">
+            <span class="domain-glyph manager-glyph">M</span>
+            <span>Manager</span>
+            <span class="nav-count">103</span>
+          </a>
+          <a class="observe-nav" href="#observability" aria-label="Observability">
+            <span class="domain-glyph observe-glyph">O</span>
+            <span>Observability</span>
+            <span class="nav-count">2</span>
+          </a>
+          <a href="#compound" aria-label="Compound">
+            <span class="domain-glyph compound-glyph">C</span>
+            <span>Compound</span>
+            <span class="nav-count candidate-count">31*</span>
+          </a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="runner-mini">
+            <span class="status-dot passed"></span>
+            <div>
+              <strong>Runner ready</strong>
+              <small>Docker · gateway · CLIs</small>
+            </div>
+          </div>
+          <a class="text-link" href="#workspaces">View preflight details</a>
+        </div>
+      </aside>
+
+      <div class="app-body">
+        <header class="topbar">
+          <div class="topbar-context">
+            <span>Live E2E</span>
+            <svg class="icon"><use href="#icon-chevron"></use></svg>
+            <strong>Control room</strong>
+          </div>
+          <div class="topbar-actions">
+            <span class="connection-state">
+              <span class="status-dot passed"></span>
+              Event stream live
+            </span>
+            <details class="workspace-quick">
+              <summary>
+                <svg class="icon"><use href="#icon-folder"></use></svg>
+                Workspace store
+              </summary>
+              <div class="quick-popover">
+                <div class="popover-heading">
+                  <div>
+                    <strong>Persistent workspace store</strong>
+                    <span>Runner-owned and writable</span>
+                  </div>
+                  <span class="status-badge passed-badge">
+                    <svg class="icon"><use href="#icon-check"></use></svg>
+                    Safe
+                  </span>
+                </div>
+                <code class="path-block">/Users/yifanxu/Ephemeral-AI-Lab/ephemeral-sandbox-test-workspace/e2e</code>
+                <div class="quick-stats">
+                  <span><strong>12</strong> retained roots</span>
+                  <span><strong>4.8 GB</strong> on disk</span>
+                </div>
+                <a class="button secondary full-width" href="#workspaces">Manage workspaces</a>
+              </div>
+            </details>
+          </div>
+        </header>
+
+        <main id="main-content">
+          <section class="page" id="catalog" aria-labelledby="catalog-title">
+            <div class="page-heading split-heading">
+              <div>
+                <p class="eyebrow">Coverage catalog</p>
+                <h1 id="catalog-title">Know what the system proves.</h1>
+                <p class="page-description">
+                  Browse live Docker E2E coverage by domain, family, feature, test,
+                  and named validation. This draft maps the current suite into a
+                  product-facing test contract.
+                </p>
+              </div>
+              <div class="heading-actions">
+                <a class="button secondary" href="#compound">Review Compound</a>
+                <a class="button primary" href="#live-run">
+                  <svg class="icon"><use href="#icon-play"></use></svg>
+                  Configure run
+                </a>
+              </div>
+            </div>
+
+            <div class="metric-grid" aria-label="Current suite inventory">
+              <article class="metric-card">
+                <span>Collected cases</span>
+                <strong>373</strong>
+                <small>Expanded by pytest collection</small>
+              </article>
+              <article class="metric-card">
+                <span>Product domains</span>
+                <strong>4</strong>
+                <small>Runtime · Manager · Observability · Compound</small>
+              </article>
+              <article class="metric-card warning-metric">
+                <span>Descriptions ready</span>
+                <strong>153 <small>/ 273</small></strong>
+                <div class="mini-progress"><span style="width: 56%"></span></div>
+              </article>
+              <article class="metric-card">
+                <span>Raw assertions</span>
+                <strong>1,174</strong>
+                <small>Named validation migration required</small>
+              </article>
+            </div>
+
+            <div class="notice annotation-notice">
+              <div class="notice-icon">
+                <svg class="icon"><use href="#icon-alert"></use></svg>
+              </div>
+              <div>
+                <strong>Annotation migration is visible by design</strong>
+                <p>
+                  Bare assertions cannot report individual passing checks. The
+                  catalog will show description, feature-tag, and named-validation
+                  coverage until every product test meets the contract.
+                </p>
+              </div>
+              <a class="text-link" href="#test-detail">See the target contract</a>
+            </div>
+
+            <div class="section-heading">
+              <div>
+                <h2>Test domains</h2>
+                <p>Harness and gateway preflight stay visible, but do not count as feature coverage.</p>
+              </div>
+              <span class="subtle-label">Inventory · 12 Jul 2026</span>
+            </div>
+
+            <div class="domain-grid">
+              <a class="domain-card runtime-card" href="#runtime">
+                <div class="domain-card-top">
+                  <span class="domain-icon">
+                    <svg class="icon"><use href="#icon-terminal"></use></svg>
+                  </span>
+                  <span class="status-badge passed-badge">
+                    <span class="status-dot passed"></span>
+                    97% last run
+                  </span>
+                </div>
+                <div>
+                  <p class="eyebrow">Runtime</p>
+                  <h3>Execution &amp; workspace behavior</h3>
+                  <p>
+                    Command, files, sessions, isolation, security, reserved paths,
+                    daemon HTTP, and remount behavior.
+                  </p>
+                </div>
+                <div class="domain-meta">
+                  <span><strong>226</strong> cases</span>
+                  <span><strong>8</strong> families</span>
+                  <span><strong>24</strong> features</span>
+                </div>
+                <span class="card-link">Browse Runtime <svg class="icon"><use href="#icon-arrow"></use></svg></span>
+              </a>
+
+              <a class="domain-card manager-card" href="#manager">
+                <div class="domain-card-top">
+                  <span class="domain-icon">
+                    <svg class="icon"><use href="#icon-server"></use></svg>
+                  </span>
+                  <span class="status-badge passed-badge">
+                    <span class="status-dot passed"></span>
+                    100% last run
+                  </span>
+                </div>
+                <div>
+                  <p class="eyebrow">Manager</p>
+                  <h3>Lifecycle, export &amp; squash</h3>
+                  <p>
+                    Sandbox lifecycle, export correctness and host safety, plus
+                    LayerStack squash behavior.
+                  </p>
+                </div>
+                <div class="domain-meta">
+                  <span><strong>103</strong> cases</span>
+                  <span><strong>3</strong> families</span>
+                  <span><strong>18</strong> features</span>
+                </div>
+                <span class="card-link">Browse Manager <svg class="icon"><use href="#icon-arrow"></use></svg></span>
+              </a>
+
+              <a class="domain-card observe-card" href="#observability">
+                <div class="domain-card-top">
+                  <span class="domain-icon">
+                    <svg class="icon"><use href="#icon-eye"></use></svg>
+                  </span>
+                  <span class="status-badge passed-badge">
+                    <span class="status-dot passed"></span>
+                    2 / 2 passing
+                  </span>
+                </div>
+                <div>
+                  <p class="eyebrow">Observability</p>
+                  <h3>Aggregate &amp; scoped evidence</h3>
+                  <p>
+                    Public snapshot routes, availability, workspace correlation,
+                    resources, events, and trace evidence.
+                  </p>
+                </div>
+                <div class="domain-meta">
+                  <span><strong>2</strong> cases</span>
+                  <span><strong>1</strong> family</span>
+                  <span><strong>6</strong> features</span>
+                </div>
+                <span class="card-link">Browse Observability <svg class="icon"><use href="#icon-arrow"></use></svg></span>
+              </a>
+
+              <a class="domain-card compound-card" href="#compound">
+                <div class="domain-card-top">
+                  <span class="domain-icon">
+                    <svg class="icon"><use href="#icon-layers"></use></svg>
+                  </span>
+                  <span class="status-badge draft-badge">Draft taxonomy</span>
+                </div>
+                <div>
+                  <p class="eyebrow">Compound</p>
+                  <h3>Cross-domain journeys</h3>
+                  <p>
+                    Shared-context scenarios across manager, runtime, and
+                    observability, organized as Simple, Medium, and Complex.
+                  </p>
+                </div>
+                <div class="domain-meta">
+                  <span><strong>31</strong> candidates</span>
+                  <span><strong>3</strong> levels</span>
+                  <span><strong>1</strong> new journey</span>
+                </div>
+                <span class="card-link">Review Compound <svg class="icon"><use href="#icon-arrow"></use></svg></span>
+              </a>
+            </div>
+
+            <div class="catalog-bottom-grid">
+              <article class="panel coverage-panel">
+                <div class="panel-heading">
+                  <div>
+                    <h2>Feature coverage</h2>
+                    <p>Named validations roll up into feature confidence.</p>
+                  </div>
+                  <button class="icon-button" aria-label="Search feature coverage">
+                    <svg class="icon"><use href="#icon-search"></use></svg>
+                  </button>
+                </div>
+                <div class="table-scroll" tabindex="0">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">Feature</th>
+                        <th scope="col">Runtime</th>
+                        <th scope="col">Manager</th>
+                        <th scope="col">Observability</th>
+                        <th scope="col">Compound</th>
+                        <th scope="col">Last proof</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <th scope="row"><span class="feature-name">Workspace lifecycle</span><small>contract</small></th>
+                        <td><span class="coverage-count strong">18</span></td>
+                        <td><span class="coverage-count">4</span></td>
+                        <td><span class="coverage-count">1</span></td>
+                        <td><span class="coverage-count">3</span></td>
+                        <td><span class="status-badge passed-badge"><span class="status-dot passed"></span>Passed</span></td>
+                      </tr>
+                      <tr>
+                        <th scope="row"><span class="feature-name">Concurrent isolation</span><small>quality</small></th>
+                        <td><span class="coverage-count strong">27</span></td>
+                        <td><span class="coverage-count">8</span></td>
+                        <td><span class="coverage-count empty">—</span></td>
+                        <td><span class="coverage-count">2</span></td>
+                        <td><span class="status-badge passed-badge"><span class="status-dot passed"></span>Passed</span></td>
+                      </tr>
+                      <tr>
+                        <th scope="row"><span class="feature-name">Snapshot correlation</span><small>behavior</small></th>
+                        <td><span class="coverage-count">2</span></td>
+                        <td><span class="coverage-count">2</span></td>
+                        <td><span class="coverage-count strong">2</span></td>
+                        <td><span class="coverage-count">4</span></td>
+                        <td><span class="status-badge running-badge"><span class="status-dot running"></span>Running</span></td>
+                      </tr>
+                      <tr>
+                        <th scope="row"><span class="feature-name">Clean teardown</span><small>quality</small></th>
+                        <td><span class="coverage-count strong">226</span></td>
+                        <td><span class="coverage-count strong">103</span></td>
+                        <td><span class="coverage-count">2</span></td>
+                        <td><span class="coverage-count">5</span></td>
+                        <td><span class="status-badge passed-badge"><span class="status-dot passed"></span>Passed</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <aside class="panel active-run-card">
+                <div class="active-run-header">
+                  <span class="live-pill"><span></span> Live now</span>
+                  <a class="text-link" href="#live-run">Open run</a>
+                </div>
+                <p class="eyebrow">Compound · Medium</p>
+                <h2>Workspace lifecycle &amp; evidence</h2>
+                <p>Manager create → Runtime execute → Observability correlate → Manager destroy</p>
+                <div class="run-progress-heading">
+                  <span>27 of 40 tests</span>
+                  <strong>68%</strong>
+                </div>
+                <div class="progress-bar"><span style="width: 68%"></span></div>
+                <div class="validation-totals">
+                  <span><i class="status-dot passed"></i><strong>112</strong> passed</span>
+                  <span><i class="status-dot running"></i><strong>1</strong> running</span>
+                  <span><i class="status-dot pending"></i><strong>39</strong> pending</span>
+                </div>
+                <div class="run-current">
+                  <span class="spinner" aria-hidden="true"></span>
+                  <div>
+                    <small>Verifying now</small>
+                    <strong>Scoped snapshot returns selected sandbox</strong>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <section class="page" id="runtime" aria-labelledby="runtime-title">
+            <div class="page-heading split-heading compact-heading">
+              <div>
+                <p class="eyebrow">Catalog / Runtime</p>
+                <h1 id="runtime-title">Runtime tests</h1>
+                <p class="page-description">
+                  Eight families prove execution, filesystem, workspace, isolation,
+                  security, and daemon boundary behavior against real sandboxes.
+                </p>
+              </div>
+              <div class="heading-actions">
+                <span class="status-badge passed-badge"><span class="status-dot passed"></span>97% last run</span>
+                <a class="button primary" href="#live-run">
+                  <svg class="icon"><use href="#icon-play"></use></svg>
+                  Run Runtime
+                </a>
+              </div>
+            </div>
+
+            <div class="domain-summary-strip">
+              <div><strong>226</strong><span>collected cases</span></div>
+              <div><strong>8</strong><span>families</span></div>
+              <div><strong>24</strong><span>proposed features</span></div>
+              <div><strong>110</strong><span>file cases</span></div>
+              <div class="annotation-health">
+                <span>Metadata health</span>
+                <strong>Partial</strong>
+                <div class="mini-progress"><span style="width: 64%"></span></div>
+              </div>
+            </div>
+
+            <div class="browser-layout">
+              <aside class="family-rail">
+                <div class="rail-heading">
+                  <span>Families</span>
+                  <button class="icon-button small" aria-label="Search runtime families">
+                    <svg class="icon"><use href="#icon-search"></use></svg>
+                  </button>
+                </div>
+                <a href="#runtime"><span>Command</span><strong>31</strong></a>
+                <a class="active" href="#runtime"><span>File operations</span><strong>110</strong></a>
+                <a href="#runtime"><span>Workspace / session</span><strong>18</strong></a>
+                <a href="#runtime"><span>Shell security</span><strong>40</strong></a>
+                <a href="#runtime"><span>Reserved paths</span><strong>16</strong></a>
+                <a href="#runtime"><span>Daemon HTTP</span><strong>5</strong></a>
+                <a href="#runtime"><span>Squash / remount</span><strong>5</strong></a>
+                <a href="#runtime"><span>Network isolation</span><strong>1</strong></a>
+              </aside>
+
+              <div class="family-content">
+                <div class="family-title-row">
+                  <div>
+                    <div class="title-with-icon">
+                      <span class="family-icon"><svg class="icon"><use href="#icon-file"></use></svg></span>
+                      <div>
+                        <p class="eyebrow">Runtime family</p>
+                        <h2>File operations</h2>
+                      </div>
+                    </div>
+                    <p>
+                      Proves file reads, writes, edits, blame, capture semantics,
+                      atomicity, and concurrent behavior with and without sessions.
+                    </p>
+                  </div>
+                  <div class="feature-stack" aria-label="Family feature tags">
+                    <span class="tag direct-tag">file-read</span>
+                    <span class="tag direct-tag">file-write</span>
+                    <span class="tag direct-tag">attribution</span>
+                    <span class="tag direct-tag">concurrency</span>
+                    <span class="tag inherited-tag">+ 5 inherited</span>
+                  </div>
+                </div>
+
+                <div class="group-tabs" role="tablist" aria-label="File operation test groups">
+                  <a class="active" href="#runtime" role="tab" aria-selected="true">All <span>110</span></a>
+                  <a href="#runtime" role="tab">Smoke <span>20</span></a>
+                  <a href="#runtime" role="tab">Correctness <span>28</span></a>
+                  <a href="#runtime" role="tab">Concurrency <span>26</span></a>
+                  <a href="#runtime" role="tab">File + exec <span>29</span></a>
+                  <a href="#runtime" role="tab">Blame <span>10</span></a>
+                </div>
+
+                <div class="test-toolbar">
+                  <label class="search-field">
+                    <svg class="icon"><use href="#icon-search"></use></svg>
+                    <span class="visually-hidden">Search tests</span>
+                    <input type="search" placeholder="Search tests, descriptions, features…" />
+                  </label>
+                  <button class="filter-button"><svg class="icon"><use href="#icon-tag"></use></svg> Feature <span>All</span></button>
+                  <button class="filter-button">Last status <span>All</span></button>
+                </div>
+
+                <div class="test-list-header">
+                  <span>Test contract</span>
+                  <span>Feature tags</span>
+                  <span>Validations</span>
+                  <span>Last result</span>
+                </div>
+
+                <a class="test-row selected" href="#test-detail">
+                  <div class="test-contract-cell">
+                    <strong>Sessionless read returns the requested line window</strong>
+                    <p>Reads a multiline file with offset and limit and returns only the requested lines.</p>
+                    <code>runtime.file.read.offset-limit</code>
+                  </div>
+                  <div class="tag-cell">
+                    <span class="tag compact-tag">file-read</span>
+                    <span class="tag compact-tag">windowing</span>
+                    <span class="tag compact-tag">response-contract</span>
+                  </div>
+                  <div class="validation-count">
+                    <strong>4</strong>
+                    <span>named checks</span>
+                  </div>
+                  <div>
+                    <span class="status-badge passed-badge"><span class="status-dot passed"></span>Passed</span>
+                    <small class="result-time">38 min ago · 1.24s</small>
+                  </div>
+                  <svg class="icon row-arrow"><use href="#icon-chevron"></use></svg>
+                </a>
+
+                <a class="test-row" href="#test-detail">
+                  <div class="test-contract-cell">
+                    <strong>Two sessionless writes serialize on the same path</strong>
+                    <p>Proves concurrent writers publish complete snapshots without torn content.</p>
+                    <code>runtime.file.concurrent.same-path-serialize</code>
+                  </div>
+                  <div class="tag-cell">
+                    <span class="tag compact-tag">file-write</span>
+                    <span class="tag compact-tag">concurrency</span>
+                    <span class="tag compact-tag">atomicity</span>
+                  </div>
+                  <div class="validation-count"><strong>5</strong><span>named checks</span></div>
+                  <div>
+                    <span class="status-badge passed-badge"><span class="status-dot passed"></span>Passed</span>
+                    <small class="result-time">38 min ago · 2.81s</small>
+                  </div>
+                  <svg class="icon row-arrow"><use href="#icon-chevron"></use></svg>
+                </a>
+
+                <a class="test-row" href="#test-detail">
+                  <div class="test-contract-cell">
+                    <strong>Capture after base advance cleanly auto-merges</strong>
+                    <p>Preserves disjoint published changes when a session captures from an older base.</p>
+                    <code>runtime.file.correctness.capture-auto-merge</code>
+                  </div>
+                  <div class="tag-cell">
+                    <span class="tag compact-tag">capture</span>
+                    <span class="tag compact-tag">merge</span>
+                    <span class="tag compact-tag">isolation</span>
+                  </div>
+                  <div class="validation-count"><strong>6</strong><span>named checks</span></div>
+                  <div>
+                    <span class="status-badge failed-badge"><span class="status-dot failed"></span>Failed</span>
+                    <small class="result-time">Yesterday · validation 4</small>
+                  </div>
+                  <svg class="icon row-arrow"><use href="#icon-chevron"></use></svg>
+                </a>
+
+                <a class="test-row" href="#test-detail">
+                  <div class="test-contract-cell">
+                    <strong>Blame survives deletion</strong>
+                    <p>Retains attribution evidence after a published file is removed.</p>
+                    <code>runtime.file.blame.survives-deletion</code>
+                  </div>
+                  <div class="tag-cell">
+                    <span class="tag compact-tag">file-blame</span>
+                    <span class="tag compact-tag">attribution</span>
+                    <span class="tag compact-tag">deletion</span>
+                  </div>
+                  <div class="validation-count"><strong>3</strong><span>named checks</span></div>
+                  <div>
+                    <span class="status-badge passed-badge"><span class="status-dot passed"></span>Passed</span>
+                    <small class="result-time">Yesterday · 0.86s</small>
+                  </div>
+                  <svg class="icon row-arrow"><use href="#icon-chevron"></use></svg>
+                </a>
+
+                <div class="pagination-row">
+                  <span>Showing 1–4 of 110 tests</span>
+                  <div><button disabled>Previous</button><button>Next</button></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="page" id="manager" aria-labelledby="manager-title">
+            <div class="page-heading split-heading compact-heading">
+              <div>
+                <p class="eyebrow">Catalog / Manager</p>
+                <h1 id="manager-title">Manager tests</h1>
+                <p class="page-description">
+                  Three families prove sandbox lifecycle, export correctness and
+                  host safety, and LayerStack squash behavior against the live manager.
+                </p>
+              </div>
+              <div class="heading-actions">
+                <span class="status-badge passed-badge"><span class="status-dot passed"></span>100% last run</span>
+                <a class="button primary" href="#live-run">
+                  <svg class="icon"><use href="#icon-play"></use></svg>
+                  Run Manager
+                </a>
+              </div>
+            </div>
+
+            <div class="domain-summary-strip">
+              <div><strong>103</strong><span>collected cases</span></div>
+              <div><strong>3</strong><span>families</span></div>
+              <div><strong>18</strong><span>proposed features</span></div>
+              <div><strong>42</strong><span>export cases</span></div>
+              <div class="annotation-health">
+                <span>Metadata health</span>
+                <strong>Recorder-backed</strong>
+                <div class="mini-progress"><span style="width: 76%"></span></div>
+              </div>
+            </div>
+
+            <div class="browser-layout">
+              <aside class="family-rail">
+                <div class="rail-heading">
+                  <span>Families</span>
+                  <button class="icon-button small" aria-label="Search manager families">
+                    <svg class="icon"><use href="#icon-search"></use></svg>
+                  </button>
+                </div>
+                <a href="#manager"><span>Lifecycle</span><strong>1</strong></a>
+                <a class="active" href="#manager"><span>Export</span><strong>42</strong></a>
+                <a href="#manager"><span>Squash</span><strong>60</strong></a>
+              </aside>
+
+              <div class="family-content">
+                <div class="family-title-row">
+                  <div>
+                    <div class="title-with-icon">
+                      <span class="family-icon"><svg class="icon"><use href="#icon-box"></use></svg></span>
+                      <div>
+                        <p class="eyebrow">Manager family</p>
+                        <h2>Export</h2>
+                      </div>
+                    </div>
+                    <p>
+                      Proves exported state is correct, incremental, runnable, safe
+                      for the host filesystem, and fully cleaned up after execution.
+                    </p>
+                  </div>
+                  <div class="feature-stack" aria-label="Manager family feature tags">
+                    <span class="tag direct-tag">export</span>
+                    <span class="tag direct-tag">host-safety</span>
+                    <span class="tag direct-tag">incremental-copy</span>
+                    <span class="tag direct-tag">runnable-artifact</span>
+                    <span class="tag inherited-tag">+ 3 inherited</span>
+                  </div>
+                </div>
+
+                <div class="group-tabs" role="tablist" aria-label="Export test groups">
+                  <a class="active" href="#manager" role="tab" aria-selected="true">All <span>42</span></a>
+                  <a href="#manager" role="tab">Correctness</a>
+                  <a href="#manager" role="tab">Host safety</a>
+                  <a href="#manager" role="tab">Incremental</a>
+                  <a href="#manager" role="tab">Runnable</a>
+                  <a href="#manager" role="tab">Teardown</a>
+                </div>
+
+                <div class="test-toolbar">
+                  <label class="search-field">
+                    <svg class="icon"><use href="#icon-search"></use></svg>
+                    <span class="visually-hidden">Search manager tests</span>
+                    <input type="search" placeholder="Search tests, descriptions, features…" />
+                  </label>
+                  <button class="filter-button"><svg class="icon"><use href="#icon-tag"></use></svg> Feature <span>All</span></button>
+                  <button class="filter-button">Last status <span>All</span></button>
+                </div>
+
+                <div class="test-list-header">
+                  <span>Test contract</span>
+                  <span>Feature tags</span>
+                  <span>Validations</span>
+                  <span>Last result</span>
+                </div>
+
+                <a class="test-row selected" href="#test-detail">
+                  <div class="test-contract-cell">
+                    <strong>Exported filesystem matches the sandbox snapshot</strong>
+                    <p>Compares exported content, modes, links, and metadata with the selected sandbox.</p>
+                    <code>manager.export.correctness.snapshot-match</code>
+                  </div>
+                  <div class="tag-cell">
+                    <span class="tag compact-tag">export</span>
+                    <span class="tag compact-tag">filesystem</span>
+                    <span class="tag compact-tag">correctness</span>
+                  </div>
+                  <div class="validation-count"><strong>7</strong><span>named checks</span></div>
+                  <div>
+                    <span class="status-badge passed-badge"><span class="status-dot passed"></span>Passed</span>
+                    <small class="result-time">41 min ago · 4.26s</small>
+                  </div>
+                  <svg class="icon row-arrow"><use href="#icon-chevron"></use></svg>
+                </a>
+
+                <a class="test-row" href="#test-detail">
+                  <div class="test-contract-cell">
+                    <strong>Export never follows a host symlink target</strong>
+                    <p>Keeps all writes inside the requested output root when hostile links exist.</p>
+                    <code>manager.export.safety.host-symlink</code>
+                  </div>
+                  <div class="tag-cell">
+                    <span class="tag compact-tag">export</span>
+                    <span class="tag compact-tag">host-safety</span>
+                    <span class="tag compact-tag">symlink</span>
+                  </div>
+                  <div class="validation-count"><strong>6</strong><span>named checks</span></div>
+                  <div>
+                    <span class="status-badge passed-badge"><span class="status-dot passed"></span>Passed</span>
+                    <small class="result-time">41 min ago · 3.91s</small>
+                  </div>
+                  <svg class="icon row-arrow"><use href="#icon-chevron"></use></svg>
+                </a>
+
+                <a class="test-row" href="#test-detail">
+                  <div class="test-contract-cell">
+                    <strong>Incremental export copies only changed content</strong>
+                    <p>Preserves unchanged output while updating the new sandbox delta.</p>
+                    <code>manager.export.incremental.changed-only</code>
+                  </div>
+                  <div class="tag-cell">
+                    <span class="tag compact-tag">incremental-copy</span>
+                    <span class="tag compact-tag">efficiency</span>
+                    <span class="tag compact-tag">data-safety</span>
+                  </div>
+                  <div class="validation-count"><strong>5</strong><span>named checks</span></div>
+                  <div>
+                    <span class="status-badge passed-badge"><span class="status-dot passed"></span>Passed</span>
+                    <small class="result-time">Yesterday · 2.44s</small>
+                  </div>
+                  <svg class="icon row-arrow"><use href="#icon-chevron"></use></svg>
+                </a>
+
+                <div class="pagination-row">
+                  <span>Showing 1–3 of 42 tests</span>
+                  <div><button disabled>Previous</button><button>Next</button></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="page" id="observability" aria-labelledby="observability-title">
+            <div class="page-heading split-heading compact-heading">
+              <div>
+                <p class="eyebrow">Catalog / Observability</p>
+                <h1 id="observability-title">Observability tests</h1>
+                <p class="page-description">
+                  The first family proves aggregate and sandbox-scoped snapshots
+                  expose lifecycle, availability, resource, event, and workspace evidence.
+                </p>
+              </div>
+              <div class="heading-actions">
+                <span class="status-badge passed-badge"><span class="status-dot passed"></span>2 / 2 passing</span>
+                <a class="button primary" href="#live-run">
+                  <svg class="icon"><use href="#icon-play"></use></svg>
+                  Run Observability
+                </a>
+              </div>
+            </div>
+
+            <div class="domain-summary-strip">
+              <div><strong>2</strong><span>collected cases</span></div>
+              <div><strong>1</strong><span>family</span></div>
+              <div><strong>6</strong><span>proposed features</span></div>
+              <div><strong>2</strong><span>query scopes</span></div>
+              <div class="annotation-health">
+                <span>Metadata health</span>
+                <strong>Ready to annotate</strong>
+                <div class="mini-progress"><span style="width: 92%"></span></div>
+              </div>
+            </div>
+
+            <div class="browser-layout">
+              <aside class="family-rail">
+                <div class="rail-heading">
+                  <span>Families</span>
+                  <button class="icon-button small" aria-label="Search observability families">
+                    <svg class="icon"><use href="#icon-search"></use></svg>
+                  </button>
+                </div>
+                <a class="active" href="#observability"><span>Snapshot</span><strong>2</strong></a>
+              </aside>
+
+              <div class="family-content">
+                <div class="family-title-row">
+                  <div>
+                    <div class="title-with-icon">
+                      <span class="family-icon"><svg class="icon"><use href="#icon-eye"></use></svg></span>
+                      <div>
+                        <p class="eyebrow">Observability family</p>
+                        <h2>Snapshot</h2>
+                      </div>
+                    </div>
+                    <p>
+                      Proves the public snapshot surface correlates a manager-owned
+                      sandbox with runtime workspace state and operational evidence.
+                    </p>
+                  </div>
+                  <div class="feature-stack" aria-label="Observability family feature tags">
+                    <span class="tag direct-tag">snapshot</span>
+                    <span class="tag direct-tag">availability</span>
+                    <span class="tag direct-tag">workspace-correlation</span>
+                    <span class="tag direct-tag">structured-response</span>
+                  </div>
+                </div>
+
+                <div class="group-tabs" role="tablist" aria-label="Snapshot test groups">
+                  <a class="active" href="#observability" role="tab" aria-selected="true">All <span>2</span></a>
+                  <a href="#observability" role="tab">Aggregate <span>1</span></a>
+                  <a href="#observability" role="tab">Sandbox-scoped <span>1</span></a>
+                </div>
+
+                <div class="test-toolbar">
+                  <label class="search-field">
+                    <svg class="icon"><use href="#icon-search"></use></svg>
+                    <span class="visually-hidden">Search observability tests</span>
+                    <input type="search" placeholder="Search tests, descriptions, features…" />
+                  </label>
+                  <button class="filter-button"><svg class="icon"><use href="#icon-tag"></use></svg> Feature <span>All</span></button>
+                  <button class="filter-button">Last status <span>All</span></button>
+                </div>
+
+                <div class="test-list-header">
+                  <span>Test contract</span>
+                  <span>Feature tags</span>
+                  <span>Validations</span>
+                  <span>Last result</span>
+                </div>
+
+                <a class="test-row" href="#live-run">
+                  <div class="test-contract-cell">
+                    <strong>Aggregate snapshot includes the active sandbox</strong>
+                    <p>Lists every visible node and exposes consistent lifecycle and availability evidence.</p>
+                    <code>observability.snapshot.aggregate</code>
+                  </div>
+                  <div class="tag-cell">
+                    <span class="tag compact-tag">snapshot</span>
+                    <span class="tag compact-tag">aggregate-scope</span>
+                    <span class="tag compact-tag">availability</span>
+                  </div>
+                  <div class="validation-count"><strong>5</strong><span>named checks</span></div>
+                  <div>
+                    <span class="status-badge passed-badge"><span class="status-dot passed"></span>Passed</span>
+                    <small class="result-time">37 min ago · 0.72s</small>
+                  </div>
+                  <svg class="icon row-arrow"><use href="#icon-chevron"></use></svg>
+                </a>
+
+                <a class="test-row selected" href="#live-run">
+                  <div class="test-contract-cell">
+                    <strong>Scoped snapshot returns the selected sandbox</strong>
+                    <p>Returns exactly one matching node with workspace, resource, event, and trace evidence.</p>
+                    <code>observability.snapshot.scoped</code>
+                  </div>
+                  <div class="tag-cell">
+                    <span class="tag compact-tag">snapshot</span>
+                    <span class="tag compact-tag">sandbox-scope</span>
+                    <span class="tag compact-tag">workspace-correlation</span>
+                  </div>
+                  <div class="validation-count"><strong>6</strong><span>named checks</span></div>
+                  <div>
+                    <span class="status-badge running-badge"><span class="status-dot running"></span>Running</span>
+                    <small class="result-time">Current run · validation 4</small>
+                  </div>
+                  <svg class="icon row-arrow"><use href="#icon-chevron"></use></svg>
+                </a>
+
+                <div class="pagination-row">
+                  <span>Showing all 2 tests</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="page" id="test-detail" aria-labelledby="test-title">
+            <div class="detail-breadcrumb">
+              <a href="#catalog">Catalog</a>
+              <svg class="icon"><use href="#icon-chevron"></use></svg>
+              <a href="#runtime">Runtime</a>
+              <svg class="icon"><use href="#icon-chevron"></use></svg>
+              <a href="#runtime">File operations</a>
+              <svg class="icon"><use href="#icon-chevron"></use></svg>
+              <span>Smoke</span>
+            </div>
+
+            <div class="page-heading split-heading detail-heading">
+              <div>
+                <div class="id-line">
+                  <span class="status-badge passed-badge"><span class="status-dot passed"></span>Latest passed</span>
+                  <code>runtime.file.read.offset-limit</code>
+                </div>
+                <h1 id="test-title">Sessionless read returns the requested line window</h1>
+                <p class="page-description">
+                  Proves a sessionless file read honors offset and limit against a
+                  multiline file, returning the exact requested window and a stable
+                  structured response.
+                </p>
+                <div class="feature-stack horizontal">
+                  <span class="tag direct-tag">file-read</span>
+                  <span class="tag direct-tag">windowing</span>
+                  <span class="tag direct-tag">response-contract</span>
+                  <span class="tag inherited-tag">teardown-safety · inherited</span>
+                </div>
+              </div>
+              <div class="heading-actions">
+                <a class="button secondary" href="#runtime">Back to family</a>
+                <a class="button primary" href="#live-run">
+                  <svg class="icon"><use href="#icon-play"></use></svg>
+                  Run this test
+                </a>
+              </div>
+            </div>
+
+            <div class="test-detail-grid">
+              <div class="detail-main">
+                <article class="panel contract-panel">
+                  <div class="panel-heading">
+                    <div>
+                      <p class="eyebrow">Declared contract</p>
+                      <h2>Named validations</h2>
+                      <p>Expected behavior is visible before execution; actual evidence fills in live.</p>
+                    </div>
+                    <span class="status-badge passed-badge">
+                      <svg class="icon"><use href="#icon-check"></use></svg>
+                      4 / 4 passed
+                    </span>
+                  </div>
+
+                  <div class="validation-list">
+                    <article class="validation-item expanded">
+                      <div class="validation-status passed-validation">
+                        <svg class="icon"><use href="#icon-check"></use></svg>
+                      </div>
+                      <div class="validation-content">
+                        <div class="validation-title-row">
+                          <div>
+                            <code>seed-published</code>
+                            <h3>Seed content is published</h3>
+                          </div>
+                          <span class="duration">312 ms</span>
+                        </div>
+                        <p>The initial multiline fixture exists before the read begins.</p>
+                        <div class="evidence-compare">
+                          <div><span>Expected</span><code>6 lines · UTF-8</code></div>
+                          <div><span>Actual</span><code>6 lines · UTF-8</code></div>
+                          <a href="#test-detail">write-response.json</a>
+                        </div>
+                      </div>
+                    </article>
+
+                    <article class="validation-item expanded">
+                      <div class="validation-status passed-validation">
+                        <svg class="icon"><use href="#icon-check"></use></svg>
+                      </div>
+                      <div class="validation-content">
+                        <div class="validation-title-row">
+                          <div>
+                            <code>window-matches</code>
+                            <h3>Requested line window is exact</h3>
+                          </div>
+                          <span class="duration">18 ms</span>
+                        </div>
+                        <p>The response contains only lines 3 through 5, in order, with no adjacent content.</p>
+                        <div class="evidence-compare">
+                          <div><span>Expected</span><code>03 bravo\n04 charlie\n05 delta</code></div>
+                          <div><span>Actual</span><code>03 bravo\n04 charlie\n05 delta</code></div>
+                          <a href="#test-detail">read-response.json</a>
+                        </div>
+                        <div class="validation-features">
+                          <span>Proves</span>
+                          <span class="tag compact-tag">file-read</span>
+                          <span class="tag compact-tag">windowing</span>
+                        </div>
+                      </div>
+                    </article>
+
+                    <article class="validation-item">
+                      <div class="validation-status passed-validation">
+                        <svg class="icon"><use href="#icon-check"></use></svg>
+                      </div>
+                      <div class="validation-content">
+                        <div class="validation-title-row">
+                          <div><code>response-shape</code><h3>Structured response contract is stable</h3></div>
+                          <span class="duration">2 ms</span>
+                        </div>
+                        <p>Required keys and scalar types match the public runtime operation contract.</p>
+                      </div>
+                    </article>
+
+                    <article class="validation-item">
+                      <div class="validation-status passed-validation">
+                        <svg class="icon"><use href="#icon-check"></use></svg>
+                      </div>
+                      <div class="validation-content">
+                        <div class="validation-title-row">
+                          <div><code>teardown-clean</code><h3>Sandbox teardown leaves no owned resources</h3></div>
+                          <span class="duration">401 ms</span>
+                        </div>
+                        <p>The sandbox, session, and run-scoped mounts are released; the host workspace remains retained.</p>
+                      </div>
+                    </article>
+                  </div>
+                </article>
+
+                <article class="panel history-panel">
+                  <div class="panel-heading">
+                    <div><h2>Recent results</h2><p>The same test contract rendered across catalog revisions.</p></div>
+                    <a class="text-link" href="#runs">All runs</a>
+                  </div>
+                  <div class="result-history-row">
+                    <span class="status-badge passed-badge"><span class="status-dot passed"></span>Passed</span>
+                    <div><strong>run-01J2C7…K9Q</strong><span>Today, 11:42 · 1.24s</span></div>
+                    <span>4 / 4 validations</span>
+                    <a href="#runs">Open</a>
+                  </div>
+                  <div class="result-history-row">
+                    <span class="status-badge failed-badge"><span class="status-dot failed"></span>Failed</span>
+                    <div><strong>run-01J2B1…N4M</strong><span>Yesterday, 18:10 · 1.31s</span></div>
+                    <span>2 passed · 1 failed · 1 not run</span>
+                    <a href="#runs">Open</a>
+                  </div>
+                </article>
+              </div>
+
+              <aside class="detail-sidebar">
+                <article class="panel metadata-panel">
+                  <h2>Test metadata</h2>
+                  <dl>
+                    <div><dt>Domain</dt><dd>Runtime</dd></div>
+                    <div><dt>Family</dt><dd>File operations</dd></div>
+                    <div><dt>Group</dt><dd>Smoke / read</dd></div>
+                    <div><dt>Execution labels</dt><dd><span class="tag compact-tag neutral-tag">smoke</span></dd></div>
+                    <div><dt>Source</dt><dd><code>runtime/file/smoke/test_read_smoke.py:41</code></dd></div>
+                    <div><dt>Catalog revision</dt><dd><code>4f8c1d2</code></dd></div>
+                  </dl>
+                  <a class="button secondary full-width" href="#test-detail">
+                    <svg class="icon"><use href="#icon-file"></use></svg>
+                    View source
+                  </a>
+                </article>
+
+                <article class="panel workspace-lineage-card">
+                  <div class="panel-heading">
+                    <div><h2>Latest workspace</h2><p>Exact root used by the last run.</p></div>
+                    <span class="status-badge passed-badge"><span class="status-dot passed"></span>Reusable</span>
+                  </div>
+                  <code class="path-block compact-path">…/runs/01J2C7/workspaces/runtime.file.read.offset-limit/attempt-1/root</code>
+                  <dl>
+                    <div><dt>Before digest</dt><dd><code>sha256:b018…</code></dd></div>
+                    <div><dt>After digest</dt><dd><code>sha256:7af3…</code></dd></div>
+                    <div><dt>Teardown</dt><dd>Clean</dd></div>
+                    <div><dt>Size</dt><dd>18.4 MB</dd></div>
+                  </dl>
+                  <a class="button secondary full-width" href="#workspaces">
+                    <svg class="icon"><use href="#icon-copy"></use></svg>
+                    Run from a copy
+                  </a>
+                </article>
+              </aside>
+            </div>
+          </section>
+
+          <section class="page" id="compound" aria-labelledby="compound-title">
+            <div class="page-heading split-heading">
+              <div>
+                <p class="eyebrow">Catalog / Compound</p>
+                <h1 id="compound-title">Cross-domain journeys</h1>
+                <p class="page-description">
+                  Compound scenarios share a sandbox and workspace while proving
+                  contracts across at least two subject domains. Complexity is
+                  explicit and independent from pytest execution tiers.
+                </p>
+              </div>
+              <div class="heading-actions">
+                <span class="status-badge draft-badge">Design draft</span>
+                <a class="button primary" href="#live-run">
+                  <svg class="icon"><use href="#icon-play"></use></svg>
+                  Run selected
+                </a>
+              </div>
+            </div>
+
+            <div class="notice compound-notice">
+              <span class="notice-icon"><svg class="icon"><use href="#icon-layers"></use></svg></span>
+              <div>
+                <strong>31 configuration cases are strong migration candidates</strong>
+                <p>
+                  They already cross gateway, manager, runtime, and observability.
+                  The first new journey below reuses their patterns but adds an
+                  explicit shared-state contract.
+                </p>
+              </div>
+            </div>
+
+            <div class="complexity-grid">
+              <section class="complexity-lane simple-lane">
+                <div class="lane-heading">
+                  <div><span>S</span><div><h2>Simple</h2><p>Happy path · no concurrency</p></div></div>
+                  <strong>2</strong>
+                </div>
+                <article class="scenario-card selected">
+                  <div class="scenario-top">
+                    <span class="status-badge passed-badge"><span class="status-dot passed"></span>Ready</span>
+                    <span>8 validations</span>
+                  </div>
+                  <h3>Create, execute, observe, destroy</h3>
+                  <p>One sandbox through the complete public lifecycle.</p>
+                  <div class="component-badges">
+                    <span class="domain-chip manager-chip">Manager</span>
+                    <span class="domain-chip runtime-chip">Runtime</span>
+                    <span class="domain-chip observe-chip">Observability</span>
+                  </div>
+                </article>
+                <article class="scenario-card">
+                  <div class="scenario-top"><span class="status-badge draft-badge">Draft</span><span>6 validations</span></div>
+                  <h3>Configuration reaches one sandbox</h3>
+                  <p>Manager config is reflected in runtime and snapshot output.</p>
+                  <div class="component-badges"><span class="domain-chip manager-chip">Manager</span><span class="domain-chip runtime-chip">Runtime</span></div>
+                </article>
+              </section>
+
+              <section class="complexity-lane medium-lane">
+                <div class="lane-heading">
+                  <div><span>M</span><div><h2>Medium</h2><p>All domains · negative path</p></div></div>
+                  <strong>2</strong>
+                </div>
+                <article class="scenario-card live-scenario">
+                  <div class="scenario-top">
+                    <span class="status-badge running-badge"><span class="status-dot running"></span>Running</span>
+                    <span>14 validations</span>
+                  </div>
+                  <h3>Workspace lifecycle &amp; evidence</h3>
+                  <p>Publishes changes, verifies correlation, then proves clean destroy.</p>
+                  <div class="component-badges">
+                    <span class="domain-chip manager-chip">Manager</span>
+                    <span class="domain-chip runtime-chip">Runtime</span>
+                    <span class="domain-chip observe-chip">Observability</span>
+                  </div>
+                </article>
+                <article class="scenario-card">
+                  <div class="scenario-top"><span class="status-badge draft-badge">Draft</span><span>12 validations</span></div>
+                  <h3>Rejected publish stays observable</h3>
+                  <p>A runtime conflict is surfaced without corrupting manager state.</p>
+                  <div class="component-badges"><span class="domain-chip runtime-chip">Runtime</span><span class="domain-chip observe-chip">Observability</span></div>
+                </article>
+              </section>
+
+              <section class="complexity-lane complex-lane">
+                <div class="lane-heading">
+                  <div><span>C</span><div><h2>Complex</h2><p>Concurrency · recovery · soak</p></div></div>
+                  <strong>2</strong>
+                </div>
+                <article class="scenario-card">
+                  <div class="scenario-top"><span class="status-badge draft-badge">Draft</span><span>18 validations</span></div>
+                  <h3>Two-agent conflict under snapshot load</h3>
+                  <p>Concurrent writers, repeated snapshots, and deterministic recovery.</p>
+                  <div class="component-badges">
+                    <span class="domain-chip manager-chip">Manager</span>
+                    <span class="domain-chip runtime-chip">Runtime</span>
+                    <span class="domain-chip observe-chip">Observability</span>
+                  </div>
+                </article>
+                <article class="scenario-card">
+                  <div class="scenario-top"><span class="status-badge draft-badge">Draft</span><span>21 validations</span></div>
+                  <h3>Gateway restart with retained workspace</h3>
+                  <p>Recovers control plane state while preserving workspace evidence.</p>
+                  <div class="component-badges"><span class="domain-chip manager-chip">Manager</span><span class="domain-chip observe-chip">Observability</span></div>
+                </article>
+              </section>
+            </div>
+
+            <article class="panel scenario-detail">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">Selected · Simple</p>
+                  <h2>Create, execute, observe, destroy</h2>
+                  <p>Shared subject: one sandbox, one cloned workspace root, one correlation ID.</p>
+                </div>
+                <a class="button primary" href="#live-run"><svg class="icon"><use href="#icon-play"></use></svg>Run scenario</a>
+              </div>
+
+              <div class="component-flow" aria-label="Compound scenario component flow">
+                <div class="flow-node manager-node">
+                  <span>1</span>
+                  <div><small>Manager</small><strong>Create sandbox</strong><code>manager.lifecycle.create</code></div>
+                </div>
+                <svg class="icon"><use href="#icon-arrow"></use></svg>
+                <div class="flow-node runtime-node">
+                  <span>2</span>
+                  <div><small>Runtime</small><strong>Execute + write</strong><code>runtime.command.exec</code></div>
+                </div>
+                <svg class="icon"><use href="#icon-arrow"></use></svg>
+                <div class="flow-node observe-node">
+                  <span>3</span>
+                  <div><small>Observability</small><strong>Correlate snapshot</strong><code>observability.snapshot.scoped</code></div>
+                </div>
+                <svg class="icon"><use href="#icon-arrow"></use></svg>
+                <div class="flow-node manager-node">
+                  <span>4</span>
+                  <div><small>Manager</small><strong>Destroy cleanly</strong><code>manager.lifecycle.destroy</code></div>
+                </div>
+              </div>
+
+              <div class="scenario-validations">
+                <div><span class="validation-status passed-validation"><svg class="icon"><use href="#icon-check"></use></svg></span><p><strong>Ready sandbox is returned</strong><span>manager.sandbox.create</span></p></div>
+                <div><span class="validation-status passed-validation"><svg class="icon"><use href="#icon-check"></use></svg></span><p><strong>Runtime change is visible in a fresh command</strong><span>runtime.command.exec · contract.finalization</span></p></div>
+                <div><span class="validation-status pending-validation"></span><p><strong>Scoped snapshot contains the same workspace</strong><span>observability.snapshot · contract.correlation</span></p></div>
+                <div><span class="validation-status pending-validation"></span><p><strong>Destroy removes control-plane state</strong><span>manager.sandbox.destroy · quality.teardown</span></p></div>
+              </div>
+            </article>
+          </section>
+
+          <section class="page" id="live-run" aria-labelledby="live-run-title">
+            <div class="run-hero">
+              <div>
+                <div class="run-state-line">
+                  <span class="live-pill"><span></span> Live</span>
+                  <code>run-01J2D8ZPRT6G8N4F</code>
+                  <span>Started 12:03:08</span>
+                </div>
+                <h1 id="live-run-title">Workspace lifecycle &amp; evidence</h1>
+                <p>Compound · Medium · 40 selected tests · catalog <code>4f8c1d2</code></p>
+              </div>
+              <div class="run-hero-actions">
+                <button class="button secondary danger-action">Cancel run</button>
+                <button class="button secondary">Copy run link</button>
+              </div>
+            </div>
+
+            <div class="run-overview-strip">
+              <div class="run-progress-block">
+                <div><span>Run progress</span><strong>68%</strong></div>
+                <div class="progress-bar large"><span style="width: 68%"></span></div>
+                <small>27 of 40 tests complete · 03:42 elapsed</small>
+              </div>
+              <div class="run-stat passed-stat"><strong>26</strong><span>Passed</span></div>
+              <div class="run-stat failed-stat"><strong>1</strong><span>Failed</span></div>
+              <div class="run-stat running-stat"><strong>1</strong><span>Running</span></div>
+              <div class="run-stat pending-stat"><strong>12</strong><span>Pending</span></div>
+              <div class="stream-state"><span class="status-dot passed"></span><div><strong>Live stream</strong><span>event #284 · now</span></div></div>
+            </div>
+
+            <div class="workspace-run-strip">
+              <svg class="icon"><use href="#icon-folder"></use></svg>
+              <span>Workspace</span>
+              <code>…/e2e/runs/01J2D8/workspaces/compound.lifecycle.medium/attempt-1/root</code>
+              <span class="status-badge running-badge"><span class="status-dot running"></span>Retaining exact root</span>
+              <a href="#workspaces">View lineage</a>
+            </div>
+
+            <div class="live-layout">
+              <aside class="run-tree panel">
+                <div class="run-tree-heading">
+                  <div><strong>Execution tree</strong><span>Selection order</span></div>
+                  <button class="icon-button small" aria-label="Search run tests"><svg class="icon"><use href="#icon-search"></use></svg></button>
+                </div>
+
+                <details open>
+                  <summary><span class="tree-status passed-tree"><svg class="icon"><use href="#icon-check"></use></svg></span><strong>Manager</strong><span>8 / 8</span></summary>
+                  <div class="tree-children">
+                    <div class="tree-family"><span>Lifecycle</span><strong>4 / 4</strong></div>
+                    <a href="#live-run"><span class="status-dot passed"></span><span>Create ready sandbox</span><small>passed</small></a>
+                    <a href="#live-run"><span class="status-dot passed"></span><span>Inspect matching record</span><small>passed</small></a>
+                    <a href="#live-run"><span class="status-dot passed"></span><span>List visibility</span><small>passed</small></a>
+                    <a href="#live-run"><span class="status-dot passed"></span><span>Destroy ready sandbox</span><small>passed</small></a>
+                  </div>
+                </details>
+
+                <details open>
+                  <summary><span class="tree-status passed-tree"><svg class="icon"><use href="#icon-check"></use></svg></span><strong>Runtime</strong><span>18 / 18</span></summary>
+                  <div class="tree-children">
+                    <div class="tree-family"><span>Workspace / session</span><strong>10 / 10</strong></div>
+                    <a href="#live-run"><span class="status-dot passed"></span><span>Implicit exec publishes</span><small>passed</small></a>
+                    <a href="#live-run"><span class="status-dot passed"></span><span>Rider defers finalization</span><small>passed</small></a>
+                    <div class="tree-family"><span>File operations</span><strong>8 / 8</strong></div>
+                    <a href="#live-run"><span class="status-dot passed"></span><span>Windowed file read</span><small>passed</small></a>
+                  </div>
+                </details>
+
+                <details open>
+                  <summary><span class="tree-status running-tree"><span class="spinner small-spinner"></span></span><strong>Observability</strong><span>1 / 2</span></summary>
+                  <div class="tree-children">
+                    <div class="tree-family"><span>Snapshot</span><strong>1 / 2</strong></div>
+                    <a href="#live-run"><span class="status-dot passed"></span><span>Aggregate includes sandbox</span><small>passed</small></a>
+                    <a class="active" href="#live-run"><span class="status-dot running"></span><span>Scoped snapshot returns selected sandbox</span><small>running</small></a>
+                  </div>
+                </details>
+
+                <details open>
+                  <summary><span class="tree-status pending-tree"></span><strong>Compound validations</strong><span>0 / 12</span></summary>
+                  <div class="tree-children">
+                    <a href="#live-run"><span class="status-dot pending"></span><span>Cross-domain correlation</span><small>pending</small></a>
+                    <a href="#live-run"><span class="status-dot pending"></span><span>Shared teardown</span><small>pending</small></a>
+                  </div>
+                </details>
+              </aside>
+
+              <div class="live-detail">
+                <article class="panel live-test-card">
+                  <div class="live-test-heading">
+                    <div>
+                      <div class="id-line">
+                        <span class="status-badge running-badge"><span class="status-dot running"></span>Running</span>
+                        <code>observability.snapshot.scoped</code>
+                      </div>
+                      <h2>Scoped snapshot returns the selected sandbox</h2>
+                      <p>
+                        Proves the public observability route returns one node for
+                        the requested sandbox with matching lifecycle, daemon,
+                        resource, and workspace evidence.
+                      </p>
+                    </div>
+                    <span class="elapsed-timer"><svg class="icon"><use href="#icon-clock"></use></svg>00:01.842</span>
+                  </div>
+                  <div class="feature-stack horizontal">
+                    <span class="tag direct-tag">snapshot</span>
+                    <span class="tag direct-tag">sandbox-scope</span>
+                    <span class="tag direct-tag">workspace-correlation</span>
+                    <span class="tag direct-tag">structured-response</span>
+                  </div>
+
+                  <div class="phase-trail" aria-label="Test execution phase">
+                    <div class="complete"><span><svg class="icon"><use href="#icon-check"></use></svg></span><p><strong>Setup</strong><small>0.62s</small></p></div>
+                    <i></i>
+                    <div class="complete"><span><svg class="icon"><use href="#icon-check"></use></svg></span><p><strong>Execute</strong><small>0.81s</small></p></div>
+                    <i class="active-line"></i>
+                    <div class="active"><span>3</span><p><strong>Verify</strong><small>in progress</small></p></div>
+                    <i></i>
+                    <div><span>4</span><p><strong>Teardown</strong><small>pending</small></p></div>
+                  </div>
+                </article>
+
+                <article class="panel live-validation-panel">
+                  <div class="panel-heading">
+                    <div><h2>Validation progress</h2><p>Expected and actual evidence updates from the append-only event stream.</p></div>
+                    <span><strong>3</strong> passed · <strong>1</strong> running · <strong>2</strong> pending</span>
+                  </div>
+
+                  <div class="live-validation-row passed-row">
+                    <span class="validation-status passed-validation"><svg class="icon"><use href="#icon-check"></use></svg></span>
+                    <div><code>response-success</code><strong>Public CLI returns a successful structured response</strong><p>exit 0 · JSON object · 42 ms</p></div>
+                    <span class="status-badge passed-badge">Passed</span>
+                  </div>
+                  <div class="live-validation-row passed-row">
+                    <span class="validation-status passed-validation"><svg class="icon"><use href="#icon-check"></use></svg></span>
+                    <div><code>one-node</code><strong>Exactly one sandbox node is returned</strong><p>expected 1 · actual 1 · 1 ms</p></div>
+                    <span class="status-badge passed-badge">Passed</span>
+                  </div>
+                  <div class="live-validation-row passed-row">
+                    <span class="validation-status passed-validation"><svg class="icon"><use href="#icon-check"></use></svg></span>
+                    <div><code>sandbox-id-matches</code><strong>Node ID matches the requested sandbox</strong><p>expected sbx-7f2a · actual sbx-7f2a · 1 ms</p></div>
+                    <span class="status-badge passed-badge">Passed</span>
+                  </div>
+                  <div class="live-validation-row running-row expanded-live-row">
+                    <span class="validation-status running-validation"><span class="spinner small-spinner"></span></span>
+                    <div class="live-validation-main">
+                      <code>workspace-correlates</code>
+                      <strong>Snapshot points to the retained run workspace</strong>
+                      <p>The reported workspace root and digest must match the manager record and run manifest.</p>
+                      <div class="evidence-compare">
+                        <div><span>Expected</span><code>root …/attempt-1/root · sha256:b018…</code></div>
+                        <div><span>Actual</span><code>reading snapshot node…</code></div>
+                      </div>
+                    </div>
+                    <span class="status-badge running-badge">Running</span>
+                  </div>
+                  <div class="live-validation-row">
+                    <span class="validation-status pending-validation"></span>
+                    <div><code>availability-ready</code><strong>Availability is ready with no errors</strong><p>Waiting for workspace correlation.</p></div>
+                    <span class="status-badge pending-badge">Pending</span>
+                  </div>
+                  <div class="live-validation-row">
+                    <span class="validation-status pending-validation"></span>
+                    <div><code>teardown-clean</code><strong>Owned resources are released after verification</strong><p>Runs in teardown phase.</p></div>
+                    <span class="status-badge pending-badge">Pending</span>
+                  </div>
+                </article>
+
+                <details class="panel raw-log-panel">
+                  <summary>
+                    <span><svg class="icon"><use href="#icon-terminal"></use></svg><strong>Raw operation stream</strong><small>6 recent records</small></span>
+                    <span class="text-link">Show logs</span>
+                  </summary>
+                  <pre>12:06:49.107 → observability snapshot --sandbox-id sbx-7f2a
+12:06:49.149 ← snapshot (exit=0, 0.042s)
+12:06:49.151 validation.finished response-success passed
+12:06:49.152 validation.finished one-node passed
+12:06:49.153 validation.finished sandbox-id-matches passed
+12:06:49.154 validation.started workspace-correlates</pre>
+                </details>
+              </div>
+            </div>
+          </section>
+
+          <section class="page" id="runs" aria-labelledby="runs-title">
+            <div class="page-heading split-heading">
+              <div>
+                <p class="eyebrow">Evidence archive</p>
+                <h1 id="runs-title">Runs</h1>
+                <p class="page-description">
+                  Completed and active runs render from their frozen catalog
+                  snapshot, normalized validations, and relative evidence paths.
+                </p>
+              </div>
+              <a class="button primary" href="#live-run"><svg class="icon"><use href="#icon-play"></use></svg>New run</a>
+            </div>
+
+            <div class="run-filter-bar">
+              <label class="search-field">
+                <svg class="icon"><use href="#icon-search"></use></svg>
+                <span class="visually-hidden">Search runs</span>
+                <input type="search" placeholder="Search run ID, test, feature…" />
+              </label>
+              <button class="filter-button">Domain <span>All</span></button>
+              <button class="filter-button">Status <span>All</span></button>
+              <button class="filter-button">Period <span>7 days</span></button>
+            </div>
+
+            <div class="runs-layout">
+              <article class="panel runs-table-panel">
+                <div class="table-scroll" tabindex="0">
+                  <table class="runs-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Run</th>
+                        <th scope="col">Scope</th>
+                        <th scope="col">Tests</th>
+                        <th scope="col">Validations</th>
+                        <th scope="col">Duration</th>
+                        <th scope="col">Workspace</th>
+                        <th scope="col">Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="selected-run-row">
+                        <td><strong>run-01J2D8…N4F</strong><span>Today, 12:03</span></td>
+                        <td><span class="domain-chip compound-chip">Compound · Medium</span><small>Workspace lifecycle</small></td>
+                        <td><strong>27 / 40</strong><span>in progress</span></td>
+                        <td><strong>112 passed</strong><span>1 running · 39 pending</span></td>
+                        <td>03:42</td>
+                        <td><span class="status-badge running-badge"><span class="status-dot running"></span>Retaining</span></td>
+                        <td><a class="status-badge running-badge" href="#live-run">Running</a></td>
+                      </tr>
+                      <tr>
+                        <td><strong>run-01J2C7…K9Q</strong><span>Today, 11:42</span></td>
+                        <td><span class="domain-chip runtime-chip">Runtime</span><small>File operations · Smoke</small></td>
+                        <td><strong>20 / 20</strong><span>complete</span></td>
+                        <td><strong>78 passed</strong><span>0 failed</span></td>
+                        <td>00:28</td>
+                        <td><span class="status-badge passed-badge"><span class="status-dot passed"></span>Reusable</span></td>
+                        <td><a class="status-badge passed-badge" href="#runs">Passed</a></td>
+                      </tr>
+                      <tr>
+                        <td><strong>run-01J2B1…N4M</strong><span>Yesterday, 18:10</span></td>
+                        <td><span class="domain-chip runtime-chip">Runtime</span><small>File operations · Correctness</small></td>
+                        <td><strong>27 / 28</strong><span>1 aborted</span></td>
+                        <td><strong>102 passed</strong><span class="danger-text">1 failed · 3 not run</span></td>
+                        <td>01:43</td>
+                        <td><span class="status-badge blocked-badge"><span class="status-dot failed"></span>Not reusable</span></td>
+                        <td><a class="status-badge failed-badge" href="#runs">Failed</a></td>
+                      </tr>
+                      <tr>
+                        <td><strong>run-01J29X…P7A</strong><span>Yesterday, 15:06</span></td>
+                        <td><span class="domain-chip manager-chip">Manager</span><small>Export · Medium</small></td>
+                        <td><strong>14 / 14</strong><span>complete</span></td>
+                        <td><strong>61 passed</strong><span>2 skipped</span></td>
+                        <td>03:09</td>
+                        <td><span class="status-badge passed-badge"><span class="status-dot passed"></span>Reusable</span></td>
+                        <td><a class="status-badge passed-badge" href="#runs">Passed</a></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <aside class="panel failure-inspector">
+                <p class="eyebrow">Selected failure · Yesterday</p>
+                <h2>Capture after base advance cleanly auto-merges</h2>
+                <code>runtime.file.correctness.capture-auto-merge</code>
+                <div class="failure-summary">
+                  <span class="validation-status failed-validation"><svg class="icon"><use href="#icon-x"></use></svg></span>
+                  <div><span>Failed validation</span><strong>Disjoint published change is preserved</strong></div>
+                </div>
+                <div class="failure-evidence">
+                  <div><span>Expected</span><code>base.txt = A + session.txt = B</code></div>
+                  <div><span>Actual</span><code>session.txt missing after capture</code></div>
+                  <div><span>Evidence</span><a href="#runs">capture-response.json</a><a href="#runs">layerstack.json</a></div>
+                </div>
+                <div class="not-run-callout">
+                  <strong>3 validations did not run</strong>
+                  <p>They are explicit <code>not_run</code>, not silently omitted.</p>
+                </div>
+                <a class="button primary full-width" href="#test-detail">Open full test result</a>
+              </aside>
+            </div>
+          </section>
+
+          <section class="page" id="workspaces" aria-labelledby="workspaces-title">
+            <div class="page-heading split-heading">
+              <div>
+                <p class="eyebrow">Runner state</p>
+                <h1 id="workspaces-title">Reusable workspaces</h1>
+                <p class="page-description">
+                  Every test uses an isolated run-scoped host root. Reuse always
+                  clones a retained root; historical evidence is never changed in place.
+                </p>
+              </div>
+              <div class="heading-actions">
+                <span class="status-badge passed-badge"><span class="status-dot passed"></span>Root safe</span>
+                <button class="button secondary">New from template</button>
+              </div>
+            </div>
+
+            <article class="store-root-card">
+              <div class="store-root-icon"><svg class="icon"><use href="#icon-folder"></use></svg></div>
+              <div class="store-root-main">
+                <span>Persistent workspace store</span>
+                <code>/Users/yifanxu/Ephemeral-AI-Lab/ephemeral-sandbox-test-workspace/e2e</code>
+                <p>Outside source repository · canonical path verified · owner marker present · writable</p>
+              </div>
+              <div class="store-root-stats">
+                <div><strong>12</strong><span>retained roots</span></div>
+                <div><strong>4.8 GB</strong><span>on disk</span></div>
+                <div><strong>0</strong><span>unsafe roots</span></div>
+              </div>
+            </article>
+
+            <div class="workspace-principles">
+              <article><span>1</span><div><strong>Clone</strong><p>Create a fresh run root from a template or retained workspace.</p></div></article>
+              <svg class="icon"><use href="#icon-arrow"></use></svg>
+              <article><span>2</span><div><strong>Execute</strong><p>Record before/after digests and keep compute isolated.</p></div></article>
+              <svg class="icon"><use href="#icon-arrow"></use></svg>
+              <article><span>3</span><div><strong>Verify</strong><p>Require pass plus clean teardown before reuse.</p></div></article>
+              <svg class="icon"><use href="#icon-arrow"></use></svg>
+              <article><span>4</span><div><strong>Retain</strong><p>Preserve exact roots and relative evidence until explicit purge.</p></div></article>
+            </div>
+
+            <div class="workspace-toolbar">
+              <label class="search-field">
+                <svg class="icon"><use href="#icon-search"></use></svg>
+                <span class="visually-hidden">Search workspaces</span>
+                <input type="search" placeholder="Search workspace, run, test…" />
+              </label>
+              <button class="filter-button">Reuse state <span>All</span></button>
+              <button class="filter-button">Source <span>All</span></button>
+            </div>
+
+            <article class="panel workspace-table-panel">
+              <div class="table-scroll" tabindex="0">
+                <table class="workspace-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Workspace</th>
+                      <th scope="col">Created from</th>
+                      <th scope="col">Last test</th>
+                      <th scope="col">Digest</th>
+                      <th scope="col">Size</th>
+                      <th scope="col">Safety</th>
+                      <th scope="col">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="workspace-name"><svg class="icon"><use href="#icon-box"></use></svg><span><strong>ws-file-read-7af3</strong><small>Today, 11:42</small></span></span></td>
+                      <td><strong>template/testbed</strong><small>run-01J2C7…K9Q</small></td>
+                      <td><strong>Windowed sessionless read</strong><small>Runtime · File operations</small></td>
+                      <td><code>sha256:7af3…</code></td>
+                      <td>18.4 MB</td>
+                      <td><span class="status-badge passed-badge"><svg class="icon"><use href="#icon-shield"></use></svg>Reusable</span></td>
+                      <td><a class="button secondary compact-button" href="#live-run"><svg class="icon"><use href="#icon-copy"></use></svg>Run from copy</a></td>
+                    </tr>
+                    <tr>
+                      <td><span class="workspace-name"><svg class="icon"><use href="#icon-box"></use></svg><span><strong>ws-export-medium-c81a</strong><small>Yesterday, 15:09</small></span></span></td>
+                      <td><strong>template/export-rust</strong><small>run-01J29X…P7A</small></td>
+                      <td><strong>Incremental directory export</strong><small>Manager · Export</small></td>
+                      <td><code>sha256:c81a…</code></td>
+                      <td>226 MB</td>
+                      <td><span class="status-badge passed-badge"><svg class="icon"><use href="#icon-shield"></use></svg>Reusable</span></td>
+                      <td><a class="button secondary compact-button" href="#live-run"><svg class="icon"><use href="#icon-copy"></use></svg>Run from copy</a></td>
+                    </tr>
+                    <tr>
+                      <td><span class="workspace-name"><svg class="icon"><use href="#icon-box"></use></svg><span><strong>ws-capture-failed-f12e</strong><small>Yesterday, 18:10</small></span></span></td>
+                      <td><strong>template/testbed</strong><small>run-01J2B1…N4M</small></td>
+                      <td><strong>Capture after base advance</strong><small>Runtime · Correctness</small></td>
+                      <td><code>sha256:f12e…</code></td>
+                      <td>21.7 MB</td>
+                      <td><span class="status-badge blocked-badge"><svg class="icon"><use href="#icon-alert"></use></svg>Evidence only</span></td>
+                      <td><a class="button secondary compact-button" href="#runs">Inspect failure</a></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <div class="workspace-bottom-grid">
+              <article class="panel lineage-panel">
+                <div class="panel-heading">
+                  <div><h2>Selected lineage</h2><p>Immutable ancestry for <code>ws-file-read-7af3</code>.</p></div>
+                  <span class="status-badge passed-badge">2 generations</span>
+                </div>
+                <div class="lineage-flow">
+                  <div><span class="lineage-node template-node"><svg class="icon"><use href="#icon-box"></use></svg></span><p><strong>template/testbed</strong><small>sha256:b018…</small></p></div>
+                  <svg class="icon"><use href="#icon-arrow"></use></svg>
+                  <div><span class="lineage-node run-node"><svg class="icon"><use href="#icon-activity"></use></svg></span><p><strong>run-01J2C7…K9Q</strong><small>Windowed read · passed</small></p></div>
+                  <svg class="icon"><use href="#icon-arrow"></use></svg>
+                  <div><span class="lineage-node retained-node"><svg class="icon"><use href="#icon-shield"></use></svg></span><p><strong>ws-file-read-7af3</strong><small>sha256:7af3… · reusable</small></p></div>
+                </div>
+              </article>
+
+              <aside class="panel retention-panel">
+                <h2>Retention policy</h2>
+                <div class="policy-row"><span>Automatic deletion</span><strong>Off</strong></div>
+                <div class="policy-row"><span>Failed roots</span><strong>Evidence only</strong></div>
+                <div class="policy-row"><span>Reuse mode</span><strong>Clone, never in place</strong></div>
+                <p>Disk purge is explicit in v1 so a test workspace is never lost unexpectedly.</p>
+              </aside>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
