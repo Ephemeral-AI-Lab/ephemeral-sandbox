@@ -28,7 +28,8 @@ pub use stack::publish::model::{
 pub use stack::{
     delta_layer_refs, describe_layer_delta, emit_delta_stream, fold_delta_winners, DeltaFold,
     DeltaStreamStats, DeltaWinner, LayerDeltaDescription, LayerDeltaEntry, LayerDeltaEntryKind,
-    LayerStack, Lease, MergedView, RewrittenLease, SquashOutcome, SquashedBlock, SweepReport,
+    LayerStack, Lease, MergedView, RewrittenLease, SquashOutcome, SquashPhase, SquashPhaseObserver,
+    SquashedBlock, SweepReport,
 };
 pub use storage::whiteout::{LOGICAL_WHITEOUT_PREFIX, OPAQUE_MARKER};
 pub use workspace_base::{

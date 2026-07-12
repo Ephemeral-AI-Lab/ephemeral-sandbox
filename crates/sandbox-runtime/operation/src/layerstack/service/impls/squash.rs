@@ -14,10 +14,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, PoisonError};
 
 use sandbox_observability_telemetry::record::names;
-use sandbox_observability_telemetry::TraceContext;
+use sandbox_observability_telemetry::{sample_layerstack, TraceContext, WalkBudget};
 use sandbox_operation_catalog::internal::runtime::SQUASH_LAYERSTACK;
 use sandbox_operation_contract::OperationScopeKind;
-use sandbox_runtime_layerstack::LayerStack;
+use sandbox_runtime_layerstack::{
+    manifest_root_hash, LayerStack, LayerStackError, SquashPhase, SquashPhaseObserver,
+};
 use serde_json::{json, Value};
 
 use crate::operations::dispatch::OperationEntry;
@@ -59,9 +61,16 @@ fn run_squash_layerstack(operations: &SandboxRuntimeOperations) -> Result<Value,
         .scope(names::LAYERSTACK_SQUASH, |span| {
             let root = operations.layerstack.layer_stack_root().to_path_buf();
             let mut stack = LayerStack::open(root.clone()).map_err(|error| error.to_string())?;
-            let outcome = stack.squash().map_err(|error| error.to_string())?;
+            let phase_observer = TelemetrySquashPhaseObserver {
+                observer: &operations.layerstack.obs,
+            };
+            let outcome = stack
+                .squash_with_observer(&phase_observer)
+                .map_err(|error| error.to_string())?;
             span.attr("manifest_version", outcome.manifest.version);
+            span.attr("s2_root_hash", manifest_root_hash(&outcome.manifest));
             span.attr("blocks", outcome.blocks.len());
+            attach_post_commit_snapshot(span, &root);
 
             let ids = operations.workspace_session.session_ids();
             span.attr("swept", ids.len());
@@ -69,7 +78,19 @@ fn run_squash_layerstack(operations: &SandboxRuntimeOperations) -> Result<Value,
                 "sweep_width",
                 operations.layerstack.config.remount_sweep_width,
             );
-            let swept = remount_sweep(operations, &ids, operations.layerstack.obs.context());
+            let swept = operations
+                .layerstack
+                .obs
+                .scope(names::LAYERSTACK_SQUASH_REMOUNT_SWEEP, |sweep_span| {
+                    sweep_span.attr("sessions", ids.len());
+                    sweep_span.attr("width", operations.layerstack.config.remount_sweep_width);
+                    Ok::<_, std::convert::Infallible>(remount_sweep(
+                        operations,
+                        &ids,
+                        operations.layerstack.obs.context(),
+                    ))
+                })
+                .unwrap_or_else(|never| match never {});
             if swept
                 .iter()
                 .any(|session| session.disposition == SweptDisposition::Migrated)
@@ -139,15 +160,91 @@ fn run_squash_layerstack(operations: &SandboxRuntimeOperations) -> Result<Value,
                 })
                 .collect();
 
+            let swept_sessions: Vec<Value> = swept
+                .iter()
+                .map(|session| {
+                    let mut entry = json!({
+                        "session_id": session.workspace_session_id.0,
+                        "disposition": disposition_name(&session.disposition),
+                    });
+                    match &session.disposition {
+                        SweptDisposition::Leased { reason } => entry["reason"] = json!(reason),
+                        SweptDisposition::Faulty { class_detail } => {
+                            entry["class_detail"] = json!(class_detail);
+                        }
+                        SweptDisposition::SessionGone
+                        | SweptDisposition::Identity
+                        | SweptDisposition::Migrated => {}
+                    }
+                    entry
+                })
+                .collect();
+
             let mut result = json!({
                 "manifest_version": outcome.manifest.version,
                 "squashed_blocks": squashed_blocks,
+                "swept_sessions": swept_sessions,
             });
             if !faulty_sessions.is_empty() {
                 result["faulty_sessions"] = json!(faulty_sessions);
             }
             Ok(result)
         })
+}
+
+/// Capture S2 after the atomic storage commit and before any remount sweep.
+/// The sample is attached to the enclosing squash span so collector overhead is
+/// excluded from the registered plan/flatten/commit phase durations.
+fn attach_post_commit_snapshot(
+    span: &sandbox_observability_telemetry::SpanGuard,
+    storage_root: &std::path::Path,
+) {
+    let snapshot = sample_layerstack(storage_root, WalkBudget::default());
+    span.attr("s2_layer_count", snapshot.layers.len());
+    if let Some(value) = snapshot.total_bytes {
+        span.attr("s2_active_logical_bytes", value);
+    }
+    if let Some(value) = snapshot.total_allocated_bytes {
+        span.attr("s2_active_allocated_bytes", value);
+    }
+    if let Some(value) = snapshot.storage_logical_bytes {
+        span.attr("s2_storage_logical_bytes", value);
+    }
+    if let Some(value) = snapshot.storage_allocated_bytes {
+        span.attr("s2_storage_allocated_bytes", value);
+    }
+    if let Some(value) = snapshot.staging_entry_count {
+        span.attr("s2_staging_entry_count", value);
+    }
+}
+
+struct TelemetrySquashPhaseObserver<'a> {
+    observer: &'a sandbox_observability_telemetry::Observer,
+}
+
+impl SquashPhaseObserver for TelemetrySquashPhaseObserver<'_> {
+    fn observe<T>(
+        &self,
+        phase: SquashPhase,
+        body: impl FnOnce() -> Result<T, LayerStackError>,
+    ) -> Result<T, LayerStackError> {
+        let name = match phase {
+            SquashPhase::Plan => names::LAYERSTACK_SQUASH_PLAN,
+            SquashPhase::Flatten => names::LAYERSTACK_SQUASH_FLATTEN,
+            SquashPhase::Commit => names::LAYERSTACK_SQUASH_COMMIT,
+        };
+        self.observer.scope(name, |_| body())
+    }
+}
+
+fn disposition_name(disposition: &SweptDisposition) -> &'static str {
+    match disposition {
+        SweptDisposition::SessionGone => "session_gone",
+        SweptDisposition::Identity => "identity",
+        SweptDisposition::Migrated => "migrated",
+        SweptDisposition::Leased { .. } => "leased",
+        SweptDisposition::Faulty { .. } => "faulty",
+    }
 }
 
 /// The post-commit remount sweep: attempt every live session's remount with

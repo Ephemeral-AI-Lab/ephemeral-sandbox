@@ -269,7 +269,11 @@ impl Default for DockerRuntimeConfig {
             connect_timeout_s: 120,
             stop_timeout_s: 5,
             readiness_poll_ms: 250,
-            port_publish_attempts: 40,
+            // Docker Desktop can take several seconds to expose dynamic host
+            // bindings under sustained sequential campaign load. Keep this
+            // bounded (200 × 50 ms = 10 s) but do not fail a running daemon
+            // merely because its published port has not appeared in 2 s.
+            port_publish_attempts: 200,
             port_publish_retry_delay_ms: 50,
             memory_bytes: None,
             nano_cpus: None,

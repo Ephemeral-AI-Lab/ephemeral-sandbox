@@ -11,6 +11,10 @@ use super::WalkBudget;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DiskSample {
     pub upperdir_bytes: Option<i64>,
+    /// Filesystem allocation (`st_blocks * 512`) for the complete walk. This
+    /// is `None` on unsupported platforms and after any read/budget failure;
+    /// a partial allocation is never presented as an authoritative zero/total.
+    pub upperdir_allocated_bytes: Option<i64>,
     pub file_count: Option<i64>,
     pub dir_count: Option<i64>,
     pub symlink_count: Option<i64>,
@@ -31,6 +35,7 @@ impl DiskSample {
 pub fn sample_upperdir(path: &Path, budget: WalkBudget) -> DiskSample {
     let mut sample = DiskSample {
         upperdir_bytes: Some(0),
+        upperdir_allocated_bytes: allocated_zero(),
         file_count: Some(0),
         dir_count: Some(0),
         symlink_count: Some(0),
@@ -43,7 +48,7 @@ pub fn sample_upperdir(path: &Path, budget: WalkBudget) -> DiskSample {
 
     'walk: while let Some((current, depth)) = stack.pop() {
         if visited_nodes >= budget.max_nodes {
-            sample.truncated = Some(true);
+            mark_truncated(&mut sample);
             break;
         }
         visited_nodes += 1;
@@ -54,6 +59,10 @@ pub fn sample_upperdir(path: &Path, budget: WalkBudget) -> DiskSample {
                 continue;
             }
         };
+        add_allocated(
+            &mut sample.upperdir_allocated_bytes,
+            allocated_bytes(&metadata),
+        );
         let file_type = metadata.file_type();
         if file_type.is_file() {
             add(
@@ -64,7 +73,7 @@ pub fn sample_upperdir(path: &Path, budget: WalkBudget) -> DiskSample {
         } else if file_type.is_dir() {
             add(&mut sample.dir_count, 1);
             if depth >= budget.max_depth {
-                sample.truncated = Some(true);
+                mark_truncated(&mut sample);
                 continue;
             }
             let entries = match fs::read_dir(&current) {
@@ -78,7 +87,7 @@ pub fn sample_upperdir(path: &Path, budget: WalkBudget) -> DiskSample {
                 match entry {
                     Ok(entry) => {
                         if visited_nodes.saturating_add(stack.len()) >= budget.max_nodes {
-                            sample.truncated = Some(true);
+                            mark_truncated(&mut sample);
                             break 'walk;
                         }
                         stack.push((entry.path(), depth.saturating_add(1)));
@@ -98,8 +107,21 @@ fn add(value: &mut Option<i64>, amount: i64) {
     *value = Some(value.unwrap_or_default().saturating_add(amount));
 }
 
+fn add_allocated(total: &mut Option<i64>, amount: Option<i64>) {
+    *total = match (*total, amount) {
+        (Some(total), Some(amount)) => total.checked_add(amount),
+        _ => None,
+    };
+}
+
+fn mark_truncated(sample: &mut DiskSample) {
+    sample.truncated = Some(true);
+    sample.upperdir_allocated_bytes = None;
+}
+
 fn record_error(sample: &mut DiskSample, path: &Path, error: std::io::Error) {
     add(&mut sample.read_error_count, 1);
+    sample.upperdir_allocated_bytes = None;
     if sample.first_error_path.is_none() {
         sample.first_error_path = Some(first_error(path, error));
     }
@@ -112,4 +134,27 @@ fn first_error(path: &Path, error: std::io::Error) -> String {
 
 fn path_string(path: &Path) -> String {
     PathBuf::from(path).to_string_lossy().into_owned()
+}
+
+#[cfg(unix)]
+fn allocated_zero() -> Option<i64> {
+    Some(0)
+}
+
+#[cfg(not(unix))]
+fn allocated_zero() -> Option<i64> {
+    None
+}
+
+#[cfg(unix)]
+fn allocated_bytes(metadata: &fs::Metadata) -> Option<i64> {
+    use std::os::unix::fs::MetadataExt;
+
+    let blocks = i64::try_from(metadata.blocks()).ok()?;
+    blocks.checked_mul(512)
+}
+
+#[cfg(not(unix))]
+fn allocated_bytes(_metadata: &fs::Metadata) -> Option<i64> {
+    None
 }

@@ -59,4 +59,11 @@ pub enum ConfigError {
         #[source]
         source: serde_path_to_error::Error<yaml::Error>,
     },
+
+    /// A complete config document failed typed deserialization.
+    #[error("failed to deserialize config document: {source}")]
+    DeserializeDocument {
+        #[source]
+        source: serde_path_to_error::Error<yaml::Error>,
+    },
 }

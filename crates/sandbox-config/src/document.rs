@@ -74,6 +74,19 @@ impl ConfigDocument {
         })
     }
 
+    /// Deserialize the complete document into an owner crate's typed schema.
+    ///
+    /// # Errors
+    /// Returns an error if typed deserialization fails.
+    pub fn document<T>(&self) -> Result<T, ConfigError>
+    where
+        T: DeserializeOwned,
+    {
+        let deserializer = self.value.clone().into_deserializer();
+        serde_path_to_error::deserialize(deserializer)
+            .map_err(|source| ConfigError::DeserializeDocument { source })
+    }
+
     fn root_mapping(&self) -> Result<&Mapping, ConfigError> {
         match &self.value {
             Value::Mapping(mapping) => Ok(mapping),

@@ -111,6 +111,46 @@ daemon:
 }
 
 #[test]
+fn document_deserializes_the_strict_root_schema() {
+    #[derive(Debug, Deserialize, PartialEq, Eq)]
+    #[serde(deny_unknown_fields)]
+    struct StrictDocument {
+        schema_version: u32,
+        name: String,
+    }
+
+    let doc = parse_doc("schema_version: 1\nname: benchmark\n");
+    let parsed = doc
+        .document::<StrictDocument>()
+        .expect("complete document deserializes");
+
+    assert_eq!(
+        parsed,
+        StrictDocument {
+            schema_version: 1,
+            name: "benchmark".to_owned(),
+        }
+    );
+}
+
+#[test]
+fn document_reports_unknown_root_fields() {
+    #[derive(Debug, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct StrictDocument {
+        #[serde(rename = "schema_version")]
+        _schema_version: u32,
+    }
+
+    let doc = parse_doc("schema_version: 1\nunexpected: true\n");
+    let error = doc
+        .document::<StrictDocument>()
+        .expect_err("unknown root field should fail");
+
+    assert!(error.to_string().contains("unexpected"), "{error}");
+}
+
+#[test]
 fn load_test_override_merges_sandbox_local_test_yaml() {
     let root = test_workspace_dir("load-test-override");
     fs::create_dir_all(&root).expect("create test dir");
@@ -312,7 +352,7 @@ manager:
     connect_timeout_s: 120
     stop_timeout_s: 5
     readiness_poll_ms: 250
-    port_publish_attempts: 40
+    port_publish_attempts: 200
     port_publish_retry_delay_ms: 50
     container_env:
       HTTP_PROXY: http://http.docker.internal:3128

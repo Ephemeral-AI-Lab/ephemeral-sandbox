@@ -110,8 +110,66 @@ fn disk_sample_totals_bytes_and_counts() {
     let sample = sample_upperdir(&dir, WalkBudget::default());
 
     assert_eq!(sample.upperdir_bytes, Some(6), "3 + 2 + 1 bytes");
+    #[cfg(unix)]
+    assert_eq!(
+        sample.upperdir_allocated_bytes,
+        Some(allocated_tree_bytes(&dir)),
+        "allocated bytes include files and directory entries"
+    );
+    #[cfg(not(unix))]
+    assert_eq!(sample.upperdir_allocated_bytes, None);
     assert_eq!(sample.file_count, Some(3));
     assert_eq!(sample.dir_count, Some(2), "root + nested");
     assert_eq!(sample.truncated, Some(false));
     assert_eq!(sample.read_error_count, Some(0));
+}
+
+#[test]
+fn disk_sample_never_reports_a_partial_allocated_total() {
+    let dir = fixture("disk-truncated");
+    write_file(&dir, "one.txt", "abc");
+
+    let sample = sample_upperdir(
+        &dir,
+        WalkBudget {
+            max_nodes: 1,
+            max_depth: 64,
+        },
+    );
+
+    assert_eq!(sample.truncated, Some(true));
+    assert_eq!(sample.upperdir_allocated_bytes, None);
+}
+
+#[test]
+fn disk_sample_read_failure_never_reports_an_allocated_total() {
+    let missing = fixture("disk-missing").join("not-present");
+
+    let sample = sample_upperdir(&missing, WalkBudget::default());
+
+    assert_eq!(sample.read_error_count, Some(1));
+    assert!(sample.first_error_path.is_some());
+    assert_eq!(sample.upperdir_allocated_bytes, None);
+}
+
+#[cfg(unix)]
+fn allocated_tree_bytes(root: &Path) -> i64 {
+    use std::os::unix::fs::MetadataExt;
+
+    let mut total = 0_i64;
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(path) = stack.pop() {
+        let metadata = std::fs::symlink_metadata(&path).expect("fixture metadata");
+        total = total
+            .checked_add(i64::try_from(metadata.blocks()).expect("fixture blocks") * 512)
+            .expect("fixture allocation total");
+        if metadata.is_dir() {
+            stack.extend(
+                std::fs::read_dir(path)
+                    .expect("fixture directory")
+                    .map(|entry| entry.expect("fixture entry").path()),
+            );
+        }
+    }
+    total
 }

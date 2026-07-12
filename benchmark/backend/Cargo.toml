@@ -1,0 +1,35 @@
+[package]
+name = "sandbox-benchmark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "sandbox-benchmark"
+path = "src/main.rs"
+
+[dependencies]
+bytes.workspace = true
+clap.workspace = true
+futures-util.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util = { workspace = true, features = ["http1", "server", "tokio"] }
+serde.workspace = true
+serde_json.workspace = true
+serde_path_to_error.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+time = { workspace = true, features = ["formatting"] }
+tokio.workspace = true
+tokio-util.workspace = true
+uuid = { workspace = true, features = ["std", "v7"] }
+sandbox-config.workspace = true
+sandbox-operation-catalog = { workspace = true, features = ["manager", "observability", "runtime"] }
+sandbox-operation-client.workspace = true
+sandbox-operation-contract.workspace = true
+
+[lints]
+workspace = true

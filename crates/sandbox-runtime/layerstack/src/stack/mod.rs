@@ -21,7 +21,7 @@ use lease::{
     lock_shared_registry, lock_shared_registry_recover, shared_registry_for_root, LeaseRegistry,
 };
 pub use lease::{RewrittenLease, SweepReport};
-pub use squash::{SquashOutcome, SquashedBlock};
+pub use squash::{SquashOutcome, SquashPhase, SquashPhaseObserver, SquashedBlock};
 
 pub use projection::{
     delta_layer_refs, describe_layer_delta, emit_delta_stream, fold_delta_winners, DeltaFold,

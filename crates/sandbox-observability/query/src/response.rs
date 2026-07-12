@@ -76,10 +76,15 @@ pub(crate) fn latest_upper_bytes(reader: &Reader, scope: &str) -> Option<u64> {
 }
 
 pub(crate) fn layerstack_value(observation: &StackObservation, bytes: &LayerStackBytes) -> Value {
-    let bytes_by_id: HashMap<&str, u64> = bytes
+    let bytes_by_id: HashMap<&str, (Option<u64>, Option<u64>)> = bytes
         .layers
         .iter()
-        .map(|layer| (layer.layer_id.as_str(), layer.bytes))
+        .map(|layer| {
+            (
+                layer.layer_id.as_str(),
+                (layer.bytes, layer.allocated_bytes),
+            )
+        })
         .collect();
     let layers = observation
         .layers
@@ -94,7 +99,8 @@ pub(crate) fn layerstack_value(observation: &StackObservation, bytes: &LayerStac
                 .collect::<Vec<_>>();
             json!({
                 "layer_id": layer_id,
-                "bytes": bytes_by_id.get(layer_id).copied().unwrap_or(0),
+                "bytes": bytes_by_id.get(layer_id).and_then(|value| value.0),
+                "allocated_bytes": bytes_by_id.get(layer_id).and_then(|value| value.1),
                 "leased_by_workspaces": status.leased_by_workspaces,
                 "booked_by": booked_by,
             })
@@ -106,6 +112,10 @@ pub(crate) fn layerstack_value(observation: &StackObservation, bytes: &LayerStac
         "root_hash": observation.root_hash,
         "active_lease_count": observation.active_lease_count,
         "total_bytes": bytes.total_bytes,
+        "total_allocated_bytes": bytes.total_allocated_bytes,
+        "storage_logical_bytes": bytes.storage_logical_bytes,
+        "storage_allocated_bytes": bytes.storage_allocated_bytes,
+        "staging_entry_count": bytes.staging_entry_count,
         "layers": layers,
     })
 }
@@ -117,6 +127,9 @@ pub(crate) fn stack_summary_value(
     json!({
         "layer_count": observation.layers.len(),
         "layers_bytes": bytes.total_bytes,
+        "layers_allocated_bytes": bytes.total_allocated_bytes,
+        "storage_allocated_bytes": bytes.storage_allocated_bytes,
+        "staging_entry_count": bytes.staging_entry_count,
         "active_leases": observation.active_lease_count,
     })
 }

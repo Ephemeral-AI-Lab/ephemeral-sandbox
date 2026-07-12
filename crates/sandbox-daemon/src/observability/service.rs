@@ -8,8 +8,8 @@ use sandbox_config::configs::observability::ViewsConfig;
 use sandbox_observability_telemetry::collect::cgroup::CgroupSample;
 use sandbox_observability_telemetry::collect::disk;
 use sandbox_observability_telemetry::{
-    record, sample_layerstack, ObservabilityPaths, Observer, ObserverConfig, Reader, Sink,
-    WalkBudget,
+    record, sample_layerstack, LayerStackBytes, ObservabilityPaths, Observer, ObserverConfig,
+    Reader, Sink, WalkBudget,
 };
 use sandbox_runtime::{
     RuntimeObservabilitySnapshot, RuntimeWorkspaceSnapshot, SandboxRuntimeOperations,
@@ -96,6 +96,28 @@ impl DaemonObservability {
         }
     }
 
+    /// Persist the resource samples used by a snapshot response. Unlike the
+    /// periodic path, this is fallible so a snapshot never presents an older
+    /// sample as the current post-operation reading after an append failure.
+    pub(crate) fn refresh_resource_samples(
+        &self,
+        config: &ServerConfig,
+        snapshot: &RuntimeObservabilitySnapshot,
+    ) -> std::io::Result<()> {
+        self.rotate_if_needed();
+        self.observer
+            .try_sample("sandbox", sandbox_metrics(&sandbox_cgroup_sample(config)))?;
+        for workspace in &snapshot.workspaces {
+            let scope = workspace.workspace_id.0.as_str();
+            if scope.is_empty() {
+                continue;
+            }
+            self.observer
+                .try_sample(scope, workspace_metrics(workspace, self.sampling))?;
+        }
+        Ok(())
+    }
+
     fn emit_stack_sample(&self, operations: &SandboxRuntimeOperations) {
         let Ok(observation) = operations.observe_layerstack() else {
             return;
@@ -103,12 +125,28 @@ impl DaemonObservability {
         let bytes = sample_layerstack(operations.layer_stack_root(), self.sampling);
         self.observer.sample(
             "stack",
-            json!({
-                "layer_count": observation.layers.len(),
-                "layers_bytes": bytes.total_bytes,
-                "active_leases": observation.active_lease_count,
-            }),
+            Self::stack_metrics(
+                observation.layers.len(),
+                observation.active_lease_count,
+                &bytes,
+            ),
         );
+    }
+
+    pub(crate) fn stack_metrics(
+        layer_count: usize,
+        active_lease_count: usize,
+        bytes: &LayerStackBytes,
+    ) -> Value {
+        json!({
+            "layer_count": layer_count,
+            "layers_bytes": bytes.total_bytes,
+            "layers_allocated_bytes": bytes.total_allocated_bytes,
+            "storage_logical_bytes": bytes.storage_logical_bytes,
+            "storage_allocated_bytes": bytes.storage_allocated_bytes,
+            "staging_entry_count": bytes.staging_entry_count,
+            "active_leases": active_lease_count,
+        })
     }
 
     /// Rotate `observability.ndjson` → `observability.ndjson.1` (replacing any
@@ -169,6 +207,9 @@ fn workspace_metrics(workspace: &RuntimeWorkspaceSnapshot, sampling: WalkBudget)
         let disk = disk::sample_upperdir(upperdir, sampling);
         if let Some(bytes) = disk.upperdir_bytes {
             metrics.insert("disk_bytes".to_owned(), json!(bytes));
+        }
+        if let Some(bytes) = disk.upperdir_allocated_bytes {
+            metrics.insert("disk_allocated_bytes".to_owned(), json!(bytes));
         }
         if let Some(files) = disk.file_count {
             metrics.insert("files".to_owned(), json!(files));

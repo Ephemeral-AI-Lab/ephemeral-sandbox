@@ -204,7 +204,7 @@ fn public_route_manifest_is_exact_and_policy_consistent() {
                 "cgroup",
                 OperationScopePolicy::SandboxRequired,
                 OperationScopeKind::Sandbox,
-                OperationExecutionOwner::Observability,
+                OperationExecutionOwner::Manager,
                 OperationVisibility::Public
             ),
             (

@@ -1,0 +1,35 @@
+schema_version: 1
+id: squash-only
+version: 1
+plan:
+  schema_version: 1
+  name: squash-only
+  configuration_base:
+    id: standard-local
+    version: 1
+    scope: layerstack
+  seed: 20260712
+  environment:
+    image: ubuntu:24.04
+    client_cohort: direct_client
+  protocol:
+    order: randomized_blocks
+    resource_interval_ms: 100
+    trial_defaults:
+      fast: {warmups: 2, measured_trials: 30}
+      destructive: {warmups: 1, measured_trials: 10}
+    timeout_ms:
+      default: 120000
+      squash_layerstack: 600000
+  operations:
+    - operation: squash_layerstack
+      configuration:
+        enabled: true
+        factors:
+          live_sessions: {role: controlled, values: [0]}
+          requested_migration_ratio: {role: controlled, values: [1.0]}
+          remount_parallelism: {role: controlled, values: [4]}
+          squashable_blocks: {role: controlled, values: [1]}
+          layers_per_block: {role: controlled, values: [8]}
+          payload_bytes: {role: controlled, values: [4096]}
+          session_activity: {role: controlled, values: [idle]}

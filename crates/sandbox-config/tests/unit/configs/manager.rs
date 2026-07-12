@@ -218,7 +218,7 @@ fn config_docker_timing_defaults_preserve_shipped_policy() {
     assert_eq!(docker.connect_timeout_s, 120);
     assert_eq!(docker.stop_timeout_s, 5);
     assert_eq!(docker.readiness_poll_ms, 250);
-    assert_eq!(docker.port_publish_attempts, 40);
+    assert_eq!(docker.port_publish_attempts, 200);
     assert_eq!(docker.port_publish_retry_delay_ms, 50);
 }
 

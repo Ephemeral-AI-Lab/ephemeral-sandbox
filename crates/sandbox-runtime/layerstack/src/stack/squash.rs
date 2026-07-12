@@ -50,6 +50,42 @@ pub struct SquashOutcome {
     _flight: SquashFlight,
 }
 
+/// Closed storage phases of one squash invocation.
+///
+/// The observer surface intentionally exposes only phase identity and the
+/// operation result. Planning and build implementation types remain private.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SquashPhase {
+    Plan,
+    Flatten,
+    Commit,
+}
+
+/// Synchronous observer for the three storage phases of a squash.
+///
+/// Implementations must execute `body` exactly once and return its result.
+/// This is a closed instrumentation seam, not a runtime plugin surface.
+pub trait SquashPhaseObserver {
+    fn observe<T>(
+        &self,
+        phase: SquashPhase,
+        body: impl FnOnce() -> Result<T, LayerStackError>,
+    ) -> Result<T, LayerStackError>;
+}
+
+#[derive(Debug, Default)]
+struct NoopSquashPhaseObserver;
+
+impl SquashPhaseObserver for NoopSquashPhaseObserver {
+    fn observe<T>(
+        &self,
+        _phase: SquashPhase,
+        body: impl FnOnce() -> Result<T, LayerStackError>,
+    ) -> Result<T, LayerStackError> {
+        body()
+    }
+}
+
 #[derive(Debug)]
 struct SquashFlight {
     busy: Arc<AtomicBool>,
@@ -71,8 +107,21 @@ impl LayerStack {
     /// manifest stays valid and partial S dirs are removed in-process), or
     /// when the commit recheck finds a planned run broken.
     pub fn squash(&mut self) -> Result<SquashOutcome, LayerStackError> {
+        self.squash_with_observer(&NoopSquashPhaseObserver)
+    }
+
+    /// Squash every squashable block while observing the three closed storage
+    /// phases. The observer cannot inspect or alter private plan/build values.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`LayerStack::squash`].
+    pub fn squash_with_observer(
+        &mut self,
+        observer: &impl SquashPhaseObserver,
+    ) -> Result<SquashOutcome, LayerStackError> {
         let flight = begin_flight(&self.storage_root)?;
-        let plan = self.plan_squash()?;
+        let plan = observer.observe(SquashPhase::Plan, || self.plan_squash())?;
         let Some(plan) = plan else {
             let manifest = self.read_active_manifest()?;
             return Ok(SquashOutcome {
@@ -82,23 +131,24 @@ impl LayerStack {
                 _flight: flight,
             });
         };
-        let built = match self.build_blocks(&plan) {
+        let built = match observer.observe(SquashPhase::Flatten, || self.build_blocks(&plan)) {
             Ok(built) => built,
             Err(error) => {
                 let _ = self.release_lease(&plan.plan_lease_id);
                 return Err(error);
             }
         };
-        let (manifest, blocks, removed) = match self.commit_squash(&plan, &built) {
-            Ok(committed) => committed,
-            Err(error) => {
-                for block in &built {
-                    let _ = remove_path(&block.staging_dir);
+        let (manifest, blocks, removed) =
+            match observer.observe(SquashPhase::Commit, || self.commit_squash(&plan, &built)) {
+                Ok(committed) => committed,
+                Err(error) => {
+                    for block in &built {
+                        let _ = remove_path(&block.staging_dir);
+                    }
+                    let _ = self.release_lease(&plan.plan_lease_id);
+                    return Err(error);
                 }
-                let _ = self.release_lease(&plan.plan_lease_id);
-                return Err(error);
-            }
-        };
+            };
         Ok(SquashOutcome {
             manifest,
             blocks,

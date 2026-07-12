@@ -9,8 +9,7 @@ use sandbox_observability_query::ports::{
 use sandbox_observability_query::{dispatch_operation, observability_handler_keys};
 use sandbox_observability_telemetry::{LayerBytes, LayerStackBytes, Reader};
 use sandbox_operation_contract::{
-    OperationExecutionOwner, OperationRequest, OperationScope, OperationScopeKind,
-    OperationVisibility,
+    OperationRequest, OperationScope, OperationScopeKind, OperationVisibility,
 };
 use sandbox_runtime_layerstack::service::{LayerStatus, StackObservation};
 use sandbox_runtime_layerstack::{
@@ -95,11 +94,11 @@ impl ObservabilityInput for FakeInput {
 }
 
 #[test]
-fn public_registry_is_bijective_with_observability_owned_routes() {
+fn sandbox_registry_is_bijective_with_observability_domain_routes() {
     let mut expected = sandbox_operation_catalog::routes::observability_routes()
         .iter()
         .filter(|route| {
-            route.execution_owner == OperationExecutionOwner::Observability
+            route.scope_kind == OperationScopeKind::Sandbox
                 && route.visibility == OperationVisibility::Public
         })
         .map(|route| (route.scope_kind, route.operation))
@@ -157,7 +156,11 @@ fn snapshot_renders_neutral_runtime_state_and_latest_resources() {
         }),
         bytes: LayerStackBytes {
             layers: vec![bytes("l0", 120)],
-            total_bytes: 120,
+            total_bytes: Some(120),
+            total_allocated_bytes: Some(4096),
+            storage_logical_bytes: Some(240),
+            storage_allocated_bytes: Some(8192),
+            staging_entry_count: Some(0),
         },
         ..FakeInput::default()
     };
@@ -179,7 +182,14 @@ fn snapshot_renders_neutral_runtime_state_and_latest_resources() {
     );
     assert_eq!(
         value["stack"],
-        json!({ "layer_count": 1, "layers_bytes": 120, "active_leases": 2 })
+        json!({
+            "layer_count": 1,
+            "layers_bytes": 120,
+            "layers_allocated_bytes": 4096,
+            "storage_allocated_bytes": 8192,
+            "staging_entry_count": 0,
+            "active_leases": 2
+        })
     );
 }
 
@@ -355,7 +365,11 @@ fn layerstack_inventory_merges_bytes_and_derives_bookings() {
                 bytes("l3", 20_000),
                 bytes("l4", 5_000),
             ],
-            total_bytes: 249_000,
+            total_bytes: Some(249_000),
+            total_allocated_bytes: Some(249_000),
+            storage_logical_bytes: Some(250_000),
+            storage_allocated_bytes: Some(270_336),
+            staging_entry_count: Some(2),
         },
         ..FakeInput::default()
     };
@@ -365,13 +379,18 @@ fn layerstack_inventory_merges_bytes_and_derives_bookings() {
 
     assert_eq!(value["manifest_version"], 5);
     assert_eq!(value["total_bytes"], 249_000);
+    assert_eq!(value["total_allocated_bytes"], 249_000);
+    assert_eq!(value["storage_logical_bytes"], 250_000);
+    assert_eq!(value["storage_allocated_bytes"], 270_336);
+    assert_eq!(value["staging_entry_count"], 2);
     assert_eq!(layers[4]["bytes"], 120_000);
+    assert_eq!(layers[4]["allocated_bytes"], 120_000);
     assert_eq!(layers[2]["booked_by"], json!(["l3"]));
     assert_eq!(layers[4]["booked_by"], json!(["l3", "l2"]));
 }
 
 #[test]
-fn layerstack_defaults_missing_bytes_to_zero_and_renders_workspace_sharing() {
+fn layerstack_preserves_missing_bytes_and_renders_workspace_sharing() {
     let log_path = log_path("workspace-upper-bytes");
     write_lines(
         &log_path,
@@ -396,7 +415,9 @@ fn layerstack_defaults_missing_bytes_to_zero_and_renders_workspace_sharing() {
     };
 
     let inventory = dispatch_operation(&input, &request("layerstack", json!({}))).into_json_value();
-    assert_eq!(inventory["layers"][0]["bytes"], 0);
+    assert!(inventory["layers"][0]["bytes"].is_null());
+    assert!(inventory["layers"][0]["allocated_bytes"].is_null());
+    assert!(inventory["total_bytes"].is_null());
 
     let workspace = dispatch_operation(
         &input,
@@ -532,7 +553,8 @@ fn layer(id: &str, leased_by_workspaces: usize) -> LayerStatus {
 fn bytes(id: &str, count: u64) -> LayerBytes {
     LayerBytes {
         layer_id: id.to_owned(),
-        bytes: count,
+        bytes: Some(count),
+        allocated_bytes: Some(count),
     }
 }
 

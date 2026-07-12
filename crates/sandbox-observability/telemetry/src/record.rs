@@ -75,6 +75,14 @@ pub mod names {
     pub const NAMESPACE_EXEC_REMOUNT_OVERLAY: &str = "namespace.exec.remount_overlay";
     pub const WORKSPACE_SESSION_REMOUNT: &str = "workspace_session.remount";
     pub const LAYERSTACK_SQUASH: &str = "layerstack.squash";
+    /// Layerstack squash planning span.
+    pub const LAYERSTACK_SQUASH_PLAN: &str = "layerstack.squash.plan";
+    /// Layerstack squash flatten/build span.
+    pub const LAYERSTACK_SQUASH_FLATTEN: &str = "layerstack.squash.flatten";
+    /// Layerstack squash storage-commit span.
+    pub const LAYERSTACK_SQUASH_COMMIT: &str = "layerstack.squash.commit";
+    /// Layerstack squash post-commit live-session remount sweep span.
+    pub const LAYERSTACK_SQUASH_REMOUNT_SWEEP: &str = "layerstack.squash.remount_sweep";
     /// Layerstack export span (fold + spool of the published delta).
     pub const LAYERSTACK_EXPORT: &str = "layerstack.export";
     /// Namespace file-op span (sync request/result).

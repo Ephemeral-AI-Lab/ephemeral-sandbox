@@ -1,0 +1,58 @@
+schema_version: 1
+id: file-metadata-blame
+version: 1
+plan:
+  schema_version: 1
+  name: file-metadata-blame
+  configuration_base:
+    id: standard-local
+    version: 1
+    scope: files
+  seed: 20260712
+  environment:
+    image: ubuntu:24.04
+    client_cohort: direct_client
+  protocol:
+    order: randomized_blocks
+    resource_interval_ms: 100
+    trial_defaults:
+      fast: {warmups: 2, measured_trials: 30}
+      destructive: {warmups: 1, measured_trials: 10}
+    timeout_ms:
+      default: 120000
+      squash_layerstack: 600000
+  operations:
+    - operation: file_read
+      configuration:
+        enabled: false
+        factors:
+          concurrent_requests: {role: controlled, values: [1]}
+          returned_bytes: {role: controlled, values: [4096]}
+          source: {role: controlled, values: [snapshot]}
+          target_mode: {role: controlled, values: [independent]}
+    - operation: file_write
+      configuration:
+        enabled: false
+        factors:
+          concurrent_requests: {role: controlled, values: [1]}
+          content_bytes: {role: controlled, values: [4096]}
+          destination: {role: controlled, values: [session]}
+          target_mode: {role: controlled, values: [independent]}
+    - operation: file_edit
+      configuration:
+        enabled: false
+        factors:
+          concurrent_requests: {role: controlled, values: [1]}
+          file_bytes: {role: controlled, values: [4096]}
+          replacement_count: {role: controlled, values: [1]}
+          match_density: {role: controlled, values: [1.0]}
+          destination: {role: controlled, values: [session]}
+          target_mode: {role: controlled, values: [independent]}
+    - operation: file_blame
+      configuration:
+        enabled: true
+        factors:
+          concurrent_requests: {role: controlled, values: [1]}
+          line_count: {role: varied, values: [100, 2000, 50000], control: 100}
+          ownership_segments: {role: varied, values: [1, 10, 1000], control: 10}
+          auditability_event_count: {role: controlled, values: [10]}

@@ -1,0 +1,80 @@
+schema_version: 1
+name: standard-local
+configuration_base:
+  id: standard-local
+  version: 1
+  scope: all
+seed: 20260712
+environment:
+  image: ubuntu:24.04
+  client_cohort: direct_client
+protocol:
+  order: randomized_blocks
+  resource_interval_ms: 100
+  trial_defaults:
+    fast: {warmups: 2, measured_trials: 30}
+    destructive: {warmups: 1, measured_trials: 10}
+  timeout_ms:
+    default: 120000
+    squash_layerstack: 600000
+operations:
+  - operation: exec_command
+    configuration:
+      enabled: true
+      factors:
+        concurrent_requests: {role: varied, values: [1, 5, 20], control: 1}
+        workspace_profile: {role: controlled, values: [small]}
+        session_mode: {role: controlled, values: [explicit]}
+        command_case: {role: controlled, values: [noop]}
+  - operation: file_read
+    configuration:
+      enabled: true
+      factors:
+        concurrent_requests: {role: varied, values: [1, 5, 20], control: 1}
+        returned_bytes: {role: varied, values: [4096, 65536, 262144], control: 4096}
+        source: {role: controlled, values: [snapshot]}
+        target_mode: {role: controlled, values: [independent]}
+  - operation: file_write
+    configuration:
+      enabled: true
+      factors:
+        concurrent_requests: {role: varied, values: [1, 5, 20], control: 1}
+        content_bytes: {role: varied, values: [4096, 262144, 3145728], control: 4096}
+        destination: {role: controlled, values: [session]}
+        target_mode: {role: controlled, values: [independent]}
+  - operation: file_edit
+    configuration:
+      enabled: true
+      factors:
+        concurrent_requests: {role: varied, values: [1, 5, 20], control: 1}
+        file_bytes: {role: varied, values: [4096, 262144, 3145728], control: 4096}
+        replacement_count: {role: controlled, values: [1]}
+        match_density: {role: controlled, values: [1.0]}
+        destination: {role: controlled, values: [session]}
+        target_mode: {role: controlled, values: [independent]}
+  - operation: file_blame
+    configuration:
+      enabled: true
+      factors:
+        concurrent_requests: {role: varied, values: [1, 5, 20], control: 1}
+        line_count: {role: varied, values: [100, 2000, 50000], control: 100}
+        ownership_segments: {role: controlled, values: [10]}
+        auditability_event_count: {role: controlled, values: [10]}
+  - operation: create_workspace
+    configuration:
+      enabled: true
+      factors:
+        workspace_count: {role: varied, values: [1, 5, 20], control: 1}
+        workspace_profile: {role: varied, values: [small, medium], control: small}
+        network_profile: {role: controlled, values: [shared]}
+  - operation: squash_layerstack
+    configuration:
+      enabled: true
+      factors:
+        live_sessions: {role: varied, values: [0, 1, 5, 20], control: 0}
+        requested_migration_ratio: {role: controlled, values: [1.0]}
+        remount_parallelism: {role: controlled, values: [4]}
+        squashable_blocks: {role: controlled, values: [1]}
+        layers_per_block: {role: controlled, values: [8]}
+        payload_bytes: {role: controlled, values: [4096]}
+        session_activity: {role: controlled, values: [idle]}

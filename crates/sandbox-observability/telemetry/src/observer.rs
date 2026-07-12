@@ -4,7 +4,9 @@
 //! runtime spans share one id sequence and one parent chain.
 //!
 //! Emit never fails the observed work: when disabled every method is a near-free
-//! no-op, and when enabled all sink errors are swallowed.
+//! no-op, and when enabled the ordinary emit methods swallow sink errors. The
+//! checked sample path is reserved for callers whose response correctness
+//! depends on proving that a fresh sample was persisted.
 
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
@@ -143,8 +145,14 @@ impl Observer {
 
     /// Emit one resource/metric sample. Samples carry no trace/parent.
     pub fn sample(&self, scope: &str, metrics: impl Into<Value>) {
+        let _ = self.try_sample(scope, metrics);
+    }
+
+    /// Persist one resource/metric sample, returning a sink error to callers
+    /// that must not answer from an older sample when the append fails.
+    pub fn try_sample(&self, scope: &str, metrics: impl Into<Value>) -> std::io::Result<()> {
         if !self.core.enabled {
-            return;
+            return Ok(());
         }
         let metrics = value_to_attrs(metrics.into());
         debug_assert!(
@@ -159,7 +167,7 @@ impl Observer {
             scope: scope.to_owned(),
             metrics,
         };
-        let _ = self.core.sink.append(&Record::Sample(sample));
+        self.core.sink.append(&Record::Sample(sample))
     }
 
     /// Snapshot the current thread-local context (e.g. to cross a thread).

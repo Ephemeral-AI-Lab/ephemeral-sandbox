@@ -1498,6 +1498,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "sandbox-benchmark"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "clap",
+ "futures-util",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "sandbox-config",
+ "sandbox-operation-catalog",
+ "sandbox-operation-client",
+ "sandbox-operation-contract",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "sha2",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
+ "tokio-util",
+ "uuid",
+]
+
+[[package]]
 name = "sandbox-cli"
 version = "0.1.0"
 dependencies = [
@@ -2317,6 +2343,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "144d6b123cef80b301b8f72a9e2ca4370ddec21950d0a103dd22c437006d2db7"
 dependencies = [
  "getrandom 0.4.2",
+ "js-sys",
+ "wasm-bindgen",
 ]
 
 [[package]]

@@ -1,0 +1,82 @@
+{
+  "schema_version": 2,
+  "operations": [
+    {
+      "id": "exec_command",
+      "family": "command",
+      "product_access": {"kind": "public_gateway", "action": "exec_command"},
+      "isolation": "session_mode_dependent",
+      "cleanup": "resolve_from_isolation",
+      "count_semantics": {"kind": "concurrent_requests", "factor": "concurrent_requests"},
+      "semantic_revision": 1,
+      "factor_schema_revision": 1,
+      "comparison_projection_revision": 1
+    },
+    {
+      "id": "file_read",
+      "family": "files",
+      "product_access": {"kind": "public_gateway", "action": "file_read"},
+      "isolation": "reusable_verified_fixture",
+      "cleanup": "verify_fixture_unchanged",
+      "count_semantics": {"kind": "concurrent_requests", "factor": "concurrent_requests"},
+      "semantic_revision": 1,
+      "factor_schema_revision": 1,
+      "comparison_projection_revision": 1
+    },
+    {
+      "id": "file_write",
+      "family": "files",
+      "product_access": {"kind": "public_gateway", "action": "file_write"},
+      "isolation": "mutation_destination_dependent",
+      "cleanup": "resolve_from_isolation",
+      "count_semantics": {"kind": "concurrent_requests", "factor": "concurrent_requests"},
+      "semantic_revision": 1,
+      "factor_schema_revision": 1,
+      "comparison_projection_revision": 1
+    },
+    {
+      "id": "file_edit",
+      "family": "files",
+      "product_access": {"kind": "public_gateway", "action": "file_edit"},
+      "isolation": "mutation_destination_dependent",
+      "cleanup": "resolve_from_isolation",
+      "count_semantics": {"kind": "concurrent_requests", "factor": "concurrent_requests"},
+      "semantic_revision": 1,
+      "factor_schema_revision": 1,
+      "comparison_projection_revision": 1
+    },
+    {
+      "id": "file_blame",
+      "family": "files",
+      "product_access": {"kind": "public_gateway", "action": "file_blame"},
+      "isolation": "reusable_verified_fixture",
+      "cleanup": "verify_fixture_unchanged",
+      "count_semantics": {"kind": "concurrent_requests", "factor": "concurrent_requests"},
+      "semantic_revision": 1,
+      "factor_schema_revision": 1,
+      "comparison_projection_revision": 1
+    },
+    {
+      "id": "create_workspace",
+      "family": "workspace_lifecycle",
+      "product_access": {"kind": "internal_workspace", "action": "create_no_op_session"},
+      "isolation": "prepared_sandbox_per_cell",
+      "cleanup": "destroy_sessions_and_verify_baseline",
+      "count_semantics": {"kind": "concurrent_workspace_creates", "factor": "workspace_count"},
+      "semantic_revision": 1,
+      "factor_schema_revision": 1,
+      "comparison_projection_revision": 1
+    },
+    {
+      "id": "squash_layerstack",
+      "family": "layer_stack",
+      "product_access": {"kind": "public_gateway", "action": "squash_layerstacks"},
+      "isolation": "fresh_topology_per_trial",
+      "cleanup": "destroy_topology_and_verify_baseline",
+      "count_semantics": {"kind": "single_request_with_prepared_load", "load_factor": "live_sessions"},
+      "semantic_revision": 1,
+      "factor_schema_revision": 1,
+      "comparison_projection_revision": 1
+    }
+  ]
+}
