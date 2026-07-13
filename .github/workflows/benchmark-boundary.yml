@@ -1,0 +1,28 @@
+name: Benchmark boundary
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/benchmark-boundary.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "benchmark/**"
+  push:
+    paths:
+      - ".github/workflows/benchmark-boundary.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "benchmark/**"
+
+jobs:
+  reject-product-owned-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce the external benchmark boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e benchmark
+          ! grep -F '"benchmark/backend"' Cargo.toml
+          ! grep -F 'name = "sandbox-benchmark"' Cargo.lock

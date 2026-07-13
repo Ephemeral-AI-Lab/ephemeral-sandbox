@@ -1498,32 +1498,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sandbox-benchmark"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "clap",
- "futures-util",
- "http",
- "http-body-util",
- "hyper",
- "hyper-util",
- "sandbox-config",
- "sandbox-operation-catalog",
- "sandbox-operation-client",
- "sandbox-operation-contract",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "sha2",
- "thiserror 2.0.18",
- "time",
- "tokio",
- "tokio-util",
- "uuid",
-]
-
-[[package]]
 name = "sandbox-cli"
 version = "0.1.0"
 dependencies = [

@@ -1,8 +1,0 @@
-node_modules/
-dist/
-.vite/
-*.tsbuildinfo
-playwright-report/
-test-results/
-blob-report/
-.DS_Store
