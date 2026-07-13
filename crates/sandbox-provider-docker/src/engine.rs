@@ -331,34 +331,41 @@ impl DockerEngine {
                 name: name.clone(),
                 platform: None,
             };
-            docker
-                .create_container(Some(options), config)
-                .await
-                .map_err(|error| DockerError::Api(format!("create seed container: {error}")))?;
-            let uploaded = docker
-                .upload_to_container(
-                    &name,
-                    Some(UploadToContainerOptions {
-                        path: "/".to_owned(),
-                        ..Default::default()
-                    }),
-                    archive,
-                )
-                .await
-                .map_err(|error| DockerError::Api(format!("seed volume archive: {error}")));
-            let removed = docker
-                .remove_container(
-                    &name,
-                    Some(RemoveContainerOptions {
-                        force: true,
-                        v: false,
-                        ..Default::default()
-                    }),
-                )
-                .await
-                .map_err(|error| DockerError::Api(format!("remove seed container: {error}")));
-            uploaded?;
-            removed
+            let seeded = async {
+                docker
+                    .create_container(Some(options), config)
+                    .await
+                    .map_err(|error| DockerError::Api(format!("create seed container: {error}")))?;
+                let uploaded = docker
+                    .upload_to_container(
+                        &name,
+                        Some(UploadToContainerOptions {
+                            path: "/".to_owned(),
+                            ..Default::default()
+                        }),
+                        archive,
+                    )
+                    .await
+                    .map_err(|error| DockerError::Api(format!("seed volume archive: {error}")));
+                let removed = docker
+                    .remove_container(
+                        &name,
+                        Some(RemoveContainerOptions {
+                            force: true,
+                            v: false,
+                            ..Default::default()
+                        }),
+                    )
+                    .await
+                    .map_err(|error| DockerError::Api(format!("remove seed container: {error}")));
+                uploaded?;
+                removed
+            }
+            .await;
+            if seeded.is_err() {
+                let _ = remove_volume(&docker, &volume.name).await;
+            }
+            seeded
         })
     }
 
