@@ -5,7 +5,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use sandbox_observability_telemetry::record::{names, proc};
+use sandbox_observability_telemetry::{Observer, ObserverConfig, RawFilter, Reader, Record, Sink};
 use sandbox_runtime::command::{CommandStatus, ExecCommandInput};
+use sandbox_runtime::{LayerstackRuntimeConfig, SandboxRuntimeOperations};
 use sandbox_runtime_workspace::{
     CapturedWorkspaceChanges, LayerStackSnapshotRef, LeaseId, NetworkProfile, WorkspaceHandle,
     WorkspaceSessionId,
@@ -60,6 +63,26 @@ impl PublishFixture {
             self.base.join("scratch"),
             sandbox_runtime::LayerstackRuntimeConfig::default(),
             sandbox_observability_telemetry::Observer::disabled(),
+            support::test_file_service(),
+        )?)
+    }
+
+    fn observed_autosquash_service(
+        &self,
+        observer: Observer,
+        threshold: usize,
+    ) -> Result<
+        sandbox_runtime::layerstack::LayerStackService,
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
+        Ok(sandbox_runtime::layerstack::LayerStackService::new(
+            self.root.clone(),
+            self.base.join("scratch"),
+            LayerstackRuntimeConfig {
+                autosquash_squash_at_n_layers: Some(threshold),
+                ..LayerstackRuntimeConfig::default()
+            },
+            observer,
             support::test_file_service(),
         )?)
     }
@@ -227,6 +250,153 @@ fn implicit_session_completion_publishes_captured_changes_before_destroy(
         Some("implicit\n".to_owned())
     );
     Ok(())
+}
+
+#[test]
+fn implicit_publish_notifies_autosquash_only_after_destroy_is_attempted(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = PublishFixture::new("implicit-autosquash-ordering")?;
+    std::fs::write(fixture.workspace.join("README.md"), "base\n")?;
+    fixture.build_base()?;
+    let mut stack = sandbox_runtime_layerstack::LayerStack::open(fixture.root.clone())?;
+    stack.publish_layer(&[sandbox_runtime_layerstack::LayerChange::Write {
+        path: lp("first.txt"),
+        content: b"first\n".to_vec(),
+    }])?;
+    let session_base = stack.read_active_manifest()?;
+
+    let trace_log = PublishTraceLog::new("finalize-ordering");
+    let observer = Observer::new(
+        ObserverConfig {
+            proc: proc::DAEMON,
+            enabled: true,
+        },
+        Sink::new(
+            trace_log.path.clone(),
+            sandbox_observability_telemetry::MAX_LINE_BYTES,
+        ),
+    );
+    let layerstack = Arc::new(fixture.observed_autosquash_service(observer, 3)?);
+    let handle = workspace_handle(session_base.clone(), &fixture.root);
+    let fake = Arc::new(FakeWorkspaceService::new());
+    fake.push_create_result(Ok(handle.clone()));
+    fake.push_capture_result(Ok(CapturedWorkspaceChanges {
+        workspace_session_id: handle.id.clone(),
+        base_revision: handle.base_revision(),
+        base_manifest: session_base,
+        changed_paths: vec!["second.txt".to_owned()],
+        changed_path_kinds: Default::default(),
+        protected_drops: Vec::new(),
+        stats: None,
+        changes: vec![sandbox_runtime_layerstack::LayerChange::Write {
+            path: lp("second.txt"),
+            content: b"second\n".to_vec(),
+        }],
+        metadata_path_count: 1,
+    }));
+    let launch_driver = Arc::new(FakeLaunchDriver::new());
+    launch_driver.push_outcome(ScriptedCommandYield::Completed(success_exit("done\n")));
+    let env = build_services_with_launch_driver_and_layerstack(
+        Arc::clone(&fake),
+        launch_driver,
+        Arc::clone(&layerstack),
+    );
+    let operations = SandboxRuntimeOperations::new(
+        env.command,
+        env.workspace,
+        layerstack,
+        support::test_file_service(),
+    );
+    wait_for_publish_condition(Duration::from_secs(5), || {
+        publish_records(&trace_log).iter().any(|record| {
+            matches!(record, Record::Span(span)
+                if span.name == names::LAYERSTACK_AUTOSQUASH_EVALUATE
+                    && span.attrs.get("trigger_reason")
+                        == Some(&serde_json::Value::String("startup".to_owned()))
+                    && span.attrs.get("observed_layers") == Some(&serde_json::Value::from(2)))
+        })
+    });
+
+    let (destroy_entered, release_destroy) = fake.park_next_destroy();
+    let command = Arc::clone(&operations.command);
+    let exec = std::thread::spawn(move || command.exec_command(implicit_exec_input()));
+    destroy_entered
+        .recv_timeout(Duration::from_secs(5))
+        .expect("finalize reaches the destroy attempt");
+
+    assert_eq!(stack.read_active_manifest()?.layers.len(), 3);
+    assert!(publish_records(&trace_log).iter().all(|record| {
+        !matches!(record, Record::Event(event)
+            if event.name == names::LAYERSTACK_AUTOSQUASH_TRIGGERED
+                || event.name == names::LAYERSTACK_AUTOSQUASH_COMPLETED)
+    }));
+
+    release_destroy.send(())?;
+    let output = exec.join().expect("command test thread does not panic")?;
+    assert_eq!(output.status, CommandStatus::Ok);
+    wait_for_publish_condition(Duration::from_secs(5), || {
+        let squashed = stack
+            .read_active_manifest()
+            .map(|manifest| manifest.layers.len() == 2)
+            .unwrap_or(false);
+        squashed
+            && publish_records(&trace_log).iter().any(|record| {
+                matches!(record, Record::Event(event)
+                    if event.name == names::LAYERSTACK_AUTOSQUASH_COMPLETED)
+            })
+    });
+    assert_eq!(
+        fake.destroy_calls(),
+        vec![WorkspaceSessionId("workspace-session".to_owned())]
+    );
+    drop(operations);
+    Ok(())
+}
+
+fn wait_for_publish_condition(timeout: Duration, mut condition: impl FnMut() -> bool) {
+    let deadline = Instant::now() + timeout;
+    while !condition() {
+        assert!(
+            Instant::now() < deadline,
+            "condition timed out after {timeout:?}"
+        );
+        std::thread::yield_now();
+    }
+}
+
+fn publish_records(log: &PublishTraceLog) -> Vec<Record> {
+    Reader::new(log.path.clone(), log.path.with_extension("absent"))
+        .raw(RawFilter::default())
+        .into_iter()
+        .map(|line| serde_json::from_str(&line).expect("valid observability record"))
+        .collect()
+}
+
+struct PublishTraceLog {
+    root: PathBuf,
+    path: PathBuf,
+}
+
+impl PublishTraceLog {
+    fn new(label: &str) -> Self {
+        let root = std::env::temp_dir().join(format!(
+            "operation-layerstack-publish-trace-{label}-{}-{}",
+            std::process::id(),
+            NEXT_TEST.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("create trace directory");
+        Self {
+            path: root.join("observability.ndjson"),
+            root,
+        }
+    }
+}
+
+impl Drop for PublishTraceLog {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
 }
 
 fn wait_for_destroy(fake: &FakeWorkspaceService) {

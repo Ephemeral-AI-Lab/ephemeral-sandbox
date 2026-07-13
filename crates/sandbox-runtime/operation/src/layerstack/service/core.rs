@@ -77,10 +77,9 @@ impl LayerStackService {
         let Some(queue) = &self.autosquash_queue else {
             return;
         };
-        let context = self
-            .obs
-            .context()
-            .unwrap_or_else(|| internal_context("layer-committed"));
-        queue.notify(context, AutosquashTriggerReason::LayerCommitted);
+        queue.notify(
+            internal_context("layer-committed"),
+            AutosquashTriggerReason::LayerCommitted,
+        );
     }
 }
