@@ -543,6 +543,16 @@ fn test_layerstack_service() -> Arc<LayerStackService> {
 }
 
 pub(crate) fn observed_layerstack_service(obs: Observer) -> Arc<LayerStackService> {
+    observed_layerstack_service_with_config(
+        obs,
+        sandbox_runtime::LayerstackRuntimeConfig::default(),
+    )
+}
+
+pub(crate) fn observed_layerstack_service_with_config(
+    obs: Observer,
+    config: sandbox_runtime::LayerstackRuntimeConfig,
+) -> Arc<LayerStackService> {
     let base = std::env::temp_dir().join(format!(
         "operation-service-layerstack-test-{}-{}",
         std::process::id(),
@@ -555,14 +565,8 @@ pub(crate) fn observed_layerstack_service(obs: Observer) -> Arc<LayerStackServic
     sandbox_runtime_layerstack::build_workspace_base(&root, &workspace, false)
         .expect("build layerstack test base");
     Arc::new(
-        LayerStackService::new(
-            root,
-            base.join("scratch"),
-            sandbox_runtime::LayerstackRuntimeConfig::default(),
-            obs,
-            test_file_service(),
-        )
-        .expect("create layerstack test service"),
+        LayerStackService::new(root, base.join("scratch"), config, obs, test_file_service())
+            .expect("create layerstack test service"),
     )
 }
 
