@@ -9,6 +9,11 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
+
 use sandbox_observability_telemetry::{
     Attrs, Record, Sample, Sink, Span, SpanStatus, MAX_LINE_BYTES,
 };
@@ -166,6 +171,52 @@ fn producer_process() {
         ))
         .expect("producer append");
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn permission_denied_process() {
+    let Ok(path) = std::env::var("SANDBOX_OBS_PERMISSION_DENIED_PATH") else {
+        return;
+    };
+    let sink = Sink::with_budget(PathBuf::from(path), MAX_LINE_BYTES, 4_096);
+    let error = sink
+        .append(&sample(1, "business-continues".to_owned()))
+        .expect_err("inaccessible event directory rejects the append");
+    assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
+    assert_eq!(sink.stats().dropped_storage, 1, "one attempt, one drop");
+}
+
+#[cfg(unix)]
+#[test]
+fn permission_denied_is_counted_once_without_retry() {
+    let path = temp_log("permission-denied");
+    let parent = path.parent().expect("parent");
+    fs::create_dir_all(parent).expect("create parent");
+    fs::set_permissions(parent, fs::Permissions::from_mode(0o000))
+        .expect("make event directory inaccessible");
+
+    let executable = std::env::current_exe().expect("current test executable");
+    let mut child = Command::new(executable);
+    child
+        .args(["--exact", "permission_denied_process", "--nocapture"])
+        .env("SANDBOX_OBS_PERMISSION_DENIED_PATH", &path)
+        .stdout(Stdio::null());
+    let running_as_root = Command::new("id")
+        .arg("-u")
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .is_some_and(|uid| uid.trim() == "0");
+    if running_as_root {
+        child.uid(65_534);
+    }
+    let status = child.status().expect("spawn permission-denied producer");
+
+    fs::set_permissions(parent, fs::Permissions::from_mode(0o700))
+        .expect("restore directory permissions");
+    assert!(status.success(), "permission-denied child failed: {status}");
+    let _ = fs::remove_dir_all(parent);
 }
 
 #[test]
