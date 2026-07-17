@@ -3,9 +3,9 @@ use serde_json::Value;
 
 use crate::support;
 
-const PHASE0_CATALOG: &str = include_str!(concat!(
+const COMPATIBILITY_CATALOG: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../docs/obsidian/ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/console-catalog.json"
+    "/../sandbox-cli/tests/fixtures/compatibility-catalog.json"
 ));
 
 fn operation_names(catalog: &Value) -> Vec<String> {
@@ -48,21 +48,21 @@ fn remove_routes(value: &mut Value) {
     }
 }
 
-fn assert_phase_zero_operations_preserved(current: &Value, phase0: &Value) {
+fn assert_compatibility_operations_preserved(current: &Value, compatibility: &Value) {
     for catalog in ["management", "runtime", "observability"] {
         assert_eq!(
             current[catalog]["operation_execution_space"],
-            phase0[catalog]["operation_execution_space"],
+            compatibility[catalog]["operation_execution_space"],
             "{catalog} execution space"
         );
         assert_eq!(
-            current[catalog]["families"], phase0[catalog]["families"],
+            current[catalog]["families"], compatibility[catalog]["families"],
             "{catalog} families"
         );
         let current_operations = current[catalog]["operations"]
             .as_array()
             .expect("current operations");
-        for expected in phase0[catalog]["operations"]
+        for expected in compatibility[catalog]["operations"]
             .as_array()
             .expect("Phase 0 operations")
         {
@@ -70,8 +70,11 @@ fn assert_phase_zero_operations_preserved(current: &Value, phase0: &Value) {
             let actual = current_operations
                 .iter()
                 .find(|operation| operation["name"] == name)
-                .unwrap_or_else(|| panic!("missing Phase 0 operation: {catalog}.{name}"));
-            assert_eq!(actual, expected, "{catalog}.{name} changed from Phase 0");
+                .unwrap_or_else(|| panic!("missing compatibility operation: {catalog}.{name}"));
+            assert_eq!(
+                actual, expected,
+                "{catalog}.{name} changed from compatibility baseline"
+            );
         }
     }
 }
@@ -85,11 +88,12 @@ async fn catalog_returns_all_three_execution_spaces() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = support::body_json(response).await;
 
-    let mut phase0: Value = serde_json::from_str(PHASE0_CATALOG).expect("Phase 0 catalog fixture");
-    remove_cli_fields(&mut phase0);
+    let mut compatibility: Value =
+        serde_json::from_str(COMPATIBILITY_CATALOG).expect("compatibility catalog fixture");
+    remove_cli_fields(&mut compatibility);
     let mut current_semantics = body.clone();
     remove_routes(&mut current_semantics);
-    assert_phase_zero_operations_preserved(&current_semantics, &phase0);
+    assert_compatibility_operations_preserved(&current_semantics, &compatibility);
 
     let mut keys = body
         .as_object()

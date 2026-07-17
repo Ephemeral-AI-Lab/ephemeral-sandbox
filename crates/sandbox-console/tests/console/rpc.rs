@@ -11,10 +11,7 @@ use serde_json::json;
 use crate::support;
 
 const GATEWAY_AUTH_FIELD: &str = "_sandbox_gateway_auth_token";
-const PHASE0_LIST_RESPONSE: &str = include_str!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../docs/obsidian/ephemeral-os/implementation_plan/operation-migration/evidence/phase-0/console-rpc-list.json"
-));
+const COMPATIBILITY_LIST_RESPONSE: &str = r#"{"sandboxes":[]}"#;
 
 fn rpc_body(op: &str) -> serde_json::Value {
     json!({
@@ -27,7 +24,7 @@ fn rpc_body(op: &str) -> serde_json::Value {
 #[tokio::test]
 async fn one_shot_injects_credentials_server_side_and_passes_result_through() {
     let expected: serde_json::Value =
-        serde_json::from_str(PHASE0_LIST_RESPONSE).expect("Phase 0 list fixture");
+        serde_json::from_str(COMPATIBILITY_LIST_RESPONSE).expect("compatibility list fixture");
     let gateway = support::FakeGateway::spawn({
         let expected = expected.clone();
         move |_| vec![expected.to_string()]

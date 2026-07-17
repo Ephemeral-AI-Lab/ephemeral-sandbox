@@ -4,11 +4,11 @@
 //! `sandbox_operation_client::GatewayClient` and the merged semantic catalog.
 //! It serves the SPA assets and local catalog, validates public operation
 //! routes, and bridges `/api/rpc` to the gateway JSON-line protocol and the
-//! browser to each sandbox's `daemon_http` surface
-//! (`/api/sandboxes/:id/health`, the exact read-only
+//! browser to each sandbox's `daemon_http` surface (the exact read-only
 //! `/api/sandboxes/:id/files/list`, and the `/s/:id/...` preview proxy). It
-//! defines no operation vocabulary, never contacts the daemon RPC endpoint
-//! directly, and never exposes the gateway auth token to the browser.
+//! reports `/api/sandboxes/:id/health` from manager-owned record state, defines
+//! no operation vocabulary, never contacts the daemon RPC endpoint directly,
+//! and never exposes the gateway auth token to the browser.
 #![forbid(unsafe_code)]
 
 pub mod assets;

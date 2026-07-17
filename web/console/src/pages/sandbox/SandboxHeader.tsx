@@ -37,7 +37,7 @@ export function SandboxHeader({
       <Group gap="sm" wrap="wrap">
         <Text ff="monospace" fw={700} size="sm">{sandboxId}</Text>
         {record ? <StateBadge state={record.state} /> : null}
-        {record?.state === "ready" ? <HealthDot sandboxId={sandboxId} showLabel /> : null}
+        {record?.state === "ready" ? <HealthDot endpoint={record.daemon_http} showLabel /> : null}
         {record ? (
           <Text c="dimmed" ff="monospace" size="xs" title="workspace bind root" truncate maw={360}>
             {record.workspace_root}

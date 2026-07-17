@@ -52,7 +52,7 @@ export function SandboxCard({
             {record.id}
           </Text>
           <StateBadge state={record.state} />
-          {record.state === "ready" ? <HealthDot sandboxId={record.id} /> : null}
+          {record.state === "ready" ? <HealthDot endpoint={record.daemon_http} /> : null}
         </Group>
       </Card.Section>
 

@@ -3,23 +3,7 @@ use http::StatusCode;
 use crate::support;
 
 #[tokio::test]
-async fn healthy_daemon_answers_ok() {
-    let daemon = support::FakeDaemonHttp::spawn().await;
-    let daemon_addr = daemon.addr;
-    let gateway =
-        support::FakeGateway::spawn(move |_| vec![support::record_line("eos-1", daemon_addr)])
-            .await;
-    let console = support::spawn_console_default(gateway.addr).await;
-
-    let response = support::get(console, "/api/sandboxes/eos-1/health").await;
-
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = support::body_json(response).await;
-    assert_eq!(body["status"], "ok");
-}
-
-#[tokio::test]
-async fn dead_daemon_answers_unreachable() {
+async fn registered_daemon_answers_ok_without_connecting_to_it() {
     let closed = support::closed_port().await;
     let gateway =
         support::FakeGateway::spawn(move |_| vec![support::record_line("eos-1", closed)]).await;
@@ -29,10 +13,11 @@ async fn dead_daemon_answers_unreachable() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = support::body_json(response).await;
-    assert_eq!(body["status"], "unreachable");
+    assert_eq!(body["status"], "ok");
     assert!(body["detail"]
         .as_str()
-        .is_some_and(|detail| !detail.is_empty()));
+        .is_some_and(|detail| detail.contains("manager record")));
+    assert_eq!(gateway.request_count(), 1);
 }
 
 #[tokio::test]

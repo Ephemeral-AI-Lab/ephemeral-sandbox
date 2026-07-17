@@ -66,8 +66,3 @@ export interface WorkspaceSessionDestroyed {
   destroyed: true;
   evicted_upperdir_bytes: number;
 }
-
-export interface HealthProbe {
-  status: "ok" | "unreachable";
-  detail?: string;
-}

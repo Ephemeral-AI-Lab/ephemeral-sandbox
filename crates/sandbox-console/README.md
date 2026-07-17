@@ -1,7 +1,8 @@
 # sandbox-console
 
 The web console's HTTP server: one same-origin surface the browser talks to
-for the operations plane, app preview, daemon health, and the SPA assets.
+for the operations plane, app preview, manager-owned sandbox readiness, and the
+SPA assets.
 It is a **client peer** of the three `sandbox-cli` binaries, built on
 `sandbox_operation_client::GatewayClient`. Semantic operation declarations and
 routes come from the three enabled domains of `sandbox-operation-catalog`; the
@@ -18,7 +19,7 @@ protocol, applications, CLI, or MCP.
 POST /api/rpc                                  single-operation dispatch
 POST /api/rpc   (Accept: text/event-stream)    same, streaming _stream_logs as SSE
 GET  /api/catalog                              management+runtime+observability catalogs
-GET  /api/sandboxes/<id>/health                daemon_http /health probe
+GET  /api/sandboxes/<id>/health                manager-owned readiness lookup
 POST /api/sandboxes/<id>/files/list            daemon_http directory listing
 ANY  /s/<id>/shared/<port>/...                 preview proxy (prefix swap to /forward)
 ANY  /s/<id>/isolated=<ws-id>/<port>/...       preview proxy, isolated workspace

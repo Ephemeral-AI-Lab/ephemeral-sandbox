@@ -16,7 +16,8 @@ import {
 } from "@mantine/core";
 import { rpc, systemScope } from "@/api/rpc";
 import type { SandboxList } from "@/api/types";
-import { fetchFleetSnapshot, inFlightCount, type SnapshotResult } from "@/api/observability";
+import { inFlightCount, type SnapshotResult } from "@/api/observability";
+import { useFleetSnapshots } from "@/poll/useFleetSnapshots";
 import { usePoll } from "@/poll/usePoll";
 import { CreateSandboxModal } from "@/pages/fleet/CreateSandboxModal";
 import { FleetSummaryBar } from "@/pages/fleet/FleetSummaryBar";
@@ -33,11 +34,7 @@ export function FleetBoard() {
     fn: () => rpc<SandboxList>("list_sandboxes", systemScope),
     mode: "slow",
   });
-  const snapshot = usePoll({
-    key: ["fleet", "snapshot"],
-    fn: fetchFleetSnapshot,
-    mode: "slow",
-  });
+  const snapshot = useFleetSnapshots(list.data?.sandboxes ?? []);
   const lifecycleActive = hasFleetActivity(list.data, snapshot.data, createLogs);
   const listFast = usePoll({
     key: ["fleet", "list_sandboxes", "fast"],
