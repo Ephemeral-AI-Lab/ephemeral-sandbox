@@ -403,6 +403,17 @@ async fn concrete_observability_operations_dispatch_end_to_end() -> TestResult {
     assert!(snapshot["stack"]["layers_bytes"].is_u64());
     assert_eq!(snapshot["stack"]["active_leases"], 0);
 
+    let cgroup = server
+        .dispatch_bytes(
+            request_bytes(CGROUP_SPEC.name, "req-cgroup", json!({ "scope": "sandbox" }))?,
+            false,
+        )
+        .await;
+    let cgroup = cgroup.as_json_value();
+    assert_eq!(cgroup["view"], "cgroup");
+    assert_eq!(cgroup["topology"]["schema_version"], 2);
+    assert_eq!(cgroup["topology"]["workspaces"], json!([]));
+
     let trace = server
         .dispatch_bytes(
             request_bytes(TRACE_SPEC.name, "req-trace", json!({ "trace_id": "last" }))?,
@@ -496,6 +507,7 @@ fn empty_snapshot() -> RuntimeObservabilitySnapshot {
 fn workspace_snapshot(workspace_id: &str, upperdir: Option<PathBuf>) -> RuntimeWorkspaceSnapshot {
     RuntimeWorkspaceSnapshot {
         workspace_id: WorkspaceSessionId(workspace_id.to_owned()),
+        holder_pid: i32::try_from(std::process::id()).expect("test pid fits i32"),
         network: NetworkProfile::Shared,
         finalize_policy: FinalizePolicy::NoOp,
         workspace_root: PathBuf::from("/workspace").join(workspace_id),

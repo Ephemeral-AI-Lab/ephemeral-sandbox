@@ -7,7 +7,10 @@ use sandbox_observability_query::ports::{
     QueryLimits, WorkspaceSnapshot,
 };
 use sandbox_observability_query::{dispatch_operation, observability_handler_keys};
-use sandbox_observability_telemetry::collect::cgroup::CgroupTopology;
+use sandbox_observability_telemetry::collect::process_topology::{
+    WorkspaceProcess, WorkspaceProcessKind, WorkspaceProcessState, WorkspaceProcessTopology,
+    WorkspaceProcesses,
+};
 use sandbox_observability_telemetry::{LayerBytes, LayerStackBytes, Reader};
 use sandbox_operation_contract::{
     OperationRequest, OperationScope, OperationScopeKind, OperationVisibility,
@@ -25,7 +28,7 @@ struct FakeInput {
     bytes: LayerStackBytes,
     delta: Result<LayerDeltaDescription, String>,
     limits: QueryLimits,
-    topology: CgroupTopology,
+    topology: WorkspaceProcessTopology,
     described_path: RefCell<Option<String>>,
     described_limit: Cell<Option<usize>>,
 }
@@ -51,10 +54,7 @@ impl Default for FakeInput {
                 layer_delta_default_limit: 500,
                 layer_delta_max_limit: 5_000,
             },
-            topology: CgroupTopology::unavailable(
-                std::path::Path::new("/missing-proc"),
-                "cgroup root unavailable",
-            ),
+            topology: WorkspaceProcessTopology::unavailable("procfs unavailable"),
             described_path: RefCell::new(None),
             described_limit: Cell::new(None),
         }
@@ -76,7 +76,7 @@ impl ObservabilityInput for FakeInput {
         self.limits
     }
 
-    fn cgroup_topology(&self) -> CgroupTopology {
+    fn cgroup_topology(&self) -> WorkspaceProcessTopology {
         self.topology.clone()
     }
 
@@ -309,7 +309,8 @@ fn configured_queries_fold_cgroup_events_and_trace_records() {
     .into_json_value();
     assert_eq!(cgroup["view"], "cgroup");
     assert_eq!(cgroup["topology"]["available"], false);
-    assert_eq!(cgroup["topology"]["error"], "cgroup root unavailable");
+    assert_eq!(cgroup["topology"]["schema_version"], 2);
+    assert_eq!(cgroup["topology"]["error"], "procfs unavailable");
     assert_eq!(cgroup["series"][1]["deltas"]["cpu_usec"], 600);
     assert!(cgroup["series"][1]["deltas"].get("mem_cur").is_none());
 
@@ -351,6 +352,58 @@ fn configured_queries_fold_cgroup_events_and_trace_records() {
     assert_eq!(
         old_trace["spans"][0]["events"][1]["event"]["attrs"]["revision"],
         "r4"
+    );
+}
+
+#[test]
+fn cgroup_query_serializes_schema_v2_workspace_process_topology() {
+    let input = FakeInput {
+        log_path: Some(log_path("process-topology")),
+        topology: WorkspaceProcessTopology {
+            schema_version: 2,
+            available: true,
+            source: Some("proc_namespaces".to_owned()),
+            error: None,
+            truncated: false,
+            warnings: vec!["one process raced with collection".to_owned()],
+            workspaces: vec![WorkspaceProcesses {
+                workspace_id: "workspace-1".to_owned(),
+                state: WorkspaceProcessState::Active,
+                holder_pid: 41,
+                pid_namespace: Some("pid:[100]".to_owned()),
+                mount_namespace: Some("mnt:[200]".to_owned()),
+                processes: vec![WorkspaceProcess {
+                    pid: 42,
+                    namespace_pid: 2,
+                    parent_pid: 41,
+                    name: "worker".to_owned(),
+                    state: "S (sleeping)".to_owned(),
+                    kind: WorkspaceProcessKind::Process,
+                    cgroup_memberships: vec!["0::/".to_owned()],
+                }],
+            }],
+        },
+        ..FakeInput::default()
+    };
+
+    let response = dispatch_operation(&input, &request("cgroup", json!({}))).into_json_value();
+
+    assert_eq!(response["view"], "cgroup");
+    assert_eq!(response["topology"]["schema_version"], 2);
+    assert_eq!(response["topology"]["source"], "proc_namespaces");
+    assert_eq!(response["topology"]["workspaces"][0]["state"], "active");
+    assert_eq!(response["topology"]["workspaces"][0]["holder_pid"], 41);
+    assert_eq!(
+        response["topology"]["workspaces"][0]["processes"][0]["name"],
+        "worker"
+    );
+    assert_eq!(
+        response["topology"]["workspaces"][0]["processes"][0]["namespace_pid"],
+        2
+    );
+    assert_eq!(
+        response["topology"]["workspaces"][0]["processes"][0]["cgroup_memberships"][0],
+        "0::/"
     );
 }
 

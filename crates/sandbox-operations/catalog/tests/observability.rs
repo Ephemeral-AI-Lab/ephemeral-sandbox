@@ -1,6 +1,6 @@
 #![cfg(feature = "observability")]
 
-use sandbox_operation_catalog::observability::{observability_catalog, SNAPSHOT_SPEC};
+use sandbox_operation_catalog::observability::{observability_catalog, CGROUP_SPEC, SNAPSHOT_SPEC};
 use sandbox_operation_contract::{catalog_to_value, OperationDomain};
 
 #[test]
@@ -50,4 +50,12 @@ fn snapshot_is_canonical_and_only_aggregate_capable_operation() {
             "only snapshot supports aggregate routing"
         );
     }
+}
+
+#[test]
+fn cgroup_catalog_describes_explicit_topology_composition() {
+    assert!(CGROUP_SPEC.summary.contains("topology"));
+    assert!(CGROUP_SPEC.description.contains("daemon"));
+    assert!(CGROUP_SPEC.description.contains("manager"));
+    assert!(!CGROUP_SPEC.description.contains("never contacts"));
 }

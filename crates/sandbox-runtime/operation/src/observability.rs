@@ -14,6 +14,7 @@ pub struct RuntimeObservabilitySnapshot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeWorkspaceSnapshot {
     pub workspace_id: WorkspaceSessionId,
+    pub holder_pid: i32,
     pub network: NetworkProfile,
     pub finalize_policy: FinalizePolicy,
     pub workspace_root: PathBuf,

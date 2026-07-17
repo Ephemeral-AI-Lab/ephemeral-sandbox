@@ -113,7 +113,6 @@ impl SandboxDaemonServer {
             let input = crate::observability::adapter::DaemonObservabilityAdapter::new(
                 &operations,
                 observability.as_deref(),
-                config.cgroup_root.as_deref(),
             );
             sandbox_observability_query::dispatch_operation(&input, &request)
         });

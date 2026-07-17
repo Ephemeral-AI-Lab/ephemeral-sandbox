@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use sandbox_observability_telemetry::collect::cgroup::{CgroupRole, CgroupSample, CgroupTopology};
+use sandbox_observability_telemetry::collect::cgroup::CgroupSample;
 use sandbox_observability_telemetry::collect::disk::sample_upperdir;
 use sandbox_observability_telemetry::WalkBudget;
 
@@ -97,59 +97,6 @@ fn cgroup_read_degrades_when_cpu_stat_lacks_usage_usec() {
         .cgroup_error
         .expect("missing usage_usec yields an error");
     assert!(error.contains("usage_usec"), "unexpected error {error:?}");
-}
-
-#[test]
-fn cgroup_topology_reads_runtime_groups_and_proc_membership() {
-    let cgroup_root = fixture("topology-cgroup");
-    let proc_root = fixture("topology-proc");
-    write_cgroup(&cgroup_root, "100\n", 1_000, 8_192, "16384");
-    write_file(&cgroup_root, "cgroup.controllers", "memory cpu io\n");
-
-    let daemon = cgroup_root.join("_daemon");
-    std::fs::create_dir_all(&daemon).expect("daemon group");
-    write_cgroup(&daemon, "42\n", 600, 4_096, "max");
-
-    let workspace = cgroup_root.join("workspace-ws-1");
-    std::fs::create_dir_all(&workspace).expect("workspace group");
-    write_cgroup(&workspace, "101\n100\n", 400, 4_096, "8192");
-
-    write_proc(&proc_root, "self", "sandboxd", "0::/_daemon\n");
-    write_proc(&proc_root, "42", "sandboxd", "0::/_daemon\n");
-    write_proc(&proc_root, "100", "ns-runner", "0::/workspace-ws-1\n");
-    write_proc(&proc_root, "101", "sh", "0::/workspace-ws-1\n");
-
-    let topology = CgroupTopology::read(&cgroup_root, &proc_root);
-
-    assert!(topology.available);
-    assert_eq!(topology.self_cgroup.as_deref(), Some("0::/_daemon"));
-    assert_eq!(topology.controllers, ["cpu", "io", "memory"]);
-    assert_eq!(topology.groups.len(), 3);
-    assert_eq!(topology.groups[0].role, CgroupRole::Root);
-    assert_eq!(topology.groups[1].role, CgroupRole::Daemon);
-    assert_eq!(topology.groups[2].role, CgroupRole::Workspace);
-    assert_eq!(topology.groups[2].path, "/workspace-ws-1");
-    assert_eq!(topology.groups[2].cpu_usage_usec, Some(400));
-    assert_eq!(topology.groups[2].processes[0].pid, 100);
-    assert_eq!(topology.groups[2].processes[0].name, "ns-runner");
-    assert_eq!(
-        topology.groups[2].processes[0].membership.as_deref(),
-        Some("0::/workspace-ws-1")
-    );
-}
-
-fn write_cgroup(dir: &Path, procs: &str, cpu: i64, memory: i64, memory_max: &str) {
-    write_file(dir, "cgroup.procs", procs);
-    write_file(dir, "cpu.stat", &format!("usage_usec {cpu}\n"));
-    write_file(dir, "memory.current", &format!("{memory}\n"));
-    write_file(dir, "memory.max", &format!("{memory_max}\n"));
-}
-
-fn write_proc(proc_root: &Path, pid: &str, name: &str, membership: &str) {
-    let dir = proc_root.join(pid);
-    std::fs::create_dir_all(&dir).expect("proc pid dir");
-    write_file(&dir, "comm", &format!("{name}\n"));
-    write_file(&dir, "cgroup", membership);
 }
 
 #[test]

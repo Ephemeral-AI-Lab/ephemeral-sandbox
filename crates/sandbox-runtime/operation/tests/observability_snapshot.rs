@@ -8,6 +8,7 @@ use sandbox_observability_telemetry::Observer;
 use sandbox_runtime::command::ExecCommandInput;
 use sandbox_runtime::layerstack::LayerStackService;
 use sandbox_runtime::{CommandOperationService, SandboxRuntimeOperations};
+use sandbox_runtime_workspace::DestroyWorkspaceRequest;
 use sandbox_runtime_workspace::{NetworkProfile, WorkspaceSessionId};
 
 use support::{
@@ -34,6 +35,7 @@ fn observability_snapshot_copies_active_workspace_fields(
     assert_eq!(snapshot.workspaces.len(), 1);
     let workspace = &snapshot.workspaces[0];
     assert_eq!(workspace.workspace_id, workspace_session_id);
+    assert_eq!(workspace.holder_pid, i32::try_from(std::process::id())?);
     assert_eq!(workspace.network, NetworkProfile::Isolated);
     assert_eq!(
         workspace.workspace_root,
@@ -45,6 +47,14 @@ fn observability_snapshot_copies_active_workspace_fields(
     assert_eq!(workspace.base_root_hash.as_deref(), Some("root"));
     assert_eq!(workspace.layer_count, Some(1));
     assert!(snapshot.active_namespace_executions.is_empty());
+
+    let handler = services
+        .workspace
+        .resolve_session(workspace_session_id.clone())?;
+    services
+        .workspace
+        .destroy_session(handler, DestroyWorkspaceRequest::default())?;
+    assert!(operations.observability_snapshot().workspaces.is_empty());
     Ok(())
 }
 

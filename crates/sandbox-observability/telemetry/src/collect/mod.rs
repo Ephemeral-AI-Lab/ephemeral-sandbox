@@ -5,6 +5,7 @@
 pub mod cgroup;
 pub mod disk;
 mod layerstack;
+pub mod process_topology;
 
 pub use layerstack::{sample_layerstack, LayerBytes, LayerStackBytes};
 

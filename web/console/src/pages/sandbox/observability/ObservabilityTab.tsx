@@ -4,7 +4,7 @@ import { useSandbox } from "@/pages/sandbox/SandboxContext";
 
 const VIEWS = [
   { path: "resources", label: "Resources" },
-  { path: "cgroup", label: "Cgroups" },
+  { path: "cgroup", label: "Processes" },
   { path: "traces", label: "Traces" },
   { path: "events", label: "Events" },
   { path: "layerstack", label: "Layers" },

@@ -29,6 +29,7 @@ impl WorkspaceSessionService {
 
                 RuntimeWorkspaceSnapshot {
                     workspace_id: session.workspace_session_id.clone(),
+                    holder_pid: session.handle.holder_pid,
                     network: session.handle.network,
                     finalize_policy: session.finalize_policy,
                     workspace_root: session.handle.workspace_root.clone(),
