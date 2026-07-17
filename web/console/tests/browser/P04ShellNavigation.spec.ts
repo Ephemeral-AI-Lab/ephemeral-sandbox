@@ -45,6 +45,18 @@ test("P04 redirects the sandbox root to Terminal", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Terminal" })).toHaveAttribute("aria-selected", "true");
 });
 
+test("P04 keeps the cgroup URL while labeling the view Processes", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await openAtlas(page, `/sandboxes/${SANDBOX_ID}/observability/cgroup`);
+  await waitForAtlasRoute(page, "Workspace process topology");
+
+  await expect(page.locator("[data-atlas-location]")).toHaveText(
+    `/sandboxes/${SANDBOX_ID}/observability/cgroup`,
+  );
+  await expect(page.getByRole("tab", { name: "Processes" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("[data-console-breadcrumbs]")).toContainText("Processes");
+});
+
 test("P04 supports skip focus, scoped tabs, and bounded route scrolling", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await openAtlas(page, `/sandboxes/${SANDBOX_ID}/observability/layerstack`);

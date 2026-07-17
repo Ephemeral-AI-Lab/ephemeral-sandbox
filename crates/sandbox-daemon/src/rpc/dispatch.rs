@@ -89,12 +89,10 @@ impl SandboxDaemonServer {
     async fn dispatch_observability(&self, request: OperationRequest) -> OperationResponse {
         let operations = Arc::clone(&self.operations);
         let observability = self.observability.clone();
-        let cgroup_root = self.config.cgroup_root.clone();
         let task = tokio::task::spawn_blocking(move || {
             let input = crate::observability::adapter::DaemonObservabilityAdapter::new(
                 &operations,
                 observability.as_deref(),
-                cgroup_root.as_deref(),
             );
             sandbox_observability_query::dispatch_operation(&input, &request)
         });

@@ -3,7 +3,9 @@ use sandbox_observability_query::ports::{
     NamespaceExecutionSnapshot, ObservabilityInput, ObservabilitySnapshot, QueryContext,
     QueryLimits, WorkspaceSnapshot,
 };
-use sandbox_observability_telemetry::collect::cgroup::CgroupTopology;
+use sandbox_observability_telemetry::collect::process_topology::{
+    WorkspaceProcessInput, WorkspaceProcessTopology,
+};
 use sandbox_observability_telemetry::{sample_layerstack, LayerStackBytes, WalkBudget};
 use sandbox_runtime::{
     LayerDeltaDescription, RuntimeNamespaceExecutionSnapshot, RuntimeObservabilitySnapshot,
@@ -16,7 +18,6 @@ pub(crate) struct DaemonObservabilityAdapter<'a> {
     state: (
         &'a SandboxRuntimeOperations,
         Option<&'a DaemonObservability>,
-        Option<&'a std::path::Path>,
     ),
 }
 
@@ -24,10 +25,9 @@ impl<'a> DaemonObservabilityAdapter<'a> {
     pub(crate) const fn new(
         operations: &'a SandboxRuntimeOperations,
         observability: Option<&'a DaemonObservability>,
-        cgroup_root: Option<&'a std::path::Path>,
     ) -> Self {
         Self {
-            state: (operations, observability, cgroup_root),
+            state: (operations, observability),
         }
     }
 
@@ -37,10 +37,6 @@ impl<'a> DaemonObservabilityAdapter<'a> {
 
     fn observability(&self) -> Option<&DaemonObservability> {
         self.state.1
-    }
-
-    fn cgroup_root(&self) -> Option<&std::path::Path> {
-        self.state.2
     }
 }
 
@@ -66,16 +62,23 @@ impl ObservabilityInput for DaemonObservabilityAdapter<'_> {
         }
     }
 
-    fn cgroup_topology(&self) -> CgroupTopology {
-        self.cgroup_root().map_or_else(
-            || {
-                CgroupTopology::unavailable(
-                    std::path::Path::new("/proc"),
-                    "cgroup root unavailable",
-                )
-            },
-            |root| CgroupTopology::read(root, std::path::Path::new("/proc")),
-        )
+    fn cgroup_topology(&self) -> WorkspaceProcessTopology {
+        let snapshot = self.operations().observability_snapshot();
+        if snapshot.workspaces.is_empty() && !snapshot.partial_errors.is_empty() {
+            return WorkspaceProcessTopology::unavailable(format!(
+                "runtime workspace snapshot failed: {}",
+                snapshot.partial_errors.join("; ")
+            ));
+        }
+        let workspaces = snapshot
+            .workspaces
+            .into_iter()
+            .map(|workspace| WorkspaceProcessInput {
+                workspace_id: workspace.workspace_id.0,
+                holder_pid: u32::try_from(workspace.holder_pid).unwrap_or(0),
+            })
+            .collect();
+        WorkspaceProcessTopology::collect(std::path::Path::new("/proc"), workspaces)
     }
 
     fn observability_snapshot(&self) -> ObservabilitySnapshot {

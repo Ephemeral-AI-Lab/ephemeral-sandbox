@@ -129,6 +129,7 @@ pub struct WorkspaceHandle {
     pub workspace_root: PathBuf,
     pub network: NetworkProfile,
     pub snapshot: LayerStackSnapshotRef,
+    pub holder_pid: i32,
     launch: Option<WorkspaceLaunchContext>,
 }
 
@@ -231,11 +232,16 @@ impl WorkspaceHandle {
         snapshot: LayerStackSnapshotRef,
         launch: Option<WorkspaceLaunchContext>,
     ) -> Self {
+        let holder_pid = launch
+            .as_ref()
+            .and_then(|context| context.holder_fds)
+            .map_or(0, |_| i32::try_from(std::process::id()).unwrap_or(i32::MAX));
         Self {
             id,
             workspace_root,
             network,
             snapshot,
+            holder_pid,
             launch,
         }
     }
@@ -474,6 +480,7 @@ impl From<&MountedWorkspace> for WorkspaceHandle {
             workspace_root: PathBuf::from(&handle.workspace_root),
             network: handle.network,
             snapshot: handle.snapshot.clone(),
+            holder_pid: handle.holder_pid,
             launch: Some(WorkspaceLaunchContext {
                 network: handle.network,
                 workspace_root: PathBuf::from(&handle.workspace_root),

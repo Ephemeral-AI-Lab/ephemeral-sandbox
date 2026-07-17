@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import type { WorkspaceProcessTopology } from "../../src/api/observability";
 import { measureFromTimestampToPaintP95, measureInputToPaintP95 } from "./performance";
 
 const NOW = 1_700_004_000_000;
@@ -7,6 +8,8 @@ const NOW = 1_700_004_000_000;
 type FixtureApi = {
   eventCalls: () => number;
   failEvents: () => void;
+  failCgroup: () => void;
+  setTopology: (value: WorkspaceProcessTopology) => void;
 };
 
 function makeEvents(count = 2_000) {
@@ -28,48 +31,42 @@ const samples = Array.from({ length: 16 }, (_, index) => ({
   deltas: { cpu_usec: 10_000 + index * 500, io_rbytes: 500 + index * 10, io_wbytes: 200 + index * 5 },
 }));
 
-const topology = {
+const topology: WorkspaceProcessTopology = {
+  schema_version: 2,
   available: true,
-  root: "/sys/fs/cgroup",
-  self_cgroup: "0::/_daemon",
+  source: "proc_namespaces",
   error: null,
-  controllers: ["cpu", "io", "memory", "pids"],
-  groups: [
+  truncated: false,
+  warnings: [],
+  workspaces: [
     {
-      path: "/",
-      role: "root",
-      cpu_usage_usec: 9_128_300,
-      memory_current_bytes: 62_914_560,
-      memory_max_bytes: 536_870_912,
-      memory_max_unlimited: false,
-      error: null,
-      processes: [{ pid: 1, name: "init", membership: "0::/" }],
-    },
-    {
-      path: "/_daemon",
-      role: "daemon",
-      cpu_usage_usec: 2_184_100,
-      memory_current_bytes: 27_262_976,
-      memory_max_bytes: 536_870_912,
-      memory_max_unlimited: false,
-      error: null,
+      workspace_id: "workspace-active",
+      state: "active",
+      holder_pid: 101,
+      pid_namespace: "pid:[1001]",
+      mount_namespace: "mnt:[2001]",
       processes: [
-        { pid: 19, name: "sandboxd", membership: "0::/_daemon" },
-        { pid: 32, name: "namespace-holder", membership: "0::/_daemon" },
+        { pid: 201, namespace_pid: 1, parent_pid: 101, name: "ns-init", state: "S (sleeping)", kind: "namespace_init", cgroup_memberships: ["0::/"] },
+        { pid: 233, namespace_pid: 2, parent_pid: 201, name: "bash", state: "S (sleeping)", kind: "process", cgroup_memberships: ["0::/", "2:cpu:/fixture"] },
       ],
     },
     {
-      path: "/workspace-workspace-fixture",
-      role: "workspace",
-      cpu_usage_usec: 6_944_200,
-      memory_current_bytes: 35_651_584,
-      memory_max_bytes: 268_435_456,
-      memory_max_unlimited: false,
-      error: null,
+      workspace_id: "workspace-idle",
+      state: "idle",
+      holder_pid: 102,
+      pid_namespace: "pid:[1002]",
+      mount_namespace: "mnt:[2002]",
       processes: [
-        { pid: 201, name: "ns-runner", membership: "0::/workspace-workspace-fixture" },
-        { pid: 233, name: "bash", membership: "0::/workspace-workspace-fixture" },
+        { pid: 301, namespace_pid: 1, parent_pid: 102, name: "ns-init", state: "S (sleeping)", kind: "namespace_init", cgroup_memberships: [] },
       ],
+    },
+    {
+      workspace_id: "workspace-partial",
+      state: "partial",
+      holder_pid: 103,
+      pid_namespace: null,
+      mount_namespace: null,
+      processes: [],
     },
   ],
 };
@@ -111,6 +108,8 @@ async function installObservabilityApi(
   const fixtureTrace = eventCount === 2_000 ? trace : traceFor(fixtureEvents);
   let eventsFail = false;
   let eventsCalls = 0;
+  let cgroupFail = false;
+  let currentTopology = topology;
   await page.route("**/api/rpc", async (route) => {
     const { op, args } = route.request().postDataJSON() as { op: string; args: Record<string, unknown> };
     if (op === "events") {
@@ -127,13 +126,17 @@ async function installObservabilityApi(
       return;
     }
     if (op === "cgroup") {
+      if (cgroupFail) {
+        await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { kind: "fixture_error", message: "topology refresh unavailable" } }) });
+        return;
+      }
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify({
           view: "cgroup",
           scope: String(args.scope ?? "sandbox"),
           series: samples,
-          ...(includeTopology ? { topology } : {}),
+          ...(includeTopology ? { topology: currentTopology } : {}),
         }),
       });
       return;
@@ -165,7 +168,12 @@ async function installObservabilityApi(
     }
     await route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: { kind: "fixture_error", message: `unexpected operation ${op}` } }) });
   });
-  return { eventCalls: () => eventsCalls, failEvents: () => { eventsFail = true; } };
+  return {
+    eventCalls: () => eventsCalls,
+    failEvents: () => { eventsFail = true; },
+    failCgroup: () => { cgroupFail = true; },
+    setTopology: (value) => { currentTopology = value; },
+  };
 }
 
 async function openView(
@@ -180,7 +188,7 @@ async function openView(
   const ready = {
     events: `event-${String(eventCount - 1).padStart(4, "0")}`,
     resources: "CPU (Δ cpu_usec / s)",
-    cgroup: "Cgroup topology",
+    cgroup: "Workspace process topology",
     traces: "fixture.root",
     layers: "fixture-layer-2",
   }[view];
@@ -320,13 +328,41 @@ test("P07 resource charts retain accessible summaries through a resize", async (
 test("P07 cgroup view shows process placement reported by the daemon", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await openView(page, "cgroup");
-  await expect(page.locator("[data-cgroup-topology]")).toContainText("Cgroup topology");
-  await expect(page.locator('[data-cgroup-path="/_daemon"]')).toContainText(
-    "19 · sandboxd · 0::/_daemon",
-  );
-  await expect(page.locator('[data-cgroup-path="/workspace-workspace-fixture"]')).toContainText(
-    "201 · ns-runner · 0::/workspace-workspace-fixture",
-  );
+  await expect(page.locator("[data-process-topology]")).toContainText("Workspace process topology");
+  await expect(page.locator('[data-workspace-id="workspace-active"]')).toContainText("pid:[1001]");
+  const worker = page.locator('[data-workspace-id="workspace-active"] [data-process-pid="233"]:visible');
+  await expect(worker).toContainText("bash");
+  await expect(worker).toContainText("2:cpu:/fixture");
+  await expect(page.locator('[data-workspace-id="workspace-idle"] [data-workspace-idle]')).toBeVisible();
+  await expect(page.locator('[data-workspace-id="workspace-partial"]')).toContainText("Workspace topology is partial");
+  await expect(page.locator("[data-process-topology]")).not.toContainText("delegated");
+});
+
+test("P07 process topology distinguishes empty, unavailable, and stale refresh states", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  const api = await openView(page, "cgroup");
+
+  api.setTopology({ ...topology, workspaces: [] });
+  await page.reload();
+  await expect(page.locator("[data-process-topology-empty]")).toContainText("No active workspaces");
+
+  api.setTopology({ ...topology, available: false, source: null, error: "procfs enumeration failed", workspaces: [] });
+  await page.reload();
+  await expect(page.getByRole("alert").filter({ hasText: "procfs enumeration failed" })).toBeVisible();
+
+  api.setTopology(topology);
+  await page.reload();
+  await expect(page.locator('[data-workspace-id="workspace-active"]')).toBeVisible();
+  api.failCgroup();
+  await expect(page.getByRole("alert").filter({ hasText: "topology refresh unavailable" })).toBeVisible({ timeout: 4_000 });
+  await expect(page.locator('[data-workspace-id="workspace-active"]')).toBeVisible();
+});
+
+test("P07 process fields stack without document overflow on narrow screens", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openView(page, "cgroup");
+  await expect(page.locator('[data-workspace-id="workspace-active"] [data-process-pid="233"]:visible')).toContainText("Namespace PID");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test("P12 keeps uPlot chart resize repainting below the input-to-paint budget", async ({ page }) => {

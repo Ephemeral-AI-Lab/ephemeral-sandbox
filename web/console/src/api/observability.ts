@@ -74,33 +74,36 @@ export interface CgroupSeries {
   view: "cgroup";
   scope: string;
   series: ResourceSample[];
-  topology?: CgroupTopology;
+  topology: WorkspaceProcessTopology;
 }
 
-export interface CgroupTopology {
+export interface WorkspaceProcessTopology {
+  schema_version: 2;
   available: boolean;
-  root: string | null;
-  self_cgroup: string | null;
+  source: "proc_namespaces" | null;
   error: string | null;
-  controllers: string[];
-  groups: CgroupGroup[];
+  truncated: boolean;
+  warnings: string[];
+  workspaces: WorkspaceProcesses[];
 }
 
-export interface CgroupGroup {
-  path: string;
-  role: "root" | "daemon" | "workspace" | "other";
-  cpu_usage_usec: number | null;
-  memory_current_bytes: number | null;
-  memory_max_bytes: number | null;
-  memory_max_unlimited: boolean | null;
-  error: string | null;
-  processes: CgroupProcess[];
+export interface WorkspaceProcesses {
+  workspace_id: string;
+  state: "active" | "idle" | "partial";
+  holder_pid: number;
+  pid_namespace: string | null;
+  mount_namespace: string | null;
+  processes: WorkspaceProcess[];
 }
 
-export interface CgroupProcess {
+export interface WorkspaceProcess {
   pid: number;
+  namespace_pid: number;
+  parent_pid: number;
   name: string;
-  membership: string | null;
+  state: string;
+  kind: "namespace_init" | "process";
+  cgroup_memberships: string[];
 }
 
 export function fetchCgroup(
