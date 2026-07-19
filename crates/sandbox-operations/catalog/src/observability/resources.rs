@@ -6,7 +6,7 @@ pub const RESOURCES: RoutedOperation = RoutedOperation {
     spec: &RESOURCES_SPEC,
     routing: Routing::SystemOrSandbox {
         system: OperationExecutionOwner::Manager,
-        sandbox: OperationExecutionOwner::Manager,
+        sandbox: OperationExecutionOwner::Observability,
     },
 };
 
@@ -20,8 +20,8 @@ const RESOURCES_SANDBOX_ID_ARG: ArgSpec = ArgSpec::optional(
 pub static RESOURCES_SPEC: OperationSpec = OperationSpec {
     name: "resources",
     family: "resources",
-    summary: "Read manager-owned sandbox resource metrics.",
-    description: "Read Docker-derived CPU, memory, and I/O metrics without contacting a sandbox daemon. A sandbox request returns its bounded history; a system request returns one current record keyed by every ready sandbox id.",
+    summary: "Read bounded sandbox or fleet resource metrics.",
+    description: "A sandbox request reads daemon-sampled cgroup metrics from its bounded on-disk store. A system request remains manager-owned and returns one current record keyed by every ready sandbox id.",
     args: &[
         RESOURCES_SANDBOX_ID_ARG,
         ArgSpec::optional(

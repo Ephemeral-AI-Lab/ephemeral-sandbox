@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use sandbox_observability_query::ports::{
     DaemonMetricsRequestClass, NamespaceExecutionSnapshot, ObservabilityInput,
-    ObservabilitySnapshot, QueryContext, QueryLimits, WorkspaceSnapshot,
+    ObservabilitySnapshot, QueryContext, QueryLimits, ResourceQueryContext, WorkspaceSnapshot,
 };
 use sandbox_observability_query::{dispatch_operation, observability_handler_keys};
 use sandbox_observability_telemetry::collect::process_topology::{
@@ -25,6 +25,7 @@ use serde_json::{json, Value};
 
 struct FakeInput {
     log_path: Option<PathBuf>,
+    resource_log_path: Option<PathBuf>,
     snapshot: ObservabilitySnapshot,
     observation: Result<StackObservation, String>,
     bytes: LayerStackBytes,
@@ -42,6 +43,7 @@ impl Default for FakeInput {
     fn default() -> Self {
         Self {
             log_path: None,
+            resource_log_path: None,
             snapshot: ObservabilitySnapshot::default(),
             observation: Ok(StackObservation {
                 manifest_version: 1,
@@ -83,6 +85,19 @@ impl ObservabilityInput for FakeInput {
 
     fn query_limits(&self) -> QueryLimits {
         self.limits
+    }
+
+    fn resource_query_context(&self) -> Option<ResourceQueryContext> {
+        let primary = self.resource_log_path.clone()?;
+        Some(ResourceQueryContext {
+            reader: Reader::new(
+                primary.clone(),
+                PathBuf::from(format!("{}.1", primary.display())),
+            ),
+            sandbox_id: "sandbox-1".to_owned(),
+            sink_stats: self.sink_stats,
+            collection_failures: 0,
+        })
     }
 
     fn cgroup_topology(
@@ -403,6 +418,155 @@ fn configured_queries_fold_cgroup_events_and_trace_records() {
     assert_eq!(
         old_trace["spans"][0]["events"][1]["event"]["attrs"]["revision"],
         "r4"
+    );
+}
+
+#[test]
+fn resources_read_only_the_dedicated_daemon_store_and_preserve_unknown_metrics() {
+    let resource_log_path = log_path("resources");
+    write_lines(
+        &resource_log_path,
+        &[
+            sample_line(
+                "sandbox",
+                json!({ "cpu_usec": 10, "fixture_marker": "first", "_counters": ["cpu_usec"] }),
+            ),
+            sample_line(
+                "sandbox",
+                json!({ "cpu_usec": 25, "fixture_marker": "second", "_counters": ["cpu_usec"] }),
+            ),
+        ],
+    );
+    let before = std::fs::read(&resource_log_path).expect("resource fixture bytes");
+    let input = FakeInput {
+        resource_log_path: Some(resource_log_path.clone()),
+        ..FakeInput::default()
+    };
+
+    let value = dispatch_operation(
+        &input,
+        &request("resources", json!({ "window_ms": 600_000 })),
+    )
+    .into_json_value();
+
+    assert_eq!(value["view"], "resources");
+    assert_eq!(value["scope"], "sandbox");
+    assert_eq!(value["sandbox_id"], "sandbox-1");
+    assert_eq!(value["source"], "daemon_disk");
+    assert_eq!(value["availability"], "available");
+    assert_eq!(value["series"][1]["metrics"]["fixture_marker"], "second");
+    assert_eq!(value["series"][1]["deltas"]["cpu_usec"], 15);
+    assert_eq!(
+        std::fs::read(resource_log_path).expect("resource bytes after query"),
+        before
+    );
+    assert!(input.daemon_metric_requests.borrow().is_empty());
+    assert!(
+        serde_json::to_vec(&value)
+            .expect("serialize response")
+            .len()
+            <= 256 * 1024
+    );
+}
+
+#[test]
+fn resources_empty_or_partially_collected_storage_is_bounded_partial() {
+    let empty_path = log_path("resources-empty");
+    let empty_input = FakeInput {
+        resource_log_path: Some(empty_path.clone()),
+        ..FakeInput::default()
+    };
+
+    let empty = dispatch_operation(
+        &empty_input,
+        &request("resources", json!({ "window_ms": 600_000 })),
+    )
+    .into_json_value();
+
+    assert_eq!(empty["availability"], "partial");
+    assert_eq!(empty["series"], json!([]));
+    assert!(empty["errors"][0]
+        .as_str()
+        .is_some_and(|error| error.contains("no usable samples")));
+    assert!(
+        !empty_path.exists(),
+        "a read must not create the active file"
+    );
+    assert!(
+        !PathBuf::from(format!("{}.1", empty_path.display())).exists(),
+        "a read must not create the rotated file"
+    );
+
+    let partial_path = log_path("resources-partial");
+    write_lines(
+        &partial_path,
+        &[sample_line(
+            "sandbox",
+            json!({
+                "cgroup_available": false,
+                "cgroup_error": "memory.current missing"
+            }),
+        )],
+    );
+    let partial_input = FakeInput {
+        resource_log_path: Some(partial_path),
+        ..FakeInput::default()
+    };
+    let partial = dispatch_operation(
+        &partial_input,
+        &request("resources", json!({ "window_ms": 600_000 })),
+    )
+    .into_json_value();
+
+    assert_eq!(partial["availability"], "partial");
+    assert_eq!(partial["series"].as_array().map(Vec::len), Some(1));
+    assert!(partial["errors"][0]
+        .as_str()
+        .is_some_and(|error| error.contains("memory.current missing")));
+}
+
+#[test]
+fn resources_enforce_record_and_whole_response_limits_under_large_history() {
+    let resource_log_path = log_path("resources-response-cap");
+    let base = unix_ms();
+    let lines = (0..700_i64)
+        .map(|index| {
+            let mut line = sample_line(
+                "sandbox",
+                json!({ "fixture_index": index, "blob": "x".repeat(2_000) }),
+            );
+            line["ts"] = json!(base.saturating_add(index));
+            line
+        })
+        .collect::<Vec<_>>();
+    write_lines(&resource_log_path, &lines);
+    let input = FakeInput {
+        resource_log_path: Some(resource_log_path),
+        ..FakeInput::default()
+    };
+
+    let value = dispatch_operation(
+        &input,
+        &request("resources", json!({ "window_ms": 600_000 })),
+    )
+    .into_json_value();
+    let series = value["series"].as_array().expect("resource series");
+    let encoded = serde_json::to_vec(&value).expect("serialize bounded response");
+
+    assert!(!series.is_empty());
+    assert!(
+        series.len() <= 500,
+        "{} records escaped the cap",
+        series.len()
+    );
+    assert!(
+        encoded.len() <= 256 * 1024,
+        "{} response bytes escaped the cap",
+        encoded.len()
+    );
+    assert_eq!(
+        series.last().expect("latest sample")["metrics"]["fixture_index"],
+        699
     );
 }
 

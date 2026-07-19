@@ -27,6 +27,18 @@ fn derives_one_log_and_its_rotated_sibling_from_daemon_socket_path() -> Result<(
             .join("observability")
             .join("observability.ndjson.1")
     );
+    assert_eq!(
+        paths.resource_log_path(),
+        daemon_runtime_dir
+            .join("observability")
+            .join("resources.ndjson")
+    );
+    assert_eq!(
+        paths.rotated_resource_log_path(),
+        daemon_runtime_dir
+            .join("observability")
+            .join("resources.ndjson.1")
+    );
 
     Ok(())
 }

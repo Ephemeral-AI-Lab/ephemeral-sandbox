@@ -32,6 +32,12 @@ fn cgroup_read_parses_cpu_and_memory_counters_with_a_bounded_max() {
     );
     write_file(&dir, "memory.current", "8192\n");
     write_file(&dir, "memory.max", "16384\n");
+    write_file(
+        &dir,
+        "io.stat",
+        "8:0 rbytes=100 wbytes=200 rios=1 wios=2\n8:16 rbytes=3 wbytes=4\n",
+    );
+    write_file(&dir, "pids.current", "7\n");
 
     let sample = CgroupSample::read(&dir);
 
@@ -41,6 +47,9 @@ fn cgroup_read_parses_cpu_and_memory_counters_with_a_bounded_max() {
     assert_eq!(sample.memory_current_bytes, Some(8_192));
     assert_eq!(sample.memory_max_bytes, Some(16_384));
     assert_eq!(sample.memory_max_unlimited, Some(false));
+    assert_eq!(sample.io_read_bytes, Some(103));
+    assert_eq!(sample.io_write_bytes, Some(204));
+    assert_eq!(sample.pids_current, Some(7));
     assert_eq!(
         sample.cgroup_path.as_deref(),
         Some(dir.to_string_lossy().as_ref())
@@ -62,14 +71,15 @@ fn cgroup_read_treats_memory_max_literal_as_unlimited() {
 }
 
 #[test]
-fn cgroup_read_degrades_when_a_required_controller_file_is_missing() {
+fn cgroup_read_preserves_available_fields_when_controllers_are_missing() {
     let dir = fixture("missing-memory");
     write_file(&dir, "cpu.stat", "usage_usec 10\n");
 
     let sample = CgroupSample::read(&dir);
 
-    assert!(!sample.cgroup_available);
-    assert!(sample.cpu_usage_usec.is_none());
+    assert!(sample.cgroup_available);
+    assert_eq!(sample.cpu_usage_usec, Some(10));
+    assert!(sample.memory_current_bytes.is_none());
     assert_eq!(
         sample.cgroup_path.as_deref(),
         Some(dir.to_string_lossy().as_ref())
@@ -84,7 +94,7 @@ fn cgroup_read_degrades_when_a_required_controller_file_is_missing() {
 }
 
 #[test]
-fn cgroup_read_degrades_when_cpu_stat_lacks_usage_usec() {
+fn cgroup_read_omits_unsupported_cpu_usage_without_zero_filling() {
     let dir = fixture("no-usage");
     write_file(&dir, "cpu.stat", "nr_periods 0\n");
     write_file(&dir, "memory.current", "0\n");
@@ -92,7 +102,8 @@ fn cgroup_read_degrades_when_cpu_stat_lacks_usage_usec() {
 
     let sample = CgroupSample::read(&dir);
 
-    assert!(!sample.cgroup_available);
+    assert!(sample.cgroup_available);
+    assert!(sample.cpu_usage_usec.is_none());
     let error = sample
         .cgroup_error
         .expect("missing usage_usec yields an error");

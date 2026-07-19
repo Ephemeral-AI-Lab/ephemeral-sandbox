@@ -5,9 +5,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Barrier};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use sandbox_observability_telemetry::{Attrs, RawFilter, Reader, Record, Sample, MAX_LINE_BYTES};
+use sandbox_observability_telemetry::{
+    Attrs, RawFilter, Reader, Record, Sample, Sink, MAX_LINE_BYTES,
+};
 use serde_json::{json, Value};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -213,6 +216,105 @@ fn samples_delta_only_emitter_tagged_counters() {
         "reserved meta key stripped from presented metrics"
     );
     assert_eq!(series[1].metrics["mem_cur"], 8);
+}
+
+#[test]
+fn resource_samples_stream_rotated_then_active_without_mutating_either_segment() {
+    let dir = temp_dir("resource-pure");
+    let primary = dir.join("resources.ndjson");
+    let rotated = dir.join("resources.ndjson.1");
+    let base = now_ms() - 2_000;
+    let mut rotated_body = format!(
+        "{{\"kind\":\"sample\",\"ts\":{base},\"scope\":\"sandbox\",\"cpu_usec\":10,\"fixture_marker\":\"older\",\"_counters\":[\"cpu_usec\"]}}\n{{malformed}}\n"
+    )
+    .into_bytes();
+    rotated_body.extend(std::iter::repeat_n(b'x', MAX_LINE_BYTES));
+    rotated_body.push(b'\n');
+    fs::write(&rotated, rotated_body).expect("write rotated resource segment");
+    fs::write(
+        &primary,
+        format!(
+            "{{\"kind\":\"sample\",\"ts\":{},\"scope\":\"sandbox\",\"cpu_usec\":25,\"fixture_marker\":\"newer\",\"_counters\":[\"cpu_usec\"]}}\n{{\"kind\":\"sample\"",
+            base + 1_000
+        ),
+    )
+    .expect("write active resource segment");
+    let before = [
+        fs::read(&rotated).expect("rotated bytes"),
+        fs::read(&primary).expect("active bytes"),
+    ];
+
+    let read = Reader::new(primary.clone(), rotated.clone()).resource_samples("sandbox", 600_000);
+
+    assert_eq!(read.series.len(), 2);
+    assert_eq!(read.series[0].metrics["fixture_marker"], "older");
+    assert_eq!(read.series[1].metrics["fixture_marker"], "newer");
+    assert_eq!(read.series[1].deltas["cpu_usec"], 15);
+    assert!(read.errors.iter().any(|error| error.contains("malformed")));
+    assert!(read.errors.iter().any(|error| error.contains("oversized")));
+    assert!(read
+        .errors
+        .iter()
+        .any(|error| error.contains("partial tail")));
+    assert_eq!(fs::read(&rotated).expect("rotated after"), before[0]);
+    assert_eq!(fs::read(&primary).expect("active after"), before[1]);
+}
+
+#[test]
+fn resource_samples_remain_bounded_and_parseable_during_concurrent_rotation() {
+    let dir = temp_dir("resource-concurrent");
+    let primary = dir.join("resources.ndjson");
+    let rotated = dir.join("resources.ndjson.1");
+    let budget = 64 * 1024;
+    let sink = Arc::new(Sink::with_budget(primary.clone(), MAX_LINE_BYTES, budget));
+    sink.append_strict(&sample_record(
+        now_ms(),
+        "sandbox",
+        json!({ "fixture_index": 0, "blob": "x".repeat(1_000) }),
+    ))
+    .expect("seed resource store");
+    let barrier = Arc::new(Barrier::new(2));
+    let writer_sink = Arc::clone(&sink);
+    let writer_barrier = Arc::clone(&barrier);
+    let base = now_ms();
+    let writer = std::thread::spawn(move || {
+        writer_barrier.wait();
+        for index in 1..=300_i64 {
+            writer_sink
+                .append_strict(&sample_record(
+                    base.saturating_add(index),
+                    "sandbox",
+                    json!({ "fixture_index": index, "blob": "x".repeat(1_000) }),
+                ))
+                .expect("concurrent resource append");
+            if index % 8 == 0 {
+                std::thread::yield_now();
+            }
+        }
+    });
+    let reader = Reader::new(primary.clone(), rotated.clone());
+    barrier.wait();
+    for _ in 0..300 {
+        let read = reader.resource_samples("sandbox", 600_000);
+        assert!(read.series.len() <= 500);
+        assert!(
+            serde_json::to_vec(&read.series)
+                .expect("serialize concurrent read")
+                .len()
+                <= 256 * 1024
+        );
+        assert!(read
+            .series
+            .iter()
+            .all(|sample| sample.metrics["fixture_index"].is_i64()));
+        std::thread::yield_now();
+    }
+    writer.join().expect("resource writer joins");
+
+    let final_read = reader.resource_samples("sandbox", 600_000);
+    assert!(!final_read.series.is_empty());
+    assert!(fs::metadata(&primary).map_or(0, |metadata| metadata.len()) <= budget / 2);
+    assert!(fs::metadata(&rotated).map_or(0, |metadata| metadata.len()) <= budget / 2);
 }
 
 #[test]

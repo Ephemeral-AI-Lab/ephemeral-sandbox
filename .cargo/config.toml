@@ -1,2 +1,2 @@
 [env]
-JEMALLOC_SYS_WITH_MALLOC_CONF = { value = "narenas:1,tcache:false,dirty_decay_ms:0,muzzy_decay_ms:0,background_thread:false,retain:false", force = true }
+JEMALLOC_SYS_WITH_MALLOC_CONF = { value = "narenas:1,tcache:false,dirty_decay_ms:0,muzzy_decay_ms:0,background_thread:false,retain:false,thp:never", force = true }

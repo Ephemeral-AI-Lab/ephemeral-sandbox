@@ -197,6 +197,21 @@ impl SandboxDaemonClient for RecordingDaemonClient {
                     "thread_count": 8,
                 },
             }),
+            "resources" => json!({
+                "view": "resources",
+                "scope": "sandbox",
+                "sandbox_id": request.scope.sandbox_id(),
+                "source": "daemon_disk",
+                "availability": "available",
+                "errors": [],
+                "series": [{
+                    "ts": 1,
+                    "scope": "sandbox",
+                    "metrics": {"fixture_marker": "daemon-response"},
+                    "deltas": {},
+                    "sample_delta_ms": null,
+                }],
+            }),
             _ => json!({"forwarded": true}),
         };
         Ok(OperationResponse::ok(result))
@@ -475,21 +490,24 @@ async fn manager_single_and_fleet_resource_reads_are_daemon_quiescent_for_ten_th
         (path, contents, metadata)
     });
 
-    for _ in 0..10_000 {
-        let sampled = manager_router
-            .dispatch_request(single_resources.clone())
-            .await
-            .into_json_value();
-        assert_eq!(sampled["view"], "resources");
-        assert_eq!(sampled["scope"], "sandbox");
-        assert_eq!(sampled["sandbox_id"], "sbox-pure");
-        assert_eq!(sampled["series"].as_array().map(Vec::len), Some(1));
+    let sampled = manager_router
+        .dispatch_request(single_resources.clone())
+        .await
+        .into_json_value();
+    assert_eq!(sampled["view"], "resources");
+    assert_eq!(sampled["scope"], "sandbox");
+    assert_eq!(sampled["sandbox_id"], "sbox-pure");
+    assert_eq!(sampled["source"], "daemon_disk");
+    assert_eq!(
+        sampled["series"][0]["metrics"]["fixture_marker"],
+        "daemon-response"
+    );
+    {
+        let invocations = daemon_client.invocations.lock().expect("invocations lock");
+        assert_eq!(invocations.len(), 1);
+        assert_eq!(invocations[0].1, RESOURCES_OPERATION);
+        assert_eq!(invocations[0].2, OperationScope::sandbox("sbox-pure"));
     }
-    assert!(daemon_client
-        .invocations
-        .lock()
-        .expect("invocations lock")
-        .is_empty());
 
     for _ in 0..10_000 {
         let fleet = manager_router
@@ -517,11 +535,15 @@ async fn manager_single_and_fleet_resource_reads_are_daemon_quiescent_for_ten_th
         );
     }
     assert_eq!(runtime.resource_reads.load(Ordering::SeqCst), 2);
-    assert!(daemon_client
-        .invocations
-        .lock()
-        .expect("invocations lock")
-        .is_empty());
+    assert_eq!(
+        daemon_client
+            .invocations
+            .lock()
+            .expect("invocations lock")
+            .len(),
+        1,
+        "system resources must remain manager-owned"
+    );
 
     let topology = manager_router
         .dispatch_request(request(
@@ -535,8 +557,8 @@ async fn manager_single_and_fleet_resource_reads_are_daemon_quiescent_for_ten_th
     assert_eq!(topology["scope"], "sandbox");
     assert_eq!(topology["topology"]["schema_version"], 2);
     let invocations = daemon_client.invocations.lock().expect("invocations lock");
-    assert_eq!(invocations.len(), 1);
-    assert_eq!(invocations[0].1, TOPOLOGY_OPERATION);
+    assert_eq!(invocations.len(), 2);
+    assert_eq!(invocations[1].1, TOPOLOGY_OPERATION);
     drop(invocations);
 
     for id in ["sbox-pure", "sbox-peer"] {
@@ -581,7 +603,7 @@ async fn manager_forwards_one_daemon_self_read_without_topology() {
 }
 
 #[tokio::test]
-async fn manager_resource_series_remains_available_without_a_daemon_endpoint() {
+async fn sandbox_resources_require_a_daemon_endpoint_and_never_fall_back_to_the_ring() {
     let sandbox = sandbox_id("sbox-resource-only");
     let runtime = Arc::new(FakeRuntime::default());
     let (services, store, daemon_client) = services_with_runtime(runtime.clone());
@@ -603,9 +625,10 @@ async fn manager_resource_series_remains_available_without_a_daemon_endpoint() {
         .await
         .into_json_value();
 
-    assert_eq!(response["view"], "resources");
-    assert_eq!(response["availability"], "available");
-    assert_eq!(response["series"].as_array().map(Vec::len), Some(1));
+    assert!(
+        response.get("error").is_some(),
+        "unexpected response: {response}"
+    );
     assert_eq!(runtime.resource_reads.load(Ordering::SeqCst), 1);
     assert!(daemon_client
         .invocations
@@ -1005,7 +1028,19 @@ async fn manager_router_forwards_every_sandbox_observability_route() {
             ))
             .await
             .into_json_value();
-        assert_eq!(response["forwarded"], true, "{operation}");
+        if *operation == RESOURCES_OPERATION {
+            assert_eq!(response["source"], "daemon_disk", "{operation}");
+            assert_eq!(
+                response["series"][0]["metrics"]["fixture_marker"], "daemon-response",
+                "{operation}"
+            );
+            assert!(
+                response.get("forwarded").is_none(),
+                "the manager must not rewrite the daemon response"
+            );
+        } else {
+            assert_eq!(response["forwarded"], true, "{operation}");
+        }
     }
 
     let invocations = daemon_client.invocations.lock().expect("invocations lock");

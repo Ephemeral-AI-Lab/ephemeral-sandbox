@@ -1,7 +1,7 @@
 use sandbox_config::configs::observability::ViewsConfig;
 use sandbox_observability_query::ports::{
     DaemonMetricsRequestClass, NamespaceExecutionSnapshot, ObservabilityInput,
-    ObservabilitySnapshot, QueryContext, QueryLimits, WorkspaceSnapshot,
+    ObservabilitySnapshot, QueryContext, QueryLimits, ResourceQueryContext, WorkspaceSnapshot,
 };
 use sandbox_observability_telemetry::collect::process_topology::{
     AppliedCgroupLimits, DaemonDiagnosticWorkspaceHolder, DaemonLifecycleMetrics,
@@ -151,6 +151,16 @@ impl ObservabilityInput for DaemonObservabilityAdapter<'_> {
             daemon_pid: std::process::id(),
             runtime_dir: observability.runtime_dir().to_string_lossy().into_owned(),
             sink_stats: observability.observer().sink_stats(),
+        })
+    }
+
+    fn resource_query_context(&self) -> Option<ResourceQueryContext> {
+        let observability = self.observability()?;
+        Some(ResourceQueryContext {
+            reader: observability.resource_reader(),
+            sandbox_id: observability.sandbox_id().to_owned(),
+            sink_stats: observability.resource_sink_stats(),
+            collection_failures: observability.resource_collection_failures(),
         })
     }
 

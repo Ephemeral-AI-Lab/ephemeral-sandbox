@@ -17,31 +17,9 @@ pub(crate) fn dispatch_resources(
     match &request.scope {
         sandbox_operation_contract::OperationScope::System => fleet_resources(services),
         sandbox_operation_contract::OperationScope::Sandbox { .. } => {
-            sandbox_resources(services, request)
+            OperationResponse::unknown_op()
         }
     }
-}
-
-fn sandbox_resources(services: &ManagerServices, request: &OperationRequest) -> OperationResponse {
-    let window_ms = match resource_window_ms(request) {
-        Ok(window_ms) => window_ms,
-        Err(response) => return response,
-    };
-    let id = match sandbox_id(request) {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    let read = resource_samples(services, &id, window_ms);
-    let errors = read.error.into_iter().collect::<Vec<_>>();
-    let availability = availability(&errors);
-    OperationResponse::ok(json!({
-        "view": "resources",
-        "scope": SANDBOX_SCOPE,
-        "sandbox_id": id.as_str(),
-        "availability": availability,
-        "errors": errors,
-        "series": series_value(read.samples),
-    }))
 }
 
 fn fleet_resources(services: &ManagerServices) -> OperationResponse {

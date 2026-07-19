@@ -48,11 +48,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some("serve") => {
-            if let Err(error) =
-                sandbox_runtime_namespace_process::thp::set_transparent_huge_pages_disabled(true)
-            {
-                eprintln!("sandbox-daemon: failed to disable transparent huge pages: {error}");
-            }
+            prepare_server_thp_policy();
             serve::run(args)
         }
         Some("ns-runner") => {
@@ -75,6 +71,48 @@ fn main() -> Result<()> {
             "missing subcommand; expected {}",
             expected_subcommands()
         )),
+    }
+}
+
+fn prepare_server_thp_policy() {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::process::CommandExt;
+
+        match sandbox_runtime_namespace_process::thp::transparent_huge_pages_disabled() {
+            Ok(true) => return,
+            Ok(false) => {}
+            Err(error) => {
+                eprintln!("sandbox-daemon: failed to read transparent huge page policy: {error}");
+                return;
+            }
+        }
+
+        if let Err(error) =
+            sandbox_runtime_namespace_process::thp::set_transparent_huge_pages_disabled(true)
+        {
+            eprintln!("sandbox-daemon: failed to disable transparent huge pages: {error}");
+            return;
+        }
+
+        // The Rust runtime and global allocator can reserve memory before
+        // `main`. Re-exec once so the inherited process policy covers those
+        // allocations as well as all subsequent daemon work.
+        let executable = match std::env::current_exe() {
+            Ok(executable) => executable,
+            Err(error) => {
+                eprintln!(
+                    "sandbox-daemon: failed to locate executable for THP-safe restart: {error}"
+                );
+                return;
+            }
+        };
+        let error = std::process::Command::new(executable)
+            .args(std::env::args_os().skip(1))
+            .exec();
+        eprintln!(
+            "sandbox-daemon: failed to restart with transparent huge pages disabled: {error}"
+        );
     }
 }
 

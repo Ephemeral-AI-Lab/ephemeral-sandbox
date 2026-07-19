@@ -6,6 +6,7 @@ use std::path::Path;
 pub(crate) struct LineScan {
     pub(crate) complete_bytes: u64,
     pub(crate) skipped_oversized: u64,
+    pub(crate) partial_tail: bool,
 }
 
 /// Stream complete newline-terminated lines with a fixed-capacity line buffer.
@@ -50,5 +51,6 @@ pub(crate) fn for_each_complete_line(
             }
         }
     }
+    scan.partial_tail = oversized || !line.is_empty();
     Ok(scan)
 }

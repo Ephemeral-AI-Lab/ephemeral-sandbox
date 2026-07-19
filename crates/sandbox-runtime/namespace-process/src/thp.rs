@@ -3,7 +3,7 @@
 #[cfg(target_os = "linux")]
 pub fn set_transparent_huge_pages_disabled(disabled: bool) -> std::io::Result<()> {
     rustix::thread::disable_transparent_huge_pages(disabled)?;
-    let observed = rustix::thread::transparent_huge_pages_are_disabled()?;
+    let observed = transparent_huge_pages_disabled()?;
     if observed == disabled {
         Ok(())
     } else {
@@ -11,6 +11,11 @@ pub fn set_transparent_huge_pages_disabled(disabled: bool) -> std::io::Result<()
             "kernel did not apply the requested transparent-huge-page policy",
         ))
     }
+}
+
+#[cfg(target_os = "linux")]
+pub fn transparent_huge_pages_disabled() -> std::io::Result<bool> {
+    Ok(rustix::thread::transparent_huge_pages_are_disabled()?)
 }
 
 #[cfg(not(target_os = "linux"))]

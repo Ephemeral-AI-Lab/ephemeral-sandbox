@@ -92,7 +92,7 @@ fn adapter_maps_concrete_runtime_snapshot_into_neutral_input() {
 fn selected_allocator_is_bounded_and_reports_native_process_totals() {
     assert_eq!(
         tikv_jemalloc_ctl::config::malloc_conf::read().expect("malloc conf"),
-        "narenas:1,tcache:false,dirty_decay_ms:0,muzzy_decay_ms:0,background_thread:false,retain:false\0"
+        "narenas:1,tcache:false,dirty_decay_ms:0,muzzy_decay_ms:0,background_thread:false,retain:false,thp:never\0"
     );
     assert_eq!(tikv_jemalloc_ctl::opt::narenas::read(), Ok(1));
     assert_eq!(tikv_jemalloc_ctl::opt::tcache::read(), Ok(false));

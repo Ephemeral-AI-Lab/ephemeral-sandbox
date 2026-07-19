@@ -90,7 +90,7 @@ fn snapshot_and_resources_are_the_only_aggregate_capable_operations() {
 }
 
 #[test]
-fn resources_are_manager_only_and_topology_is_one_explicit_daemon_route() {
+fn resources_split_system_manager_and_sandbox_daemon_ownership() {
     let catalog = observability_catalog();
     assert!(std::ptr::eq(catalog.operations[3], &RESOURCES_SPEC));
     assert!(std::ptr::eq(catalog.operations[4], &DAEMON_SPEC));
@@ -101,15 +101,14 @@ fn resources_are_manager_only_and_topology_is_one_explicit_daemon_route() {
         .filter(|route| route.operation == RESOURCES_SPEC.name)
         .collect::<Vec<_>>();
     assert_eq!(resources.len(), 2);
-    assert!(resources
-        .iter()
-        .all(|route| route.execution_owner == OperationExecutionOwner::Manager));
-    assert!(resources
-        .iter()
-        .any(|route| route.scope_kind == OperationScopeKind::System));
-    assert!(resources
-        .iter()
-        .any(|route| route.scope_kind == OperationScopeKind::Sandbox));
+    assert!(resources.iter().any(|route| {
+        route.scope_kind == OperationScopeKind::System
+            && route.execution_owner == OperationExecutionOwner::Manager
+    }));
+    assert!(resources.iter().any(|route| {
+        route.scope_kind == OperationScopeKind::Sandbox
+            && route.execution_owner == OperationExecutionOwner::Observability
+    }));
 
     let topology = sandbox_operation_catalog::routes::observability_routes()
         .iter()

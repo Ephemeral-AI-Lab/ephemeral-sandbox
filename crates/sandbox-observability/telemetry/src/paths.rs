@@ -17,6 +17,8 @@ pub struct ObservabilityPaths {
     observability_dir: PathBuf,
     log_path: PathBuf,
     rotated_log_path: PathBuf,
+    resource_log_path: PathBuf,
+    rotated_resource_log_path: PathBuf,
 }
 
 impl ObservabilityPaths {
@@ -32,12 +34,16 @@ impl ObservabilityPaths {
         let observability_dir = daemon_runtime_dir.join("observability");
         let log_path = observability_dir.join("observability.ndjson");
         let rotated_log_path = observability_dir.join("observability.ndjson.1");
+        let resource_log_path = observability_dir.join("resources.ndjson");
+        let rotated_resource_log_path = observability_dir.join("resources.ndjson.1");
 
         Ok(Self {
             daemon_runtime_dir,
             observability_dir,
             log_path,
             rotated_log_path,
+            resource_log_path,
+            rotated_resource_log_path,
         })
     }
 
@@ -57,5 +63,13 @@ impl ObservabilityPaths {
     /// The single rotated log: `observability/observability.ndjson.1`.
     pub fn rotated_log_path(&self) -> &Path {
         &self.rotated_log_path
+    }
+
+    pub fn resource_log_path(&self) -> &Path {
+        &self.resource_log_path
+    }
+
+    pub fn rotated_resource_log_path(&self) -> &Path {
+        &self.rotated_resource_log_path
     }
 }

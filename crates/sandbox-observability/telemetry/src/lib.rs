@@ -18,8 +18,8 @@ pub use observer::{
 };
 pub use paths::{ObservabilityPathError, ObservabilityPaths};
 pub use reader::{
-    EventNode, RawFilter, RawJsonRecords, Reader, SampleDelta, SpanNode, MAX_RESPONSE_BYTES,
-    MAX_RESPONSE_RECORDS,
+    EventNode, RawFilter, RawJsonRecords, Reader, ResourceRead, SampleDelta, SpanNode,
+    MAX_RESPONSE_BYTES, MAX_RESPONSE_RECORDS,
 };
 pub use record::{
     Attrs, Event, Record, Sample, Span, SpanStatus, COUNTERS_METRIC_KEY, MAX_LINE_BYTES,

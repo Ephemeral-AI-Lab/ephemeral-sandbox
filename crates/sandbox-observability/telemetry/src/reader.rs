@@ -55,6 +55,12 @@ pub struct SampleDelta {
     pub sample_delta_ms: Option<i64>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ResourceRead {
+    pub series: Vec<SampleDelta>,
+    pub errors: Vec<String>,
+}
+
 struct LineEntry {
     ts: i64,
     line: String,
@@ -501,6 +507,98 @@ impl Reader {
     }
 
     #[must_use]
+    pub fn resource_samples(&self, scope: &str, window_ms: i64) -> ResourceRead {
+        if self.max_records == 0 || self.max_response_bytes < 2 {
+            return ResourceRead {
+                series: Vec::new(),
+                errors: vec!["resource response limits admit no samples".to_owned()],
+            };
+        }
+        let since = unix_now_ms().saturating_sub(window_ms);
+        let mut entries = Vec::new();
+        let mut retained_bytes = 2_usize;
+        let mut errors = Vec::new();
+        for (label, path) in [("rotated", &self.rotated), ("active", &self.primary)] {
+            let mut malformed_utf8 = 0_u64;
+            let mut malformed_record = 0_u64;
+            let scan = for_each_complete_line(path, self.max_line_bytes, |line| {
+                let Ok(text) = std::str::from_utf8(line) else {
+                    malformed_utf8 = malformed_utf8.saturating_add(1);
+                    return Ok(());
+                };
+                let Some(header) = record_header(line) else {
+                    malformed_record = malformed_record.saturating_add(1);
+                    return Ok(());
+                };
+                if matches!(
+                    &header,
+                    RecordHeader::Sample {
+                        ts,
+                        scope: candidate,
+                    } if candidate == scope && *ts >= since
+                ) {
+                    retain_line_entry(
+                        &mut entries,
+                        &mut retained_bytes,
+                        header.ts(),
+                        text,
+                        self.max_records,
+                        self.max_response_bytes,
+                    );
+                }
+                Ok(())
+            });
+            match scan {
+                Ok(scan) => {
+                    if malformed_utf8 > 0 {
+                        errors.push(format!(
+                            "{label} segment skipped {malformed_utf8} invalid UTF-8 lines"
+                        ));
+                    }
+                    if malformed_record > 0 {
+                        errors.push(format!(
+                            "{label} segment skipped {malformed_record} malformed records"
+                        ));
+                    }
+                    if scan.skipped_oversized > 0 {
+                        errors.push(format!(
+                            "{label} segment skipped {} oversized lines",
+                            scan.skipped_oversized
+                        ));
+                    }
+                    if scan.partial_tail {
+                        errors.push(format!("{label} segment skipped a partial tail"));
+                    }
+                }
+                Err(error) => errors.push(format!("{label} segment read failed: {error}")),
+            }
+        }
+        entries.sort_by_key(|entry| entry.ts);
+        let mut decode_failures = 0_u64;
+        let values = entries
+            .into_iter()
+            .filter_map(|entry| match serde_json::from_str::<Record>(&entry.line) {
+                Ok(Record::Sample(sample)) => Some((sample.ts, sample.metrics)),
+                _ => {
+                    decode_failures = decode_failures.saturating_add(1);
+                    None
+                }
+            })
+            .collect();
+        if decode_failures > 0 {
+            errors.push(format!(
+                "skipped {decode_failures} undecodable sample records"
+            ));
+        }
+        let mut series = sample_deltas(scope, values);
+        trim_serialized(&mut series, self.max_records, self.max_response_bytes);
+        if series.is_empty() {
+            errors.push("resource store has no usable samples in the requested window".to_owned());
+        }
+        ResourceRead { series, errors }
+    }
+
+    #[must_use]
     pub fn latest_samples(&self, scopes: &[&str]) -> HashMap<String, SampleDelta> {
         let requested: HashSet<&str> = scopes.iter().copied().collect();
         let mut samples: HashMap<String, Vec<(i64, Attrs, usize)>> = HashMap::new();
@@ -661,6 +759,55 @@ impl Reader {
             });
         }
     }
+}
+
+fn retain_line_entry(
+    entries: &mut Vec<LineEntry>,
+    retained_bytes: &mut usize,
+    ts: i64,
+    line: &str,
+    max_records: usize,
+    max_response_bytes: usize,
+) {
+    let candidate_bytes = line.len().saturating_add(1);
+    if candidate_bytes.saturating_add(2) > max_response_bytes {
+        return;
+    }
+    let needs_room = entries.len() >= max_records
+        || retained_bytes.saturating_add(candidate_bytes) > max_response_bytes;
+    let mut reusable = None;
+    if needs_room {
+        let Some((oldest_index, oldest)) =
+            entries.iter().enumerate().min_by_key(|(_, entry)| entry.ts)
+        else {
+            return;
+        };
+        if ts < oldest.ts {
+            return;
+        }
+        let removed = entries.swap_remove(oldest_index);
+        *retained_bytes = retained_bytes.saturating_sub(removed.line.len() + 1);
+        reusable = Some(removed.line);
+    }
+    while entries.len() >= max_records
+        || retained_bytes.saturating_add(candidate_bytes) > max_response_bytes
+    {
+        let Some(oldest_index) = entries
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, entry)| entry.ts)
+            .map(|(index, _)| index)
+        else {
+            return;
+        };
+        let removed = entries.swap_remove(oldest_index);
+        *retained_bytes = retained_bytes.saturating_sub(removed.line.len() + 1);
+    }
+    let mut owned = reusable.unwrap_or_default();
+    owned.clear();
+    owned.push_str(line);
+    entries.push(LineEntry { ts, line: owned });
+    *retained_bytes = retained_bytes.saturating_add(candidate_bytes);
 }
 
 fn serialized_len(value: &impl Serialize) -> usize {

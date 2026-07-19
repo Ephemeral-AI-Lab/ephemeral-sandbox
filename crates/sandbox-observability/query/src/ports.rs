@@ -13,6 +13,13 @@ pub struct QueryContext {
     pub sink_stats: SinkStats,
 }
 
+pub struct ResourceQueryContext {
+    pub reader: Reader,
+    pub sandbox_id: String,
+    pub sink_stats: SinkStats,
+    pub collection_failures: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct QueryLimits {
     pub resource_window_ms: u64,
@@ -56,6 +63,10 @@ pub struct NamespaceExecutionSnapshot {
 
 pub trait ObservabilityInput {
     fn query_context(&self) -> Option<QueryContext>;
+
+    fn resource_query_context(&self) -> Option<ResourceQueryContext> {
+        None
+    }
 
     fn query_limits(&self) -> QueryLimits;
 

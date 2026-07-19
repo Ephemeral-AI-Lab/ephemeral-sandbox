@@ -142,6 +142,20 @@ fn boundary_append_rotates_before_write() {
 }
 
 #[test]
+fn strict_append_drops_oversized_samples_without_a_marker_or_write() {
+    let path = temp_log("strict-oversized");
+    let sink = Sink::with_budget(path.clone(), 512, 2_048);
+    sink.append_strict(&sample(1, "x".repeat(1_000)))
+        .expect("oversized resource sample is a counted drop");
+
+    assert_eq!(file_len(&path), 0);
+    assert_eq!(file_len(&rotated(&path)), 0);
+    assert_eq!(sink.stats().dropped_oversized, 1);
+    assert_eq!(sink.stats().truncated_records, 0);
+    let _ = fs::remove_dir_all(path.parent().expect("parent"));
+}
+
+#[test]
 fn producer_process() {
     let Ok(path) = std::env::var("SANDBOX_OBS_PRODUCER_PATH") else {
         return;

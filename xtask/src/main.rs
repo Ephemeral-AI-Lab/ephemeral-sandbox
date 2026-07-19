@@ -16,10 +16,10 @@ use anyhow::{bail, Context, Result};
 use ignore::WalkBuilder;
 use sha2::{Digest, Sha256};
 use xtask::operation_architecture;
+use xtask::package::{daemon_build_arguments, isolated_package_target_dir};
 
 const AMD64_TARGET: &str = "x86_64-unknown-linux-musl";
 const ARM64_TARGET: &str = "aarch64-unknown-linux-musl";
-const DAEMON_PACKAGE: &str = "sandbox-daemon";
 const DAEMON_BINARY: &str = "sandbox-daemon";
 const DAEMON_ARTIFACT_PREFIX: &str = "sandbox-daemon";
 const DEFAULT_PACKAGE_PROFILE: &str = "package-fast";
@@ -972,15 +972,22 @@ fn relative_to<'a>(root: &Path, path: &'a Path) -> &'a Path {
 fn package(args: &PackageArgs) -> Result<()> {
     let root = workspace_root()?;
     let out_dir = absolutize(&root, &args.out_dir);
+    let package_target_dir = isolated_package_target_dir(&cargo_target_dir(&root));
     fs::create_dir_all(&out_dir)
         .with_context(|| format!("create artifact dir {}", out_dir.display()))?;
 
     if !args.no_build {
-        run_build(&root, &args.builder, &args.target, &args.profile)?;
+        run_build(
+            &root,
+            &args.builder,
+            &args.target,
+            &args.profile,
+            &package_target_dir,
+        )?;
     }
 
     let arch = arch_for_target(&args.target)?;
-    let built = cargo_target_dir(&root)
+    let built = package_target_dir
         .join(&args.target)
         .join(cargo_profile_dir(&args.profile))
         .join(DAEMON_BINARY);
@@ -1068,12 +1075,19 @@ fn cargo_profile_dir(profile: &str) -> &str {
     }
 }
 
-fn run_build(root: &Path, builder: &str, target: &str, profile: &str) -> Result<()> {
+fn run_build(
+    root: &Path,
+    builder: &str,
+    target: &str,
+    profile: &str,
+    package_target_dir: &Path,
+) -> Result<()> {
     let builder = Builder::resolve(builder)?;
     println!("using builder: {}", builder.name());
     let status = builder
         .build_command(target, profile)
         .current_dir(root)
+        .env("CARGO_TARGET_DIR", package_target_dir)
         .status()
         .with_context(|| format!("spawn {} build", builder.name()))?;
     if !status.success() {
@@ -1154,28 +1168,14 @@ or force a host toolchain with --builder rust-lld"
         match self {
             Self::Zigbuild => {
                 let mut command = Command::new("cargo");
-                command.args([
-                    "zigbuild",
-                    "-p",
-                    DAEMON_PACKAGE,
-                    "--target",
-                    target,
-                    "--profile",
-                    profile,
-                ]);
+                command.arg("zigbuild");
+                command.args(daemon_build_arguments(target, profile));
                 command
             }
             Self::Cross => {
                 let mut command = Command::new("cross");
-                command.args([
-                    "build",
-                    "-p",
-                    DAEMON_PACKAGE,
-                    "--target",
-                    target,
-                    "--profile",
-                    profile,
-                ]);
+                command.arg("build");
+                command.args(daemon_build_arguments(target, profile));
                 command
             }
             Self::RustLld => {
@@ -1211,15 +1211,8 @@ fn command_exists(name: &str) -> bool {
 
 fn cargo_build_command(target: &str, profile: &str) -> Command {
     let mut command = Command::new("cargo");
-    command.args([
-        "build",
-        "-p",
-        DAEMON_PACKAGE,
-        "--target",
-        target,
-        "--profile",
-        profile,
-    ]);
+    command.arg("build");
+    command.args(daemon_build_arguments(target, profile));
     command
 }
 

@@ -77,6 +77,7 @@ async fn serve_listeners(
     connection_tasks: TaskTracker,
 ) -> Result<(), SandboxDaemonError> {
     let shutdown = server.shutdown.clone();
+    let resource_tasks = TaskTracker::new();
     if let Some(parent) = server.config.socket_path.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
@@ -103,6 +104,9 @@ async fn serve_listeners(
         _ => None,
     };
     tokio::fs::write(&server.config.pid_path, std::process::id().to_string()).await?;
+    if let Some(observability) = &server.observability {
+        observability.start_resource_sampler(&resource_tasks, shutdown.clone());
+    }
 
     let mut unix_server = {
         let server = Arc::clone(&server);
@@ -226,6 +230,8 @@ async fn serve_listeners(
         }
     }
     drop(tcp_server);
+    resource_tasks.close();
+    resource_tasks.wait().await;
     if let Some(task) = http_server.as_mut() {
         if let Err(error) = task.await {
             if listener_result.is_ok() {

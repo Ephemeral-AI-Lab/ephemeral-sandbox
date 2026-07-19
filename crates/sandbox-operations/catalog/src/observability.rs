@@ -55,9 +55,8 @@ const CGROUP_FAMILY: OperationFamilySpec = OperationFamilySpec {
 const RESOURCES_FAMILY: OperationFamilySpec = OperationFamilySpec {
     id: "resources",
     title: "Resources",
-    summary: "Inspect manager-owned resource metrics.",
-    description:
-        "Read bounded sandbox history or one fleet current-usage map without daemon calls.",
+    summary: "Inspect bounded resource metrics.",
+    description: "Read daemon-owned sandbox history or one manager-owned fleet current-usage map.",
 };
 
 const DAEMON_FAMILY: OperationFamilySpec = OperationFamilySpec {

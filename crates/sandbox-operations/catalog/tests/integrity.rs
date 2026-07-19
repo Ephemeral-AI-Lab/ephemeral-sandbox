@@ -232,7 +232,7 @@ fn public_route_manifest_is_exact_and_policy_consistent() {
                 "resources",
                 OperationScopePolicy::SystemOrSandbox,
                 OperationScopeKind::Sandbox,
-                OperationExecutionOwner::Manager,
+                OperationExecutionOwner::Observability,
                 OperationVisibility::Public
             ),
             (

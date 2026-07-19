@@ -5,6 +5,7 @@ fn config_prd_observability_section_deserializes_and_validates() {
     assert!(cfg.enabled);
     assert_eq!(cfg.max_disk_bytes, 4 * 1024 * 1024);
     assert!(!cfg.used_legacy_max_file_bytes);
+    assert_eq!(cfg.resource_stats, ResourceStatsConfig::default());
 }
 
 #[test]
@@ -13,6 +14,9 @@ fn config_observability_defaults_preserve_shipped_policy() {
     // today's exact constants.
     let cfg = prd_config();
     assert_eq!(cfg.max_line_bytes, 16 * 1024);
+    assert!(cfg.resource_stats.enabled);
+    assert_eq!(cfg.resource_stats.sample_interval_ms, 2_000);
+    assert_eq!(cfg.resource_stats.max_disk_bytes, 1024 * 1024);
     assert_eq!(cfg.sampling, SamplingConfig::default());
     assert_eq!(cfg.sampling.max_walk_nodes, 1024);
     assert_eq!(cfg.sampling.max_walk_depth, 64);
@@ -36,6 +40,10 @@ fn config_observability_overrides_deserialize() {
     let cfg = observability_config(
         "  max_disk_bytes: 1048576
   max_line_bytes: 1024
+  resource_stats:
+    enabled: false
+    sample_interval_ms: 250
+    max_disk_bytes: 131072
   sampling:
     max_walk_nodes: 8
   views:
@@ -53,6 +61,9 @@ fn config_observability_overrides_deserialize() {
     cfg.validate().expect("observability overrides are valid");
     assert_eq!(cfg.max_disk_bytes, 1024 * 1024);
     assert_eq!(cfg.max_line_bytes, 1024);
+    assert!(!cfg.resource_stats.enabled);
+    assert_eq!(cfg.resource_stats.sample_interval_ms, 250);
+    assert_eq!(cfg.resource_stats.max_disk_bytes, 131_072);
     assert_eq!(cfg.sampling.max_walk_nodes, 8);
     assert_eq!(cfg.sampling.max_walk_depth, 64);
     assert_eq!(cfg.views.layer_delta_default_limit, 3);
@@ -95,6 +106,10 @@ fn config_observability_rejects_unknown_keys() {
     let error = observability_config("  diagnostics:\n    raw_command_lines: true\n")
         .expect_err("unknown diagnostics key must be rejected");
     assert!(error.to_string().contains("raw_command_lines"), "{error}");
+
+    let error = observability_config("  resource_stats:\n    retry_count: 1\n")
+        .expect_err("unknown resource_stats key must be rejected");
+    assert!(error.to_string().contains("retry_count"), "{error}");
 }
 
 #[test]
@@ -114,6 +129,26 @@ fn config_validation_rejects_observability_edge_values() {
     let mut cfg = prd_config();
     cfg.max_line_bytes = 16 * 1024 + 1;
     assert_invalid(cfg, "observability.max_line_bytes");
+
+    let mut cfg = prd_config();
+    cfg.resource_stats.sample_interval_ms = 249;
+    assert_invalid(cfg, "observability.resource_stats.sample_interval_ms");
+
+    let mut cfg = prd_config();
+    cfg.resource_stats.sample_interval_ms = 600_001;
+    assert_invalid(cfg, "observability.resource_stats.sample_interval_ms");
+
+    let mut cfg = prd_config();
+    cfg.resource_stats.max_disk_bytes = 128 * 1024 - 1;
+    assert_invalid(cfg, "observability.resource_stats.max_disk_bytes");
+
+    let mut cfg = prd_config();
+    cfg.resource_stats.max_disk_bytes = 4 * 1024 * 1024 + 2;
+    assert_invalid(cfg, "observability.resource_stats.max_disk_bytes");
+
+    let mut cfg = prd_config();
+    cfg.resource_stats.max_disk_bytes = 128 * 1024 + 1;
+    assert_invalid(cfg, "observability.resource_stats.max_disk_bytes");
 
     let mut cfg = prd_config();
     cfg.sampling.max_walk_nodes = 0;

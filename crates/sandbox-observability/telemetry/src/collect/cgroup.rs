@@ -13,6 +13,9 @@ pub struct CgroupSample {
     pub memory_current_bytes: Option<i64>,
     pub memory_max_bytes: Option<i64>,
     pub memory_max_unlimited: Option<bool>,
+    pub io_read_bytes: Option<i64>,
+    pub io_write_bytes: Option<i64>,
+    pub pids_current: Option<i64>,
 }
 
 impl CgroupSample {
@@ -26,31 +29,51 @@ impl CgroupSample {
     }
 
     /// Sample cgroup v2 accounting from `cgroup_dir`'s controller files.
-    /// Best-effort: any missing/unreadable required file degrades to an
-    /// unavailable sample carrying the path and the first failure reason.
+    /// Best-effort: each controller file is independent. Unsupported values
+    /// remain absent instead of being synthesized as zero.
     #[must_use]
     pub fn read(cgroup_dir: &Path) -> Self {
         let path_text = cgroup_dir.to_string_lossy().into_owned();
-        let sample = || -> Result<Self, String> {
-            let cpu_usage_usec = read_cpu_usage_usec(cgroup_dir)?;
-            let memory_current_bytes = read_u64_file(&cgroup_dir.join("memory.current"))?;
-            let (memory_max_bytes, memory_max_unlimited) = read_memory_max(cgroup_dir)?;
-            Ok(Self {
-                cgroup_path: Some(path_text.clone()),
-                cgroup_available: true,
-                cgroup_error: None,
-                cpu_usage_usec: Some(cpu_usage_usec),
-                memory_current_bytes: Some(memory_current_bytes),
-                memory_max_bytes,
-                memory_max_unlimited: Some(memory_max_unlimited),
-            })
-        };
-        match sample() {
-            Ok(sample) => sample,
-            Err(error) => Self {
-                cgroup_path: Some(path_text),
-                ..Self::unavailable(error)
-            },
+        let mut errors = Vec::new();
+        let cpu_usage_usec = capture(&mut errors, read_cpu_usage_usec(cgroup_dir));
+        let memory_current_bytes = capture(
+            &mut errors,
+            read_u64_file(&cgroup_dir.join("memory.current")),
+        );
+        let memory_max = capture(&mut errors, read_memory_max(cgroup_dir));
+        let io = capture(&mut errors, read_io_bytes(cgroup_dir));
+        let pids_current = capture(&mut errors, read_u64_file(&cgroup_dir.join("pids.current")));
+        let (memory_max_bytes, memory_max_unlimited) = memory_max
+            .map(|(value, unlimited)| (value, Some(unlimited)))
+            .unwrap_or((None, None));
+        let (io_read_bytes, io_write_bytes) = io.unwrap_or((None, None));
+        let cgroup_available = cpu_usage_usec.is_some()
+            || memory_current_bytes.is_some()
+            || memory_max_unlimited.is_some()
+            || io_read_bytes.is_some()
+            || io_write_bytes.is_some()
+            || pids_current.is_some();
+        Self {
+            cgroup_path: Some(path_text),
+            cgroup_available,
+            cgroup_error: (!errors.is_empty()).then(|| errors.join("; ")),
+            cpu_usage_usec,
+            memory_current_bytes,
+            memory_max_bytes,
+            memory_max_unlimited,
+            io_read_bytes,
+            io_write_bytes,
+            pids_current,
+        }
+    }
+}
+
+fn capture<T>(errors: &mut Vec<String>, result: Result<T, String>) -> Option<T> {
+    match result {
+        Ok(value) => Some(value),
+        Err(error) => {
+            errors.push(error);
+            None
         }
     }
 }
@@ -74,6 +97,29 @@ fn read_memory_max(cgroup_dir: &Path) -> Result<(Option<i64>, bool), String> {
     } else {
         Ok((Some(parse_i64(trimmed, &path)?), false))
     }
+}
+
+fn read_io_bytes(cgroup_dir: &Path) -> Result<(Option<i64>, Option<i64>), String> {
+    let path = cgroup_dir.join("io.stat");
+    let contents = read_file(&path)?;
+    let mut read = None::<i64>;
+    let mut write = None::<i64>;
+    for field in contents
+        .lines()
+        .flat_map(|line| line.split_whitespace().skip(1))
+    {
+        let Some((name, value)) = field.split_once('=') else {
+            continue;
+        };
+        let target = match name {
+            "rbytes" => &mut read,
+            "wbytes" => &mut write,
+            _ => continue,
+        };
+        let parsed = parse_i64(value, &path)?;
+        *target = Some(target.unwrap_or(0).saturating_add(parsed));
+    }
+    Ok((read, write))
 }
 
 fn read_u64_file(path: &Path) -> Result<i64, String> {

@@ -47,6 +47,74 @@ pub(crate) fn cgroup(
     }))
 }
 
+pub(crate) fn resources(
+    input: &dyn ObservabilityInput,
+    request: &OperationRequest,
+) -> OperationResponse {
+    const DEFAULT_WINDOW_MS: u64 = 60_000;
+    let Some(context) = input.resource_query_context() else {
+        return observability_unconfigured();
+    };
+    let max_window_ms = input.query_limits().resource_window_ms;
+    let window_ms = match resource_window_ms(request, max_window_ms) {
+        Ok(window_ms) => window_ms.unwrap_or(DEFAULT_WINDOW_MS.min(max_window_ms)),
+        Err(response) => return response,
+    };
+    let read = context
+        .reader
+        .resource_samples("sandbox", i64::try_from(window_ms).unwrap_or(i64::MAX));
+    let mut errors = read.errors;
+    if let Some(sample_error) = read
+        .series
+        .last()
+        .and_then(|sample| sample.metrics.get("cgroup_error"))
+        .and_then(Value::as_str)
+    {
+        errors.push(format!("resource sample partial: {sample_error}"));
+    }
+    if context.collection_failures > 0 {
+        errors.push(format!(
+            "resource sampler collection failures: {}",
+            context.collection_failures
+        ));
+    }
+    if context.sink_stats.dropped_storage > 0 {
+        errors.push(format!(
+            "resource store write failures: {}",
+            context.sink_stats.dropped_storage
+        ));
+    }
+    if context.sink_stats.dropped_oversized > 0 {
+        errors.push(format!(
+            "resource store oversized samples dropped: {}",
+            context.sink_stats.dropped_oversized
+        ));
+    }
+    let availability = if errors.is_empty() {
+        "available"
+    } else {
+        "partial"
+    };
+    let mut series = read.series;
+    loop {
+        let value = json!({
+            "view": "resources",
+            "scope": "sandbox",
+            "sandbox_id": context.sandbox_id,
+            "source": "daemon_disk",
+            "availability": availability,
+            "errors": errors,
+            "series": series,
+        });
+        if serde_json::to_vec(&value).map_or(true, |bytes| bytes.len() <= MAX_RESPONSE_BYTES)
+            || series.is_empty()
+        {
+            return OperationResponse::ok(value);
+        }
+        series.remove(0);
+    }
+}
+
 pub(crate) fn topology(
     input: &dyn ObservabilityInput,
     _request: &OperationRequest,

@@ -27,6 +27,12 @@ runner:
     hidden_paths:
       - /eos
 
+observability:
+  resource_stats:
+    enabled: true
+    sample_interval_ms: 2000
+    max_disk_bytes: 1048576
+
 # Optional. Host paths resolve against the gateway's working directory.
 manager:
   # Optional host directory allowlist for sandbox creation.

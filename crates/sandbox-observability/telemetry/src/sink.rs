@@ -87,7 +87,18 @@ impl Sink {
     /// while holding the per-store cross-process lock. Storage errors are
     /// counted once and returned; observer call sites deliberately swallow them.
     pub fn append(&self, record: &Record) -> io::Result<()> {
-        match self.append_inner(record) {
+        self.append_with_policy(record, false)
+    }
+
+    /// Append only when the original record fits the fixed line and segment
+    /// bounds. Unlike [`Self::append`], this never replaces an oversized
+    /// resource sample with a truncation marker.
+    pub fn append_strict(&self, record: &Record) -> io::Result<()> {
+        self.append_with_policy(record, true)
+    }
+
+    fn append_with_policy(&self, record: &Record, strict: bool) -> io::Result<()> {
+        match self.append_inner(record, strict) {
             Ok(()) => Ok(()),
             Err(error) => {
                 self.counters
@@ -98,7 +109,7 @@ impl Sink {
         }
     }
 
-    fn append_inner(&self, record: &Record) -> io::Result<()> {
+    fn append_inner(&self, record: &Record, strict: bool) -> io::Result<()> {
         if self.max_line_bytes == 0 || self.max_disk_bytes < 2 {
             self.counters
                 .dropped_oversized
@@ -107,9 +118,13 @@ impl Sink {
         }
 
         let mut encoded = EncodedLine::new(self.max_line_bytes);
-        encoded.serialize(record)?;
+        if strict {
+            encoded.serialize_strict(record)?;
+        } else {
+            encoded.serialize(record)?;
+        }
         let segment_cap = self.max_disk_bytes / 2;
-        if encoded.len() as u64 > segment_cap && !encoded.is_truncated() {
+        if !strict && encoded.len() as u64 > segment_cap && !encoded.is_truncated() {
             encoded.serialize_marker(record, encoded.original_len())?;
         }
         if encoded.len() == 0
@@ -259,6 +274,17 @@ impl EncodedLine {
         let original_len = self.total;
         if original_len.saturating_add(1) > self.limit {
             self.serialize_marker(record, original_len)?;
+        } else {
+            self.push_newline();
+        }
+        Ok(())
+    }
+
+    fn serialize_strict(&mut self, record: &Record) -> io::Result<()> {
+        self.reset(false);
+        serde_json::to_writer(&mut *self, record).map_err(io::Error::other)?;
+        if self.total.saturating_add(1) > self.limit {
+            self.len = 0;
         } else {
             self.push_newline();
         }

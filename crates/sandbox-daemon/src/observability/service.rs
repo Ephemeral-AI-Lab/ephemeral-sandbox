@@ -1,6 +1,7 @@
 //! Daemon observability query metadata and event access.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use sandbox_config::configs::observability::ViewsConfig;
 use sandbox_observability_query::ports::DaemonMetricsRequestClass;
@@ -16,6 +17,7 @@ use sandbox_runtime::SandboxRuntimeConfig;
 use crate::rpc::ServerConfig;
 
 use super::diagnostics::DiagnosticTracker;
+use super::resources::ResourceSampler;
 
 const INFRASTRUCTURE_THREAD_ALLOWANCE: usize = 4;
 
@@ -23,6 +25,7 @@ pub struct DaemonObservability {
     sandbox_id: String,
     paths: ObservabilityPaths,
     observer: Observer,
+    resource_sampler: Arc<ResourceSampler>,
     runtime_config: DaemonRuntimeConfigMetrics,
     diagnostics: DiagnosticTracker,
     pub(crate) sampling: WalkBudget,
@@ -51,6 +54,10 @@ impl DaemonObservability {
                 config.observability.max_disk_bytes,
             ),
         );
+        let resource_sampler = Arc::new(ResourceSampler::new(
+            config.observability.resource_stats,
+            paths.resource_log_path().to_path_buf(),
+        ));
         let diagnostics = DiagnosticTracker::new(
             config.observability.diagnostics,
             paths.observability_dir().join("daemon-diagnostic.json"),
@@ -59,6 +66,7 @@ impl DaemonObservability {
             sandbox_id,
             paths,
             observer,
+            resource_sampler,
             runtime_config: DaemonRuntimeConfigMetrics {
                 worker_threads: Some(config.worker_threads),
                 max_blocking_threads: Some(config.max_blocking_requests),
@@ -92,6 +100,32 @@ impl DaemonObservability {
             sandbox_observability_telemetry::MAX_RESPONSE_RECORDS,
             sandbox_observability_telemetry::MAX_RESPONSE_BYTES,
         )
+    }
+
+    pub(super) fn resource_reader(&self) -> Reader {
+        Reader::with_limits(
+            self.paths.resource_log_path().to_path_buf(),
+            self.paths.rotated_resource_log_path().to_path_buf(),
+            sandbox_observability_telemetry::MAX_LINE_BYTES,
+            sandbox_observability_telemetry::MAX_RESPONSE_RECORDS,
+            sandbox_observability_telemetry::MAX_RESPONSE_BYTES,
+        )
+    }
+
+    pub(crate) fn start_resource_sampler(
+        &self,
+        tasks: &tokio_util::task::TaskTracker,
+        shutdown: tokio_util::sync::CancellationToken,
+    ) {
+        self.resource_sampler.start(tasks, shutdown);
+    }
+
+    pub(super) fn resource_sink_stats(&self) -> sandbox_observability_telemetry::SinkStats {
+        self.resource_sampler.sink_stats()
+    }
+
+    pub(super) fn resource_collection_failures(&self) -> u64 {
+        self.resource_sampler.collection_failures()
     }
 
     pub(super) fn sandbox_id(&self) -> &str {

@@ -58,11 +58,6 @@ const OPERATIONS: &[ManagerOperationEntry] = &[
         dispatch_resources,
     ),
     ManagerOperationEntry::new(
-        OperationScopeKind::Sandbox,
-        &RESOURCES_SPEC,
-        dispatch_resources,
-    ),
-    ManagerOperationEntry::new(
         OperationScopeKind::System,
         &LIST_SANDBOXES_SPEC,
         dispatch_list_sandboxes,

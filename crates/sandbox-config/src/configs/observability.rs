@@ -16,6 +16,10 @@ const DEFAULT_MAX_DISK_BYTES: u64 = 4 * 1024 * 1024;
 const MIN_MAX_DISK_BYTES: u64 = 1024 * 1024;
 const MAX_MAX_DISK_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_MAX_LINE_BYTES: usize = 16 * 1024;
+const MIN_RESOURCE_DISK_BYTES: u64 = 128 * 1024;
+const MAX_RESOURCE_DISK_BYTES: u64 = 4 * 1024 * 1024;
+const MIN_RESOURCE_SAMPLE_INTERVAL_MS: u64 = 250;
+const MAX_RESOURCE_SAMPLE_INTERVAL_MS: u64 = 600_000;
 const MIN_DIAGNOSTIC_ARTIFACT_BYTES: usize = 4 * 1024;
 pub const MAX_DIAGNOSTIC_ARTIFACT_BYTES: usize = 1024 * 1024;
 
@@ -27,6 +31,7 @@ pub struct ObservabilityConfig {
     pub max_disk_bytes: u64,
     /// Per-record NDJSON line cap; oversized `attrs`/`metrics` truncate.
     pub max_line_bytes: usize,
+    pub resource_stats: ResourceStatsConfig,
     pub sampling: SamplingConfig,
     pub views: ViewsConfig,
     pub diagnostics: DiagnosticsConfig,
@@ -40,6 +45,7 @@ impl Default for ObservabilityConfig {
             enabled: default_true(),
             max_disk_bytes: DEFAULT_MAX_DISK_BYTES,
             max_line_bytes: default_max_line_bytes(),
+            resource_stats: ResourceStatsConfig::default(),
             sampling: SamplingConfig::default(),
             views: ViewsConfig::default(),
             diagnostics: DiagnosticsConfig::default(),
@@ -55,6 +61,7 @@ struct RawObservabilityConfig {
     max_disk_bytes: Option<u64>,
     max_file_bytes: Option<u64>,
     max_line_bytes: usize,
+    resource_stats: ResourceStatsConfig,
     sampling: SamplingConfig,
     views: ViewsConfig,
     diagnostics: DiagnosticsConfig,
@@ -67,6 +74,7 @@ impl Default for RawObservabilityConfig {
             max_disk_bytes: None,
             max_file_bytes: None,
             max_line_bytes: default_max_line_bytes(),
+            resource_stats: ResourceStatsConfig::default(),
             sampling: SamplingConfig::default(),
             views: ViewsConfig::default(),
             diagnostics: DiagnosticsConfig::default(),
@@ -95,6 +103,7 @@ impl<'de> Deserialize<'de> for ObservabilityConfig {
             enabled: raw.enabled,
             max_disk_bytes,
             max_line_bytes: raw.max_line_bytes,
+            resource_stats: raw.resource_stats,
             sampling: raw.sampling,
             views: raw.views,
             diagnostics: raw.diagnostics,
@@ -125,6 +134,28 @@ impl ObservabilityConfig {
             return Err(ConfigFieldError::new(
                 "observability.max_line_bytes",
                 "must not exceed 16384",
+            ));
+        }
+        if !(MIN_RESOURCE_SAMPLE_INTERVAL_MS..=MAX_RESOURCE_SAMPLE_INTERVAL_MS)
+            .contains(&self.resource_stats.sample_interval_ms)
+        {
+            return Err(ConfigFieldError::new(
+                "observability.resource_stats.sample_interval_ms",
+                "must be between 250 and 600000",
+            ));
+        }
+        if !(MIN_RESOURCE_DISK_BYTES..=MAX_RESOURCE_DISK_BYTES)
+            .contains(&self.resource_stats.max_disk_bytes)
+        {
+            return Err(ConfigFieldError::new(
+                "observability.resource_stats.max_disk_bytes",
+                "must be between 131072 and 4194304",
+            ));
+        }
+        if self.resource_stats.max_disk_bytes % 2 != 0 {
+            return Err(ConfigFieldError::new(
+                "observability.resource_stats.max_disk_bytes",
+                "must be divisible by two",
             ));
         }
         require_usize_at_least(
@@ -196,6 +227,24 @@ impl ObservabilityConfig {
             ));
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ResourceStatsConfig {
+    pub enabled: bool,
+    pub sample_interval_ms: u64,
+    pub max_disk_bytes: u64,
+}
+
+impl Default for ResourceStatsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            sample_interval_ms: 2_000,
+            max_disk_bytes: 1024 * 1024,
+        }
     }
 }
 
