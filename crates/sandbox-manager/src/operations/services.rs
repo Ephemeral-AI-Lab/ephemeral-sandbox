@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::export_apply::ExportApplyCaps;
 use crate::{
     ResourceRingStore, ResourceSample, SandboxDaemonClient, SandboxDaemonInstaller, SandboxRuntime,
-    SandboxState, SandboxStore, WorkspaceRootPolicy,
+    SandboxStore, WorkspaceRootPolicy,
 };
 
 pub(crate) const MAX_RESOURCE_HISTORY_MS: i64 = 600_000;
@@ -144,24 +144,20 @@ fn sample_ready_sandboxes(
     runtime: &Arc<dyn SandboxRuntime>,
     resource_ring: &ResourceRingStore,
 ) -> usize {
-    let Ok(records) = store.list() else {
+    let Ok(ids) = store.ready_ids() else {
         return 0;
     };
-    records
+    runtime
+        .read_sandbox_resource_metrics_batch(&ids)
         .into_iter()
-        .filter(|record| record.state == SandboxState::Ready)
-        .filter_map(|record| {
-            let metrics = runtime.read_sandbox_resource_metrics(&record.id).ok()?;
+        .filter_map(|(id, metrics)| {
+            let metrics = metrics.ok()?;
             let sample = ResourceSample {
                 sampled_at_unix_ms: now_unix_ms(),
                 metrics,
             };
             resource_ring
-                .append_if(&record.id, sample, || {
-                    store
-                        .inspect(&record.id)
-                        .is_ok_and(|current| current.state == SandboxState::Ready)
-                })
+                .append_if(&id, sample, || store.is_ready(&id).is_ok_and(|ready| ready))
                 .ok()
                 .filter(|appended| *appended)
         })

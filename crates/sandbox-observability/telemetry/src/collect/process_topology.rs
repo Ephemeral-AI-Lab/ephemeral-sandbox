@@ -494,7 +494,16 @@ impl DaemonProcessMetrics {
         };
         let mut warnings = WarningBuffer::default();
         let status = parse_daemon_status(&status.text);
-        let usage = read_process_usage(&pid_root, pid, clock_ticks_per_second(), &mut warnings);
+        let mut usage = read_process_usage(&pid_root, pid, clock_ticks_per_second(), &mut warnings);
+        if let Some(precise_cpu_time_us) = read_schedstat_cpu_time_us(&pid_root) {
+            usage.cpu_time_us = Some(
+                usage
+                    .cpu_time_us
+                    .map_or(precise_cpu_time_us, |coarse_cpu_time_us| {
+                        coarse_cpu_time_us.max(precise_cpu_time_us)
+                    }),
+            );
+        }
         let memory = read_daemon_smaps(&pid_root, &mut warnings);
         let io = read_daemon_io(&pid_root, &mut warnings);
         let file_descriptor_count = count_file_descriptors(&pid_root, &mut warnings);
@@ -808,6 +817,20 @@ fn read_process_usage(
             ProcessUsage::default()
         }
     }
+}
+
+fn read_schedstat_cpu_time_us(pid_root: &Path) -> Option<u64> {
+    let schedstat = read_bounded(&pid_root.join("schedstat"), STAT_LIMIT).ok()?;
+    if schedstat.truncated {
+        return None;
+    }
+    let runtime_ns = schedstat
+        .text
+        .split_whitespace()
+        .next()?
+        .parse::<u128>()
+        .ok()?;
+    u64::try_from(runtime_ns / 1_000).ok()
 }
 
 fn parse_proc_stat(stat: &str) -> io::Result<(u64, u64)> {

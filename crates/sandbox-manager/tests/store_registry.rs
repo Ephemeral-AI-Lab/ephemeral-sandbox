@@ -60,6 +60,30 @@ fn load(path: &Path) -> SandboxStore {
 }
 
 #[test]
+fn ready_ids_are_filtered_and_sorted() {
+    let store = SandboxStore::new();
+    store
+        .insert(ready_record("zulu", 7100))
+        .expect("insert zulu");
+    store
+        .create(id("creating"), PathBuf::from("/tmp/workspaces/creating"))
+        .expect("create non-ready sandbox");
+    store
+        .insert(ready_record("alpha", 7200))
+        .expect("insert alpha");
+
+    assert_eq!(
+        store.ready_ids().expect("list ready ids"),
+        vec![id("alpha"), id("zulu")]
+    );
+    assert!(store.is_ready(&id("zulu")).expect("inspect ready state"));
+    assert!(!store
+        .is_ready(&id("creating"))
+        .expect("inspect creating state"));
+    assert!(store.is_ready(&id("missing")).is_err());
+}
+
+#[test]
 fn mutations_survive_reload() {
     let dir = RegistryDir::new("reload");
     let path = dir.snapshot_path();

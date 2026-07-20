@@ -1,10 +1,11 @@
-//! Bollard client wrapper plus the async→sync bridge (§4.9): every call spawns a
-//! fresh thread, builds a current-thread tokio runtime inside it, constructs the
-//! bollard client inside that runtime, blocks on the operation, and joins. A
-//! bollard `Docker` handle is never reused across ephemeral runtimes.
+//! Bollard client wrapper plus the async→sync bridge (§4.9). Ordinary operations
+//! use a fresh thread, current-thread Tokio runtime, and Bollard client. The hot
+//! resource-metrics batch path lazily retains one executor so periodic sampling
+//! does not rebuild that stack or cross a worker-thread channel every cycle.
 
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::Mutex;
 
 use bollard::container::{
     Config, CreateContainerOptions, ListContainersOptions, LogsOptions, RemoveContainerOptions,
@@ -18,7 +19,7 @@ use bollard::models::{
 use bollard::volume::{CreateVolumeOptions, RemoveVolumeOptions};
 use bollard::Docker;
 use bytes::Bytes;
-use futures_util::StreamExt as _;
+use futures_util::{future::join_all, StreamExt as _};
 
 use sandbox_config::configs::manager::DockerRuntimeConfig;
 use sandbox_manager::SandboxResourceProfile;
@@ -81,6 +82,40 @@ pub(crate) struct ContainerResourceMetrics {
     pub(crate) io_write_bytes: Option<u64>,
 }
 
+type ResourceMetricsBatch = Vec<Result<ContainerResourceMetrics, DockerError>>;
+
+struct ResourceMetricsExecutor {
+    runtime: tokio::runtime::Runtime,
+    docker: Docker,
+}
+
+impl ResourceMetricsExecutor {
+    fn start(endpoint: Option<String>, connect_timeout_s: u64) -> Result<Self, DockerError> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|error| {
+                DockerError::Connect(format!(
+                    "failed to build docker resource metrics runtime: {error}"
+                ))
+            })?;
+        let docker = connect(endpoint.as_deref(), connect_timeout_s)?;
+        Ok(Self { runtime, docker })
+    }
+
+    fn read(&self, containers: Vec<String>) -> Result<ResourceMetricsBatch, DockerError> {
+        Ok(self.runtime.block_on(read_container_resource_metrics_batch(
+            &self.docker,
+            containers,
+        )))
+    }
+
+    #[cfg(test)]
+    fn identity(&self) -> usize {
+        std::ptr::from_ref(self).addr()
+    }
+}
+
 /// Result of starting a container and resolving its published daemon ports (the
 /// JSON-line RPC port and the HTTP-surface port).
 pub(crate) struct StartedContainer {
@@ -105,11 +140,15 @@ pub(crate) struct RecoveredContainer {
 
 pub(crate) struct DockerEngine {
     config: DockerRuntimeConfig,
+    resource_metrics_executor: Mutex<Option<ResourceMetricsExecutor>>,
 }
 
 impl DockerEngine {
     pub(crate) fn new(config: DockerRuntimeConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            resource_metrics_executor: Mutex::new(None),
+        }
     }
 
     pub(crate) fn config(&self) -> &DockerRuntimeConfig {
@@ -255,26 +294,33 @@ impl DockerEngine {
         container: String,
     ) -> Result<ContainerResourceMetrics, DockerError> {
         self.run_blocking(move |docker| async move {
-            let mut stats = docker.stats(
-                &container,
-                Some(StatsOptions {
-                    stream: false,
-                    one_shot: true,
-                }),
-            );
-            let stats = match stats.next().await {
-                Some(Ok(stats)) => stats,
-                Some(Err(error)) => {
-                    return Err(DockerError::Api(format!("container stats: {error}")));
-                }
-                None => {
-                    return Err(DockerError::Api(
-                        "container stats returned no response".to_owned(),
-                    ));
-                }
-            };
-            Ok(container_resource_metrics(&stats))
+            read_container_resource_metrics(&docker, &container).await
         })
+    }
+
+    pub(crate) fn container_resource_metrics_batch(
+        &self,
+        containers: Vec<String>,
+    ) -> Result<Vec<Result<ContainerResourceMetrics, DockerError>>, DockerError> {
+        if tokio::runtime::Handle::try_current().is_ok() {
+            return self.run_blocking(move |docker| async move {
+                Ok(read_container_resource_metrics_batch(&docker, containers).await)
+            });
+        }
+
+        let mut executor = self.resource_metrics_executor.lock().map_err(|_| {
+            DockerError::Api("docker resource metrics executor lock poisoned".to_owned())
+        })?;
+        if executor.is_none() {
+            *executor = Some(ResourceMetricsExecutor::start(
+                self.config.docker_endpoint.clone(),
+                self.config.connect_timeout_s,
+            )?);
+        }
+        executor
+            .as_ref()
+            .expect("resource metrics executor initialized")
+            .read(containers)
     }
 
     pub(crate) fn seed_volume_from_archive(
@@ -492,6 +538,42 @@ impl DockerEngine {
             Ok(inspected.state.as_ref().and_then(container_exit_reason))
         })
     }
+}
+
+async fn read_container_resource_metrics(
+    docker: &Docker,
+    container: &str,
+) -> Result<ContainerResourceMetrics, DockerError> {
+    let mut stats = docker.stats(
+        container,
+        Some(StatsOptions {
+            stream: false,
+            one_shot: true,
+        }),
+    );
+    let stats = match stats.next().await {
+        Some(Ok(stats)) => stats,
+        Some(Err(error)) => {
+            return Err(DockerError::Api(format!("container stats: {error}")));
+        }
+        None => {
+            return Err(DockerError::Api(
+                "container stats returned no response".to_owned(),
+            ));
+        }
+    };
+    Ok(container_resource_metrics(&stats))
+}
+
+async fn read_container_resource_metrics_batch(
+    docker: &Docker,
+    containers: Vec<String>,
+) -> ResourceMetricsBatch {
+    let reads = containers.into_iter().map(|container| {
+        let docker = docker.clone();
+        async move { read_container_resource_metrics(&docker, &container).await }
+    });
+    join_all(reads).await
 }
 
 fn container_resource_metrics(stats: &bollard::container::Stats) -> ContainerResourceMetrics {
@@ -810,5 +892,67 @@ fn server_status(error: &bollard::errors::Error) -> Option<u16> {
     match error {
         bollard::errors::Error::DockerResponseServerError { status_code, .. } => Some(*status_code),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resource_metrics_batches_reuse_one_lazy_executor() {
+        let engine = DockerEngine::new(DockerRuntimeConfig::default());
+        assert!(engine
+            .resource_metrics_executor
+            .lock()
+            .expect("resource metrics executor lock")
+            .is_none());
+
+        assert!(engine
+            .container_resource_metrics_batch(Vec::new())
+            .expect("first empty metrics batch")
+            .is_empty());
+        let first_executor = engine
+            .resource_metrics_executor
+            .lock()
+            .expect("resource metrics executor lock")
+            .as_ref()
+            .map(ResourceMetricsExecutor::identity)
+            .expect("resource metrics executor");
+
+        assert!(engine
+            .container_resource_metrics_batch(Vec::new())
+            .expect("second empty metrics batch")
+            .is_empty());
+        let second_executor = engine
+            .resource_metrics_executor
+            .lock()
+            .expect("resource metrics executor lock")
+            .as_ref()
+            .map(ResourceMetricsExecutor::identity)
+            .expect("resource metrics executor");
+
+        assert_eq!(first_executor, second_executor);
+    }
+
+    #[test]
+    fn resource_metrics_batch_uses_safe_fallback_inside_tokio_runtime() {
+        let engine = DockerEngine::new(DockerRuntimeConfig::default());
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("test runtime");
+
+        runtime.block_on(async {
+            assert!(engine
+                .container_resource_metrics_batch(Vec::new())
+                .expect("empty metrics batch inside Tokio runtime")
+                .is_empty());
+        });
+        assert!(engine
+            .resource_metrics_executor
+            .lock()
+            .expect("resource metrics executor lock")
+            .is_none());
     }
 }

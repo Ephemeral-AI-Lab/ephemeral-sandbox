@@ -1,6 +1,6 @@
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sandbox_config::configs::observability::ResourceStatsConfig;
@@ -9,7 +9,6 @@ use sandbox_observability_telemetry::{
     Attrs, Record, Sample, Sink, SinkStats, COUNTERS_METRIC_KEY, MAX_LINE_BYTES,
 };
 use serde_json::{json, Value};
-use tokio::time::MissedTickBehavior;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
@@ -43,18 +42,17 @@ impl ResourceSampler {
         if !self.enabled {
             return;
         }
-        let sampler = Arc::clone(self);
+        let (shutdown_tx, shutdown_rx) = mpsc::channel();
         tasks.spawn(async move {
-            let mut interval = tokio::time::interval(sampler.sample_interval);
-            interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
-            loop {
-                tokio::select! {
-                    () = shutdown.cancelled() => break,
-                    _ = interval.tick() => {
-                        let sampler = Arc::clone(&sampler);
-                        let _ = tokio::task::spawn_blocking(move || sampler.sample_once()).await;
-                    }
-                }
+            shutdown.cancelled().await;
+            let _ = shutdown_tx.send(());
+        });
+        let sampler = Arc::clone(self);
+        tasks.spawn_blocking(move || loop {
+            sampler.sample_once();
+            match shutdown_rx.recv_timeout(sampler.sample_interval) {
+                Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
             }
         });
     }
@@ -147,6 +145,8 @@ fn unix_now_ms() -> i64 {
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::{Condvar, Mutex};
 
     static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
@@ -277,5 +277,137 @@ mod tests {
         let _ = fs::remove_file(&resource_path);
         let _ = fs::remove_file(format!("{}.lock", resource_path.display()));
         let _ = fs::remove_dir_all(cgroup_dir);
+    }
+
+    #[test]
+    fn sampler_owns_one_blocking_worker_and_pressure_workers_retire() {
+        let live_threads = Arc::new(AtomicUsize::new(0));
+        let started_threads = Arc::clone(&live_threads);
+        let stopped_threads = Arc::clone(&live_threads);
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .max_blocking_threads(4)
+            .thread_keep_alive(Duration::from_millis(10))
+            .on_thread_start(move || {
+                started_threads.fetch_add(1, Ordering::SeqCst);
+            })
+            .on_thread_stop(move || {
+                stopped_threads.fetch_sub(1, Ordering::SeqCst);
+            })
+            .enable_all()
+            .build()
+            .expect("build sampler regression runtime");
+
+        runtime.block_on(async {
+            let cgroup_dir = cgroup_fixture("blocking-worker-cgroup");
+            let resource_path = cgroup_dir.parent().expect("fixture parent").join(format!(
+                "{}-resources.ndjson",
+                cgroup_dir
+                    .file_name()
+                    .expect("fixture directory name")
+                    .to_string_lossy()
+            ));
+            let sampler = Arc::new(test_sampler(
+                cgroup_dir.clone(),
+                resource_path.clone(),
+                Duration::from_millis(1),
+            ));
+            let tasks = TaskTracker::new();
+            let shutdown = CancellationToken::new();
+            sampler.start(&tasks, shutdown.clone());
+
+            tokio::time::timeout(Duration::from_secs(1), async {
+                loop {
+                    if fs::metadata(&resource_path).is_ok() {
+                        break;
+                    }
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("sampler starts before timeout");
+
+            tokio::time::timeout(Duration::from_secs(1), async {
+                loop {
+                    if live_threads.load(Ordering::SeqCst) == 2 {
+                        break;
+                    }
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("runtime has one core worker and one sampler worker");
+
+            let release = Arc::new((Mutex::new(false), Condvar::new()));
+            let started_pressure = Arc::new(AtomicUsize::new(0));
+            let pressure = (0..4)
+                .map(|_| {
+                    let release = Arc::clone(&release);
+                    let started_pressure = Arc::clone(&started_pressure);
+                    tokio::task::spawn_blocking(move || {
+                        started_pressure.fetch_add(1, Ordering::SeqCst);
+                        let (released, wake) = &*release;
+                        let mut released = released.lock().expect("lock pressure release");
+                        while !*released {
+                            released = wake.wait(released).expect("wait for pressure release");
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
+            tokio::time::timeout(Duration::from_secs(1), async {
+                loop {
+                    if started_pressure.load(Ordering::SeqCst) == 3 {
+                        break;
+                    }
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("pressure activates the three non-sampler blocking slots");
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            assert_eq!(
+                started_pressure.load(Ordering::SeqCst),
+                3,
+                "the owned sampler worker must not accept unrelated blocking work"
+            );
+
+            {
+                let (released, wake) = &*release;
+                *released.lock().expect("lock pressure release") = true;
+                wake.notify_all();
+            }
+            for task in pressure {
+                task.await.expect("pressure worker joins");
+            }
+
+            tokio::time::timeout(Duration::from_secs(1), async {
+                loop {
+                    if live_threads.load(Ordering::SeqCst) == 2 {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                }
+            })
+            .await
+            .expect("pressure workers retire after keepalive");
+
+            shutdown.cancel();
+            tasks.close();
+            tasks.wait().await;
+            tokio::time::timeout(Duration::from_secs(1), async {
+                loop {
+                    if live_threads.load(Ordering::SeqCst) == 1 {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                }
+            })
+            .await
+            .expect("sampler worker retires after shutdown");
+
+            let _ = fs::remove_file(&resource_path);
+            let _ = fs::remove_file(format!("{}.lock", resource_path.display()));
+            let _ = fs::remove_dir_all(cgroup_dir);
+        });
     }
 }

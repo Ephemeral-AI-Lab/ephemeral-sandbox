@@ -49,4 +49,17 @@ pub trait SandboxRuntime: Send + Sync {
             message: "sandbox runtime does not support read-only resource metrics".to_owned(),
         })
     }
+
+    fn read_sandbox_resource_metrics_batch(
+        &self,
+        ids: &[SandboxId],
+    ) -> Vec<(SandboxId, Result<SandboxResourceMetrics, ManagerError>)> {
+        ids.iter()
+            .cloned()
+            .map(|id| {
+                let metrics = self.read_sandbox_resource_metrics(&id);
+                (id, metrics)
+            })
+            .collect()
+    }
 }

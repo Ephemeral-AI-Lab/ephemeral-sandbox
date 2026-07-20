@@ -169,6 +169,27 @@ fn latest_read_returns_one_record_without_scanning_or_repairing_old_history() {
 }
 
 #[test]
+fn latest_read_uses_memory_cache_and_remove_invalidates_it() {
+    let temp = TempRoot::new("latest-cache");
+    let sandbox = id("latest-cache-sandbox");
+    let ring = ResourceRingStore::new(temp.path().join("rings"));
+    let latest = sample(42);
+    ring.append(&sandbox, latest)
+        .expect("append cached resource sample");
+
+    fs::remove_file(ring.path(&sandbox)).expect("remove ring behind cache");
+    assert_eq!(ring.read_latest(&sandbox).samples, vec![latest]);
+
+    ring.remove(&sandbox).expect("invalidate cached sample");
+    let missing = ring.read_latest(&sandbox);
+    assert!(missing.samples.is_empty());
+    assert_eq!(
+        missing.error.as_deref(),
+        Some("resource ring is not available yet")
+    );
+}
+
+#[test]
 fn ring_recovers_from_torn_header_unsupported_version_and_partial_length() {
     let temp = TempRoot::new("header-recovery");
     let sandbox = id("header-sandbox");

@@ -10,8 +10,8 @@ use sandbox_config::configs::manager::DockerRuntimeConfig;
 use sandbox_config::configs::runtime::RuntimeConfig;
 use sandbox_manager::{
     CreateSandboxRequest, CreateSandboxResult, ManagerError, SandboxDaemonEndpoint,
-    SandboxHttpEndpoint, SandboxId, SandboxRecord, SandboxResourceProfile, SandboxRuntime,
-    SandboxState, SharedBaseMount,
+    SandboxHttpEndpoint, SandboxId, SandboxRecord, SandboxResourceMetrics, SandboxResourceProfile,
+    SandboxRuntime, SandboxState, SharedBaseMount,
 };
 
 use crate::archive::{build_shared_base_seed_archive, build_shared_base_volume_archive};
@@ -177,18 +177,48 @@ impl SandboxRuntime for DockerSandboxRuntime {
     fn read_sandbox_resource_metrics(
         &self,
         id: &SandboxId,
-    ) -> Result<sandbox_manager::SandboxResourceMetrics, ManagerError> {
+    ) -> Result<SandboxResourceMetrics, ManagerError> {
         let metrics = self
             .engine
             .container_resource_metrics(id.as_str().to_owned())
             .map_err(runtime_failed)?;
-        Ok(sandbox_manager::SandboxResourceMetrics {
-            cpu_usage_usec: metrics.cpu_usage_usec,
-            memory_current_bytes: metrics.memory_current_bytes,
-            memory_limit_bytes: metrics.memory_limit_bytes,
-            io_read_bytes: metrics.io_read_bytes,
-            io_write_bytes: metrics.io_write_bytes,
-        })
+        Ok(manager_resource_metrics(metrics))
+    }
+
+    fn read_sandbox_resource_metrics_batch(
+        &self,
+        ids: &[SandboxId],
+    ) -> Vec<(SandboxId, Result<SandboxResourceMetrics, ManagerError>)> {
+        let containers = ids.iter().map(|id| id.as_str().to_owned()).collect();
+        match self.engine.container_resource_metrics_batch(containers) {
+            Ok(metrics) => ids
+                .iter()
+                .cloned()
+                .zip(metrics)
+                .map(|(id, metrics)| {
+                    (
+                        id,
+                        metrics
+                            .map(manager_resource_metrics)
+                            .map_err(runtime_failed),
+                    )
+                })
+                .collect(),
+            Err(error) => {
+                let message = error.to_string();
+                ids.iter()
+                    .cloned()
+                    .map(|id| {
+                        (
+                            id,
+                            Err(ManagerError::RuntimeFailed {
+                                message: message.clone(),
+                            }),
+                        )
+                    })
+                    .collect()
+            }
+        }
     }
 
     fn create_sandbox(
@@ -582,6 +612,18 @@ fn build_shared_base_volume_labels(
 fn runtime_failed(error: DockerError) -> ManagerError {
     ManagerError::RuntimeFailed {
         message: error.to_string(),
+    }
+}
+
+fn manager_resource_metrics(
+    metrics: crate::engine::ContainerResourceMetrics,
+) -> SandboxResourceMetrics {
+    SandboxResourceMetrics {
+        cpu_usage_usec: metrics.cpu_usage_usec,
+        memory_current_bytes: metrics.memory_current_bytes,
+        memory_limit_bytes: metrics.memory_limit_bytes,
+        io_read_bytes: metrics.io_read_bytes,
+        io_write_bytes: metrics.io_write_bytes,
     }
 }
 

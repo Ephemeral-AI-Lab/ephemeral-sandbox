@@ -137,6 +137,24 @@ impl SandboxStore {
         Ok(records)
     }
 
+    pub fn ready_ids(&self) -> Result<Vec<SandboxId>, ManagerError> {
+        let mut ids = self
+            .records()?
+            .iter()
+            .filter(|(_, record)| record.state == SandboxState::Ready)
+            .map(|(id, _)| id.clone())
+            .collect::<Vec<_>>();
+        ids.sort();
+        Ok(ids)
+    }
+
+    pub fn is_ready(&self, id: &SandboxId) -> Result<bool, ManagerError> {
+        self.records()?
+            .get(id)
+            .map(|record| record.state == SandboxState::Ready)
+            .ok_or_else(|| ManagerError::MissingSandbox { id: id.clone() })
+    }
+
     pub fn inspect(&self, id: &SandboxId) -> Result<SandboxRecord, ManagerError> {
         self.records()?
             .get(id)

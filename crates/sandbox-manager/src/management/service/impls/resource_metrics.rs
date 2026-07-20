@@ -3,9 +3,7 @@ use serde_json::{json, Map, Value};
 
 use crate::operations::{ManagerServices, MAX_RESOURCE_HISTORY_MS};
 use crate::router::forward_sandbox_request;
-use crate::{
-    ManagerError, ResourceRingRead, ResourceSample, SandboxId, SandboxResourceMetrics, SandboxState,
-};
+use crate::{ManagerError, ResourceRingRead, ResourceSample, SandboxId, SandboxResourceMetrics};
 
 const SANDBOX_SCOPE: &str = "sandbox";
 const DEFAULT_RESOURCE_WINDOW_MS: i64 = 60_000;
@@ -23,29 +21,26 @@ pub(crate) fn dispatch_resources(
 }
 
 fn fleet_resources(services: &ManagerServices) -> OperationResponse {
-    let records = match services.store.list() {
-        Ok(records) => records,
+    let ids = match services.store.ready_ids() {
+        Ok(ids) => ids,
         Err(error) => return error.into_response(),
     };
     let mut sandboxes = Map::new();
     let mut errors = Vec::new();
-    for record in records
-        .into_iter()
-        .filter(|record| record.state == SandboxState::Ready)
-    {
-        let read = services.resource_ring.read_latest(&record.id);
+    for id in ids {
+        let read = services.resource_ring.read_latest(&id);
         let entry_errors = read.error.into_iter().collect::<Vec<_>>();
         errors.extend(
             entry_errors
                 .iter()
-                .map(|message| format!("{}: {message}", record.id.as_str())),
+                .map(|message| format!("{}: {message}", id.as_str())),
         );
         let current = series_value(read.samples)
             .into_iter()
             .last()
             .unwrap_or(Value::Null);
         sandboxes.insert(
-            record.id.as_str().to_owned(),
+            id.as_str().to_owned(),
             json!({
                 "availability": availability(&entry_errors),
                 "errors": entry_errors,

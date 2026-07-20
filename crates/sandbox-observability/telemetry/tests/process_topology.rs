@@ -375,6 +375,7 @@ fn daemon_metrics_collect_memory_cpu_io_threads_fds_and_cgroup() {
         "rchar: 12000\nwchar: 8000\nsyscr: 41\nsyscw: 17\nread_bytes: 4096\nwrite_bytes: 8192\n",
     )
     .expect("daemon io");
+    std::fs::write(pid_root.join("schedstat"), "400123000 0 0\n").expect("daemon schedstat");
     std::fs::write(pid_root.join("cgroup"), "0::/_daemon\n").expect("daemon cgroup");
     std::fs::create_dir(pid_root.join("fd")).expect("daemon fd directory");
     std::fs::write(pid_root.join("fd/3"), "").expect("fd 3");
@@ -397,8 +398,21 @@ fn daemon_metrics_collect_memory_cpu_io_threads_fds_and_cgroup() {
     assert_eq!(metrics.write_syscalls, Some(17));
     assert_eq!(metrics.cgroup_memberships, ["0::/_daemon"]);
     assert_eq!(metrics.cgroup_path.as_deref(), Some("/_daemon"));
-    assert!(metrics.cpu_time_us.is_some_and(|value| value > 0));
+    assert_eq!(metrics.cpu_time_us, Some(400_123));
     assert!(metrics.warnings.is_empty());
+}
+
+#[test]
+fn daemon_metrics_fall_back_to_stat_when_schedstat_is_unavailable() {
+    let root = fixture("daemon-metrics-stat-fallback");
+    let pid = 43;
+    write_process_with_usage(&root, pid, 1, 1, "sandbox-daemon", 'S', 30_000, 25, 15, 900);
+    assert!(!root.join(pid.to_string()).join("schedstat").exists());
+
+    let metrics = DaemonProcessMetrics::collect(&root, pid);
+
+    assert!(metrics.available);
+    assert!(metrics.cpu_time_us.is_some_and(|value| value > 0));
 }
 
 #[test]

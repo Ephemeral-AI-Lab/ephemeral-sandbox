@@ -29,6 +29,7 @@ use serde_json::{json, Value};
 
 struct FakeRuntime {
     counters_available: bool,
+    resource_batches: AtomicU64,
     resource_reads: AtomicU64,
 }
 
@@ -36,6 +37,7 @@ impl Default for FakeRuntime {
     fn default() -> Self {
         Self {
             counters_available: true,
+            resource_batches: AtomicU64::new(0),
             resource_reads: AtomicU64::new(0),
         }
     }
@@ -72,6 +74,20 @@ impl SandboxRuntime for FakeRuntime {
             io_read_bytes: self.counters_available.then_some(4_096),
             io_write_bytes: self.counters_available.then_some(8_192),
         })
+    }
+
+    fn read_sandbox_resource_metrics_batch(
+        &self,
+        ids: &[SandboxId],
+    ) -> Vec<(SandboxId, Result<SandboxResourceMetrics, ManagerError>)> {
+        self.resource_batches.fetch_add(1, Ordering::SeqCst);
+        ids.iter()
+            .cloned()
+            .map(|id| {
+                let metrics = self.read_sandbox_resource_metrics(&id);
+                (id, metrics)
+            })
+            .collect()
     }
 }
 
@@ -535,6 +551,7 @@ async fn manager_single_and_fleet_resource_reads_are_daemon_quiescent_for_ten_th
         );
     }
     assert_eq!(runtime.resource_reads.load(Ordering::SeqCst), 2);
+    assert_eq!(runtime.resource_batches.load(Ordering::SeqCst), 1);
     assert_eq!(
         daemon_client
             .invocations

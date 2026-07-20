@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
@@ -27,7 +28,12 @@ pub struct ResourceRingRead {
 
 pub struct ResourceRingStore {
     root: PathBuf,
-    operation_lock: Mutex<()>,
+    operation_state: Mutex<ResourceRingState>,
+}
+
+#[derive(Default)]
+struct ResourceRingState {
+    latest_samples: HashMap<String, ResourceSample>,
 }
 
 impl ResourceRingStore {
@@ -49,7 +55,7 @@ impl ResourceRingStore {
     pub fn new(root: PathBuf) -> Self {
         Self {
             root,
-            operation_lock: Mutex::new(()),
+            operation_state: Mutex::new(ResourceRingState::default()),
         }
     }
 
@@ -64,8 +70,10 @@ impl ResourceRingStore {
     }
 
     pub fn append(&self, id: &SandboxId, sample: ResourceSample) -> std::io::Result<()> {
-        let _guard = self.guard();
-        self.append_locked(id, sample)
+        let mut state = self.guard();
+        self.append_locked(id, sample)?;
+        state.latest_samples.insert(id.as_str().to_owned(), sample);
+        Ok(())
     }
 
     pub(crate) fn append_if(
@@ -74,24 +82,33 @@ impl ResourceRingStore {
         sample: ResourceSample,
         eligible: impl FnOnce() -> bool,
     ) -> std::io::Result<bool> {
-        let _guard = self.guard();
+        let mut state = self.guard();
         if !eligible() {
             return Ok(false);
         }
         self.append_locked(id, sample)?;
+        state.latest_samples.insert(id.as_str().to_owned(), sample);
         Ok(true)
     }
 
     #[must_use]
     pub fn read_window(&self, id: &SandboxId, window_ms: i64) -> ResourceRingRead {
-        let _guard = self.guard();
-        match self.read_locked(id, window_ms) {
+        let mut state = self.guard();
+        let read = match self.read_locked(id, window_ms) {
             Ok(read) => read,
             Err(error) => ResourceRingRead {
                 samples: Vec::new(),
                 error: Some(error.to_string()),
             },
+        };
+        if read.error.is_none() {
+            if let Some(sample) = read.samples.last().copied() {
+                state.latest_samples.insert(id.as_str().to_owned(), sample);
+            }
+        } else {
+            state.latest_samples.remove(id.as_str());
         }
+        read
     }
 
     /// Read only the current committed sample. Fleet current-usage reads use
@@ -99,23 +116,41 @@ impl ResourceRingStore {
     /// full 64-KiB history ring on every cadence.
     #[must_use]
     pub fn read_latest(&self, id: &SandboxId) -> ResourceRingRead {
-        let _guard = self.guard();
-        match self.read_latest_locked(id) {
+        let mut state = self.guard();
+        if let Some(sample) = state.latest_samples.get(id.as_str()).copied() {
+            return ResourceRingRead {
+                samples: vec![sample],
+                error: None,
+            };
+        }
+        let read = match self.read_latest_locked(id) {
             Ok(read) => read,
             Err(error) => ResourceRingRead {
                 samples: Vec::new(),
                 error: Some(error.to_string()),
             },
+        };
+        if read.error.is_none() {
+            if let Some(sample) = read.samples.last().copied() {
+                state.latest_samples.insert(id.as_str().to_owned(), sample);
+            }
+        } else {
+            state.latest_samples.remove(id.as_str());
         }
+        read
     }
 
     pub fn remove(&self, id: &SandboxId) -> std::io::Result<()> {
-        let _guard = self.guard();
-        match fs::remove_file(self.path(id)) {
+        let mut state = self.guard();
+        let removed = match fs::remove_file(self.path(id)) {
             Ok(()) => Ok(()),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(error) => Err(error),
+        };
+        if removed.is_ok() {
+            state.latest_samples.remove(id.as_str());
         }
+        removed
     }
 
     fn append_locked(&self, id: &SandboxId, sample: ResourceSample) -> std::io::Result<()> {
@@ -265,8 +300,8 @@ impl ResourceRingStore {
         })
     }
 
-    fn guard(&self) -> MutexGuard<'_, ()> {
-        self.operation_lock
+    fn guard(&self) -> MutexGuard<'_, ResourceRingState> {
+        self.operation_state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
