@@ -1161,6 +1161,22 @@ async fn concrete_observability_operations_dispatch_end_to_end() -> TestResult {
             "active_scratch_directories": 0,
             "persisted_workspace_handles": 0,
             "active_layer_leases": 0,
+            "scratch_layout_version": 2,
+            "scratch_route": "workspace_scoped",
+            "active_execution_scratch_leases": 0,
+            "retained_terminal_records": 0,
+            "open_transcript_descriptors": 0,
+            "live_execution_scratch_bytes": 0,
+            "high_water_execution_scratch_bytes": 0,
+            "teardown_join_total": 0,
+            "teardown_deadline_total": 0,
+            "legacy_entries_scanned": 0,
+            "legacy_entries_deleted": 0,
+            "legacy_entries_skipped_active": 0,
+            "legacy_entries_skipped_recent": 0,
+            "legacy_entries_skipped_unsafe": 0,
+            "scratch_cleanup_state": "quiescent",
+            "scratch_quiescent": true,
         })
     );
     assert_eq!(
@@ -1476,7 +1492,7 @@ fn runtime_config(root: &Path) -> TestResult<sandbox_runtime::SandboxRuntimeConf
             },
         },
         namespace_execution: sandbox_runtime::NamespaceExecutionRuntimeConfig {
-            scratch_root: root.join("command-scratch"),
+            scratch_root: Some(root.join("command-scratch")),
             caps: sandbox_runtime::NamespaceExecutionCaps::default(),
         },
         layerstack: sandbox_runtime::LayerstackRuntimeConfig::default(),
@@ -1530,6 +1546,7 @@ fn diagnostic_ownership() -> DaemonOwnershipMetrics {
         active_scratch_directories: Some(1),
         persisted_workspace_handles: Some(1),
         active_layer_leases: Some(1),
+        ..DaemonOwnershipMetrics::default()
     }
 }
 

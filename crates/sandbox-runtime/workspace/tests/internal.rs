@@ -18,6 +18,8 @@ pub mod model;
 mod namespace;
 #[path = "../src/overlay/mod.rs"]
 pub mod overlay;
+#[path = "../src/scratch.rs"]
+pub mod scratch;
 mod service {
     pub use sandbox_runtime_workspace::{
         holder_exit_channel, HolderExitNotifier, HolderExitSubscription,

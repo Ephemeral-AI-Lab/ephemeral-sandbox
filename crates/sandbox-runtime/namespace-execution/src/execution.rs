@@ -11,6 +11,15 @@ pub struct ExecutionHandle<T> {
     promise: Arc<CompletionPromise<T>>,
 }
 
+impl<T> Clone for ExecutionHandle<T> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            promise: Arc::clone(&self.promise),
+        }
+    }
+}
+
 impl<T> ExecutionHandle<T> {
     pub fn new(id: NamespaceExecutionId, promise: Arc<CompletionPromise<T>>) -> Self {
         Self { id, promise }
@@ -52,6 +61,15 @@ fn upcast_waiter<T: Send + 'static>(
 pub struct InteractiveExecution<T> {
     exec: ExecutionHandle<T>,
     pty: PtyMaster,
+}
+
+impl<T> Clone for InteractiveExecution<T> {
+    fn clone(&self) -> Self {
+        Self {
+            exec: self.exec.clone(),
+            pty: self.pty.clone(),
+        }
+    }
 }
 
 impl<T> InteractiveExecution<T> {

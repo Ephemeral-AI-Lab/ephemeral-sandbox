@@ -5,7 +5,8 @@ use sandbox_observability_telemetry::record::names;
 use serde_json::json;
 
 use crate::workspace_crate::{
-    CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, WorkspaceHandle,
+    CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, ExecutionScratchRoute,
+    WorkspaceHandle,
 };
 use crate::workspace_session::{WorkspaceSessionError, WorkspaceSessionService};
 
@@ -21,8 +22,25 @@ impl WorkspaceSessionService {
         &self,
         request: CreateSessionRequest,
     ) -> Result<WorkspaceSessionHandler, WorkspaceSessionError> {
+        self.create_workspace_session_routed(request, ExecutionScratchRoute::WorkspaceScoped)
+    }
+
+    #[doc(hidden)]
+    pub(crate) fn create_workspace_session_legacy_scratch_adapter(
+        &self,
+        request: CreateSessionRequest,
+    ) -> Result<WorkspaceSessionHandler, WorkspaceSessionError> {
+        self.create_workspace_session_routed(request, ExecutionScratchRoute::LegacyCompat)
+    }
+
+    fn create_workspace_session_routed(
+        &self,
+        request: CreateSessionRequest,
+        execution_scratch_route: ExecutionScratchRoute,
+    ) -> Result<WorkspaceSessionHandler, WorkspaceSessionError> {
         self.obs().scope(names::WORKSPACE_SESSION_CREATE, |span| {
             span.attr("finalize_policy", request.finalize_policy.as_str());
+            span.attr("scratch_route", execution_scratch_route.as_str());
             let workspace_session_id = self
                 .workspace()
                 .allocate_workspace_session_id(request.network)?;
@@ -51,6 +69,7 @@ impl WorkspaceSessionService {
                             handle,
                             cgroup_path.filter(|_| cgroup_retry),
                             request.finalize_policy,
+                            execution_scratch_route,
                             raw_rollback,
                             error,
                         ));
@@ -63,6 +82,7 @@ impl WorkspaceSessionService {
                 handle.clone(),
                 cgroup_path.clone(),
                 request.finalize_policy,
+                execution_scratch_route,
             );
             let handler = session.handler();
 
@@ -259,11 +279,17 @@ impl WorkspaceSessionService {
         handle: WorkspaceHandle,
         cgroup_path: Option<std::path::PathBuf>,
         finalize_policy: FinalizePolicy,
+        execution_scratch_route: ExecutionScratchRoute,
         raw_rollback: Result<DestroyWorkspaceResult, crate::workspace_crate::WorkspaceError>,
         setup_error: WorkspaceSessionError,
     ) -> WorkspaceSessionError {
         let workspace_session_id = handle.id.clone();
-        let mut session = WorkspaceSession::from_handle(handle, cgroup_path, finalize_policy);
+        let mut session = WorkspaceSession::from_handle(
+            handle,
+            cgroup_path,
+            finalize_policy,
+            execution_scratch_route,
+        );
         session.finalization_state = FinalizationState::FinalizeFailed;
         let mut failures = vec![format!("workspace setup: {setup_error}")];
         match raw_rollback {

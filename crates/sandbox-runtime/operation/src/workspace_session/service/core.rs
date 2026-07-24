@@ -7,7 +7,7 @@ use sandbox_observability_telemetry::Observer;
 use sandbox_runtime_namespace_execution::NamespaceExecutionId;
 
 use crate::layerstack::LayerStackService;
-use crate::namespace_execution::WorkspaceCommandTeardown;
+use crate::namespace_execution::{WorkspaceCommandReleaseProof, WorkspaceCommandTeardown};
 use crate::services::WorkloadCgroupLimits;
 use crate::workspace_crate::{DestroyWorkspaceResult, WorkspaceRuntimeService, WorkspaceSessionId};
 use crate::workspace_session::WorkspaceSessionError;
@@ -502,16 +502,22 @@ impl WorkspaceSessionService {
     pub(crate) fn release_terminal_commands(
         &self,
         workspace_session_id: &WorkspaceSessionId,
-    ) -> usize {
+    ) -> Result<WorkspaceCommandReleaseProof, String> {
         let teardown = self
             .command_teardown
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .as_ref()
             .and_then(Weak::upgrade);
-        teardown.map_or(0, |teardown| {
-            teardown.release_terminal(workspace_session_id)
-        })
+        teardown.map_or_else(
+            || {
+                Ok(WorkspaceCommandReleaseProof::new(
+                    workspace_session_id.clone(),
+                    0,
+                ))
+            },
+            |owner| owner.release_for_destroy(workspace_session_id),
+        )
     }
 }
 

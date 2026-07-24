@@ -14,6 +14,7 @@ use sandbox_runtime_namespace_execution::{
     open_pty_pair, CompletionPromise, ExecutionHandle, InteractiveExecution, NamespaceExecutionId,
     PtyMaster,
 };
+use sandbox_runtime_workspace::WorkspaceScratchLocator;
 use std::sync::OnceLock;
 
 struct Fixture {
@@ -22,19 +23,23 @@ struct Fixture {
 }
 
 fn fixture(suffix: &str) -> Fixture {
-    let dir = std::env::temp_dir().join(format!(
-        "command-exec-value-{}-{suffix}",
-        std::process::id()
-    ));
-    std::fs::create_dir_all(&dir).expect("create transcript dir");
-    let transcript_path = dir.join("transcript.log");
-    let _ = std::fs::remove_file(&transcript_path);
+    let dir = std::env::current_dir()
+        .expect("current directory")
+        .join("target")
+        .join(format!(
+            "command-exec-value-{}-{suffix}",
+            std::process::id()
+        ));
+    let workspace_session_id = WorkspaceSessionId("workspace-session".to_owned());
+    let execution_id = NamespaceExecutionId("namespace_execution_1".to_owned());
+    let locator = WorkspaceScratchLocator::new(dir).expect("valid scratch locator");
+    let scratch = locator
+        .allocate_execution(&workspace_session_id, &execution_id)
+        .expect("allocate execution scratch");
+    let transcript_path = scratch.transcript_path().to_path_buf();
 
     let promise = Arc::new(CompletionPromise::<CommandTerminalResult>::new());
-    let handle = ExecutionHandle::new(
-        NamespaceExecutionId("namespace_execution_1".to_owned()),
-        promise,
-    );
+    let handle = ExecutionHandle::new(execution_id, promise);
     let (master, _slave) = open_pty_pair().expect("openpt pair");
     let pty = PtyMaster::spawn(
         master,
@@ -47,8 +52,8 @@ fn fixture(suffix: &str) -> Fixture {
     let exec = InteractiveExecution::new(handle, pty);
     let command = CommandExecValue::new(
         exec,
-        transcript_path.clone(),
-        WorkspaceSessionId("workspace-session".to_owned()),
+        scratch,
+        workspace_session_id,
         Instant::now(),
         "exec_command",
         "printf ok".to_owned(),

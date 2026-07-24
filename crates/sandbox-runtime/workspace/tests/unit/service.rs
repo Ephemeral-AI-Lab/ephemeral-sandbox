@@ -456,8 +456,9 @@ struct Fixture {
 
 impl Fixture {
     fn new(label: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let base =
-            std::env::temp_dir().join(format!("workspace-service-{label}-{}", unique_suffix()));
+        let base = std::env::current_dir()?
+            .join("target")
+            .join(format!("workspace-service-{label}-{}", unique_suffix()));
         let _ = std::fs::remove_dir_all(&base);
         let layer_stack_root = base.join("layer-stack");
         let workspace_root = base.join("workspace");

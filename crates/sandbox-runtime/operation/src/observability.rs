@@ -29,6 +29,22 @@ pub struct RuntimeOwnershipSnapshot {
     pub active_scratch_directories: Option<usize>,
     pub persisted_workspace_handles: Option<usize>,
     pub exited_unreaped_holders: Option<usize>,
+    pub scratch_layout_version: Option<u8>,
+    pub scratch_route: Option<String>,
+    pub active_execution_scratch_leases: Option<usize>,
+    pub retained_terminal_records: Option<usize>,
+    pub open_transcript_descriptors: Option<usize>,
+    pub live_execution_scratch_bytes: Option<u64>,
+    pub high_water_execution_scratch_bytes: Option<u64>,
+    pub teardown_join_total: Option<u64>,
+    pub teardown_deadline_total: Option<u64>,
+    pub legacy_entries_scanned: Option<usize>,
+    pub legacy_entries_deleted: Option<usize>,
+    pub legacy_entries_skipped_active: Option<usize>,
+    pub legacy_entries_skipped_recent: Option<usize>,
+    pub legacy_entries_skipped_unsafe: Option<usize>,
+    pub scratch_cleanup_state: Option<String>,
+    pub scratch_quiescent: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

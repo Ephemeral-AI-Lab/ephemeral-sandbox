@@ -805,6 +805,8 @@ fn exec_command_spawn_failure_keeps_session_workspace_alive() {
         !env.command
             .config()
             .scratch_root
+            .join("workspace-session")
+            .join("executions")
             .join("namespace_execution_1")
             .exists(),
         "session spawn failure should clean up unretained command artifacts"
@@ -835,14 +837,17 @@ fn destroy_workspace_session_waits_for_existing_session_exec_until_active_insert
         ),
     );
     let config = sandbox_runtime::command::CommandConfig {
-        scratch_root: std::env::temp_dir().join(format!(
-            "blocking-launcher-test-{}-{}",
-            std::process::id(),
-            {
-                static N: AtomicU64 = AtomicU64::new(0);
-                N.fetch_add(1, Ordering::Relaxed)
-            }
-        )),
+        scratch_root: std::env::current_dir()
+            .expect("current directory")
+            .join("target")
+            .join(format!(
+                "blocking-launcher-test-{}-{}",
+                std::process::id(),
+                {
+                    static N: AtomicU64 = AtomicU64::new(0);
+                    N.fetch_add(1, Ordering::Relaxed)
+                }
+            )),
         ..sandbox_runtime::command::CommandConfig::default()
     };
     let command = Arc::new(
@@ -959,6 +964,8 @@ fn exec_command_passes_workspace_entry_to_spawn_paths() {
         env.command
             .config()
             .scratch_root
+            .join("workspace-session")
+            .join("executions")
             .join("namespace_execution_1")
             .join("transcript.log")
     );
@@ -1395,6 +1402,8 @@ fn write_command_stdin_finalizes_when_command_completes_after_write() {
         .command
         .config()
         .scratch_root
+        .join("workspace-session")
+        .join("executions")
         .join("namespace_execution_1")
         .join("transcript.log");
     std::thread::spawn(move || {

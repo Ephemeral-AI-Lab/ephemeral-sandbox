@@ -192,6 +192,14 @@ fn attach_records_the_caller_value() {
         registry.live_values(|value| Some(value.clone())),
         vec!["command-handle".to_owned()]
     );
+
+    registry.complete(&id(1), NamespaceExecutionTerminalStatus::Ok, Some(0));
+
+    assert!(registry.live_values(|value| Some(value.clone())).is_empty());
+    assert_eq!(
+        registry.retained_values(|value| Some(value.clone())),
+        vec!["command-handle".to_owned()]
+    );
 }
 
 #[test]

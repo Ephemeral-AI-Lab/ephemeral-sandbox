@@ -316,19 +316,27 @@ impl SandboxRuntimeOperations {
     pub fn from_config(config: SandboxRuntimeConfig, observer: Observer) -> Self {
         let layer_stack_root = config.workspace.layer_stack_root.clone();
         let workspace_scratch_root = config.workspace.scratch_root.clone();
+        let scratch_locator =
+            crate::workspace_crate::WorkspaceScratchLocator::new(workspace_scratch_root.clone())
+                .expect("workspace scratch locator initialization failed");
+        let legacy_scratch_root = config.namespace_execution.scratch_root.clone();
+        let legacy_scratch_locator = legacy_scratch_root.clone().map(|root| {
+            crate::workspace_crate::LegacyExecutionScratchLocator::new(root)
+                .expect("legacy compatibility scratch locator initialization failed")
+        });
         let file = Arc::new(
             FileService::open(file_auditability_dir(&layer_stack_root), config.file)
                 .expect("file auditability store initialization failed"),
         );
         let workspace_runtime = Arc::new(WorkspaceRuntimeService::new(
-            WorkspaceManager::new(
+            WorkspaceManager::with_scratch_locator(
                 config
                     .workspace
                     .workspace_root
                     .to_string_lossy()
                     .into_owned(),
                 config.workspace.caps.clone().into(),
-                config.workspace.scratch_root,
+                scratch_locator.clone(),
                 observer.clone(),
             ),
             layer_stack_root.clone(),
@@ -356,7 +364,7 @@ impl SandboxRuntimeOperations {
         let layerstack = Arc::new(
             LayerStackService::new(
                 layer_stack_root,
-                workspace_scratch_root,
+                workspace_scratch_root.clone(),
                 config.layerstack,
                 observer.clone(),
                 Arc::clone(&file),
@@ -390,18 +398,40 @@ impl SandboxRuntimeOperations {
                 ),
             },
         );
-        let command = Arc::new(CommandOperationService::new(
+        let command = Arc::new(CommandOperationService::new_with_locators(
             Arc::clone(&workspace_session),
             crate::command::CommandConfig {
-                scratch_root: config.namespace_execution.scratch_root,
+                scratch_root: workspace_scratch_root,
                 max_active: config.command.max_active,
                 setup_timeout_s: config.workspace.caps.setup_timeout_s,
                 read_lines_default: config.command.read_lines_default,
                 read_lines_max: config.command.read_lines_max,
                 execution: config.namespace_execution.caps,
             },
+            scratch_locator,
+            legacy_scratch_locator,
             observer.clone(),
         ));
+        let legacy_reap = crate::workspace_scratch_compat::reap_legacy_execution_scratch(
+            legacy_scratch_root.as_deref(),
+            &std::collections::HashSet::new(),
+            std::time::SystemTime::now(),
+            crate::workspace_scratch_compat::LEGACY_REAP_MIN_AGE,
+        );
+        command.record_legacy_scratch_reap(legacy_reap.clone());
+        observer.event(
+            "legacy_execution_scratch_reap",
+            serde_json::json!({
+                "root_configured": legacy_reap.root_configured,
+                "scanned_entries": legacy_reap.scanned_entries,
+                "deleted": legacy_reap.deleted,
+                "skipped_active": legacy_reap.skipped_active,
+                "skipped_recent": legacy_reap.skipped_recent,
+                "skipped_unsafe": legacy_reap.skipped_unsafe,
+                "errors": legacy_reap.errors,
+                "saturated": legacy_reap.saturated,
+            }),
+        );
         boot_remove_export_spools(&layerstack);
         boot_reap_then_sweep(&workspace_session, &layerstack, &observer);
         Self::new(command, workspace_session, layerstack, file)
@@ -435,6 +465,7 @@ impl SandboxRuntimeOperations {
     }
 
     fn ownership_snapshot(&self, partial_errors: &mut Vec<String>) -> RuntimeOwnershipSnapshot {
+        let command = self.command.scratch_ownership_snapshot();
         match self.workspace_session.workspace().ownership_snapshot() {
             Ok(snapshot) => RuntimeOwnershipSnapshot {
                 namespace_fd_count: Some(snapshot.namespace_fd_count),
@@ -442,10 +473,44 @@ impl SandboxRuntimeOperations {
                 active_scratch_directories: Some(snapshot.active_scratch_directories),
                 persisted_workspace_handles: Some(snapshot.persisted_workspace_handles),
                 exited_unreaped_holders: Some(snapshot.exited_unreaped_holders),
+                scratch_layout_version: Some(command.layout_version),
+                scratch_route: Some(command.route.to_owned()),
+                active_execution_scratch_leases: Some(command.active_leases),
+                retained_terminal_records: Some(command.retained_terminal_records),
+                open_transcript_descriptors: Some(command.open_transcript_descriptors),
+                live_execution_scratch_bytes: Some(command.live_bytes),
+                high_water_execution_scratch_bytes: Some(command.high_water_bytes),
+                teardown_join_total: Some(command.teardown_join_total),
+                teardown_deadline_total: Some(command.teardown_deadline_total),
+                legacy_entries_scanned: Some(command.legacy.scanned_entries),
+                legacy_entries_deleted: Some(command.legacy.deleted),
+                legacy_entries_skipped_active: Some(command.legacy.skipped_active),
+                legacy_entries_skipped_recent: Some(command.legacy.skipped_recent),
+                legacy_entries_skipped_unsafe: Some(command.legacy.skipped_unsafe),
+                scratch_cleanup_state: Some(command.cleanup_state.to_owned()),
+                scratch_quiescent: Some(command.quiescent),
             },
             Err(error) => {
                 partial_errors.push(format!("workspace ownership snapshot failed: {error}"));
-                RuntimeOwnershipSnapshot::default()
+                RuntimeOwnershipSnapshot {
+                    scratch_layout_version: Some(command.layout_version),
+                    scratch_route: Some(command.route.to_owned()),
+                    active_execution_scratch_leases: Some(command.active_leases),
+                    retained_terminal_records: Some(command.retained_terminal_records),
+                    open_transcript_descriptors: Some(command.open_transcript_descriptors),
+                    live_execution_scratch_bytes: Some(command.live_bytes),
+                    high_water_execution_scratch_bytes: Some(command.high_water_bytes),
+                    teardown_join_total: Some(command.teardown_join_total),
+                    teardown_deadline_total: Some(command.teardown_deadline_total),
+                    legacy_entries_scanned: Some(command.legacy.scanned_entries),
+                    legacy_entries_deleted: Some(command.legacy.deleted),
+                    legacy_entries_skipped_active: Some(command.legacy.skipped_active),
+                    legacy_entries_skipped_recent: Some(command.legacy.skipped_recent),
+                    legacy_entries_skipped_unsafe: Some(command.legacy.skipped_unsafe),
+                    scratch_cleanup_state: Some(command.cleanup_state.to_owned()),
+                    scratch_quiescent: Some(command.quiescent),
+                    ..RuntimeOwnershipSnapshot::default()
+                }
             }
         }
     }
@@ -761,7 +826,7 @@ pub struct WorkspaceRuntimeConfig {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NamespaceExecutionRuntimeConfig {
-    pub scratch_root: std::path::PathBuf,
+    pub scratch_root: Option<std::path::PathBuf>,
     pub caps: NamespaceExecutionCaps,
 }
 

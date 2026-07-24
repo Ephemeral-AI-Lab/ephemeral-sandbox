@@ -14,9 +14,9 @@ pub const OPAQUE_MARKER: &str = ".wh..wh..opq";
 pub(crate) const TRUSTED_OVERLAY_WHITEOUT_XATTR: &str = "trusted.overlay.whiteout";
 #[cfg(unix)]
 pub(crate) const USER_OVERLAY_WHITEOUT_XATTR: &str = "user.overlay.whiteout";
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 pub(crate) const TRUSTED_OVERLAY_OPAQUE_XATTR: &str = "trusted.overlay.opaque";
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 pub(crate) const USER_OVERLAY_OPAQUE_XATTR: &str = "user.overlay.opaque";
 #[cfg(target_os = "linux")]
 const WHITEOUT_DEVICE_MAJOR: u32 = 0;

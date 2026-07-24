@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::sync::{Arc, MutexGuard, PoisonError};
 use std::time::Instant;
 
@@ -13,7 +12,9 @@ use crate::command::service::CommandOperationService;
 use crate::command::{
     CommandExecValue, CommandOutput, CommandServiceError, CommandTerminalResult, ExecCommandInput,
 };
-use crate::workspace_crate::{DestroyWorkspaceRequest, NetworkProfile, WorkspaceEntry};
+use crate::workspace_crate::{
+    DestroyWorkspaceRequest, ExecutionScratchRoute, NetworkProfile, WorkspaceEntry,
+};
 use crate::workspace_session::{
     AdmittedCommand, CreateSessionRequest, FinalizePolicy, WorkspaceSessionError,
     WorkspaceSessionHandler,
@@ -64,15 +65,33 @@ impl CommandOperationService {
             };
             span.attr("finalize_policy", admitted.finalize_policy.as_str());
 
-            let (entry, transcript_path) = match workspace_entry(&admitted.handler)
-                .and_then(|entry| self.prepare_transcript_path(&id).map(|path| (entry, path)))
-            {
-                Ok(pair) => pair,
-                Err(error) => {
-                    self.complete_admitted(&admitted, admission_guard);
-                    return Err(error);
-                }
-            };
+            span.attr("scratch_layout_version", 2_u64);
+            span.attr(
+                "scratch_route",
+                admitted.handler.execution_scratch_route.as_str(),
+            );
+            span.attr(
+                "workspace_session_hash",
+                stable_identifier_hash(&workspace_session_id.0),
+            );
+            span.attr("namespace_execution_hash", stable_identifier_hash(&id.0));
+
+            let (entry, execution_scratch) =
+                match workspace_entry(&admitted.handler).and_then(|entry| {
+                    self.prepare_execution_scratch(
+                        admitted.handler.execution_scratch_route,
+                        &workspace_session_id,
+                        &id,
+                    )
+                    .map(|scratch| (entry, scratch))
+                }) {
+                    Ok(pair) => pair,
+                    Err(error) => {
+                        self.complete_admitted(&admitted, admission_guard);
+                        return Err(error);
+                    }
+                };
+            let transcript_path = execution_scratch.transcript_path().to_path_buf();
 
             let started_at = Instant::now();
             let exec_command = ExecCommand {
@@ -82,10 +101,22 @@ impl CommandOperationService {
                 started_at,
             };
             let on_complete = {
+                let engine = Arc::clone(self.engine());
+                let terminal_drains = Arc::clone(self.terminal_drains());
+                let command_session_id = id.clone();
+                let retain_terminal_drain =
+                    admitted.finalize_policy == FinalizePolicy::PublishThenDestroy;
                 let token_slot = Arc::clone(&admitted.token_slot);
                 let obs = self.obs().clone();
                 let ctx = self.obs().context();
-                move |_result: &Result<CommandTerminalResult, NamespaceExecutionError>| {
+                move |result: &Result<CommandTerminalResult, NamespaceExecutionError>| {
+                    if retain_terminal_drain {
+                        if let Some(record) = engine.with_value(&command_session_id, |command| {
+                            command.terminal_drain_record(result.clone())
+                        }) {
+                            terminal_drains.insert(command_session_id, record);
+                        }
+                    }
                     let token = token_slot
                         .lock()
                         .unwrap_or_else(PoisonError::into_inner)
@@ -103,24 +134,45 @@ impl CommandOperationService {
                 .as_ref()
                 .map(|cgroup| cgroup.join("cgroup.procs"));
             let observability_log_path = self.obs().log_path();
+            let attach_engine = Arc::clone(self.engine());
+            let attach_id = id.clone();
+            let attach_workspace_session_id = admitted.handler.workspace_session_id.clone();
+            let attach_finalize_outcome = Arc::clone(&admitted.finalize_outcome);
+            let attach_command = input.cmd.clone();
+            let max_transcript_window_bytes = self.config().execution.max_transcript_window_bytes;
             let exec = self.exec_spans().launch(
                 id.clone(),
                 self.obs().context(),
                 names::NAMESPACE_EXEC_RUN_SHELL,
                 |child_ctx| {
                     let trace_handoff = child_ctx.zip(observability_log_path);
-                    self.engine().run_shell_interactive(
+                    self.engine().run_shell_interactive_attached(
                         exec_command,
                         target,
                         id.clone(),
+                        move |exec| {
+                            attach_engine.attach(
+                                &attach_id,
+                                CommandExecValue::new(
+                                    exec,
+                                    execution_scratch,
+                                    attach_workspace_session_id,
+                                    started_at,
+                                    "exec_command",
+                                    attach_command,
+                                    attach_finalize_outcome,
+                                    max_transcript_window_bytes,
+                                ),
+                            );
+                        },
                         on_complete,
                         cgroup_procs_path,
                         trace_handoff,
                     )
                 },
             );
-            let exec = match exec {
-                Ok(exec) => exec,
+            match exec {
+                Ok(_) => {}
                 Err(error) => {
                     let error = match error {
                         NamespaceExecutionError::Admission { max_active } => {
@@ -138,25 +190,10 @@ impl CommandOperationService {
                             error: error.to_string(),
                         },
                     };
-                    self.cleanup_transcript_dir(&id);
                     self.complete_admitted(&admitted, admission_guard);
                     return Err(error);
                 }
-            };
-
-            self.engine().attach(
-                &id,
-                CommandExecValue::new(
-                    exec,
-                    transcript_path,
-                    admitted.handler.workspace_session_id.clone(),
-                    started_at,
-                    "exec_command",
-                    input.cmd.clone(),
-                    Arc::clone(&admitted.finalize_outcome),
-                    self.config().execution.max_transcript_window_bytes,
-                ),
-            );
+            }
             drop(admission_guard);
 
             self.wait_for_command_yield(id, input.yield_time_ms.unwrap_or(1000), false)
@@ -208,22 +245,38 @@ impl CommandOperationService {
         error
     }
 
-    fn prepare_transcript_path(
+    fn prepare_execution_scratch(
         &self,
+        route: ExecutionScratchRoute,
+        workspace_session_id: &crate::workspace_crate::WorkspaceSessionId,
         id: &NamespaceExecutionId,
-    ) -> Result<PathBuf, CommandServiceError> {
-        let command_dir = self.config().scratch_root.join(&id.0);
-        std::fs::create_dir_all(&command_dir).map_err(|error| CommandServiceError::CommandIo {
+    ) -> Result<crate::workspace_crate::ExecutionScratchLease, CommandServiceError> {
+        let result = match route {
+            ExecutionScratchRoute::WorkspaceScoped => self
+                .scratch_locator()
+                .allocate_execution(workspace_session_id, id),
+            ExecutionScratchRoute::LegacyCompat => {
+                let Some(locator) = self.legacy_scratch_locator() else {
+                    return Err(CommandServiceError::CommandIo {
+                        command_session_id: id.clone(),
+                        error: "legacy scratch compatibility adapter is disabled".to_owned(),
+                    });
+                };
+                locator.allocate_execution(id)
+            }
+        };
+        result.map_err(|error| CommandServiceError::CommandIo {
             command_session_id: id.clone(),
             error: error.to_string(),
-        })?;
-        Ok(command_dir.join("transcript.log"))
+        })
     }
+}
 
-    fn cleanup_transcript_dir(&self, id: &NamespaceExecutionId) {
-        let command_dir = self.config().scratch_root.join(&id.0);
-        let _ = std::fs::remove_dir_all(command_dir);
-    }
+fn stable_identifier_hash(value: &str) -> String {
+    use sha2::{Digest, Sha256};
+
+    let digest = Sha256::digest(value.as_bytes());
+    format!("{digest:x}")
 }
 
 fn workspace_entry(

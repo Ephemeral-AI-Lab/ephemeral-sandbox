@@ -95,7 +95,7 @@ impl LayerStack {
             .and_then(|()| std::fs::rename(&staging_dir, &layer_dir).map_err(Into::into))
         {
             let _ = std::fs::remove_dir_all(&staging_dir);
-            return Err(err.into());
+            return Err(err);
         }
         if let Some(parent) = layer_dir.parent() {
             if let Err(err) = fsync_dir(parent) {

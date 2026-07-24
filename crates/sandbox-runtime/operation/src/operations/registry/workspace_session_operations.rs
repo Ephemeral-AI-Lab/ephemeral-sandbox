@@ -7,9 +7,11 @@ use crate::workspace_session::{
     WorkspaceSessionHandler, WorkspaceSessionPublishDetails,
 };
 use crate::SandboxRuntimeOperations;
+use sandbox_operation_catalog::internal::runtime::CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER;
 use sandbox_operation_catalog::runtime::{
     CREATE_WORKSPACE_SESSION_SPEC, DESTROY_WORKSPACE_SESSION_SPEC, PUBLISH_WORKSPACE_SESSION_SPEC,
 };
+use sandbox_operation_contract::OperationScopeKind;
 use sandbox_operation_contract::{OperationRequest, OperationResponse};
 
 const CREATE_WORKSPACE_SESSION_ENTRY: OperationEntry = OperationEntry::public(
@@ -24,15 +26,27 @@ const PUBLISH_WORKSPACE_SESSION_ENTRY: OperationEntry = OperationEntry::public(
     &PUBLISH_WORKSPACE_SESSION_SPEC,
     dispatch_publish_workspace_session,
 );
+const CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER_ENTRY: OperationEntry = OperationEntry {
+    scope_kind: OperationScopeKind::Sandbox,
+    name: CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER,
+    spec: None,
+    dispatch: dispatch_create_workspace_session_legacy_scratch_adapter,
+};
 
 const PUBLIC_OPERATIONS: &[OperationEntry] = &[
     CREATE_WORKSPACE_SESSION_ENTRY,
     PUBLISH_WORKSPACE_SESSION_ENTRY,
     DESTROY_WORKSPACE_SESSION_ENTRY,
 ];
+const INTERNAL_OPERATIONS: &[OperationEntry] =
+    &[CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER_ENTRY];
 
 pub(crate) const fn public_operation_entries() -> &'static [OperationEntry] {
     PUBLIC_OPERATIONS
+}
+
+pub(crate) const fn internal_operation_entries() -> &'static [OperationEntry] {
+    INTERNAL_OPERATIONS
 }
 
 fn dispatch_create_workspace_session(
@@ -49,6 +63,24 @@ fn dispatch_create_workspace_session(
             finalize_policy: FinalizePolicy::NoOp,
         },
     ))
+}
+
+fn dispatch_create_workspace_session_legacy_scratch_adapter(
+    operations: &SandboxRuntimeOperations,
+    request: &OperationRequest,
+) -> OperationResponse {
+    let network = match parse_workspace_profile(request) {
+        Ok(network) => network,
+        Err(response) => return response,
+    };
+    workspace_session_handler_response(
+        operations
+            .workspace_session
+            .create_workspace_session_legacy_scratch_adapter(CreateSessionRequest {
+                network,
+                finalize_policy: FinalizePolicy::NoOp,
+            }),
+    )
 }
 
 fn dispatch_destroy_workspace_session(

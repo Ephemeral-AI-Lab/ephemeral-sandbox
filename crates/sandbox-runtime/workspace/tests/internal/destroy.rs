@@ -138,10 +138,11 @@ fn lease_accounting_failure_retries_without_repeating_raw_teardown() {
 
 #[test]
 fn completed_teardown_cache_is_bounded_and_cleared_by_workspace_id() {
+    let base = temp_root("completed-cache");
     let mut manager = WorkspaceManager::new(
-        "/tmp/workspace-completed-cache",
+        base.join("workspace").to_string_lossy(),
         ResourceCaps::default(),
-        PathBuf::from("/tmp/workspace-completed-cache-scratch"),
+        base.join("scratch"),
         Observer::disabled(),
     );
     for index in 0..10_000 {
@@ -305,11 +306,14 @@ fn mounted_workspace(
 
 fn temp_root(label: &str) -> PathBuf {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
-    std::env::temp_dir().join(format!(
-        "workspace-internal-{label}-{}-{}",
-        std::process::id(),
-        COUNTER.fetch_add(1, Ordering::Relaxed)
-    ))
+    std::env::current_dir()
+        .expect("workspace tests run from a current directory")
+        .join("target")
+        .join(format!(
+            "workspace-internal-{label}-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        ))
 }
 
 fn outcome(workspace_id: WorkspaceSessionId) -> ExitOutcome {

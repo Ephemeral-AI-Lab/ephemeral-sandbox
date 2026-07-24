@@ -231,6 +231,8 @@ fn command_transcript_rows_completed_missing_transcript_reads_empty_best_effort(
         .command
         .config()
         .scratch_root
+        .join("workspace-session")
+        .join("executions")
         .join("namespace_execution_1")
         .join("transcript.log");
     let _ = std::fs::remove_file(&transcript_path);

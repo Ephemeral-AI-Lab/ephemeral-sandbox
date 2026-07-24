@@ -27,7 +27,7 @@ pub use execution::{ExecutionHandle, InteractiveExecution};
 pub use launcher::{NsRunnerLauncher, RunnerChild, RunnerPlacement};
 pub use promise::{CompletionPromise, CompletionWaiter};
 pub use pty::{open_pty_pair, PtyMaster};
-pub use registry::ExecutionRegistry;
+pub use registry::{ExecutionRegistry, RegistryValueMetrics};
 pub use shell::{NamespaceExecutionTerminalStatus, RunnerOutcome, ShellOperation};
 pub use transcript_rows::{
     required_transcript_window, transcript_window, CommandStream, CommandTranscriptRow,

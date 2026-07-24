@@ -1,6 +1,8 @@
 use std::time::{Duration, Instant};
 
-use sandbox_runtime_namespace_execution::{NamespaceExecutionError, NamespaceExecutionId};
+use sandbox_runtime_namespace_execution::{
+    CompletionWaiter, NamespaceExecutionError, NamespaceExecutionId,
+};
 
 use super::core::CommandOperationService;
 use super::render::{command_output, command_status};
@@ -16,9 +18,7 @@ impl CommandOperationService {
         let id = command_session_id.clone();
         let deadline = Instant::now() + Duration::from_millis(yield_time_ms);
         loop {
-            let Some((finished, waiter)) = self.engine().with_value(&id, |command| {
-                (command.exec.is_finished(), command.exec.completion())
-            }) else {
+            let Some((finished, waiter)) = self.command_wait_state(&id) else {
                 return command_not_found(command_session_id);
             };
             if finished {
@@ -29,10 +29,7 @@ impl CommandOperationService {
             }
             let now = Instant::now();
             if now >= deadline {
-                return match self
-                    .engine()
-                    .with_value(&id, |command| command.exec.is_finished())
-                {
+                return match self.command_finished(&id) {
                     Some(true) => self.completed_command_output(
                         command_session_id,
                         include_terminal_command_session_id,
@@ -43,6 +40,34 @@ impl CommandOperationService {
             }
             waiter.wait_timeout(deadline.saturating_duration_since(now));
         }
+    }
+
+    fn command_wait_state(
+        &self,
+        command_session_id: &NamespaceExecutionId,
+    ) -> Option<(bool, std::sync::Arc<dyn CompletionWaiter>)> {
+        self.engine()
+            .with_value(command_session_id, |command| {
+                (command.exec.is_finished(), command.exec.completion())
+            })
+            .or_else(|| {
+                self.terminal_drains().with(command_session_id, |record| {
+                    (
+                        record.completion.wait_timeout(Duration::ZERO),
+                        std::sync::Arc::clone(&record.completion),
+                    )
+                })
+            })
+    }
+
+    fn command_finished(&self, command_session_id: &NamespaceExecutionId) -> Option<bool> {
+        self.engine()
+            .with_value(command_session_id, |command| command.exec.is_finished())
+            .or_else(|| {
+                self.terminal_drains().with(command_session_id, |record| {
+                    record.completion.wait_timeout(Duration::ZERO)
+                })
+            })
     }
 
     fn running_command_output(
@@ -65,7 +90,33 @@ impl CommandOperationService {
                 output.command_session_id = Some(command_session_id);
                 Ok(output)
             }
-            None => command_not_found(command_session_id),
+            None => {
+                let output = self
+                    .terminal_drains()
+                    .with_mut(&command_session_id, |record| {
+                        let start = record.next_snapshot_offset;
+                        let window = record.window(start, usize::MAX);
+                        record.next_snapshot_offset = window.next_offset;
+                        let elapsed = record.elapsed_seconds();
+                        let mut output = command_output(
+                            window,
+                            None,
+                            CommandStatus::Running,
+                            None,
+                            elapsed,
+                            elapsed,
+                        );
+                        output.workspace_session_id = Some(record.workspace_session_id.clone());
+                        output
+                    });
+                match output {
+                    Some(mut output) => {
+                        output.command_session_id = Some(command_session_id);
+                        Ok(output)
+                    }
+                    None => command_not_found(command_session_id),
+                }
+            }
         }
     }
 
@@ -95,6 +146,30 @@ impl CommandOperationService {
                 finalization_failure_class,
                 finalization_attempts,
             )
+        });
+        let read = read.or_else(|| {
+            self.terminal_drains().with(&command_session_id, |record| {
+                let result = Some(record.result.clone());
+                let start = record.next_snapshot_offset;
+                let window = record.window(start, usize::MAX);
+                let elapsed = record.elapsed_seconds();
+                let workspace_session_id = record.workspace_session_id.clone();
+                let outcome = record.finalize_outcome.get();
+                let publish_rejected = outcome.and_then(|outcome| outcome.publish_reject_class);
+                let finalization_failure_class =
+                    outcome.and_then(|outcome| outcome.finalization_failure_class);
+                let finalization_attempts =
+                    outcome.and_then(|outcome| outcome.finalization_attempts);
+                (
+                    result,
+                    window,
+                    elapsed,
+                    workspace_session_id,
+                    publish_rejected,
+                    finalization_failure_class,
+                    finalization_attempts,
+                )
+            })
         });
         let Some((
             result,

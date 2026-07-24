@@ -308,6 +308,7 @@ fn internal_route_sets_are_exact() {
             internal_runtime_route("squash_layerstack"),
             internal_runtime_route("export_layerstack"),
             internal_runtime_route("read_export_chunk"),
+            internal_runtime_route("create_workspace_session_legacy_scratch_adapter"),
         ]
     );
     assert_eq!(internal::runtime::FILE_LIST, "file_list");

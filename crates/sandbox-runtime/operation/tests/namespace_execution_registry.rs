@@ -45,10 +45,13 @@ fn retention_services(
     let command = Arc::new(CommandOperationService::with_engine(
         Arc::clone(&workspace),
         sandbox_runtime::command::CommandConfig {
-            scratch_root: std::env::temp_dir().join(format!(
-                "namespace-execution-retention-{}-{max_terminal}-{env_id}",
-                std::process::id(),
-            )),
+            scratch_root: std::env::current_dir()
+                .expect("current directory")
+                .join("target")
+                .join(format!(
+                    "namespace-execution-retention-{}-{max_terminal}-{env_id}",
+                    std::process::id(),
+                )),
             ..sandbox_runtime::command::CommandConfig::default()
         },
         engine,
@@ -99,6 +102,8 @@ fn terminal_eviction_removes_scratch_dir_and_drains_return_command_not_found() {
         .command
         .config()
         .scratch_root
+        .join(&workspace_session_id.0)
+        .join("executions")
         .join("namespace_execution_1");
     assert!(
         first_scratch.is_dir(),
@@ -178,6 +183,8 @@ fn workspace_destroy_releases_its_retained_terminal_commands() {
         .command
         .config()
         .scratch_root
+        .join(&workspace_session_id.0)
+        .join("executions")
         .join(&command_session_id.0);
     assert!(
         scratch.is_dir(),
@@ -205,7 +212,7 @@ fn workspace_destroy_releases_its_retained_terminal_commands() {
 }
 
 #[test]
-fn failed_workspace_destroy_preserves_its_retained_terminal_commands() {
+fn failed_workspace_destroy_still_releases_retained_terminal_commands() {
     let fake = Arc::new(FakeWorkspaceService::new());
     let handle = support::workspace_handle(
         "ws-failed-destroy-retention",
@@ -239,6 +246,8 @@ fn failed_workspace_destroy_preserves_its_retained_terminal_commands() {
         .command
         .config()
         .scratch_root
+        .join(&workspace_session_id.0)
+        .join("executions")
         .join(&command_session_id.0);
 
     env.workspace
@@ -246,16 +255,18 @@ fn failed_workspace_destroy_preserves_its_retained_terminal_commands() {
         .expect_err("workspace destroy fails");
 
     assert!(
-        scratch.is_dir(),
-        "failed destroy preserves the terminal command for a later retry"
+        !scratch.exists(),
+        "destroy releases child command owners before attempting recursive workspace cleanup"
     );
     let drain = env.command.write_command_stdin(WriteCommandStdinInput {
-        command_session_id,
+        command_session_id: command_session_id.clone(),
         stdin: "late\n".to_owned(),
         yield_time_ms: Some(0),
     });
     assert!(matches!(
         drain,
-        Err(CommandServiceError::CommandAlreadyCompleted { .. })
+        Err(CommandServiceError::CommandNotFound {
+            command_session_id: missing
+        }) if missing == command_session_id
     ));
 }

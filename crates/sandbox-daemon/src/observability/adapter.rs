@@ -114,6 +114,24 @@ impl<'a> DaemonObservabilityAdapter<'a> {
             active_scratch_directories: snapshot.ownership.active_scratch_directories,
             persisted_workspace_handles: snapshot.ownership.persisted_workspace_handles,
             active_layer_leases: Some(snapshot.active_layer_lease_count),
+            scratch_layout_version: snapshot.ownership.scratch_layout_version,
+            scratch_route: snapshot.ownership.scratch_route.clone(),
+            active_execution_scratch_leases: snapshot.ownership.active_execution_scratch_leases,
+            retained_terminal_records: snapshot.ownership.retained_terminal_records,
+            open_transcript_descriptors: snapshot.ownership.open_transcript_descriptors,
+            live_execution_scratch_bytes: snapshot.ownership.live_execution_scratch_bytes,
+            high_water_execution_scratch_bytes: snapshot
+                .ownership
+                .high_water_execution_scratch_bytes,
+            teardown_join_total: snapshot.ownership.teardown_join_total,
+            teardown_deadline_total: snapshot.ownership.teardown_deadline_total,
+            legacy_entries_scanned: snapshot.ownership.legacy_entries_scanned,
+            legacy_entries_deleted: snapshot.ownership.legacy_entries_deleted,
+            legacy_entries_skipped_active: snapshot.ownership.legacy_entries_skipped_active,
+            legacy_entries_skipped_recent: snapshot.ownership.legacy_entries_skipped_recent,
+            legacy_entries_skipped_unsafe: snapshot.ownership.legacy_entries_skipped_unsafe,
+            scratch_cleanup_state: snapshot.ownership.scratch_cleanup_state.clone(),
+            scratch_quiescent: snapshot.ownership.scratch_quiescent,
         };
         let lifecycle = map_lifecycle(
             self.operations()

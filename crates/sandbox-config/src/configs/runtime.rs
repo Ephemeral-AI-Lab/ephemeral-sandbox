@@ -33,6 +33,23 @@ impl RuntimeConfig {
     pub fn validate(&self) -> Result<(), ConfigFieldError> {
         self.workspace.validate()?;
         self.namespace_execution.validate()?;
+        reject_runtime_scratch_overlap(
+            &self.workspace.scratch_root,
+            &self.workspace.layer_stack_root,
+            "runtime.workspace.scratch_root",
+        )?;
+        if let Some(legacy_root) = self.namespace_execution.scratch_root.as_deref() {
+            reject_runtime_scratch_overlap(
+                legacy_root,
+                &self.workspace.scratch_root,
+                "runtime.namespace_execution.scratch_root",
+            )?;
+            reject_runtime_scratch_overlap(
+                legacy_root,
+                &self.workspace.layer_stack_root,
+                "runtime.namespace_execution.scratch_root",
+            )?;
+        }
         self.layerstack.validate()?;
         self.command.validate()?;
         self.file.validate()
@@ -250,7 +267,9 @@ impl WorkspaceConfig {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NamespaceExecutionConfig {
-    pub scratch_root: PathBuf,
+    /// Deprecated global execution root. New writes never use this path; when
+    /// present it is only a bounded boot-time compatibility-reaper input.
+    pub scratch_root: Option<PathBuf>,
     /// Freeze-poll budget for the remount quiesce, in seconds. Measured on the
     /// supported environment: the full stop → poll-`T` → membership-recheck
     /// shape for 100 tasks takes under 4 ms, so the 0.5 s default bounds only
@@ -274,7 +293,7 @@ pub struct NamespaceExecutionConfig {
 impl Default for NamespaceExecutionConfig {
     fn default() -> Self {
         Self {
-            scratch_root: PathBuf::from("/eos/namespace_execution"),
+            scratch_root: Some(PathBuf::from("/eos/namespace_execution")),
             freeze_budget_s: default_freeze_budget_s(),
             stdin_write_deadline_s: default_stdin_write_deadline_s(),
             max_terminal_entries: default_max_terminal_entries(),
@@ -290,14 +309,10 @@ impl NamespaceExecutionConfig {
     /// # Errors
     /// Returns an error when a field violates namespace-execution runtime policy.
     pub fn validate(&self) -> Result<(), ConfigFieldError> {
-        require_unix_absolute(
-            &self.scratch_root,
-            "runtime.namespace_execution.scratch_root",
-        )?;
-        reject_dangerous_root(
-            &self.scratch_root,
-            "runtime.namespace_execution.scratch_root",
-        )?;
+        if let Some(scratch_root) = self.scratch_root.as_deref() {
+            require_unix_absolute(scratch_root, "runtime.namespace_execution.scratch_root")?;
+            reject_dangerous_root(scratch_root, "runtime.namespace_execution.scratch_root")?;
+        }
         require_f64_at_least(
             self.freeze_budget_s,
             0.0,
@@ -323,6 +338,21 @@ impl NamespaceExecutionConfig {
             1,
             "runtime.namespace_execution.max_runner_result_bytes",
         )?;
+        Ok(())
+    }
+}
+
+fn reject_runtime_scratch_overlap(
+    left: &std::path::Path,
+    right: &std::path::Path,
+    field: &'static str,
+) -> Result<(), ConfigFieldError> {
+    if left.starts_with(right) || right.starts_with(left) {
+        Err(ConfigFieldError::new(
+            field,
+            format!("must not overlap {}", right.display()),
+        ))
+    } else {
         Ok(())
     }
 }

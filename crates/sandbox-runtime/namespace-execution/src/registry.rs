@@ -26,6 +26,13 @@ struct Entry<V> {
     terminal: bool,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RegistryValueMetrics {
+    pub active_values: usize,
+    pub terminal_values: usize,
+    pub total_value_units: u64,
+}
+
 impl<V> Entry<V> {
     const fn reserved() -> Self {
         Self {
@@ -154,6 +161,54 @@ impl<V> ExecutionRegistry<V> {
             .filter_map(|entry| entry.value.as_ref())
             .filter_map(f)
             .collect()
+    }
+
+    /// Project every retained owner value, including bounded terminal entries.
+    pub fn retained_values<R>(&self, f: impl Fn(&V) -> Option<R>) -> Vec<R> {
+        self.lock()
+            .entries
+            .values()
+            .filter_map(|entry| entry.value.as_ref())
+            .filter_map(f)
+            .collect()
+    }
+
+    pub fn value_metrics(&self, mut value_units: impl FnMut(&V) -> u64) -> RegistryValueMetrics {
+        let state = self.lock();
+        let mut metrics = RegistryValueMetrics::default();
+        for entry in state.entries.values() {
+            let Some(value) = entry.value.as_ref() else {
+                continue;
+            };
+            if entry.terminal {
+                metrics.terminal_values = metrics.terminal_values.saturating_add(1);
+            } else {
+                metrics.active_values = metrics.active_values.saturating_add(1);
+            }
+            metrics.total_value_units =
+                metrics.total_value_units.saturating_add(value_units(value));
+        }
+        metrics
+    }
+
+    /// Visit retained terminal values without evicting their command metadata.
+    /// Callers may use interior mutability to release external resources while
+    /// preserving bounded terminal results for subsequent drains.
+    pub fn visit_terminal_values<E>(
+        &self,
+        mut visitor: impl FnMut(&V) -> Result<bool, E>,
+    ) -> Result<usize, E> {
+        let state = self.lock();
+        let mut visited = 0;
+        for entry in state.entries.values() {
+            let Some(value) = entry.value.as_ref().filter(|_| entry.terminal) else {
+                continue;
+            };
+            if visitor(value)? {
+                visited += 1;
+            }
+        }
+        Ok(visited)
     }
 
     pub fn remove_terminal_values(&self, mut predicate: impl FnMut(&V) -> bool) -> usize {

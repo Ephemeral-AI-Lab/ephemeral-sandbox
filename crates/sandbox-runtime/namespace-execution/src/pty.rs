@@ -18,6 +18,7 @@ use rustix::pty::ptsname;
 use rustix::pty::{grantpt, openpt, unlockpt, OpenptFlags};
 use time::OffsetDateTime;
 
+#[derive(Clone)]
 enum TranscriptSink {
     Memory(Arc<AtomicU64>),
     File(PathBuf),
@@ -48,6 +49,7 @@ pub(crate) struct OutputReactorSnapshot {
 
 static OUTPUT_REACTOR: OnceLock<OutputReactor> = OnceLock::new();
 
+#[derive(Clone)]
 pub struct PtyMaster {
     pgid: Option<i32>,
     writer: Arc<Mutex<Option<File>>>,

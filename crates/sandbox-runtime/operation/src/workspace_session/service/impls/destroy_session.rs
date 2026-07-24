@@ -348,6 +348,14 @@ impl WorkspaceSessionService {
         } = snapshot;
         let workspace_session_id = handler.workspace_session_id.clone();
         let revision = handler.handle.base_revision().version;
+        let command_release = self
+            .release_terminal_commands(&workspace_session_id)
+            .map_err(|error| WorkspaceSessionError::TeardownIncomplete {
+                workspace_session_id: workspace_session_id.clone(),
+                failures: vec![format!("command-scratch: {error}")],
+            })?;
+        debug_assert!(command_release.verifies(&workspace_session_id));
+        let _released_terminal_records = command_release.released_terminal_records();
         let mut workspace_error: Option<WorkspaceError> = None;
         let workspace_result = match workspace_destroy_result {
             Some(result) => Some(result),
@@ -425,7 +433,6 @@ impl WorkspaceSessionService {
             sessions.remove(&workspace_session_id);
         }
         self.workspace().commit_workspace_destroy(&handler.handle);
-        self.release_terminal_commands(&workspace_session_id);
         self.drop_session_gate(&workspace_session_id);
         self.obs()
             .event(names::LEASE_RELEASED, json!({ "revision": revision }));

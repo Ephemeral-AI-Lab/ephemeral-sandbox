@@ -13,6 +13,7 @@ mod namespace_execution;
 mod observability;
 mod operations;
 mod services;
+mod workspace_scratch_compat;
 pub mod workspace_session;
 
 pub use command::CommandOperationService;

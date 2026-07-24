@@ -142,6 +142,12 @@ impl WorkspaceManager {
             Ok(workspace_root) => handle.workspace_root = workspace_root,
             Err(error) => return Err(self.fail_after_partial_create(&handle, error)),
         }
+        if let Err(error) = self.scratch_locator.ensure_session(&workspace_id) {
+            let error = WorkspaceManagerError::SetupFailed {
+                step: format!("create workspace scratch: {error}"),
+            };
+            return Err(self.fail_after_partial_create(&handle, error));
+        }
         match create_overlay_dirs(handle.dirs.run_dir.clone()) {
             Ok(dirs) => handle.dirs = dirs,
             Err(error) => {

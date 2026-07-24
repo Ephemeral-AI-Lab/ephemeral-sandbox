@@ -19,6 +19,7 @@ mod lifecycle;
 pub mod model;
 mod namespace;
 pub mod overlay;
+pub mod scratch;
 pub mod service;
 pub mod session;
 
@@ -43,6 +44,12 @@ pub use namespace::holder::{
 pub use sandbox_runtime_namespace_process::runner::file_op::{
     decode_file_op_payload, run_result_err, run_result_ok, FileRunnerDirEntry,
     FileRunnerDirEntryKind, FileRunnerEntryKind, FileRunnerError, FileRunnerOp, FileRunnerResult,
+};
+#[doc(hidden)]
+pub use scratch::{
+    ExecutionScratchLease, ExecutionScratchRoute, LegacyExecutionScratchLocator,
+    WorkspaceScratchError, WorkspaceScratchLocator, EXECUTIONS_DIRECTORY, SCRATCH_LAYOUT_VERSION,
+    TRANSCRIPT_FILE,
 };
 #[doc(hidden)]
 pub use service::{

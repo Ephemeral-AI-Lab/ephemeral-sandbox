@@ -21,7 +21,7 @@ impl Default for CommandConfig {
     fn default() -> Self {
         let command = CommandRuntimeConfig::default();
         Self {
-            scratch_root: PathBuf::from("/eos/namespace_execution"),
+            scratch_root: PathBuf::from("/eos/workspace"),
             max_active: command.max_active,
             setup_timeout_s: 30.0,
             read_lines_default: command.read_lines_default,

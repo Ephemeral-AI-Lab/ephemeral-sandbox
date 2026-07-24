@@ -195,7 +195,7 @@ fn runtime_from_config_initializes_layerstack_workspace_base(
                 },
             },
             namespace_execution: NamespaceExecutionRuntimeConfig {
-                scratch_root: command_scratch_root,
+                scratch_root: Some(command_scratch_root),
                 caps: sandbox_runtime::NamespaceExecutionCaps::default(),
             },
             layerstack: sandbox_runtime::LayerstackRuntimeConfig::default(),
@@ -234,6 +234,7 @@ fn runtime_operation_catalog_exports_only_public_runtime_operations() {
             "command",
             "file",
             "daemon_http",
+            "layerstack_baseline",
             "network_isolation",
             "reserved_paths",
             "shell_security",
@@ -303,6 +304,7 @@ fn service_graph_catalog_keeps_internal_helpers_out() {
         "status_lookup",
         "finalize_command",
         "file_list",
+        "create_workspace_session_legacy_scratch_adapter",
     ] {
         assert!(!names.contains(&helper), "{helper} leaked into catalog");
     }
@@ -332,6 +334,8 @@ fn service_graph_workspace_session_source_boundaries_stay_private() {
     assert!(adapter.contains(".create_workspace_session("));
     assert!(adapter.contains(".guarded_destroy("));
     assert_eq!(adapter.matches("OperationEntry::public").count(), 3);
+    assert!(adapter.contains("name: CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER"));
+    assert_eq!(adapter.matches("spec: None").count(), 1);
     assert!(!adapter.contains("WorkspaceDestroyAdmission"));
     assert!(!adapter.contains("begin_workspace_destroy_admission"));
 

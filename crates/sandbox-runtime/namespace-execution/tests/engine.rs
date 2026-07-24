@@ -75,6 +75,35 @@ fn shell_execution_resolves_finalized_output_and_records_terminal() {
 }
 
 #[test]
+fn shell_completion_callback_runs_after_registry_becomes_terminal() {
+    let fake = FakeLauncher::new();
+    let observer = Arc::new(FakeObserver::new());
+    let engine = Arc::new(test_engine(&fake, observer, 4));
+    let id = id("callback_order");
+    let callback_engine = Arc::clone(&engine);
+    let callback_id = id.clone();
+
+    let exec = engine
+        .run_shell_interactive(
+            OkShellOp,
+            sample_target(),
+            id,
+            move |_| {
+                assert!(
+                    callback_engine.is_completed(&callback_id),
+                    "workspace scratch release requires a terminal registry entry"
+                );
+            },
+            None,
+            None,
+        )
+        .expect("shell admitted");
+
+    fake.complete_latest(run_result(0, "ok"));
+    assert_eq!(exec.wait().expect("resolved Ok"), 0);
+}
+
+#[test]
 fn shell_terminal_releases_stdin_while_retaining_execution() {
     let fake = FakeLauncher::new();
     let observer = Arc::new(FakeObserver::new());

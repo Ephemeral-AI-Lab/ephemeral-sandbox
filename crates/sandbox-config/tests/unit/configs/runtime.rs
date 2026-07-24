@@ -8,7 +8,7 @@ fn config_prd_runtime_section_deserializes_and_validates() {
     );
     assert_eq!(
         config.namespace_execution.scratch_root,
-        std::path::PathBuf::from("/eos/namespace_execution")
+        Some(std::path::PathBuf::from("/eos/namespace_execution"))
     );
 }
 
@@ -16,6 +16,27 @@ fn config_prd_runtime_section_deserializes_and_validates() {
 fn config_default_workspace_section_is_valid() {
     let config = WorkspaceConfig::default();
     config.validate().expect("default config is valid");
+}
+
+#[test]
+fn deprecated_namespace_scratch_root_can_be_omitted() {
+    let yaml = "runtime:
+  workspace:
+    layer_stack_root: /eos/layer-stack
+    scratch_root: /eos/workspace
+    setup_timeout_s: 30
+    exit_grace_s: 0.25
+    rfc1918_egress: allow
+  namespace_execution: {}
+";
+    let config: RuntimeConfig = crate::ConfigDocument::parse(std::path::Path::new("<test>"), yaml)
+        .expect("document parses")
+        .section("runtime")
+        .expect("runtime deserializes");
+    assert_eq!(config.namespace_execution.scratch_root, None);
+    config
+        .validate()
+        .expect("omitting the compatibility root is valid");
 }
 
 #[test]
@@ -41,7 +62,19 @@ fn config_validation_rejects_invalid_runtime_workspace_values() {
     assert_invalid(cfg, "runtime.workspace.exit_grace_s");
 
     let mut cfg = prd_config();
-    cfg.namespace_execution.scratch_root = std::path::PathBuf::from("/");
+    cfg.namespace_execution.scratch_root = Some(std::path::PathBuf::from("/"));
+    assert_invalid(cfg, "runtime.namespace_execution.scratch_root");
+
+    let mut cfg = prd_config();
+    cfg.workspace.scratch_root = cfg.workspace.layer_stack_root.join("workspace");
+    assert_invalid(cfg, "runtime.workspace.scratch_root");
+
+    let mut cfg = prd_config();
+    cfg.namespace_execution.scratch_root = Some(cfg.workspace.scratch_root.join("legacy"));
+    assert_invalid(cfg, "runtime.namespace_execution.scratch_root");
+
+    let mut cfg = prd_config();
+    cfg.namespace_execution.scratch_root = Some(cfg.workspace.layer_stack_root.join("legacy"));
     assert_invalid(cfg, "runtime.namespace_execution.scratch_root");
 }
 

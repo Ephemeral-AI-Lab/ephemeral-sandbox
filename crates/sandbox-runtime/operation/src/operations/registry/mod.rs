@@ -13,6 +13,7 @@ const PUBLIC_OPERATION_ENTRY_GROUPS: &[&[OperationEntry]] = &[
 const INTERNAL_OPERATION_ENTRY_GROUPS: &[&[OperationEntry]] = &[
     crate::layerstack::squash_operation_entries(),
     crate::layerstack::export_operation_entries(),
+    workspace_session_operations::internal_operation_entries(),
 ];
 
 const HTTP_ONLY_OPERATION_ENTRY_GROUPS: &[&[OperationEntry]] =

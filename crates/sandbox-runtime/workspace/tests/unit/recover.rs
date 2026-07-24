@@ -10,7 +10,10 @@ use sandbox_runtime_workspace::WorkspaceRuntimeService;
 use serde_json::json;
 
 fn scratch(label: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("workspace-reap-{label}-{}", std::process::id()));
+    let dir = std::env::current_dir()
+        .expect("workspace tests run from a current directory")
+        .join("target")
+        .join(format!("workspace-reap-{label}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("scratch");
     dir

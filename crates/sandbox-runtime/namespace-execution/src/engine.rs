@@ -15,7 +15,7 @@ use crate::launcher::{
     ForkRunnerLauncher, NsRunnerLauncher, RunnerChild, RunnerPlacement, MOUNT_OVERLAY_MODE_FLAG,
 };
 use crate::promise::CompletionPromise;
-use crate::registry::ExecutionRegistry;
+use crate::registry::{ExecutionRegistry, RegistryValueMetrics};
 use crate::shell::{NamespaceExecutionTerminalStatus, RunnerOutcome, ShellOperation};
 use crate::supervisor::CompletionSupervisor;
 use crate::types::{NamespaceExecutionId, NamespaceTarget};
@@ -34,6 +34,9 @@ pub struct NamespaceExecutionEngine<V = ()> {
     launcher: Box<dyn NsRunnerLauncher>,
     supervisor: CompletionSupervisor,
     next_id: AtomicU64,
+    teardown_join_total: AtomicU64,
+    teardown_deadline_total: AtomicU64,
+    scratch_bytes_high_water: AtomicU64,
     setup_timeout_s: f64,
 }
 
@@ -63,6 +66,9 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
             launcher,
             supervisor: CompletionSupervisor::new(),
             next_id: AtomicU64::new(1),
+            teardown_join_total: AtomicU64::new(0),
+            teardown_deadline_total: AtomicU64::new(0),
+            scratch_bytes_high_water: AtomicU64::new(0),
             setup_timeout_s: caps.setup_timeout_s,
         }
     }
@@ -101,6 +107,21 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         self.registry.live_values(f)
     }
 
+    pub fn retained_values<R>(&self, f: impl Fn(&V) -> Option<R>) -> Vec<R> {
+        self.registry.retained_values(f)
+    }
+
+    pub fn value_metrics(&self, value_units: impl FnMut(&V) -> u64) -> RegistryValueMetrics {
+        self.registry.value_metrics(value_units)
+    }
+
+    pub fn visit_terminal_values<E>(
+        &self,
+        visitor: impl FnMut(&V) -> Result<bool, E>,
+    ) -> Result<usize, E> {
+        self.registry.visit_terminal_values(visitor)
+    }
+
     pub fn remove_terminal_values(&self, predicate: impl FnMut(&V) -> bool) -> usize {
         self.registry.remove_terminal_values(predicate)
     }
@@ -108,6 +129,28 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
     #[must_use]
     pub fn active_count(&self) -> usize {
         self.registry.active_count()
+    }
+
+    pub fn record_teardown(&self, join_count: usize, deadline_count: usize) {
+        self.teardown_join_total
+            .fetch_add(join_count as u64, Ordering::Relaxed);
+        self.teardown_deadline_total
+            .fetch_add(deadline_count as u64, Ordering::Relaxed);
+    }
+
+    #[must_use]
+    pub fn teardown_totals(&self) -> (u64, u64) {
+        (
+            self.teardown_join_total.load(Ordering::Relaxed),
+            self.teardown_deadline_total.load(Ordering::Relaxed),
+        )
+    }
+
+    #[must_use]
+    pub fn observe_scratch_bytes_high_water(&self, live_bytes: u64) -> u64 {
+        self.scratch_bytes_high_water
+            .fetch_max(live_bytes, Ordering::Relaxed);
+        self.scratch_bytes_high_water.load(Ordering::Relaxed)
     }
 
     #[must_use]
@@ -126,6 +169,30 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         op: S,
         target: NamespaceTarget,
         id: NamespaceExecutionId,
+        on_complete: impl FnOnce(&Result<S::Output, NamespaceExecutionError>) + Send + 'static,
+        cgroup_procs_path: Option<PathBuf>,
+        trace_handoff: Option<(TraceContext, PathBuf)>,
+    ) -> Result<InteractiveExecution<S::Output>, NamespaceExecutionError> {
+        self.run_shell_interactive_attached(
+            op,
+            target,
+            id,
+            |_| {},
+            on_complete,
+            cgroup_procs_path,
+            trace_handoff,
+        )
+    }
+
+    /// Launch a shell operation and synchronously attach its owning registry
+    /// value before the completion watcher can publish a terminal edge.
+    #[allow(clippy::too_many_arguments)]
+    pub fn run_shell_interactive_attached<S: ShellOperation>(
+        &self,
+        op: S,
+        target: NamespaceTarget,
+        id: NamespaceExecutionId,
+        on_ready: impl FnOnce(InteractiveExecution<S::Output>),
         on_complete: impl FnOnce(&Result<S::Output, NamespaceExecutionError>) + Send + 'static,
         cgroup_procs_path: Option<PathBuf>,
         trace_handoff: Option<(TraceContext, PathBuf)>,
@@ -150,22 +217,19 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         })?;
         let promise = Arc::new(CompletionPromise::new());
         let terminal_release = pty.terminal_release();
+        let execution =
+            InteractiveExecution::new(ExecutionHandle::new(id.clone(), Arc::clone(&promise)), pty);
+        on_ready(execution.clone());
         self.spawn_watcher(
             id.clone(),
             child,
             Arc::clone(&promise),
             cancelled,
             terminal_release,
-            move |outcome| {
-                let result = op.finalize(outcome);
-                on_complete(&result);
-                result
-            },
+            move |outcome| op.finalize(outcome),
+            on_complete,
         )?;
-        Ok(InteractiveExecution::new(
-            ExecutionHandle::new(id, promise),
-            pty,
-        ))
+        Ok(execution)
     }
 
     pub fn mount_overlay(
@@ -189,6 +253,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
             Arc::new(AtomicBool::new(false)),
             || {},
             |outcome| mount_exit_error(Some(MOUNT_OVERLAY_MODE_FLAG), &outcome).map_or(Ok(()), Err),
+            |_| {},
         )?;
         Ok(ExecutionHandle::new(id, promise))
     }
@@ -218,6 +283,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
             Arc::new(AtomicBool::new(false)),
             || {},
             |outcome| Ok(outcome.into_result()),
+            |_| {},
         )?;
         Ok(ExecutionHandle::new(id, promise))
     }
@@ -249,6 +315,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
             Arc::new(AtomicBool::new(false)),
             || {},
             |outcome| Ok(outcome.into_result()),
+            |_| {},
         )?;
         Ok(ExecutionHandle::new(id, promise))
     }
@@ -269,6 +336,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn spawn_watcher<O: Send + 'static>(
         &self,
         id: NamespaceExecutionId,
@@ -277,6 +345,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         cancelled: Arc<AtomicBool>,
         terminal_release: impl FnOnce() + Send + 'static,
         finalize: impl FnOnce(RunnerOutcome) -> Result<O, NamespaceExecutionError> + Send + 'static,
+        on_complete: impl FnOnce(&Result<O, NamespaceExecutionError>) + Send + 'static,
     ) -> Result<(), NamespaceExecutionError> {
         let registry = Arc::clone(&self.registry);
         let terminal_hook = Arc::clone(&self.terminal_hook);
@@ -304,6 +373,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
             };
             terminal_release();
             registry.complete(&id, status, exit_code);
+            let result = notify_completion(on_complete, result);
             promise.resolve(result);
         });
         if let Err(error) = submitted {
@@ -315,6 +385,19 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
 
     pub fn shutdown_and_join(&self) -> Result<(), NamespaceExecutionError> {
         self.supervisor.shutdown_and_join()
+    }
+}
+
+fn notify_completion<O>(
+    on_complete: impl FnOnce(&Result<O, NamespaceExecutionError>),
+    result: Result<O, NamespaceExecutionError>,
+) -> Result<O, NamespaceExecutionError> {
+    match catch_unwind(AssertUnwindSafe(|| on_complete(&result))) {
+        Ok(()) => result,
+        Err(payload) => Err(NamespaceExecutionError::Finalize(format!(
+            "completion callback panicked: {}",
+            panic_payload_message(payload.as_ref())
+        ))),
     }
 }
 

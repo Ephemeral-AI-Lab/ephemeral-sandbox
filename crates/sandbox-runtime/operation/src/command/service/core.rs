@@ -1,23 +1,60 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use sandbox_observability_telemetry::{Observer, SpanRegistry};
 use sandbox_runtime_namespace_execution::{
     ExecutionCaps, NamespaceExecutionEngine, NamespaceExecutionId,
 };
 
+use crate::command::terminal_cache::TerminalDrainCache;
 use crate::command::{CommandConfig, CommandExecValue};
-use crate::namespace_execution::{RuntimeNamespaceExecutionSnapshot, WorkspaceCommandTeardown};
-use crate::workspace_crate::WorkspaceSessionId;
+use crate::namespace_execution::{
+    RuntimeNamespaceExecutionSnapshot, WorkspaceCommandReleaseProof, WorkspaceCommandTeardown,
+};
+use crate::workspace_crate::{
+    ExecutionScratchRoute, LegacyExecutionScratchLocator, WorkspaceScratchLocator,
+    WorkspaceSessionId, SCRATCH_LAYOUT_VERSION,
+};
+use crate::workspace_scratch_compat::LegacyScratchReapReport;
 use crate::workspace_session::WorkspaceSessionService;
 
-use super::teardown::{cancel_and_join_commands, CommandTeardownTarget, COMMAND_JOIN_TIMEOUT};
+use super::teardown::{
+    cancel_and_join_commands, CommandTeardownFailure, CommandTeardownTarget, COMMAND_JOIN_TIMEOUT,
+};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CommandScratchOwnershipSnapshot {
+    pub layout_version: u8,
+    pub route: &'static str,
+    pub active_leases: usize,
+    pub retained_terminal_records: usize,
+    pub open_transcript_descriptors: usize,
+    pub live_bytes: u64,
+    pub high_water_bytes: u64,
+    pub teardown_join_total: u64,
+    pub teardown_deadline_total: u64,
+    pub cleanup_state: &'static str,
+    pub quiescent: bool,
+    pub legacy: LegacyScratchReapReport,
+}
+
+fn observed_scratch_route(routes: &[ExecutionScratchRoute]) -> &'static str {
+    match routes.first().copied() {
+        None => ExecutionScratchRoute::WorkspaceScoped.as_str(),
+        Some(first) if routes.iter().all(|candidate| *candidate == first) => first.as_str(),
+        Some(_) => "mixed",
+    }
+}
 
 pub struct CommandOperationService {
     workspace: Arc<WorkspaceSessionService>,
     config: CommandConfig,
+    scratch_locator: WorkspaceScratchLocator,
+    legacy_scratch_locator: Option<LegacyExecutionScratchLocator>,
     engine: Arc<NamespaceExecutionEngine<CommandExecValue>>,
     exec_spans: Arc<SpanRegistry<NamespaceExecutionId>>,
     obs: Observer,
+    legacy_scratch_reap: Mutex<LegacyScratchReapReport>,
+    terminal_drains: Arc<TerminalDrainCache>,
 }
 
 impl CommandOperationService {
@@ -25,6 +62,31 @@ impl CommandOperationService {
     pub fn new(
         workspace: Arc<WorkspaceSessionService>,
         config: CommandConfig,
+        obs: Observer,
+    ) -> Self {
+        let scratch_locator = WorkspaceScratchLocator::new(config.scratch_root.clone())
+            .expect("command workspace scratch root must be valid");
+        Self::new_with_locator(workspace, config, scratch_locator, obs)
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn new_with_locator(
+        workspace: Arc<WorkspaceSessionService>,
+        config: CommandConfig,
+        scratch_locator: WorkspaceScratchLocator,
+        obs: Observer,
+    ) -> Self {
+        Self::new_with_locators(workspace, config, scratch_locator, None, obs)
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn new_with_locators(
+        workspace: Arc<WorkspaceSessionService>,
+        config: CommandConfig,
+        scratch_locator: WorkspaceScratchLocator,
+        legacy_scratch_locator: Option<LegacyExecutionScratchLocator>,
         obs: Observer,
     ) -> Self {
         let exec_spans = Arc::new(SpanRegistry::new(obs.clone()));
@@ -41,7 +103,15 @@ impl CommandOperationService {
                 max_runner_result_bytes: config.execution.max_runner_result_bytes,
             },
         ));
-        Self::with_engine(workspace, config, engine, exec_spans, obs)
+        Self::with_engine_and_locators(
+            workspace,
+            config,
+            scratch_locator,
+            legacy_scratch_locator,
+            engine,
+            exec_spans,
+            obs,
+        )
     }
 
     /// Build a command service over a caller-supplied engine and the exec span
@@ -58,14 +128,59 @@ impl CommandOperationService {
         exec_spans: Arc<SpanRegistry<NamespaceExecutionId>>,
         obs: Observer,
     ) -> Self {
-        let teardown: Arc<dyn WorkspaceCommandTeardown> = engine.clone();
-        workspace.register_command_teardown(&teardown);
-        Self {
+        let scratch_locator = WorkspaceScratchLocator::new(config.scratch_root.clone())
+            .expect("command workspace scratch root must be valid");
+        Self::with_engine_and_locator(workspace, config, scratch_locator, engine, exec_spans, obs)
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn with_engine_and_locator(
+        workspace: Arc<WorkspaceSessionService>,
+        config: CommandConfig,
+        scratch_locator: WorkspaceScratchLocator,
+        engine: Arc<NamespaceExecutionEngine<CommandExecValue>>,
+        exec_spans: Arc<SpanRegistry<NamespaceExecutionId>>,
+        obs: Observer,
+    ) -> Self {
+        Self::with_engine_and_locators(
             workspace,
             config,
+            scratch_locator,
+            None,
             engine,
             exec_spans,
             obs,
+        )
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_engine_and_locators(
+        workspace: Arc<WorkspaceSessionService>,
+        config: CommandConfig,
+        scratch_locator: WorkspaceScratchLocator,
+        legacy_scratch_locator: Option<LegacyExecutionScratchLocator>,
+        engine: Arc<NamespaceExecutionEngine<CommandExecValue>>,
+        exec_spans: Arc<SpanRegistry<NamespaceExecutionId>>,
+        obs: Observer,
+    ) -> Self {
+        let teardown: Arc<dyn WorkspaceCommandTeardown> = engine.clone();
+        workspace.register_command_teardown(&teardown);
+        let terminal_drains = Arc::new(TerminalDrainCache::new(
+            config.execution.max_terminal_entries,
+        ));
+        Self {
+            workspace,
+            config,
+            scratch_locator,
+            legacy_scratch_locator,
+            engine,
+            exec_spans,
+            obs,
+            legacy_scratch_reap: Mutex::new(LegacyScratchReapReport::default()),
+            terminal_drains,
         }
     }
 
@@ -94,6 +209,76 @@ impl CommandOperationService {
     #[must_use]
     pub fn config(&self) -> &CommandConfig {
         &self.config
+    }
+
+    pub(super) fn scratch_locator(&self) -> &WorkspaceScratchLocator {
+        &self.scratch_locator
+    }
+
+    pub(super) fn legacy_scratch_locator(&self) -> Option<&LegacyExecutionScratchLocator> {
+        self.legacy_scratch_locator.as_ref()
+    }
+
+    pub(super) fn terminal_drains(&self) -> &Arc<TerminalDrainCache> {
+        &self.terminal_drains
+    }
+
+    pub(crate) fn record_legacy_scratch_reap(&self, report: LegacyScratchReapReport) {
+        *self
+            .legacy_scratch_reap
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = report;
+    }
+
+    #[must_use]
+    pub(crate) fn legacy_scratch_reap_report(&self) -> LegacyScratchReapReport {
+        self.legacy_scratch_reap
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    #[must_use]
+    pub(crate) fn scratch_ownership_snapshot(&self) -> CommandScratchOwnershipSnapshot {
+        let values = self
+            .engine
+            .value_metrics(CommandExecValue::transcript_bytes);
+        let routes = self
+            .engine
+            .retained_values(|command| Some(command.scratch_route()));
+        let route = observed_scratch_route(&routes);
+        let workers = self.engine.background_worker_snapshot();
+        let (teardown_join_total, teardown_deadline_total) = self.engine.teardown_totals();
+        let high_water_bytes = self
+            .engine
+            .observe_scratch_bytes_high_water(values.total_value_units);
+        let quiescent = values.active_values == 0
+            && values.terminal_values == 0
+            && workers.active_pty_readers == 0
+            && values.total_value_units == 0;
+        let cleanup_state = if quiescent {
+            "quiescent"
+        } else if values.active_values > 0 && teardown_deadline_total > 0 {
+            "recovery_pending"
+        } else if values.active_values > 0 {
+            "active"
+        } else {
+            "terminal_retained"
+        };
+        CommandScratchOwnershipSnapshot {
+            layout_version: SCRATCH_LAYOUT_VERSION,
+            route,
+            active_leases: values.active_values,
+            retained_terminal_records: values.terminal_values,
+            open_transcript_descriptors: workers.active_pty_readers,
+            live_bytes: values.total_value_units,
+            high_water_bytes,
+            teardown_join_total,
+            teardown_deadline_total,
+            cleanup_state,
+            quiescent,
+            legacy: self.legacy_scratch_reap_report(),
+        }
     }
 
     #[must_use]
@@ -130,7 +315,7 @@ impl WorkspaceCommandTeardown for NamespaceExecutionEngine<CommandExecValue> {
         workspace_session_id: &WorkspaceSessionId,
         command_ids: &[NamespaceExecutionId],
     ) -> Result<(), String> {
-        cancel_and_join_commands(
+        let result = cancel_and_join_commands(
             workspace_session_id,
             command_ids,
             COMMAND_JOIN_TIMEOUT,
@@ -141,11 +326,68 @@ impl WorkspaceCommandTeardown for NamespaceExecutionEngine<CommandExecValue> {
                     completion: command.exec.completion(),
                 })
             },
-        )
-        .map_err(|error| error.to_string())
+        );
+        let deadline_count = result.as_ref().err().map_or(0, |error| {
+            error
+                .failures
+                .iter()
+                .filter(|failure| matches!(failure, CommandTeardownFailure::JoinTimedOut { .. }))
+                .count()
+        });
+        self.record_teardown(command_ids.len(), deadline_count);
+        result.map_err(|error| error.to_string())
     }
 
-    fn release_terminal(&self, workspace_session_id: &WorkspaceSessionId) -> usize {
-        self.remove_terminal_values(|command| command.workspace_session_id == *workspace_session_id)
+    fn release_for_destroy(
+        &self,
+        workspace_session_id: &WorkspaceSessionId,
+    ) -> Result<WorkspaceCommandReleaseProof, String> {
+        let released = self.visit_terminal_values(|command| {
+            if command.workspace_session_id != *workspace_session_id {
+                return Ok(false);
+            }
+            command.release_scratch()
+        })?;
+        let active_owners = self.live_values(|command| {
+            (command.workspace_session_id == *workspace_session_id).then_some(())
+        });
+        if active_owners.is_empty() {
+            let removed = self.remove_terminal_values(|command| {
+                command.workspace_session_id == *workspace_session_id
+            });
+            debug_assert!(removed >= released);
+            Ok(WorkspaceCommandReleaseProof::new(
+                workspace_session_id.clone(),
+                removed,
+            ))
+        } else {
+            Err(format!(
+                "{} active command scratch owner(s) remain for workspace {}",
+                active_owners.len(),
+                workspace_session_id.0
+            ))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::observed_scratch_route;
+    use crate::workspace_crate::ExecutionScratchRoute;
+
+    #[test]
+    fn observed_scratch_route_preserves_retained_legacy_ownership() {
+        assert_eq!(
+            observed_scratch_route(&[ExecutionScratchRoute::LegacyCompat]),
+            "legacy_compat"
+        );
+        assert_eq!(
+            observed_scratch_route(&[
+                ExecutionScratchRoute::LegacyCompat,
+                ExecutionScratchRoute::WorkspaceScoped,
+            ]),
+            "mixed"
+        );
+        assert_eq!(observed_scratch_route(&[]), "workspace_scoped");
     }
 }

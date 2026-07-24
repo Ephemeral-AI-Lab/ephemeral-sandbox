@@ -18,6 +18,40 @@ impl CommandOperationService {
             .with_value(&command_session_id, |command| {
                 read_command_window(command, &command_session_id, start_offset, limit)
             })
+            .or_else(|| {
+                self.terminal_drains().with(&command_session_id, |record| {
+                    let window = record.window(start_offset, limit);
+                    let elapsed = record.elapsed_seconds();
+                    let (status, exit_code, command_total_time_seconds) =
+                        if record.completion.wait_timeout(std::time::Duration::ZERO) {
+                            match &record.result {
+                                Ok(result) => (
+                                    command_status(result.status),
+                                    Some(result.exit_code),
+                                    result.command_total_time_seconds,
+                                ),
+                                Err(_) => (CommandStatus::Error, None, elapsed),
+                            }
+                        } else {
+                            (CommandStatus::Running, None, elapsed)
+                        };
+                    let mut output = command_output(
+                        window,
+                        Some(command_session_id.clone()),
+                        status,
+                        exit_code,
+                        elapsed,
+                        command_total_time_seconds,
+                    );
+                    output.workspace_session_id = Some(record.workspace_session_id.clone());
+                    if let Some(outcome) = record.finalize_outcome.get() {
+                        output.publish_rejected = outcome.publish_reject_class;
+                        output.finalization_failed = outcome.finalization_failure_class;
+                        output.finalization_attempts = outcome.finalization_attempts;
+                    }
+                    output
+                })
+            })
             .unwrap_or_else(|| empty_terminal_output(command_session_id))
     }
 }

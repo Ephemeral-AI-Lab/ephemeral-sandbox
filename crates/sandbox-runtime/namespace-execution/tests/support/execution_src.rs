@@ -17,6 +17,7 @@ pub mod promise {
 pub mod pty {
     use std::io;
 
+    #[derive(Clone)]
     pub struct PtyMaster;
 
     impl PtyMaster {

@@ -1291,6 +1291,27 @@ fn workspace_session_create_operation_accepts_isolated_profile(
 }
 
 #[test]
+fn internal_legacy_scratch_adapter_marks_only_its_created_session(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    fake.push_create_result(Ok(workspace_handle("workspace-1", "lease-1")));
+    let operations = operations_with_fake(&fake)?;
+
+    let response = sandbox_runtime::dispatch_operation(
+        &operations,
+        &runtime_request("create_workspace_session_legacy_scratch_adapter", json!({})),
+    )
+    .into_json_value();
+
+    assert_eq!(response["workspace_session_id"], "workspace-1");
+    let handler = operations
+        .workspace_session
+        .resolve_session(WorkspaceSessionId("workspace-1".to_owned()))?;
+    assert_eq!(handler.execution_scratch_route().as_str(), "legacy_compat");
+    Ok(())
+}
+
+#[test]
 fn workspace_session_create_operation_rejects_invalid_profiles(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     for args in [

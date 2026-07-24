@@ -5,7 +5,8 @@ use sandbox_runtime_namespace_execution::NamespaceExecutionId;
 
 use crate::layerstack::LayerStackRevision;
 use crate::workspace_crate::{
-    DestroyWorkspaceResult, NetworkProfile, WorkspaceHandle, WorkspaceSessionId,
+    DestroyWorkspaceResult, ExecutionScratchRoute, NetworkProfile, WorkspaceHandle,
+    WorkspaceSessionId,
 };
 
 /// What happens when a command completion empties the session's command
@@ -69,6 +70,15 @@ pub struct WorkspaceSessionHandler {
     pub workspace_session_id: WorkspaceSessionId,
     pub handle: WorkspaceHandle,
     pub cgroup_path: Option<PathBuf>,
+    pub(crate) execution_scratch_route: ExecutionScratchRoute,
+}
+
+impl WorkspaceSessionHandler {
+    #[doc(hidden)]
+    #[must_use]
+    pub const fn execution_scratch_route(&self) -> ExecutionScratchRoute {
+        self.execution_scratch_route
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -169,6 +179,7 @@ pub(crate) struct WorkspaceSession {
     pub handle: WorkspaceHandle,
     pub cgroup_path: Option<PathBuf>,
     pub finalize_policy: FinalizePolicy,
+    pub execution_scratch_route: ExecutionScratchRoute,
     pub active_commands: BTreeSet<NamespaceExecutionId>,
     pub finalization_state: FinalizationState,
     /// The sole holder supervisor observed this exact generation alive,
@@ -191,6 +202,7 @@ impl WorkspaceSession {
         handle: WorkspaceHandle,
         cgroup_path: Option<PathBuf>,
         finalize_policy: FinalizePolicy,
+        execution_scratch_route: ExecutionScratchRoute,
     ) -> Self {
         let cgroup_cleanup_complete = cgroup_path.is_none();
         Self {
@@ -198,6 +210,7 @@ impl WorkspaceSession {
             handle,
             cgroup_path,
             finalize_policy,
+            execution_scratch_route,
             active_commands: BTreeSet::new(),
             finalization_state: FinalizationState::Active,
             holder_quiesced_for_finalization: false,
@@ -214,6 +227,7 @@ impl WorkspaceSession {
             workspace_session_id: self.workspace_session_id.clone(),
             handle: self.handle.clone(),
             cgroup_path: self.cgroup_path.clone(),
+            execution_scratch_route: self.execution_scratch_route,
         }
     }
 }

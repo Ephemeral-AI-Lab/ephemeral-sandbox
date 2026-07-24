@@ -117,6 +117,7 @@ pub struct WorkspaceManager {
     pub(crate) runtime: Arc<NamespaceRuntime>,
     pub(crate) network: IsolatedNetwork,
     pub(crate) scratch_root: PathBuf,
+    pub(crate) scratch_locator: crate::scratch::WorkspaceScratchLocator,
     /// Bound by [`crate::WorkspaceRuntimeService`] before the manager can
     /// create or destroy a workspace. Keeping the root on the teardown owner
     /// lets lease release participate in the same retryable transaction as
@@ -135,23 +136,38 @@ impl WorkspaceManager {
         scratch_root: PathBuf,
         obs: Observer,
     ) -> Self {
+        let scratch_locator = crate::scratch::WorkspaceScratchLocator::new(scratch_root.clone())
+            .expect("workspace scratch root must be valid");
         let runtime = NamespaceRuntime::new(caps.setup_timeout_s, obs);
-        Self::with_runtime(workspace_root, caps, scratch_root, runtime)
+        Self::with_runtime_and_locator(workspace_root, caps, scratch_locator, runtime)
     }
 
-    pub(crate) fn with_runtime(
+    #[must_use]
+    pub fn with_scratch_locator(
         workspace_root: impl Into<String>,
         caps: ResourceCaps,
-        scratch_root: PathBuf,
+        scratch_locator: crate::scratch::WorkspaceScratchLocator,
+        obs: Observer,
+    ) -> Self {
+        let runtime = NamespaceRuntime::new(caps.setup_timeout_s, obs);
+        Self::with_runtime_and_locator(workspace_root, caps, scratch_locator, runtime)
+    }
+
+    fn with_runtime_and_locator(
+        workspace_root: impl Into<String>,
+        caps: ResourceCaps,
+        scratch_locator: crate::scratch::WorkspaceScratchLocator,
         runtime: NamespaceRuntime,
     ) -> Self {
         let network = IsolatedNetwork::new(caps.rfc1918_egress);
+        let scratch_root = scratch_locator.root().to_path_buf();
         Self {
             workspace_root: workspace_root.into(),
             caps,
             runtime: Arc::new(runtime),
             network,
             scratch_root,
+            scratch_locator,
             layer_stack_root: None,
             handles: HashMap::with_capacity(1),
             teardowns: HashMap::with_capacity(1),
@@ -241,7 +257,9 @@ impl WorkspaceManager {
     }
 
     pub(crate) fn workspace_session_root(&self, workspace_id: &WorkspaceSessionId) -> PathBuf {
-        self.scratch_root.join(&workspace_id.0)
+        self.scratch_locator
+            .session_root(workspace_id)
+            .expect("workspace ids are validated before scratch lookup")
     }
 
     pub(crate) fn owned_handles(&self) -> impl Iterator<Item = &MountedWorkspace> {
