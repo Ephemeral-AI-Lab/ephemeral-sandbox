@@ -1,5 +1,3 @@
-// The legacy integration-unit harness source-includes `model/mod.rs`; that
-// private test copy intentionally does not consume this module's public API.
 #![cfg_attr(test, allow(dead_code))]
 
 use std::fmt::Write as _;

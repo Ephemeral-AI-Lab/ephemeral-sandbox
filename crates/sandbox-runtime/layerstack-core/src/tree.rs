@@ -81,7 +81,6 @@ impl<'a> XattrRef<'a> {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct PackedXattrs {
     bytes: Vec<u8>,
-    // Each descriptor is [byte offset, key length, value length].
     descriptors: Vec<[u32; 3]>,
 }
 
