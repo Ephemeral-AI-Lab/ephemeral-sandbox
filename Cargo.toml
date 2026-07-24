@@ -17,6 +17,7 @@ members = [
     "crates/sandbox-runtime/workspace",
     "crates/sandbox-runtime/namespace-process",
     "crates/sandbox-runtime/namespace-execution",
+    "crates/sandbox-runtime/layerstack-core",
     "crates/sandbox-runtime/layerstack",
     "crates/sandbox-runtime/overlay",
     "crates/sandbox-provider-docker",
@@ -78,6 +79,7 @@ sandbox-operation-contract = { path = "crates/sandbox-operations/contract" }
 sandbox-operation-catalog = { path = "crates/sandbox-operations/catalog", default-features = false }
 sandbox-operation-client = { path = "crates/sandbox-operations/client" }
 sandbox-config = { path = "crates/sandbox-config" }
+sandbox-runtime-layerstack-core = { path = "crates/sandbox-runtime/layerstack-core" }
 sandbox-runtime-layerstack = { path = "crates/sandbox-runtime/layerstack" }
 sandbox-runtime-namespace-process = { path = "crates/sandbox-runtime/namespace-process" }
 sandbox-runtime-namespace-execution = { path = "crates/sandbox-runtime/namespace-execution" }

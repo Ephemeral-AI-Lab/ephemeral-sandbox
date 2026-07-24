@@ -51,6 +51,7 @@ sandbox-runtime-overlay / sandbox-observability-telemetry
 | `sandbox-runtime` | lib | Own public runtime handlers plus canonical internal workspace-session/layerstack dispatch and orchestration | Depend on protocol/client/adapters/composition roots or own low-level runtime primitives |
 | `sandbox-runtime-workspace` | lib | Own workspace runtime lifecycle, namespace handles, capture, and destroy | Own command process state |
 | `sandbox-runtime-layerstack` | lib | Own content hashes, manifest/layer types, storage, and leases | Own command execution |
+| `sandbox-runtime-layerstack-core` | lib | Own safe, standard-library-only portable identity values, raw relative Linux path validation, canonical v2 records, bounded decoding, and narrow source/sink/digest ports | Depend on LayerStack, hashing/serde/filesystem/provider/runtime/benchmark crates, use unsafe/FFI, or own persistence, publication, capture, materialization, telemetry, or process state |
 | `sandbox-runtime-namespace-execution` | lib | Own the namespace execution engine, PTY I/O, and transcript read/write windowing | Own workspace lifecycle |
 | `sandbox-runtime-namespace-process` | lib | Own namespace holder/runner bodies and setns execution | Own operation dispatch |
 | `sandbox-runtime-overlay` | lib | Own low-level overlay mount and unmount primitives | Own workspace lifecycle |
@@ -70,10 +71,46 @@ framing, authentication, limits, and readiness live in
 Applications (`sandbox-manager`, `sandbox-runtime`, and
 `sandbox-observability-query`) never depend on protocol, the client, product
 adapters, composition roots, or each other's implementations. The contract,
-config, telemetry, layerstack, and overlay packages have no workspace
-dependencies. The catalog depends only on the contract, protocol depends only
-on the contract, and the client depends only on contract and protocol. CAS
-fixtures live with `sandbox-runtime-layerstack`.
+config, telemetry, layerstack core, and overlay packages have no workspace
+dependencies. LayerStack has the sole inward runtime edge to LayerStack core.
+The catalog depends only on the contract, protocol depends only on the
+contract, and the client depends only on contract and protocol. Portable-root
+fixtures and concrete SHA-256/serde adapters live with
+`sandbox-runtime-layerstack`.
+
+## Portable root contract boundary
+
+Stage 02 introduces one inward dependency and no runtime authority change:
+
+```text
+workspace/provider adapters
+            |
+            v
+sandbox-runtime-layerstack
+  capture preparation, whiteout filtering, bounded external ordering,
+  SHA-256, serde diagnostics, storage, leases, v1 publication
+            |
+            v
+sandbox-runtime-layerstack-core
+  portable values, validation, canonical bytes, bounded source/sink ports
+```
+
+The reverse edge is forbidden. LayerStack core cannot name or import
+filesystem paths, persistence APIs, fsync, providers, Docker, OverlayFS,
+mounts, namespaces, runtime operations, telemetry, E2E or benchmark support,
+async runtimes, services, helpers, SHA/serde implementations, FFI, or unsafe
+code. Capture may present only already-canonical logical entries to the core;
+LayerStack owns disk-run spooling, merge ordering, hardlink/reference claim
+preparation, and exclusion of Linux whiteout/opaque carrier markers.
+
+The core's `RootId`, `TreeManifestId`, and typed object IDs are portable
+contract values only. Stage 02 does not persist, activate, publish, resolve,
+or materialize them. `Manifest::root_hash` and the legacy v1 manifest remain
+the sole runtime revision and read/write/publication authority. Provider
+locators, native materialization generations, host paths, inode/carrier
+identities, and Stage 01 workspace transcripts remain outside portable
+identity. Future v2 persistence and materialization must stay outward of the
+core and may become runtime-reachable only in their separately gated stages.
 
 Exactly three organizational namespace directories exist under `crates/`:
 `sandbox-operations/`, `sandbox-observability/`, and `sandbox-runtime/`. They

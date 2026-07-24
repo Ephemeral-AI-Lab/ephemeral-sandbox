@@ -9,6 +9,7 @@ license.workspace = true
 ignore.workspace = true
 rayon.workspace = true
 rustix.workspace = true
+sandbox-runtime-layerstack-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

@@ -1706,6 +1706,7 @@ dependencies = [
  "proptest",
  "rayon",
  "rustix 0.38.44",
+ "sandbox-runtime-layerstack-core",
  "serde",
  "serde_json",
  "sha2",
@@ -1713,6 +1714,10 @@ dependencies = [
  "thiserror 2.0.18",
  "zstd",
 ]
+
+[[package]]
+name = "sandbox-runtime-layerstack-core"
+version = "0.1.0"
 
 [[package]]
 name = "sandbox-runtime-namespace-execution"

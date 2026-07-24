@@ -19,6 +19,8 @@ fn runtime_catalog_is_the_exact_public_runtime_surface() {
             "file",
             "daemon_http",
             "layerstack_baseline",
+            "layerstack_phase1",
+            "layerstack-phase1.portable-root",
             "network_isolation",
             "reserved_paths",
             "shell_security",

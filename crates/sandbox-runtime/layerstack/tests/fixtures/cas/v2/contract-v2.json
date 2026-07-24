@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "format": "portable-root-contract-v2",
+  "decision_id": "PRC-STAGE02-OWNER-DECISION-D2.5",
+  "provenance": {
+    "source": "sandbox-runtime-layerstack-core/tests/common::complete_sample_tree",
+    "seed": 23042,
+    "authority": "test-only; legacy-v1-remains-sole-runtime-authority"
+  },
+  "canonical_input": {
+    "root": {
+      "required_capabilities": 63,
+      "chunk_profile": 1,
+      "parent": null,
+      "base": null,
+      "publication": {
+        "generation": 23042,
+        "id_hex": "52525252525252525252525252525252"
+      }
+    },
+    "tree": {
+      "entry_count": 6,
+      "entries": [
+        {
+          "kind": "directory",
+          "path_hex": "62696e",
+          "metadata": {
+            "mode": 493,
+            "uid": 1000,
+            "gid": 1001,
+            "mtime_seconds": -7,
+            "mtime_nanoseconds": 42,
+            "xattrs": [
+              {
+                "key_hex": "757365722e6e6f7465",
+                "value_hex": "ff"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "regular",
+          "path_hex": "62696e2f61",
+          "metadata": {
+            "mode": 416,
+            "uid": 1000,
+            "gid": 1001,
+            "mtime_seconds": -7,
+            "mtime_nanoseconds": 42,
+            "xattrs": []
+          },
+          "logical_length": 10,
+          "sparse_holes": [
+            {
+              "offset": 4,
+              "length": 2
+            }
+          ],
+          "hardlink_group": 1,
+          "file_segments_digest_hex": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "kind": "regular",
+          "path_hex": "62696e2f62",
+          "metadata": {
+            "mode": 416,
+            "uid": 1000,
+            "gid": 1001,
+            "mtime_seconds": -7,
+            "mtime_nanoseconds": 42,
+            "xattrs": []
+          },
+          "logical_length": 10,
+          "sparse_holes": [
+            {
+              "offset": 4,
+              "length": 2
+            }
+          ],
+          "hardlink_group": 1,
+          "file_segments_digest_hex": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "kind": "symlink",
+          "path_hex": "6c696e6b",
+          "metadata": {
+            "mode": 511,
+            "uid": 1000,
+            "gid": 1001,
+            "mtime_seconds": -7,
+            "mtime_nanoseconds": 42,
+            "xattrs": []
+          },
+          "target_hex": "62696e2f61"
+        },
+        {
+          "kind": "device",
+          "path_hex": "6e756c6c",
+          "metadata": {
+            "mode": 384,
+            "uid": 1000,
+            "gid": 1001,
+            "mtime_seconds": -7,
+            "mtime_nanoseconds": 42,
+            "xattrs": []
+          },
+          "major": 1,
+          "minor": 3
+        },
+        {
+          "kind": "fifo",
+          "path_hex": "70697065",
+          "metadata": {
+            "mode": 384,
+            "uid": 1000,
+            "gid": 1001,
+            "mtime_seconds": -7,
+            "mtime_nanoseconds": 42,
+            "xattrs": []
+          }
+        }
+      ]
+    }
+  },
+  "binary": {
+    "layout": [
+      "tree-record",
+      "root-record"
+    ],
+    "tree_bytes_len": 1171,
+    "root_bytes_len": 118,
+    "canonical_bytes_len": 1289,
+    "canonical_bytes_sha256": "sha256:760236a658433c1d385adb7b96db1f1429d74d66b1023e6a6553f8696fb0505f"
+  },
+  "identities": {
+    "tree_manifest_id": "sha256:4d95eff452b4c165ed5bdf5c5b4ef94b54022462570605ee118da011d5a41b5f",
+    "root_id": "sha256:601c290ff8e96cdbe4a6b64a2525e9a49dba3e6935b47a311f52fa6ef8c54c53"
+  },
+  "rejections": [
+    {
+      "case": "empty-path",
+      "error_kind": "InvalidValue",
+      "field": "Path"
+    },
+    {
+      "case": "path-traversal",
+      "error_kind": "InvalidValue",
+      "field": "Path"
+    },
+    {
+      "case": "unknown-required-capability",
+      "error_kind": "UnknownCapability",
+      "field": "Capability"
+    },
+    {
+      "case": "unsorted-tree-entries",
+      "error_kind": "NonCanonical",
+      "field": "Path"
+    },
+    {
+      "case": "dangling-file-segments-reference",
+      "error_kind": "MissingReference",
+      "field": "ObjectReference"
+    },
+    {
+      "case": "trailing-root-bytes",
+      "error_kind": "TrailingBytes",
+      "field": "Source"
+    }
+  ]
+}

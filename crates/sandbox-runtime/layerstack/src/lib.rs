@@ -10,6 +10,15 @@ mod workspace_base;
 
 pub(crate) use storage::{fs, lock, whiteout};
 
+pub use model::portable::{
+    canonical_root_json, canonical_tree_json, chunk_payload_id, parse_canonical_root_json,
+    parse_canonical_tree_json, DiagnosticError, RootRecordJson, Sha256Digest, TreeManifestJson,
+};
+#[doc(hidden)]
+pub use model::portable::{
+    prepare_tiny_portable_tree, PortableBackendMarker, PortablePreparationError,
+    PortablePreparationInput, PortablePreparationStats, PreparedPortableTree,
+};
 pub use model::{
     aggregate_layer_changes, layer_digest, manifest_root_hash, published_layer_bytes, CasError,
     LayerChange, LayerPath, LayerRef, Manifest, MANIFEST_SCHEMA_VERSION,

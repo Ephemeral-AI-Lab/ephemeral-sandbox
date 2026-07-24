@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
+pub mod portable;
+
 pub const MANIFEST_SCHEMA_VERSION: i64 = 1;
 
 const LOWER_HEX: &[u8; 16] = b"0123456789abcdef";

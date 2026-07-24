@@ -57,11 +57,29 @@ const LAYERSTACK_BASELINE_FAMILY: OperationFamilySpec = OperationFamilySpec {
         "Runtime capability used to freeze LayerStack legacy-v1 routing and lifecycle evidence.",
 };
 
+const LAYERSTACK_PHASE1_FAMILY: OperationFamilySpec = OperationFamilySpec {
+    id: "layerstack_phase1",
+    title: "LayerStack Phase 1",
+    summary: "LayerStack Phase 1 E2E placement.",
+    description:
+        "Catalog-only family for canonically placed LayerStack Phase 1 proofs; it adds no public operation.",
+};
+
+const PORTABLE_ROOT_FAMILY: OperationFamilySpec = OperationFamilySpec {
+    id: "layerstack-phase1.portable-root",
+    title: "Portable root contract",
+    summary: "Dormant LayerStack portable-root source contract.",
+    description:
+        "Catalog-only capability for the focused portable-root contract proof; it adds no public operation.",
+};
+
 const FAMILIES: &[&OperationFamilySpec] = &[
     &COMMAND_FAMILY,
     &FILE_FAMILY,
     &DAEMON_HTTP_FAMILY,
     &LAYERSTACK_BASELINE_FAMILY,
+    &LAYERSTACK_PHASE1_FAMILY,
+    &PORTABLE_ROOT_FAMILY,
     &NETWORK_ISOLATION_FAMILY,
     &RESERVED_PATHS_FAMILY,
     &SHELL_SECURITY_FAMILY,
