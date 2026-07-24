@@ -48,6 +48,10 @@ fn config_validation_rejects_invalid_runtime_workspace_values() {
 #[test]
 fn config_layerstack_defaults_preserve_shipped_policy() {
     let config = prd_config();
+    assert_eq!(
+        config.layerstack.rollout_mode,
+        StorageRolloutMode::Legacy
+    );
     assert_eq!(config.layerstack.remount_sweep_width, 4);
     assert_eq!(config.layerstack.export_chunk_bytes, 2 * 1024 * 1024);
     assert_eq!(config.layerstack.spool_zstd_level, 3);
@@ -68,6 +72,7 @@ fn config_layerstack_defaults_preserve_shipped_policy() {
 fn config_layerstack_overrides_deserialize() {
     let config = layerstack_config(
         "  layerstack:
+    rollout_mode: legacy
     remount_sweep_width: 1
     export_chunk_bytes: 4096
     spool_zstd_level: 19
@@ -77,6 +82,10 @@ fn config_layerstack_overrides_deserialize() {
     )
     .expect("layerstack overrides deserialize");
     config.validate().expect("layerstack overrides are valid");
+    assert_eq!(
+        config.layerstack.rollout_mode,
+        StorageRolloutMode::Legacy
+    );
     assert_eq!(config.layerstack.remount_sweep_width, 1);
     assert_eq!(config.layerstack.export_chunk_bytes, 4096);
     assert_eq!(config.layerstack.spool_zstd_level, 19);
@@ -84,6 +93,13 @@ fn config_layerstack_overrides_deserialize() {
         config.layerstack.autosquash_policies.squash_at_n_layers,
         Some(123)
     );
+}
+
+#[test]
+fn config_layerstack_rejects_unknown_rollout_mode() {
+    let error = layerstack_config("  layerstack:\n    rollout_mode: candidate\n")
+        .expect_err("unknown rollout mode must be rejected");
+    assert!(error.to_string().contains("candidate"), "{error}");
 }
 
 #[test]

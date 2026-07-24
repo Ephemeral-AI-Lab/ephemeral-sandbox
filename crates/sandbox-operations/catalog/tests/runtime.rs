@@ -18,6 +18,7 @@ fn runtime_catalog_is_the_exact_public_runtime_surface() {
             "command",
             "file",
             "daemon_http",
+            "layerstack_baseline",
             "network_isolation",
             "reserved_paths",
             "shell_security",

@@ -118,6 +118,8 @@ pub(crate) fn layerstack_value(observation: &StackObservation, bytes: &LayerStac
         "manifest_version": observation.manifest_version,
         "root_hash": observation.root_hash,
         "active_lease_count": observation.active_lease_count,
+        "route": observation.route,
+        "resources": observation.resources,
         "total_bytes": bytes.total_bytes,
         "total_allocated_bytes": bytes.total_allocated_bytes,
         "storage_logical_bytes": bytes.storage_logical_bytes,
@@ -138,6 +140,8 @@ pub(crate) fn stack_summary_value(
         "storage_allocated_bytes": bytes.storage_allocated_bytes,
         "staging_entry_count": bytes.staging_entry_count,
         "active_leases": observation.active_lease_count,
+        "route": observation.route,
+        "resources": observation.resources,
     })
 }
 

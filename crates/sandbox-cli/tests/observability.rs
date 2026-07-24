@@ -144,6 +144,55 @@ async fn scoped_operations_use_concrete_names_and_catalog_defaults() {
 }
 
 #[tokio::test]
+async fn observability_preserves_additive_layerstack_route_and_resource_fields() {
+    let response = json!({
+        "view": "layerstack",
+        "route": {
+            "schema_version": 1,
+            "observation_epoch": 9,
+            "configured_mode": "legacy",
+            "write_authority": "legacy_v1",
+            "read_authority": "legacy_v1",
+            "fallback_count": 0,
+            "fallback_reason_counts": [],
+            "mismatch_count": 0,
+            "shadow_comparison_count": 0,
+            "shadow_completed_count": 0
+        },
+        "resources": {
+            "schema_version": 1,
+            "observation_epoch": 9,
+            "active_operations": 0,
+            "high_water_active_operations": 1,
+            "logical_cleanup_complete": true,
+            "quiescence_ms": 12,
+            "open_file_descriptors": null,
+            "mapped_bytes": null
+        }
+    });
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-observability-cli",
+        "--gateway-socket",
+        &addr,
+        "layerstack",
+        "--sandbox-id",
+        "eos-route",
+    ])
+    .await;
+
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["op"], "layerstack");
+    assert_eq!(
+        request["scope"],
+        json!({"kind": "sandbox", "sandbox_id": "eos-route"})
+    );
+}
+
+#[tokio::test]
 async fn non_snapshot_views_require_sandbox_id_before_gateway_io() {
     for view in [
         "trace",

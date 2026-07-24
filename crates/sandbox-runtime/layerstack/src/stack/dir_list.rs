@@ -59,6 +59,7 @@ impl LayerStack {
         rel: Option<&LayerPath>,
         limit: usize,
     ) -> Result<ManifestDirList, LayerStackError> {
+        let _observation = self.observation.begin_operation(false, false);
         let _guard = self.writer_lock.shared()?;
         let manifest = self.read_active_manifest_unlocked()?;
         self.view.list_dir(rel, &manifest, limit)

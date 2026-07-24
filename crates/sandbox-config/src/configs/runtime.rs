@@ -132,6 +132,7 @@ impl FileConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LayerstackConfig {
+    pub rollout_mode: StorageRolloutMode,
     /// Remount-sweep concurrency width. The default is the measured
     /// `sweep_wall` knee (`W-tuning.md`, `N=200`/`M=1.0`): overlap peaks and
     /// wall bottoms out at `W=4`; `1` restores the serial sweep.
@@ -148,12 +149,20 @@ pub struct LayerstackConfig {
 impl Default for LayerstackConfig {
     fn default() -> Self {
         Self {
+            rollout_mode: StorageRolloutMode::Legacy,
             remount_sweep_width: 4,
             export_chunk_bytes: 2 * 1024 * 1024,
             spool_zstd_level: 3,
             autosquash_policies: AutosquashPoliciesConfig::default(),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageRolloutMode {
+    #[default]
+    Legacy,
 }
 
 impl LayerstackConfig {

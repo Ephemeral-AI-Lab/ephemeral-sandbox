@@ -20,6 +20,7 @@ impl LayerStack {
             let leases = lock_shared_registry(&self.leases)?;
             (leases.active_count(), leases.lease_newest_layers())
         };
+        let (route, resources) = self.observation.observe(active_lease_count);
         let mut leased_counts: HashMap<&str, usize> = HashMap::new();
         for layer in &newest_layers {
             *leased_counts.entry(layer.layer_id.as_str()).or_insert(0) += 1;
@@ -39,6 +40,8 @@ impl LayerStack {
             manifest_version: manifest.version,
             root_hash: manifest_root_hash(&manifest),
             active_lease_count,
+            route,
+            resources,
             layers,
         })
     }

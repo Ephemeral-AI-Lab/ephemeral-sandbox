@@ -58,10 +58,21 @@ impl LayerStack {
         rel: &LayerPath,
         max_bytes: usize,
     ) -> Result<ManifestFileRead, LayerStackError> {
+        let observation = self.observation.begin_operation(false, false);
         let _guard = self.writer_lock.shared()?;
         let manifest = self.read_active_manifest_unlocked()?;
-        self.view
-            .read_classified(rel.as_str(), &manifest, max_bytes)
+        let result = self
+            .view
+            .read_classified(rel.as_str(), &manifest, max_bytes)?;
+        let bytes = match &result {
+            ManifestFileRead::File { bytes, .. } => u64::try_from(bytes.len()).unwrap_or(u64::MAX),
+            ManifestFileRead::Absent
+            | ManifestFileRead::Directory
+            | ManifestFileRead::Symlink
+            | ManifestFileRead::TooLarge { .. } => 0,
+        };
+        observation.state().record_read(bytes);
+        Ok(result)
     }
 
     /// Atomic read-modify-write of `rel` on the active head: read it classified,
@@ -78,6 +89,7 @@ impl LayerStack {
         max_bytes: usize,
         transform: impl FnOnce(ManifestFileRead) -> Result<Vec<u8>, E>,
     ) -> Result<AmendCommit, AmendError<E>> {
+        let mut observation = self.observation.begin_operation(true, true);
         let _guard = self
             .writer_lock
             .exclusive()
@@ -114,7 +126,7 @@ impl LayerStack {
             (Vec::new(), Vec::new())
         } else {
             let outcome = self
-                .publish_layer_unlocked(&active, &resolved.changes)
+                .publish_layer_unlocked(&active, &resolved.changes, &mut observation)
                 .map_err(AmendError::LayerStack)?;
             if outcome.created {
                 (resolved.origin, resolved.changes)

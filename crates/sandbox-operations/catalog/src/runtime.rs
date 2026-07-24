@@ -49,10 +49,19 @@ const SHELL_SECURITY_FAMILY: OperationFamilySpec = OperationFamilySpec {
     description: "Runtime capability that enforces shell execution policy.",
 };
 
+const LAYERSTACK_BASELINE_FAMILY: OperationFamilySpec = OperationFamilySpec {
+    id: "layerstack_baseline",
+    title: "LayerStack baseline",
+    summary: "LayerStack legacy-route baseline capability.",
+    description:
+        "Runtime capability used to freeze LayerStack legacy-v1 routing and lifecycle evidence.",
+};
+
 const FAMILIES: &[&OperationFamilySpec] = &[
     &COMMAND_FAMILY,
     &FILE_FAMILY,
     &DAEMON_HTTP_FAMILY,
+    &LAYERSTACK_BASELINE_FAMILY,
     &NETWORK_ISOLATION_FAMILY,
     &RESERVED_PATHS_FAMILY,
     &SHELL_SECURITY_FAMILY,

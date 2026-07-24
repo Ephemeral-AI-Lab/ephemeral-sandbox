@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "corpus": {
+    "empty_no_op": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "one_byte": "eb2df50fbafc1222ea3a83a825c6e665b16c740b7dacc5ce78f5632d8e80a2ce",
+    "boundary_64_kib": "cfcc8b1e38814f2746ea6687a9572bfa31f81ce30e7d7c8f37e82ad817df8be6",
+    "regular_file": "fa09da9ac85a5e3f32eedaf952d0b9acac312924d0fb3bf4d0d606a883e2c3b2",
+    "localized_edit": "e87ca28701467a189a6b5a745838d500e3cb7934c71ca52949f481d4aea4c4bc",
+    "incompressible_1_mib": "69ec440cd60f9d15df18dd08b0201ee44c8225604b18272fa35ef713cfb2278a",
+    "small_files_256": "ce0f164089c2e2981ce2abacc192d67d36fc7bbf991ed29362f3c040823307fa",
+    "symlink": "98c9b445f10fa591db5b49e379c371200781bcdc41f3afcaf0b92bb770909c66",
+    "whiteout_opaque": "83c5d7d191432abd480c44ed7d330876548dbaf91aee25d3c80e95880c980601",
+    "ordered_multilayer_root": "46b50ce70eb7e4aefcb555ca3fabda344f961ad5ea80f01430456db77c8a98eb"
+  },
+  "artifacts": {
+    "base_root_hash": "541721df8cd996a3d2294d81f1132b62fa15ca89fe034feab24d6270a7e40458",
+    "manifest_sha256": "2766e1a6da54dfd017515b674361bcf32e4d697ca0cbc17244d20b6b087ee85b",
+    "tree_sha256": "c53e4d348bc9de2a1369643b75927af164d07c6e70eaffa8ae934e9a65f3a377",
+    "content_sha256": "0ffaedf82da4089453e10558bd38e1a871e0e18e098ce2d0eaef4bc9cc63e3bd",
+    "metadata_sha256": "a92fa3ab5303f60d1693fd713ef7398d41373db552bca2a4580eb52eb1f5524f",
+    "export_tar_zst_sha256": "16988fb6780bf1ce168ae85e3d9e5e116139978d8b2db7a92b4c033becf5713b"
+  },
+  "metadata_contract": {
+    "file_mode": "preserved",
+    "directory_mode": "not_explicitly_carried",
+    "owner": "not_explicitly_carried",
+    "hardlink": "lossy_independent_files",
+    "sparse": "lossy_byte_stream",
+    "xattr": "lossy_not_carried",
+    "export_uid_gid": "unset",
+    "export_hardlink": "lossy_regular_entries"
+  }
+}

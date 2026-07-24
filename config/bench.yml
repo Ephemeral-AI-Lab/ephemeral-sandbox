@@ -35,6 +35,7 @@ runtime:
   namespace_execution:
     scratch_root: /eos/namespace_execution
   layerstack:
+    rollout_mode: legacy
     remount_sweep_width: __SWEEP_WIDTH__
   command:
     max_active: 64

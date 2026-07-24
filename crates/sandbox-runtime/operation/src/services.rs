@@ -732,6 +732,7 @@ impl Default for FileRuntimeConfig {
 /// `Default` preserves the shipped policy for callers without that section.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LayerstackRuntimeConfig {
+    pub rollout_mode: sandbox_runtime_layerstack::service::StorageRolloutMode,
     pub remount_sweep_width: usize,
     pub export_chunk_bytes: u64,
     pub spool_zstd_level: i32,
@@ -741,6 +742,7 @@ pub struct LayerstackRuntimeConfig {
 impl Default for LayerstackRuntimeConfig {
     fn default() -> Self {
         Self {
+            rollout_mode: sandbox_runtime_layerstack::service::StorageRolloutMode::Legacy,
             remount_sweep_width: 4,
             export_chunk_bytes: 2 * 1024 * 1024,
             spool_zstd_level: 3,

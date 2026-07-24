@@ -17,7 +17,10 @@ use sandbox_operation_contract::{
     OperationExecutionOwner, OperationRequest, OperationScope, OperationScopeKind,
     OperationVisibility,
 };
-use sandbox_runtime_layerstack::service::{LayerStatus, StackObservation};
+use sandbox_runtime_layerstack::service::{
+    LayerStackResourceSnapshot, LayerStackRouteSnapshot, LayerStatus, StackObservation,
+    StorageAuthority, StorageRolloutMode,
+};
 use sandbox_runtime_layerstack::{
     LayerDeltaDescription, LayerDeltaEntry, LayerDeltaEntryKind, LayerPath, LayerRef,
 };
@@ -49,6 +52,8 @@ impl Default for FakeInput {
                 manifest_version: 1,
                 root_hash: "root-1".to_owned(),
                 active_lease_count: 0,
+                route: Default::default(),
+                resources: Default::default(),
                 layers: Vec::new(),
             }),
             bytes: LayerStackBytes::default(),
@@ -202,6 +207,8 @@ fn snapshot_renders_neutral_runtime_state_and_latest_resources() {
             manifest_version: 1,
             root_hash: "root-1".to_owned(),
             active_lease_count: 2,
+            route: Default::default(),
+            resources: Default::default(),
             layers: vec![layer("l0", 1)],
         }),
         bytes: LayerStackBytes {
@@ -256,8 +263,24 @@ fn snapshot_renders_neutral_runtime_state_and_latest_resources() {
         value["workspaces"][0]["resources"]["latest"]["metrics"]["disk_bytes"],
         3
     );
+    assert_eq!(value["stack"]["route"]["configured_mode"], "legacy");
+    assert_eq!(value["stack"]["route"]["write_authority"], "legacy_v1");
+    assert_eq!(value["stack"]["route"]["read_authority"], "legacy_v1");
     assert_eq!(
-        value["stack"],
+        value["stack"]["resources"]["logical_cleanup_complete"],
+        false
+    );
+    let mut stack = value["stack"].clone();
+    stack
+        .as_object_mut()
+        .expect("stack projection")
+        .remove("route");
+    stack
+        .as_object_mut()
+        .expect("stack projection")
+        .remove("resources");
+    assert_eq!(
+        stack,
         json!({
             "layer_count": 1,
             "layers_bytes": 120,
@@ -750,6 +773,25 @@ fn layerstack_inventory_merges_bytes_and_derives_bookings() {
             manifest_version: 5,
             root_hash: "root-5".to_owned(),
             active_lease_count: 2,
+            route: LayerStackRouteSnapshot {
+                schema_version: 1,
+                observation_epoch: 7,
+                configured_mode: StorageRolloutMode::Legacy,
+                write_authority: StorageAuthority::LegacyV1,
+                read_authority: StorageAuthority::LegacyV1,
+                bytes_written: 4_096,
+                ..LayerStackRouteSnapshot::default()
+            },
+            resources: LayerStackResourceSnapshot {
+                schema_version: 1,
+                observation_epoch: 7,
+                live_owned_bytes: 256,
+                high_water_owned_bytes: 256,
+                active_leases: 2,
+                high_water_active_leases: 3,
+                logical_cleanup_complete: false,
+                ..LayerStackResourceSnapshot::default()
+            },
             layers: vec![
                 layer("l4", 0),
                 layer("l3", 1),
@@ -784,6 +826,18 @@ fn layerstack_inventory_merges_bytes_and_derives_bookings() {
     assert_eq!(value["storage_logical_bytes"], 250_000);
     assert_eq!(value["storage_allocated_bytes"], 270_336);
     assert_eq!(value["staging_entry_count"], 2);
+    assert_eq!(value["route"]["schema_version"], 1);
+    assert_eq!(value["route"]["observation_epoch"], 7);
+    assert_eq!(value["route"]["configured_mode"], "legacy");
+    assert_eq!(value["route"]["write_authority"], "legacy_v1");
+    assert_eq!(value["route"]["read_authority"], "legacy_v1");
+    assert_eq!(value["route"]["bytes_written"], 4_096);
+    assert_eq!(value["resources"]["schema_version"], 1);
+    assert_eq!(value["resources"]["observation_epoch"], 7);
+    assert_eq!(value["resources"]["live_owned_bytes"], 256);
+    assert_eq!(value["resources"]["active_leases"], 2);
+    assert_eq!(value["resources"]["high_water_active_leases"], 3);
+    assert_eq!(value["resources"]["logical_cleanup_complete"], false);
     assert_eq!(layers[4]["bytes"], 120_000);
     assert_eq!(layers[4]["allocated_bytes"], 120_000);
     assert_eq!(layers[2]["booked_by"], json!(["l3"]));
@@ -810,6 +864,8 @@ fn layerstack_preserves_missing_bytes_and_renders_workspace_sharing() {
             manifest_version: 1,
             root_hash: "root-1".to_owned(),
             active_lease_count: 0,
+            route: Default::default(),
+            resources: Default::default(),
             layers: vec![layer("l0", 0)],
         }),
         ..FakeInput::default()
@@ -850,6 +906,8 @@ fn layer_delta_uses_direct_layerstack_types_and_enforces_limits() {
             manifest_version: 1,
             root_hash: "root-1".to_owned(),
             active_lease_count: 0,
+            route: Default::default(),
+            resources: Default::default(),
             layers: vec![layer("l1", 0)],
         }),
         delta: Ok(LayerDeltaDescription {

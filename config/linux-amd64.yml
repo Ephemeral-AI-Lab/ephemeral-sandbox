@@ -17,6 +17,7 @@ runtime:
   namespace_execution:
     scratch_root: /eos/namespace_execution
   layerstack:
+    rollout_mode: legacy
     autosquash_policies:
       squash_at_n_layers: 100
   command:

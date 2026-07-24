@@ -134,6 +134,11 @@ pub(crate) fn build_runtime_config(
             },
         },
         layerstack: sandbox_runtime::LayerstackRuntimeConfig {
+            rollout_mode: match config.runtime.layerstack.rollout_mode {
+                sandbox_config::configs::runtime::StorageRolloutMode::Legacy => {
+                    sandbox_runtime::StorageRolloutMode::Legacy
+                }
+            },
             remount_sweep_width: config.runtime.layerstack.remount_sweep_width,
             export_chunk_bytes: config.runtime.layerstack.export_chunk_bytes,
             spool_zstd_level: config.runtime.layerstack.spool_zstd_level,

@@ -11,6 +11,7 @@ pub(crate) mod dir_list;
 pub(crate) mod file_read;
 mod layer;
 pub(crate) mod lease;
+mod observation;
 mod ops;
 pub(crate) mod projection;
 pub mod publish;
@@ -32,6 +33,7 @@ pub use projection::{
 pub(crate) fn reset_shared_registries_for_tests() {
     lease::reset_shared_registries_for_tests();
     lease::reset_shared_substitutions_for_tests();
+    observation::reset_shared_observation_states_for_tests();
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -58,6 +60,7 @@ pub struct LayerStack {
     pub(in crate::stack) storage_root: PathBuf,
     pub(crate) writer_lock: StorageWriterLockLease,
     pub(crate) leases: Arc<Mutex<LeaseRegistry>>,
+    pub(crate) observation: Arc<observation::StorageObservationState>,
     pub(in crate::stack) substitutions: lease::rewrite::SubstitutionMap,
     pub(in crate::stack) view: MergedView,
 }
@@ -80,12 +83,14 @@ impl LayerStack {
         std::fs::create_dir_all(storage_root.join(STAGING_DIR))?;
         let writer_lock = StorageWriterLockLease::acquire(&storage_root)?;
         let leases = shared_registry_for_root(&storage_root)?;
+        let observation = observation::shared_observation_state_for_root(&storage_root)?;
         let substitutions = lease::rewrite::shared_substitutions_for_root(&storage_root);
         let view = MergedView::new(storage_root.clone());
         Ok(Self {
             storage_root,
             writer_lock,
             leases,
+            observation,
             substitutions,
             view,
         })
@@ -107,6 +112,8 @@ impl LayerStack {
             let mut leases = lock_shared_registry(&self.leases)?;
             leases.acquire(manifest.clone(), owner_request_id)?
         };
+        self.observation
+            .record_active_leases(self.active_lease_count());
         let layer_paths = manifest
             .layers
             .iter()
@@ -122,7 +129,9 @@ impl LayerStack {
     pub fn release_lease(&mut self, lease_id: &str) -> Result<bool, LayerStackError> {
         let _guard = self.writer_lock.exclusive()?;
         let mut leases = lock_shared_registry(&self.leases)?;
-        Ok(release_lease_locked(&self.storage_root, &mut leases, lease_id)?.is_some())
+        let released = release_lease_locked(&self.storage_root, &mut leases, lease_id)?.is_some();
+        self.observation.record_active_leases(leases.active_count());
+        Ok(released)
     }
 
     /// Fail-closed boot storage sweep to the active manifest's keep-set.
