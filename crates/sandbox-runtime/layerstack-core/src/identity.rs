@@ -17,6 +17,7 @@ impl FormatVersion {
 }
 
 pub const ROOT_FORMAT_V2: FormatVersion = FormatVersion::new_const(2);
+pub const ROOT_FORMAT_V3: FormatVersion = FormatVersion::new_const(3);
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]

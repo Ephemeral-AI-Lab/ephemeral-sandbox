@@ -40,6 +40,11 @@ pub use stack::{
     LayerDeltaEntry, LayerDeltaEntryKind, LayerStack, Lease, MergedView, RewrittenLease,
     SquashOutcome, SquashPhase, SquashPhaseObserver, SquashedBlock, SweepReport,
 };
+#[doc(hidden)]
+pub use stack::{
+    HiddenQueuedWork, HiddenTaskWork, HiddenValidationObservation, HiddenValidationOutcome,
+    HiddenValidationPublication, HiddenWorkerGuard,
+};
 pub use storage::whiteout::{LOGICAL_WHITEOUT_PREFIX, OPAQUE_MARKER};
 pub use workspace_base::{
     build_shared_workspace_base, build_workspace_base, ensure_workspace_base,

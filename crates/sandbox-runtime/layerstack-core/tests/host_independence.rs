@@ -1,14 +1,76 @@
 mod common;
 
 use sandbox_runtime_layerstack_core::{
-    decode_root_record, CanonicalPath, Error, ErrorKind, FieldClass, PublicationId,
-    PublicationIdentity, RootId, RootRecordV2, TreeEntry, Xattr, ROOT_FORMAT_V2,
+    decode_root_record, decode_v3_record, encode_v3_record, v3_record_id, CanonicalPath, Digest32,
+    Error, ErrorKind, FieldClass, PublicationId, PublicationIdentity, RawDigest, RecordKindV3,
+    RootId, RootRecordV2, TreeEntry, Xattr, ROOT_FORMAT_V2,
 };
 
 use common::{
     encode_root, encode_tree, file_segments, identify_root, metadata, sample_root,
-    validate_tree_bytes, BytesSource, CaptureDigest,
+    validate_tree_bytes, BytesSource, CaptureDigest, VecSink,
 };
+
+const CONTRACT_V3: &str = include_str!("../../layerstack/tests/fixtures/cas/v3/contract-v3.tsv");
+
+struct IgnoredChecksum;
+
+impl RawDigest for IgnoredChecksum {
+    fn digest_bytes(&mut self, _bytes: &[u8]) -> Result<Digest32, Error> {
+        Ok(Digest32::default())
+    }
+}
+
+fn decode_hex(value: &str) -> Vec<u8> {
+    value
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let high = (pair[0] as char).to_digit(16).expect("hex high nibble");
+            let low = (pair[1] as char).to_digit(16).expect("hex low nibble");
+            u8::try_from((high << 4) | low).expect("hex byte")
+        })
+        .collect()
+}
+
+#[test]
+fn canonical_v3_fixed_width_bytes_and_id_preimages_are_host_independent() -> Result<(), Error> {
+    let root_hex = CONTRACT_V3
+        .lines()
+        .find(|line| line.starts_with("root_record_v3\t"))
+        .and_then(|line| line.split('\t').nth(4))
+        .expect("root v3 owner golden");
+    let bytes = decode_hex(root_hex);
+    assert_eq!(&bytes[..8], b"EOS-LS2\0");
+    assert_eq!(bytes[8], RecordKindV3::Root as u8);
+    assert_eq!(&bytes[9..11], &3_u16.to_be_bytes());
+    assert_eq!(&bytes[11..15], &57_u32.to_be_bytes());
+
+    let mut canonical = None;
+    let mut canonical_preimage = None;
+    for fragment in [1, 3, 64, usize::MAX] {
+        let mut source = BytesSource::fragmented(&bytes, fragment);
+        let record = decode_v3_record(&mut source, &mut IgnoredChecksum)?;
+        let mut encoded = VecSink::default();
+        encode_v3_record(&record, &mut encoded)?;
+        let mut digest = CaptureDigest::default();
+        let _ = v3_record_id(&record, &mut digest)?;
+
+        assert_eq!(encoded.bytes, bytes);
+        assert_eq!(digest.invocations, 1);
+        if let Some(expected) = &canonical {
+            assert_eq!(&encoded.bytes, expected);
+        } else {
+            canonical = Some(encoded.bytes);
+        }
+        if let Some(expected) = &canonical_preimage {
+            assert_eq!(&digest.preimage, expected);
+        } else {
+            canonical_preimage = Some(digest.preimage);
+        }
+    }
+    Ok(())
+}
 
 #[derive(Clone, Copy)]
 struct PhysicalCarrier<'a> {

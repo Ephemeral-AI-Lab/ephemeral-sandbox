@@ -29,6 +29,7 @@ type OutputSink = Box<dyn FnMut(&[u8]) + Send + 'static>;
 struct OutputReader {
     master: File,
     sink: OutputSink,
+    drain: OutputDrain,
 }
 
 #[derive(Default)]
@@ -39,6 +40,42 @@ struct OutputQueue {
 struct OutputReactor {
     queue: Arc<(Mutex<OutputQueue>, Condvar)>,
     active_readers: Arc<AtomicUsize>,
+}
+
+#[derive(Clone)]
+struct OutputDrain {
+    complete: Arc<(Mutex<bool>, Condvar)>,
+}
+
+impl OutputDrain {
+    fn pending() -> Self {
+        Self {
+            complete: Arc::new((Mutex::new(false), Condvar::new())),
+        }
+    }
+
+    fn complete(&self) {
+        let (state, ready) = &*self.complete;
+        let mut complete = state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *complete = true;
+        ready.notify_all();
+    }
+
+    fn wait_timeout(&self, timeout: Duration) -> bool {
+        let (state, ready) = &*self.complete;
+        let complete = state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if *complete {
+            return true;
+        }
+        let (complete, _) = ready
+            .wait_timeout_while(complete, timeout, |complete| !*complete)
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *complete
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,6 +91,7 @@ pub struct PtyMaster {
     pgid: Option<i32>,
     writer: Arc<Mutex<Option<File>>>,
     sink: TranscriptSink,
+    drain: OutputDrain,
     cancel: Arc<dyn Fn() + Send + Sync>,
     stdin_write_deadline: Duration,
 }
@@ -68,24 +106,25 @@ impl PtyMaster {
     ) -> io::Result<Self> {
         set_nonblocking(&master)?;
         let writer = master.try_clone()?;
-        let sink = match transcript_path {
+        let (sink, drain) = match transcript_path {
             Some(path) => {
-                spawn_file_output_reader(master, &path);
-                TranscriptSink::File(path)
+                let drain = spawn_file_output_reader(master, &path);
+                (TranscriptSink::File(path), drain)
             }
             None => {
                 let len = Arc::new(AtomicU64::new(0));
                 let reader_len = Arc::clone(&len);
-                spawn_output_reader(master, move |bytes| {
+                let drain = spawn_output_reader(master, move |bytes| {
                     reader_len.fetch_add(bytes.len() as u64, Ordering::Relaxed);
                 });
-                TranscriptSink::Memory(len)
+                (TranscriptSink::Memory(len), drain)
             }
         };
         Ok(Self {
             pgid,
             writer: Arc::new(Mutex::new(Some(writer))),
             sink,
+            drain,
             cancel: Arc::from(cancel),
             stdin_write_deadline,
         })
@@ -136,13 +175,16 @@ impl PtyMaster {
         Ok(())
     }
 
-    pub(crate) fn terminal_release(&self) -> impl FnOnce() + Send + 'static {
+    pub(crate) fn terminal_release(&self) -> impl FnOnce() -> bool + Send + 'static {
         let writer = Arc::clone(&self.writer);
+        let drain = self.drain.clone();
+        let deadline = self.stdin_write_deadline;
         move || {
             writer
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner())
                 .take();
+            drain.wait_timeout(deadline)
         }
     }
 
@@ -156,7 +198,7 @@ impl PtyMaster {
     }
 }
 
-fn spawn_file_output_reader(master: File, transcript_path: &Path) {
+fn spawn_file_output_reader(master: File, transcript_path: &Path) -> OutputDrain {
     let mut transcript = OpenOptions::new()
         .create(true)
         .append(true)
@@ -171,11 +213,13 @@ fn spawn_file_output_reader(master: File, transcript_path: &Path) {
         {
             transcript = None;
         }
-    });
+    })
 }
 
-fn spawn_output_reader(master: File, sink: impl FnMut(&[u8]) + Send + 'static) {
-    output_reactor().register(master, Box::new(sink));
+fn spawn_output_reader(master: File, sink: impl FnMut(&[u8]) + Send + 'static) -> OutputDrain {
+    let drain = OutputDrain::pending();
+    output_reactor().register(master, Box::new(sink), drain.clone());
+    drain
 }
 
 pub(crate) fn output_reactor_snapshot() -> OutputReactorSnapshot {
@@ -215,13 +259,17 @@ impl OutputReactor {
         }
     }
 
-    fn register(&self, master: File, sink: OutputSink) {
+    fn register(&self, master: File, sink: OutputSink, drain: OutputDrain) {
         self.active_readers.fetch_add(1, Ordering::Release);
         let (queue, ready) = &*self.queue;
         let mut queue = queue
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        queue.readers.push(OutputReader { master, sink });
+        queue.readers.push(OutputReader {
+            master,
+            sink,
+            drain,
+        });
         ready.notify_one();
     }
 }
@@ -243,7 +291,8 @@ fn run_output_reactor(shared: &(Mutex<OutputQueue>, Condvar), active_readers: &A
             if drain_output_reader(&mut queue.readers[index]) {
                 index += 1;
             } else {
-                queue.readers.swap_remove(index);
+                let reader = queue.readers.swap_remove(index);
+                reader.drain.complete();
                 active_readers.fetch_sub(1, Ordering::AcqRel);
             }
         }

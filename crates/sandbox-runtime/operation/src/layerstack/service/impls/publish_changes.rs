@@ -22,6 +22,7 @@ impl LayerStackService {
 
         let base_version = base.manifest_version;
         let bytes = sandbox_runtime_layerstack::published_layer_bytes(&request.changes);
+        let publication_id = request.publication_id;
         let owner = request.owner;
         let committed_changes = request.changes.clone();
         let publish_request = sandbox_runtime_layerstack::PublishValidatedChangesRequest {
@@ -72,6 +73,16 @@ impl LayerStackService {
             self.file
                 .record_layer_publish(&owner, &published.origin, &committed_changes);
         }
+        drop(_audit_gate);
+        if !published.no_op {
+            self.enqueue_hidden_validation(
+                &mut stack,
+                publication_id,
+                committed_changes,
+                &published.manifest,
+                bytes,
+            );
+        }
         Ok(PublishChangesResult {
             revision: revision_from_manifest(&published.manifest),
             manifest: published.manifest.clone(),
@@ -80,6 +91,55 @@ impl LayerStackService {
             no_op: published.no_op,
         })
     }
+
+    fn enqueue_hidden_validation(
+        &self,
+        stack: &mut sandbox_runtime_layerstack::LayerStack,
+        publication_id: [u8; 16],
+        changes: Vec<sandbox_runtime_layerstack::LayerChange>,
+        manifest: &sandbox_runtime_layerstack::Manifest,
+        bytes: u64,
+    ) {
+        let Some(worker) = &self.hidden_validation else {
+            return;
+        };
+        let Some(source_layer) = manifest.layers.first() else {
+            worker.record_fallback();
+            return;
+        };
+        let source_lease = match stack.acquire_snapshot(&format!(
+            "hidden-validation:{}",
+            correlation_id(publication_id)
+        )) {
+            Ok(lease) => lease,
+            Err(_) => {
+                worker.record_fallback();
+                return;
+            }
+        };
+        let source_lease_id = source_lease.lease_id;
+        let publication = sandbox_runtime_layerstack::HiddenValidationPublication {
+            publication_id,
+            changes,
+            source_layer_dir: self.layer_stack_root.join(&source_layer.path),
+            public_root_hash: sandbox_runtime_layerstack::manifest_root_hash(manifest),
+        };
+        if let Err(source_lease_id) = worker.submit(publication, source_lease_id, bytes) {
+            if stack.release_lease(&source_lease_id).is_err() {
+                worker.record_fallback();
+            }
+        }
+    }
+}
+
+fn correlation_id(publication_id: [u8; 16]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(32);
+    for byte in publication_id {
+        output.push(DIGITS[usize::from(byte >> 4)] as char);
+        output.push(DIGITS[usize::from(byte & 0x0f)] as char);
+    }
+    output
 }
 
 fn map_publish_error(error: sandbox_runtime_layerstack::LayerStackError) -> LayerStackServiceError {

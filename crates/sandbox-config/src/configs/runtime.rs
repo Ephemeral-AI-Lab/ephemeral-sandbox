@@ -180,6 +180,7 @@ impl Default for LayerstackConfig {
 pub enum StorageRolloutMode {
     #[default]
     Legacy,
+    Validation,
 }
 
 impl LayerstackConfig {

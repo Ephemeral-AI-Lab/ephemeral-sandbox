@@ -182,6 +182,33 @@ fn write_change(path: &str, content: &str) -> sandbox_runtime_layerstack::LayerC
     }
 }
 
+fn direct_publish(
+    fixture: &PublishFixture,
+    service: &LayerStackService,
+    publication_id: [u8; 16],
+    path: &str,
+    content: &str,
+) -> Result<
+    sandbox_runtime::layerstack::PublishChangesResult,
+    Box<dyn std::error::Error + Send + Sync>,
+> {
+    let base = fixture.active_manifest()?;
+    Ok(
+        service.publish_changes(sandbox_runtime::layerstack::PublishChangesRequest {
+            publication_id,
+            expected_base: sandbox_runtime::layerstack::LayerStackRevision {
+                manifest_version: base.version,
+                root_hash: sandbox_runtime_layerstack::manifest_root_hash(&base),
+                layer_count: base.layers.len(),
+            },
+            base_manifest: base,
+            protected_drops: Vec::new(),
+            changes: vec![write_change(path, content)],
+            owner: format!("operation:hidden-validation-{path}"),
+        })?,
+    )
+}
+
 fn session_handle(
     id: &str,
     manifest: sandbox_runtime_layerstack::Manifest,
@@ -310,6 +337,249 @@ fn exec_input(workspace_session_id: &WorkspaceSessionId, yield_time_ms: u64) -> 
         timeout_ms: None,
         yield_time_ms: Some(yield_time_ms),
     }
+}
+
+#[test]
+fn test_s03_s02_validation_uses_normal_protocol_without_changing_v1_authority(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = PublishFixture::new("s03-s02-hidden-validation")?;
+    std::fs::write(fixture.workspace_root.join("README.md"), "base\n")?;
+    fixture.build_base()?;
+    let file = support::test_file_service();
+    let validation_config = LayerstackRuntimeConfig {
+        rollout_mode: sandbox_runtime::StorageRolloutMode::Validation,
+        ..LayerstackRuntimeConfig::default()
+    };
+    let validation =
+        fixture.layerstack_with(Arc::clone(&file), Observer::disabled(), validation_config)?;
+
+    let initial = validation.observe()?;
+    assert_eq!(
+        initial.route.configured_mode,
+        sandbox_runtime::StorageRolloutMode::Validation
+    );
+    assert_eq!(
+        initial.route.write_authority,
+        sandbox_runtime::StorageAuthority::LegacyV1
+    );
+    assert_eq!(
+        initial.route.read_authority,
+        sandbox_runtime::StorageAuthority::LegacyV1
+    );
+
+    let first = direct_publish(
+        &fixture,
+        &validation,
+        [0x21; 16],
+        "matched.txt",
+        "matched\n",
+    )?;
+    assert!(!first.no_op);
+    assert_eq!(
+        fixture.read_text("matched.txt")?.as_deref(),
+        Some("matched\n")
+    );
+    wait_until(Duration::from_secs(10), || {
+        validation
+            .observe()
+            .is_ok_and(|snapshot| snapshot.route.shadow_completed_count >= 1)
+    });
+    let first_observation = validation.observe()?;
+    assert_eq!(first_observation.route.shadow_comparison_count, 1);
+    assert_eq!(first_observation.route.mismatch_count, 0);
+    assert_eq!(
+        validation.hidden_validation_last_correlation().as_deref(),
+        Some("21212121212121212121212121212121")
+    );
+
+    validation.force_next_hidden_validation_mismatch_for_tests();
+    direct_publish(
+        &fixture,
+        &validation,
+        [0x22; 16],
+        "mismatch.txt",
+        "public remains authoritative\n",
+    )?;
+    wait_until(Duration::from_secs(10), || {
+        validation.observe().is_ok_and(|snapshot| {
+            snapshot.route.shadow_completed_count >= 2 && snapshot.route.mismatch_count == 1
+        })
+    });
+    assert_eq!(
+        fixture.read_text("mismatch.txt")?.as_deref(),
+        Some("public remains authoritative\n")
+    );
+
+    validation.pause_hidden_validation_for_tests(true);
+    direct_publish(&fixture, &validation, [0x30; 16], "paused.txt", "paused\n")?;
+    wait_until(Duration::from_secs(10), || {
+        validation
+            .observe()
+            .is_ok_and(|snapshot| snapshot.resources.active_tasks == 1)
+    });
+    direct_publish(&fixture, &validation, [0x31; 16], "queued-a.txt", "a\n")?;
+    direct_publish(&fixture, &validation, [0x32; 16], "queued-b.txt", "b\n")?;
+    let fallback_before = validation.observe()?.route.fallback_count;
+    let started = Instant::now();
+    direct_publish(
+        &fixture,
+        &validation,
+        [0x33; 16],
+        "backpressured.txt",
+        "v1 still commits\n",
+    )?;
+    assert!(
+        started.elapsed() < Duration::from_secs(5),
+        "hidden queue saturation must not block the public v1 publish"
+    );
+    let saturated = validation.observe()?;
+    assert!(saturated.route.fallback_count > fallback_before);
+    assert_eq!(saturated.resources.active_tasks, 1);
+    assert_eq!(saturated.resources.queued_items, 2);
+    assert!(saturated.resources.queued_bytes > 0);
+    assert_eq!(
+        fixture.read_text("backpressured.txt")?.as_deref(),
+        Some("v1 still commits\n")
+    );
+    validation.pause_hidden_validation_for_tests(false);
+    wait_until(Duration::from_secs(10), || {
+        validation.observe().is_ok_and(|snapshot| {
+            snapshot.route.shadow_completed_count >= 5
+                && snapshot.resources.active_tasks == 0
+                && snapshot.resources.queued_items == 0
+                && snapshot.resources.queued_bytes == 0
+                && snapshot.resources.byte_permits_in_use == 0
+        })
+    });
+
+    let diagnostic =
+        sandbox_runtime_layerstack::LayerStack::open(fixture.layer_stack_root.clone())?;
+    let generation_before_off = diagnostic
+        .hidden_validation_generation()?
+        .expect("validation head exists");
+    let comparisons_before_off = validation.observe()?.route.shadow_comparison_count;
+    drop(validation);
+    let stopped = diagnostic.observe()?;
+    assert_eq!(stopped.resources.active_workers, 0);
+    assert!(stopped.resources.logical_cleanup_complete);
+
+    let legacy = fixture.layerstack(Arc::clone(&file))?;
+    direct_publish(
+        &fixture,
+        &legacy,
+        [0x40; 16],
+        "validation-off.txt",
+        "legacy only\n",
+    )?;
+    let off = legacy.observe()?;
+    assert_eq!(
+        off.route.configured_mode,
+        sandbox_runtime::StorageRolloutMode::Legacy
+    );
+    assert_eq!(off.route.shadow_comparison_count, comparisons_before_off);
+    assert_eq!(
+        diagnostic.hidden_validation_generation()?,
+        Some(generation_before_off)
+    );
+    drop(legacy);
+
+    let restarted =
+        fixture.layerstack_with(Arc::clone(&file), Observer::disabled(), validation_config)?;
+    direct_publish(
+        &fixture,
+        &restarted,
+        [0x41; 16],
+        "validation-restarted.txt",
+        "restart\n",
+    )?;
+    wait_until(Duration::from_secs(10), || {
+        restarted
+            .observe()
+            .is_ok_and(|snapshot| snapshot.route.shadow_completed_count > comparisons_before_off)
+    });
+    assert!(diagnostic
+        .hidden_validation_generation()?
+        .is_some_and(|generation| generation > generation_before_off));
+    assert_eq!(
+        restarted.observe()?.route.write_authority,
+        sandbox_runtime::StorageAuthority::LegacyV1
+    );
+    drop(restarted);
+    assert!(diagnostic.observe()?.resources.logical_cleanup_complete);
+    Ok(())
+}
+
+#[test]
+fn hidden_validation_accepts_directory_node_attribution(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = PublishFixture::new("hidden-validation-directory-attribution")?;
+    std::fs::write(fixture.workspace_root.join("README.md"), "base\n")?;
+    fixture.build_base()?;
+    let validation = fixture.layerstack_with(
+        support::test_file_service(),
+        Observer::disabled(),
+        LayerstackRuntimeConfig {
+            rollout_mode: sandbox_runtime::StorageRolloutMode::Validation,
+            ..LayerstackRuntimeConfig::default()
+        },
+    )?;
+    let base = fixture.active_manifest()?;
+
+    validation.publish_changes(sandbox_runtime::layerstack::PublishChangesRequest {
+        publication_id: [0x51; 16],
+        expected_base: sandbox_runtime::layerstack::LayerStackRevision {
+            manifest_version: base.version,
+            root_hash: sandbox_runtime_layerstack::manifest_root_hash(&base),
+            layer_count: base.layers.len(),
+        },
+        base_manifest: base,
+        protected_drops: Vec::new(),
+        changes: vec![
+            sandbox_runtime_layerstack::LayerChange::Directory {
+                path: layer_path("import"),
+            },
+            write_change("import/file.bin", "payload\n"),
+        ],
+        owner: "operation:hidden-validation-directory-attribution".to_string(),
+    })?;
+    wait_until(Duration::from_secs(10), || {
+        validation.observe().is_ok_and(|snapshot| {
+            snapshot.route.shadow_completed_count >= 1 || snapshot.route.fallback_count >= 1
+        })
+    });
+
+    let observation = validation.observe()?;
+    assert_eq!(observation.route.shadow_completed_count, 1);
+    assert_eq!(observation.route.shadow_comparison_count, 1);
+    assert_eq!(observation.route.fallback_count, 0);
+    assert_eq!(observation.route.mismatch_count, 0);
+    assert_eq!(observation.resources.active_tasks, 0);
+    assert_eq!(observation.resources.queued_items, 0);
+    assert_eq!(observation.resources.byte_permits_in_use, 0);
+    assert_eq!(observation.resources.active_leases, 0);
+    Ok(())
+}
+
+#[test]
+fn hidden_validation_idle_worker_is_quiescent(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = PublishFixture::new("hidden-validation-idle-worker")?;
+    std::fs::write(fixture.workspace_root.join("README.md"), "base\n")?;
+    fixture.build_base()?;
+    let validation = fixture.layerstack_with(
+        support::test_file_service(),
+        Observer::disabled(),
+        LayerstackRuntimeConfig {
+            rollout_mode: sandbox_runtime::StorageRolloutMode::Validation,
+            ..LayerstackRuntimeConfig::default()
+        },
+    )?;
+
+    let observation = validation.observe()?;
+    assert_eq!(observation.resources.active_workers, 0);
+    assert_eq!(observation.resources.high_water_active_workers, 0);
+    assert!(observation.resources.logical_cleanup_complete);
+    Ok(())
 }
 
 #[test]
@@ -450,15 +720,23 @@ fn explicit_publish_rejects_active_commands_before_capture(
             payload: json!({"status": "ok"}),
         },
     );
-    wait_until(Duration::from_secs(5), || {
-        operations
-            .observability_snapshot()
-            .active_namespace_executions
-            .is_empty()
-    });
-    operations
-        .workspace_session
-        .guarded_destroy(workspace_session_id, None)?;
+    let cleanup_deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        match operations
+            .workspace_session
+            .guarded_destroy(workspace_session_id.clone(), None)
+        {
+            Ok(_) => break,
+            Err(WorkspaceSessionError::ActiveCommands { .. }) => {
+                assert!(
+                    Instant::now() < cleanup_deadline,
+                    "workspace command ledger did not drain before cleanup"
+                );
+                std::thread::yield_now();
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
     Ok(())
 }
 
@@ -782,6 +1060,7 @@ fn merge_conflict_is_structured_atomic_and_retryable(
         .workspace_session
         .create_workspace_session(create_request())?;
     layerstack.publish_changes(sandbox_runtime::layerstack::PublishChangesRequest {
+        publication_id: [5; 16],
         expected_base: sandbox_runtime::layerstack::LayerStackRevision {
             manifest_version: base.version,
             root_hash: sandbox_runtime_layerstack::manifest_root_hash(&base),

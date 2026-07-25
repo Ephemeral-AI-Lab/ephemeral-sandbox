@@ -66,6 +66,7 @@ mod whiteout;
 mod workspace_base;
 
 pub use error::LayerStackError;
+pub(crate) use model::portable::Sha256Digest;
 pub use model::{
     aggregate_layer_changes, layer_digest, manifest_root_hash, CasError, LayerChange, LayerPath,
     LayerRef, Manifest, MANIFEST_SCHEMA_VERSION,

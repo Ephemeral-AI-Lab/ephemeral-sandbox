@@ -7,6 +7,7 @@ use crate::lock::StorageWriterLockLease;
 use crate::model::{manifest_root_hash, Manifest};
 use crate::{ACTIVE_MANIFEST_FILE, LAYERS_DIR, STAGING_DIR};
 
+pub(crate) mod candidate;
 pub(crate) mod dir_list;
 pub(crate) mod file_read;
 mod layer;
@@ -17,11 +18,17 @@ pub(crate) mod projection;
 pub mod publish;
 pub(crate) mod squash;
 
+#[doc(hidden)]
+pub use candidate::publication::{HiddenValidationOutcome, HiddenValidationPublication};
 use lease::release_lease_locked;
 use lease::{
     lock_shared_registry, lock_shared_registry_recover, shared_registry_for_root, LeaseRegistry,
 };
 pub use lease::{RewrittenLease, SweepReport};
+#[doc(hidden)]
+pub use observation::{
+    HiddenQueuedWork, HiddenTaskWork, HiddenValidationObservation, HiddenWorkerGuard,
+};
 pub use squash::{SquashOutcome, SquashPhase, SquashPhaseObserver, SquashedBlock};
 
 pub use projection::{
@@ -156,5 +163,11 @@ impl LayerStack {
         ActiveLeaseCounter {
             leases: Arc::clone(&self.leases),
         }
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn hidden_validation_observation(&self) -> HiddenValidationObservation {
+        HiddenValidationObservation::new(Arc::clone(&self.observation))
     }
 }

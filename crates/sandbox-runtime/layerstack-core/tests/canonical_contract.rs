@@ -1,10 +1,12 @@
 mod common;
 
 use sandbox_runtime_layerstack_core::{
-    decode_object_record, decode_root_record, decode_tree_record, encode_object_record,
-    encode_root_record, encode_tree_record, root_id, stage_tree_candidate, tree_entry_record_len,
-    validate_tree_candidate, CanonicalPath, Capability, Error, ErrorKind, HardlinkGroupId,
-    NodeMetadata, ObjectKind, ObjectRecord, SparseExtent, TreeEntry, Xattr, ROOT_FORMAT_V2,
+    decode_object_record, decode_root_record, decode_tree_record, decode_v3_record,
+    encode_object_record, encode_root_record, encode_tree_record, encode_v3_record, root_id,
+    stage_tree_candidate, tree_entry_record_len, tree_page_id, v3_record_id,
+    validate_tree_candidate, CanonicalPath, CanonicalRecordV3, Capability, Digest32, Error,
+    ErrorKind, HardlinkGroupId, NodeMetadata, ObjectKind, ObjectRecord, RawDigest, SparseExtent,
+    TreeEntry, Xattr, ROOT_FORMAT_V2,
 };
 
 use common::{
@@ -14,6 +16,48 @@ use common::{
 };
 
 const MAGIC: &[u8; 8] = b"EOS-LS2\0";
+const CONTRACT_V3: &str = include_str!("../../layerstack/tests/fixtures/cas/v3/contract-v3.tsv");
+
+struct DeclaredChecksum(Digest32);
+
+impl RawDigest for DeclaredChecksum {
+    fn digest_bytes(&mut self, _bytes: &[u8]) -> Result<Digest32, Error> {
+        Ok(self.0)
+    }
+}
+
+fn decode_hex(value: &str) -> Vec<u8> {
+    assert_eq!(value.len() % 2, 0);
+    value
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let high = (pair[0] as char).to_digit(16).expect("hex high nibble");
+            let low = (pair[1] as char).to_digit(16).expect("hex low nibble");
+            u8::try_from((high << 4) | low).expect("hex byte")
+        })
+        .collect()
+}
+
+fn v3_golden_rows() -> impl Iterator<Item = (&'static str, u8, usize, &'static str, Vec<u8>)> {
+    CONTRACT_V3
+        .lines()
+        .filter(|line| !line.starts_with('#') && !line.is_empty())
+        .map(|line| {
+            let mut columns = line.split('\t');
+            let name = columns.next().expect("name");
+            let kind = u8::from_str_radix(columns.next().expect("kind"), 16).expect("kind hex");
+            let encoded_length = columns
+                .next()
+                .expect("encoded length")
+                .parse::<usize>()
+                .expect("encoded length integer");
+            let sha256 = columns.next().expect("sha256");
+            let bytes = decode_hex(columns.next().expect("record hex"));
+            assert!(columns.next().is_none());
+            (name, kind, encoded_length, sha256, bytes)
+        })
+}
 
 fn push_header(output: &mut Vec<u8>, kind: u8, payload_len: u64, tree: bool) {
     output.extend_from_slice(MAGIC);
@@ -152,6 +196,65 @@ fn validate_one_reference_with_known(tree: &[u8], known: &[u8]) -> Result<(), Er
         &mut reference_source,
         &mut known_source,
     )?;
+    Ok(())
+}
+
+#[test]
+fn canonical_v3_owner_goldens_round_trip() -> Result<(), Error> {
+    let mut count = 0_usize;
+    for (name, kind, encoded_length, sha256, bytes) in v3_golden_rows() {
+        assert_eq!(bytes.len(), encoded_length, "{name}");
+        assert_eq!(sha256.len(), 64, "{name}");
+        assert_eq!(&bytes[..8], MAGIC, "{name}");
+        assert_eq!(bytes[8], kind, "{name}");
+        assert_eq!(&bytes[9..11], &3_u16.to_be_bytes(), "{name}");
+
+        let checksum = if matches!(kind, 0x30..=0x33) {
+            let mut value = [0_u8; 32];
+            value.copy_from_slice(&bytes[bytes.len() - 32..]);
+            Digest32::new(value)
+        } else {
+            Digest32::default()
+        };
+        let mut source = BytesSource::fragmented(&bytes, 1);
+        let mut raw_digest = DeclaredChecksum(checksum);
+        let record = decode_v3_record(&mut source, &mut raw_digest)?;
+        assert_eq!(record.kind() as u8, kind, "{name}");
+
+        let mut encoded = VecSink::default();
+        encode_v3_record(&record, &mut encoded)?;
+        assert_eq!(encoded.bytes, bytes, "{name}");
+
+        if !matches!(kind, 0x13 | 0x30..=0x33) {
+            let mut digest = CaptureDigest::default();
+            let _ = v3_record_id(&record, &mut digest)?;
+            assert_eq!(digest.preimage, bytes, "{name}");
+            assert_eq!(digest.invocations, 1, "{name}");
+        }
+        count += 1;
+    }
+    assert_eq!(count, 16);
+    Ok(())
+}
+
+#[test]
+fn canonical_v3_nominal_domains_and_error_codes_are_exact() -> Result<(), Error> {
+    let chunk = CanonicalRecordV3::chunk(vec![1])?;
+    let error = tree_page_id(&chunk, &mut CaptureDigest::default()).expect_err("wrong domain");
+    assert_eq!(error.kind(), ErrorKind::WrongDomain);
+    assert_eq!(error.kind().stage03_code(), Some(3));
+
+    let expected = [
+        (ErrorKind::WrongKind, 1),
+        (ErrorKind::UnsupportedVersion, 2),
+        (ErrorKind::TrailingBytes, 4),
+        (ErrorKind::ObjectCollisionOrCorruption, 18),
+        (ErrorKind::RequestDeadline, 32),
+    ];
+    for (kind, code) in expected {
+        assert_eq!(kind.stage03_code(), Some(code));
+    }
+    assert_eq!(ErrorKind::Malformed.stage03_code(), None);
     Ok(())
 }
 

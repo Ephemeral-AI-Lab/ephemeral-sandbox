@@ -519,6 +519,7 @@ fn layerstack_service_rejects_invalid_base_revision(
 
     let error = service
         .publish_changes(sandbox_runtime::layerstack::PublishChangesRequest {
+            publication_id: [1; 16],
             expected_base: sandbox_runtime::layerstack::LayerStackRevision {
                 manifest_version: base.version,
                 root_hash: "not-the-base-root".to_owned(),
@@ -553,6 +554,7 @@ fn layerstack_service_preserves_structured_publish_rejection(
 
     let error = service
         .publish_changes(sandbox_runtime::layerstack::PublishChangesRequest {
+            publication_id: [2; 16],
             expected_base: revision,
             base_manifest: base,
             protected_drops: Vec::new(),
@@ -594,6 +596,7 @@ fn layerstack_service_empty_changes_return_no_op_revision(
     };
 
     let result = service.publish_changes(sandbox_runtime::layerstack::PublishChangesRequest {
+        publication_id: [3; 16],
         expected_base: revision.clone(),
         base_manifest: base.clone(),
         protected_drops: Vec::new(),
@@ -623,6 +626,7 @@ fn layerstack_service_ignored_only_publish_preserves_route_summary(
     };
 
     let result = service.publish_changes(sandbox_runtime::layerstack::PublishChangesRequest {
+        publication_id: [4; 16],
         expected_base: revision,
         base_manifest: base,
         protected_drops: Vec::new(),

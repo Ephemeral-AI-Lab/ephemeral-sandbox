@@ -15,6 +15,7 @@ pub enum DigestDomain {
     RootRecord,
     TreeManifest,
     Object(ObjectKind),
+    V3Record(u8),
 }
 
 pub trait TypedDigest {
@@ -25,4 +26,8 @@ pub trait TypedDigest {
         payload_len: u64,
         encode_payload: &mut dyn FnMut(&mut dyn CanonicalSink) -> Result<(), Error>,
     ) -> Result<Digest32, Error>;
+}
+
+pub trait RawDigest {
+    fn digest_bytes(&mut self, bytes: &[u8]) -> Result<Digest32, Error>;
 }

@@ -1,6 +1,6 @@
 use crate::{
     CanonicalSink, CanonicalSource, DigestDomain, Error, ErrorKind, FieldClass, FormatVersion,
-    ObjectId, ObjectKind, TypedDigest, ROOT_FORMAT_V2,
+    ObjectId, ObjectKind, TypedDigest, ROOT_FORMAT_V2, ROOT_FORMAT_V3,
 };
 
 pub const MAX_RECORD_BYTES: u32 = 262_144;
@@ -21,6 +21,17 @@ pub(crate) enum RecordKind {
     Entry = 0x12,
     Metadata = 0x13,
     ObjectReference = 0x14,
+    TreePage = 0x20,
+    FileNode = 0x21,
+    SegmentPage = 0x22,
+    Chunk = 0x23,
+    AttributionRoot = 0x24,
+    AttributionPage = 0x25,
+    HardlinkGroupV3 = 0x26,
+    Head = 0x30,
+    OperationState = 0x31,
+    Locator = 0x32,
+    SourceLease = 0x33,
 }
 
 impl RecordKind {
@@ -34,6 +45,17 @@ impl RecordKind {
             0x12 => Ok(Self::Entry),
             0x13 => Ok(Self::Metadata),
             0x14 => Ok(Self::ObjectReference),
+            0x20 => Ok(Self::TreePage),
+            0x21 => Ok(Self::FileNode),
+            0x22 => Ok(Self::SegmentPage),
+            0x23 => Ok(Self::Chunk),
+            0x24 => Ok(Self::AttributionRoot),
+            0x25 => Ok(Self::AttributionPage),
+            0x26 => Ok(Self::HardlinkGroupV3),
+            0x30 => Ok(Self::Head),
+            0x31 => Ok(Self::OperationState),
+            0x32 => Ok(Self::Locator),
+            0x33 => Ok(Self::SourceLease),
             _ => Err(error(
                 ErrorKind::UnknownKind,
                 FieldClass::Kind,
@@ -73,7 +95,11 @@ pub struct ObjectRecord {
 impl ObjectRecord {
     pub fn new(kind: ObjectKind, payload: Vec<u8>) -> Result<Self, Error> {
         let payload_len = bounded_u32(payload.len(), FieldClass::Length, 0)?;
-        ensure_record_bound(RecordKind::from_object(kind), u64::from(payload_len))?;
+        ensure_record_bound(
+            RecordKind::from_object(kind),
+            ROOT_FORMAT_V2,
+            u64::from(payload_len),
+        )?;
         Ok(Self { kind, payload })
     }
 
@@ -97,6 +123,10 @@ pub(crate) struct RecordHeader {
 
 pub(crate) const fn error(kind: ErrorKind, field: FieldClass, ordinal: u32) -> Error {
     Error::new(kind, ROOT_FORMAT_V2, field, ordinal)
+}
+
+pub(crate) const fn error_v3(kind: ErrorKind, field: FieldClass, ordinal: u32) -> Error {
+    Error::new(kind, ROOT_FORMAT_V3, field, ordinal)
 }
 
 pub(crate) fn bounded_u32(length: usize, field: FieldClass, ordinal: u32) -> Result<u32, Error> {
@@ -174,18 +204,18 @@ pub(crate) fn write_record_header(
     version: FormatVersion,
     payload_len: u64,
 ) -> Result<(), Error> {
-    if version != ROOT_FORMAT_V2 {
+    if !kind_supports_version(kind, version) {
         return Err(error(
             ErrorKind::UnsupportedVersion,
             FieldClass::Version,
             u32::from(version.get()),
         ));
     }
-    ensure_record_bound(kind, payload_len)?;
+    ensure_record_bound(kind, version, payload_len)?;
     sink.write_all(MAGIC)?;
     write_u8(sink, kind as u8)?;
     write_u16(sink, version.get())?;
-    if kind == RecordKind::Tree {
+    if kind == RecordKind::Tree && version == ROOT_FORMAT_V2 {
         write_u64(sink, payload_len)
     } else {
         let length = u32::try_from(payload_len)
@@ -194,16 +224,20 @@ pub(crate) fn write_record_header(
     }
 }
 
-const fn record_header_bytes(kind: RecordKind) -> u64 {
-    if matches!(kind, RecordKind::Tree) {
+const fn record_header_bytes(kind: RecordKind, version: FormatVersion) -> u64 {
+    if matches!(kind, RecordKind::Tree) && version.get() == ROOT_FORMAT_V2.get() {
         TREE_HEADER_BYTES
     } else {
         BOUNDED_HEADER_BYTES
     }
 }
 
-fn ensure_record_bound(kind: RecordKind, payload_len: u64) -> Result<(), Error> {
-    let total = record_header_bytes(kind)
+fn ensure_record_bound(
+    kind: RecordKind,
+    version: FormatVersion,
+    payload_len: u64,
+) -> Result<(), Error> {
+    let total = record_header_bytes(kind, version)
         .checked_add(payload_len)
         .ok_or_else(|| error(ErrorKind::Overflow, FieldClass::Length, 0))?;
     if total > u64::from(MAX_RECORD_BYTES) {
@@ -216,6 +250,41 @@ fn ensure_record_bound(kind: RecordKind, payload_len: u64) -> Result<(), Error> 
     Ok(())
 }
 
+const fn kind_supports_version(kind: RecordKind, version: FormatVersion) -> bool {
+    if version.get() == ROOT_FORMAT_V2.get() {
+        matches!(
+            kind,
+            RecordKind::FileSegments
+                | RecordKind::ChunkPayload
+                | RecordKind::Transition
+                | RecordKind::Root
+                | RecordKind::Tree
+                | RecordKind::Entry
+                | RecordKind::Metadata
+                | RecordKind::ObjectReference
+        )
+    } else if version.get() == ROOT_FORMAT_V3.get() {
+        matches!(
+            kind,
+            RecordKind::Root
+                | RecordKind::Metadata
+                | RecordKind::TreePage
+                | RecordKind::FileNode
+                | RecordKind::SegmentPage
+                | RecordKind::Chunk
+                | RecordKind::AttributionRoot
+                | RecordKind::AttributionPage
+                | RecordKind::HardlinkGroupV3
+                | RecordKind::Head
+                | RecordKind::OperationState
+                | RecordKind::Locator
+                | RecordKind::SourceLease
+        )
+    } else {
+        false
+    }
+}
+
 pub(crate) fn read_record_header(source: &mut dyn CanonicalSource) -> Result<RecordHeader, Error> {
     let mut magic = [0_u8; 8];
     source.read_exact(&mut magic)?;
@@ -224,19 +293,19 @@ pub(crate) fn read_record_header(source: &mut dyn CanonicalSource) -> Result<Rec
     }
     let kind = RecordKind::from_u8(read_u8(source)?)?;
     let version = FormatVersion::new_const(read_u16(source)?);
-    if version != ROOT_FORMAT_V2 {
+    if !kind_supports_version(kind, version) {
         return Err(error(
             ErrorKind::UnsupportedVersion,
             FieldClass::Version,
             u32::from(version.get()),
         ));
     }
-    let payload_len = if kind == RecordKind::Tree {
+    let payload_len = if kind == RecordKind::Tree && version == ROOT_FORMAT_V2 {
         read_u64(source)?
     } else {
         u64::from(read_u32(source)?)
     };
-    ensure_record_bound(kind, payload_len)?;
+    ensure_record_bound(kind, version, payload_len)?;
     Ok(RecordHeader {
         kind,
         version,
@@ -558,6 +627,7 @@ pub fn encode_digest_preimage_header(
         DigestDomain::RootRecord => RecordKind::Root,
         DigestDomain::TreeManifest => RecordKind::Tree,
         DigestDomain::Object(kind) => RecordKind::from_object(kind),
+        DigestDomain::V3Record(kind) => RecordKind::from_u8(kind)?,
     };
     write_record_header(sink, kind, version, payload_len)
 }
@@ -566,6 +636,8 @@ pub fn encode_digest_preimage_header(
 pub const fn digest_preimage_header_len(domain: DigestDomain) -> u64 {
     match domain {
         DigestDomain::TreeManifest => TREE_HEADER_BYTES,
-        DigestDomain::RootRecord | DigestDomain::Object(_) => BOUNDED_HEADER_BYTES,
+        DigestDomain::RootRecord | DigestDomain::Object(_) | DigestDomain::V3Record(_) => {
+            BOUNDED_HEADER_BYTES
+        }
     }
 }

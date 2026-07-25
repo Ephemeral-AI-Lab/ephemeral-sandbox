@@ -11,6 +11,8 @@ use crate::layerstack::autosquash_engine::{
 use crate::layerstack::LayerStackServiceError;
 use crate::services::LayerstackRuntimeConfig;
 
+use super::hidden_validation::HiddenValidationWorker;
+
 pub(crate) const EXPORT_SPOOL_DIR: &str = ".export";
 
 /// One sealed export spool: the on-disk `tar.zst` and its byte total. The
@@ -32,6 +34,7 @@ pub struct LayerStackService {
     pub(crate) autosquash_queue: Option<Arc<AutosquashQueue>>,
     pub(crate) export_spools: Mutex<HashMap<String, ExportSpool>>,
     active_lease_counter: sandbox_runtime_layerstack::ActiveLeaseCounter,
+    pub(super) hidden_validation: Option<HiddenValidationWorker>,
 }
 
 impl LayerStackService {
@@ -48,13 +51,20 @@ impl LayerStackService {
                 error: error.to_string(),
             },
         )?;
-        let active_lease_counter =
-            sandbox_runtime_layerstack::LayerStack::open(layer_stack_root.clone())
-                .map_err(|error| LayerStackServiceError::LayerStack {
-                    operation: "open active lease counter",
-                    error,
-                })?
-                .active_lease_counter();
+        let stack = sandbox_runtime_layerstack::LayerStack::open(layer_stack_root.clone())
+            .map_err(|error| LayerStackServiceError::LayerStack {
+                operation: "open active lease counter",
+                error,
+            })?;
+        let active_lease_counter = stack.active_lease_counter();
+        let hidden_observation = stack.hidden_validation_observation();
+        hidden_observation.configure(config.rollout_mode);
+        let hidden_validation = match config.rollout_mode {
+            sandbox_runtime_layerstack::service::StorageRolloutMode::Legacy => None,
+            sandbox_runtime_layerstack::service::StorageRolloutMode::Validation => Some(
+                HiddenValidationWorker::spawn(stack, layer_stack_root.clone(), hidden_observation)?,
+            ),
+        };
         let autosquash_queue = config
             .autosquash_squash_at_n_layers
             .map(|_| Arc::new(AutosquashQueue::new()));
@@ -69,6 +79,7 @@ impl LayerStackService {
             autosquash_queue,
             export_spools: Mutex::new(HashMap::new()),
             active_lease_counter,
+            hidden_validation,
         })
     }
 
@@ -95,5 +106,27 @@ impl LayerStackService {
             internal_context("layer-committed"),
             AutosquashTriggerReason::LayerCommitted,
         );
+    }
+
+    #[doc(hidden)]
+    pub fn force_next_hidden_validation_mismatch_for_tests(&self) {
+        if let Some(worker) = &self.hidden_validation {
+            worker.force_next_mismatch();
+        }
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn hidden_validation_last_correlation(&self) -> Option<String> {
+        self.hidden_validation
+            .as_ref()
+            .and_then(HiddenValidationWorker::last_correlation)
+    }
+
+    #[doc(hidden)]
+    pub fn pause_hidden_validation_for_tests(&self, paused: bool) {
+        if let Some(worker) = &self.hidden_validation {
+            worker.set_paused(paused);
+        }
     }
 }

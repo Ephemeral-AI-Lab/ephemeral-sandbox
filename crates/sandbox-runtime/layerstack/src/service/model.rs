@@ -37,6 +37,7 @@ pub struct StackObservation {
 pub enum StorageRolloutMode {
     #[default]
     Legacy,
+    Validation,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]

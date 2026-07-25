@@ -251,7 +251,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
             child,
             Arc::clone(&promise),
             Arc::new(AtomicBool::new(false)),
-            || {},
+            || true,
             |outcome| mount_exit_error(Some(MOUNT_OVERLAY_MODE_FLAG), &outcome).map_or(Ok(()), Err),
             |_| {},
         )?;
@@ -281,7 +281,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
             child,
             Arc::clone(&promise),
             Arc::new(AtomicBool::new(false)),
-            || {},
+            || true,
             |outcome| Ok(outcome.into_result()),
             |_| {},
         )?;
@@ -313,7 +313,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
             child,
             Arc::clone(&promise),
             Arc::new(AtomicBool::new(false)),
-            || {},
+            || true,
             |outcome| Ok(outcome.into_result()),
             |_| {},
         )?;
@@ -343,7 +343,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         child: Box<dyn RunnerChild>,
         promise: Arc<CompletionPromise<O>>,
         cancelled: Arc<AtomicBool>,
-        terminal_release: impl FnOnce() + Send + 'static,
+        terminal_release: impl FnOnce() -> bool + Send + 'static,
         finalize: impl FnOnce(RunnerOutcome) -> Result<O, NamespaceExecutionError> + Send + 'static,
         on_complete: impl FnOnce(&Result<O, NamespaceExecutionError>) + Send + 'static,
     ) -> Result<(), NamespaceExecutionError> {
@@ -351,7 +351,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         let terminal_hook = Arc::clone(&self.terminal_hook);
         let abort_id = id.clone();
         let submitted = self.supervisor.submit(child, move |wait_result| {
-            let (result, status, exit_code) = match wait_result {
+            let (mut result, mut status, mut exit_code) = match wait_result {
                 Ok(run_result) => {
                     let outcome = RunnerOutcome::new(run_result)
                         .with_cancelled(cancelled.load(Ordering::Acquire));
@@ -371,7 +371,13 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
                     (Err(error), NamespaceExecutionTerminalStatus::Error, None)
                 }
             };
-            terminal_release();
+            if !terminal_release() {
+                result = Err(NamespaceExecutionError::Completion(
+                    "PTY output did not drain before the terminal deadline".to_owned(),
+                ));
+                status = NamespaceExecutionTerminalStatus::Error;
+                exit_code = None;
+            }
             registry.complete(&id, status, exit_code);
             let result = notify_completion(on_complete, result);
             promise.resolve(result);

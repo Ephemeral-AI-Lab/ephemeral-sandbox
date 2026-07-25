@@ -3,6 +3,7 @@ use std::sync::{Arc, OnceLock};
 use sandbox_observability_telemetry::record::names;
 use sandbox_observability_telemetry::SpanStatus;
 use serde_json::json;
+use sha2::{Digest, Sha256};
 
 use crate::layerstack::{
     LayerStackRevision, LayerStackServiceError, PublishChangesRequest, PublishChangesResult,
@@ -183,6 +184,7 @@ impl WorkspaceSessionService {
         captured: CapturedWorkspaceChanges,
     ) -> Result<PublishChangesResult, LayerStackServiceError> {
         self.layerstack().publish_changes(PublishChangesRequest {
+            publication_id: publication_id(&handler.workspace_session_id.0),
             expected_base: layerstack_revision(&captured.base_revision),
             base_manifest: captured.base_manifest,
             protected_drops: layer_protected_drops(captured.protected_drops),
@@ -216,6 +218,19 @@ impl WorkspaceSessionService {
             true
         }
     }
+}
+
+fn publication_id(workspace_session_id: &str) -> [u8; 16] {
+    let mut hasher = Sha256::new();
+    hasher.update(b"EOS-LS3-WORKSPACE-PUBLICATION\0");
+    hasher.update(workspace_session_id.as_bytes());
+    let digest: [u8; 32] = hasher.finalize().into();
+    let mut id = [0_u8; 16];
+    id.copy_from_slice(&digest[..16]);
+    if id == [0; 16] {
+        id[15] = 1;
+    }
+    id
 }
 
 fn publish_reject_class(error: &LayerStackServiceError) -> &'static str {

@@ -35,16 +35,51 @@ fn write_stdin_reaches_the_slave() {
 
 #[test]
 fn terminal_release_closes_stdin() {
-    let (master, _slave) = open_pty_pair().expect("openpt pair");
+    let (master, slave) = open_pty_pair().expect("openpt pair");
     let pty = PtyMaster::spawn(master, None, None, Box::new(|| {}), Duration::from_secs(2))
         .expect("pty master");
+    drop(slave);
 
-    pty.terminal_release()();
+    assert!(
+        pty.terminal_release()(),
+        "terminal reader drains after the slave closes"
+    );
 
     let error = pty
         .write_stdin(b"after terminal")
         .expect_err("terminal release closes stdin");
     assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe);
+}
+
+#[test]
+fn terminal_release_waits_for_buffered_output_to_drain() {
+    let (master, mut slave) = open_pty_pair().expect("openpt pair");
+    let pty = PtyMaster::spawn(master, None, None, Box::new(|| {}), Duration::from_secs(2))
+        .expect("pty master");
+    slave
+        .write_all(b"terminal output\n")
+        .expect("write terminal output");
+    let closer = thread::spawn(move || {
+        thread::sleep(Duration::from_millis(75));
+        drop(slave);
+    });
+
+    let started = Instant::now();
+    assert!(
+        pty.terminal_release()(),
+        "terminal output drains before return"
+    );
+    let elapsed = started.elapsed();
+    closer.join().expect("close delayed slave");
+
+    assert!(
+        elapsed >= Duration::from_millis(50),
+        "terminal release returned before the PTY reader could observe EOF"
+    );
+    assert!(
+        pty.output_len() >= b"terminal output\n".len() as u64,
+        "terminal release omitted buffered output"
+    );
 }
 
 #[test]

@@ -13,9 +13,9 @@ use sandbox_runtime_layerstack::{
     PortablePreparationInput, PortablePreparationStats, Sha256Digest,
 };
 use sandbox_runtime_layerstack_core::{
-    decode_root_record, decode_tree_record, CanonicalPath, Digest32, Error, ErrorKind, FieldClass,
-    HardlinkGroupId, ObjectId, ObjectKind, RootId, RootRecordV2, SparseExtent, TreeEntry, Xattr,
-    ROOT_FORMAT_V2,
+    decode_root_record, decode_tree_record, decode_v3_record, encode_v3_record, v3_record_id,
+    CanonicalPath, Digest32, Error, ErrorKind, FieldClass, HardlinkGroupId, ObjectId, ObjectKind,
+    RecordKindV3, RootId, RootRecordV2, SparseExtent, TreeEntry, Xattr, ROOT_FORMAT_V2,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -27,6 +27,7 @@ use common::{
 
 const CONTRACT_JSON: &str = include_str!("fixtures/cas/v2/contract-v2.json");
 const CONTRACT_BIN: &[u8] = include_bytes!("fixtures/cas/v2/contract-v2.bin");
+const CONTRACT_V3: &str = include_str!("fixtures/cas/v3/contract-v3.tsv");
 const PORTABLE_ROOT_R08_ORACLE: &[u8] = include_bytes!("fixtures/cas/v2/portable-root-r08-v1.bin");
 const V1_GOLDEN: &str = include_str!("fixtures/v1/baseline.json");
 const DECISION_ID: &str = "PRC-STAGE02-OWNER-DECISION-D2.5";
@@ -287,6 +288,73 @@ struct BenchmarkVector {
 fn sha256_hex(bytes: &[u8]) -> String {
     let digest: [u8; 32] = Sha256::digest(bytes).into();
     digest_value_hex(Digest32::new(digest))
+}
+
+fn decode_v3_hex(value: &str) -> Vec<u8> {
+    assert_eq!(value.len() % 2, 0);
+    value
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let high = (pair[0] as char).to_digit(16).expect("hex high nibble");
+            let low = (pair[1] as char).to_digit(16).expect("hex low nibble");
+            u8::try_from((high << 4) | low).expect("hex byte")
+        })
+        .collect()
+}
+
+#[test]
+fn canonical_v3_sha256_adapter_matches_owner_goldens() -> Result<(), Error> {
+    let mut count = 0_usize;
+    for line in CONTRACT_V3
+        .lines()
+        .filter(|line| !line.starts_with('#') && !line.is_empty())
+    {
+        let mut columns = line.split('\t');
+        let name = columns.next().expect("name");
+        let kind = u8::from_str_radix(columns.next().expect("kind"), 16).expect("kind hex");
+        let encoded_length = columns
+            .next()
+            .expect("encoded length")
+            .parse::<usize>()
+            .expect("encoded length integer");
+        let expected_sha256 = columns.next().expect("sha256");
+        let bytes = decode_v3_hex(columns.next().expect("record hex"));
+        assert!(columns.next().is_none(), "{name}");
+
+        assert_eq!(bytes.len(), encoded_length, "{name}");
+        assert_eq!(
+            sha256_hex(&bytes),
+            format!("sha256:{expected_sha256}"),
+            "{name}"
+        );
+
+        let mut source = BytesSource::fragmented(&bytes, 1);
+        let record = decode_v3_record(&mut source, &mut Sha256Digest)?;
+        assert_eq!(record.kind() as u8, kind, "{name}");
+
+        let mut encoded = VecSink::default();
+        encode_v3_record(&record, &mut encoded)?;
+        assert_eq!(encoded.bytes, bytes, "{name}");
+
+        if !matches!(
+            record.kind(),
+            RecordKindV3::Metadata
+                | RecordKindV3::Head
+                | RecordKindV3::OperationState
+                | RecordKindV3::Locator
+                | RecordKindV3::SourceLease
+        ) {
+            assert_eq!(
+                digest_value_hex(v3_record_id(&record, &mut Sha256Digest)?),
+                format!("sha256:{expected_sha256}"),
+                "{name}"
+            );
+        }
+        count += 1;
+    }
+    assert_eq!(count, 16);
+    Ok(())
 }
 
 fn digest_value_hex(digest: Digest32) -> String {

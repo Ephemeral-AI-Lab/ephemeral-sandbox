@@ -27,6 +27,58 @@ pub struct CapturedChanges {
     pub stats: TreeResourceStats,
 }
 
+/// Raw Linux-byte mutation captured for the private Stage 03 publication path.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct CandidateChange {
+    /// Validated relative path bytes, with `/` separators.
+    pub path: Vec<u8>,
+    /// Final logical mutation at `path`.
+    pub kind: CandidateChangeKind,
+    /// Metadata for node-creating mutations.
+    pub metadata: Option<CandidateMetadata>,
+}
+
+/// Final logical mutation kinds understood by the private candidate.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum CandidateChangeKind {
+    Remove,
+    Directory,
+    OpaqueDirectory,
+    Regular {
+        source_path: PathBuf,
+        size: u64,
+        device: u64,
+        inode: u64,
+        link_count: u64,
+    },
+    Symlink {
+        target: Vec<u8>,
+    },
+    Device {
+        major: u32,
+        minor: u32,
+    },
+    Fifo,
+}
+
+/// Host metadata captured before canonical v3 metadata construction.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct CandidateMetadata {
+    pub mode: u32,
+    pub uid: u32,
+    pub gid: u32,
+    pub mtime_seconds: i64,
+    pub mtime_nanoseconds: i64,
+}
+
+/// Bounded-capture counters used by Stage 03 resource assertions.
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+pub struct CandidateCaptureStats {
+    pub entries: u64,
+    pub maximum_depth: usize,
+    pub maximum_path_bytes: usize,
+}
+
 /// Error raised while capturing an overlay upperdir.
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -137,6 +189,184 @@ pub fn capture_upperdir(upperdir: &Path) -> std::result::Result<CapturedChanges,
         protected_drops,
         stats,
     })
+}
+
+/// Stream final upperdir mutations without UTF-8 conversion or a resident tree.
+///
+/// The callback is synchronous. Each path is validated before delivery and no
+/// directory entry collection is retained between callback invocations.
+#[cfg(unix)]
+pub fn capture_upperdir_candidate(
+    upperdir: &Path,
+    mut emit: impl FnMut(CandidateChange) -> std::result::Result<(), CaptureError>,
+) -> std::result::Result<CandidateCaptureStats, CaptureError> {
+    std::fs::create_dir_all(upperdir).map_err(|error| CaptureError::capture(upperdir, error))?;
+    let mut stats = CandidateCaptureStats::default();
+    walk_candidate(upperdir, Vec::new(), 0, &mut emit, &mut stats)?;
+    Ok(stats)
+}
+
+#[cfg(unix)]
+fn walk_candidate(
+    directory: &Path,
+    parent: Vec<u8>,
+    depth: usize,
+    emit: &mut impl FnMut(CandidateChange) -> std::result::Result<(), CaptureError>,
+    stats: &mut CandidateCaptureStats,
+) -> std::result::Result<(), CaptureError> {
+    use std::os::unix::ffi::OsStrExt as _;
+
+    for result in
+        std::fs::read_dir(directory).map_err(|error| CaptureError::capture(directory, error))?
+    {
+        let entry = result.map_err(|error| CaptureError::capture(directory, error))?;
+        let component = entry.file_name();
+        let path = candidate_path(&parent, component.as_bytes(), depth + 1)?;
+        let source_path = entry.path();
+        let metadata = std::fs::symlink_metadata(&source_path)
+            .map_err(|error| CaptureError::capture(&source_path, error))?;
+        stats.entries = stats.entries.saturating_add(1);
+        stats.maximum_depth = stats.maximum_depth.max(depth + 1);
+        stats.maximum_path_bytes = stats.maximum_path_bytes.max(path.len());
+
+        if metadata.file_type().is_dir() {
+            let kind = if is_overlay_opaque(&source_path)? {
+                CandidateChangeKind::OpaqueDirectory
+            } else {
+                CandidateChangeKind::Directory
+            };
+            emit(CandidateChange {
+                path: path.clone(),
+                kind,
+                metadata: Some(candidate_metadata(&metadata)),
+            })?;
+            walk_candidate(&source_path, path, depth + 1, emit, stats)?;
+            continue;
+        }
+        if is_overlay_whiteout(&source_path, &metadata)? {
+            emit(CandidateChange {
+                path,
+                kind: CandidateChangeKind::Remove,
+                metadata: None,
+            })?;
+            continue;
+        }
+        let kind = candidate_kind(&source_path, &metadata)?;
+        emit(CandidateChange {
+            path,
+            kind,
+            metadata: Some(candidate_metadata(&metadata)),
+        })?;
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn candidate_path(
+    parent: &[u8],
+    component: &[u8],
+    depth: usize,
+) -> std::result::Result<Vec<u8>, CaptureError> {
+    const MAX_PATH_BYTES: usize = 4_096;
+    const MAX_COMPONENT_BYTES: usize = 255;
+    const MAX_DEPTH: usize = 64;
+
+    if component.is_empty()
+        || component.len() > MAX_COMPONENT_BYTES
+        || component.contains(&0)
+        || component.contains(&b'/')
+        || matches!(component, b"." | b"..")
+    {
+        return Err(CaptureError::InvalidPathChange(
+            "candidate path contains an invalid component".to_owned(),
+        ));
+    }
+    if depth > MAX_DEPTH {
+        return Err(CaptureError::InvalidPathChange(
+            "candidate path exceeds 64 components".to_owned(),
+        ));
+    }
+    let capacity = parent
+        .len()
+        .checked_add(usize::from(!parent.is_empty()))
+        .and_then(|length| length.checked_add(component.len()))
+        .ok_or_else(|| {
+            CaptureError::InvalidPathChange("candidate path length overflow".to_owned())
+        })?;
+    if capacity > MAX_PATH_BYTES {
+        return Err(CaptureError::InvalidPathChange(
+            "candidate path exceeds 4096 bytes".to_owned(),
+        ));
+    }
+    let mut path = Vec::with_capacity(capacity);
+    path.extend_from_slice(parent);
+    if !parent.is_empty() {
+        path.push(b'/');
+    }
+    path.extend_from_slice(component);
+    Ok(path)
+}
+
+#[cfg(unix)]
+fn candidate_kind(
+    source_path: &Path,
+    metadata: &std::fs::Metadata,
+) -> std::result::Result<CandidateChangeKind, CaptureError> {
+    use std::os::unix::ffi::OsStrExt as _;
+    use std::os::unix::fs::{FileTypeExt as _, MetadataExt as _};
+
+    let file_type = metadata.file_type();
+    if file_type.is_file() {
+        return Ok(CandidateChangeKind::Regular {
+            source_path: source_path.to_path_buf(),
+            size: metadata.len(),
+            device: metadata.dev(),
+            inode: metadata.ino(),
+            link_count: metadata.nlink(),
+        });
+    }
+    if file_type.is_symlink() {
+        let target = std::fs::read_link(source_path)
+            .map_err(|error| CaptureError::capture(source_path, error))?;
+        return Ok(CandidateChangeKind::Symlink {
+            target: target.as_os_str().as_bytes().to_vec(),
+        });
+    }
+    if file_type.is_fifo() {
+        return Ok(CandidateChangeKind::Fifo);
+    }
+    if file_type.is_char_device() || file_type.is_block_device() {
+        #[cfg(target_os = "linux")]
+        {
+            let major = u32::try_from(nix::sys::stat::major(metadata.rdev())).map_err(|_| {
+                CaptureError::InvalidPathChange("device major exceeds the v3 field".to_owned())
+            })?;
+            let minor = u32::try_from(nix::sys::stat::minor(metadata.rdev())).map_err(|_| {
+                CaptureError::InvalidPathChange("device minor exceeds the v3 field".to_owned())
+            })?;
+            return Ok(CandidateChangeKind::Device { major, minor });
+        }
+        #[cfg(not(target_os = "linux"))]
+        return Err(CaptureError::InvalidPathChange(
+            "candidate device capture requires Linux".to_owned(),
+        ));
+    }
+    Err(CaptureError::InvalidPathChange(
+        "candidate capture encountered an unsupported socket or node kind".to_owned(),
+    ))
+}
+
+#[cfg(unix)]
+fn candidate_metadata(metadata: &std::fs::Metadata) -> CandidateMetadata {
+    use std::os::unix::fs::MetadataExt as _;
+
+    CandidateMetadata {
+        mode: metadata.mode(),
+        uid: metadata.uid(),
+        gid: metadata.gid(),
+        mtime_seconds: metadata.mtime(),
+        mtime_nanoseconds: metadata.mtime_nsec(),
+    }
 }
 
 fn walk_upperdir(
@@ -353,6 +583,13 @@ fn is_overlay_whiteout(
 fn has_overlay_opaque_xattr(entry: &Path) -> bool {
     matches!(xattr_value(entry, "trusted.overlay.opaque"), Ok(Some(value)) if value == b"y")
         || matches!(xattr_value(entry, "user.overlay.opaque"), Ok(Some(value)) if value == b"y")
+}
+
+fn is_overlay_opaque(entry: &Path) -> std::result::Result<bool, CaptureError> {
+    Ok(
+        matches!(xattr_value(entry, "trusted.overlay.opaque")?, Some(value) if value == b"y")
+            || matches!(xattr_value(entry, "user.overlay.opaque")?, Some(value) if value == b"y"),
+    )
 }
 
 #[cfg(target_os = "linux")]

@@ -8,9 +8,9 @@ use std::path::{Path, PathBuf};
 use sandbox_runtime_layerstack_core::{
     digest_preimage_header_len, encode_digest_preimage_header, encode_tree_record,
     tree_entry_record_len, CanonicalSink, CapabilitySet, ChunkProfileId, Digest32, DigestDomain,
-    Error, ErrorKind, FieldClass, FormatVersion, ObjectId, ObjectKind, RootId, RootRecordV2,
-    TreeEntry, TreeManifestId, TypedDigest, ValidatedTree, MAX_PATH_BYTES, MAX_RECORD_BYTES,
-    MAX_TINY_ENTRIES, ROOT_FORMAT_V2,
+    Error, ErrorKind, FieldClass, FormatVersion, ObjectId, ObjectKind, RawDigest, RootId,
+    RootRecordV2, TreeEntry, TreeManifestId, TypedDigest, ValidatedTree, MAX_PATH_BYTES,
+    MAX_RECORD_BYTES, MAX_TINY_ENTRIES, ROOT_FORMAT_V2,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -90,6 +90,13 @@ impl TypedDigest for Sha256Digest {
         }
         let bytes: [u8; 32] = hasher.finalize().into();
         Ok(Digest32::new(bytes))
+    }
+}
+
+impl RawDigest for Sha256Digest {
+    fn digest_bytes(&mut self, bytes: &[u8]) -> Result<Digest32, Error> {
+        let digest: [u8; 32] = Sha256::digest(bytes).into();
+        Ok(Digest32::new(digest))
     }
 }
 

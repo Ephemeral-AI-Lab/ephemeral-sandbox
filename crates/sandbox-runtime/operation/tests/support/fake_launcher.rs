@@ -105,11 +105,17 @@ struct FakeRunnerChild {
 
 impl RunnerChild for FakeRunnerChild {
     fn wait_completion(&mut self) -> Result<RunResult, NamespaceExecutionError> {
-        self.completion.wait()
+        let result = self.completion.wait();
+        self._slave.take();
+        result
     }
 
     fn try_wait_completion(&mut self) -> Result<Option<RunResult>, NamespaceExecutionError> {
-        self.completion.try_result()
+        let result = self.completion.try_result();
+        if !matches!(&result, Ok(None)) {
+            self._slave.take();
+        }
+        result
     }
 
     fn terminate(&mut self) {

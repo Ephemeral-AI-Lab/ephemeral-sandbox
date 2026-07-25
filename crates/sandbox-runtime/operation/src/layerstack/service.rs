@@ -1,4 +1,5 @@
 mod core;
+mod hidden_validation;
 mod impls;
 pub mod model;
 

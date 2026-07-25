@@ -51,6 +51,9 @@ pub struct LayerStackRevision {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishChangesRequest {
+    /// Stable caller-supplied identity for the private Stage 03 publication.
+    /// It never appears in the public response or changes v1 authority.
+    pub publication_id: [u8; 16],
     pub expected_base: LayerStackRevision,
     pub base_manifest: sandbox_runtime_layerstack::Manifest,
     pub protected_drops: Vec<sandbox_runtime_layerstack::LayerProtectedDrop>,
