@@ -456,7 +456,7 @@ mod linux {
                 .write_command_stdin(WriteCommandStdinInput {
                     command_session_id,
                     stdin: "hello\n".to_owned(),
-                    yield_time_ms: Some(0),
+                    yield_time_ms: Some(5_000),
                 })?;
             let output = await_output(&self.operations, output, "pty:hello")?;
             let latency_ns = elapsed_ns(started);

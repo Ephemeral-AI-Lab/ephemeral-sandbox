@@ -114,6 +114,13 @@ impl LayerStack {
 
     pub fn acquire_snapshot(&self, owner_request_id: &str) -> Result<Lease, LayerStackError> {
         let _guard = self.writer_lock.shared()?;
+        self.acquire_snapshot_unlocked(owner_request_id)
+    }
+
+    pub(crate) fn acquire_snapshot_unlocked(
+        &self,
+        owner_request_id: &str,
+    ) -> Result<Lease, LayerStackError> {
         let manifest = self.read_active_manifest_unlocked()?;
         let lease = {
             let mut leases = lock_shared_registry(&self.leases)?;

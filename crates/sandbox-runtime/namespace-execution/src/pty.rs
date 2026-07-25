@@ -33,6 +33,7 @@ struct OutputReader {
     master: Arc<File>,
     sink: OutputSink,
     drain: OutputDrain,
+    activity: Arc<OutputActivity>,
 }
 
 #[derive(Default)]
@@ -49,6 +50,84 @@ struct OutputReactor {
 #[derive(Clone)]
 struct OutputDrain {
     complete: Arc<(Mutex<bool>, Condvar)>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct OutputActivitySnapshot {
+    generation: u64,
+    output_bytes: u64,
+    closed: bool,
+}
+
+#[derive(Default)]
+pub struct OutputActivity {
+    state: Mutex<OutputActivitySnapshot>,
+    ready: Condvar,
+}
+
+impl OutputActivitySnapshot {
+    #[must_use]
+    pub fn output_bytes(self) -> u64 {
+        self.output_bytes
+    }
+
+    #[must_use]
+    pub fn is_closed(self) -> bool {
+        self.closed
+    }
+}
+
+impl OutputActivity {
+    #[must_use]
+    pub fn snapshot(&self) -> OutputActivitySnapshot {
+        *self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    #[must_use]
+    pub fn wait_for_change(
+        &self,
+        observed: OutputActivitySnapshot,
+        timeout: Duration,
+    ) -> OutputActivitySnapshot {
+        let state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if state.generation != observed.generation || state.closed {
+            return *state;
+        }
+        let (state, _) = self
+            .ready
+            .wait_timeout_while(state, timeout, |state| {
+                state.generation == observed.generation && !state.closed
+            })
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *state
+    }
+
+    fn record_output(&self, bytes: usize) {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.generation = state.generation.saturating_add(1);
+        state.output_bytes = state
+            .output_bytes
+            .saturating_add(u64::try_from(bytes).unwrap_or(u64::MAX));
+        self.ready.notify_all();
+    }
+
+    fn close(&self) {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.closed = true;
+        self.ready.notify_all();
+    }
 }
 
 impl OutputDrain {
@@ -96,6 +175,7 @@ pub struct PtyMaster {
     writer: Arc<Mutex<Option<File>>>,
     sink: TranscriptSink,
     drain: OutputDrain,
+    activity: Arc<OutputActivity>,
     cancel: Arc<dyn Fn() + Send + Sync>,
     stdin_write_deadline: Duration,
 }
@@ -110,17 +190,22 @@ impl PtyMaster {
     ) -> io::Result<Self> {
         set_nonblocking(&master)?;
         let writer = master.try_clone()?;
+        let activity = Arc::new(OutputActivity::default());
         let (sink, drain) = match transcript_path {
             Some(path) => {
-                let drain = spawn_file_output_reader(master, &path);
+                let drain = spawn_file_output_reader(master, &path, Arc::clone(&activity));
                 (TranscriptSink::File(path), drain)
             }
             None => {
                 let len = Arc::new(AtomicU64::new(0));
                 let reader_len = Arc::clone(&len);
-                let drain = spawn_output_reader(master, move |bytes| {
-                    reader_len.fetch_add(bytes.len() as u64, Ordering::Relaxed);
-                });
+                let drain = spawn_output_reader(
+                    master,
+                    move |bytes| {
+                        reader_len.fetch_add(bytes.len() as u64, Ordering::Relaxed);
+                    },
+                    Arc::clone(&activity),
+                );
                 (TranscriptSink::Memory(len), drain)
             }
         };
@@ -129,6 +214,7 @@ impl PtyMaster {
             writer: Arc::new(Mutex::new(Some(writer))),
             sink,
             drain,
+            activity,
             cancel: Arc::from(cancel),
             stdin_write_deadline,
         })
@@ -182,14 +268,22 @@ impl PtyMaster {
     pub(crate) fn terminal_release(&self) -> impl FnOnce() -> bool + Send + 'static {
         let writer = Arc::clone(&self.writer);
         let drain = self.drain.clone();
+        let activity = Arc::clone(&self.activity);
         let deadline = self.stdin_write_deadline;
         move || {
             writer
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner())
                 .take();
-            drain.wait_timeout(deadline)
+            let drained = drain.wait_timeout(deadline);
+            activity.close();
+            drained
         }
+    }
+
+    #[must_use]
+    pub fn output_activity(&self) -> Arc<OutputActivity> {
+        Arc::clone(&self.activity)
     }
 
     pub fn output_len(&self) -> u64 {
@@ -202,27 +296,39 @@ impl PtyMaster {
     }
 }
 
-fn spawn_file_output_reader(master: File, transcript_path: &Path) -> OutputDrain {
+fn spawn_file_output_reader(
+    master: File,
+    transcript_path: &Path,
+    activity: Arc<OutputActivity>,
+) -> OutputDrain {
     let mut transcript = OpenOptions::new()
         .create(true)
         .append(true)
         .open(transcript_path)
         .ok();
     let mut prefixer = TranscriptTimestampPrefixer::new();
-    spawn_output_reader(master, move |bytes| {
-        let prefixed = prefixer.prefix(bytes);
-        if transcript
-            .as_mut()
-            .is_some_and(|file| file.write_all(&prefixed).is_err())
-        {
-            transcript = None;
-        }
-    })
+    spawn_output_reader(
+        master,
+        move |bytes| {
+            let prefixed = prefixer.prefix(bytes);
+            if transcript
+                .as_mut()
+                .is_some_and(|file| file.write_all(&prefixed).is_err())
+            {
+                transcript = None;
+            }
+        },
+        activity,
+    )
 }
 
-fn spawn_output_reader(master: File, sink: impl FnMut(&[u8]) + Send + 'static) -> OutputDrain {
+fn spawn_output_reader(
+    master: File,
+    sink: impl FnMut(&[u8]) + Send + 'static,
+    activity: Arc<OutputActivity>,
+) -> OutputDrain {
     let drain = OutputDrain::pending();
-    output_reactor().register(master, Box::new(sink), drain.clone());
+    output_reactor().register(master, Box::new(sink), drain.clone(), activity);
     drain
 }
 
@@ -272,7 +378,13 @@ impl OutputReactor {
         }
     }
 
-    fn register(&self, master: File, sink: OutputSink, drain: OutputDrain) {
+    fn register(
+        &self,
+        master: File,
+        sink: OutputSink,
+        drain: OutputDrain,
+        activity: Arc<OutputActivity>,
+    ) {
         self.active_readers.fetch_add(1, Ordering::Release);
         let mut queue = self
             .queue
@@ -282,6 +394,7 @@ impl OutputReactor {
             master: Arc::new(master),
             sink,
             drain,
+            activity,
         });
         drop(queue);
         self.wake();
@@ -385,7 +498,10 @@ fn drain_output_reader(reader: &mut OutputReader) -> bool {
     loop {
         match master.read(&mut buf) {
             Ok(0) => return false,
-            Ok(n) => (reader.sink)(&buf[..n]),
+            Ok(n) => {
+                (reader.sink)(&buf[..n]);
+                reader.activity.record_output(n);
+            }
             Err(err) if err.kind() == io::ErrorKind::WouldBlock => return true,
             Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
             Err(_) => return false,
@@ -503,12 +619,15 @@ mod tests {
         let (output_tx, output_rx) = mpsc::channel();
         let drain = OutputDrain::pending();
         let terminal_drain = drain.clone();
+        let activity = Arc::new(OutputActivity::default());
+        let observed = activity.snapshot();
         reactor.register(
             master,
             Box::new(move |bytes| {
                 let _ = output_tx.send(bytes.to_vec());
             }),
             drain,
+            Arc::clone(&activity),
         );
 
         thread::sleep(Duration::from_millis(20));
@@ -519,6 +638,11 @@ mod tests {
         let output = output_rx
             .recv_timeout(Duration::from_millis(100))
             .expect("readiness reactor did not drain delayed PTY output");
+        assert_ne!(
+            activity.wait_for_change(observed, Duration::from_millis(100)),
+            observed,
+            "output activity was not published after sink delivery"
+        );
         assert!(
             output.windows(b"ready".len()).any(|part| part == b"ready"),
             "unexpected PTY output: {output:?}"

@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::error::NamespaceExecutionError;
 use crate::promise::{CompletionPromise, CompletionWaiter};
-use crate::pty::PtyMaster;
+use crate::pty::{OutputActivity, PtyMaster};
 use crate::types::NamespaceExecutionId;
 
 pub struct ExecutionHandle<T> {
@@ -109,6 +109,11 @@ impl<T> InteractiveExecution<T> {
 
     pub fn output_len(&self) -> u64 {
         self.pty.output_len()
+    }
+
+    #[must_use]
+    pub fn output_activity(&self) -> Arc<OutputActivity> {
+        self.pty.output_activity()
     }
 
     pub fn cancel(&self) {

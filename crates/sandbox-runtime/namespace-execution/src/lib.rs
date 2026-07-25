@@ -26,7 +26,7 @@ pub use error::NamespaceExecutionError;
 pub use execution::{ExecutionHandle, InteractiveExecution};
 pub use launcher::{NsRunnerLauncher, RunnerChild, RunnerPlacement};
 pub use promise::{CompletionPromise, CompletionWaiter};
-pub use pty::{open_pty_pair, PtyMaster};
+pub use pty::{open_pty_pair, OutputActivity, OutputActivitySnapshot, PtyMaster};
 pub use registry::{ExecutionRegistry, RegistryValueMetrics};
 pub use shell::{NamespaceExecutionTerminalStatus, RunnerOutcome, ShellOperation};
 pub use transcript_rows::{

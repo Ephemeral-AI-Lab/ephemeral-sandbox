@@ -15,6 +15,10 @@ impl CommandOperationService {
         yield_time_ms: u64,
         include_terminal_command_session_id: bool,
     ) -> Result<CommandOutput, CommandServiceError> {
+        if yield_time_ms == 0 {
+            return self
+                .immediate_command_output(command_session_id, include_terminal_command_session_id);
+        }
         let id = command_session_id.clone();
         let deadline = Instant::now() + Duration::from_millis(yield_time_ms);
         loop {
@@ -39,6 +43,48 @@ impl CommandOperationService {
                 };
             }
             waiter.wait_timeout(deadline.saturating_duration_since(now));
+        }
+    }
+
+    fn immediate_command_output(
+        &self,
+        command_session_id: NamespaceExecutionId,
+        include_terminal_command_session_id: bool,
+    ) -> Result<CommandOutput, CommandServiceError> {
+        let id = command_session_id.clone();
+        let output = self.engine().with_value(&id, |command| {
+            if command.exec.is_finished() {
+                return ImmediateCommandOutput::Finished;
+            }
+            let start = command.take_snapshot_offset();
+            let window = command.transcript_window(start, usize::MAX);
+            command.advance_snapshot_offset(window.next_offset);
+            let elapsed = command.elapsed_seconds();
+            let mut output =
+                command_output(window, None, CommandStatus::Running, None, elapsed, elapsed);
+            output.workspace_session_id = Some(command.workspace_session_id.clone());
+            ImmediateCommandOutput::Running(output)
+        });
+        match output {
+            Some(ImmediateCommandOutput::Running(mut output)) => {
+                output.command_session_id = Some(command_session_id);
+                Ok(output)
+            }
+            Some(ImmediateCommandOutput::Finished) => self
+                .completed_command_output(command_session_id, include_terminal_command_session_id),
+            None => {
+                let finished = self.terminal_drains().with(&command_session_id, |record| {
+                    record.completion.wait_timeout(Duration::ZERO)
+                });
+                match finished {
+                    Some(true) => self.completed_command_output(
+                        command_session_id,
+                        include_terminal_command_session_id,
+                    ),
+                    Some(false) => self.running_command_output(command_session_id),
+                    None => command_not_found(command_session_id),
+                }
+            }
         }
     }
 
@@ -207,6 +253,11 @@ impl CommandOperationService {
         output.finalization_attempts = finalization_attempts;
         Ok(output)
     }
+}
+
+enum ImmediateCommandOutput {
+    Running(CommandOutput),
+    Finished,
 }
 
 pub(crate) fn finalization_failed(

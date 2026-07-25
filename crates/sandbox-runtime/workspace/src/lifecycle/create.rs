@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::lifecycle::leases::monotonic_seconds;
 use crate::model::{LayerStackSnapshotRef, NetworkProfile, WorkspaceSessionId};
@@ -110,7 +110,7 @@ impl WorkspaceManager {
         snapshot: LayerStackSnapshotRef,
         network: NetworkProfile,
     ) -> Result<MountedWorkspace, WorkspaceManagerError> {
-        self.open_with_candidate(workspace_id, snapshot, network, None)
+        self.open_with_candidate(workspace_id, snapshot, network, None, None)
     }
 
     pub(crate) fn open_with_candidate(
@@ -121,6 +121,7 @@ impl WorkspaceManager {
         candidate_admission: Option<
             sandbox_runtime_layerstack::service::CandidateGenerationAdmission,
         >,
+        candidate_session_lease_ttl: Option<Duration>,
     ) -> Result<MountedWorkspace, WorkspaceManagerError> {
         self.ensure_workspace_available(&workspace_id)?;
         let run_dir = self.workspace_session_root(&workspace_id);
@@ -181,6 +182,50 @@ impl WorkspaceManager {
 
         if let Err(err) = self.initialize_handle(&mut handle) {
             return Err(self.fail_after_partial_create(&handle, err));
+        }
+
+        if handle.candidate_admission.is_some() {
+            let Some(lease_ttl) = candidate_session_lease_ttl else {
+                let error = WorkspaceManagerError::InvalidArgument(
+                    "candidate session lease duration is required".to_owned(),
+                );
+                return Err(self.fail_after_partial_create(&handle, error));
+            };
+            let Some(layer_stack_root) = self.layer_stack_root.clone() else {
+                let error = WorkspaceManagerError::SetupFailed {
+                    step: "layer stack root is not bound to workspace manager".to_owned(),
+                };
+                return Err(self.fail_after_partial_create(&handle, error));
+            };
+            let lease = &handle
+                .candidate_admission
+                .as_ref()
+                .expect("candidate admission was checked")
+                .lease;
+            let renewed =
+                match sandbox_runtime_layerstack::service::finalize_hidden_candidate_session(
+                    &layer_stack_root,
+                    lease,
+                    lease_ttl,
+                ) {
+                    Ok(lease) => lease,
+                    Err(error) => {
+                        let error = WorkspaceManagerError::SetupFailed {
+                            step: format!("finalize strict candidate session: {error}"),
+                        };
+                        return Err(self.fail_after_partial_create(&handle, error));
+                    }
+                };
+            handle
+                .candidate_admission
+                .as_mut()
+                .expect("candidate admission was checked")
+                .lease = renewed;
+        } else if candidate_session_lease_ttl.is_some() {
+            let error = WorkspaceManagerError::InvalidArgument(
+                "candidate session lease duration requires an admission".to_owned(),
+            );
+            return Err(self.fail_after_partial_create(&handle, error));
         }
 
         self.handles.insert(workspace_id.clone(), handle.clone());

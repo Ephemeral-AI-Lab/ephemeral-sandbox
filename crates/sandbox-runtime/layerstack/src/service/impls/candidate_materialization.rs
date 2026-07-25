@@ -1,13 +1,17 @@
 use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crate::lock::StorageWriterLockLease;
 use crate::stack::candidate::generation::{
     GenerationLease, GenerationSelection, GenerationStore, MaterializationKey,
 };
 use crate::stack::candidate::materialization::{
-    MaterializationCoordinator, MaterializationDisposition, MaterializationRequest,
+    MaterializationCoordinator, MaterializationDisposition, MaterializationError,
+    MaterializationRequest,
 };
-use crate::{LayerStack, LayerStackError};
+use crate::stack::candidate::native_backend::NativeBackend;
+use crate::stack::observation::{shared_observation_state_for_root, HiddenValidationObservation};
+use crate::{LayerStack, LayerStackError, Lease};
 
 use super::super::model::{
     CandidateGenerationAdmission, CandidateGenerationLease, CandidateGenerationSelection,
@@ -89,8 +93,6 @@ pub fn acquire_hidden_candidate_generation(
     let key = MaterializationKey::linux_overlayfs(logical_root);
     let store = GenerationStore::new(root.to_path_buf())
         .map_err(candidate_error("initialize generation store"))?;
-    let coordinator = MaterializationCoordinator::new(root.to_path_buf())
-        .map_err(candidate_error("initialize materializer"))?;
     let now = unix_now()?;
     let expires = now
         .checked_add(lease_ttl.as_secs())
@@ -102,8 +104,7 @@ pub fn acquire_hidden_candidate_generation(
         })?;
     let _guard = stack.writer_lock.exclusive()?;
     observation.record_native_lookup_validation();
-    let selection = coordinator
-        .lookup_warm(&key)
+    let selection = lookup_warm_from_store(&store, &key)
         .map_err(candidate_error("resolve strict candidate CURRENT"))?
         .ok_or_else(|| {
             LayerStackError::Storage(
@@ -113,36 +114,78 @@ pub fn acquire_hidden_candidate_generation(
     let lease = store
         .acquire_lease(&key, &selection, owner, session_id, now, expires)
         .map_err(candidate_error("acquire exact candidate generation lease"))?;
+    observation.record_native_admission();
+    Ok(CandidateGenerationAdmission {
+        selection: selection_model(selection),
+        lease: lease_model(lease),
+    })
+}
+
+/// Atomically acquire the exact candidate generation and the legacy snapshot
+/// metadata needed by workspace lifecycle through one LayerStack instance.
+///
+/// The selector writer lock stays held across both captures so their
+/// authorities cannot drift between calls. If snapshot capture fails, the
+/// candidate lease is removed before the error is returned.
+#[doc(hidden)]
+pub fn acquire_hidden_candidate_generation_with_snapshot(
+    root: &Path,
+    owner: &str,
+    session_id: &str,
+    lease_ttl: Duration,
+) -> Result<(CandidateGenerationAdmission, Lease), LayerStackError> {
+    let stack = LayerStack::open(root.to_path_buf())?;
+    let observation = stack.hidden_validation_observation();
+    let logical_root = stack.hidden_validation_root()?.ok_or_else(|| {
+        LayerStackError::Storage(
+            "strict candidate admission requires a hidden-validation root".to_owned(),
+        )
+    })?;
+    let key = MaterializationKey::linux_overlayfs(logical_root);
+    let store = GenerationStore::new(root.to_path_buf())
+        .map_err(candidate_error("initialize generation store"))?;
+    let now = unix_now()?;
+    let expires = now
+        .checked_add(lease_ttl.as_secs())
+        .filter(|expires| *expires > now)
+        .ok_or_else(|| {
+            LayerStackError::Storage(
+                "candidate generation lease duration must be at least one second".to_owned(),
+            )
+        })?;
+    let _guard = stack.writer_lock.exclusive()?;
     observation.record_native_lookup_validation();
-    let verified = match coordinator.lookup_warm(&key) {
-        Ok(Some(verified)) => verified,
-        Ok(None) => {
-            let _ = store.release_lease(&lease);
-            return Err(LayerStackError::Storage(
-                "leased candidate generation disappeared during admission".to_owned(),
-            ));
-        }
+    let selection = lookup_warm_from_store(&store, &key)
+        .map_err(candidate_error("resolve strict candidate CURRENT"))?
+        .ok_or_else(|| {
+            LayerStackError::Storage(
+                "strict candidate admission requires a prebuilt native generation".to_owned(),
+            )
+        })?;
+    let candidate_lease = store
+        .acquire_lease(&key, &selection, owner, session_id, now, expires)
+        .map_err(candidate_error("acquire exact candidate generation lease"))?;
+    let snapshot = match stack.acquire_snapshot_unlocked(owner) {
+        Ok(snapshot) => snapshot,
         Err(error) => {
-            let _ = store.release_lease(&lease);
+            let cleanup = match store.release_lease(&candidate_lease) {
+                Ok(true) => String::new(),
+                Ok(false) => "; candidate lease rollback did not find the exact lease".to_owned(),
+                Err(cleanup) => format!("; candidate lease rollback failed: {cleanup}"),
+            };
             return Err(LayerStackError::Storage(format!(
-                "revalidate leased candidate generation failed: {error}"
+                "acquire legacy snapshot for strict admission failed: {error}{cleanup}"
             )));
         }
     };
-    if verified.manifest.generation != lease.generation
-        || verified.manifest.fence != lease.fence
-        || verified.manifest_sha256 != selection.manifest_sha256
-    {
-        let _ = store.release_lease(&lease);
-        return Err(LayerStackError::Storage(
-            "leased candidate generation changed during admission".to_owned(),
-        ));
-    }
     observation.record_native_admission();
-    Ok(CandidateGenerationAdmission {
-        selection: selection_model(verified),
-        lease: lease_model(lease),
-    })
+    Ok((
+        CandidateGenerationAdmission {
+            selection: selection_model(selection),
+            lease: lease_model(candidate_lease),
+        },
+        snapshot,
+    ))
 }
 
 /// Record completion of the native-provider mount for a strict candidate
@@ -180,6 +223,36 @@ pub fn renew_candidate_generation_lease(
         .map_err(candidate_error("renew exact candidate generation lease"))
 }
 
+/// Record a completed native mount and renew its exact generation lease for
+/// the live session using one LayerStack open. The caller must persist the
+/// returned lease in its workspace-recovery record before exposing success.
+#[doc(hidden)]
+pub fn finalize_hidden_candidate_session(
+    root: &Path,
+    lease: &CandidateGenerationLease,
+    lease_ttl: Duration,
+) -> Result<CandidateGenerationLease, LayerStackError> {
+    let writer_lock = StorageWriterLockLease::acquire(root)?;
+    let observation = HiddenValidationObservation::new(shared_observation_state_for_root(root)?);
+    observation.record_native_mount();
+    let store = GenerationStore::new(root.to_path_buf())
+        .map_err(candidate_error("initialize generation store"))?;
+    let now = unix_now()?;
+    let expires = now
+        .checked_add(lease_ttl.as_secs())
+        .filter(|expires| *expires > now)
+        .ok_or_else(|| {
+            LayerStackError::Storage(
+                "candidate generation lease duration must be at least one second".to_owned(),
+            )
+        })?;
+    let _guard = writer_lock.exclusive()?;
+    store
+        .renew_lease(&lease_record(lease), now, expires)
+        .map(lease_model)
+        .map_err(candidate_error("finalize exact candidate generation lease"))
+}
+
 #[doc(hidden)]
 pub fn release_candidate_generation_lease(
     root: &Path,
@@ -192,6 +265,21 @@ pub fn release_candidate_generation_lease(
     store
         .release_lease(&lease_record(lease))
         .map_err(candidate_error("release exact candidate generation lease"))
+}
+
+fn lookup_warm_from_store(
+    store: &GenerationStore,
+    key: &MaterializationKey,
+) -> Result<Option<GenerationSelection>, MaterializationError> {
+    key.validate()?;
+    let Some(selection) = store.lookup_current(key)? else {
+        return Ok(None);
+    };
+    NativeBackend::new().validate_warm_capabilities(
+        &selection.manifest.required_capabilities,
+        &selection.manifest.provided_capabilities,
+    )?;
+    Ok(Some(selection))
 }
 
 fn selection_model(selection: GenerationSelection) -> CandidateGenerationSelection {
