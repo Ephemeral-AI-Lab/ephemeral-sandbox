@@ -218,6 +218,10 @@ mod platform {
                     "hardlink group paths differ from logical tree".to_owned(),
                 ));
             }
+            // Successful preflight is the readiness boundary for a cold build.
+            // Initialize the fixed worker set here so reconstruct only performs
+            // authenticated hydration and carrier construction.
+            hydration_pool()?;
             Ok(CapabilityProfile {
                 feature_bits: descriptor.required_capabilities,
                 raw_byte_names: true,
@@ -314,7 +318,9 @@ mod platform {
                 &mut check,
             )?;
             apply_fd_metadata(&root_fd, &root_node.metadata)?;
-            rustix::fs::fsync(&root_fd).map_err(io_error)?;
+            // This is the one durability boundary for the complete carrier.
+            // `syncfs` covers every file and directory populated above, so
+            // flushing each inode first only duplicates the same I/O.
             rustix::fs::syncfs(&root_fd).map_err(io_error)?;
             let BuildContext {
                 hasher,
@@ -547,7 +553,6 @@ mod platform {
                             check,
                         )?;
                         apply_fd_metadata(&child, &node.metadata)?;
-                        rustix::fs::fsync(&child).map_err(io_error)?;
                     }
                     FileKindV3::Regular => self.emit_regular(
                         pages,
@@ -757,7 +762,6 @@ mod platform {
                 .checked_add(logical_length)
                 .ok_or_else(|| NativeBackendError::Limit("logical byte count".to_owned()))?;
             apply_file_metadata(&file, &node.metadata)?;
-            file.sync_all()?;
             Ok(())
         }
 

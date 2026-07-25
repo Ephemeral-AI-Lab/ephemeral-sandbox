@@ -17,6 +17,9 @@ pub mod promise {
 pub mod pty {
     use std::io;
 
+    #[derive(Default)]
+    pub struct OutputActivity;
+
     #[derive(Clone)]
     pub struct PtyMaster;
 
@@ -31,6 +34,10 @@ pub mod pty {
 
         pub fn output_len(&self) -> u64 {
             0
+        }
+
+        pub fn output_activity(&self) -> std::sync::Arc<OutputActivity> {
+            std::sync::Arc::new(OutputActivity)
         }
 
         pub fn pgid(&self) -> Option<i32> {
