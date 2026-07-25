@@ -8,6 +8,11 @@ pub struct MountedWorkspace {
     pub workspace_id: WorkspaceSessionId,
     pub network: NetworkProfile,
     pub snapshot: LayerStackSnapshotRef,
+    /// Exact native generation selected and durably leased before this
+    /// workspace's private scratch or namespace was created.
+    #[doc(hidden)]
+    pub candidate_admission:
+        Option<sandbox_runtime_layerstack::service::CandidateGenerationAdmission>,
     pub workspace_root: String,
     pub dirs: OverlayDirs,
     pub ns_fds: HolderNsFds,

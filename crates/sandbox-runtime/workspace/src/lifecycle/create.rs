@@ -110,6 +110,18 @@ impl WorkspaceManager {
         snapshot: LayerStackSnapshotRef,
         network: NetworkProfile,
     ) -> Result<MountedWorkspace, WorkspaceManagerError> {
+        self.open_with_candidate(workspace_id, snapshot, network, None)
+    }
+
+    pub(crate) fn open_with_candidate(
+        &mut self,
+        workspace_id: WorkspaceSessionId,
+        snapshot: LayerStackSnapshotRef,
+        network: NetworkProfile,
+        candidate_admission: Option<
+            sandbox_runtime_layerstack::service::CandidateGenerationAdmission,
+        >,
+    ) -> Result<MountedWorkspace, WorkspaceManagerError> {
         self.ensure_workspace_available(&workspace_id)?;
         let run_dir = self.workspace_session_root(&workspace_id);
         let dirs = OverlayDirs {
@@ -122,6 +134,7 @@ impl WorkspaceManager {
             workspace_id: workspace_id.clone(),
             network,
             snapshot,
+            candidate_admission,
             workspace_root: self.workspace_root.trim().to_owned(),
             dirs,
             ns_fds: Default::default(),
@@ -141,6 +154,14 @@ impl WorkspaceManager {
         match self.validated_workspace_root() {
             Ok(workspace_root) => handle.workspace_root = workspace_root,
             Err(error) => return Err(self.fail_after_partial_create(&handle, error)),
+        }
+        if handle.candidate_admission.is_some() {
+            self.handles.insert(workspace_id.clone(), handle.clone());
+            if let Err(error) = self.persist_handles() {
+                self.handles.remove(&workspace_id);
+                return Err(self.fail_after_partial_create(&handle, error));
+            }
+            self.handles.remove(&workspace_id);
         }
         if let Err(error) = self.scratch_locator.ensure_session(&workspace_id) {
             let error = WorkspaceManagerError::SetupFailed {

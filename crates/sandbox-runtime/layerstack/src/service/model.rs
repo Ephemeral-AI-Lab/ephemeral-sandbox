@@ -1,13 +1,79 @@
 use std::path::PathBuf;
 
 use crate::LayerRef;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Snapshot {
     pub manifest_version: i64,
     pub root_hash: String,
     pub layer_paths: Vec<PathBuf>,
+}
+
+/// One fully verified native carrier selected by the private candidate route.
+///
+/// This is deliberately separate from [`Snapshot`]: it never changes public
+/// LayerStack authority and cannot be interpreted as a v1 manifest.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CandidateGenerationSelection {
+    pub materialization_id: String,
+    pub root_id: String,
+    pub backend_kind: String,
+    pub backend_format_version: u16,
+    pub target_profile: String,
+    pub generation: u64,
+    pub fence: u64,
+    pub manifest_sha256: String,
+    pub carrier_path: PathBuf,
+    pub native_tree_sha256: String,
+    pub build_operation_id: String,
+}
+
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CandidateMaterializationDisposition {
+    Built,
+    Reused,
+    Shared,
+}
+
+/// Result of an explicit cold materialization request.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CandidateMaterializationResult {
+    pub disposition: CandidateMaterializationDisposition,
+    pub selection: CandidateGenerationSelection,
+    pub maximum_buffer_bytes: Option<u64>,
+}
+
+/// Durable lease over one exact materialization generation and fence.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CandidateGenerationLease {
+    pub lease_id: String,
+    pub materialization_id: String,
+    pub generation: u64,
+    pub fence: u64,
+    pub owner: String,
+    pub session_id: String,
+    pub acquired_unix_seconds: u64,
+    pub renewed_unix_seconds: u64,
+    pub expires_unix_seconds: u64,
+    pub checksum_sha256: String,
+}
+
+/// Atomic strict-admission result: a verified selected carrier plus its
+/// already-durable exact generation lease.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CandidateGenerationAdmission {
+    pub selection: CandidateGenerationSelection,
+    pub lease: CandidateGenerationLease,
 }
 
 /// Live lease state of a single active-manifest layer.
@@ -38,6 +104,7 @@ pub enum StorageRolloutMode {
     #[default]
     Legacy,
     Validation,
+    StrictCandidate,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
@@ -45,6 +112,30 @@ pub enum StorageRolloutMode {
 pub enum StorageAuthority {
     #[default]
     LegacyV1,
+}
+
+/// Cumulative accounting for the private native-candidate route.
+///
+/// The first four counters identify successful routing progress. The
+/// remaining counters authenticate the work classes that are forbidden in a
+/// warm command/file/PTY admission. A verifier compares two snapshots around
+/// each warm sample and requires every forbidden-work delta to be zero.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct NativeRouteCounters {
+    pub lookup_count: u64,
+    pub validation_count: u64,
+    pub admission_count: u64,
+    pub mount_count: u64,
+    pub cdc_count: u64,
+    pub object_traversal_count: u64,
+    pub hash_count: u64,
+    pub locator_merge_count: u64,
+    pub compaction_count: u64,
+    pub pack_count: u64,
+    pub gc_count: u64,
+    pub squash_count: u64,
+    pub materialization_count: u64,
+    pub fallback_count: u64,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -65,6 +156,7 @@ pub struct LayerStackRouteSnapshot {
     pub bytes_hashed: u64,
     pub bytes_reused: u64,
     pub bytes_newly_retained: u64,
+    pub native_route: NativeRouteCounters,
     pub last_quiescence_epoch: u64,
     pub counter_saturated: bool,
 }

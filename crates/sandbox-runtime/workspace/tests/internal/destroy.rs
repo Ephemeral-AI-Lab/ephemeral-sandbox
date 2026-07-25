@@ -279,6 +279,7 @@ fn mounted_workspace(
                 manifest: sandbox_runtime_layerstack::Manifest::new(1, Vec::new(), 1)?,
                 layer_paths: Vec::new(),
             },
+            candidate_admission: None,
             workspace_root: "/workspace".to_owned(),
             dirs: OverlayDirs {
                 run_dir,

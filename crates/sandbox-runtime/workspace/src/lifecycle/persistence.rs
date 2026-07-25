@@ -54,6 +54,7 @@ fn persisted_handle_json(handle: &MountedWorkspace) -> Value {
         "workspace_handle_id": handle.workspace_id.0,
         "lease_id": handle.snapshot.lease_id.0,
         "parked_lease_id": handle.parked_lease_id,
+        "candidate_admission": &handle.candidate_admission,
         "manifest_version": handle.snapshot.manifest_version,
         "manifest_root_hash": handle.snapshot.root_hash,
         "network_profile": handle.network.as_str(),
@@ -149,7 +150,10 @@ impl WorkspaceManager {
     fn release_persisted_record_leases(&self, record: &Value) -> (Option<bool>, Option<String>) {
         let lease_id = record.get("lease_id").and_then(Value::as_str);
         let parked_lease_id = record.get("parked_lease_id").and_then(Value::as_str);
-        if lease_id.is_none() && parked_lease_id.is_none() {
+        let candidate_lease = record
+            .get("candidate_admission")
+            .and_then(|admission| admission.get("lease"));
+        if lease_id.is_none() && parked_lease_id.is_none() && candidate_lease.is_none() {
             return (None, None);
         }
         let Some(layer_stack_root) = self.layer_stack_root.as_deref() else {
@@ -160,6 +164,29 @@ impl WorkspaceManager {
         };
 
         let mut failures = Vec::new();
+        if let Some(candidate_lease) = candidate_lease {
+            match serde_json::from_value::<
+                sandbox_runtime_layerstack::service::CandidateGenerationLease,
+            >(candidate_lease.clone())
+            {
+                Ok(candidate_lease) => {
+                    if let Err(error) =
+                        sandbox_runtime_layerstack::service::release_candidate_generation_lease(
+                            layer_stack_root,
+                            &candidate_lease,
+                        )
+                    {
+                        failures.push(format!(
+                            "release candidate generation lease {}: {error}",
+                            candidate_lease.lease_id
+                        ));
+                    }
+                }
+                Err(error) => failures.push(format!(
+                    "decode persisted candidate generation lease: {error}"
+                )),
+            }
+        }
         if let Some(lease_id) = lease_id {
             if let Err(error) =
                 sandbox_runtime_layerstack::service::release_lease(layer_stack_root, lease_id)

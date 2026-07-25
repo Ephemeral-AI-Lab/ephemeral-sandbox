@@ -2,7 +2,9 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use sandbox_runtime_layerstack::service::{StorageAuthority, StorageRolloutMode};
+use sandbox_runtime_layerstack::service::{
+    NativeRouteCounters, StorageAuthority, StorageRolloutMode,
+};
 use sandbox_runtime_layerstack::{
     build_workspace_base, LayerChange, LayerPath, LayerStack, ACTIVE_MANIFEST_FILE,
 };
@@ -22,7 +24,8 @@ mod fs {
 
 mod service {
     pub(crate) use sandbox_runtime_layerstack::service::{
-        LayerStackResourceSnapshot, LayerStackRouteSnapshot, StorageAuthority, StorageRolloutMode,
+        LayerStackResourceSnapshot, LayerStackRouteSnapshot, NativeRouteCounters, StorageAuthority,
+        StorageRolloutMode,
     };
 }
 
@@ -84,6 +87,7 @@ fn legacy_route_and_owned_resources_are_bounded_and_released(
     assert_eq!(initial.route.mismatch_count, 0);
     assert_eq!(initial.route.shadow_comparison_count, 0);
     assert_eq!(initial.route.shadow_completed_count, 0);
+    assert_eq!(initial.route.native_route, NativeRouteCounters::default());
     assert!(initial.resources.logical_cleanup_complete);
     assert_eq!(initial.resources.open_file_descriptors, None);
     assert_eq!(initial.resources.mapped_bytes, None);
@@ -170,6 +174,48 @@ fn observation_counters_saturate_without_wrapping() {
     assert_eq!(counter.load(Ordering::Relaxed), u64::MAX);
     assert!(route.counter_saturated);
     assert!(resources.counter_saturated);
+}
+
+#[test]
+fn native_route_progress_and_forbidden_work_are_accounted_separately() {
+    let state = Arc::new(observation_impl::StorageObservationState::default());
+    let observation = observation_impl::HiddenValidationObservation::new(Arc::clone(&state));
+    observation.configure(StorageRolloutMode::StrictCandidate);
+
+    observation.record_native_lookup_validation();
+    observation.record_native_lookup_validation();
+    observation.record_native_admission();
+    observation.record_native_mount();
+    let (warm, _) = state.observe(1);
+
+    assert_eq!(warm.configured_mode, StorageRolloutMode::StrictCandidate);
+    assert_eq!(warm.write_authority, StorageAuthority::LegacyV1);
+    assert_eq!(warm.read_authority, StorageAuthority::LegacyV1);
+    assert_eq!(warm.native_route.lookup_count, 2);
+    assert_eq!(warm.native_route.validation_count, 2);
+    assert_eq!(warm.native_route.admission_count, 1);
+    assert_eq!(warm.native_route.mount_count, 1);
+    assert_eq!(warm.native_route.cdc_count, 0);
+    assert_eq!(warm.native_route.object_traversal_count, 0);
+    assert_eq!(warm.native_route.hash_count, 0);
+    assert_eq!(warm.native_route.locator_merge_count, 0);
+    assert_eq!(warm.native_route.compaction_count, 0);
+    assert_eq!(warm.native_route.pack_count, 0);
+    assert_eq!(warm.native_route.gc_count, 0);
+    assert_eq!(warm.native_route.squash_count, 0);
+    assert_eq!(warm.native_route.materialization_count, 0);
+    assert_eq!(warm.native_route.fallback_count, 0);
+
+    observation.record_native_materialization();
+    let (cold, _) = state.observe(2);
+    assert_eq!(cold.native_route.materialization_count, 1);
+    assert_eq!(cold.native_route.object_traversal_count, 1);
+    assert_eq!(cold.native_route.hash_count, 1);
+
+    observation.record_native_fallback();
+    let (fallback, _) = state.observe(3);
+    assert_eq!(fallback.native_route.fallback_count, 1);
+    assert_eq!(fallback.fallback_count, 1);
 }
 
 #[test]

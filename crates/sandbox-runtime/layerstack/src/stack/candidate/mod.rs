@@ -3,6 +3,10 @@
     reason = "Stage 03 candidate slices are implemented in dependency order before private coordinator wiring"
 )]
 
+pub(crate) mod generation;
+pub(crate) mod materialization;
+pub(crate) mod materialization_operation;
+pub(crate) mod native_backend;
 pub(crate) mod object_store;
 pub(crate) mod occ;
 pub(crate) mod operation;

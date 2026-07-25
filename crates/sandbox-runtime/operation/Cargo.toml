@@ -25,3 +25,8 @@ zstd.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+name = "workspace_session_materialization"
+path = "tests/workspace_session_materialization.rs"
+harness = false

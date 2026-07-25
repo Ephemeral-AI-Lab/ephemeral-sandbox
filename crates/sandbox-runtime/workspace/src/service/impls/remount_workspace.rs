@@ -29,6 +29,15 @@ impl WorkspaceRuntimeService {
         }
         let (inputs, layer_stack_root) = {
             let state = self.lock_state()?;
+            if state
+                .manager
+                .handle(workspace_session_id)
+                .is_some_and(|handle| handle.candidate_admission.is_some())
+            {
+                return Ok(Some(RemountOutcome::Leased {
+                    reason: "unsupported:strict_candidate_generation_is_session_stable".to_owned(),
+                }));
+            }
             let Some(inputs) = state.manager.remount_snapshot(workspace_session_id) else {
                 return Ok(None);
             };

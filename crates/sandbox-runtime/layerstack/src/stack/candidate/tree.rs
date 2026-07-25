@@ -8,7 +8,9 @@ use sandbox_runtime_layerstack_core::{
 
 use crate::Sha256Digest;
 
-use super::object_store::{InstallDisposition, LooseObjectStore, ObjectStoreError};
+use super::object_store::{
+    decode_embedded_record, InstallDisposition, LooseObjectStore, ObjectStoreError,
+};
 
 const MAX_TREE_ENTRIES: usize = 192;
 const MAX_SEGMENT_ENTRIES: usize = 1024;
@@ -92,6 +94,8 @@ impl From<ObjectStoreError> for TreeError {
     }
 }
 
+type RawXattrV3 = (Vec<u8>, Vec<u8>);
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct MetadataV3 {
     pub(crate) mode: u32,
@@ -99,7 +103,7 @@ pub(crate) struct MetadataV3 {
     pub(crate) gid: u32,
     pub(crate) mtime_seconds: u64,
     pub(crate) mtime_nanoseconds: u32,
-    pub(crate) xattrs: Vec<(Vec<u8>, Vec<u8>)>,
+    pub(crate) xattrs: Vec<RawXattrV3>,
 }
 
 impl MetadataV3 {
@@ -155,6 +159,26 @@ pub(crate) enum FileKindV3 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct FileNodeV3 {
+    pub(crate) kind: FileKindV3,
+    pub(crate) metadata: MetadataV3,
+    pub(crate) directory: Option<TreePageId>,
+    pub(crate) logical_length: Option<u64>,
+    pub(crate) segments: Option<SegmentPageId>,
+    pub(crate) symlink_target: Option<Vec<u8>>,
+    pub(crate) device_major: Option<u32>,
+    pub(crate) device_minor: Option<u32>,
+    pub(crate) hardlink: Option<HardlinkGroupIdV3>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RootDescriptorV3 {
+    pub(crate) required_capabilities: u64,
+    pub(crate) chunk_profile: u16,
+    pub(crate) root_file: FileNodeId,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct MaterializationNodeV3 {
     pub(crate) kind: FileKindV3,
     pub(crate) metadata: MetadataV3,
     pub(crate) directory: Option<TreePageId>,
@@ -355,6 +379,18 @@ impl<'a> PersistentPages<'a> {
         self.counters
     }
 
+    pub(crate) fn object_store(&self) -> LooseObjectStore {
+        self.store.clone()
+    }
+
+    pub(crate) fn record_authenticated_chunk_reads(&mut self, objects: u64, encoded_bytes: u64) {
+        self.counters.objects_read = self.counters.objects_read.saturating_add(objects);
+        self.counters.object_bytes_read = self
+            .counters
+            .object_bytes_read
+            .saturating_add(encoded_bytes);
+    }
+
     pub(crate) fn install_file_node(&mut self, node: &FileNodeV3) -> Result<FileNodeId, TreeError> {
         let record = node.record()?;
         Ok(FileNodeId::new(self.install_record(&record)?))
@@ -384,10 +420,18 @@ impl<'a> PersistentPages<'a> {
     }
 
     pub(crate) fn install_root(&mut self, root: FileNodeId) -> Result<RootId, TreeError> {
+        self.install_root_with_capabilities(root, 1)
+    }
+
+    pub(crate) fn install_root_with_capabilities(
+        &mut self,
+        root: FileNodeId,
+        required_capabilities: u64,
+    ) -> Result<RootId, TreeError> {
         let record = CanonicalRecordV3::immutable(
             RecordKindV3::Root,
             vec![
-                TlvV3::new(1, 1_u64.to_be_bytes().to_vec()),
+                TlvV3::new(1, required_capabilities.to_be_bytes().to_vec()),
                 TlvV3::new(2, 1_u16.to_be_bytes().to_vec()),
                 TlvV3::new(3, root.digest().as_bytes().to_vec()),
             ],
@@ -421,6 +465,24 @@ impl<'a> PersistentPages<'a> {
             ],
         )?;
         Ok(HardlinkGroupIdV3::new(self.install_record(&record)?))
+    }
+
+    pub(crate) fn hardlink_group(
+        &mut self,
+        id: HardlinkGroupIdV3,
+    ) -> Result<Vec<Vec<u8>>, TreeError> {
+        let record = self.load_record(RecordKindV3::HardlinkGroup, id.digest())?;
+        let fields = record
+            .fields()
+            .ok_or(TreeError::Invalid("hardlink group has chunk payload"))?;
+        let count = usize::from(be_u16(fields[0].value())?);
+        let mut cursor = ByteCursor::new(fields[1].value());
+        let mut paths = Vec::with_capacity(count);
+        for _ in 0..count {
+            paths.push(cursor.len_u16(4096)?.to_vec());
+        }
+        cursor.finish()?;
+        Ok(paths)
     }
 
     pub(crate) fn build_tree<I>(&mut self, entries: I) -> Result<TreePageId, TreeError>
@@ -538,13 +600,21 @@ impl<'a> PersistentPages<'a> {
     }
 
     pub(crate) fn root_directory(&mut self, root: RootId) -> Result<TreePageId, TreeError> {
+        let descriptor = self.root_descriptor(root)?;
+        self.file_directory(descriptor.root_file)?
+            .ok_or(TreeError::Invalid("root file node is not a directory"))
+    }
+
+    pub(crate) fn root_descriptor(&mut self, root: RootId) -> Result<RootDescriptorV3, TreeError> {
         let record = self.load_record(RecordKindV3::Root, root.digest())?;
         let fields = record
             .fields()
             .ok_or(TreeError::Invalid("root has chunk payload"))?;
-        let file = FileNodeId::new(Digest32::new(fixed_32(fields[2].value())?));
-        self.file_directory(file)?
-            .ok_or(TreeError::Invalid("root file node is not a directory"))
+        Ok(RootDescriptorV3 {
+            required_capabilities: be_u64(fields[0].value())?,
+            chunk_profile: be_u16(fields[1].value())?,
+            root_file: FileNodeId::new(Digest32::new(fixed_32(fields[2].value())?)),
+        })
     }
 
     pub(crate) fn file_directory(
@@ -586,6 +656,66 @@ impl<'a> PersistentPages<'a> {
             4 | 5 => Ok(FileSnapshotV3::Other),
             _ => Err(TreeError::Invalid("unknown file node kind")),
         }
+    }
+
+    pub(crate) fn materialization_node(
+        &mut self,
+        file: FileNodeId,
+    ) -> Result<MaterializationNodeV3, TreeError> {
+        let record = self.load_record(RecordKindV3::FileNode, file.digest())?;
+        let fields = record
+            .fields()
+            .ok_or(TreeError::Invalid("file node has chunk payload"))?;
+        let kind = match one_byte(&fields[0])? {
+            1 => FileKindV3::Directory,
+            2 => FileKindV3::Regular,
+            3 => FileKindV3::Symlink,
+            4 => FileKindV3::Device,
+            5 => FileKindV3::Fifo,
+            _ => return Err(TreeError::Invalid("unknown file node kind")),
+        };
+        let metadata_record =
+            decode_embedded_record(fields[1].value(), RecordKindV3::Metadata, &mut self.digest)?;
+        let metadata_fields = metadata_record
+            .fields()
+            .ok_or(TreeError::Invalid("metadata has chunk payload"))?;
+        let metadata = MetadataV3 {
+            mode: be_u32(metadata_fields[0].value())?,
+            uid: be_u32(metadata_fields[1].value())?,
+            gid: be_u32(metadata_fields[2].value())?,
+            mtime_seconds: be_u64(metadata_fields[3].value())?,
+            mtime_nanoseconds: be_u32(metadata_fields[4].value())?,
+            xattrs: decode_xattrs(metadata_fields[5].value())?,
+        };
+        let node = MaterializationNodeV3 {
+            kind,
+            metadata,
+            directory: optional_digest(fields[2].value())?.map(TreePageId::new),
+            logical_length: optional_u64(fields[3].value())?,
+            segments: optional_digest(fields[4].value())?.map(SegmentPageId::new),
+            symlink_target: optional_bytes(fields[5].value())?.map(ToOwned::to_owned),
+            device_major: optional_u32(fields[6].value())?,
+            device_minor: optional_u32(fields[7].value())?,
+            hardlink: optional_digest(fields[8].value())?.map(HardlinkGroupIdV3::new),
+        };
+        validate_materialization_node(&node)?;
+        Ok(node)
+    }
+
+    pub(crate) fn directory_entries(
+        &mut self,
+        root: TreePageId,
+        maximum: usize,
+    ) -> Result<Vec<TreeEntryV3>, TreeError> {
+        let mut entries = Vec::new();
+        self.export_tree_diagnostic(root, |entry| {
+            if entries.len() >= maximum {
+                return Err(TreeError::Limit("materialization directory entries"));
+            }
+            entries.push(entry);
+            Ok(())
+        })?;
+        Ok(entries)
     }
 
     pub(crate) fn load_chunk(&mut self, id: Digest32) -> Result<Vec<u8>, TreeError> {
@@ -823,6 +953,18 @@ impl<'a> PersistentPages<'a> {
         Ok(descriptors)
     }
 
+    pub(crate) fn stream_segments<F>(
+        &mut self,
+        root: SegmentPageId,
+        mut emit: F,
+    ) -> Result<(), TreeError>
+    where
+        F: FnMut(SegmentDescriptor) -> Result<(), TreeError>,
+    {
+        self.stream_segment_page(root, 0, &mut emit)?;
+        Ok(())
+    }
+
     pub(crate) fn build_attribution<I>(&mut self, facts: I) -> Result<AttributionPageId, TreeError>
     where
         I: IntoIterator<Item = AttributionFact>,
@@ -1057,6 +1199,59 @@ impl<'a> PersistentPages<'a> {
                     .checked_add(previous)
                     .ok_or(TreeError::Invalid("segment offset overflow"))?;
                 self.reconstruct_segment_page(child, child_base, output)?;
+                previous = end;
+            }
+        }
+        cursor.finish()?;
+        Ok(covered)
+    }
+
+    fn stream_segment_page<F>(
+        &mut self,
+        id: SegmentPageId,
+        base: u64,
+        emit: &mut F,
+    ) -> Result<u64, TreeError>
+    where
+        F: FnMut(SegmentDescriptor) -> Result<(), TreeError>,
+    {
+        let record = self.load_record(RecordKindV3::SegmentPage, id.digest())?;
+        self.counters.segment_pages_read += 1;
+        let fields = record
+            .fields()
+            .ok_or(TreeError::Invalid("segment page has chunk payload"))?;
+        let kind = one_byte(&fields[0])?;
+        let count = be_u16(fields[2].value())? as usize;
+        let covered = be_u64(fields[3].value())?;
+        let mut cursor = ByteCursor::new(fields[4].value());
+        if kind == 1 {
+            for _ in 0..count {
+                let descriptor_kind = cursor.byte()?;
+                let offset = base
+                    .checked_add(cursor.u64()?)
+                    .ok_or(TreeError::Invalid("segment offset overflow"))?;
+                let length = cursor.u64()?;
+                let descriptor_kind = match descriptor_kind {
+                    1 => SegmentKind::Chunk(Digest32::new(cursor.array_32()?)),
+                    2 => SegmentKind::Zero,
+                    3 => SegmentKind::Hole,
+                    _ => return Err(TreeError::Invalid("unknown segment descriptor kind")),
+                };
+                emit(SegmentDescriptor {
+                    offset,
+                    length,
+                    kind: descriptor_kind,
+                })?;
+            }
+        } else {
+            let mut previous = 0_u64;
+            for _ in 0..count {
+                let end = cursor.u64()?;
+                let child = SegmentPageId::new(Digest32::new(cursor.array_32()?));
+                let child_base = base
+                    .checked_add(previous)
+                    .ok_or(TreeError::Invalid("segment offset overflow"))?;
+                self.stream_segment_page(child, child_base, emit)?;
                 previous = end;
             }
         }
@@ -1557,6 +1752,89 @@ fn option_bytes(value: Option<&[u8]>) -> Vec<u8> {
     )
 }
 
+fn validate_materialization_node(node: &MaterializationNodeV3) -> Result<(), TreeError> {
+    if node.metadata.mtime_nanoseconds > 999_999_999 {
+        return Err(TreeError::Invalid("metadata nanoseconds"));
+    }
+    let valid = match node.kind {
+        FileKindV3::Directory => {
+            node.directory.is_some()
+                && node.logical_length.is_none()
+                && node.segments.is_none()
+                && node.symlink_target.is_none()
+                && node.device_major.is_none()
+                && node.device_minor.is_none()
+                && node.hardlink.is_none()
+        }
+        FileKindV3::Regular => {
+            node.directory.is_none()
+                && node.logical_length.is_some()
+                && node.segments.is_some()
+                && node.symlink_target.is_none()
+                && node.device_major.is_none()
+                && node.device_minor.is_none()
+        }
+        FileKindV3::Symlink => {
+            node.directory.is_none()
+                && node.logical_length.is_none()
+                && node.segments.is_none()
+                && node.symlink_target.is_some()
+                && node.device_major.is_none()
+                && node.device_minor.is_none()
+                && node.hardlink.is_none()
+        }
+        FileKindV3::Device => {
+            node.directory.is_none()
+                && node.logical_length.is_none()
+                && node.segments.is_none()
+                && node.symlink_target.is_none()
+                && node.device_major.is_some()
+                && node.device_minor.is_some()
+                && node.hardlink.is_none()
+        }
+        FileKindV3::Fifo => {
+            node.directory.is_none()
+                && node.logical_length.is_none()
+                && node.segments.is_none()
+                && node.symlink_target.is_none()
+                && node.device_major.is_none()
+                && node.device_minor.is_none()
+                && node.hardlink.is_none()
+        }
+    };
+    if valid {
+        Ok(())
+    } else {
+        Err(TreeError::Invalid("file-node fields do not match kind"))
+    }
+}
+
+fn decode_xattrs(bytes: &[u8]) -> Result<Vec<RawXattrV3>, TreeError> {
+    let mut cursor = ByteCursor::new(bytes);
+    let count = cursor.u32()? as usize;
+    if count > 1024 {
+        return Err(TreeError::Limit("metadata xattr count"));
+    }
+    let mut output = Vec::with_capacity(count);
+    let mut previous: Option<Vec<u8>> = None;
+    for _ in 0..count {
+        let key = cursor.len_u32(4096)?.to_vec();
+        let value = cursor.len_u32(MAX_PAGE_ENCODED_BYTES)?.to_vec();
+        if key.is_empty()
+            || key.contains(&0)
+            || previous
+                .as_ref()
+                .is_some_and(|candidate| candidate.as_slice() >= key.as_slice())
+        {
+            return Err(TreeError::Invalid("invalid or unordered metadata xattr"));
+        }
+        previous = Some(key.clone());
+        output.push((key, value));
+    }
+    cursor.finish()?;
+    Ok(output)
+}
+
 fn encode_record(record: &CanonicalRecordV3) -> Result<Vec<u8>, TreeError> {
     let mut sink = VecSink::default();
     encode_v3_record(record, &mut sink)?;
@@ -1624,6 +1902,13 @@ fn be_u16(bytes: &[u8]) -> Result<u16, TreeError> {
     Ok(u16::from_be_bytes(value))
 }
 
+fn be_u32(bytes: &[u8]) -> Result<u32, TreeError> {
+    let value: [u8; 4] = bytes
+        .try_into()
+        .map_err(|_| TreeError::Invalid("u32 field"))?;
+    Ok(u32::from_be_bytes(value))
+}
+
 fn be_u64(bytes: &[u8]) -> Result<u64, TreeError> {
     let value: [u8; 8] = bytes
         .try_into()
@@ -1650,6 +1935,14 @@ fn optional_u64(bytes: &[u8]) -> Result<Option<u64>, TreeError> {
         [0] => Ok(None),
         [1, value @ ..] if value.len() == 8 => Ok(Some(be_u64(value)?)),
         _ => Err(TreeError::Invalid("optional u64 field")),
+    }
+}
+
+fn optional_u32(bytes: &[u8]) -> Result<Option<u32>, TreeError> {
+    match bytes {
+        [0] => Ok(None),
+        [1, value @ ..] if value.len() == 4 => Ok(Some(be_u32(value)?)),
+        _ => Err(TreeError::Invalid("optional u32 field")),
     }
 }
 
@@ -1704,6 +1997,10 @@ impl<'a> ByteCursor<'a> {
         be_u64(self.take(8)?)
     }
 
+    fn u32(&mut self) -> Result<u32, TreeError> {
+        be_u32(self.take(4)?)
+    }
+
     fn array_32(&mut self) -> Result<[u8; 32], TreeError> {
         self.take(32)?
             .try_into()
@@ -1712,6 +2009,15 @@ impl<'a> ByteCursor<'a> {
 
     fn len_u16(&mut self, maximum: usize) -> Result<&'a [u8], TreeError> {
         let length = usize::from(be_u16(self.take(2)?)?);
+        if length > maximum {
+            return Err(TreeError::Limit("length-prefixed page field"));
+        }
+        self.take(length)
+    }
+
+    fn len_u32(&mut self, maximum: usize) -> Result<&'a [u8], TreeError> {
+        let length = usize::try_from(self.u32()?)
+            .map_err(|_| TreeError::Limit("length-prefixed page field"))?;
         if length > maximum {
             return Err(TreeError::Limit("length-prefixed page field"));
         }

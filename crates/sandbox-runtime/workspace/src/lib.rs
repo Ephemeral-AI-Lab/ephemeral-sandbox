@@ -56,4 +56,7 @@ pub use service::{
     holder_exit_channel, HolderExitListener, HolderExitNotifier, HolderExitShutdown,
     HolderExitSubscription, HolderExitWait,
 };
-pub use service::{WorkspaceRuntimeHooks, WorkspaceRuntimeService, WorkspaceRuntimeShutdownReport};
+pub use service::{
+    WorkspaceRuntimeHooks, WorkspaceRuntimeService, WorkspaceRuntimeShutdownReport,
+    WorkspaceStorageMode,
+};

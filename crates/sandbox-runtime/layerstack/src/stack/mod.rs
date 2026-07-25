@@ -12,7 +12,7 @@ pub(crate) mod dir_list;
 pub(crate) mod file_read;
 mod layer;
 pub(crate) mod lease;
-mod observation;
+pub(crate) mod observation;
 mod ops;
 pub(crate) mod projection;
 pub mod publish;

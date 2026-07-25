@@ -1057,3 +1057,93 @@ fn fsync_parent(path: &Path) -> Result<(), RefError> {
 pub(crate) fn storage_writer_lock_path(storage_root: &Path) -> PathBuf {
     storage_root.join(STORAGE_WRITER_LOCK_FILE)
 }
+
+pub(crate) fn root_has_pin_or_source_lease<D>(
+    storage_root: &Path,
+    root: Digest32,
+    digest: &mut D,
+) -> Result<bool, RefError>
+where
+    D: RawDigest,
+{
+    let pins = storage_root.join("refs").join("pins");
+    for (name, bytes) in read_ref_directory(&pins, PAIR_REF_BYTES as u64)? {
+        validate_hex_ref_name(&name)?;
+        let (target, _) = decode_pair_ref(&bytes, RefClass::Pin, digest)?;
+        if target.root == root {
+            return Ok(true);
+        }
+    }
+
+    let leases = storage_root.join("refs").join("leases");
+    let lease_entries = match std::fs::read_dir(&leases) {
+        Ok(entries) => Some(entries),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error.into()),
+    };
+    for entry in lease_entries.into_iter().flatten() {
+        let entry = entry?;
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| RefError::Invalid("non-UTF-8 ref path"))?;
+        if name.starts_with("materialization-") {
+            continue;
+        }
+        validate_hex_ref_name(&name)?;
+        let bytes = read_optional(&entry.path(), SOURCE_LEASE_MAX_BYTES)?
+            .ok_or(RefError::Invalid("ref disappeared while scanning"))?;
+        let record = decode_record(&bytes, RecordKindV3::SourceLease, digest)?;
+        let fields = record
+            .fields()
+            .ok_or(RefError::Invalid("lease record has no fields"))?;
+        if fields
+            .first()
+            .map(TlvV3::value)
+            .map(hex_component)
+            .as_deref()
+            != Some(name.as_str())
+        {
+            return Err(RefError::Invalid("lease path ID differs from record ID"));
+        }
+        if digest_field(fields, 1)? == root {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn read_ref_directory(
+    path: &Path,
+    maximum_file_bytes: u64,
+) -> Result<Vec<(String, Vec<u8>)>, RefError> {
+    let entries = match std::fs::read_dir(path) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.into()),
+    };
+    let mut refs = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| RefError::Invalid("non-UTF-8 ref path"))?;
+        let bytes = read_optional(&entry.path(), maximum_file_bytes)?
+            .ok_or(RefError::Invalid("ref disappeared while scanning"))?;
+        refs.push((name, bytes));
+    }
+    Ok(refs)
+}
+
+fn validate_hex_ref_name(name: &str) -> Result<(), RefError> {
+    if name.len() != 64
+        || !name
+            .as_bytes()
+            .iter()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(byte))
+    {
+        return Err(RefError::Invalid("ref path is not canonical lowercase hex"));
+    }
+    Ok(())
+}

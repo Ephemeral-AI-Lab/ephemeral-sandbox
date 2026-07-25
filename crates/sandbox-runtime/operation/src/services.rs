@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use std::time::Duration;
 
 #[cfg(target_os = "linux")]
 use rustix::io::Errno;
@@ -16,7 +17,9 @@ use crate::layerstack::LayerStackService;
 use crate::observability::{
     RuntimeObservabilitySnapshot, RuntimeOwnershipSnapshot, RuntimeOwnershipTopologySnapshot,
 };
-use crate::workspace_crate::{session::WorkspaceManager, WorkspaceRuntimeService};
+use crate::workspace_crate::{
+    session::WorkspaceManager, WorkspaceRuntimeService, WorkspaceStorageMode,
+};
 use crate::workspace_session::{
     HolderExitDispatcher, WorkspaceSessionService, WorkspaceSessionShutdownOutcome,
 };
@@ -328,7 +331,19 @@ impl SandboxRuntimeOperations {
             FileService::open(file_auditability_dir(&layer_stack_root), config.file)
                 .expect("file auditability store initialization failed"),
         );
-        let workspace_runtime = Arc::new(WorkspaceRuntimeService::new(
+        let workspace_storage_mode = match config.layerstack.rollout_mode {
+            sandbox_runtime_layerstack::service::StorageRolloutMode::Legacy
+            | sandbox_runtime_layerstack::service::StorageRolloutMode::Validation => {
+                WorkspaceStorageMode::Legacy
+            }
+            sandbox_runtime_layerstack::service::StorageRolloutMode::StrictCandidate => {
+                WorkspaceStorageMode::StrictCandidate {
+                    admission_lease_ttl: Duration::from_secs(60),
+                    session_lease_ttl: Duration::from_secs(u64::from(u32::MAX)),
+                }
+            }
+        };
+        let workspace_runtime = Arc::new(WorkspaceRuntimeService::new_with_storage_mode(
             WorkspaceManager::with_scratch_locator(
                 config
                     .workspace
@@ -340,6 +355,7 @@ impl SandboxRuntimeOperations {
                 observer.clone(),
             ),
             layer_stack_root.clone(),
+            workspace_storage_mode,
         ));
         cli_log(format!(
             "ensuring workspace base for {}",

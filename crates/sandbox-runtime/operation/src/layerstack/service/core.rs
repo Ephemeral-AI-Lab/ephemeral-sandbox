@@ -34,6 +34,7 @@ pub struct LayerStackService {
     pub(crate) autosquash_queue: Option<Arc<AutosquashQueue>>,
     pub(crate) export_spools: Mutex<HashMap<String, ExportSpool>>,
     active_lease_counter: sandbox_runtime_layerstack::ActiveLeaseCounter,
+    _route_observation: sandbox_runtime_layerstack::HiddenValidationObservation,
     pub(super) hidden_validation: Option<HiddenValidationWorker>,
 }
 
@@ -61,9 +62,23 @@ impl LayerStackService {
         hidden_observation.configure(config.rollout_mode);
         let hidden_validation = match config.rollout_mode {
             sandbox_runtime_layerstack::service::StorageRolloutMode::Legacy => None,
-            sandbox_runtime_layerstack::service::StorageRolloutMode::Validation => Some(
-                HiddenValidationWorker::spawn(stack, layer_stack_root.clone(), hidden_observation)?,
-            ),
+            sandbox_runtime_layerstack::service::StorageRolloutMode::Validation => {
+                Some(HiddenValidationWorker::spawn(
+                    stack,
+                    layer_stack_root.clone(),
+                    hidden_observation.clone(),
+                )?)
+            }
+            sandbox_runtime_layerstack::service::StorageRolloutMode::StrictCandidate => {
+                if !cfg!(target_os = "linux") {
+                    return Err(LayerStackServiceError::Init {
+                        layer_stack_root,
+                        error: "strict candidate profile linux-overlayfs-v1 requires Linux"
+                            .to_owned(),
+                    });
+                }
+                None
+            }
         };
         let autosquash_queue = config
             .autosquash_squash_at_n_layers
@@ -79,6 +94,7 @@ impl LayerStackService {
             autosquash_queue,
             export_spools: Mutex::new(HashMap::new()),
             active_lease_counter,
+            _route_observation: hidden_observation,
             hidden_validation,
         })
     }

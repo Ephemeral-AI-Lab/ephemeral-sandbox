@@ -1,5 +1,8 @@
+use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Write};
+use std::os::fd::AsRawFd;
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -27,7 +30,7 @@ enum TranscriptSink {
 type OutputSink = Box<dyn FnMut(&[u8]) + Send + 'static>;
 
 struct OutputReader {
-    master: File,
+    master: Arc<File>,
     sink: OutputSink,
     drain: OutputDrain,
 }
@@ -38,7 +41,8 @@ struct OutputQueue {
 }
 
 struct OutputReactor {
-    queue: Arc<(Mutex<OutputQueue>, Condvar)>,
+    queue: Arc<Mutex<OutputQueue>>,
+    wake_writer: Arc<UnixStream>,
     active_readers: Arc<AtomicUsize>,
 }
 
@@ -245,49 +249,111 @@ fn output_reactor() -> &'static OutputReactor {
 
 impl OutputReactor {
     fn new() -> Self {
-        let queue = Arc::new((Mutex::new(OutputQueue::default()), Condvar::new()));
+        let queue = Arc::new(Mutex::new(OutputQueue::default()));
+        let (wake_reader, wake_writer) =
+            UnixStream::pair().expect("create PTY output reactor wake socket");
+        wake_reader
+            .set_nonblocking(true)
+            .expect("make PTY output reactor wake reader nonblocking");
+        wake_writer
+            .set_nonblocking(true)
+            .expect("make PTY output reactor wake writer nonblocking");
         let active_readers = Arc::new(AtomicUsize::new(0));
         let worker_queue = Arc::clone(&queue);
         let worker_active = Arc::clone(&active_readers);
         thread::Builder::new()
             .name("eos-pty-reactor".to_owned())
-            .spawn(move || run_output_reactor(&worker_queue, &worker_active))
+            .spawn(move || run_output_reactor(&worker_queue, &worker_active, &wake_reader))
             .expect("spawn PTY output reactor");
         Self {
             queue,
+            wake_writer: Arc::new(wake_writer),
             active_readers,
         }
     }
 
     fn register(&self, master: File, sink: OutputSink, drain: OutputDrain) {
         self.active_readers.fetch_add(1, Ordering::Release);
-        let (queue, ready) = &*self.queue;
-        let mut queue = queue
+        let mut queue = self
+            .queue
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         queue.readers.push(OutputReader {
-            master,
+            master: Arc::new(master),
             sink,
             drain,
         });
-        ready.notify_one();
+        drop(queue);
+        self.wake();
+    }
+
+    fn wake(&self) {
+        let mut writer = &*self.wake_writer;
+        loop {
+            match writer.write(&[1]) {
+                Ok(_) => return,
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => return,
+                Err(_) => return,
+            }
+        }
     }
 }
 
-fn run_output_reactor(shared: &(Mutex<OutputQueue>, Condvar), active_readers: &AtomicUsize) {
-    let (queue, ready) = shared;
-    let mut queue = queue
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
+fn run_output_reactor(
+    queue: &Mutex<OutputQueue>,
+    active_readers: &AtomicUsize,
+    wake_reader: &UnixStream,
+) {
     loop {
-        while queue.readers.is_empty() {
-            queue = ready
-                .wait(queue)
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let readers: Vec<Arc<File>> = queue
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .readers
+            .iter()
+            .map(|reader| Arc::clone(&reader.master))
+            .collect();
+        let mut poll_fds = Vec::with_capacity(readers.len() + 1);
+        poll_fds.push(PollFd::new(wake_reader, PollFlags::IN));
+        poll_fds.extend(
+            readers
+                .iter()
+                .map(|reader| PollFd::new(&**reader, PollFlags::IN)),
+        );
+        match poll(&mut poll_fds, -1) {
+            Ok(_) => {}
+            Err(rustix::io::Errno::INTR) => continue,
+            Err(_) => {
+                thread::sleep(Duration::from_millis(5));
+                continue;
+            }
         }
 
+        let wake_ready = !poll_fds[0].revents().is_empty();
+        let ready_readers: HashSet<_> = readers
+            .iter()
+            .zip(poll_fds.iter().skip(1))
+            .filter_map(|(reader, poll_fd)| {
+                (!poll_fd.revents().is_empty()).then(|| reader.as_raw_fd())
+            })
+            .collect();
+        drop(poll_fds);
+        if wake_ready {
+            drain_wake_reader(wake_reader);
+        }
+        if ready_readers.is_empty() {
+            continue;
+        }
+
+        let mut queue = queue
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut index = 0;
         while index < queue.readers.len() {
+            if !ready_readers.contains(&queue.readers[index].master.as_raw_fd()) {
+                index += 1;
+                continue;
+            }
             if drain_output_reader(&mut queue.readers[index]) {
                 index += 1;
             } else {
@@ -296,17 +362,28 @@ fn run_output_reactor(shared: &(Mutex<OutputQueue>, Condvar), active_readers: &A
                 active_readers.fetch_sub(1, Ordering::AcqRel);
             }
         }
-        let (next, _) = ready
-            .wait_timeout(queue, Duration::from_millis(5))
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        queue = next;
+    }
+}
+
+fn drain_wake_reader(wake_reader: &UnixStream) {
+    let mut reader = wake_reader;
+    let mut buf = [0_u8; 64];
+    loop {
+        match reader.read(&mut buf) {
+            Ok(0) => return,
+            Ok(_) => {}
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => return,
+            Err(_) => return,
+        }
     }
 }
 
 fn drain_output_reader(reader: &mut OutputReader) -> bool {
     let mut buf = [0_u8; 8192];
+    let mut master = &*reader.master;
     loop {
-        match reader.master.read(&mut buf) {
+        match master.read(&mut buf) {
             Ok(0) => return false,
             Ok(n) => (reader.sink)(&buf[..n]),
             Err(err) if err.kind() == io::ErrorKind::WouldBlock => return true,
@@ -410,4 +487,47 @@ fn format_timestamp_prefix_at(now: OffsetDateTime) -> String {
         second = now.second(),
         millisecond = now.millisecond(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::mpsc;
+
+    use super::*;
+
+    #[test]
+    fn output_reactor_drains_output_that_arrives_after_registration() {
+        let reactor = OutputReactor::new();
+        let (master, mut slave) = open_pty_pair().expect("open test PTY");
+        set_nonblocking(&master).expect("make test PTY nonblocking");
+        let (output_tx, output_rx) = mpsc::channel();
+        let drain = OutputDrain::pending();
+        let terminal_drain = drain.clone();
+        reactor.register(
+            master,
+            Box::new(move |bytes| {
+                let _ = output_tx.send(bytes.to_vec());
+            }),
+            drain,
+        );
+
+        thread::sleep(Duration::from_millis(20));
+        slave
+            .write_all(b"ready\n")
+            .expect("write delayed PTY output");
+
+        let output = output_rx
+            .recv_timeout(Duration::from_millis(100))
+            .expect("readiness reactor did not drain delayed PTY output");
+        assert!(
+            output.windows(b"ready".len()).any(|part| part == b"ready"),
+            "unexpected PTY output: {output:?}"
+        );
+
+        drop(slave);
+        assert!(
+            terminal_drain.wait_timeout(Duration::from_millis(100)),
+            "readiness reactor did not observe PTY EOF"
+        );
+    }
 }

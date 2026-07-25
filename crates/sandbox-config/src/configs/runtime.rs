@@ -181,6 +181,7 @@ pub enum StorageRolloutMode {
     #[default]
     Legacy,
     Validation,
+    StrictCandidate,
 }
 
 impl LayerstackConfig {

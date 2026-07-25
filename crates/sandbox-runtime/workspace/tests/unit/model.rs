@@ -35,6 +35,7 @@ fn workspace_profile_handle() -> MountedWorkspace {
             manifest: test_manifest(),
             layer_paths: vec!["/lower/one".into(), "/lower/two".into()],
         },
+        candidate_admission: None,
         workspace_root: "/workspace".to_owned(),
         dirs: OverlayDirs {
             run_dir: "/tmp/eos/run".into(),

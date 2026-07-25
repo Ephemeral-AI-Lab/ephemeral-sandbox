@@ -10,6 +10,7 @@ use sandbox_runtime_layerstack_core::{
     RecordKindV3, TlvV3, TypedDigest, ROOT_FORMAT_V3,
 };
 
+use super::materialization_operation::recognizes_materialization_state;
 use super::refs::{CommitLock, GcBarrier, Head, RefError, RefStage, RefStore, RefTarget};
 
 const OPERATION_ID_DOMAIN: &[u8] = b"EOS-LS3-OPERATION-ID\0";
@@ -689,6 +690,9 @@ where
             let Some(bytes) = read_bounded_optional(&state_path, STATE_MAX_BYTES)? else {
                 continue;
             };
+            if recognizes_materialization_state(&path, &bytes) {
+                continue;
+            }
             let state = decode_state(&bytes, digest)?;
             if state.phase == OperationPhase::Preparing {
                 if reap_work(&path.join("work"))? {
@@ -1140,6 +1144,23 @@ where
     let bytes = encode_state(state, digest)?;
     let mut prepared = PreparedStateFile::new(path, &bytes)?;
     prepared.replace_and_sync(path)
+}
+
+pub(crate) fn replace_common_state(path: &Path, bytes: &[u8]) -> Result<(), OperationError> {
+    let mut prepared = PreparedStateFile::new(path, bytes)?;
+    prepared.replace_and_sync(path)
+}
+
+pub(crate) fn read_common_state(path: &Path) -> Result<Option<Vec<u8>>, OperationError> {
+    read_bounded_optional(path, STATE_MAX_BYTES)
+}
+
+pub(crate) fn reap_common_work(path: &Path) -> Result<bool, OperationError> {
+    reap_work(path)
+}
+
+pub(crate) fn sync_common_parent(path: &Path) -> Result<(), OperationError> {
+    fsync_parent(path)
 }
 
 struct PreparedStateFile {

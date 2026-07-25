@@ -13,6 +13,18 @@ use sandbox_runtime_layerstack_core::{
     PublicationId, RawDigest, RecordKindV3, RootId, TlvV3,
 };
 
+#[allow(
+    dead_code,
+    reason = "the publication harness needs materialization types only to preserve the production operation module graph"
+)]
+#[path = "../src/stack/candidate/generation.rs"]
+mod generation;
+#[allow(
+    dead_code,
+    reason = "the publication harness exercises only operation-state discrimination from this production sibling"
+)]
+#[path = "../src/stack/candidate/materialization_operation.rs"]
+mod materialization_operation;
 #[path = "../src/stack/candidate/object_store.rs"]
 mod object_store;
 #[path = "../src/stack/candidate/occ.rs"]
@@ -21,6 +33,10 @@ mod occ;
 mod operation;
 #[path = "../src/stack/candidate/ref_ops.rs"]
 mod ref_ops;
+#[allow(
+    dead_code,
+    reason = "the publication harness intentionally exercises only publication-related refs helpers"
+)]
 #[path = "../src/stack/candidate/refs.rs"]
 mod refs;
 #[path = "../src/stack/candidate/seqcdc.rs"]
@@ -125,6 +141,12 @@ fn object_store_installs_loads_and_reuses_exact_typed_bytes(
 
     let loaded = store.load(installed.kind(), installed.id(), &mut Sha256Digest)?;
     assert_eq!(loaded, record);
+    let loaded_chunk = store.load_authenticated_chunk(installed.id(), &mut Sha256Digest)?;
+    assert_eq!(loaded_chunk.payload(), b"stage03-object");
+    assert_eq!(
+        loaded_chunk.encoded_len(),
+        b"stage03-object".len() + object_store::RECORD_HEADER_BYTES
+    );
 
     let existing = store.install(&record, &mut Sha256Digest)?;
     assert_eq!(existing.disposition(), InstallDisposition::AlreadyPresent);
@@ -149,6 +171,10 @@ fn object_store_rejects_corruption_collision_and_non_object_kinds(
     let error = store
         .install(&record, &mut Sha256Digest)
         .expect_err("corrupt existing object");
+    assert_eq!(error.kind(), Some(ErrorKind::ObjectCollisionOrCorruption));
+    let error = store
+        .load_authenticated_chunk(installed.id(), &mut Sha256Digest)
+        .expect_err("corrupt chunk must not authenticate");
     assert_eq!(error.kind(), Some(ErrorKind::ObjectCollisionOrCorruption));
 
     let mutable = CanonicalRecordV3::mutable(

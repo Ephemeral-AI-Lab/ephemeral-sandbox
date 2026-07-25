@@ -26,8 +26,8 @@ pub use observability::{
     RuntimeTopologyWorkspaceSnapshot, RuntimeWorkspaceSnapshot,
 };
 pub use sandbox_runtime_layerstack::service::{
-    LayerStackResourceSnapshot, LayerStackRouteSnapshot, LayerStatus, StackObservation,
-    StorageAuthority, StorageRolloutMode,
+    LayerStackResourceSnapshot, LayerStackRouteSnapshot, LayerStatus, NativeRouteCounters,
+    StackObservation, StorageAuthority, StorageRolloutMode,
 };
 pub use sandbox_runtime_layerstack::{
     describe_layer_delta, LayerDeltaDescription, LayerDeltaEntry, LayerDeltaEntryKind,

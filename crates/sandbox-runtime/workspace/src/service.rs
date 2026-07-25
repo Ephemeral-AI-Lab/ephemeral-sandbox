@@ -130,6 +130,17 @@ pub struct WorkspaceRuntimeService {
     shutdown_control: ShutdownControl,
 }
 
+/// Private LayerStack activation route used for new workspace admissions.
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceStorageMode {
+    Legacy,
+    StrictCandidate {
+        admission_lease_ttl: Duration,
+        session_lease_ttl: Duration,
+    },
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct WorkspaceRuntimeShutdownReport {
     pub workspaces: WorkspaceManagerShutdownReport,
@@ -171,6 +182,7 @@ enum ShutdownTurn {
 pub(crate) struct WorkspaceRuntimeState {
     pub(crate) manager: WorkspaceManager,
     pub(crate) layer_stack_root: PathBuf,
+    pub(crate) storage_mode: WorkspaceStorageMode,
 }
 
 enum WorkspaceRuntimeBackend {
@@ -180,13 +192,24 @@ enum WorkspaceRuntimeBackend {
 
 impl WorkspaceRuntimeService {
     #[must_use]
-    pub fn new(mut manager: WorkspaceManager, layer_stack_root: PathBuf) -> Self {
+    pub fn new(manager: WorkspaceManager, layer_stack_root: PathBuf) -> Self {
+        Self::new_with_storage_mode(manager, layer_stack_root, WorkspaceStorageMode::Legacy)
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn new_with_storage_mode(
+        mut manager: WorkspaceManager,
+        layer_stack_root: PathBuf,
+        storage_mode: WorkspaceStorageMode,
+    ) -> Self {
         manager.bind_layer_stack_root(layer_stack_root.clone());
         Self {
             backend: WorkspaceRuntimeBackend::Runtime(Box::new(Mutex::new(
                 WorkspaceRuntimeState {
                     manager,
                     layer_stack_root,
+                    storage_mode,
                 },
             ))),
             admission: RwLock::new(()),

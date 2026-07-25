@@ -108,6 +108,7 @@ pub(crate) struct TeardownTransaction {
     holder_terminal: bool,
     mounts_released: bool,
     scratch_released: bool,
+    candidate_lease_released: bool,
     lease_released: bool,
     parked_lease_released: bool,
     active_leases_after: Option<usize>,
@@ -138,6 +139,7 @@ impl TeardownTransaction {
             holder_terminal: false,
             mounts_released: false,
             scratch_released: false,
+            candidate_lease_released: false,
             lease_released: false,
             parked_lease_released: false,
             active_leases_after: None,
@@ -176,6 +178,12 @@ impl TeardownTransaction {
                 &self.handle.dirs.upperdir,
                 &self.handle.dirs.workdir,
             ]),
+            "candidate_materialization_id": self.handle.candidate_admission.as_ref()
+                .map(|admission| admission.selection.materialization_id.as_str()),
+            "candidate_generation": self.handle.candidate_admission.as_ref()
+                .map(|admission| admission.selection.generation),
+            "candidate_fence": self.handle.candidate_admission.as_ref()
+                .map(|admission| admission.selection.fence),
         });
         ExitOutcome {
             workspace_id: self.handle.workspace_id,
@@ -447,6 +455,24 @@ impl ManagerTeardownExecutor<'_> {
         };
 
         let mut failures = Vec::new();
+        match self.transaction.handle.candidate_admission.as_ref() {
+            None => self.transaction.candidate_lease_released = true,
+            Some(admission) if !self.transaction.candidate_lease_released => {
+                let lease = &admission.lease;
+                match sandbox_runtime_layerstack::service::release_candidate_generation_lease(
+                    layer_stack_root,
+                    lease,
+                ) {
+                    Ok(_) => self.transaction.candidate_lease_released = true,
+                    Err(error) => failures.push(format!(
+                        "release candidate generation lease {}: {error}",
+                        lease.lease_id
+                    )),
+                }
+            }
+            Some(_) => {}
+        }
+
         if !self.transaction.lease_released {
             match sandbox_runtime_layerstack::service::release_lease(
                 layer_stack_root,
@@ -485,7 +511,10 @@ impl ManagerTeardownExecutor<'_> {
     }
 
     fn account_leases(&mut self) -> Result<(), String> {
-        if !self.transaction.lease_released || !self.transaction.parked_lease_released {
+        if !self.transaction.candidate_lease_released
+            || !self.transaction.lease_released
+            || !self.transaction.parked_lease_released
+        {
             return Err("deferred until every workspace lease is released".to_owned());
         }
         let Some(layer_stack_root) = self.manager.layer_stack_root.as_deref() else {

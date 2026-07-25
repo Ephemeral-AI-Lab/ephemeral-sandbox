@@ -141,6 +141,9 @@ pub(crate) fn build_runtime_config(
                 sandbox_config::configs::runtime::StorageRolloutMode::Validation => {
                     sandbox_runtime::StorageRolloutMode::Validation
                 }
+                sandbox_config::configs::runtime::StorageRolloutMode::StrictCandidate => {
+                    sandbox_runtime::StorageRolloutMode::StrictCandidate
+                }
             },
             remount_sweep_width: config.runtime.layerstack.remount_sweep_width,
             export_chunk_bytes: config.runtime.layerstack.export_chunk_bytes,

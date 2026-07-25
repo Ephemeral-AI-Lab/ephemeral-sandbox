@@ -63,6 +63,16 @@ impl LayerStack {
 
     #[doc(hidden)]
     pub fn hidden_validation_generation(&self) -> Result<Option<u64>, LayerStackError> {
+        self.hidden_validation_head()
+            .map(|head| head.map(|head| head.generation))
+    }
+
+    pub(crate) fn hidden_validation_root(&self) -> Result<Option<RootId>, LayerStackError> {
+        self.hidden_validation_head()
+            .map(|head| head.map(|head| RootId::new(head.target.root)))
+    }
+
+    fn hidden_validation_head(&self) -> Result<Option<Head>, LayerStackError> {
         let branch = BranchId::new(VALIDATION_BRANCH.to_vec()).map_err(|error| {
             LayerStackError::Storage(format!("hidden validation branch is invalid: {error}"))
         })?;
@@ -77,11 +87,9 @@ impl LayerStack {
         .map_err(|error| {
             LayerStackError::Storage(format!("open hidden validation refs failed: {error}"))
         })?;
-        refs.read_head(&branch, &mut digest)
-            .map(|head| head.map(|head| head.generation))
-            .map_err(|error| {
-                LayerStackError::Storage(format!("read hidden validation head failed: {error}"))
-            })
+        refs.read_head(&branch, &mut digest).map_err(|error| {
+            LayerStackError::Storage(format!("read hidden validation head failed: {error}"))
+        })
     }
 }
 

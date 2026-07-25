@@ -20,7 +20,7 @@ pub use crate::session::{HolderNsFds, MountedWorkspace};
 
 pub use crate::lifecycle::ExitOutcome;
 
-pub(crate) const PERSISTED_HANDLES_SCHEMA_VERSION: u32 = 1;
+pub(crate) const PERSISTED_HANDLES_SCHEMA_VERSION: u32 = 2;
 const COMPLETED_TEARDOWN_CAPACITY: usize = 128;
 
 #[derive(Clone)]
@@ -187,6 +187,33 @@ impl WorkspaceManager {
 
     pub(crate) fn handle(&self, workspace_id: &WorkspaceSessionId) -> Option<&MountedWorkspace> {
         self.handles.get(workspace_id)
+    }
+
+    pub(crate) fn replace_candidate_lease(
+        &mut self,
+        workspace_id: &WorkspaceSessionId,
+        lease: sandbox_runtime_layerstack::service::CandidateGenerationLease,
+    ) -> Result<(), WorkspaceManagerError> {
+        let handle = self
+            .handles
+            .get_mut(workspace_id)
+            .ok_or(WorkspaceManagerError::NotOpen)?;
+        let admission = handle.candidate_admission.as_mut().ok_or_else(|| {
+            WorkspaceManagerError::InvalidArgument(
+                "workspace has no candidate generation lease".to_owned(),
+            )
+        })?;
+        if admission.lease.lease_id != lease.lease_id
+            || admission.lease.materialization_id != lease.materialization_id
+            || admission.lease.generation != lease.generation
+            || admission.lease.fence != lease.fence
+        {
+            return Err(WorkspaceManagerError::InvalidArgument(
+                "renewed candidate lease changed exact generation identity".to_owned(),
+            ));
+        }
+        admission.lease = lease;
+        self.persist_handles()
     }
 
     pub(crate) fn owns_handle_generation(&self, handle: &WorkspaceHandle) -> bool {

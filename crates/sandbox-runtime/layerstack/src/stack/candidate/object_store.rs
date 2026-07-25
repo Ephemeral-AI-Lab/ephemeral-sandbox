@@ -11,8 +11,8 @@ use sandbox_runtime_layerstack_core::{
 };
 
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
-const RECORD_HEADER_BYTES: usize = 15;
-const MAX_CHUNK_BYTES: usize = 32 * 1024;
+pub(crate) const RECORD_HEADER_BYTES: usize = 15;
+pub(crate) const MAX_CHUNK_BYTES: usize = 32 * 1024;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum InstallStage {
@@ -127,6 +127,21 @@ impl From<Error> for ObjectStoreError {
 #[derive(Clone, Debug)]
 pub(crate) struct LooseObjectStore {
     storage_root: PathBuf,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct AuthenticatedChunk {
+    encoded: Vec<u8>,
+}
+
+impl AuthenticatedChunk {
+    pub(crate) fn payload(&self) -> &[u8] {
+        &self.encoded[RECORD_HEADER_BYTES..]
+    }
+
+    pub(crate) const fn encoded_len(&self) -> usize {
+        self.encoded.len()
+    }
 }
 
 impl LooseObjectStore {
@@ -341,6 +356,36 @@ impl LooseObjectStore {
         Ok(record)
     }
 
+    /// Read and authenticate one canonical chunk while retaining exactly one
+    /// owned buffer for both the encoded record and its borrowed payload.
+    pub(crate) fn load_authenticated_chunk<D>(
+        &self,
+        id: Digest32,
+        digest: &mut D,
+    ) -> Result<AuthenticatedChunk, ObjectStoreError>
+    where
+        D: TypedDigest,
+    {
+        let kind = RecordKindV3::Chunk;
+        let path = self.object_path(kind, id);
+        let encoded = read_chunk_bounded(&path).map_err(|_| self.collision(kind, id))?;
+        let payload_length = encoded
+            .len()
+            .checked_sub(RECORD_HEADER_BYTES)
+            .filter(|length| (1..=MAX_CHUNK_BYTES).contains(length))
+            .ok_or_else(|| self.collision(kind, id))?;
+        let expected_header = chunk_header(payload_length).map_err(|_| self.collision(kind, id))?;
+        if encoded[..RECORD_HEADER_BYTES] != expected_header {
+            return Err(self.collision(kind, id));
+        }
+        let payload = &encoded[RECORD_HEADER_BYTES..];
+        let found = chunk_slices_id(payload, &[], digest).map_err(|_| self.collision(kind, id))?;
+        if found != id {
+            return Err(self.collision(kind, id));
+        }
+        Ok(AuthenticatedChunk { encoded })
+    }
+
     fn ensure_object_parent(
         &self,
         kind: RecordKindV3,
@@ -445,6 +490,22 @@ impl LooseObjectStore {
     const fn collision(&self, kind: RecordKindV3, id: Digest32) -> ObjectStoreError {
         ObjectStoreError::ObjectCollisionOrCorruption { kind, id }
     }
+}
+
+pub(crate) fn decode_embedded_record<D>(
+    bytes: &[u8],
+    kind: RecordKindV3,
+    digest: &mut D,
+) -> Result<CanonicalRecordV3, ObjectStoreError>
+where
+    D: RawDigest,
+{
+    let mut source = SliceSource::new(bytes);
+    let record = decode_v3_record(&mut source, digest)?;
+    if record.kind() != kind {
+        return Err(ObjectStoreError::UnsupportedObjectKind(record.kind()));
+    }
+    Ok(record)
 }
 
 fn ensure_installable(kind: RecordKindV3) -> Result<(), ObjectStoreError> {
@@ -613,6 +674,33 @@ fn read_bounded(path: &Path) -> Result<Vec<u8>, ObjectStoreError> {
         )));
     }
     Ok(bytes)
+}
+
+fn read_chunk_bounded(path: &Path) -> Result<Vec<u8>, ObjectStoreError> {
+    let maximum = RECORD_HEADER_BYTES + MAX_CHUNK_BYTES;
+    let metadata = std::fs::symlink_metadata(path)?;
+    let length = usize::try_from(metadata.len()).unwrap_or(usize::MAX);
+    if !metadata.file_type().is_file() || !(RECORD_HEADER_BYTES + 1..=maximum).contains(&length) {
+        return Err(ObjectStoreError::Core(Error::new(
+            ErrorKind::ObjectCollisionOrCorruption,
+            ROOT_FORMAT_V3,
+            FieldClass::Record,
+            u32::try_from(metadata.len()).unwrap_or(u32::MAX),
+        )));
+    }
+    let mut encoded = Vec::with_capacity(length);
+    File::open(path)?
+        .take(u64::try_from(maximum + 1).unwrap_or(u64::MAX))
+        .read_to_end(&mut encoded)?;
+    if encoded.len() != length {
+        return Err(ObjectStoreError::Core(Error::new(
+            ErrorKind::ObjectCollisionOrCorruption,
+            ROOT_FORMAT_V3,
+            FieldClass::Record,
+            u32::try_from(encoded.len()).unwrap_or(u32::MAX),
+        )));
+    }
+    Ok(encoded)
 }
 
 #[cfg(not(windows))]

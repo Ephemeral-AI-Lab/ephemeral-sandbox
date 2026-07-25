@@ -7,10 +7,14 @@ use std::time::Instant;
 use crate::error::LayerStackError;
 use crate::fs::canonical_key;
 use crate::service::{
-    LayerStackResourceSnapshot, LayerStackRouteSnapshot, StorageAuthority, StorageRolloutMode,
+    LayerStackResourceSnapshot, LayerStackRouteSnapshot, NativeRouteCounters, StorageAuthority,
+    StorageRolloutMode,
 };
 
 const OBSERVATION_SCHEMA_VERSION: u16 = 1;
+const MODE_LEGACY: u64 = 0;
+const MODE_VALIDATION: u64 = 1;
+const MODE_STRICT_CANDIDATE: u64 = 2;
 
 #[derive(Debug, Default)]
 pub(crate) struct StorageObservationState {
@@ -27,6 +31,20 @@ pub(crate) struct StorageObservationState {
     bytes_hashed: AtomicU64,
     bytes_reused: AtomicU64,
     bytes_newly_retained: AtomicU64,
+    native_lookup_count: AtomicU64,
+    native_validation_count: AtomicU64,
+    native_admission_count: AtomicU64,
+    native_mount_count: AtomicU64,
+    native_cdc_count: AtomicU64,
+    native_object_traversal_count: AtomicU64,
+    native_hash_count: AtomicU64,
+    native_locator_merge_count: AtomicU64,
+    native_compaction_count: AtomicU64,
+    native_pack_count: AtomicU64,
+    native_gc_count: AtomicU64,
+    native_squash_count: AtomicU64,
+    native_materialization_count: AtomicU64,
+    native_fallback_count: AtomicU64,
     active_operations: AtomicU64,
     high_water_active_operations: AtomicU64,
     active_publications: AtomicU64,
@@ -238,10 +256,11 @@ impl StorageObservationState {
         let route = LayerStackRouteSnapshot {
             schema_version: OBSERVATION_SCHEMA_VERSION,
             observation_epoch: epoch,
-            configured_mode: if self.configured_mode.load(Ordering::Relaxed) == 0 {
-                StorageRolloutMode::Legacy
-            } else {
-                StorageRolloutMode::Validation
+            configured_mode: match self.configured_mode.load(Ordering::Relaxed) {
+                MODE_LEGACY => StorageRolloutMode::Legacy,
+                MODE_VALIDATION => StorageRolloutMode::Validation,
+                MODE_STRICT_CANDIDATE => StorageRolloutMode::StrictCandidate,
+                _ => StorageRolloutMode::Legacy,
             },
             write_authority: StorageAuthority::LegacyV1,
             read_authority: StorageAuthority::LegacyV1,
@@ -256,6 +275,22 @@ impl StorageObservationState {
             bytes_hashed: self.bytes_hashed.load(Ordering::Relaxed),
             bytes_reused: self.bytes_reused.load(Ordering::Relaxed),
             bytes_newly_retained: self.bytes_newly_retained.load(Ordering::Relaxed),
+            native_route: NativeRouteCounters {
+                lookup_count: self.native_lookup_count.load(Ordering::Relaxed),
+                validation_count: self.native_validation_count.load(Ordering::Relaxed),
+                admission_count: self.native_admission_count.load(Ordering::Relaxed),
+                mount_count: self.native_mount_count.load(Ordering::Relaxed),
+                cdc_count: self.native_cdc_count.load(Ordering::Relaxed),
+                object_traversal_count: self.native_object_traversal_count.load(Ordering::Relaxed),
+                hash_count: self.native_hash_count.load(Ordering::Relaxed),
+                locator_merge_count: self.native_locator_merge_count.load(Ordering::Relaxed),
+                compaction_count: self.native_compaction_count.load(Ordering::Relaxed),
+                pack_count: self.native_pack_count.load(Ordering::Relaxed),
+                gc_count: self.native_gc_count.load(Ordering::Relaxed),
+                squash_count: self.native_squash_count.load(Ordering::Relaxed),
+                materialization_count: self.native_materialization_count.load(Ordering::Relaxed),
+                fallback_count: self.native_fallback_count.load(Ordering::Relaxed),
+            },
             last_quiescence_epoch: self.last_quiescence_epoch.load(Ordering::Relaxed),
             counter_saturated: self.counter_saturated.load(Ordering::Relaxed),
         };
@@ -324,10 +359,12 @@ impl HiddenValidationObservation {
     }
 
     pub fn configure(&self, mode: StorageRolloutMode) {
-        self.state.configured_mode.store(
-            u64::from(matches!(mode, StorageRolloutMode::Validation)),
-            Ordering::Relaxed,
-        );
+        let mode = match mode {
+            StorageRolloutMode::Legacy => MODE_LEGACY,
+            StorageRolloutMode::Validation => MODE_VALIDATION,
+            StorageRolloutMode::StrictCandidate => MODE_STRICT_CANDIDATE,
+        };
+        self.state.configured_mode.store(mode, Ordering::Relaxed);
     }
 
     #[must_use]
@@ -382,6 +419,56 @@ impl HiddenValidationObservation {
 
     pub fn record_fallback(&self) {
         let _ = self.state.saturating_increment(&self.state.fallback_count);
+    }
+
+    /// Record one plan-only lookup and validation attempt on the warm native
+    /// route. This does not imply logical-object or carrier-content work.
+    pub fn record_native_lookup_validation(&self) {
+        let _ = self
+            .state
+            .saturating_increment(&self.state.native_lookup_count);
+        let _ = self
+            .state
+            .saturating_increment(&self.state.native_validation_count);
+    }
+
+    /// Record a durable exact-generation lease admitted for a session.
+    pub fn record_native_admission(&self) {
+        let _ = self
+            .state
+            .saturating_increment(&self.state.native_admission_count);
+    }
+
+    /// Record a successfully created native-provider mount.
+    pub fn record_native_mount(&self) {
+        let _ = self
+            .state
+            .saturating_increment(&self.state.native_mount_count);
+    }
+
+    /// Record entry into the explicit cold materialization path.
+    ///
+    /// Cold reconstruction traverses logical objects and verifies native
+    /// bytes. Those work classes are counted alongside the cold operation so
+    /// their absence on warm-route deltas is meaningful.
+    pub fn record_native_materialization(&self) {
+        let _ = self
+            .state
+            .saturating_increment(&self.state.native_materialization_count);
+        let _ = self
+            .state
+            .saturating_increment(&self.state.native_object_traversal_count);
+        let _ = self
+            .state
+            .saturating_increment(&self.state.native_hash_count);
+    }
+
+    /// Record an actual fallback from the strict native route.
+    pub fn record_native_fallback(&self) {
+        let _ = self.state.saturating_increment(&self.state.fallback_count);
+        let _ = self
+            .state
+            .saturating_increment(&self.state.native_fallback_count);
     }
 }
 
