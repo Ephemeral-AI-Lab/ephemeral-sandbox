@@ -121,7 +121,7 @@ mod platform {
     use std::io::{Read, Seek, SeekFrom, Write};
     use std::os::fd::{AsFd, OwnedFd};
     use std::os::unix::ffi::OsStrExt;
-    use std::os::unix::fs::{fchown, lchown, MetadataExt, PermissionsExt};
+    use std::os::unix::fs::{fchown, lchown, FileExt, MetadataExt, PermissionsExt};
     use std::sync::{Condvar, Mutex, OnceLock};
     use std::time::Duration;
 
@@ -893,6 +893,7 @@ mod platform {
     struct HydratedSegment {
         segment: SegmentDescriptor,
         chunk: Option<AuthenticatedChunk>,
+        encoded_len: Option<usize>,
         _task: Option<HiddenTaskWork>,
     }
 
@@ -1034,6 +1035,15 @@ mod platform {
             })
             .collect::<Result<Vec<_>, NativeBackendError>>()?;
         *batch_bytes = 0;
+        let positional_chunk_writes = jobs.iter().all(|job| {
+            matches!(job.segment.kind, SegmentKind::Chunk(_))
+                && job.segment.length != 0
+                && job.segment.offset.checked_add(job.segment.length).is_some()
+        }) && jobs.windows(2).all(|pair| {
+            pair[0].segment.offset.checked_add(pair[0].segment.length)
+                == Some(pair[1].segment.offset)
+        });
+        let positional_file: &File = file;
         let hydrated = hydration_pool()?.install(|| {
             jobs.into_par_iter()
                 .map(|job| {
@@ -1041,17 +1051,30 @@ mod platform {
                     let _worker = observation
                         .as_ref()
                         .map(HiddenValidationObservation::begin_worker);
-                    let chunk = match job.segment.kind {
-                        SegmentKind::Chunk(id) => Some(
-                            store
+                    let (chunk, encoded_len) = match job.segment.kind {
+                        SegmentKind::Chunk(id) => {
+                            let chunk = store
                                 .load_authenticated_chunk(id, &mut Sha256Digest)
-                                .map_err(|error| NativeBackendError::Tree(error.to_string()))?,
-                        ),
-                        SegmentKind::Zero | SegmentKind::Hole => None,
+                                .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
+                            if chunk.payload().len() as u64 != job.segment.length {
+                                return Err(NativeBackendError::Invalid(
+                                    "chunk length does not match segment".to_owned(),
+                                ));
+                            }
+                            if positional_chunk_writes {
+                                positional_file
+                                    .write_all_at(chunk.payload(), job.segment.offset)?;
+                                (None, Some(chunk.encoded_len()))
+                            } else {
+                                (Some(chunk), None)
+                            }
+                        }
+                        SegmentKind::Zero | SegmentKind::Hole => (None, None),
                     };
                     Ok(HydratedSegment {
                         segment: job.segment,
                         chunk,
+                        encoded_len,
                         _task: task,
                     })
                 })
@@ -1060,23 +1083,26 @@ mod platform {
 
         for hydrated in hydrated {
             check()?;
-            file.seek(SeekFrom::Start(hydrated.segment.offset))?;
             match hydrated.segment.kind {
                 SegmentKind::Chunk(_) => {
-                    let chunk = hydrated.chunk.ok_or_else(|| {
-                        NativeBackendError::Invalid("hydrated chunk result is absent".to_owned())
-                    })?;
-                    if chunk.payload().len() as u64 != hydrated.segment.length {
-                        return Err(NativeBackendError::Invalid(
-                            "chunk length does not match segment".to_owned(),
-                        ));
-                    }
+                    let encoded_len = match hydrated.chunk {
+                        Some(chunk) => {
+                            file.seek(SeekFrom::Start(hydrated.segment.offset))?;
+                            file.write_all(chunk.payload())?;
+                            chunk.encoded_len()
+                        }
+                        None => hydrated.encoded_len.ok_or_else(|| {
+                            NativeBackendError::Invalid(
+                                "hydrated chunk result is absent".to_owned(),
+                            )
+                        })?,
+                    };
                     *chunk_objects_read = chunk_objects_read.saturating_add(1);
                     *chunk_bytes_read = chunk_bytes_read
-                        .saturating_add(u64::try_from(chunk.encoded_len()).unwrap_or(u64::MAX));
-                    file.write_all(chunk.payload())?;
+                        .saturating_add(u64::try_from(encoded_len).unwrap_or(u64::MAX));
                 }
                 SegmentKind::Zero => {
+                    file.seek(SeekFrom::Start(hydrated.segment.offset))?;
                     write_zeroes(file, hydrated.segment.length, context)?;
                 }
                 SegmentKind::Hole => {}
