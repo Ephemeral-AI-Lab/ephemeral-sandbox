@@ -1,5 +1,9 @@
 #![forbid(unsafe_code)]
 
+mod allocator_backend {
+    include!(env!("SANDBOX_DAEMON_ALLOCATOR_METRICS"));
+}
+
 #[allow(
     dead_code,
     reason = "test harness path-includes private CLI modules and exercises selected helpers"
@@ -69,6 +73,25 @@ mod observability_tests {
         env!("CARGO_MANIFEST_DIR"),
         "/tests/unit/observability.rs"
     ));
+}
+
+#[allow(
+    dead_code,
+    reason = "path-included production module exposes a constructor not called by private-field tests"
+)]
+mod resource_sampler_tests {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/src/observability/resources.rs"
+    ));
+
+    mod tests {
+        use super::*;
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/unit/resources.rs"
+        ));
+    }
 }
 
 mod http_tests {

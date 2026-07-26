@@ -1,41 +1,7 @@
 //! On-demand allocator capability for the daemon self-metrics view.
 
 use sandbox_observability_telemetry::collect::process_topology::DaemonAllocatorMetrics;
-#[cfg(feature = "jemalloc")]
-use tikv_jemalloc_ctl::{epoch, stats};
 
-#[cfg(feature = "jemalloc")]
 pub(crate) fn collect_current() -> DaemonAllocatorMetrics {
-    if epoch::advance().is_err() {
-        return DaemonAllocatorMetrics::default();
-    }
-    let (Ok(allocated), Ok(active), Ok(mapped), Ok(resident)) = (
-        stats::allocated::read(),
-        stats::active::read(),
-        stats::mapped::read(),
-        stats::resident::read(),
-    ) else {
-        return DaemonAllocatorMetrics::default();
-    };
-    let (Some(allocated_bytes), Some(active_bytes), Some(mapped_bytes), Some(resident_bytes)) = (
-        u64::try_from(allocated).ok(),
-        u64::try_from(active).ok(),
-        u64::try_from(mapped).ok(),
-        u64::try_from(resident).ok(),
-    ) else {
-        return DaemonAllocatorMetrics::default();
-    };
-
-    DaemonAllocatorMetrics {
-        supported: true,
-        allocated_bytes: Some(allocated_bytes),
-        active_bytes: Some(active_bytes),
-        mapped_bytes: Some(mapped_bytes),
-        resident_bytes: Some(resident_bytes),
-    }
-}
-
-#[cfg(not(feature = "jemalloc"))]
-pub(crate) fn collect_current() -> DaemonAllocatorMetrics {
-    DaemonAllocatorMetrics::default()
+    crate::allocator_backend::collect_current()
 }

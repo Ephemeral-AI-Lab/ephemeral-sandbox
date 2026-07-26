@@ -97,11 +97,9 @@ impl WorkspaceSessionService {
     }
 
     /// Destroy a faulty session through the ordinary destroy path (still
-    /// under its gate) and report the lease-release errors for the result
-    /// line. The session's frozen tasks die with the namespace; the ledger is
-    /// deliberately not checked — this is the one documented
-    /// destroy-under-live-command path (§2.6), and a dead command's late
-    /// completion no-ops against the missing session.
+    /// under its gate) and report cleanup errors for the result line. The
+    /// command-owner release proof fails closed while an execution remains
+    /// live, preserving the session for a later sweep or recovery retry.
     pub fn destroy_faulty_session(&self, workspace_session_id: &WorkspaceSessionId) -> Vec<String> {
         let gate = self.session_gate(workspace_session_id);
         let _admission = gate.lock().unwrap_or_else(PoisonError::into_inner);

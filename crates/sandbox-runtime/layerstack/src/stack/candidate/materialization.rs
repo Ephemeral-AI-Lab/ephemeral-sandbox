@@ -1,31 +1,36 @@
-use std::collections::HashMap;
 use std::fmt;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Condvar, Mutex, OnceLock};
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use super::generation::{
     digest_string, CarrierDescriptor, GenerationError, GenerationManifest, GenerationSelection,
-    GenerationSnapshot, GenerationStore, MaterializationId, MaterializationKey,
+    GenerationStore, MaterializationKey,
 };
 use super::materialization_operation::{
-    MaterializationOperation, MaterializationOperationBuild, MaterializationOperationError,
-    MaterializationPhase,
+    MaterializationCheckpoint, MaterializationOperation, MaterializationOperationBuild,
+    MaterializationOperationError, MaterializationPhase, MaterializationTerminalOutcome,
+};
+use super::materialization_publication::{
+    publication_subject, DisabledMaterializationGcBridge, MaterializationGcBridge,
+    MaterializationPublisher,
 };
 use super::native_backend::{
-    NativeBackend, NativeBackendError, MAX_HYDRATION_STREAM_BYTES, MIN_HYDRATION_STREAM_BYTES,
+    NativeBackend, NativeBackendError, NativeReconstructionResources, MAX_HYDRATION_STREAM_BYTES,
+    MIN_HYDRATION_STREAM_BYTES,
 };
 use super::object_store::LooseObjectStore;
-use super::refs::root_has_pin_or_source_lease;
+use super::squash::CandidateSquashProducer;
 use super::tree::PersistentPages;
 use crate::lock::StorageWriterLockLease;
 use crate::stack::HiddenValidationObservation;
-use crate::Sha256Digest;
-
-const MAX_BUILD_WORKERS: usize = 4;
-const WAIT_SLICE: Duration = Duration::from_millis(50);
+use crate::supervisor::{
+    shared_supervisor_for_root, MaterializationAdmission, MaterializationOwner, StorageSupervisor,
+    SupervisorError, MAX_METADATA_QUEUE_ITEMS,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum MaterializationDisposition {
@@ -51,6 +56,7 @@ pub(crate) struct MaterializationRequest {
     pub(crate) cancellation: Arc<AtomicBool>,
     pub(crate) fail_after: Option<MaterializationStage>,
     pub(crate) hydration_byte_permit_bytes: usize,
+    pub(crate) metadata_queue_depth: usize,
 }
 
 impl MaterializationRequest {
@@ -61,11 +67,17 @@ impl MaterializationRequest {
             cancellation: Arc::new(AtomicBool::new(false)),
             fail_after: None,
             hydration_byte_permit_bytes: MAX_HYDRATION_STREAM_BYTES,
+            metadata_queue_depth: MAX_METADATA_QUEUE_ITEMS,
         }
     }
 
     pub(crate) const fn with_hydration_byte_permit_bytes(mut self, bytes: usize) -> Self {
         self.hydration_byte_permit_bytes = bytes;
+        self
+    }
+
+    pub(crate) const fn with_metadata_queue_depth(mut self, depth: usize) -> Self {
+        self.metadata_queue_depth = depth;
         self
     }
 }
@@ -78,32 +90,6 @@ pub(crate) struct MaterializationOutcome {
     pub(crate) maximum_buffer_bytes: Option<u64>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum GenerationRetentionReason {
-    CurrentSelection,
-    PinOrSourceLease,
-    ExactGenerationLease,
-    LastVerifiedNativeLocator,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct GenerationRetirementTicket {
-    key: MaterializationKey,
-    materialization_id: MaterializationId,
-    generation: u64,
-    snapshot: GenerationSnapshot,
-    observed_unix_seconds: u64,
-    not_before_unix_seconds: u64,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum GenerationRetirementOutcome {
-    Protected(GenerationRetentionReason),
-    GraceStarted(GenerationRetirementTicket),
-    GracePending(GenerationRetirementTicket),
-    Deleted,
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum MaterializationError {
     Cancelled,
@@ -114,6 +100,7 @@ pub(crate) enum MaterializationError {
     ObjectStore(String),
     Lock(String),
     Coordination(String),
+    BridgeUnavailable(String),
     Injected(MaterializationStage),
 }
 
@@ -138,6 +125,12 @@ impl fmt::Display for MaterializationError {
             Self::Coordination(message) => {
                 write!(formatter, "materialization coordination failed: {message}")
             }
+            Self::BridgeUnavailable(message) => {
+                write!(
+                    formatter,
+                    "materialization GC bridge unavailable: {message}"
+                )
+            }
             Self::Injected(stage) => {
                 write!(formatter, "injected materialization stop after {stage:?}")
             }
@@ -155,7 +148,10 @@ impl From<GenerationError> for MaterializationError {
 
 impl From<MaterializationOperationError> for MaterializationError {
     fn from(error: MaterializationOperationError) -> Self {
-        Self::Operation(error.to_string())
+        match error {
+            MaterializationOperationError::Generation(message) => Self::Generation(message),
+            error => Self::Operation(error.to_string()),
+        }
     }
 }
 
@@ -175,15 +171,39 @@ pub(crate) struct MaterializationCoordinator {
     generations: GenerationStore,
     backend: NativeBackend,
     observation: Option<HiddenValidationObservation>,
+    supervisor: Arc<StorageSupervisor>,
+    bridge: Arc<dyn MaterializationGcBridge>,
 }
 
 impl MaterializationCoordinator {
     pub(crate) fn new(storage_root: PathBuf) -> Result<Self, MaterializationError> {
+        let supervisor = shared_supervisor_for_root(&storage_root).map_err(supervisor_error)?;
+        Self::new_supervised(storage_root, supervisor)
+    }
+
+    pub(crate) fn new_supervised(
+        storage_root: PathBuf,
+        supervisor: Arc<StorageSupervisor>,
+    ) -> Result<Self, MaterializationError> {
+        Self::new_supervised_with_bridge(
+            storage_root,
+            supervisor,
+            Arc::new(DisabledMaterializationGcBridge),
+        )
+    }
+
+    pub(crate) fn new_supervised_with_bridge(
+        storage_root: PathBuf,
+        supervisor: Arc<StorageSupervisor>,
+        bridge: Arc<dyn MaterializationGcBridge>,
+    ) -> Result<Self, MaterializationError> {
         Ok(Self {
             generations: GenerationStore::new(storage_root.clone())?,
             storage_root,
             backend: NativeBackend::new(),
             observation: None,
+            supervisor,
+            bridge,
         })
     }
 
@@ -192,6 +212,16 @@ impl MaterializationCoordinator {
         observation: HiddenValidationObservation,
     ) -> Result<Self, MaterializationError> {
         let mut coordinator = Self::new(storage_root)?;
+        coordinator.observation = Some(observation);
+        Ok(coordinator)
+    }
+
+    pub(crate) fn new_supervised_observed(
+        storage_root: PathBuf,
+        supervisor: Arc<StorageSupervisor>,
+        observation: HiddenValidationObservation,
+    ) -> Result<Self, MaterializationError> {
+        let mut coordinator = Self::new_supervised(storage_root, supervisor)?;
         coordinator.observation = Some(observation);
         Ok(coordinator)
     }
@@ -220,6 +250,73 @@ impl MaterializationCoordinator {
         Ok(Some(selection))
     }
 
+    pub(crate) fn recover_operation_path(
+        &self,
+        operation_path: &Path,
+        writer_lock: &StorageWriterLockLease,
+    ) -> Result<(), MaterializationError> {
+        let mut operation =
+            MaterializationOperation::load_path(self.storage_root.clone(), operation_path)?;
+        let key = operation.key()?;
+        match operation.state().phase {
+            MaterializationPhase::Building
+                if operation.state().checkpoint < MaterializationCheckpoint::ManifestDurable =>
+            {
+                let tuple = operation.state().generation.zip(operation.state().fence);
+                operation.transition(
+                    MaterializationPhase::Terminal,
+                    tuple,
+                    None,
+                    Some("recovery_reaped".to_owned()),
+                    unix_now()?,
+                )?;
+                operation.reap_work()?;
+                return Ok(());
+            }
+            MaterializationPhase::Building => {
+                let tuple = operation_tuple(&operation)?;
+                operation.transition(
+                    MaterializationPhase::Ready,
+                    Some(tuple),
+                    None,
+                    None,
+                    unix_now()?,
+                )?;
+            }
+            MaterializationPhase::Ready | MaterializationPhase::Published => {}
+            MaterializationPhase::Terminal => {
+                operation.reap_work()?;
+                return Ok(());
+            }
+        }
+        let (generation, fence) = operation_tuple(&operation)?;
+        let selection = self.generations.read_generation(&key, generation)?;
+        if selection.manifest.fence != fence {
+            return Err(MaterializationError::Generation(
+                "recovery generation fence differs from STATE".to_owned(),
+            ));
+        }
+        self.verify_selection(&key, &selection)?;
+        MaterializationPublisher::new(self.generations.clone(), self.bridge.clone()).publish(
+            &key,
+            &selection,
+            &mut operation,
+            writer_lock,
+            unix_now()?,
+        )?;
+        if operation.state().phase == MaterializationPhase::Published {
+            operation.transition(
+                MaterializationPhase::Terminal,
+                Some((generation, fence)),
+                None,
+                None,
+                unix_now()?,
+            )?;
+        }
+        operation.reap_work()?;
+        Ok(())
+    }
+
     pub(crate) fn materialize(
         &self,
         request: &MaterializationRequest,
@@ -227,142 +324,274 @@ impl MaterializationCoordinator {
     ) -> Result<MaterializationOutcome, MaterializationError> {
         check_request(request)?;
         request.key.validate()?;
-        if let Some(selection) = self.lookup_verified(&request.key)? {
-            return self.reuse_selection(&request.key, selection);
-        }
 
-        let flight_key = FlightKey {
-            storage_root: crate::fs::canonical_key(&self.storage_root),
-            materialization_id: request.key.id()?,
-        };
-        let (flight, owner) = join_flight(&flight_key)?;
-        if !owner {
-            return wait_for_flight(flight, request);
+        let key = request.key.id()?.hex();
+        for _ in 0..8 {
+            match self
+                .supervisor
+                .admit_materialization(key.clone(), request.deadline, request.cancellation.as_ref())
+                .map_err(supervisor_error)?
+            {
+                MaterializationAdmission::Owner(owner) => {
+                    let _observed_owner = self
+                        .observation
+                        .as_ref()
+                        .map(HiddenValidationObservation::begin_materialization_owner);
+                    return catch_unwind(AssertUnwindSafe(|| {
+                        self.run_owner(request, writer_lock, &owner, None)
+                    }))
+                    .unwrap_or_else(|payload| {
+                        Err(MaterializationError::Coordination(format!(
+                            "materialization owner panicked: {}",
+                            panic_message(payload)
+                        )))
+                    });
+                }
+                MaterializationAdmission::Waiter(waiter) => {
+                    let _observed_waiter = self
+                        .observation
+                        .as_ref()
+                        .map(HiddenValidationObservation::begin_materialization_waiter);
+                    waiter
+                        .wait(request.deadline, request.cancellation.as_ref())
+                        .map_err(supervisor_error)?;
+                    check_request(request)?;
+                    if let Some(selection) = self.lookup_verified(&request.key)? {
+                        let mut outcome =
+                            self.reuse_selection(&request.key, selection, writer_lock)?;
+                        outcome.disposition = MaterializationDisposition::Shared;
+                        return Ok(outcome);
+                    }
+                }
+            }
         }
-
-        let result = catch_unwind(AssertUnwindSafe(|| self.run_owner(request, writer_lock)))
-            .unwrap_or_else(|payload| {
-                Err(MaterializationError::Coordination(format!(
-                    "materialization owner panicked: {}",
-                    panic_message(payload)
-                )))
-            });
-        finish_flight(&flight_key, &flight, result.clone());
-        result
-    }
-
-    pub(crate) fn begin_generation_retirement(
-        &self,
-        key: &MaterializationKey,
-        generation: u64,
-        now_unix_seconds: u64,
-        grace_seconds: u64,
-        writer_lock: &StorageWriterLockLease,
-    ) -> Result<GenerationRetirementOutcome, MaterializationError> {
-        if grace_seconds == 0 {
-            return Err(MaterializationError::Coordination(
-                "generation retirement grace period must be nonzero".to_owned(),
-            ));
-        }
-        let not_before_unix_seconds =
-            now_unix_seconds.checked_add(grace_seconds).ok_or_else(|| {
-                MaterializationError::Coordination(
-                    "generation retirement grace period overflowed".to_owned(),
-                )
-            })?;
-        let _guard = writer_lock
-            .exclusive()
-            .map_err(|error| MaterializationError::Lock(error.to_string()))?;
-        let candidate = self.retirement_candidate(key, generation, now_unix_seconds)?;
-        let Some(snapshot) = candidate else {
-            return Ok(GenerationRetirementOutcome::Protected(
-                self.retention_reason(key, generation, now_unix_seconds)?,
-            ));
-        };
-        Ok(GenerationRetirementOutcome::GraceStarted(
-            GenerationRetirementTicket {
-                key: key.clone(),
-                materialization_id: key.id()?,
-                generation,
-                snapshot,
-                observed_unix_seconds: now_unix_seconds,
-                not_before_unix_seconds,
-            },
+        Err(MaterializationError::Coordination(
+            "same-key owner retry limit exceeded".to_owned(),
         ))
     }
 
-    pub(crate) fn finish_generation_retirement(
+    /// Reconstruct the selected materialization as a private Ready generation
+    /// and publish it through the exact same bounded publisher as a cold build.
+    ///
+    /// Squash preserves the typed logical and attribution roots. The producer
+    /// owns no selector switch; replacement remains disabled unless the injected
+    /// Stage 05 bridge can admit the new root and accept the exact old subject.
+    pub(crate) fn squash(
         &self,
-        ticket: &GenerationRetirementTicket,
-        now_unix_seconds: u64,
+        request: &MaterializationRequest,
+        expected_prior: &GenerationSelection,
         writer_lock: &StorageWriterLockLease,
-    ) -> Result<GenerationRetirementOutcome, MaterializationError> {
-        if now_unix_seconds < ticket.observed_unix_seconds
-            || now_unix_seconds < ticket.not_before_unix_seconds
-        {
-            return Ok(GenerationRetirementOutcome::GracePending(ticket.clone()));
-        }
-        if ticket.key.id()? != ticket.materialization_id {
-            return Err(MaterializationError::Coordination(
-                "generation retirement ticket identity changed".to_owned(),
-            ));
-        }
-        let _guard = writer_lock
-            .exclusive()
-            .map_err(|error| MaterializationError::Lock(error.to_string()))?;
-        let candidate =
-            self.retirement_candidate(&ticket.key, ticket.generation, now_unix_seconds)?;
-        let Some(snapshot) = candidate else {
-            return Ok(GenerationRetirementOutcome::Protected(
-                self.retention_reason(&ticket.key, ticket.generation, now_unix_seconds)?,
-            ));
-        };
-        if snapshot != ticket.snapshot {
+    ) -> Result<MaterializationOutcome, MaterializationError> {
+        check_request(request)?;
+        request.key.validate()?;
+        let prior = self
+            .generations
+            .read_generation(&request.key, expected_prior.manifest.generation)?;
+        if publication_subject(&prior) != publication_subject(expected_prior) {
             return Err(MaterializationError::Generation(
-                "generation changed during retirement grace period".to_owned(),
+                "candidate squash prior subject differs from the installed generation".to_owned(),
             ));
         }
-        self.generations.remove_generation(
-            ticket.materialization_id,
-            ticket.generation,
-            &ticket.snapshot,
-        )?;
-        Ok(GenerationRetirementOutcome::Deleted)
+        // The squash output is reconstructed independently from the typed
+        // logical root and fully verified before installation. Hashing the
+        // immutable prior carrier here would not strengthen that proof; the
+        // exact prior manifest subject and CURRENT are checked below.
+        let producer = CandidateSquashProducer::new(prior);
+        let key = request.key.id()?.hex();
+        for _ in 0..8 {
+            match self
+                .supervisor
+                .admit_materialization(key.clone(), request.deadline, request.cancellation.as_ref())
+                .map_err(supervisor_error)?
+            {
+                MaterializationAdmission::Owner(owner) => {
+                    let _observed_owner = self
+                        .observation
+                        .as_ref()
+                        .map(HiddenValidationObservation::begin_materialization_owner);
+                    return catch_unwind(AssertUnwindSafe(|| {
+                        self.run_owner(request, writer_lock, &owner, Some(&producer))
+                    }))
+                    .unwrap_or_else(|payload| {
+                        Err(MaterializationError::Coordination(format!(
+                            "candidate squash owner panicked: {}",
+                            panic_message(payload)
+                        )))
+                    });
+                }
+                MaterializationAdmission::Waiter(waiter) => {
+                    let _observed_waiter = self
+                        .observation
+                        .as_ref()
+                        .map(HiddenValidationObservation::begin_materialization_waiter);
+                    waiter
+                        .wait(request.deadline, request.cancellation.as_ref())
+                        .map_err(supervisor_error)?;
+                    check_request(request)?;
+                    if let Some(selection) = self.lookup_verified(&request.key)? {
+                        let operation = producer.open_operation(
+                            self.storage_root.clone(),
+                            &request.key,
+                            &self.generations,
+                            unix_now()?,
+                        )?;
+                        if publication_subject(&selection) != producer.prior_subject()
+                            && producer.selected_by(&operation, &selection)
+                        {
+                            producer.validate_ready(&request.key, &selection)?;
+                            return Ok(MaterializationOutcome {
+                                disposition: MaterializationDisposition::Shared,
+                                operation_id: operation.operation_id().to_owned(),
+                                selection,
+                                maximum_buffer_bytes: operation.state().maximum_buffer_bytes,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        Err(MaterializationError::Coordination(
+            "same-key squash owner retry limit exceeded".to_owned(),
+        ))
     }
 
     fn run_owner(
         &self,
         request: &MaterializationRequest,
         writer_lock: &StorageWriterLockLease,
+        owner: &MaterializationOwner,
+        squash: Option<&CandidateSquashProducer>,
     ) -> Result<MaterializationOutcome, MaterializationError> {
-        let _worker = acquire_worker(request)?;
         check_request(request)?;
-        if let Some(selection) = self.lookup_verified(&request.key)? {
-            return self.reuse_selection(&request.key, selection);
+        let now = unix_now()?;
+        let mut prepared_ready = None;
+        let mut prepared_terminal = None;
+        let mut published_selection = None;
+        let mut squash_operation = match squash {
+            Some(squash) => Some(squash.open_operation(
+                self.storage_root.clone(),
+                &request.key,
+                &self.generations,
+                now,
+            )?),
+            None => None,
+        };
+        if let (Some(squash), Some(operation)) = (squash, squash_operation.as_mut()) {
+            if operation.state().phase == MaterializationPhase::Terminal
+                && operation.state().terminal_outcome
+                    == Some(MaterializationTerminalOutcome::Succeeded)
+            {
+                let selection = self.lookup_verified(&request.key)?.ok_or_else(|| {
+                    MaterializationError::Generation(
+                        "terminal squash operation has no valid CURRENT".to_owned(),
+                    )
+                })?;
+                if !squash.selected_by(operation, &selection) {
+                    return Err(MaterializationError::Operation(
+                        "terminal squash operation does not select CURRENT".to_owned(),
+                    ));
+                }
+                squash.validate_ready(&request.key, &selection)?;
+                return Ok(MaterializationOutcome {
+                    disposition: MaterializationDisposition::Reused,
+                    operation_id: operation.operation_id().to_owned(),
+                    selection,
+                    maximum_buffer_bytes: operation.state().maximum_buffer_bytes,
+                });
+            }
+            if operation.state().phase == MaterializationPhase::Published {
+                let generation = operation.state().generation.ok_or_else(|| {
+                    MaterializationError::Operation(
+                        "published squash operation omitted its generation".to_owned(),
+                    )
+                })?;
+                let ready = self.generations.read_generation(&request.key, generation)?;
+                squash.validate_ready(&request.key, &ready)?;
+                let selection =
+                    MaterializationPublisher::new(self.generations.clone(), self.bridge.clone())
+                        .publish(&request.key, &ready, operation, writer_lock, unix_now()?)?;
+                operation.transition(
+                    MaterializationPhase::Terminal,
+                    Some((selection.manifest.generation, selection.manifest.fence)),
+                    None,
+                    None,
+                    unix_now()?,
+                )?;
+                operation.reap_work()?;
+                return Ok(MaterializationOutcome {
+                    disposition: MaterializationDisposition::Reused,
+                    operation_id: operation.operation_id().to_owned(),
+                    selection,
+                    maximum_buffer_bytes: operation.state().maximum_buffer_bytes,
+                });
+            }
+        }
+        let mut target = owner
+            .acquire_target(
+                request.hydration_byte_permit_bytes,
+                request.deadline,
+                request.cancellation.as_ref(),
+            )
+            .map_err(supervisor_error)?;
+        let (byte_permits, fd_permits) = target.reserved_permits();
+        let mut observed_target = self
+            .observation
+            .as_ref()
+            .map(|observation| observation.begin_materialization_target(byte_permits, fd_permits));
+        if let Some(squash) = squash {
+            if let Some(subject) = self.generations.lookup_current_subject(&request.key)? {
+                // Recheck the selector subject here so a concurrent
+                // replacement still fails closed.
+                squash.validate_current(&subject)?;
+            } else {
+                return Err(MaterializationError::Generation(
+                    "candidate squash source CURRENT disappeared".to_owned(),
+                ));
+            }
+        } else if let Some(selection) = self.lookup_verified(&request.key)? {
+            return self.reuse_selection(&request.key, selection, writer_lock);
         }
 
-        let store = LooseObjectStore::new(self.storage_root.clone())
-            .map_err(|error| MaterializationError::ObjectStore(error.to_string()))?;
-        let mut pages = PersistentPages::new(&store);
-        let required_capabilities = self.backend.preflight(&mut pages, request.key.root)?;
-        let provided_capabilities = self.backend.provided_capabilities();
-        check_request(request)?;
-
-        let now = unix_now()?;
-        let mut operation =
-            MaterializationOperation::open(self.storage_root.clone(), &request.key, now)?;
-        if matches!(
-            operation.state().phase,
-            MaterializationPhase::Failed | MaterializationPhase::Cancelled
-        ) {
+        let prior_generation = match squash {
+            Some(squash) => Some(squash.prior().clone()),
+            None => self.generations.lookup_current(&request.key)?,
+        };
+        let mut operation = match squash {
+            Some(_) => squash_operation.take().ok_or_else(|| {
+                MaterializationError::Operation(
+                    "candidate squash omitted its common operation".to_owned(),
+                )
+            })?,
+            None => MaterializationOperation::open_with_holds(
+                self.storage_root.clone(),
+                &request.key,
+                Vec::new(),
+                prior_generation.as_ref().map(publication_subject),
+                now,
+            )?,
+        };
+        if operation.state().phase == MaterializationPhase::Terminal
+            && !matches!(
+                operation.state().terminal_outcome,
+                Some(MaterializationTerminalOutcome::Succeeded)
+            )
+        {
             operation.restart(now)?;
         }
-        if operation.state().phase == MaterializationPhase::TerminalBuilt {
+        if operation.state().phase == MaterializationPhase::Terminal {
             let selection = self.lookup_verified(&request.key)?.ok_or_else(|| {
                 MaterializationError::Generation(
                     "terminal operation has no valid CURRENT".to_owned(),
                 )
             })?;
+            if let Some(squash) = squash {
+                if !squash.selected_by(&operation, &selection) {
+                    return Err(MaterializationError::Operation(
+                        "terminal squash operation does not select CURRENT".to_owned(),
+                    ));
+                }
+                squash.validate_ready(&request.key, &selection)?;
+            }
             return Ok(MaterializationOutcome {
                 disposition: MaterializationDisposition::Reused,
                 operation_id: operation.operation_id().to_owned(),
@@ -371,67 +600,156 @@ impl MaterializationCoordinator {
             });
         }
 
-        if matches!(
-            operation.state().phase,
-            MaterializationPhase::Owned | MaterializationPhase::Building
-        ) {
-            if operation.state().phase == MaterializationPhase::Building {
-                operation.reap_work()?;
+        let store = LooseObjectStore::new(self.storage_root.clone())
+            .map_err(|error| MaterializationError::ObjectStore(error.to_string()))?;
+        let mut pages = PersistentPages::new(&store);
+        validate_attribution_binding(&mut pages, &request.key)?;
+        let workspace_profile = self.supervisor.workspace_profile();
+        let (required_capabilities, build_reservation_bytes) = match squash {
+            Some(squash) => {
+                let prior = &squash.prior().manifest;
+                // Squash reconstructs the same immutable typed root on the
+                // same target filesystem. The verified prior target is the
+                // tightest available allocation prediction, while warm
+                // capability validation still fails closed if the backend
+                // profile changed.
+                self.backend.validate_warm_capabilities(
+                    &prior.required_capabilities,
+                    &prior.provided_capabilities,
+                )?;
+                (
+                    prior.required_capabilities.clone(),
+                    self.backend
+                        .build_reservation_from_verified_target(prior.allocated_bytes)?,
+                )
             }
-            operation.transition(
-                MaterializationPhase::Building,
-                None,
-                None,
-                None,
-                unix_now()?,
-            )?;
-            let build = self.backend.reconstruct_bounded(
-                &mut pages,
-                request.key.root,
-                &operation.work_carrier(),
-                request.hydration_byte_permit_bytes,
-                self.observation.as_ref(),
-                || match check_request(request) {
-                    Ok(()) => Ok(()),
-                    Err(MaterializationError::Cancelled) => {
-                        Err(NativeBackendError::Cancelled("cancelled".to_owned()))
-                    }
-                    Err(MaterializationError::Deadline) => {
-                        Err(NativeBackendError::Cancelled("deadline".to_owned()))
-                    }
-                    Err(error) => Err(NativeBackendError::Cancelled(error.to_string())),
-                },
-            );
-            let build = match build {
-                Ok(build) => build,
-                Err(error) => {
-                    let phase = match error {
-                        NativeBackendError::Cancelled(ref message) if message == "cancelled" => {
-                            MaterializationPhase::Cancelled
-                        }
-                        _ => MaterializationPhase::Failed,
-                    };
-                    let code = match &error {
-                        NativeBackendError::Cancelled(message) if message == "deadline" => {
-                            "deadline"
-                        }
-                        NativeBackendError::Cancelled(_) => "cancelled",
-                        _ => "native_reconstruction",
-                    };
-                    operation.transition(phase, None, None, Some(code.to_owned()), unix_now()?)?;
-                    operation.reap_work()?;
-                    return Err(error.into());
-                }
+            None => {
+                let preflight = self.backend.preflight(
+                    &mut pages,
+                    request.key.root,
+                    workspace_profile.allocation_unit,
+                )?;
+                (
+                    preflight.required_capabilities,
+                    preflight.build_reservation_bytes,
+                )
+            }
+        };
+        target
+            .reserve_workspace(
+                build_reservation_bytes,
+                request.deadline,
+                request.cancellation.as_ref(),
+            )
+            .map_err(supervisor_error)?;
+        if let Some(observed_target) = observed_target.as_mut() {
+            observed_target.reserve_workspace(build_reservation_bytes);
+        }
+        let provided_capabilities = self.backend.provided_capabilities();
+        check_request(request)?;
+        if operation.state().phase == MaterializationPhase::Building
+            && operation.state().checkpoint == MaterializationCheckpoint::Admitted
+        {
+            let installed_carrier = if operation.has_preallocated_build() {
+                let (generation, _) = operation_tuple(&operation)?;
+                self.generations
+                    .installed_carrier(request.key.id()?, generation)?
+            } else {
+                None
             };
-            let verified =
-                match self
-                    .backend
-                    .verify(&mut pages, request.key.root, &operation.work_carrier())
-                {
-                    Ok(verified) => verified,
-                    Err(error) => {
+            operation.reap_work()?;
+            let build = match installed_carrier {
+                Some(installed_carrier) => {
+                    match self
+                        .backend
+                        .verify(&mut pages, request.key.root, &installed_carrier)
+                    {
+                        Ok(verified) => verified,
+                        Err(error) => {
+                            operation.transition(
+                                MaterializationPhase::Terminal,
+                                None,
+                                None,
+                                Some("native_verification".to_owned()),
+                                unix_now()?,
+                            )?;
+                            operation.reap_work()?;
+                            return Err(error.into());
+                        }
+                    }
+                }
+                None => {
+                    let build = self.backend.reconstruct_bounded(
+                        &mut pages,
+                        request.key.root,
+                        &operation.work_carrier(),
+                        NativeReconstructionResources {
+                            hydration_byte_permit_bytes: request.hydration_byte_permit_bytes,
+                            metadata_queue_depth: request.metadata_queue_depth,
+                            target: &target,
+                            observation: self.observation.as_ref(),
+                        },
+                        || match check_request(request) {
+                            Ok(()) => Ok(()),
+                            Err(MaterializationError::Cancelled) => {
+                                Err(NativeBackendError::Cancelled("cancelled".to_owned()))
+                            }
+                            Err(MaterializationError::Deadline) => {
+                                Err(NativeBackendError::Cancelled("deadline".to_owned()))
+                            }
+                            Err(error) => Err(NativeBackendError::Cancelled(error.to_string())),
+                        },
+                    );
+                    let build = match build {
+                        Ok(build) => build,
+                        Err(error) => {
+                            let code = match &error {
+                                NativeBackendError::Cancelled(message) if message == "deadline" => {
+                                    "deadline"
+                                }
+                                NativeBackendError::Cancelled(_) => "cancelled",
+                                _ => "native_reconstruction",
+                            };
+                            operation.transition(
+                                MaterializationPhase::Terminal,
+                                None,
+                                None,
+                                Some(code.to_owned()),
+                                unix_now()?,
+                            )?;
+                            operation.reap_work()?;
+                            return Err(error.into());
+                        }
+                    };
+                    let verified = match self.backend.verify(
+                        &mut pages,
+                        request.key.root,
+                        &operation.work_carrier(),
+                    ) {
+                        Ok(verified) => verified,
+                        Err(error) => {
+                            operation.transition(
+                                MaterializationPhase::Terminal,
+                                None,
+                                None,
+                                Some("native_verification".to_owned()),
+                                unix_now()?,
+                            )?;
+                            operation.reap_work()?;
+                            return Err(error.into());
+                        }
+                    };
+                    if build.native_tree_sha256 != verified.native_tree_sha256
+                        || build.entry_count != verified.entry_count
+                        || build.logical_bytes != verified.logical_bytes
+                        || build.allocated_bytes != verified.allocated_bytes
+                    {
+                        let error = NativeBackendError::Invalid(
+                            "reconstructed carrier summary differs from verified carrier"
+                                .to_owned(),
+                        );
                         operation.transition(
-                            MaterializationPhase::Failed,
+                            MaterializationPhase::Terminal,
                             None,
                             None,
                             Some("native_verification".to_owned()),
@@ -440,151 +758,148 @@ impl MaterializationCoordinator {
                         operation.reap_work()?;
                         return Err(error.into());
                     }
-                };
-            if build.native_tree_sha256 != verified.native_tree_sha256
-                || build.entry_count != verified.entry_count
-                || build.logical_bytes != verified.logical_bytes
-                || build.allocated_bytes != verified.allocated_bytes
-            {
-                let error = NativeBackendError::Invalid(
-                    "reconstructed carrier summary differs from verified carrier".to_owned(),
-                );
-                operation.transition(
-                    MaterializationPhase::Failed,
-                    None,
-                    None,
-                    Some("native_verification".to_owned()),
-                    unix_now()?,
-                )?;
-                operation.reap_work()?;
-                return Err(error.into());
-            }
-            let build = super::native_backend::NativeBuildResult {
-                maximum_buffer_bytes: build
-                    .maximum_buffer_bytes
-                    .max(verified.maximum_buffer_bytes),
-                ..build
+                    super::native_backend::NativeBuildResult {
+                        maximum_buffer_bytes: build
+                            .maximum_buffer_bytes
+                            .max(verified.maximum_buffer_bytes),
+                        ..build
+                    }
+                }
             };
-            operation.transition(
-                MaterializationPhase::CarrierSynced,
-                None,
-                Some(MaterializationOperationBuild {
-                    native_tree_sha256: build.native_tree_sha256,
-                    entry_count: build.entry_count,
-                    logical_bytes: build.logical_bytes,
-                    allocated_bytes: build.allocated_bytes,
-                    maximum_buffer_bytes: build.maximum_buffer_bytes,
-                    required_capabilities: required_capabilities.clone(),
-                    provided_capabilities: provided_capabilities.clone(),
-                }),
-                None,
-                unix_now()?,
-            )?;
-            fail_after(request, MaterializationStage::CarrierSynced)?;
-        }
-
-        if operation.state().phase == MaterializationPhase::CarrierSynced {
             check_request(request)?;
-            let _guard = writer_lock
-                .exclusive()
-                .map_err(|error| MaterializationError::Lock(error.to_string()))?;
-            if let Some(selection) = self.lookup_verified(&request.key)? {
-                operation.transition(
-                    MaterializationPhase::CurrentDurable,
-                    Some((selection.manifest.generation, selection.manifest.fence)),
-                    None,
-                    None,
-                    unix_now()?,
-                )?;
+            let build = MaterializationOperationBuild {
+                native_tree_sha256: build.native_tree_sha256,
+                entry_count: build.entry_count,
+                logical_bytes: build.logical_bytes,
+                allocated_bytes: build.allocated_bytes,
+                maximum_buffer_bytes: build.maximum_buffer_bytes,
+                required_capabilities: required_capabilities.clone(),
+                provided_capabilities: provided_capabilities.clone(),
+            };
+            if operation.has_preallocated_build() {
+                operation.accept_preallocated_build(build, unix_now()?)?;
             } else {
-                let tuple = self.generations.next_generation(request.key.id()?)?;
-                operation.transition(
-                    MaterializationPhase::GenerationAllocated,
+                let old = self.generations.lookup_current(&request.key)?;
+                let tuple = self
+                    .generations
+                    .next_generation(request.key.id()?, old.as_ref())?;
+                operation.advance(
+                    MaterializationCheckpoint::GenerationAllocated,
                     Some(tuple),
-                    None,
-                    None,
+                    Some(build),
                     unix_now()?,
                 )?;
             }
-            drop(_guard);
+            fail_after(request, MaterializationStage::CarrierSynced)?;
             fail_after(request, MaterializationStage::GenerationAllocated)?;
         }
 
-        if operation.state().phase == MaterializationPhase::GenerationAllocated {
+        if operation.state().phase == MaterializationPhase::Building
+            && operation.state().checkpoint == MaterializationCheckpoint::GenerationAllocated
+        {
             check_request(request)?;
-            let (generation, fence) = operation_tuple(&operation)?;
-            let _guard = writer_lock
-                .exclusive()
-                .map_err(|error| MaterializationError::Lock(error.to_string()))?;
+            let (generation, _) = operation_tuple(&operation)?;
             self.generations.install_carrier(
                 request.key.id()?,
                 generation,
                 &operation.work_carrier(),
             )?;
-            operation.transition(
-                MaterializationPhase::CarrierInstalled,
-                Some((generation, fence)),
-                None,
-                None,
-                unix_now()?,
-            )?;
-            drop(_guard);
             fail_after(request, MaterializationStage::CarrierInstalled)?;
-        }
-
-        if operation.state().phase == MaterializationPhase::CarrierInstalled {
             check_request(request)?;
             let manifest = manifest_from_operation(&request.key, &operation, unix_now()?)?;
-            let _guard = writer_lock
-                .exclusive()
-                .map_err(|error| MaterializationError::Lock(error.to_string()))?;
-            self.generations.publish_manifest(&request.key, &manifest)?;
-            operation.transition(
-                MaterializationPhase::ManifestDurable,
-                Some((manifest.generation, manifest.fence)),
-                None,
-                None,
-                unix_now()?,
-            )?;
-            drop(_guard);
+            let ready = self.generations.publish_manifest(&request.key, &manifest)?;
+            if let Some(squash) = squash {
+                squash.validate_ready(&request.key, &ready)?;
+            }
+            let publisher =
+                MaterializationPublisher::new(self.generations.clone(), self.bridge.clone());
+            let (old, prepared_publication) = match squash {
+                Some(squash) => publisher.prepare_with_verified_old(
+                    &ready,
+                    &mut operation,
+                    Some(squash.prior().clone()),
+                    unix_now()?,
+                )?,
+                None => publisher.prepare(&request.key, &ready, &mut operation, unix_now()?)?,
+            };
+            prepared_ready = Some((ready, old, prepared_publication));
             fail_after(request, MaterializationStage::ManifestDurable)?;
         }
 
-        if operation.state().phase == MaterializationPhase::ManifestDurable {
+        if operation.state().phase == MaterializationPhase::Ready {
             check_request(request)?;
-            let (generation, fence) = operation_tuple(&operation)?;
-            let _guard = writer_lock
-                .exclusive()
-                .map_err(|error| MaterializationError::Lock(error.to_string()))?;
-            self.generations
-                .promote_generation(&request.key, generation)?;
-            operation.transition(
-                MaterializationPhase::CurrentDurable,
-                Some((generation, fence)),
-                None,
-                None,
-                unix_now()?,
+            let publisher =
+                MaterializationPublisher::new(self.generations.clone(), self.bridge.clone());
+            let (ready, old, prepared_publication) = match prepared_ready.take() {
+                Some(prepared) => prepared,
+                None => {
+                    let (generation, _) = operation_tuple(&operation)?;
+                    let ready = self.generations.read_generation(&request.key, generation)?;
+                    self.verify_selection(&request.key, &ready)?;
+                    if let Some(squash) = squash {
+                        squash.validate_ready(&request.key, &ready)?;
+                    }
+                    let (old, prepared_publication) = match squash {
+                        Some(squash) => publisher.prepare_with_verified_old(
+                            &ready,
+                            &mut operation,
+                            Some(squash.prior().clone()),
+                            unix_now()?,
+                        )?,
+                        None => {
+                            publisher.prepare(&request.key, &ready, &mut operation, unix_now()?)?
+                        }
+                    };
+                    (ready, old, prepared_publication)
+                }
+            };
+            let (selection, terminal) = publisher.publish_prepared(
+                &request.key,
+                &ready,
+                old.as_ref(),
+                Some(prepared_publication),
+                &mut operation,
+                writer_lock,
             )?;
-            drop(_guard);
+            published_selection = Some(selection);
+            prepared_terminal = terminal;
             fail_after(request, MaterializationStage::CurrentDurable)?;
         }
 
-        if operation.state().phase == MaterializationPhase::CurrentDurable {
+        if operation.state().phase == MaterializationPhase::Published {
             fail_after(request, MaterializationStage::BeforeTerminal)?;
             let tuple = operation_tuple(&operation)?;
-            operation.transition(
-                MaterializationPhase::TerminalBuilt,
-                Some(tuple),
-                None,
-                None,
-                unix_now()?,
-            )?;
-            operation.reap_work()?;
+            // STATE and work share the exact operation directory. The Terminal
+            // STATE replacement's parent fsync makes both this cleanup and the
+            // terminal witness durable in one barrier.
+            operation.reap_work_before_terminal()?;
+            match prepared_terminal.take() {
+                Some(prepared_terminal) => {
+                    operation.commit_prepared_terminal(prepared_terminal)?;
+                }
+                None => {
+                    operation.transition(
+                        MaterializationPhase::Terminal,
+                        Some(tuple),
+                        None,
+                        None,
+                        unix_now()?,
+                    )?;
+                }
+            }
         }
 
-        let selection = self.lookup_verified(&request.key)?.ok_or_else(|| {
-            MaterializationError::Generation("completed operation has no valid CURRENT".to_owned())
-        })?;
+        let selection = match published_selection {
+            Some(selection) => selection,
+            None => self.lookup_verified(&request.key)?.ok_or_else(|| {
+                MaterializationError::Generation(
+                    "completed operation has no valid CURRENT".to_owned(),
+                )
+            })?,
+        };
+        if let Some(squash) = squash {
+            squash.validate_ready(&request.key, &selection)?;
+        }
         Ok(MaterializationOutcome {
             disposition: MaterializationDisposition::Built,
             operation_id: operation.operation_id().to_owned(),
@@ -597,6 +912,7 @@ impl MaterializationCoordinator {
         &self,
         key: &MaterializationKey,
         selection: GenerationSelection,
+        writer_lock: &StorageWriterLockLease,
     ) -> Result<MaterializationOutcome, MaterializationError> {
         let mut maximum_buffer_bytes = None;
         if let Some(mut operation) = MaterializationOperation::load(self.storage_root.clone(), key)?
@@ -608,25 +924,37 @@ impl MaterializationCoordinator {
             }
             let tuple = (selection.manifest.generation, selection.manifest.fence);
             match operation.state().phase {
-                MaterializationPhase::CarrierSynced | MaterializationPhase::ManifestDurable => {
+                MaterializationPhase::Building
+                    if operation.state().checkpoint
+                        == MaterializationCheckpoint::ManifestDurable =>
+                {
                     operation.transition(
-                        MaterializationPhase::CurrentDurable,
+                        MaterializationPhase::Ready,
                         Some(tuple),
                         None,
                         None,
                         unix_now()?,
                     )?;
+                    MaterializationPublisher::new(self.generations.clone(), self.bridge.clone())
+                        .publish(key, &selection, &mut operation, writer_lock, unix_now()?)?;
                 }
-                MaterializationPhase::CurrentDurable | MaterializationPhase::TerminalBuilt => {}
+                MaterializationPhase::Ready => {
+                    MaterializationPublisher::new(self.generations.clone(), self.bridge.clone())
+                        .publish(key, &selection, &mut operation, writer_lock, unix_now()?)?;
+                }
+                MaterializationPhase::Published => {}
+                MaterializationPhase::Terminal
+                    if operation.state().terminal_outcome
+                        == Some(MaterializationTerminalOutcome::Succeeded) => {}
                 phase => {
                     return Err(MaterializationError::Operation(format!(
                         "valid CURRENT conflicts with operation phase {phase:?}"
                     )));
                 }
             }
-            if operation.state().phase == MaterializationPhase::CurrentDurable {
+            if operation.state().phase == MaterializationPhase::Published {
                 operation.transition(
-                    MaterializationPhase::TerminalBuilt,
+                    MaterializationPhase::Terminal,
                     Some(tuple),
                     None,
                     None,
@@ -664,7 +992,15 @@ impl MaterializationCoordinator {
         let store = LooseObjectStore::new(self.storage_root.clone())
             .map_err(|error| MaterializationError::ObjectStore(error.to_string()))?;
         let mut pages = PersistentPages::new(&store);
-        let required_capabilities = self.backend.preflight(&mut pages, key.root)?;
+        validate_attribution_binding(&mut pages, key)?;
+        let required_capabilities = self
+            .backend
+            .preflight(
+                &mut pages,
+                key.root,
+                self.supervisor.workspace_profile().allocation_unit,
+            )?
+            .required_capabilities;
         let provided_capabilities = self.backend.provided_capabilities();
         let verified = self
             .backend
@@ -683,83 +1019,25 @@ impl MaterializationCoordinator {
         }
         Ok(())
     }
+}
 
-    fn retirement_candidate(
-        &self,
-        key: &MaterializationKey,
-        generation: u64,
-        now_unix_seconds: u64,
-    ) -> Result<Option<GenerationSnapshot>, MaterializationError> {
-        if self
-            .generations
-            .lookup_current(key)?
-            .is_some_and(|selection| selection.manifest.generation == generation)
-        {
-            return Ok(None);
-        }
-        let mut digest = Sha256Digest;
-        if root_has_pin_or_source_lease(&self.storage_root, key.root.digest(), &mut digest)
-            .map_err(|error| MaterializationError::Coordination(error.to_string()))?
-        {
-            return Ok(None);
-        }
-        let id = key.id()?;
-        if self
-            .generations
-            .active_generation_lease_exists(id, generation, now_unix_seconds)?
-        {
-            return Ok(None);
-        }
-        let snapshot = self.generations.generation_snapshot(id, generation)?;
-        let mut has_other_verified_locator = false;
-        for candidate_generation in self.generations.generation_numbers(id)? {
-            if candidate_generation == generation {
-                continue;
-            }
-            let selection = match self.generations.read_generation(key, candidate_generation) {
-                Ok(selection) => selection,
-                Err(GenerationError::Corrupt(_) | GenerationError::NotFound) => continue,
-                Err(error) => return Err(error.into()),
-            };
-            if self.verify_selection(key, &selection).is_ok() {
-                has_other_verified_locator = true;
-                break;
-            }
-        }
-        if !has_other_verified_locator {
-            return Ok(None);
-        }
-        Ok(Some(snapshot))
+fn validate_attribution_binding(
+    pages: &mut PersistentPages<'_>,
+    key: &MaterializationKey,
+) -> Result<(), MaterializationError> {
+    let (content, _) = pages
+        .load_attribution_root(key.attribution_root)
+        .map_err(|error| {
+            MaterializationError::Native(format!(
+                "materialization attribution root is invalid: {error}"
+            ))
+        })?;
+    if content != key.root {
+        return Err(MaterializationError::Native(
+            "materialization attribution root names another content root".to_owned(),
+        ));
     }
-
-    fn retention_reason(
-        &self,
-        key: &MaterializationKey,
-        generation: u64,
-        now_unix_seconds: u64,
-    ) -> Result<GenerationRetentionReason, MaterializationError> {
-        if self
-            .generations
-            .lookup_current(key)?
-            .is_some_and(|selection| selection.manifest.generation == generation)
-        {
-            return Ok(GenerationRetentionReason::CurrentSelection);
-        }
-        let mut digest = Sha256Digest;
-        if root_has_pin_or_source_lease(&self.storage_root, key.root.digest(), &mut digest)
-            .map_err(|error| MaterializationError::Coordination(error.to_string()))?
-        {
-            return Ok(GenerationRetentionReason::PinOrSourceLease);
-        }
-        if self.generations.active_generation_lease_exists(
-            key.id()?,
-            generation,
-            now_unix_seconds,
-        )? {
-            return Ok(GenerationRetentionReason::ExactGenerationLease);
-        }
-        Ok(GenerationRetentionReason::LastVerifiedNativeLocator)
-    }
+    Ok(())
 }
 
 fn manifest_from_operation(
@@ -774,10 +1052,11 @@ fn manifest_from_operation(
         .clone()
         .ok_or_else(|| MaterializationError::Operation("build digest is absent".to_owned()))?;
     Ok(GenerationManifest {
-        schema: "layerstack-materialization-generation-v1".to_owned(),
-        schema_version: 1,
+        schema: "layerstack-materialization-generation-v2".to_owned(),
+        schema_version: 2,
         materialization_id: key.id()?.hex(),
         root_id: digest_string(key.root.digest()),
+        attribution_root_id: digest_string(key.attribution_root.digest()),
         backend_kind: key.backend_kind.clone(),
         backend_format_version: key.backend_format_version,
         target_profile: key.target_profile.clone(),
@@ -829,6 +1108,11 @@ fn check_request(request: &MaterializationRequest) -> Result<(), Materialization
             "hydration byte permit must be in {MIN_HYDRATION_STREAM_BYTES}..={MAX_HYDRATION_STREAM_BYTES}"
         )));
     }
+    if !(1..=MAX_METADATA_QUEUE_ITEMS).contains(&request.metadata_queue_depth) {
+        return Err(MaterializationError::Coordination(format!(
+            "metadata queue depth must be in 1..={MAX_METADATA_QUEUE_ITEMS}"
+        )));
+    }
     if request.cancellation.load(Ordering::Acquire) {
         return Err(MaterializationError::Cancelled);
     }
@@ -866,139 +1150,10 @@ fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-struct FlightKey {
-    storage_root: String,
-    materialization_id: MaterializationId,
-}
-
-#[derive(Debug, Default)]
-struct Flight {
-    state: Mutex<FlightState>,
-    ready: Condvar,
-}
-
-#[derive(Debug, Default)]
-struct FlightState {
-    result: Option<Result<MaterializationOutcome, MaterializationError>>,
-}
-
-fn flights() -> &'static Mutex<HashMap<FlightKey, Arc<Flight>>> {
-    static FLIGHTS: OnceLock<Mutex<HashMap<FlightKey, Arc<Flight>>>> = OnceLock::new();
-    FLIGHTS.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-fn join_flight(key: &FlightKey) -> Result<(Arc<Flight>, bool), MaterializationError> {
-    let mut flights = flights()
-        .lock()
-        .map_err(|_| MaterializationError::Coordination("flight registry poisoned".to_owned()))?;
-    if let Some(flight) = flights.get(key) {
-        return Ok((flight.clone(), false));
-    }
-    let flight = Arc::new(Flight::default());
-    flights.insert(key.clone(), flight.clone());
-    Ok((flight, true))
-}
-
-fn finish_flight(
-    key: &FlightKey,
-    flight: &Arc<Flight>,
-    result: Result<MaterializationOutcome, MaterializationError>,
-) {
-    {
-        let mut state = flight
-            .state
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        state.result = Some(result);
-    }
-    flight.ready.notify_all();
-    let mut registry = flights()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if registry
-        .get(key)
-        .is_some_and(|candidate| Arc::ptr_eq(candidate, flight))
-    {
-        registry.remove(key);
-    }
-}
-
-fn wait_for_flight(
-    flight: Arc<Flight>,
-    request: &MaterializationRequest,
-) -> Result<MaterializationOutcome, MaterializationError> {
-    let mut state = flight
-        .state
-        .lock()
-        .map_err(|_| MaterializationError::Coordination("flight state poisoned".to_owned()))?;
-    loop {
-        if let Some(result) = state.result.clone() {
-            return result.map(|mut outcome| {
-                if outcome.disposition == MaterializationDisposition::Built {
-                    outcome.disposition = MaterializationDisposition::Shared;
-                }
-                outcome
-            });
-        }
-        check_request(request)?;
-        let remaining = request.deadline.saturating_duration_since(Instant::now());
-        let wait = remaining.min(WAIT_SLICE);
-        let (next, _) = flight
-            .ready
-            .wait_timeout(state, wait)
-            .map_err(|_| MaterializationError::Coordination("flight wait poisoned".to_owned()))?;
-        state = next;
-    }
-}
-
-#[derive(Debug)]
-struct WorkerGate {
-    active: Mutex<usize>,
-    ready: Condvar,
-}
-
-fn worker_gate() -> &'static WorkerGate {
-    static WORKERS: OnceLock<WorkerGate> = OnceLock::new();
-    WORKERS.get_or_init(|| WorkerGate {
-        active: Mutex::new(0),
-        ready: Condvar::new(),
-    })
-}
-
-struct WorkerPermit;
-
-impl Drop for WorkerPermit {
-    fn drop(&mut self) {
-        let gate = worker_gate();
-        let mut active = gate
-            .active
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        *active = active.saturating_sub(1);
-        drop(active);
-        gate.ready.notify_one();
-    }
-}
-
-fn acquire_worker(request: &MaterializationRequest) -> Result<WorkerPermit, MaterializationError> {
-    let gate = worker_gate();
-    let mut active = gate
-        .active
-        .lock()
-        .map_err(|_| MaterializationError::Coordination("worker gate poisoned".to_owned()))?;
-    loop {
-        if *active < MAX_BUILD_WORKERS {
-            *active += 1;
-            return Ok(WorkerPermit);
-        }
-        check_request(request)?;
-        let remaining = request.deadline.saturating_duration_since(Instant::now());
-        let wait = remaining.min(WAIT_SLICE);
-        let (next, _) = gate
-            .ready
-            .wait_timeout(active, wait)
-            .map_err(|_| MaterializationError::Coordination("worker wait poisoned".to_owned()))?;
-        active = next;
+fn supervisor_error(error: SupervisorError) -> MaterializationError {
+    match error {
+        SupervisorError::Cancelled => MaterializationError::Cancelled,
+        SupervisorError::Deadline => MaterializationError::Deadline,
+        error => MaterializationError::Coordination(error.to_string()),
     }
 }

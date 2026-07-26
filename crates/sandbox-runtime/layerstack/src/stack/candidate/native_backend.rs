@@ -14,6 +14,7 @@ pub(crate) const CAP_HARDLINK: u64 = 1 << 2;
 pub(crate) const CAP_SYMLINK: u64 = 1 << 3;
 pub(crate) const CAP_DEVICE: u64 = 1 << 4;
 pub(crate) const CAP_FIFO: u64 = 1 << 5;
+const BUILD_METADATA_RESERVATION_BYTES: u64 = 1024 * 1024;
 const KNOWN_CAPABILITIES: u64 =
     CAP_XATTR | CAP_SPARSE | CAP_HARDLINK | CAP_SYMLINK | CAP_DEVICE | CAP_FIFO;
 
@@ -24,6 +25,20 @@ pub(crate) struct NativeBuildResult {
     pub(crate) logical_bytes: u64,
     pub(crate) allocated_bytes: u64,
     pub(crate) maximum_buffer_bytes: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct NativePreflight {
+    pub(crate) required_capabilities: CapabilityProfile,
+    pub(crate) predicted_allocated_bytes: u64,
+    pub(crate) build_reservation_bytes: u64,
+}
+
+pub(crate) struct NativeReconstructionResources<'a> {
+    pub(crate) hydration_byte_permit_bytes: usize,
+    pub(crate) metadata_queue_depth: usize,
+    pub(crate) target: &'a crate::supervisor::MaterializationTarget,
+    pub(crate) observation: Option<&'a crate::stack::HiddenValidationObservation>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -75,6 +90,20 @@ impl NativeBackend {
         Self
     }
 
+    pub(crate) fn build_reservation_from_verified_target(
+        &self,
+        allocated_bytes: u64,
+    ) -> Result<u64, NativeBackendError> {
+        let staging_bytes = allocated_bytes
+            .checked_add(19)
+            .ok_or_else(|| NativeBackendError::Limit("workspace staging reservation".to_owned()))?
+            / 20;
+        allocated_bytes
+            .checked_add(staging_bytes)
+            .and_then(|value| value.checked_add(BUILD_METADATA_RESERVATION_BYTES))
+            .ok_or_else(|| NativeBackendError::Limit("workspace build reservation".to_owned()))
+    }
+
     /// Validate only the capability plan recorded in a selected generation.
     ///
     /// Warm activation may authenticate bounded selector/manifest metadata and
@@ -121,9 +150,7 @@ mod platform {
     use std::io::{Read, Seek, SeekFrom, Write};
     use std::os::fd::{AsFd, OwnedFd};
     use std::os::unix::ffi::OsStrExt;
-    use std::os::unix::fs::{fchown, lchown, FileExt, MetadataExt, PermissionsExt};
-    use std::sync::{Condvar, Mutex, OnceLock};
-    use std::time::Duration;
+    use std::os::unix::fs::{fchown, lchown, FileExt, PermissionsExt};
 
     use rayon::prelude::*;
     use rustix::fs::{
@@ -133,17 +160,20 @@ mod platform {
     use sha2::{Digest, Sha256};
 
     use super::{
-        CapabilityProfile, NativeBackend, NativeBackendError, NativeBuildResult, Path,
-        PersistentPages, RootId, CAP_DEVICE, CAP_FIFO, CAP_HARDLINK, CAP_SPARSE, CAP_SYMLINK,
-        CAP_XATTR, KNOWN_CAPABILITIES, MAX_HYDRATION_STREAM_BYTES,
+        CapabilityProfile, NativeBackend, NativeBackendError, NativeBuildResult, NativePreflight,
+        NativeReconstructionResources, Path, PersistentPages, RootId, CAP_DEVICE, CAP_FIFO,
+        CAP_HARDLINK, CAP_SPARSE, CAP_SYMLINK, CAP_XATTR, KNOWN_CAPABILITIES,
+        MAX_HYDRATION_STREAM_BYTES,
     };
+    use crate::lock::{assert_writer_lock_allows, WriterLockForbiddenWork};
     use crate::stack::candidate::object_store::{
-        AuthenticatedChunk, LooseObjectStore, MAX_CHUNK_BYTES, RECORD_HEADER_BYTES,
+        LooseObjectStore, MAX_CHUNK_BYTES, RECORD_HEADER_BYTES,
     };
     use crate::stack::candidate::tree::{
         FileKindV3, MaterializationNodeV3, MetadataV3, SegmentDescriptor, SegmentKind, TreeError,
     };
     use crate::stack::{HiddenQueuedWork, HiddenTaskWork, HiddenValidationObservation};
+    use crate::supervisor::{MaterializationTarget, MetadataQueue};
     use crate::Sha256Digest;
 
     const MAX_DEPTH: u8 = 64;
@@ -154,16 +184,7 @@ mod platform {
     const MAX_XATTR_LIST_BYTES: usize = 256 * 1024;
     const MAX_XATTR_VALUE_BYTES: usize = 256 * 1024;
     const ZERO_BUFFER_BYTES: usize = 32 * 1024;
-    const MAX_HYDRATION_BATCH_ITEMS: usize = 7;
     const HYDRATION_ITEM_BOOKKEEPING_BYTES: usize = 256;
-    const GLOBAL_HYDRATION_BYTES: usize = 4 * MAX_HYDRATION_STREAM_BYTES;
-    const HYDRATION_WAIT_SLICE: Duration = Duration::from_millis(50);
-    const _: () = assert!(
-        MAX_HYDRATION_BATCH_ITEMS
-            * (MAX_CHUNK_BYTES + RECORD_HEADER_BYTES + HYDRATION_ITEM_BOOKKEEPING_BYTES)
-            <= MAX_HYDRATION_STREAM_BYTES
-    );
-
     impl NativeBackend {
         pub(crate) fn provided_capabilities(&self) -> CapabilityProfile {
             CapabilityProfile {
@@ -182,7 +203,14 @@ mod platform {
             &self,
             pages: &mut PersistentPages<'_>,
             root: RootId,
-        ) -> Result<CapabilityProfile, NativeBackendError> {
+            allocation_unit: u64,
+        ) -> Result<NativePreflight, NativeBackendError> {
+            assert_writer_lock_allows(WriterLockForbiddenWork::TreeWalk);
+            if allocation_unit == 0 {
+                return Err(NativeBackendError::Limit(
+                    "filesystem allocation unit".to_owned(),
+                ));
+            }
             let descriptor = pages
                 .root_descriptor(root)
                 .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
@@ -199,6 +227,10 @@ mod platform {
             let effective_uid = rustix::process::geteuid();
             let effective_gid = rustix::process::getegid();
             let mut hardlink_counts = BTreeMap::new();
+            let mut accounting = PreflightAccounting {
+                allocation_unit,
+                predicted_allocated_bytes: 0,
+            };
             self.preflight_node(
                 pages,
                 descriptor.root_file,
@@ -209,6 +241,7 @@ mod platform {
                 effective_uid.is_root(),
                 descriptor.required_capabilities,
                 &mut hardlink_counts,
+                &mut accounting,
             )?;
             if hardlink_counts
                 .values()
@@ -218,40 +251,22 @@ mod platform {
                     "hardlink group paths differ from logical tree".to_owned(),
                 ));
             }
-            // Successful preflight is the readiness boundary for a cold build.
-            // Initialize the fixed worker set here so reconstruct only performs
-            // authenticated hydration and carrier construction.
-            hydration_pool()?;
-            Ok(CapabilityProfile {
-                feature_bits: descriptor.required_capabilities,
-                raw_byte_names: true,
-                exact_metadata: true,
-                sparse_files: descriptor.required_capabilities & CAP_SPARSE != 0,
-                hardlinks: descriptor.required_capabilities & CAP_HARDLINK != 0,
-                symlinks: descriptor.required_capabilities & CAP_SYMLINK != 0,
-                devices: descriptor.required_capabilities & CAP_DEVICE != 0,
-                fifos: descriptor.required_capabilities & CAP_FIFO != 0,
+            let build_reservation_bytes =
+                self.build_reservation_from_verified_target(accounting.predicted_allocated_bytes)?;
+            Ok(NativePreflight {
+                required_capabilities: CapabilityProfile {
+                    feature_bits: descriptor.required_capabilities,
+                    raw_byte_names: true,
+                    exact_metadata: true,
+                    sparse_files: descriptor.required_capabilities & CAP_SPARSE != 0,
+                    hardlinks: descriptor.required_capabilities & CAP_HARDLINK != 0,
+                    symlinks: descriptor.required_capabilities & CAP_SYMLINK != 0,
+                    devices: descriptor.required_capabilities & CAP_DEVICE != 0,
+                    fifos: descriptor.required_capabilities & CAP_FIFO != 0,
+                },
+                predicted_allocated_bytes: accounting.predicted_allocated_bytes,
+                build_reservation_bytes,
             })
-        }
-
-        pub(crate) fn reconstruct<C>(
-            &self,
-            pages: &mut PersistentPages<'_>,
-            root: RootId,
-            carrier: &Path,
-            check: C,
-        ) -> Result<NativeBuildResult, NativeBackendError>
-        where
-            C: FnMut() -> Result<(), NativeBackendError>,
-        {
-            self.reconstruct_bounded(
-                pages,
-                root,
-                carrier,
-                MAX_HYDRATION_STREAM_BYTES,
-                None,
-                check,
-            )
         }
 
         pub(crate) fn reconstruct_bounded<C>(
@@ -259,13 +274,25 @@ mod platform {
             pages: &mut PersistentPages<'_>,
             root: RootId,
             carrier: &Path,
-            hydration_byte_permit_bytes: usize,
-            observation: Option<&HiddenValidationObservation>,
-            mut check: C,
+            resources: NativeReconstructionResources<'_>,
+            check: C,
         ) -> Result<NativeBuildResult, NativeBackendError>
         where
             C: FnMut() -> Result<(), NativeBackendError>,
         {
+            let NativeReconstructionResources {
+                hydration_byte_permit_bytes,
+                metadata_queue_depth,
+                target,
+                observation,
+            } = resources;
+            assert_writer_lock_allows(WriterLockForbiddenWork::TreeWalk);
+            if target.reserved_permits().0 < hydration_byte_permit_bytes {
+                return Err(NativeBackendError::Limit(
+                    "hydration bytes exceed admitted target permits".to_owned(),
+                ));
+            }
+            let mut check = check;
             if hydration_byte_permit_bytes == 0
                 || hydration_byte_permit_bytes > MAX_HYDRATION_STREAM_BYTES
             {
@@ -303,21 +330,17 @@ mod platform {
                 hasher: Sha256::new(),
                 entry_count: 0,
                 logical_bytes: 0,
+                allocated_bytes: 0,
                 maximum_buffer_bytes: 0,
                 hydration_byte_permit_bytes,
+                metadata_queue_depth,
+                target,
                 observation: observation.cloned(),
             };
             context.observe_node(&[], descriptor.root_file);
-            self.populate_directory(
-                pages,
-                &root_fd,
-                &[],
-                &root_node,
-                0,
-                &mut context,
-                &mut check,
-            )?;
+            self.populate_directory(pages, &[], &root_node, 0, &mut context, &mut check)?;
             apply_fd_metadata(&root_fd, &root_node.metadata)?;
+            context.observe_allocated(&rustix::fs::fstat(&root_fd).map_err(io_error)?)?;
             // This is the one durability boundary for the complete carrier.
             // `syncfs` covers every file and directory populated above, so
             // flushing each inode first only duplicates the same I/O.
@@ -326,6 +349,7 @@ mod platform {
                 hasher,
                 entry_count,
                 logical_bytes,
+                allocated_bytes,
                 maximum_buffer_bytes,
                 ..
             } = context;
@@ -333,7 +357,7 @@ mod platform {
                 native_tree_sha256: hex(&hasher.finalize()),
                 entry_count,
                 logical_bytes,
-                allocated_bytes: allocated_bytes(carrier)?,
+                allocated_bytes,
                 maximum_buffer_bytes,
             })
         }
@@ -344,6 +368,7 @@ mod platform {
             root: RootId,
             carrier: &Path,
         ) -> Result<NativeBuildResult, NativeBackendError> {
+            assert_writer_lock_allows(WriterLockForbiddenWork::PayloadVerification);
             let descriptor = pages
                 .root_descriptor(root)
                 .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
@@ -357,23 +382,25 @@ mod platform {
             }
             let root_fd = open_dir(carrier)?;
             let mut context = VerifyContext {
+                root_fd: &root_fd,
                 carrier,
                 hardlinks: BTreeMap::new(),
                 inodes: BTreeMap::new(),
                 hasher: Sha256::new(),
                 entry_count: 0,
                 logical_bytes: 0,
+                allocated_bytes: 0,
                 maximum_buffer_bytes: 0,
             };
             context.observe_node(&[], descriptor.root_file);
             verify_open_metadata(&root_fd, carrier, &root_node, &mut context)?;
-            self.verify_directory(pages, &root_fd, &[], &root_node, 0, &mut context)?;
+            self.verify_directory(pages, &[], &root_node, 0, &mut context)?;
             context.finish_hardlinks()?;
             Ok(NativeBuildResult {
                 native_tree_sha256: hex(&context.hasher.finalize()),
                 entry_count: context.entry_count,
                 logical_bytes: context.logical_bytes,
-                allocated_bytes: allocated_bytes(carrier)?,
+                allocated_bytes: context.allocated_bytes,
                 maximum_buffer_bytes: context.maximum_buffer_bytes,
             })
         }
@@ -390,6 +417,7 @@ mod platform {
             privileged: bool,
             required_capabilities: u64,
             hardlink_counts: &mut BTreeMap<HardlinkGroupIdV3, (usize, usize)>,
+            accounting: &mut PreflightAccounting,
         ) -> Result<(), NativeBackendError> {
             if depth > MAX_DEPTH {
                 return Err(NativeBackendError::Limit("path depth".to_owned()));
@@ -397,6 +425,7 @@ mod platform {
             let node = pages
                 .materialization_node(file)
                 .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
+            accounting.observe_node(&node, relative)?;
             require_declared_capability(
                 !node.metadata.xattrs.is_empty(),
                 required_capabilities,
@@ -498,6 +527,7 @@ mod platform {
                         privileged,
                         required_capabilities,
                         hardlink_counts,
+                        accounting,
                     )?;
                 }
             }
@@ -508,7 +538,6 @@ mod platform {
         fn populate_directory<C>(
             &self,
             pages: &mut PersistentPages<'_>,
-            directory_fd: &OwnedFd,
             relative: &[u8],
             directory_node: &MaterializationNodeV3,
             depth: u8,
@@ -529,6 +558,7 @@ mod platform {
                 .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
             for entry in entries {
                 check()?;
+                let directory_fd = open_relative_dir(context.root_fd, relative)?;
                 let path = child_path(relative, &entry.name)?;
                 let node = pages
                     .materialization_node(entry.file)
@@ -537,26 +567,29 @@ mod platform {
                 match node.kind {
                     FileKindV3::Directory => {
                         rustix::fs::mkdirat(
-                            directory_fd,
+                            &directory_fd,
                             OsStr::from_bytes(&entry.name),
                             Mode::from_raw_mode(0o700),
                         )
                         .map_err(io_error)?;
-                        let child = open_dir_at(directory_fd, &entry.name)?;
+                        let child = open_dir_at(&directory_fd, &entry.name)?;
+                        drop(directory_fd);
+                        drop(child);
                         self.populate_directory(
                             pages,
-                            &child,
                             &path,
                             &node,
                             depth.saturating_add(1),
                             context,
                             check,
                         )?;
+                        let child = open_relative_dir(context.root_fd, &path)?;
                         apply_fd_metadata(&child, &node.metadata)?;
+                        context.observe_allocated(&rustix::fs::fstat(&child).map_err(io_error)?)?;
                     }
                     FileKindV3::Regular => self.emit_regular(
                         pages,
-                        directory_fd,
+                        &directory_fd,
                         &entry.name,
                         &path,
                         &node,
@@ -569,11 +602,19 @@ mod platform {
                         })?;
                         rustix::fs::symlinkat(
                             OsStr::from_bytes(target),
-                            directory_fd,
+                            &directory_fd,
                             OsStr::from_bytes(&entry.name),
                         )
                         .map_err(io_error)?;
                         apply_symlink_metadata(context.carrier, &path, &node.metadata)?;
+                        context.observe_allocated(
+                            &rustix::fs::statat(
+                                &directory_fd,
+                                OsStr::from_bytes(&entry.name),
+                                AtFlags::SYMLINK_NOFOLLOW,
+                            )
+                            .map_err(io_error)?,
+                        )?;
                     }
                     FileKindV3::Device => {
                         let device = rustix::fs::makedev(
@@ -585,7 +626,7 @@ mod platform {
                             })?,
                         );
                         rustix::fs::mknodat(
-                            directory_fd,
+                            &directory_fd,
                             OsStr::from_bytes(&entry.name),
                             FileType::CharacterDevice,
                             Mode::from_raw_mode(node.metadata.mode & 0o7777),
@@ -593,10 +634,18 @@ mod platform {
                         )
                         .map_err(io_error)?;
                         apply_path_metadata(context.carrier, &path, &node.metadata)?;
+                        context.observe_allocated(
+                            &rustix::fs::statat(
+                                &directory_fd,
+                                OsStr::from_bytes(&entry.name),
+                                AtFlags::SYMLINK_NOFOLLOW,
+                            )
+                            .map_err(io_error)?,
+                        )?;
                     }
                     FileKindV3::Fifo => {
                         rustix::fs::mknodat(
-                            directory_fd,
+                            &directory_fd,
                             OsStr::from_bytes(&entry.name),
                             FileType::Fifo,
                             Mode::from_raw_mode(node.metadata.mode & 0o7777),
@@ -604,6 +653,14 @@ mod platform {
                         )
                         .map_err(io_error)?;
                         apply_path_metadata(context.carrier, &path, &node.metadata)?;
+                        context.observe_allocated(
+                            &rustix::fs::statat(
+                                &directory_fd,
+                                OsStr::from_bytes(&entry.name),
+                                AtFlags::SYMLINK_NOFOLLOW,
+                            )
+                            .map_err(io_error)?,
+                        )?;
                     }
                 }
             }
@@ -662,7 +719,10 @@ mod platform {
                 NativeBackendError::Invalid("regular file segments missing".to_owned())
             })?;
             let store = pages.object_store();
-            let mut batch = Vec::with_capacity(MAX_HYDRATION_BATCH_ITEMS);
+            let mut batch = context
+                .target
+                .metadata_queue::<HydrationJob>(context.metadata_queue_depth)
+                .map_err(|error| NativeBackendError::Limit(error.to_string()))?;
             let mut batch_bytes = 0_usize;
             let mut segment_count = 0_usize;
             let mut chunk_objects_read = 0_u64;
@@ -702,7 +762,7 @@ mod platform {
                             NativeBackendError::Limit("hydration batch byte accounting".to_owned())
                         })?;
                     if !batch.is_empty()
-                        && (batch.len() == MAX_HYDRATION_BATCH_ITEMS
+                        && (batch.is_full()
                             || next_batch_bytes > context.hydration_byte_permit_bytes)
                     {
                         flush_hydration_batch(
@@ -719,8 +779,16 @@ mod platform {
                     batch_bytes = batch_bytes.checked_add(reservation).ok_or_else(|| {
                         NativeBackendError::Limit("hydration batch byte accounting".to_owned())
                     })?;
-                    batch.push(segment);
-                    if batch.len() == MAX_HYDRATION_BATCH_ITEMS {
+                    let queued = context.observation.as_ref().map(|observation| {
+                        observation.enqueue(HYDRATION_ITEM_BOOKKEEPING_BYTES as u64)
+                    });
+                    batch
+                        .push(
+                            HydrationJob { segment, queued },
+                            HYDRATION_ITEM_BOOKKEEPING_BYTES,
+                        )
+                        .map_err(|error| NativeBackendError::Limit(error.to_string()))?;
+                    if batch.is_full() {
                         flush_hydration_batch(
                             &store,
                             &mut file,
@@ -762,13 +830,13 @@ mod platform {
                 .checked_add(logical_length)
                 .ok_or_else(|| NativeBackendError::Limit("logical byte count".to_owned()))?;
             apply_file_metadata(&file, &node.metadata)?;
+            context.observe_allocated(&rustix::fs::fstat(&file).map_err(io_error)?)?;
             Ok(())
         }
 
         fn verify_directory(
             &self,
             pages: &mut PersistentPages<'_>,
-            directory_fd: &OwnedFd,
             relative: &[u8],
             directory_node: &MaterializationNodeV3,
             depth: u8,
@@ -791,7 +859,9 @@ mod platform {
                     ));
                 }
             }
-            let actual_names = directory_names(directory_fd, context)?;
+            let directory_fd = open_relative_dir(context.root_fd, relative)?;
+            let actual_names = directory_names(&directory_fd, context)?;
+            drop(directory_fd);
             if actual_names != expected_names {
                 return Err(NativeBackendError::Invalid(
                     "native directory entries differ from logical tree".to_owned(),
@@ -799,26 +869,31 @@ mod platform {
             }
 
             for entry in entries {
+                let directory_fd = open_relative_dir(context.root_fd, relative)?;
                 let path = child_path(relative, &entry.name)?;
                 let node = pages
                     .materialization_node(entry.file)
                     .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
                 context.observe_node(&path, entry.file);
                 let stat = rustix::fs::statat(
-                    directory_fd,
+                    &directory_fd,
                     OsStr::from_bytes(&entry.name),
                     AtFlags::SYMLINK_NOFOLLOW,
                 )
                 .map_err(io_error)?;
                 verify_stat(&stat, &node)?;
+                if node.kind != FileKindV3::Regular {
+                    context.observe_allocated(&stat)?;
+                }
                 verify_path_xattrs(context.carrier, &path, &node.metadata, context)?;
                 match node.kind {
                     FileKindV3::Directory => {
-                        let child = open_dir_at(directory_fd, &entry.name)?;
+                        let child = open_dir_at(&directory_fd, &entry.name)?;
                         verify_open_identity(&stat, &child)?;
+                        drop(directory_fd);
+                        drop(child);
                         self.verify_directory(
                             pages,
-                            &child,
                             &path,
                             &node,
                             depth.saturating_add(1),
@@ -827,7 +902,7 @@ mod platform {
                     }
                     FileKindV3::Regular => {
                         let child = rustix::fs::openat(
-                            directory_fd,
+                            &directory_fd,
                             OsStr::from_bytes(&entry.name),
                             OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
                             Mode::empty(),
@@ -842,7 +917,7 @@ mod platform {
                             NativeBackendError::Invalid("symlink target missing".to_owned())
                         })?;
                         let actual = rustix::fs::readlinkat(
-                            directory_fd,
+                            &directory_fd,
                             OsStr::from_bytes(&entry.name),
                             Vec::new(),
                         )
@@ -875,6 +950,73 @@ mod platform {
         }
     }
 
+    struct PreflightAccounting {
+        allocation_unit: u64,
+        predicted_allocated_bytes: u64,
+    }
+
+    impl PreflightAccounting {
+        fn observe_node(
+            &mut self,
+            node: &MaterializationNodeV3,
+            relative: &[u8],
+        ) -> Result<(), NativeBackendError> {
+            self.add(self.allocation_unit)?;
+            self.add_rounded(
+                u64::try_from(relative.len())
+                    .map_err(|_| NativeBackendError::Limit("path length".to_owned()))?
+                    .checked_add(32)
+                    .ok_or_else(|| {
+                        NativeBackendError::Limit("directory entry accounting".to_owned())
+                    })?,
+            )?;
+            if let Some(logical_length) = node.logical_length {
+                self.add_rounded(logical_length)?;
+            }
+            if let Some(target) = &node.symlink_target {
+                self.add_rounded(
+                    u64::try_from(target.len())
+                        .map_err(|_| NativeBackendError::Limit("symlink length".to_owned()))?,
+                )?;
+            }
+            for (key, value) in &node.metadata.xattrs {
+                let bytes = u64::try_from(key.len())
+                    .ok()
+                    .and_then(|key| {
+                        u64::try_from(value.len())
+                            .ok()
+                            .and_then(|value| key.checked_add(value))
+                    })
+                    .and_then(|value| value.checked_add(16))
+                    .ok_or_else(|| {
+                        NativeBackendError::Limit("xattr allocation accounting".to_owned())
+                    })?;
+                self.add_rounded(bytes)?;
+            }
+            Ok(())
+        }
+
+        fn add_rounded(&mut self, bytes: u64) -> Result<(), NativeBackendError> {
+            if bytes == 0 {
+                return Ok(());
+            }
+            let rounded = bytes
+                .checked_add(self.allocation_unit - 1)
+                .map(|value| value / self.allocation_unit)
+                .and_then(|units| units.checked_mul(self.allocation_unit))
+                .ok_or_else(|| NativeBackendError::Limit("allocated byte prediction".to_owned()))?;
+            self.add(rounded)
+        }
+
+        fn add(&mut self, bytes: u64) -> Result<(), NativeBackendError> {
+            self.predicted_allocated_bytes = self
+                .predicted_allocated_bytes
+                .checked_add(bytes)
+                .ok_or_else(|| NativeBackendError::Limit("allocated byte prediction".to_owned()))?;
+            Ok(())
+        }
+    }
+
     fn require_declared_capability(
         used: bool,
         required_capabilities: u64,
@@ -896,33 +1038,8 @@ mod platform {
 
     struct HydratedSegment {
         segment: SegmentDescriptor,
-        chunk: Option<AuthenticatedChunk>,
         encoded_len: Option<usize>,
         _task: Option<HiddenTaskWork>,
-    }
-
-    struct HydrationBudget {
-        available: Mutex<usize>,
-        ready: Condvar,
-    }
-
-    struct HydrationPermit {
-        budget: &'static HydrationBudget,
-        bytes: usize,
-    }
-
-    impl Drop for HydrationPermit {
-        fn drop(&mut self) {
-            let mut available = self
-                .budget
-                .available
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            *available = available
-                .saturating_add(self.bytes)
-                .min(GLOBAL_HYDRATION_BYTES);
-            self.budget.ready.notify_all();
-        }
     }
 
     fn hydration_reservation(segment: SegmentDescriptor) -> Result<usize, NativeBackendError> {
@@ -941,68 +1058,14 @@ mod platform {
             }
             SegmentKind::Zero | SegmentKind::Hole => 0,
         };
-        encoded
-            .checked_add(HYDRATION_ITEM_BOOKKEEPING_BYTES)
-            .ok_or_else(|| NativeBackendError::Limit("hydration reservation".to_owned()))
-    }
-
-    fn hydration_pool() -> Result<&'static rayon::ThreadPool, NativeBackendError> {
-        static POOL: OnceLock<Result<rayon::ThreadPool, String>> = OnceLock::new();
-        POOL.get_or_init(|| {
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(4)
-                .thread_name(|index| format!("layerstack-hydrate-{index}"))
-                .build()
-                .map_err(|error| error.to_string())
-        })
-        .as_ref()
-        .map_err(|message| {
-            NativeBackendError::Invalid(format!(
-                "fixed hydration worker pool initialization failed: {message}"
-            ))
-        })
-    }
-
-    fn acquire_hydration_permit<C>(
-        bytes: usize,
-        check: &mut C,
-    ) -> Result<HydrationPermit, NativeBackendError>
-    where
-        C: FnMut() -> Result<(), NativeBackendError>,
-    {
-        if bytes == 0 || bytes > MAX_HYDRATION_STREAM_BYTES {
-            return Err(NativeBackendError::Limit(
-                "hydration permit request".to_owned(),
-            ));
-        }
-        static BUDGET: OnceLock<HydrationBudget> = OnceLock::new();
-        let budget = BUDGET.get_or_init(|| HydrationBudget {
-            available: Mutex::new(GLOBAL_HYDRATION_BYTES),
-            ready: Condvar::new(),
-        });
-        let mut available = budget.available.lock().map_err(|_| {
-            NativeBackendError::Invalid("hydration byte permit lock poisoned".to_owned())
-        })?;
-        while *available < bytes {
-            check()?;
-            let (guard, _) = budget
-                .ready
-                .wait_timeout(available, HYDRATION_WAIT_SLICE)
-                .map_err(|_| {
-                    NativeBackendError::Invalid("hydration byte permit lock poisoned".to_owned())
-                })?;
-            available = guard;
-        }
-        check()?;
-        *available -= bytes;
-        Ok(HydrationPermit { budget, bytes })
+        Ok(encoded)
     }
 
     #[allow(clippy::too_many_arguments)]
     fn flush_hydration_batch<C>(
         store: &LooseObjectStore,
         file: &mut File,
-        batch: &mut Vec<SegmentDescriptor>,
+        batch: &mut MetadataQueue<HydrationJob>,
         batch_bytes: &mut usize,
         context: &mut BuildContext<'_>,
         check: &mut C,
@@ -1012,6 +1075,7 @@ mod platform {
     where
         C: FnMut() -> Result<(), NativeBackendError>,
     {
+        assert_writer_lock_allows(WriterLockForbiddenWork::ProviderPayloadIo);
         if batch.is_empty() {
             return Ok(());
         }
@@ -1022,85 +1086,34 @@ mod platform {
                 "hydration batch exceeds its byte permit".to_owned(),
             ));
         }
-        let _permit = acquire_hydration_permit(reserved_bytes, check)?;
         context.maximum_buffer_bytes = context
             .maximum_buffer_bytes
-            .max(u64::try_from(reserved_bytes).unwrap_or(u64::MAX));
+            .max(u64::try_from(reserved_bytes).unwrap_or(u64::MAX))
+            .max(u64::try_from(batch.encoded_bytes()).unwrap_or(u64::MAX));
 
         let observation = context.observation.clone();
-        let jobs = std::mem::take(batch)
-            .into_iter()
-            .map(|segment| {
-                let bytes = hydration_reservation(segment)?;
-                let queued = observation
-                    .as_ref()
-                    .map(|observation| observation.enqueue(bytes as u64));
-                Ok(HydrationJob { segment, queued })
-            })
-            .collect::<Result<Vec<_>, NativeBackendError>>()?;
+        let jobs = batch.take();
         *batch_bytes = 0;
-        let positional_chunk_writes = jobs.iter().all(|job| {
-            matches!(job.segment.kind, SegmentKind::Chunk(_))
-                && job.segment.length != 0
-                && job.segment.offset.checked_add(job.segment.length).is_some()
-        }) && jobs.windows(2).all(|pair| {
-            pair[0].segment.offset.checked_add(pair[0].segment.length)
-                == Some(pair[1].segment.offset)
-        });
         let positional_file: &File = file;
-        let hydrated = hydration_pool()?.install(|| {
-            jobs.into_par_iter()
-                .map(|job| {
-                    let task = job.queued.map(HiddenQueuedWork::start);
-                    let _worker = observation
-                        .as_ref()
-                        .map(HiddenValidationObservation::begin_worker);
-                    let (chunk, encoded_len) = match job.segment.kind {
-                        SegmentKind::Chunk(id) => {
-                            let chunk = store
-                                .load_authenticated_chunk(id, &mut Sha256Digest)
-                                .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
-                            if chunk.payload().len() as u64 != job.segment.length {
-                                return Err(NativeBackendError::Invalid(
-                                    "chunk length does not match segment".to_owned(),
-                                ));
-                            }
-                            if positional_chunk_writes {
-                                positional_file
-                                    .write_all_at(chunk.payload(), job.segment.offset)?;
-                                (None, Some(chunk.encoded_len()))
-                            } else {
-                                (Some(chunk), None)
-                            }
-                        }
-                        SegmentKind::Zero | SegmentKind::Hole => (None, None),
-                    };
-                    Ok(HydratedSegment {
-                        segment: job.segment,
-                        chunk,
-                        encoded_len,
-                        _task: task,
-                    })
-                })
-                .collect::<Result<Vec<_>, NativeBackendError>>()
-        })?;
+        let hydrate = |job| hydrate_job(job, store, positional_file, observation.as_ref());
+        let hydrated = context
+            .target
+            .run_on_workers(|| {
+                jobs.into_par_iter()
+                    .map(hydrate)
+                    .collect::<Result<Vec<_>, NativeBackendError>>()
+            })
+            .map_err(|error| {
+                NativeBackendError::Invalid(format!("storage worker pool unavailable: {error}"))
+            })??;
 
         for hydrated in hydrated {
             check()?;
             match hydrated.segment.kind {
                 SegmentKind::Chunk(_) => {
-                    let encoded_len = match hydrated.chunk {
-                        Some(chunk) => {
-                            file.seek(SeekFrom::Start(hydrated.segment.offset))?;
-                            file.write_all(chunk.payload())?;
-                            chunk.encoded_len()
-                        }
-                        None => hydrated.encoded_len.ok_or_else(|| {
-                            NativeBackendError::Invalid(
-                                "hydrated chunk result is absent".to_owned(),
-                            )
-                        })?,
-                    };
+                    let encoded_len = hydrated.encoded_len.ok_or_else(|| {
+                        NativeBackendError::Invalid("hydrated chunk result is absent".to_owned())
+                    })?;
                     *chunk_objects_read = chunk_objects_read.saturating_add(1);
                     *chunk_bytes_read = chunk_bytes_read
                         .saturating_add(u64::try_from(encoded_len).unwrap_or(u64::MAX));
@@ -1115,6 +1128,36 @@ mod platform {
         Ok(())
     }
 
+    fn hydrate_job(
+        job: HydrationJob,
+        store: &LooseObjectStore,
+        positional_file: &File,
+        observation: Option<&HiddenValidationObservation>,
+    ) -> Result<HydratedSegment, NativeBackendError> {
+        let task = job.queued.map(HiddenQueuedWork::start);
+        let _worker = observation.map(HiddenValidationObservation::begin_worker);
+        let encoded_len = match job.segment.kind {
+            SegmentKind::Chunk(id) => {
+                let chunk = store
+                    .load_authenticated_chunk(id, &mut Sha256Digest)
+                    .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
+                if chunk.payload().len() as u64 != job.segment.length {
+                    return Err(NativeBackendError::Invalid(
+                        "chunk length does not match segment".to_owned(),
+                    ));
+                }
+                positional_file.write_all_at(chunk.payload(), job.segment.offset)?;
+                Some(chunk.encoded_len())
+            }
+            SegmentKind::Zero | SegmentKind::Hole => None,
+        };
+        Ok(HydratedSegment {
+            segment: job.segment,
+            encoded_len,
+            _task: task,
+        })
+    }
+
     struct BuildContext<'a> {
         root_fd: &'a OwnedFd,
         carrier: &'a Path,
@@ -1122,8 +1165,11 @@ mod platform {
         hasher: Sha256,
         entry_count: u64,
         logical_bytes: u64,
+        allocated_bytes: u64,
         maximum_buffer_bytes: u64,
         hydration_byte_permit_bytes: usize,
+        metadata_queue_depth: usize,
+        target: &'a MaterializationTarget,
         observation: Option<HiddenValidationObservation>,
     }
 
@@ -1134,15 +1180,21 @@ mod platform {
             self.hasher.update(file.digest().as_bytes());
             self.entry_count = self.entry_count.saturating_add(1);
         }
+
+        fn observe_allocated(&mut self, stat: &Stat) -> Result<(), NativeBackendError> {
+            add_allocated_bytes(&mut self.allocated_bytes, stat)
+        }
     }
 
     struct VerifyContext<'a> {
+        root_fd: &'a OwnedFd,
         carrier: &'a Path,
         hardlinks: BTreeMap<HardlinkGroupIdV3, HardlinkObservation>,
         inodes: BTreeMap<(u64, u64), Option<HardlinkGroupIdV3>>,
         hasher: Sha256,
         entry_count: u64,
         logical_bytes: u64,
+        allocated_bytes: u64,
         maximum_buffer_bytes: u64,
     }
 
@@ -1161,6 +1213,10 @@ mod platform {
             self.entry_count = self.entry_count.saturating_add(1);
         }
 
+        fn observe_allocated(&mut self, stat: &Stat) -> Result<(), NativeBackendError> {
+            add_allocated_bytes(&mut self.allocated_bytes, stat)
+        }
+
         fn observe_hardlink(
             &mut self,
             stat: &Stat,
@@ -1177,6 +1233,7 @@ mod platform {
                 Some(_) => {}
                 None => {
                     self.inodes.insert(identity, group);
+                    self.observe_allocated(stat)?;
                 }
             }
             let Some(group) = group else {
@@ -1246,6 +1303,22 @@ mod platform {
         .map_err(io_error)
     }
 
+    fn open_relative_dir(root: &OwnedFd, relative: &[u8]) -> Result<OwnedFd, NativeBackendError> {
+        let mut current = open_dir_at(root, b".")?;
+        if relative.is_empty() {
+            return Ok(current);
+        }
+        for component in relative.split(|byte| *byte == b'/') {
+            if component.is_empty() {
+                return Err(NativeBackendError::Invalid(
+                    "empty relative path component".to_owned(),
+                ));
+            }
+            current = open_dir_at(&current, component)?;
+        }
+        Ok(current)
+    }
+
     fn directory_names(
         directory_fd: &OwnedFd,
         context: &mut VerifyContext<'_>,
@@ -1312,6 +1385,7 @@ mod platform {
     ) -> Result<(), NativeBackendError> {
         let stat = rustix::fs::fstat(fd).map_err(io_error)?;
         verify_stat(&stat, node)?;
+        context.observe_allocated(&stat)?;
         verify_path_xattrs(path, &[], &node.metadata, context)
     }
 
@@ -1609,21 +1683,17 @@ mod platform {
         Ok(())
     }
 
-    fn allocated_bytes(path: &Path) -> Result<u64, NativeBackendError> {
-        let metadata = std::fs::symlink_metadata(path)?;
-        let mut total = metadata.blocks().checked_mul(512).ok_or_else(|| {
+    fn add_allocated_bytes(total: &mut u64, stat: &Stat) -> Result<(), NativeBackendError> {
+        let blocks = u64::try_from(stat.st_blocks).map_err(|_| {
+            NativeBackendError::Invalid("negative allocated block count".to_owned())
+        })?;
+        let bytes = blocks.checked_mul(512).ok_or_else(|| {
             NativeBackendError::Limit("allocated byte accounting overflow".to_owned())
         })?;
-        if metadata.file_type().is_dir() {
-            for entry in std::fs::read_dir(path)? {
-                total = total
-                    .checked_add(allocated_bytes(&entry?.path())?)
-                    .ok_or_else(|| {
-                        NativeBackendError::Limit("allocated byte accounting overflow".to_owned())
-                    })?;
-            }
-        }
-        Ok(total)
+        *total = total.checked_add(bytes).ok_or_else(|| {
+            NativeBackendError::Limit("allocated byte accounting overflow".to_owned())
+        })?;
+        Ok(())
     }
 
     fn io_error(error: rustix::io::Errno) -> NativeBackendError {
@@ -1660,22 +1730,8 @@ impl NativeBackend {
         &self,
         _pages: &mut PersistentPages<'_>,
         _root: RootId,
-    ) -> Result<CapabilityProfile, NativeBackendError> {
-        Err(NativeBackendError::Unsupported(
-            "linux-overlayfs-v1 requires Linux".to_owned(),
-        ))
-    }
-
-    pub(crate) fn reconstruct<C>(
-        &self,
-        _pages: &mut PersistentPages<'_>,
-        _root: RootId,
-        _carrier: &Path,
-        _check: C,
-    ) -> Result<NativeBuildResult, NativeBackendError>
-    where
-        C: FnMut() -> Result<(), NativeBackendError>,
-    {
+        _allocation_unit: u64,
+    ) -> Result<NativePreflight, NativeBackendError> {
         Err(NativeBackendError::Unsupported(
             "linux-overlayfs-v1 requires Linux".to_owned(),
         ))
@@ -1686,8 +1742,7 @@ impl NativeBackend {
         _pages: &mut PersistentPages<'_>,
         _root: RootId,
         _carrier: &Path,
-        _hydration_byte_permit_bytes: usize,
-        _observation: Option<&crate::stack::HiddenValidationObservation>,
+        _resources: NativeReconstructionResources<'_>,
         _check: C,
     ) -> Result<NativeBuildResult, NativeBackendError>
     where

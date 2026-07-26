@@ -5,14 +5,15 @@ use sandbox_runtime_namespace_execution::{
     ExecutionCaps, NamespaceExecutionEngine, NamespaceExecutionId,
 };
 
+use crate::command::scratch_route::observed_scratch_route;
 use crate::command::terminal_cache::TerminalDrainCache;
 use crate::command::{CommandConfig, CommandExecValue};
 use crate::namespace_execution::{
     RuntimeNamespaceExecutionSnapshot, WorkspaceCommandReleaseProof, WorkspaceCommandTeardown,
 };
 use crate::workspace_crate::{
-    ExecutionScratchRoute, LegacyExecutionScratchLocator, WorkspaceScratchLocator,
-    WorkspaceSessionId, SCRATCH_LAYOUT_VERSION,
+    LegacyExecutionScratchLocator, WorkspaceScratchLocator, WorkspaceSessionId,
+    SCRATCH_LAYOUT_VERSION,
 };
 use crate::workspace_scratch_compat::LegacyScratchReapReport;
 use crate::workspace_session::WorkspaceSessionService;
@@ -35,14 +36,6 @@ pub(crate) struct CommandScratchOwnershipSnapshot {
     pub cleanup_state: &'static str,
     pub quiescent: bool,
     pub legacy: LegacyScratchReapReport,
-}
-
-fn observed_scratch_route(routes: &[ExecutionScratchRoute]) -> &'static str {
-    match routes.first().copied() {
-        None => ExecutionScratchRoute::WorkspaceScoped.as_str(),
-        Some(first) if routes.iter().all(|candidate| *candidate == first) => first.as_str(),
-        Some(_) => "mixed",
-    }
 }
 
 pub struct CommandOperationService {
@@ -367,27 +360,5 @@ impl WorkspaceCommandTeardown for NamespaceExecutionEngine<CommandExecValue> {
                 workspace_session_id.0
             ))
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::observed_scratch_route;
-    use crate::workspace_crate::ExecutionScratchRoute;
-
-    #[test]
-    fn observed_scratch_route_preserves_retained_legacy_ownership() {
-        assert_eq!(
-            observed_scratch_route(&[ExecutionScratchRoute::LegacyCompat]),
-            "legacy_compat"
-        );
-        assert_eq!(
-            observed_scratch_route(&[
-                ExecutionScratchRoute::LegacyCompat,
-                ExecutionScratchRoute::WorkspaceScoped,
-            ]),
-            "mixed"
-        );
-        assert_eq!(observed_scratch_route(&[]), "workspace_scoped");
     }
 }

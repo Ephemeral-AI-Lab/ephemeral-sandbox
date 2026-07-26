@@ -8,7 +8,7 @@ use crate::error::LayerStackError;
 use crate::fs::canonical_key;
 use crate::service::{
     LayerStackResourceSnapshot, LayerStackRouteSnapshot, NativeRouteCounters, StorageAuthority,
-    StorageRolloutMode,
+    StorageRolloutMode, WriterLockMetrics,
 };
 
 const OBSERVATION_SCHEMA_VERSION: u16 = 1;
@@ -65,6 +65,18 @@ pub(crate) struct StorageObservationState {
     high_water_open_transactions: AtomicU64,
     staging_owners: AtomicU64,
     high_water_staging_owners: AtomicU64,
+    materialization_owners: AtomicU64,
+    high_water_materialization_owners: AtomicU64,
+    materialization_waiters: AtomicU64,
+    high_water_materialization_waiters: AtomicU64,
+    materialization_targets: AtomicU64,
+    high_water_materialization_targets: AtomicU64,
+    materialization_byte_reservations: AtomicU64,
+    high_water_materialization_byte_reservations: AtomicU64,
+    materialization_workspace_bytes: AtomicU64,
+    high_water_materialization_workspace_bytes: AtomicU64,
+    materialization_fd_permits: AtomicU64,
+    high_water_materialization_fd_permits: AtomicU64,
     high_water_active_leases: AtomicU64,
     quiescent_since_ms: AtomicU64,
     counter_saturated: AtomicBool,
@@ -105,6 +117,25 @@ pub struct HiddenWorkerGuard {
     state: Arc<StorageObservationState>,
 }
 
+#[doc(hidden)]
+pub struct HiddenMaterializationOwnerGuard {
+    state: Arc<StorageObservationState>,
+    operation: Option<StorageOperationGuard>,
+}
+
+#[doc(hidden)]
+pub struct HiddenMaterializationWaiterGuard {
+    state: Arc<StorageObservationState>,
+}
+
+#[doc(hidden)]
+pub struct HiddenMaterializationTargetGuard {
+    state: Arc<StorageObservationState>,
+    byte_reservation: u64,
+    fd_permits: u64,
+    workspace_bytes: u64,
+}
+
 impl StorageObservationState {
     pub(crate) fn begin_operation(
         self: &Arc<Self>,
@@ -138,9 +169,10 @@ impl StorageObservationState {
         self.update_high_water(&self.high_water_active_leases, active_leases);
     }
 
-    pub(crate) fn observe(
+    pub(crate) fn observe_with_writer_lock(
         &self,
         active_leases: usize,
+        writer_lock: WriterLockMetrics,
     ) -> (LayerStackRouteSnapshot, LayerStackResourceSnapshot) {
         let epoch = self.saturating_increment(&self.observation_epoch);
         let active_leases = u64::try_from(active_leases).unwrap_or(u64::MAX);
@@ -156,6 +188,15 @@ impl StorageObservationState {
         let byte_permits_in_use = self.byte_permits_in_use.load(Ordering::Relaxed);
         let open_transactions = self.open_transactions.load(Ordering::Relaxed);
         let staging_owners = self.staging_owners.load(Ordering::Relaxed);
+        let materialization_owners = self.materialization_owners.load(Ordering::Relaxed);
+        let materialization_waiters = self.materialization_waiters.load(Ordering::Relaxed);
+        let materialization_targets = self.materialization_targets.load(Ordering::Relaxed);
+        let materialization_byte_reservations = self
+            .materialization_byte_reservations
+            .load(Ordering::Relaxed);
+        let materialization_workspace_bytes =
+            self.materialization_workspace_bytes.load(Ordering::Relaxed);
+        let materialization_fd_permits = self.materialization_fd_permits.load(Ordering::Relaxed);
         let logical_cleanup_complete = active_operations == 0
             && active_publications == 0
             && active_buffers == 0
@@ -166,6 +207,12 @@ impl StorageObservationState {
             && byte_permits_in_use == 0
             && open_transactions == 0
             && staging_owners == 0
+            && materialization_owners == 0
+            && materialization_waiters == 0
+            && materialization_targets == 0
+            && materialization_byte_reservations == 0
+            && materialization_workspace_bytes == 0
+            && materialization_fd_permits == 0
             && active_leases == 0;
         let quiescence_ms = if logical_cleanup_complete {
             let now = process_elapsed_ms();
@@ -235,10 +282,50 @@ impl StorageObservationState {
             high_water_registry_entries: narrow(
                 self.high_water_active_leases.load(Ordering::Relaxed),
             ),
-            open_file_descriptors: None,
-            high_water_open_file_descriptors: None,
-            mapped_bytes: None,
-            high_water_mapped_bytes: None,
+            materialization_owners: narrow(materialization_owners),
+            high_water_materialization_owners: narrow(
+                self.high_water_materialization_owners
+                    .load(Ordering::Relaxed),
+            ),
+            materialization_waiters: narrow(materialization_waiters),
+            high_water_materialization_waiters: narrow(
+                self.high_water_materialization_waiters
+                    .load(Ordering::Relaxed),
+            ),
+            materialization_targets: narrow(materialization_targets),
+            high_water_materialization_targets: narrow(
+                self.high_water_materialization_targets
+                    .load(Ordering::Relaxed),
+            ),
+            materialization_byte_reservations,
+            high_water_materialization_byte_reservations: self
+                .high_water_materialization_byte_reservations
+                .load(Ordering::Relaxed),
+            materialization_workspace_bytes,
+            high_water_materialization_workspace_bytes: self
+                .high_water_materialization_workspace_bytes
+                .load(Ordering::Relaxed),
+            open_file_descriptors: Some(narrow(materialization_fd_permits)),
+            high_water_open_file_descriptors: Some(narrow(
+                self.high_water_materialization_fd_permits
+                    .load(Ordering::Relaxed),
+            )),
+            mapped_bytes: Some(0),
+            high_water_mapped_bytes: Some(0),
+            writer_lock_acquisitions: writer_lock.acquisitions,
+            writer_lock_wait_ns: writer_lock.wait_ns,
+            writer_lock_maximum_wait_ns: writer_lock.maximum_wait_ns,
+            writer_lock_hold_ns: writer_lock.hold_ns,
+            writer_lock_maximum_hold_ns: writer_lock.maximum_hold_ns,
+            writer_lock_forbidden_tree_walks: writer_lock.forbidden_tree_walks,
+            writer_lock_forbidden_payload_verifications: writer_lock
+                .forbidden_payload_verifications,
+            writer_lock_forbidden_history_scans: writer_lock.forbidden_history_scans,
+            writer_lock_forbidden_permit_or_flight_waits: writer_lock
+                .forbidden_permit_or_flight_waits,
+            writer_lock_forbidden_worker_joins: writer_lock.forbidden_worker_joins,
+            writer_lock_forbidden_cleanups: writer_lock.forbidden_cleanups,
+            writer_lock_forbidden_provider_payload_io: writer_lock.forbidden_provider_payload_io,
             logical_cleanup_complete,
             quiescence_ms,
             counter_saturated: self.counter_saturated.load(Ordering::Relaxed)
@@ -250,6 +337,10 @@ impl StorageObservationState {
                 || queued_items > u64::from(u32::MAX)
                 || open_transactions > u64::from(u32::MAX)
                 || staging_owners > u64::from(u32::MAX)
+                || materialization_owners > u64::from(u32::MAX)
+                || materialization_waiters > u64::from(u32::MAX)
+                || materialization_targets > u64::from(u32::MAX)
+                || materialization_fd_permits > u64::from(u32::MAX)
                 || active_leases > u64::from(u32::MAX),
         };
         let shadow_comparison_count = self.shadow_comparison_count.load(Ordering::Relaxed);
@@ -358,6 +449,17 @@ impl HiddenValidationObservation {
         Self { state }
     }
 
+    /// Return the in-memory route counters without reopening or traversing the
+    /// active stack. Callers that need manifest and lease topology must use the
+    /// full stack observation instead.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn observe_route(&self, active_leases: usize) -> LayerStackRouteSnapshot {
+        self.state
+            .observe_with_writer_lock(active_leases, WriterLockMetrics::default())
+            .0
+    }
+
     pub fn configure(&self, mode: StorageRolloutMode) {
         let mode = match mode {
             StorageRolloutMode::Legacy => MODE_LEGACY,
@@ -365,6 +467,67 @@ impl HiddenValidationObservation {
             StorageRolloutMode::StrictCandidate => MODE_STRICT_CANDIDATE,
         };
         self.state.configured_mode.store(mode, Ordering::Relaxed);
+    }
+
+    #[must_use]
+    pub fn begin_materialization_owner(&self) -> HiddenMaterializationOwnerGuard {
+        self.state.increment(
+            &self.state.materialization_owners,
+            &self.state.high_water_materialization_owners,
+        );
+        HiddenMaterializationOwnerGuard {
+            state: Arc::clone(&self.state),
+            operation: Some(self.state.begin_operation(false, false)),
+        }
+    }
+
+    #[must_use]
+    pub fn begin_materialization_waiter(&self) -> HiddenMaterializationWaiterGuard {
+        self.state.increment(
+            &self.state.materialization_waiters,
+            &self.state.high_water_materialization_waiters,
+        );
+        HiddenMaterializationWaiterGuard {
+            state: Arc::clone(&self.state),
+        }
+    }
+
+    #[must_use]
+    pub fn begin_materialization_target(
+        &self,
+        byte_reservation: usize,
+        fd_permits: usize,
+    ) -> HiddenMaterializationTargetGuard {
+        let byte_reservation = u64::try_from(byte_reservation).unwrap_or(u64::MAX);
+        let fd_permits = u64::try_from(fd_permits).unwrap_or(u64::MAX);
+        self.state.increment(
+            &self.state.materialization_targets,
+            &self.state.high_water_materialization_targets,
+        );
+        self.state.add(
+            &self.state.materialization_byte_reservations,
+            byte_reservation,
+        );
+        self.state.update_high_water(
+            &self.state.high_water_materialization_byte_reservations,
+            self.state
+                .materialization_byte_reservations
+                .load(Ordering::Relaxed),
+        );
+        self.state
+            .add(&self.state.materialization_fd_permits, fd_permits);
+        self.state.update_high_water(
+            &self.state.high_water_materialization_fd_permits,
+            self.state
+                .materialization_fd_permits
+                .load(Ordering::Relaxed),
+        );
+        HiddenMaterializationTargetGuard {
+            state: Arc::clone(&self.state),
+            byte_reservation,
+            fd_permits,
+            workspace_bytes: 0,
+        }
     }
 
     #[must_use]
@@ -511,6 +674,49 @@ impl Drop for HiddenTaskWork {
 impl Drop for HiddenWorkerGuard {
     fn drop(&mut self) {
         decrement(&self.state.active_workers);
+    }
+}
+
+impl Drop for HiddenMaterializationOwnerGuard {
+    fn drop(&mut self) {
+        decrement(&self.state.materialization_owners);
+        drop(self.operation.take());
+    }
+}
+
+impl Drop for HiddenMaterializationWaiterGuard {
+    fn drop(&mut self) {
+        decrement(&self.state.materialization_waiters);
+    }
+}
+
+impl HiddenMaterializationTargetGuard {
+    pub fn reserve_workspace(&mut self, workspace_bytes: u64) {
+        debug_assert_eq!(self.workspace_bytes, 0);
+        self.state
+            .add(&self.state.materialization_workspace_bytes, workspace_bytes);
+        self.state.update_high_water(
+            &self.state.high_water_materialization_workspace_bytes,
+            self.state
+                .materialization_workspace_bytes
+                .load(Ordering::Relaxed),
+        );
+        self.workspace_bytes = workspace_bytes;
+    }
+}
+
+impl Drop for HiddenMaterializationTargetGuard {
+    fn drop(&mut self) {
+        decrement(&self.state.materialization_targets);
+        subtract(
+            &self.state.materialization_byte_reservations,
+            self.byte_reservation,
+        );
+        subtract(&self.state.materialization_fd_permits, self.fd_permits);
+        subtract(
+            &self.state.materialization_workspace_bytes,
+            self.workspace_bytes,
+        );
     }
 }
 

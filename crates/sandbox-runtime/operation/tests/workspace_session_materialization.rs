@@ -300,8 +300,13 @@ mod linux {
         fn open_at_depth(mode: BenchmarkMode, depth: usize) -> TestResult<Self> {
             let fixture =
                 Fixture::materialized_at_depth(&format!("benchmark-{}", mode.label()), depth)?;
-            let operations = fixture.operations_with_mode(mode.rollout());
-            let route_before = operations.observe_layerstack()?.route.native_route;
+            let mut config = fixture.config(mode.rollout());
+            // S045-B05 requires matched 128-KiB and 1-MiB public file requests.
+            // Keep the shipped 256-KiB default intact while giving both benchmark
+            // arms the same explicit response cap required by this fixture.
+            config.file.max_output_bytes = 1024 * 1024;
+            let operations = SandboxRuntimeOperations::from_config(config, Observer::disabled());
+            let route_before = operations.observe_layerstack_route().native_route;
             Ok(Self {
                 fixture,
                 operations,
@@ -323,8 +328,26 @@ mod linux {
                 "command" => self.command(),
                 "file-read" => self.file_read(),
                 "file-write" => self.file_write(),
+                "file-read-128k" => {
+                    self.file_read_sized(operation, "benchmark-128k.txt", 128 * 1024)
+                }
+                "file-read-1m" => self.file_read_sized(operation, "benchmark-1m.txt", 1024 * 1024),
+                "file-write-128k" => self.file_write_sized(operation, 128 * 1024),
+                "file-write-1m" => self.file_write_sized(operation, 1024 * 1024),
+                "file-random-read" => self.file_random_read(),
+                "file-random-write" => self.file_write_sized(operation, 4 * 1024),
+                "file-verify-writes" => self.file_verify_writes(),
+                "file-metadata" => self.file_metadata(),
+                "many-small-file" => self.many_small_file(),
+                "observe-route" => self.observe_route(),
                 "pty-create" => self.pty_create(),
                 "pty-drain" => self.pty_drain(),
+                "pty-write" => self.pty_write(),
+                "pty-create-cycle" => self.pty_create_cycle(),
+                "pty-drain-cycle" => self.pty_drain_cycle(),
+                "pty-write-cycle" => self.pty_write_cycle(),
+                "pty-control-c-cycle" => self.pty_control_cycle(operation, "\u{3}"),
+                "pty-control-d-cycle" => self.pty_control_cycle(operation, "\u{4}"),
                 "pty-cancel" => {
                     self.cancel_interactive()?;
                     Ok(json!({"status": "ok", "operation": operation}))
@@ -365,7 +388,7 @@ mod linux {
             let started = Instant::now();
             let output = self.operations.command.exec_command(ExecCommandInput {
                 workspace_session_id: Some(session_id),
-                cmd: "true".to_owned(),
+                cmd: "ls".to_owned(),
                 timeout_ms: Some(5_000),
                 yield_time_ms: Some(5_000),
             })?;
@@ -392,30 +415,190 @@ mod linux {
         }
 
         fn file_write(&mut self) -> TestResult<Value> {
+            self.file_write_sized("file-write", 4_096)
+        }
+
+        fn file_read_sized(
+            &self,
+            operation: &str,
+            path: &str,
+            expected_bytes: usize,
+        ) -> TestResult<Value> {
+            let session = self
+                .session
+                .as_ref()
+                .ok_or("benchmark session is inactive")?;
+            let started = Instant::now();
+            let content = read_file(&self.operations, session, path)?;
+            let latency_ns = elapsed_ns(started);
+            let content_matches = if path == "benchmark-1m.txt" {
+                content.bytes().enumerate().all(|(index, byte)| {
+                    if index < 255 * 4_097 && index % 4_097 == 4_096 {
+                        byte == b'\n'
+                    } else {
+                        byte == b'x'
+                    }
+                })
+            } else {
+                content.bytes().all(|byte| byte == b'x')
+            };
+            if content.len() != expected_bytes || !content_matches {
+                return Err(format!(
+                    "benchmark sized file read {path:?} returned unexpected content ({} bytes; expected {expected_bytes})",
+                    content.len()
+                )
+                .into());
+            }
+            Ok(work_response(operation, latency_ns, expected_bytes, 1))
+        }
+
+        fn file_write_sized(&mut self, operation: &str, bytes: usize) -> TestResult<Value> {
             let session_id = self.session_id()?;
             self.write_index += 1;
-            let path = format!("benchmark-write-{}.txt", self.write_index);
-            let content = "y".repeat(4_096);
+            let path = format!("benchmark-write-{bytes}.txt");
+            let content = "y".repeat(bytes);
             let started = Instant::now();
-            self.operations.file.write(
+            let output = self.operations.file.write(
                 &self.operations.layerstack,
                 &self.operations.workspace_session,
                 WriteInput {
                     path: path.clone(),
-                    content: content.clone(),
+                    content,
                     request_id: format!("stage04-benchmark-write-{}", self.write_index),
                     workspace_session_id: Some(session_id),
                 },
             )?;
             let latency_ns = elapsed_ns(started);
+            if output.bytes_written != bytes || output.path != path {
+                return Err("benchmark file write returned an invalid result".into());
+            }
+            Ok(work_response(operation, latency_ns, bytes, 1))
+        }
+
+        fn file_verify_writes(&self) -> TestResult<Value> {
             let session = self
                 .session
                 .as_ref()
                 .ok_or("benchmark session is inactive")?;
-            if read_file(&self.operations, session, &path)? != content {
-                return Err("benchmark file write verification failed".into());
+            for bytes in [4 * 1024, 128 * 1024, 1024 * 1024] {
+                let path = format!("benchmark-write-{bytes}.txt");
+                let content = read_file(&self.operations, session, &path)?;
+                if content.len() != bytes || !content.bytes().all(|byte| byte == b'y') {
+                    return Err(
+                        format!("benchmark file write verification failed for {path:?}").into(),
+                    );
+                }
             }
-            Ok(measured_response("file-write", latency_ns))
+            Ok(json!({"status": "ok", "operation": "file-verify-writes"}))
+        }
+
+        fn file_random_read(&self) -> TestResult<Value> {
+            let session_id = self.session_id()?;
+            let started = Instant::now();
+            let output = self.operations.file.read(
+                &self.operations.layerstack,
+                &self.operations.workspace_session,
+                ReadInput {
+                    path: "benchmark-1m.txt".to_owned(),
+                    offset: Some(128),
+                    limit: Some(1),
+                    workspace_session_id: Some(session_id),
+                },
+            )?;
+            let latency_ns = elapsed_ns(started);
+            if output.content.len() != 4 * 1024 || !output.content.bytes().all(|byte| byte == b'x')
+            {
+                return Err("benchmark random file read returned unexpected content".into());
+            }
+            Ok(work_response("file-random-read", latency_ns, 4 * 1024, 1))
+        }
+
+        fn file_metadata(&self) -> TestResult<Value> {
+            let session_id = self.session_id()?;
+            let started = Instant::now();
+            let listed = self.operations.file.list(
+                &self.operations.layerstack,
+                &self.operations.workspace_session,
+                ListInput {
+                    path: None,
+                    limit: Some(128),
+                    workspace_session_id: Some(session_id),
+                },
+            )?;
+            let latency_ns = elapsed_ns(started);
+            if !listed
+                .entries
+                .iter()
+                .any(|entry| entry.name == "benchmark-1m.txt" && entry.size == Some(1024 * 1024))
+            {
+                return Err("benchmark metadata listing omitted the 1-MiB fixture".into());
+            }
+            Ok(work_response(
+                "file-metadata",
+                latency_ns,
+                0,
+                listed.entries.len(),
+            ))
+        }
+
+        fn many_small_file(&mut self) -> TestResult<Value> {
+            let session_id = self.session_id()?;
+            self.write_index += 1;
+            let directory = format!("benchmark-small-{}", self.write_index);
+            let started = Instant::now();
+            for index in 0..16 {
+                self.operations.file.write(
+                    &self.operations.layerstack,
+                    &self.operations.workspace_session,
+                    WriteInput {
+                        path: format!("{directory}-{index:02}.tmp"),
+                        content: format!("small-{index:02}\n"),
+                        request_id: format!(
+                            "stage04-benchmark-many-small-{}-{index}",
+                            self.write_index
+                        ),
+                        workspace_session_id: Some(session_id.clone()),
+                    },
+                )?;
+            }
+            let output = self.operations.command.exec_command(ExecCommandInput {
+                workspace_session_id: Some(session_id),
+                cmd: format!(
+                    "sync; for path in {directory}-*.tmp; do mv \"$path\" \"${{path%.tmp}}.dat\"; done; sync; rm -f {directory}-*.dat"
+                ),
+                timeout_ms: Some(5_000),
+                yield_time_ms: Some(5_000),
+            })?;
+            let output = await_terminal(&self.operations, output)?;
+            let latency_ns = elapsed_ns(started);
+            if output.status != CommandStatus::Ok {
+                return Err(format!(
+                    "benchmark many-small-file mutation ended as {:?}",
+                    output.status
+                )
+                .into());
+            }
+            Ok(work_response(
+                "many-small-file",
+                latency_ns,
+                16 * "small-00\n".len(),
+                16,
+            ))
+        }
+
+        fn observe_route(&self) -> TestResult<Value> {
+            let route = self.operations.observe_layerstack_route();
+            Ok(json!({
+                "status": "ok",
+                "operation": "observe-route",
+                "mode": self.mode.label(),
+                "configured_mode": route.configured_mode,
+                "read_authority": route.read_authority,
+                "write_authority": route.write_authority,
+                "fallback_count": route.fallback_count,
+                "fallback_reason_counts": route.fallback_reason_counts,
+                "native_route": route.native_route,
+            }))
         }
 
         fn pty_create(&mut self) -> TestResult<Value> {
@@ -426,8 +609,9 @@ mod linux {
             let started = Instant::now();
             let output = self.operations.command.exec_command(ExecCommandInput {
                 workspace_session_id: Some(session_id),
-                cmd: "printf 'pty-ready\\n'; read line; printf 'pty:%s\\n' \"$line\"; sleep 30"
-                    .to_owned(),
+                cmd:
+                    "printf 'pty-ready\\n'; while read line; do printf 'pty:%s\\n' \"$line\"; done"
+                        .to_owned(),
                 timeout_ms: Some(60_000),
                 yield_time_ms: Some(1),
             })?;
@@ -466,6 +650,60 @@ mod linux {
             Ok(measured_response("pty-drain", latency_ns))
         }
 
+        fn pty_write(&mut self) -> TestResult<Value> {
+            let mut response = self.pty_drain()?;
+            response["operation"] = json!("pty-write");
+            Ok(response)
+        }
+
+        fn pty_create_cycle(&mut self) -> TestResult<Value> {
+            let mut response = self.pty_create()?;
+            self.cancel_interactive()?;
+            response["operation"] = json!("pty-create-cycle");
+            Ok(response)
+        }
+
+        fn pty_drain_cycle(&mut self) -> TestResult<Value> {
+            self.pty_create()?;
+            let mut response = self.pty_drain()?;
+            self.cancel_interactive()?;
+            response["operation"] = json!("pty-drain-cycle");
+            Ok(response)
+        }
+
+        fn pty_write_cycle(&mut self) -> TestResult<Value> {
+            self.pty_create()?;
+            let mut response = self.pty_drain()?;
+            self.cancel_interactive()?;
+            response["operation"] = json!("pty-write-cycle");
+            Ok(response)
+        }
+
+        fn pty_control_cycle(&mut self, operation: &str, control: &str) -> TestResult<Value> {
+            self.pty_create()?;
+            let command_session_id = self
+                .interactive_command_id
+                .take()
+                .ok_or("benchmark interactive command is inactive")?;
+            let started = Instant::now();
+            let output = self
+                .operations
+                .command
+                .write_command_stdin(WriteCommandStdinInput {
+                    command_session_id,
+                    stdin: control.to_owned(),
+                    yield_time_ms: Some(1_000),
+                })?;
+            let latency_ns = elapsed_ns(started);
+            if output.status != CommandStatus::Cancelled {
+                return Err(format!(
+                    "benchmark {operation} did not reach the exact cancelled state"
+                )
+                .into());
+            }
+            Ok(measured_response(operation, latency_ns))
+        }
+
         fn cancel_interactive(&mut self) -> TestResult {
             if let Some(command_session_id) = self.interactive_command_id.take() {
                 let output =
@@ -496,7 +734,7 @@ mod linux {
             self.deactivate()?;
             if self.mode == BenchmarkMode::Strict {
                 assert_strict_route(&self.operations)?;
-                let route_after = self.operations.observe_layerstack()?.route.native_route;
+                let route_after = self.operations.observe_layerstack_route().native_route;
                 assert_zero_forbidden_work(&self.route_before, &route_after);
             }
             if !self.operations.shutdown().is_complete() {
@@ -511,6 +749,16 @@ mod linux {
             "status": "ok",
             "operation": operation,
             "latency_ns": latency_ns,
+        })
+    }
+
+    fn work_response(operation: &str, latency_ns: u64, bytes: usize, operations: usize) -> Value {
+        json!({
+            "status": "ok",
+            "operation": operation,
+            "latency_ns": latency_ns,
+            "bytes": bytes,
+            "operations": operations,
         })
     }
 
@@ -1034,6 +1282,17 @@ mod linux {
             std::fs::write(workspace_root.join("README.md"), "candidate-v1\n")?;
             std::fs::write(workspace_root.join("base-only.txt"), "base\n")?;
             std::fs::write(workspace_root.join("benchmark.txt"), "x".repeat(4_096))?;
+            std::fs::write(
+                workspace_root.join("benchmark-128k.txt"),
+                "x".repeat(128 * 1024),
+            )?;
+            let mut benchmark_1m = String::with_capacity(1024 * 1024);
+            for _ in 0..255 {
+                benchmark_1m.push_str(&"x".repeat(4 * 1024));
+                benchmark_1m.push('\n');
+            }
+            benchmark_1m.push_str(&"x".repeat(1024 * 1024 - benchmark_1m.len()));
+            std::fs::write(workspace_root.join("benchmark-1m.txt"), benchmark_1m)?;
             build_workspace_base(&layer_stack_root, &workspace_root, false)?;
             let fixture = Self {
                 root,
@@ -1046,7 +1305,13 @@ mod linux {
                 fixture.root.join("workspace-root"),
                 fixture.workspace_root.to_string_lossy().as_bytes(),
             )?;
-            fixture.publish(&["README.md", "base-only.txt", "benchmark.txt"])?;
+            fixture.publish(&[
+                "README.md",
+                "base-only.txt",
+                "benchmark.txt",
+                "benchmark-128k.txt",
+                "benchmark-1m.txt",
+            ])?;
             Ok(fixture)
         }
 

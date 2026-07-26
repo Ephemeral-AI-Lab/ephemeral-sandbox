@@ -235,6 +235,8 @@ fn runtime_operation_catalog_exports_only_public_runtime_operations() {
             "file",
             "daemon_http",
             "layerstack_baseline",
+            "layerstack_phase1",
+            "layerstack-phase1.portable-root",
             "network_isolation",
             "reserved_paths",
             "shell_security",

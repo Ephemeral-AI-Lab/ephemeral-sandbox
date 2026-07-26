@@ -2,23 +2,33 @@
 //! minimal output contract, singleflight faults, and the per-session
 //! admission gate as the single serializer.
 
+#[cfg(target_os = "linux")]
 use std::path::PathBuf;
+#[cfg(target_os = "linux")]
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(target_os = "linux")]
 use sandbox_observability_telemetry::record::{names, proc};
+#[cfg(target_os = "linux")]
 use sandbox_observability_telemetry::{
     sample_layerstack, Observer, ObserverConfig, RawFilter, Reader, Record, Sink, Span, SpanStatus,
     TraceContext, WalkBudget,
 };
 use sandbox_operation_contract::{OperationRequest, OperationScope, OperationScopeKind};
-use sandbox_runtime::workspace_session::{SweptDisposition, WorkspaceSessionService};
+use sandbox_runtime::workspace_session::SweptDisposition;
+#[cfg(target_os = "linux")]
+use sandbox_runtime::workspace_session::WorkspaceSessionService;
 use sandbox_runtime::SandboxRuntimeOperations;
-use sandbox_runtime_layerstack::{manifest_root_hash, LayerChange, LayerPath, LayerStack};
+#[cfg(target_os = "linux")]
+use sandbox_runtime_layerstack::manifest_root_hash;
+use sandbox_runtime_layerstack::{LayerChange, LayerPath, LayerStack};
 use sandbox_runtime_workspace::NetworkProfile;
 use sandbox_runtime_workspace::WorkspaceSessionId;
-use serde_json::{json, Value};
+use serde_json::json;
+#[cfg(target_os = "linux")]
+use serde_json::Value;
 
 mod support;
 use support::FakeWorkspaceService;
@@ -65,11 +75,13 @@ fn publish(root: &std::path::Path, path: &str, content: &str) {
         .expect("publish");
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn enabled_observer_records_exact_squash_tree_at_zero_live_sessions() {
     assert_enabled_squash_trace(0);
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn enabled_observer_records_exact_squash_tree_at_nonzero_live_sessions() {
     assert_enabled_squash_trace(2);
@@ -90,6 +102,7 @@ fn squash_layerstack_is_internal_and_absent_from_the_public_catalog() {
 // Test 17: the result carries exactly manifest_version + squashed_blocks +
 // swept_sessions (+ faulty_sessions only when non-empty); blocked blocks carry
 // non-empty free-form reasons; nothing-to-squash is the state speaking for itself.
+#[cfg(target_os = "linux")]
 #[test]
 fn squash_output_contract() {
     let (operations, root) = operations_with_real_layerstack();
@@ -136,6 +149,7 @@ fn squash_output_contract() {
 
 // A leased block reports non-empty blocked_reasons even when no live session
 // maps to the pinning lease (the plan-window holder fallback).
+#[cfg(target_os = "linux")]
 #[test]
 fn squash_reports_leased_blocks_with_reasons() {
     let (operations, root) = operations_with_real_layerstack();
@@ -270,6 +284,7 @@ fn admission_gate_serializes_destroy_against_file_ops() {
     assert_eq!(services.workspace.gate_entry_count(), 0);
 }
 
+#[cfg(target_os = "linux")]
 fn assert_enabled_squash_trace(live_sessions: usize) {
     let trace_id = format!("req-squash-trace-{live_sessions}");
     let log = TempTraceLog::new(&trace_id);
@@ -462,6 +477,7 @@ fn assert_enabled_squash_trace(live_sessions: usize) {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn observed_operations(
     observer: Observer,
     live_sessions: usize,
@@ -493,6 +509,7 @@ fn observed_operations(
     )
 }
 
+#[cfg(target_os = "linux")]
 fn only_span<'a>(spans: &'a [Span], name: &str) -> &'a Span {
     let matches = spans
         .iter()
@@ -502,21 +519,25 @@ fn only_span<'a>(spans: &'a [Span], name: &str) -> &'a Span {
     matches[0]
 }
 
+#[cfg(target_os = "linux")]
 fn attrs(value: Value) -> serde_json::Map<String, Value> {
     value.as_object().expect("attrs object").clone()
 }
 
+#[cfg(target_os = "linux")]
 fn sorted_attr_keys(span: &Span) -> Vec<&str> {
     let mut keys = span.attrs.keys().map(String::as_str).collect::<Vec<_>>();
     keys.sort_unstable();
     keys
 }
 
+#[cfg(target_os = "linux")]
 struct TempTraceLog {
     root: PathBuf,
     path: PathBuf,
 }
 
+#[cfg(target_os = "linux")]
 impl TempTraceLog {
     fn new(label: &str) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -534,6 +555,7 @@ impl TempTraceLog {
     }
 }
 
+#[cfg(target_os = "linux")]
 impl Drop for TempTraceLog {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.root);

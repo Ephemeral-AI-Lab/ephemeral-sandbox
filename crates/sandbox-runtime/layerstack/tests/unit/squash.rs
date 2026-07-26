@@ -1,16 +1,24 @@
+#[cfg(target_os = "linux")]
 use std::os::unix::fs::{symlink, MetadataExt, PermissionsExt};
+#[cfg(target_os = "linux")]
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
+#[cfg(target_os = "linux")]
+use std::sync::atomic::Ordering;
 
+#[cfg(target_os = "linux")]
 use crate::stack::squash::flatten::flatten_block_into_with_lower;
+#[cfg(target_os = "linux")]
 use crate::whiteout::{is_kernel_whiteout, logical_whiteout_path_for_target, OPAQUE_MARKER};
 
+#[cfg(target_os = "linux")]
 struct FlattenFixture {
     base: PathBuf,
 }
 
 static NEXT_FLATTEN_TEST: AtomicU64 = AtomicU64::new(0);
 
+#[cfg(target_os = "linux")]
 impl FlattenFixture {
     fn new(label: &str) -> Self {
         let base = std::env::temp_dir().join(format!(
@@ -51,12 +59,14 @@ impl FlattenFixture {
     }
 }
 
+#[cfg(target_os = "linux")]
 impl Drop for FlattenFixture {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.base);
     }
 }
 
+#[cfg(target_os = "linux")]
 fn write(path: &Path, content: &str) {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).expect("mkdir");
@@ -66,6 +76,7 @@ fn write(path: &Path, content: &str) {
 
 // Portable whiteout fixture: a zero-length file carrying the
 // user.overlay.whiteout xattr (one of the accepted kernel encodings).
+#[cfg(target_os = "linux")]
 fn write_xattr_whiteout(path: &Path) {
     write(path, "");
     rustix::fs::lsetxattr(
@@ -77,10 +88,12 @@ fn write_xattr_whiteout(path: &Path) {
     .expect("set whiteout xattr");
 }
 
+#[cfg(target_os = "linux")]
 fn is_whiteout_at(path: &Path) -> bool {
     is_kernel_whiteout(path) || logical_whiteout_path_for_target(path).exists()
 }
 
+#[cfg(target_os = "linux")]
 fn dir_is_opaque(path: &Path) -> bool {
     let marker = path.join(OPAQUE_MARKER);
     let mut value = [0_u8; 1];
@@ -96,6 +109,7 @@ fn dir_is_opaque(path: &Path) -> bool {
     marker_ok && xattr
 }
 
+#[cfg(target_os = "linux")]
 fn visible_names(dir: &Path) -> Vec<String> {
     let mut names: Vec<String> = std::fs::read_dir(dir)
         .expect("read dir")
@@ -112,6 +126,7 @@ fn visible_names(dir: &Path) -> Vec<String> {
     names
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_newest_wins_and_hardlinks_whole_files() {
     let fixture = FlattenFixture::new("newest-wins");
@@ -150,6 +165,7 @@ fn flatten_newest_wins_and_hardlinks_whole_files() {
     );
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_reemits_winning_whiteouts_both_encodings() {
     let fixture = FlattenFixture::new("whiteout-encodings");
@@ -175,6 +191,7 @@ fn flatten_reemits_winning_whiteouts_both_encodings() {
     );
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_drops_whiteout_shadowed_by_newer_file() {
     let fixture = FlattenFixture::new("shadowed-whiteout");
@@ -194,6 +211,7 @@ fn flatten_drops_whiteout_shadowed_by_newer_file() {
     );
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_opaque_marker_cuts_block_and_reemits_dual_encoding() {
     let fixture = FlattenFixture::new("opaque-cut");
@@ -214,6 +232,7 @@ fn flatten_opaque_marker_cuts_block_and_reemits_dual_encoding() {
     );
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_dir_over_whiteout_composes_opaque_dir() {
     let fixture = FlattenFixture::new("dir-over-whiteout");
@@ -233,6 +252,7 @@ fn flatten_dir_over_whiteout_composes_opaque_dir() {
     );
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_dir_over_file_composes_opaque_dir() {
     let fixture = FlattenFixture::new("dir-over-file");
@@ -249,6 +269,7 @@ fn flatten_dir_over_file_composes_opaque_dir() {
     assert!(dir_is_opaque(&staging.join("dof")));
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_dir_created_then_emptied_survives_plain() {
     let fixture = FlattenFixture::new("dir-emptied");
@@ -271,6 +292,7 @@ fn flatten_dir_created_then_emptied_survives_plain() {
     assert!(!staging.join("emptied").join(OPAQUE_MARKER).exists());
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_merges_dirs_across_all_layers_without_terminators() {
     let fixture = FlattenFixture::new("plain-merge");
@@ -291,6 +313,7 @@ fn flatten_merges_dirs_across_all_layers_without_terminators() {
     assert!(!staging.join(OPAQUE_MARKER).exists());
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_preserves_file_and_dir_modes() {
     let fixture = FlattenFixture::new("modes");
@@ -324,6 +347,7 @@ fn flatten_preserves_file_and_dir_modes() {
     assert_eq!(dir_mode, 0o750);
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_never_follows_symlinks() {
     let fixture = FlattenFixture::new("no-follow");
@@ -352,6 +376,7 @@ fn flatten_never_follows_symlinks() {
     assert!(swap.file_type().is_symlink());
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_same_layer_logical_whiteout_beats_same_layer_file() {
     let fixture = FlattenFixture::new("tie");
@@ -371,6 +396,7 @@ fn flatten_same_layer_logical_whiteout_beats_same_layer_file() {
     );
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_drops_in_block_create_delete_without_lower_target() {
     let fixture = FlattenFixture::new("drop-net-nothing");
@@ -386,6 +412,7 @@ fn flatten_drops_in_block_create_delete_without_lower_target() {
     assert!(!is_whiteout_at(&staging.join("d/drop")));
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_drops_xattr_create_delete_without_lower_target() {
     let fixture = FlattenFixture::new("drop-net-nothing-xattr");
@@ -401,6 +428,7 @@ fn flatten_drops_xattr_create_delete_without_lower_target() {
     assert!(!is_whiteout_at(&staging.join("d/drop")));
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_reemits_whiteout_for_visible_lower_target() {
     let fixture = FlattenFixture::new("lower-visible-whiteout");
@@ -420,6 +448,7 @@ fn flatten_reemits_whiteout_for_visible_lower_target() {
     );
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_shadowed_subtree_dropped_under_file_winner() {
     let fixture = FlattenFixture::new("subtree-drop");
@@ -438,6 +467,7 @@ fn flatten_shadowed_subtree_dropped_under_file_winner() {
     );
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn flatten_rejects_blocks_smaller_than_two_layers() {
     let fixture = FlattenFixture::new("too-small");
@@ -720,7 +750,9 @@ mod squash_transaction_tests {
     use std::sync::atomic::Ordering;
 
     use crate::stack::squash::partition_blocks;
-    use crate::stack::{SquashOutcome, SquashedBlock, SweepReport};
+    use crate::stack::SweepReport;
+    #[cfg(target_os = "linux")]
+    use crate::stack::{SquashOutcome, SquashedBlock};
     use crate::{LayerChange, LayerPath, LayerRef, LayerStack, Manifest};
 
     use super::NEXT_FLATTEN_TEST;
@@ -842,6 +874,7 @@ mod squash_transaction_tests {
 
     // Test 20 (B1): the only deletion path at commit is the plan-lease
     // release; its removed set is exactly what left the disk.
+    #[cfg(target_os = "linux")]
     #[test]
     fn commit_gc_is_plan_lease_release() {
         let fixture = SquashFixture::new("gc-release");
@@ -888,6 +921,7 @@ mod squash_transaction_tests {
 
     // Test 3: a lease acquired between plan and commit pins the sources; the
     // commit GC (registry at commit instant) deletes nothing.
+    #[cfg(target_os = "linux")]
     #[test]
     fn commit_gc_never_deletes_layers_leased_after_plan() {
         let fixture = SquashFixture::new("late-lease");
@@ -920,6 +954,7 @@ mod squash_transaction_tests {
     // Test 4: racing publishes only prepend, so the run-presence recheck
     // compacts through them; a broken run aborts as a storage error with the
     // old manifest intact.
+    #[cfg(target_os = "linux")]
     #[test]
     fn commit_recheck_compacts_through_racing_publish_or_aborts_cleanly() {
         let fixture = SquashFixture::new("recheck");
@@ -978,6 +1013,7 @@ mod squash_transaction_tests {
 
     // Test 5: singleflight per root — a second invocation fails cleanly while
     // the first outcome (spanning the sweep) is alive.
+    #[cfg(target_os = "linux")]
     #[test]
     fn squash_singleflight_per_root() {
         let fixture = SquashFixture::new("singleflight");
@@ -996,6 +1032,7 @@ mod squash_transaction_tests {
     // Test 6: crash shape (orphan promoted S dir + old manifest) is reclaimed
     // by the boot sweep; a non-crash post-promote failure removes the
     // promoted S dirs in-process.
+    #[cfg(target_os = "linux")]
     #[test]
     fn crash_and_error_paths_around_commit() {
         let fixture = SquashFixture::new("crash-shape");
@@ -1045,6 +1082,7 @@ mod squash_transaction_tests {
     // Build failures inside squash() abort cleanly: staging is removed and
     // the plan lease is released (a socket file is an unsupported source
     // entry type, a natural fault with no in-src injection).
+    #[cfg(target_os = "linux")]
     #[test]
     fn build_failure_aborts_squash_cleanly() {
         let fixture = SquashFixture::new("build-fail");
@@ -1080,6 +1118,7 @@ mod squash_transaction_tests {
     // Test 7: exactly one syncfs on the storage-root fd, after promote and
     // before the manifest rename, independent of entry count; commit leaves
     // content, whiteouts, and symlinks intact.
+    #[cfg(target_os = "linux")]
     #[test]
     fn syncfs_commit_durability() {
         let fixture = SquashFixture::new("syncfs");
@@ -1158,6 +1197,7 @@ mod squash_transaction_tests {
 
     // Test 13: a shared run pinned by a second lease survives the first
     // release; refcount zero reclaims it (with both sidecars).
+    #[cfg(target_os = "linux")]
     #[test]
     fn old_layers_not_deleted_until_refcount_zero() {
         let fixture = SquashFixture::new("refcount");
@@ -1300,6 +1340,7 @@ mod squash_transaction_tests {
 
     // Test 21: S layers carry zero sidecars; publish on top of S proceeds
     // (dedup miss is silent) and the substitution map serves the rewrite.
+    #[cfg(target_os = "linux")]
     #[test]
     fn squash_commits_with_no_s_layer_sidecars() {
         let fixture = SquashFixture::new("no-sidecars");

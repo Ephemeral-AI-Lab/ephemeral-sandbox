@@ -5,6 +5,7 @@
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
+#[cfg(target_os = "linux")]
 use crate::stack::squash::flatten::flatten_block_into_with_lower;
 use crate::stack::{
     delta_layer_refs, describe_layer_delta, fold_delta_winners, DeltaFold, DeltaWinner,
@@ -393,6 +394,7 @@ fn fold_matches_merged_view_over_the_delta_manifest() {
     }
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn fold_agrees_with_flatten_on_winner_selection() {
     let fixture = DeltaFixture::new("flatten-crosscheck");

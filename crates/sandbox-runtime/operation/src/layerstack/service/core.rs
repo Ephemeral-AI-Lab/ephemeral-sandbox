@@ -34,7 +34,7 @@ pub struct LayerStackService {
     pub(crate) autosquash_queue: Option<Arc<AutosquashQueue>>,
     pub(crate) export_spools: Mutex<HashMap<String, ExportSpool>>,
     active_lease_counter: sandbox_runtime_layerstack::ActiveLeaseCounter,
-    _route_observation: sandbox_runtime_layerstack::HiddenValidationObservation,
+    route_observation: sandbox_runtime_layerstack::HiddenValidationObservation,
     pub(super) hidden_validation: Option<HiddenValidationWorker>,
 }
 
@@ -94,7 +94,7 @@ impl LayerStackService {
             autosquash_queue,
             export_spools: Mutex::new(HashMap::new()),
             active_lease_counter,
-            _route_observation: hidden_observation,
+            route_observation: hidden_observation,
             hidden_validation,
         })
     }
@@ -107,6 +107,16 @@ impl LayerStackService {
     #[must_use]
     pub fn active_lease_count(&self) -> usize {
         self.active_lease_counter.active_lease_count()
+    }
+
+    /// In-memory route accounting for latency-sensitive observability.
+    ///
+    /// This deliberately excludes manifest and lease topology; callers that
+    /// require those fields must use the full stack observation.
+    #[must_use]
+    pub fn observe_route(&self) -> sandbox_runtime_layerstack::service::LayerStackRouteSnapshot {
+        self.route_observation
+            .observe_route(self.active_lease_count())
     }
 
     #[must_use]

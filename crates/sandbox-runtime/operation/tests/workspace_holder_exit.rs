@@ -1080,6 +1080,11 @@ fn publish_required_last_command_completion_after_holder_exit_routes_to_recovery
     );
     wait_until(Duration::from_secs(1), || {
         services.command.active_namespace_executions().is_empty()
+            && services
+                .workspace
+                .holder_lifecycle_snapshot()
+                .cleanup_terminal_total
+                == 1
     });
 
     let recovery_root = layerstack

@@ -39,6 +39,33 @@ use sha2::{Digest as _, Sha256};
 type TestResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
 const TOPOLOGY_REQUEST: DaemonMetricsRequestClass = DaemonMetricsRequestClass::Topology;
 
+#[cfg(feature = "jemalloc")]
+fn assert_selected_allocator_shape(allocator: &Value) {
+    assert_eq!(allocator["supported"], true);
+    for field in [
+        "allocated_bytes",
+        "active_bytes",
+        "mapped_bytes",
+        "resident_bytes",
+    ] {
+        assert!(allocator[field].as_u64().is_some(), "missing {field}");
+    }
+}
+
+#[cfg(not(feature = "jemalloc"))]
+fn assert_selected_allocator_shape(allocator: &Value) {
+    assert_eq!(
+        allocator,
+        &json!({
+            "supported": false,
+            "allocated_bytes": null,
+            "active_bytes": null,
+            "mapped_bytes": null,
+            "resident_bytes": null,
+        })
+    );
+}
+
 #[test]
 fn adapter_maps_concrete_runtime_snapshot_into_neutral_input() {
     let snapshot = crate::observability::adapter::map_snapshot(RuntimeObservabilitySnapshot {
@@ -89,6 +116,7 @@ fn adapter_maps_concrete_runtime_snapshot_into_neutral_input() {
 }
 
 #[test]
+#[cfg(feature = "jemalloc")]
 fn selected_allocator_is_bounded_and_reports_native_process_totals() {
     assert_eq!(
         tikv_jemalloc_ctl::config::malloc_conf::read().expect("malloc conf"),
@@ -108,6 +136,15 @@ fn selected_allocator_is_bounded_and_reports_native_process_totals() {
     assert!(metrics.active_bytes.is_some());
     assert!(metrics.mapped_bytes.is_some());
     assert!(metrics.resident_bytes.is_some());
+}
+
+#[test]
+#[cfg(not(feature = "jemalloc"))]
+fn selected_system_allocator_reports_metrics_as_unsupported() {
+    assert_eq!(
+        crate::observability::allocator::collect_current(),
+        sandbox_observability_telemetry::collect::process_topology::DaemonAllocatorMetrics::default()
+    );
 }
 
 #[test]
@@ -1195,15 +1232,7 @@ async fn concrete_observability_operations_dispatch_end_to_end() -> TestResult {
         })
     );
     let allocator = &topology["topology"]["daemon"]["allocator"];
-    assert_eq!(allocator["supported"], true);
-    for field in [
-        "allocated_bytes",
-        "active_bytes",
-        "mapped_bytes",
-        "resident_bytes",
-    ] {
-        assert!(allocator[field].as_u64().is_some(), "missing {field}");
-    }
+    assert_selected_allocator_shape(allocator);
     assert_eq!(
         topology["topology"]["daemon"]["diagnostics"],
         json!({
@@ -1239,15 +1268,7 @@ async fn concrete_observability_operations_dispatch_end_to_end() -> TestResult {
     assert_eq!(daemon["daemon"]["runtime_usage"]["active_async_tasks"], 0);
     assert_eq!(daemon["daemon"]["ownership"]["open_workspaces"], 0);
     let allocator = &daemon["daemon"]["allocator"];
-    assert_eq!(allocator["supported"], true);
-    for field in [
-        "allocated_bytes",
-        "active_bytes",
-        "mapped_bytes",
-        "resident_bytes",
-    ] {
-        assert!(allocator[field].as_u64().is_some(), "missing {field}");
-    }
+    assert_selected_allocator_shape(allocator);
     assert!(daemon.get("topology").is_none());
     assert!(daemon.get("series").is_none());
 

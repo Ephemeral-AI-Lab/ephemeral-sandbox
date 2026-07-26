@@ -25,7 +25,7 @@ mod fs {
 mod service {
     pub(crate) use sandbox_runtime_layerstack::service::{
         LayerStackResourceSnapshot, LayerStackRouteSnapshot, NativeRouteCounters, StorageAuthority,
-        StorageRolloutMode,
+        StorageRolloutMode, WriterLockMetrics,
     };
 }
 
@@ -89,8 +89,8 @@ fn legacy_route_and_owned_resources_are_bounded_and_released(
     assert_eq!(initial.route.shadow_completed_count, 0);
     assert_eq!(initial.route.native_route, NativeRouteCounters::default());
     assert!(initial.resources.logical_cleanup_complete);
-    assert_eq!(initial.resources.open_file_descriptors, None);
-    assert_eq!(initial.resources.mapped_bytes, None);
+    assert_eq!(initial.resources.open_file_descriptors, Some(0));
+    assert_eq!(initial.resources.mapped_bytes, Some(0));
 
     stack.publish_layer(&[LayerChange::Write {
         path: LayerPath::parse("evidence.txt")?,
@@ -147,6 +147,56 @@ fn legacy_route_and_owned_resources_are_bounded_and_released(
 }
 
 #[test]
+fn materialization_resource_guards_report_exact_high_water_and_settle() {
+    let state = Arc::new(observation_impl::StorageObservationState::default());
+    let observation = observation_impl::HiddenValidationObservation::new(Arc::clone(&state));
+
+    let owner = observation.begin_materialization_owner();
+    let waiter = observation.begin_materialization_waiter();
+    let mut target = observation.begin_materialization_target(64 * 1024, 16);
+    target.reserve_workspace(2 * 1024 * 1024);
+
+    let (_, active) = state.observe_with_writer_lock(0, service::WriterLockMetrics::default());
+    assert_eq!(active.active_operations, 1);
+    assert_eq!(active.materialization_owners, 1);
+    assert_eq!(active.materialization_waiters, 1);
+    assert_eq!(active.materialization_targets, 1);
+    assert_eq!(active.materialization_byte_reservations, 64 * 1024);
+    assert_eq!(active.materialization_workspace_bytes, 2 * 1024 * 1024);
+    assert_eq!(active.open_file_descriptors, Some(16));
+    assert_eq!(active.mapped_bytes, Some(0));
+    assert!(!active.logical_cleanup_complete);
+
+    drop(target);
+    drop(waiter);
+    drop(owner);
+
+    let (_, settled) = state.observe_with_writer_lock(0, service::WriterLockMetrics::default());
+    assert_eq!(settled.active_operations, 0);
+    assert_eq!(settled.materialization_owners, 0);
+    assert_eq!(settled.materialization_waiters, 0);
+    assert_eq!(settled.materialization_targets, 0);
+    assert_eq!(settled.materialization_byte_reservations, 0);
+    assert_eq!(settled.materialization_workspace_bytes, 0);
+    assert_eq!(settled.open_file_descriptors, Some(0));
+    assert_eq!(settled.high_water_active_operations, 1);
+    assert_eq!(settled.high_water_materialization_owners, 1);
+    assert_eq!(settled.high_water_materialization_waiters, 1);
+    assert_eq!(settled.high_water_materialization_targets, 1);
+    assert_eq!(
+        settled.high_water_materialization_byte_reservations,
+        64 * 1024
+    );
+    assert_eq!(
+        settled.high_water_materialization_workspace_bytes,
+        2 * 1024 * 1024
+    );
+    assert_eq!(settled.high_water_open_file_descriptors, Some(16));
+    assert_eq!(settled.high_water_mapped_bytes, Some(0));
+    assert!(settled.logical_cleanup_complete);
+}
+
+#[test]
 fn observation_failure_is_read_only() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let fixture = Fixture::new("failure-read-only")?;
     let stack = LayerStack::open(fixture.root.clone())?;
@@ -169,7 +219,8 @@ fn observation_counters_saturate_without_wrapping() {
     let counter = AtomicU64::new(u64::MAX - 1);
 
     state.add(&counter, 4);
-    let (route, resources) = state.observe(0);
+    let (route, resources) =
+        state.observe_with_writer_lock(0, service::WriterLockMetrics::default());
 
     assert_eq!(counter.load(Ordering::Relaxed), u64::MAX);
     assert!(route.counter_saturated);
@@ -186,7 +237,7 @@ fn native_route_progress_and_forbidden_work_are_accounted_separately() {
     observation.record_native_lookup_validation();
     observation.record_native_admission();
     observation.record_native_mount();
-    let (warm, _) = state.observe(1);
+    let (warm, _) = state.observe_with_writer_lock(1, service::WriterLockMetrics::default());
 
     assert_eq!(warm.configured_mode, StorageRolloutMode::StrictCandidate);
     assert_eq!(warm.write_authority, StorageAuthority::LegacyV1);
@@ -207,13 +258,13 @@ fn native_route_progress_and_forbidden_work_are_accounted_separately() {
     assert_eq!(warm.native_route.fallback_count, 0);
 
     observation.record_native_materialization();
-    let (cold, _) = state.observe(2);
+    let (cold, _) = state.observe_with_writer_lock(2, service::WriterLockMetrics::default());
     assert_eq!(cold.native_route.materialization_count, 1);
     assert_eq!(cold.native_route.object_traversal_count, 1);
     assert_eq!(cold.native_route.hash_count, 1);
 
     observation.record_native_fallback();
-    let (fallback, _) = state.observe(3);
+    let (fallback, _) = state.observe_with_writer_lock(3, service::WriterLockMetrics::default());
     assert_eq!(fallback.native_route.fallback_count, 1);
     assert_eq!(fallback.fallback_count, 1);
 }

@@ -535,6 +535,12 @@ fn internal_handler_wiring(identifier: &str) -> Option<(&str, &str, &str, &str)>
             "DESTROY_WORKSPACE_SESSION_ENTRY",
             "workspace_session_operations::internal_operation_entries()",
         )),
+        "CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER" => Some((
+            "operations/registry/workspace_session_operations.rs",
+            "INTERNAL_OPERATIONS",
+            "CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER_ENTRY",
+            "workspace_session_operations::internal_operation_entries()",
+        )),
         "SQUASH_LAYERSTACK" => Some((
             "layerstack/service/impls/squash.rs",
             "OPERATIONS",
@@ -1184,16 +1190,37 @@ fn owner_after(block: &str, marker: &str) -> Option<Owner> {
 
 fn string_constants(source: &str) -> BTreeMap<String, String> {
     let mut constants = BTreeMap::new();
-    for line in source.lines() {
-        let Some(rest) = line.trim().strip_prefix("pub const ") else {
+    for (start, declaration) in source.match_indices("pub const ") {
+        let rest = &source[start + declaration.len()..];
+        let identifier_len = rest
+            .chars()
+            .take_while(|character| character.is_ascii_alphanumeric() || *character == '_')
+            .map(char::len_utf8)
+            .sum::<usize>();
+        if identifier_len == 0 {
+            continue;
+        }
+        let identifier = &rest[..identifier_len];
+        let Some(after_type) = rest[identifier_len..]
+            .trim_start()
+            .strip_prefix(':')
+            .map(str::trim_start)
+            .and_then(|rest| rest.strip_prefix("&str"))
+        else {
             continue;
         };
-        let Some((identifier, value)) = rest.split_once(": &str = \"") else {
+        let Some(value) = after_type
+            .trim_start()
+            .strip_prefix('=')
+            .map(str::trim_start)
+            .and_then(|rest| rest.strip_prefix('"'))
+        else {
             continue;
         };
-        let Some(value) = value.strip_suffix("\";") else {
+        let Some(end) = value.find('"') else {
             continue;
         };
+        let value = &value[..end];
         constants.insert(identifier.to_owned(), value.to_owned());
     }
     constants

@@ -84,7 +84,7 @@ pub(crate) struct ContainerResourceMetrics {
 
 type ResourceMetricsBatch = Vec<Result<ContainerResourceMetrics, DockerError>>;
 
-struct ResourceMetricsExecutor {
+pub(crate) struct ResourceMetricsExecutor {
     runtime: tokio::runtime::Runtime,
     docker: Docker,
 }
@@ -108,11 +108,6 @@ impl ResourceMetricsExecutor {
             &self.docker,
             containers,
         )))
-    }
-
-    #[cfg(test)]
-    fn identity(&self) -> usize {
-        std::ptr::from_ref(self).addr()
     }
 }
 
@@ -140,7 +135,7 @@ pub(crate) struct RecoveredContainer {
 
 pub(crate) struct DockerEngine {
     config: DockerRuntimeConfig,
-    resource_metrics_executor: Mutex<Option<ResourceMetricsExecutor>>,
+    pub(crate) resource_metrics_executor: Mutex<Option<ResourceMetricsExecutor>>,
 }
 
 impl DockerEngine {
@@ -892,67 +887,5 @@ fn server_status(error: &bollard::errors::Error) -> Option<u16> {
     match error {
         bollard::errors::Error::DockerResponseServerError { status_code, .. } => Some(*status_code),
         _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn resource_metrics_batches_reuse_one_lazy_executor() {
-        let engine = DockerEngine::new(DockerRuntimeConfig::default());
-        assert!(engine
-            .resource_metrics_executor
-            .lock()
-            .expect("resource metrics executor lock")
-            .is_none());
-
-        assert!(engine
-            .container_resource_metrics_batch(Vec::new())
-            .expect("first empty metrics batch")
-            .is_empty());
-        let first_executor = engine
-            .resource_metrics_executor
-            .lock()
-            .expect("resource metrics executor lock")
-            .as_ref()
-            .map(ResourceMetricsExecutor::identity)
-            .expect("resource metrics executor");
-
-        assert!(engine
-            .container_resource_metrics_batch(Vec::new())
-            .expect("second empty metrics batch")
-            .is_empty());
-        let second_executor = engine
-            .resource_metrics_executor
-            .lock()
-            .expect("resource metrics executor lock")
-            .as_ref()
-            .map(ResourceMetricsExecutor::identity)
-            .expect("resource metrics executor");
-
-        assert_eq!(first_executor, second_executor);
-    }
-
-    #[test]
-    fn resource_metrics_batch_uses_safe_fallback_inside_tokio_runtime() {
-        let engine = DockerEngine::new(DockerRuntimeConfig::default());
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("test runtime");
-
-        runtime.block_on(async {
-            assert!(engine
-                .container_resource_metrics_batch(Vec::new())
-                .expect("empty metrics batch inside Tokio runtime")
-                .is_empty());
-        });
-        assert!(engine
-            .resource_metrics_executor
-            .lock()
-            .expect("resource metrics executor lock")
-            .is_none());
     }
 }

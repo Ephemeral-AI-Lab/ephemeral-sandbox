@@ -9,7 +9,9 @@ use sandbox_observability_telemetry::{
 };
 use sandbox_runtime::layerstack::LayerStackService;
 use sandbox_runtime::{LayerstackRuntimeConfig, SandboxRuntimeOperations};
-use sandbox_runtime_layerstack::{LayerChange, LayerPath, LayerStack};
+#[cfg(target_os = "linux")]
+use sandbox_runtime_layerstack::LayerChange;
+use sandbox_runtime_layerstack::{LayerPath, LayerStack};
 
 mod support;
 
@@ -36,6 +38,7 @@ fn omitted_policy_starts_no_worker_and_never_squashes() {
     }));
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn exact_threshold_squashes_and_records_the_exact_internal_trace_tree() {
     let log = TempTraceLog::new("threshold");
@@ -167,6 +170,7 @@ fn exact_threshold_squashes_and_records_the_exact_internal_trace_tree() {
     }));
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn startup_rechecks_an_existing_above_threshold_manifest() {
     let log = TempTraceLog::new("startup");
@@ -292,6 +296,7 @@ fn layer_commit_evaluation_starts_an_internal_root_trace() {
     }));
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn an_existing_s_layer_counts_toward_the_threshold() {
     let log = TempTraceLog::new("s-layer-count");
@@ -439,6 +444,7 @@ fn amend(layerstack: &LayerStackService, path: &str, content: &[u8]) {
         .expect("amend succeeds");
 }
 
+#[cfg(target_os = "linux")]
 fn publish(root: &Path, path: &str, content: &[u8]) {
     let mut stack = LayerStack::open(root.to_path_buf()).expect("open layerstack");
     stack
@@ -488,6 +494,7 @@ fn wait_for(timeout: Duration, mut condition: impl FnMut() -> bool) {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn only_span<'a>(
     spans: &'a [&sandbox_observability_telemetry::Span],
     name: &str,
@@ -501,6 +508,7 @@ fn only_span<'a>(
     matches[0]
 }
 
+#[cfg(target_os = "linux")]
 fn sorted_keys(attrs: &serde_json::Map<String, serde_json::Value>) -> Vec<&str> {
     let mut keys = attrs.keys().map(String::as_str).collect::<Vec<_>>();
     keys.sort_unstable();

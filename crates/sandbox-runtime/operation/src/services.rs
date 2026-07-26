@@ -9,7 +9,7 @@ use rustix::io::Errno;
 #[cfg(target_os = "linux")]
 use rustix::mount::{unmount, UnmountFlags};
 use sandbox_observability_telemetry::Observer;
-use sandbox_runtime_layerstack::service::StackObservation;
+use sandbox_runtime_layerstack::service::{LayerStackRouteSnapshot, StackObservation};
 
 use crate::command::CommandOperationService;
 use crate::file::FileService;
@@ -539,6 +539,12 @@ impl SandboxRuntimeOperations {
         &self,
     ) -> Result<StackObservation, crate::layerstack::LayerStackServiceError> {
         self.layerstack.observe()
+    }
+
+    /// Return in-memory route accounting without reopening the active stack.
+    #[must_use]
+    pub fn observe_layerstack_route(&self) -> LayerStackRouteSnapshot {
+        self.layerstack.observe_route()
     }
 
     /// Storage root of the layer stack, for the telemetry byte reader.

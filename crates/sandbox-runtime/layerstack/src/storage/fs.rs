@@ -226,13 +226,13 @@ pub(crate) fn write_manifest(
     manifest: &Manifest,
 ) -> Result<(), LayerStackError> {
     let value = json!({
-        "schema_version": manifest.schema_version,
-        "version": manifest.version,
         "layers": manifest
             .layers
             .iter()
             .map(|layer| json!({"layer_id": &layer.layer_id, "path": &layer.path}))
             .collect::<Vec<_>>(),
+        "schema_version": manifest.schema_version,
+        "version": manifest.version,
     });
     let encoded = serde_json::to_vec_pretty(&value)
         .map_err(|err| LayerStackError::Manifest(err.to_string()))?;

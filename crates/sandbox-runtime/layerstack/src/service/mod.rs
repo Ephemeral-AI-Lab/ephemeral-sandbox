@@ -13,5 +13,5 @@ pub use model::{
     CandidateGenerationAdmission, CandidateGenerationLease, CandidateGenerationSelection,
     CandidateMaterializationDisposition, CandidateMaterializationResult,
     LayerStackResourceSnapshot, LayerStackRouteSnapshot, LayerStatus, NativeRouteCounters,
-    Snapshot, StackObservation, StorageAuthority, StorageRolloutMode,
+    Snapshot, StackObservation, StorageAuthority, StorageRolloutMode, WriterLockMetrics,
 };

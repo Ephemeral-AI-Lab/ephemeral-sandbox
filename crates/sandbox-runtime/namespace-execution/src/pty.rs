@@ -446,9 +446,8 @@ fn run_output_reactor(
         let ready_readers: HashSet<_> = readers
             .iter()
             .zip(poll_fds.iter().skip(1))
-            .filter_map(|(reader, poll_fd)| {
-                (!poll_fd.revents().is_empty()).then(|| reader.as_raw_fd())
-            })
+            .filter(|(_, poll_fd)| !poll_fd.revents().is_empty())
+            .map(|(reader, _)| reader.as_raw_fd())
             .collect();
         drop(poll_fds);
         if wake_ready {
@@ -603,55 +602,4 @@ fn format_timestamp_prefix_at(now: OffsetDateTime) -> String {
         second = now.second(),
         millisecond = now.millisecond(),
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use std::sync::mpsc;
-
-    use super::*;
-
-    #[test]
-    fn output_reactor_drains_output_that_arrives_after_registration() {
-        let reactor = OutputReactor::new();
-        let (master, mut slave) = open_pty_pair().expect("open test PTY");
-        set_nonblocking(&master).expect("make test PTY nonblocking");
-        let (output_tx, output_rx) = mpsc::channel();
-        let drain = OutputDrain::pending();
-        let terminal_drain = drain.clone();
-        let activity = Arc::new(OutputActivity::default());
-        let observed = activity.snapshot();
-        reactor.register(
-            master,
-            Box::new(move |bytes| {
-                let _ = output_tx.send(bytes.to_vec());
-            }),
-            drain,
-            Arc::clone(&activity),
-        );
-
-        thread::sleep(Duration::from_millis(20));
-        slave
-            .write_all(b"ready\n")
-            .expect("write delayed PTY output");
-
-        let output = output_rx
-            .recv_timeout(Duration::from_millis(100))
-            .expect("readiness reactor did not drain delayed PTY output");
-        assert_ne!(
-            activity.wait_for_change(observed, Duration::from_millis(100)),
-            observed,
-            "output activity was not published after sink delivery"
-        );
-        assert!(
-            output.windows(b"ready".len()).any(|part| part == b"ready"),
-            "unexpected PTY output: {output:?}"
-        );
-
-        drop(slave);
-        assert!(
-            terminal_drain.wait_timeout(Duration::from_millis(100)),
-            "readiness reactor did not observe PTY EOF"
-        );
-    }
 }

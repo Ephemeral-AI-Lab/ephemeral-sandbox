@@ -1,5 +1,7 @@
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use crate::error::LayerStackError;
 use crate::fs::{read_manifest, resolve_layer_path};
@@ -66,6 +68,7 @@ impl Lease {
 pub struct LayerStack {
     pub(in crate::stack) storage_root: PathBuf,
     pub(crate) writer_lock: StorageWriterLockLease,
+    pub(crate) supervisor: Arc<crate::supervisor::StorageSupervisor>,
     pub(crate) leases: Arc<Mutex<LeaseRegistry>>,
     pub(crate) observation: Arc<observation::StorageObservationState>,
     pub(in crate::stack) substitutions: lease::rewrite::SubstitutionMap,
@@ -89,6 +92,8 @@ impl LayerStack {
         std::fs::create_dir_all(storage_root.join(LAYERS_DIR))?;
         std::fs::create_dir_all(storage_root.join(STAGING_DIR))?;
         let writer_lock = StorageWriterLockLease::acquire(&storage_root)?;
+        let supervisor = crate::supervisor::shared_supervisor_for_root(&storage_root)
+            .map_err(|error| LayerStackError::Storage(error.to_string()))?;
         let leases = shared_registry_for_root(&storage_root)?;
         let observation = observation::shared_observation_state_for_root(&storage_root)?;
         let substitutions = lease::rewrite::shared_substitutions_for_root(&storage_root);
@@ -96,11 +101,26 @@ impl LayerStack {
         Ok(Self {
             storage_root,
             writer_lock,
+            supervisor,
             leases,
             observation,
             substitutions,
             view,
         })
+    }
+
+    /// Stops admission, waits for all storage-owned materialization work to
+    /// return its permits, and joins the owned worker pool.
+    ///
+    /// Consuming the stack makes the shutdown boundary explicit: no operation
+    /// can be started through this handle after the join completes.
+    pub fn shutdown(self, timeout: Duration) -> Result<(), LayerStackError> {
+        let deadline = Instant::now()
+            .checked_add(timeout)
+            .ok_or_else(|| LayerStackError::Storage("shutdown deadline overflow".to_owned()))?;
+        self.supervisor
+            .shutdown(deadline, &AtomicBool::new(false))
+            .map_err(|error| LayerStackError::Storage(error.to_string()))
     }
 
     pub fn read_active_manifest(&self) -> Result<Manifest, LayerStackError> {

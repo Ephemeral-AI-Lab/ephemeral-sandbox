@@ -15,6 +15,7 @@ pub(crate) mod fs {
     pub(crate) use super::fs_impl::*;
 
     #[derive(Debug, Clone)]
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     pub(crate) struct SyncfsCall {
         pub(crate) manifest_version_at_call: i64,
         pub(crate) promoted_s_dirs: Vec<String>,
@@ -48,6 +49,10 @@ pub(crate) mod fs {
 }
 #[path = "../src/storage/lock.rs"]
 pub(crate) mod lock;
+#[expect(
+    dead_code,
+    reason = "this integration harness path-reincludes the complete model while exercising a focused subset"
+)]
 #[path = "../src/model/mod.rs"]
 mod model;
 #[path = "../src/observability.rs"]
@@ -60,6 +65,8 @@ pub mod service;
 )]
 #[path = "../src/stack/mod.rs"]
 mod stack;
+#[path = "../src/storage/supervisor.rs"]
+mod supervisor;
 #[path = "../src/storage/whiteout.rs"]
 mod whiteout;
 #[path = "../src/workspace_base/mod.rs"]

@@ -184,10 +184,16 @@ const PACKAGE_POLICIES: &[PackagePolicy] = &[
         allowed: &[],
     },
     PackagePolicy {
+        manifest: "crates/sandbox-runtime/layerstack-core/Cargo.toml",
+        name: "sandbox-runtime-layerstack-core",
+        layer: Layer::Primitive,
+        allowed: &[],
+    },
+    PackagePolicy {
         manifest: "crates/sandbox-runtime/layerstack/Cargo.toml",
         name: "sandbox-runtime-layerstack",
         layer: Layer::Primitive,
-        allowed: &[],
+        allowed: &["sandbox-runtime-layerstack-core"],
     },
     PackagePolicy {
         manifest: "crates/sandbox-runtime/overlay/Cargo.toml",

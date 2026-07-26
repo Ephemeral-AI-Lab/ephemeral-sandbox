@@ -4,13 +4,14 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use sandbox_runtime_layerstack_core::{
-    ActorId, BranchId, Digest32, FileNodeId, PublicationId, RootId,
+    ActorId, AttributionRootId, BranchId, Digest32, FileNodeId, PublicationId, RootId,
 };
 use sha2::{Digest, Sha256};
 
 use crate::model::{aggregate_layer_changes, LayerChange};
 use crate::{LayerStack, LayerStackError, Sha256Digest};
 
+use super::materialization::MaterializationCoordinator;
 use super::object_store::LooseObjectStore;
 use super::operation::{
     OpenDisposition, OperationJournal, OperationKind, OperationPhase, OperationRequest,
@@ -67,9 +68,17 @@ impl LayerStack {
             .map(|head| head.map(|head| head.generation))
     }
 
-    pub(crate) fn hidden_validation_root(&self) -> Result<Option<RootId>, LayerStackError> {
-        self.hidden_validation_head()
-            .map(|head| head.map(|head| RootId::new(head.target.root)))
+    pub(crate) fn hidden_validation_target(
+        &self,
+    ) -> Result<Option<(RootId, AttributionRootId)>, LayerStackError> {
+        self.hidden_validation_head().map(|head| {
+            head.map(|head| {
+                (
+                    RootId::new(head.target.root),
+                    AttributionRootId::new(head.target.attribution_root),
+                )
+            })
+        })
     }
 
     fn hidden_validation_head(&self) -> Result<Option<Head>, LayerStackError> {
@@ -109,7 +118,16 @@ fn publish(
     )?;
     let journal = OperationJournal::new(stack.storage_root.clone(), &stack.writer_lock);
     let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-    journal.recover_batch(&mut refs, now, &mut digest)?;
+    let recovery = journal.recover_batch(&mut refs, now, &mut digest)?;
+    if !recovery.materialization_operations.is_empty() {
+        let materializer = MaterializationCoordinator::new_supervised(
+            stack.storage_root.clone(),
+            std::sync::Arc::clone(&stack.supervisor),
+        )?;
+        for operation_path in &recovery.materialization_operations {
+            materializer.recover_operation_path(operation_path, &stack.writer_lock)?;
+        }
+    }
     let base = refs.read_head(&branch, &mut digest)?;
     let request_digest = validation_request_digest(publication)?;
     let request = OperationRequest {

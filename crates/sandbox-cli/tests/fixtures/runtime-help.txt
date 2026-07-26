@@ -30,6 +30,15 @@ File
 Daemon HTTP
   Daemon HTTP capability boundary.
 
+LayerStack baseline
+  LayerStack legacy-route baseline capability.
+
+LayerStack Phase 1
+  LayerStack Phase 1 E2E placement.
+
+Portable root contract
+  Dormant LayerStack portable-root source contract.
+
 Network isolation
   Runtime network-isolation capability.
 

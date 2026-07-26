@@ -3,9 +3,9 @@
 //! listener with no sniffing or multiplexing between them.
 #![forbid(unsafe_code)]
 
-#[cfg(feature = "jemalloc")]
-#[global_allocator]
-static GLOBAL_ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+mod allocator_backend {
+    include!(env!("SANDBOX_DAEMON_ALLOCATOR_BACKEND"));
+}
 
 mod http;
 pub(crate) mod observability;

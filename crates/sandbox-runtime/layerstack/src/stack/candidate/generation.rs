@@ -3,7 +3,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use sandbox_runtime_layerstack_core::{Digest32, RootId};
+use sandbox_runtime_layerstack_core::{AttributionRootId, Digest32, RootId};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -13,8 +13,10 @@ const MATERIALIZATION_KEY_DOMAIN: &[u8] = b"EOS-LS3-MATERIALIZATION-KEY\0";
 const CURRENT_CHECKSUM_DOMAIN: &[u8] = b"EOS-LS3-MATERIALIZATION-CURRENT\0";
 const LEASE_CHECKSUM_DOMAIN: &[u8] = b"EOS-LS3-MATERIALIZATION-LEASE\0";
 const LEASE_ID_DOMAIN: &[u8] = b"EOS-LS3-MATERIALIZATION-LEASE-ID\0";
+const GENERATION_SUBJECT_DOMAIN: &[u8] = b"EOS-LS3-MATERIALIZATION-GENERATION-SUBJECT\0";
 const MAX_MANIFEST_BYTES: u64 = 64 * 1024;
 const MAX_LEASE_BYTES: u64 = 4096;
+const MAX_ACTIVE_GENERATION_SUBJECTS: usize = 64;
 const BACKEND_KIND: &str = "linux-overlayfs-native";
 const TARGET_PROFILE: &str = "linux-overlayfs-v1";
 const CARRIER_RELATIVE_PATH: &str = "carriers/native";
@@ -22,15 +24,17 @@ const CARRIER_RELATIVE_PATH: &str = "carriers/native";
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub(crate) struct MaterializationKey {
     pub(crate) root: RootId,
+    pub(crate) attribution_root: AttributionRootId,
     pub(crate) backend_kind: String,
     pub(crate) backend_format_version: u16,
     pub(crate) target_profile: String,
 }
 
 impl MaterializationKey {
-    pub(crate) fn linux_overlayfs(root: RootId) -> Self {
+    pub(crate) fn linux_overlayfs(root: RootId, attribution_root: AttributionRootId) -> Self {
         Self {
             root,
+            attribution_root,
             backend_kind: BACKEND_KIND.to_owned(),
             backend_format_version: 1,
             target_profile: TARGET_PROFILE.to_owned(),
@@ -54,12 +58,14 @@ impl MaterializationKey {
         let mut preimage = Vec::with_capacity(
             MATERIALIZATION_KEY_DOMAIN.len()
                 + 32
+                + 32
                 + self.backend_kind.len()
                 + self.target_profile.len()
                 + 6,
         );
         preimage.extend_from_slice(MATERIALIZATION_KEY_DOMAIN);
         preimage.extend_from_slice(self.root.digest().as_bytes());
+        preimage.extend_from_slice(self.attribution_root.digest().as_bytes());
         push_bounded_string(&mut preimage, &self.backend_kind)?;
         preimage.extend_from_slice(&self.backend_format_version.to_be_bytes());
         push_bounded_string(&mut preimage, &self.target_profile)?;
@@ -112,6 +118,7 @@ pub(crate) struct GenerationManifest {
     pub(crate) schema_version: u16,
     pub(crate) materialization_id: String,
     pub(crate) root_id: String,
+    pub(crate) attribution_root_id: String,
     pub(crate) backend_kind: String,
     pub(crate) backend_format_version: u16,
     pub(crate) target_profile: String,
@@ -137,10 +144,11 @@ impl GenerationManifest {
         id: MaterializationId,
         generation: u64,
     ) -> Result<(), GenerationError> {
-        if self.schema != "layerstack-materialization-generation-v1"
-            || self.schema_version != 1
+        if self.schema != "layerstack-materialization-generation-v2"
+            || self.schema_version != 2
             || self.materialization_id != id.hex()
             || self.root_id != digest_string(key.root.digest())
+            || self.attribution_root_id != digest_string(key.attribution_root.digest())
             || self.backend_kind != key.backend_kind
             || self.backend_format_version != key.backend_format_version
             || self.target_profile != key.target_profile
@@ -170,11 +178,6 @@ pub(crate) struct GenerationSelection {
     pub(crate) carrier_path: PathBuf,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct GenerationSnapshot {
-    pub(crate) manifest_sha256: Option<String>,
-}
-
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 struct CurrentGeneration {
@@ -185,6 +188,26 @@ struct CurrentGeneration {
     fence: u64,
     manifest_sha256: String,
     checksum_sha256: String,
+}
+
+/// The checksum-verified subject selected by `CURRENT`.
+///
+/// This intentionally proves only selector identity. Callers may compare it
+/// with a `GenerationSelection` they have already fully validated without
+/// rereading the immutable manifest and carrier while coordinating publication.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CurrentGenerationSubject {
+    generation: u64,
+    fence: u64,
+    manifest_sha256: String,
+}
+
+impl CurrentGenerationSubject {
+    pub(crate) fn selects(&self, selection: &GenerationSelection) -> bool {
+        self.generation == selection.manifest.generation
+            && self.fence == selection.manifest.fence
+            && self.manifest_sha256 == selection.manifest_sha256
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -264,15 +287,9 @@ impl GenerationStore {
         &self,
         key: &MaterializationKey,
     ) -> Result<Option<GenerationSelection>, GenerationError> {
-        let id = key.id()?;
-        let Some(bytes) = read_common_state(&self.current_path(id))
-            .map_err(|error| GenerationError::Io(error.to_string()))?
-        else {
+        let Some((id, current)) = self.read_current(key)? else {
             return Ok(None);
         };
-        let current: CurrentGeneration = serde_json::from_slice(&bytes)
-            .map_err(|error| GenerationError::Corrupt(error.to_string()))?;
-        verify_current(&current, id)?;
         let manifest_path = self.manifest_path(id, current.generation);
         let manifest_bytes =
             read_bounded(&manifest_path, MAX_MANIFEST_BYTES)?.ok_or(GenerationError::NotFound)?;
@@ -307,38 +324,58 @@ impl GenerationStore {
         }))
     }
 
+    pub(crate) fn lookup_current_subject(
+        &self,
+        key: &MaterializationKey,
+    ) -> Result<Option<CurrentGenerationSubject>, GenerationError> {
+        Ok(self
+            .read_current(key)?
+            .map(|(_, current)| CurrentGenerationSubject {
+                generation: current.generation,
+                fence: current.fence,
+                manifest_sha256: current.manifest_sha256,
+            }))
+    }
+
     pub(crate) fn next_generation(
         &self,
         id: MaterializationId,
+        old: Option<&GenerationSelection>,
     ) -> Result<(u64, u64), GenerationError> {
-        let generations = self.materialization_path(id).join("generations");
-        let mut maximum = 0_u64;
-        match std::fs::read_dir(&generations) {
-            Ok(entries) => {
-                for entry in entries {
-                    let entry = entry?;
-                    if !entry.file_type()?.is_dir() {
-                        return Err(GenerationError::Corrupt(
-                            "generation entry is not a directory".to_owned(),
-                        ));
-                    }
-                    let name = entry.file_name();
-                    let name = name.to_str().ok_or_else(|| {
-                        GenerationError::Corrupt("non-UTF-8 generation directory".to_owned())
-                    })?;
-                    let value = name.parse::<u64>().map_err(|_| {
-                        GenerationError::Corrupt("invalid generation directory".to_owned())
-                    })?;
-                    maximum = maximum.max(value);
-                }
-            }
+        let (generation, fence) = match old {
+            Some(selection) => (
+                selection
+                    .manifest
+                    .generation
+                    .checked_add(1)
+                    .ok_or_else(|| {
+                        GenerationError::Invalid("generation counter exhausted".to_owned())
+                    })?,
+                selection.manifest.fence.checked_add(1).ok_or_else(|| {
+                    GenerationError::Invalid("generation fence exhausted".to_owned())
+                })?,
+            ),
+            None => (1, 1),
+        };
+        self.ensure_generation_absent(id, generation)?;
+        Ok((generation, fence))
+    }
+
+    pub(crate) fn ensure_generation_absent(
+        &self,
+        id: MaterializationId,
+        generation: u64,
+    ) -> Result<(), GenerationError> {
+        match std::fs::symlink_metadata(self.generation_path(id, generation)) {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Ok(_) => {
+                return Err(GenerationError::Collision(
+                    "exact next generation target already exists".to_owned(),
+                ));
+            }
             Err(error) => return Err(error.into()),
         }
-        let generation = maximum
-            .checked_add(1)
-            .ok_or_else(|| GenerationError::Invalid("generation counter exhausted".to_owned()))?;
-        Ok((generation, generation))
+        Ok(())
     }
 
     pub(crate) fn install_carrier(
@@ -381,6 +418,24 @@ impl GenerationStore {
             Err(error) => return Err(error.into()),
         }
         Ok(carrier)
+    }
+
+    pub(crate) fn installed_carrier(
+        &self,
+        id: MaterializationId,
+        generation: u64,
+    ) -> Result<Option<PathBuf>, GenerationError> {
+        let carrier = self
+            .generation_path(id, generation)
+            .join(CARRIER_RELATIVE_PATH);
+        match std::fs::symlink_metadata(&carrier) {
+            Ok(metadata) if metadata.file_type().is_dir() => Ok(Some(carrier)),
+            Ok(_) => Err(GenerationError::Corrupt(
+                "installed native carrier is not a directory".to_owned(),
+            )),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error.into()),
+        }
     }
 
     pub(crate) fn publish(
@@ -435,13 +490,39 @@ impl GenerationStore {
         key: &MaterializationKey,
         generation: u64,
     ) -> Result<GenerationSelection, GenerationError> {
-        let id = key.id()?;
         let selection = self.read_generation(key, generation)?;
+        self.promote_selection(key, &selection)
+    }
+
+    pub(crate) fn promote_selection(
+        &self,
+        key: &MaterializationKey,
+        selection: &GenerationSelection,
+    ) -> Result<GenerationSelection, GenerationError> {
+        self.promote_preverified_selection(key, selection)?;
+        self.lookup_current(key)?
+            .ok_or_else(|| GenerationError::Corrupt("published CURRENT disappeared".to_owned()))
+    }
+
+    /// Promote a generation the caller has already fully verified.
+    ///
+    /// `replace_common_state` still fdatasyncs the new selector, atomically
+    /// renames it, and fsyncs the parent. The caller may retain its verified
+    /// selection rather than repeating manifest I/O after that durable commit.
+    pub(crate) fn promote_preverified_selection(
+        &self,
+        key: &MaterializationKey,
+        selection: &GenerationSelection,
+    ) -> Result<(), GenerationError> {
+        let id = key.id()?;
+        selection
+            .manifest
+            .validate_for(key, id, selection.manifest.generation)?;
         let current = seal_current(CurrentGeneration {
             schema: "layerstack-materialization-current-v1".to_owned(),
             schema_version: 1,
             materialization_id: id.hex(),
-            generation,
+            generation: selection.manifest.generation,
             fence: selection.manifest.fence,
             manifest_sha256: selection.manifest_sha256.clone(),
             checksum_sha256: String::new(),
@@ -450,8 +531,7 @@ impl GenerationStore {
             .map_err(|error| GenerationError::Invalid(error.to_string()))?;
         replace_common_state(&self.current_path(id), &current_bytes)
             .map_err(|error| GenerationError::Io(error.to_string()))?;
-        self.lookup_current(key)?
-            .ok_or_else(|| GenerationError::Corrupt("published CURRENT disappeared".to_owned()))
+        Ok(())
     }
 
     pub(crate) fn read_generation(
@@ -525,96 +605,6 @@ impl GenerationStore {
         Ok(generations)
     }
 
-    pub(crate) fn generation_snapshot(
-        &self,
-        id: MaterializationId,
-        generation: u64,
-    ) -> Result<GenerationSnapshot, GenerationError> {
-        let path = self.generation_path(id, generation);
-        let metadata = std::fs::symlink_metadata(&path).map_err(|error| {
-            if error.kind() == std::io::ErrorKind::NotFound {
-                GenerationError::NotFound
-            } else {
-                GenerationError::from(error)
-            }
-        })?;
-        if !metadata.file_type().is_dir() {
-            return Err(GenerationError::Corrupt(
-                "generation owner is not a directory".to_owned(),
-            ));
-        }
-        let manifest_sha256 =
-            read_bounded(&self.manifest_path(id, generation), MAX_MANIFEST_BYTES)?
-                .map(|bytes| hex(&sha256(&bytes)));
-        Ok(GenerationSnapshot { manifest_sha256 })
-    }
-
-    pub(crate) fn active_generation_lease_exists(
-        &self,
-        id: MaterializationId,
-        generation: u64,
-        now_unix_seconds: u64,
-    ) -> Result<bool, GenerationError> {
-        let leases = self.storage_root.join("refs").join("leases");
-        let entries = match std::fs::read_dir(&leases) {
-            Ok(entries) => entries,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-            Err(error) => return Err(error.into()),
-        };
-        for entry in entries {
-            let entry = entry?;
-            let name = entry.file_name();
-            let name = name
-                .to_str()
-                .ok_or_else(|| GenerationError::Corrupt("non-UTF-8 lease path".to_owned()))?;
-            let Some(lease_id) = name.strip_prefix("materialization-") else {
-                continue;
-            };
-            if !is_hex(lease_id, 32) {
-                return Err(GenerationError::Corrupt(
-                    "materialization lease path is not canonical".to_owned(),
-                ));
-            }
-            let bytes =
-                read_bounded(&entry.path(), MAX_LEASE_BYTES)?.ok_or(GenerationError::NotFound)?;
-            let lease: GenerationLease = serde_json::from_slice(&bytes)
-                .map_err(|error| GenerationError::Corrupt(error.to_string()))?;
-            verify_lease(&lease)?;
-            if lease.lease_id != lease_id {
-                return Err(GenerationError::Corrupt(
-                    "materialization lease path ID mismatch".to_owned(),
-                ));
-            }
-            if lease.materialization_id == id.hex()
-                && lease.generation == generation
-                && lease.expires_unix_seconds > now_unix_seconds
-            {
-                return Ok(true);
-            }
-        }
-        Ok(false)
-    }
-
-    pub(crate) fn remove_generation(
-        &self,
-        id: MaterializationId,
-        generation: u64,
-        expected: &GenerationSnapshot,
-    ) -> Result<(), GenerationError> {
-        let observed = self.generation_snapshot(id, generation)?;
-        if &observed != expected {
-            return Err(GenerationError::Collision(
-                "generation changed during retirement grace period".to_owned(),
-            ));
-        }
-        let path = self.generation_path(id, generation);
-        remove_owned_tree(&path)?;
-        let parent = path.parent().ok_or_else(|| {
-            GenerationError::Invalid("generation directory has no owner".to_owned())
-        })?;
-        sync_dir(parent)
-    }
-
     pub(crate) fn acquire_lease(
         &self,
         key: &MaterializationKey,
@@ -632,6 +622,15 @@ impl GenerationStore {
             ));
         }
         let id = key.id()?;
+        let installed = self.read_generation(key, selection.manifest.generation)?;
+        if installed.manifest.fence != selection.manifest.fence
+            || installed.manifest_sha256 != selection.manifest_sha256
+            || installed.carrier_path != selection.carrier_path
+        {
+            return Err(GenerationError::Collision(
+                "lease selection does not name the exact installed generation subject".to_owned(),
+            ));
+        }
         let mut lease_preimage = Vec::new();
         lease_preimage.extend_from_slice(LEASE_ID_DOMAIN);
         lease_preimage.extend_from_slice(id.as_bytes());
@@ -659,6 +658,7 @@ impl GenerationStore {
         if bytes.len() as u64 > MAX_LEASE_BYTES {
             return Err(GenerationError::Invalid("lease exceeds bound".to_owned()));
         }
+        let mut subject_admission = self.admit_generation_subject(&lease)?;
         let path = self.lease_path(&lease.lease_id);
         ensure_directory(&self.storage_root, path.parent().expect("lease parent"))?;
         match OpenOptions::new().write(true).create_new(true).open(&path) {
@@ -667,8 +667,10 @@ impl GenerationStore {
                 file.sync_all()?;
                 sync_common_parent(&path)
                     .map_err(|error| GenerationError::Io(error.to_string()))?;
+                subject_admission.commit();
             }
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                subject_admission.commit();
                 let existing =
                     read_bounded(&path, MAX_LEASE_BYTES)?.ok_or(GenerationError::NotFound)?;
                 let existing: GenerationLease = serde_json::from_slice(&existing)
@@ -716,8 +718,10 @@ impl GenerationStore {
                 "lease expiry must follow renewal".to_owned(),
             ));
         }
+        let mut subject_admission = self.admit_generation_subject(lease)?;
         let path = self.lease_path(&lease.lease_id);
         let bytes = read_bounded(&path, MAX_LEASE_BYTES)?.ok_or(GenerationError::NotFound)?;
+        subject_admission.commit();
         let found: GenerationLease = serde_json::from_slice(&bytes)
             .map_err(|error| GenerationError::Corrupt(error.to_string()))?;
         verify_lease(&found)?;
@@ -749,6 +753,7 @@ impl GenerationStore {
         verify_lease(lease)?;
         let path = self.lease_path(&lease.lease_id);
         let Some(bytes) = read_bounded(&path, MAX_LEASE_BYTES)? else {
+            self.release_generation_subject_marker(lease)?;
             return Ok(false);
         };
         let found: GenerationLease = serde_json::from_slice(&bytes)
@@ -763,6 +768,7 @@ impl GenerationStore {
         }
         std::fs::remove_file(&path)?;
         sync_common_parent(&path).map_err(|error| GenerationError::Io(error.to_string()))?;
+        self.release_generation_subject_marker(lease)?;
         Ok(true)
     }
 
@@ -801,12 +807,186 @@ impl GenerationStore {
         self.materialization_path(id).join("CURRENT")
     }
 
+    fn read_current(
+        &self,
+        key: &MaterializationKey,
+    ) -> Result<Option<(MaterializationId, CurrentGeneration)>, GenerationError> {
+        let id = key.id()?;
+        let Some(bytes) = read_common_state(&self.current_path(id))
+            .map_err(|error| GenerationError::Io(error.to_string()))?
+        else {
+            return Ok(None);
+        };
+        let current: CurrentGeneration = serde_json::from_slice(&bytes)
+            .map_err(|error| GenerationError::Corrupt(error.to_string()))?;
+        verify_current(&current, id)?;
+        Ok(Some((id, current)))
+    }
+
     fn lease_path(&self, lease_id: &str) -> PathBuf {
         self.storage_root
             .join("refs")
             .join("leases")
             .join(format!("materialization-{lease_id}"))
     }
+
+    fn generation_subjects_path(&self) -> PathBuf {
+        self.storage_root
+            .join("refs")
+            .join("materialization-generation-subjects")
+    }
+
+    fn generation_subject_path(&self, lease: &GenerationLease) -> PathBuf {
+        self.generation_subjects_path()
+            .join(generation_subject_id(lease))
+    }
+
+    fn admit_generation_subject(
+        &self,
+        lease: &GenerationLease,
+    ) -> Result<GenerationSubjectAdmission, GenerationError> {
+        verify_lease(lease)?;
+        let subjects = self.generation_subjects_path();
+        ensure_directory(&self.storage_root, &subjects)?;
+        let subject = self.generation_subject_path(lease);
+        let subject_created = match std::fs::symlink_metadata(&subject) {
+            Ok(metadata) if metadata.file_type().is_dir() => false,
+            Ok(_) => {
+                return Err(GenerationError::Corrupt(
+                    "generation subject path is not a directory".to_owned(),
+                ));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let mut count = 0_usize;
+                for entry in std::fs::read_dir(&subjects)? {
+                    let entry = entry?;
+                    count = count.checked_add(1).ok_or_else(|| {
+                        GenerationError::Invalid(
+                            "active generation subject count overflow".to_owned(),
+                        )
+                    })?;
+                    if count > MAX_ACTIVE_GENERATION_SUBJECTS {
+                        return Err(GenerationError::Invalid(
+                            "active generation subject ceiling exceeded".to_owned(),
+                        ));
+                    }
+                    let metadata = entry.file_type()?;
+                    let name = entry.file_name();
+                    let name = name.to_str().ok_or_else(|| {
+                        GenerationError::Corrupt("non-UTF-8 generation subject path".to_owned())
+                    })?;
+                    if !metadata.is_dir() || !is_hex(name, 32) {
+                        return Err(GenerationError::Corrupt(
+                            "generation subject path is not canonical".to_owned(),
+                        ));
+                    }
+                }
+                if count >= MAX_ACTIVE_GENERATION_SUBJECTS {
+                    return Err(GenerationError::Invalid(
+                        "active generation subject ceiling reached".to_owned(),
+                    ));
+                }
+                std::fs::create_dir(&subject)?;
+                sync_common_parent(&subject)
+                    .map_err(|error| GenerationError::Io(error.to_string()))?;
+                true
+            }
+            Err(error) => return Err(error.into()),
+        };
+        let marker = subject.join(&lease.lease_id);
+        let marker_created = match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&marker)
+        {
+            Ok(file) => {
+                file.sync_all()?;
+                sync_common_parent(&marker)
+                    .map_err(|error| GenerationError::Io(error.to_string()))?;
+                true
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                let metadata = std::fs::symlink_metadata(&marker)?;
+                if !metadata.file_type().is_file() || metadata.len() != 0 {
+                    return Err(GenerationError::Corrupt(
+                        "generation subject marker is not canonical".to_owned(),
+                    ));
+                }
+                false
+            }
+            Err(error) => return Err(error.into()),
+        };
+        Ok(GenerationSubjectAdmission {
+            marker,
+            subject,
+            rollback: marker_created,
+            remove_subject_on_rollback: subject_created,
+        })
+    }
+
+    fn release_generation_subject_marker(
+        &self,
+        lease: &GenerationLease,
+    ) -> Result<(), GenerationError> {
+        let subject = self.generation_subject_path(lease);
+        let marker = subject.join(&lease.lease_id);
+        match std::fs::remove_file(&marker) {
+            Ok(()) => {
+                sync_common_parent(&marker)
+                    .map_err(|error| GenerationError::Io(error.to_string()))?;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+        match std::fs::remove_dir(&subject) {
+            Ok(()) => {
+                sync_common_parent(&subject)
+                    .map_err(|error| GenerationError::Io(error.to_string()))?;
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::NotFound | std::io::ErrorKind::DirectoryNotEmpty
+                ) => {}
+            Err(error) => return Err(error.into()),
+        }
+        Ok(())
+    }
+}
+
+struct GenerationSubjectAdmission {
+    marker: PathBuf,
+    subject: PathBuf,
+    rollback: bool,
+    remove_subject_on_rollback: bool,
+}
+
+impl GenerationSubjectAdmission {
+    fn commit(&mut self) {
+        self.rollback = false;
+    }
+}
+
+impl Drop for GenerationSubjectAdmission {
+    fn drop(&mut self) {
+        if !self.rollback {
+            return;
+        }
+        let _ = std::fs::remove_file(&self.marker);
+        if self.remove_subject_on_rollback {
+            let _ = std::fs::remove_dir(&self.subject);
+        }
+    }
+}
+
+fn generation_subject_id(lease: &GenerationLease) -> String {
+    let mut preimage =
+        Vec::with_capacity(GENERATION_SUBJECT_DOMAIN.len() + lease.materialization_id.len() + 16);
+    preimage.extend_from_slice(GENERATION_SUBJECT_DOMAIN);
+    preimage.extend_from_slice(lease.materialization_id.as_bytes());
+    preimage.extend_from_slice(&lease.generation.to_be_bytes());
+    preimage.extend_from_slice(&lease.fence.to_be_bytes());
+    hex(&sha256(&preimage))
 }
 
 fn replace_lease(path: &Path, lease: &GenerationLease) -> Result<(), GenerationError> {
@@ -816,49 +996,6 @@ fn replace_lease(path: &Path, lease: &GenerationLease) -> Result<(), GenerationE
         return Err(GenerationError::Invalid("lease exceeds bound".to_owned()));
     }
     replace_common_state(path, &bytes).map_err(|error| GenerationError::Io(error.to_string()))
-}
-
-fn remove_owned_tree(path: &Path) -> Result<(), GenerationError> {
-    let metadata = std::fs::symlink_metadata(path)?;
-    if !metadata.file_type().is_dir() {
-        std::fs::remove_file(path)?;
-        return Ok(());
-    }
-    make_directory_removable(path, &metadata)?;
-    for entry in std::fs::read_dir(path)? {
-        remove_owned_tree(&entry?.path())?;
-    }
-    std::fs::remove_dir(path)?;
-    Ok(())
-}
-
-#[cfg(unix)]
-fn make_directory_removable(
-    path: &Path,
-    metadata: &std::fs::Metadata,
-) -> Result<(), GenerationError> {
-    use std::os::unix::fs::PermissionsExt;
-
-    let mut permissions = metadata.permissions();
-    let mode = permissions.mode();
-    if mode & 0o700 != 0o700 {
-        permissions.set_mode(mode | 0o700);
-        std::fs::set_permissions(path, permissions)?;
-    }
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn make_directory_removable(
-    path: &Path,
-    metadata: &std::fs::Metadata,
-) -> Result<(), GenerationError> {
-    let mut permissions = metadata.permissions();
-    if permissions.readonly() {
-        permissions.set_readonly(false);
-        std::fs::set_permissions(path, permissions)?;
-    }
-    Ok(())
 }
 
 fn same_lease_identity(left: &GenerationLease, right: &GenerationLease) -> bool {

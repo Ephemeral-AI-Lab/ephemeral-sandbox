@@ -29,15 +29,21 @@ pub fn materialize_hidden_candidate(
     let stack = LayerStack::open(root.to_path_buf())?;
     let observation = stack.hidden_validation_observation();
     observation.record_native_materialization();
-    let logical_root = stack.hidden_validation_root()?.ok_or_else(|| {
+    let (logical_root, attribution_root) = stack.hidden_validation_target()?.ok_or_else(|| {
         LayerStackError::Storage(
             "strict candidate materialization requires a hidden-validation root".to_owned(),
         )
     })?;
-    let request =
-        MaterializationRequest::new(MaterializationKey::linux_overlayfs(logical_root), timeout);
-    let coordinator = MaterializationCoordinator::new_observed(root.to_path_buf(), observation)
-        .map_err(candidate_error("initialize materializer"))?;
+    let request = MaterializationRequest::new(
+        MaterializationKey::linux_overlayfs(logical_root, attribution_root),
+        timeout,
+    );
+    let coordinator = MaterializationCoordinator::new_supervised_observed(
+        root.to_path_buf(),
+        stack.supervisor.clone(),
+        observation,
+    )
+    .map_err(candidate_error("initialize materializer"))?;
     let outcome = coordinator
         .materialize(&request, &stack.writer_lock)
         .map_err(candidate_error("materialize hidden candidate"))?;
@@ -63,13 +69,17 @@ pub fn lookup_hidden_candidate_generation(
     let stack = LayerStack::open(root.to_path_buf())?;
     let observation = stack.hidden_validation_observation();
     observation.record_native_lookup_validation();
-    let Some(logical_root) = stack.hidden_validation_root()? else {
+    let Some((logical_root, attribution_root)) = stack.hidden_validation_target()? else {
         return Ok(None);
     };
-    let coordinator = MaterializationCoordinator::new(root.to_path_buf())
-        .map_err(candidate_error("initialize materializer"))?;
+    let coordinator =
+        MaterializationCoordinator::new_supervised(root.to_path_buf(), stack.supervisor.clone())
+            .map_err(candidate_error("initialize materializer"))?;
     coordinator
-        .lookup_warm(&MaterializationKey::linux_overlayfs(logical_root))
+        .lookup_warm(&MaterializationKey::linux_overlayfs(
+            logical_root,
+            attribution_root,
+        ))
         .map(|selection| selection.map(selection_model))
         .map_err(candidate_error("lookup hidden candidate"))
 }
@@ -85,12 +95,12 @@ pub fn acquire_hidden_candidate_generation(
 ) -> Result<CandidateGenerationAdmission, LayerStackError> {
     let stack = LayerStack::open(root.to_path_buf())?;
     let observation = stack.hidden_validation_observation();
-    let logical_root = stack.hidden_validation_root()?.ok_or_else(|| {
+    let (logical_root, attribution_root) = stack.hidden_validation_target()?.ok_or_else(|| {
         LayerStackError::Storage(
             "strict candidate admission requires a hidden-validation root".to_owned(),
         )
     })?;
-    let key = MaterializationKey::linux_overlayfs(logical_root);
+    let key = MaterializationKey::linux_overlayfs(logical_root, attribution_root);
     let store = GenerationStore::new(root.to_path_buf())
         .map_err(candidate_error("initialize generation store"))?;
     let now = unix_now()?;
@@ -136,12 +146,12 @@ pub fn acquire_hidden_candidate_generation_with_snapshot(
 ) -> Result<(CandidateGenerationAdmission, Lease), LayerStackError> {
     let stack = LayerStack::open(root.to_path_buf())?;
     let observation = stack.hidden_validation_observation();
-    let logical_root = stack.hidden_validation_root()?.ok_or_else(|| {
+    let (logical_root, attribution_root) = stack.hidden_validation_target()?.ok_or_else(|| {
         LayerStackError::Storage(
             "strict candidate admission requires a hidden-validation root".to_owned(),
         )
     })?;
-    let key = MaterializationKey::linux_overlayfs(logical_root);
+    let key = MaterializationKey::linux_overlayfs(logical_root, attribution_root);
     let store = GenerationStore::new(root.to_path_buf())
         .map_err(candidate_error("initialize generation store"))?;
     let now = unix_now()?;
@@ -286,6 +296,7 @@ fn selection_model(selection: GenerationSelection) -> CandidateGenerationSelecti
     CandidateGenerationSelection {
         materialization_id: selection.manifest.materialization_id,
         root_id: selection.manifest.root_id,
+        attribution_root_id: selection.manifest.attribution_root_id,
         backend_kind: selection.manifest.backend_kind,
         backend_format_version: selection.manifest.backend_format_version,
         target_profile: selection.manifest.target_profile,

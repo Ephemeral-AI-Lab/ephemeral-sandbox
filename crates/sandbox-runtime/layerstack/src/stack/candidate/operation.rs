@@ -4,6 +4,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::lock::{assert_writer_lock_allows, WriterLockForbiddenWork};
 use sandbox_runtime_layerstack_core::{
     decode_v3_record_as, encode_v3_record, BranchId, CanonicalRecordV3, CanonicalSink,
     CanonicalSource, Digest32, Error, ErrorKind, FieldClass, PublicationId, RawDigest,
@@ -15,9 +16,16 @@ use super::refs::{CommitLock, GcBarrier, Head, RefError, RefStage, RefStore, Ref
 
 const OPERATION_ID_DOMAIN: &[u8] = b"EOS-LS3-OPERATION-ID\0";
 const STATE_MAX_BYTES: u64 = 4096;
+const COMMON_STATE_MAX_BYTES: u64 = 256 * 1024;
 const WORK_MAX_BYTES: usize = 4 * 1024 * 1024;
 const RETENTION_SECONDS: u64 = 86_400;
-const RECOVERY_BATCH_LIMIT: usize = 1024;
+const RECOVERY_BATCH_LIMIT: usize = 64;
+const MAX_NONTERMINAL_COMMON_OPERATIONS: usize = 64;
+const ACTIVE_COMMON_OPERATIONS_FILE: &str = "NONTERMINAL";
+const ACTIVE_COMMON_OPERATIONS_MAGIC: &[u8] = b"EOS-LS3-NONTERMINAL-COMMON-OPERATIONS\0";
+const ACTIVE_COMMON_OPERATIONS_CHECKSUM_DOMAIN: &[u8] =
+    b"EOS-LS3-NONTERMINAL-COMMON-OPERATIONS-CHECKSUM\0";
+const ACTIVE_COMMON_OPERATIONS_MAX_BYTES: u64 = 4096;
 const MAX_REBASE_ATTEMPTS: u8 = 8;
 const REQUEST_DEADLINE_SECONDS: u64 = 60;
 static NEXT_STATE_TEMP: AtomicU64 = AtomicU64::new(0);
@@ -162,12 +170,13 @@ pub(crate) struct OpenOperation {
     pub(crate) disposition: OpenDisposition,
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct RecoveryReport {
     pub(crate) inspected: u64,
     pub(crate) repaired_terminals: u64,
     pub(crate) reaped_work_directories: u64,
     pub(crate) deferred: bool,
+    pub(crate) materialization_operations: Vec<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -179,6 +188,7 @@ pub(crate) enum OperationError {
     IdempotencyMismatch,
     OutcomeExpired,
     ContentionLimit,
+    ResourceExhausted,
     RequestDeadline,
     Injected(OperationStage),
 }
@@ -191,6 +201,7 @@ impl OperationError {
             Self::IdempotencyMismatch => Some(ErrorKind::IdempotencyMismatch),
             Self::OutcomeExpired => Some(ErrorKind::OutcomeExpired),
             Self::ContentionLimit => Some(ErrorKind::ContentionLimit),
+            Self::ResourceExhausted => Some(ErrorKind::ResourceExhausted),
             Self::RequestDeadline => Some(ErrorKind::RequestDeadline),
             Self::Io(_) | Self::Invalid(_) | Self::Injected(_) => None,
         }
@@ -207,6 +218,9 @@ impl fmt::Display for OperationError {
             Self::IdempotencyMismatch => write!(formatter, "candidate request digest changed"),
             Self::OutcomeExpired => write!(formatter, "candidate outcome expired"),
             Self::ContentionLimit => write!(formatter, "candidate rebase attempt limit reached"),
+            Self::ResourceExhausted => {
+                write!(formatter, "candidate nonterminal operation limit reached")
+            }
             Self::RequestDeadline => write!(formatter, "candidate operation deadline reached"),
             Self::Injected(stage) => write!(formatter, "injected operation stop at {stage:?}"),
         }
@@ -239,14 +253,20 @@ where
 {
     storage_root: PathBuf,
     lock: &'a L,
+    recovery_pager: std::sync::Arc<std::sync::Mutex<RecoveryPager>>,
 }
 
 impl<'a, L> OperationJournal<'a, L>
 where
     L: CommitLock,
 {
-    pub(crate) const fn new(storage_root: PathBuf, lock: &'a L) -> Self {
-        Self { storage_root, lock }
+    pub(crate) fn new(storage_root: PathBuf, lock: &'a L) -> Self {
+        let recovery_pager = shared_recovery_pager(&storage_root);
+        Self {
+            storage_root,
+            lock,
+            recovery_pager,
+        }
     }
 
     pub(crate) fn operation_id<D>(
@@ -303,6 +323,7 @@ where
         let id = Self::operation_id(request, digest)?;
         self.with_lock(|| {
             let path = self.state_path(id);
+            let mut active = self.reconcile_active_common_operations(digest)?;
             if let Some(bytes) = read_bounded_optional(&path, STATE_MAX_BYTES)? {
                 let mut state = decode_state(&bytes, digest)?;
                 validate_request_match(&state, request)?;
@@ -322,6 +343,8 @@ where
                         state,
                     });
                 }
+                register_active_common_operation(&mut active, id)?;
+                self.write_active_common_operations(&active, digest)?;
                 return Ok(OpenOperation {
                     id,
                     disposition: OpenDisposition::Resumed,
@@ -329,9 +352,109 @@ where
                 });
             }
 
+            if active.len() >= MAX_NONTERMINAL_COMMON_OPERATIONS {
+                return Err(OperationError::ResourceExhausted);
+            }
             hook(OperationStage::BeforeState)?;
+            register_active_common_operation(&mut active, id)?;
+            self.write_active_common_operations(&active, digest)?;
             let state = state_from_request(request);
-            replace_state(&path, &state, digest)?;
+            if let Err(error) = replace_state(&path, &state, digest) {
+                unregister_active_common_operation(&mut active, id);
+                let _ = self.write_active_common_operations(&active, digest);
+                return Err(error);
+            }
+            Ok(OpenOperation {
+                id,
+                state,
+                disposition: OpenDisposition::Created,
+            })
+        })
+    }
+
+    /// Open an operation whose immutable target is already durable.
+    ///
+    /// Producers that have no preparing work can persist the exact Prepared
+    /// checkpoint directly, avoiding a redundant durable Preparing STATE while
+    /// retaining the same idempotency, registry, and recovery contracts.
+    pub(crate) fn open_prepared<D>(
+        &self,
+        request: &OperationRequest,
+        target: RefTarget,
+        changed_path_digest: Option<Digest32>,
+        now_unix_seconds: u64,
+        digest: &mut D,
+    ) -> Result<OpenOperation, OperationError>
+    where
+        D: RawDigest,
+    {
+        let id = Self::operation_id(request, digest)?;
+        self.with_lock(|| {
+            let path = self.state_path(id);
+            let mut active = self.reconcile_active_common_operations(digest)?;
+            if let Some(bytes) = read_bounded_optional(&path, STATE_MAX_BYTES)? {
+                let mut state = decode_state(&bytes, digest)?;
+                validate_request_match(&state, request)?;
+                if state.phase.is_tombstone() {
+                    return Err(OperationError::OutcomeExpired);
+                }
+                if state.phase.is_terminal() {
+                    if now_unix_seconds >= state.terminal_expiry_unix_seconds {
+                        state = tombstone_state(state, OperationPhase::Expired, digest)?;
+                        replace_state(&path, &state, digest)?;
+                        reap_work(&self.work_path(id))?;
+                        return Err(OperationError::OutcomeExpired);
+                    }
+                    return Ok(OpenOperation {
+                        id,
+                        disposition: OpenDisposition::Terminal(state.outcome.clone()),
+                        state,
+                    });
+                }
+                register_active_common_operation(&mut active, id)?;
+                self.write_active_common_operations(&active, digest)?;
+                match state.phase {
+                    OperationPhase::Preparing => {
+                        state.phase = OperationPhase::Prepared;
+                        state.prepared = Some(target);
+                        state.changed_path_digest = changed_path_digest;
+                        state.rebase_attempts = 0;
+                        replace_state(&path, &state, digest)?;
+                    }
+                    OperationPhase::Prepared
+                        if state.prepared == Some(target)
+                            && state.changed_path_digest == changed_path_digest
+                            && state.rebase_attempts == 0 => {}
+                    OperationPhase::Prepared => {
+                        return Err(OperationError::Invalid("prepared target changed on retry"));
+                    }
+                    _ => {
+                        return Err(OperationError::Invalid(
+                            "operation has an invalid nonterminal phase",
+                        ));
+                    }
+                }
+                return Ok(OpenOperation {
+                    id,
+                    disposition: OpenDisposition::Resumed,
+                    state,
+                });
+            }
+
+            if active.len() >= MAX_NONTERMINAL_COMMON_OPERATIONS {
+                return Err(OperationError::ResourceExhausted);
+            }
+            register_active_common_operation(&mut active, id)?;
+            self.write_active_common_operations(&active, digest)?;
+            let mut state = state_from_request(request);
+            state.phase = OperationPhase::Prepared;
+            state.prepared = Some(target);
+            state.changed_path_digest = changed_path_digest;
+            if let Err(error) = replace_state(&path, &state, digest) {
+                unregister_active_common_operation(&mut active, id);
+                let _ = self.write_active_common_operations(&active, digest);
+                return Err(error);
+            }
             Ok(OpenOperation {
                 id,
                 state,
@@ -540,7 +663,6 @@ where
         B: GcBarrier,
         F: FnMut(OperationStage) -> Result<(), OperationError>,
     {
-        self.recover_batch(refs, now_unix_seconds, digest)?;
         let state = self.read(id, digest)?;
         if state.phase.is_tombstone() {
             return Err(OperationError::OutcomeExpired);
@@ -588,13 +710,28 @@ where
         let terminal_bytes = encode_state(&terminal, digest)?;
         let mut prepared_terminal = PreparedStateFile::new(&self.state_path(id), &terminal_bytes)?;
 
+        let current = refs.read_head(&state.branch, digest)?;
+        if let Some(current) = current {
+            if current.publication_id == *state.publication_id.as_bytes() {
+                if current.target != target || current.generation != generation {
+                    return Err(OperationError::Invalid("head/prepared recovery mismatch"));
+                }
+                self.with_lock(|| {
+                    prepared_terminal.replace_and_sync(&self.state_path(id))?;
+                    Ok(())
+                })?;
+                reap_work(&self.work_path(id))?;
+                return Ok(outcome);
+            }
+        }
+
         let expected = state.base.map(|base| Head {
             target: base,
             generation: state.base_generation,
             publication_id: [0; 16],
         });
         let expected = expected.map(|mut head| {
-            if let Ok(Some(current)) = refs.read_head(&state.branch, digest) {
+            if let Some(current) = current {
                 if current.target == head.target && current.generation == head.generation {
                     head.publication_id = current.publication_id;
                 }
@@ -637,6 +774,11 @@ where
             return Err(error);
         }
         commit_result?;
+        // NONTERMINAL is a bounded, derived admission index; durable STATE is
+        // the recovery truth. Leaving this now-terminal id for the next locked
+        // admission/recovery reconciliation batches registry housekeeping with
+        // useful work and cannot consume capacity because admission reconciles
+        // before enforcing the cap.
         reap_work(&self.work_path(id))?;
         hook(OperationStage::TerminalBeforeResponse)?;
         Ok(outcome)
@@ -662,6 +804,7 @@ where
             }
             let state = tombstone_state(state, OperationPhase::Acknowledged, digest)?;
             replace_state(&self.state_path(id), &state, digest)?;
+            self.reconcile_active_common_operations(digest)?;
             reap_work(&self.work_path(id)).map(|_| ())
         })
     }
@@ -676,10 +819,10 @@ where
         D: RawDigest,
         B: GcBarrier,
     {
+        assert_writer_lock_allows(WriterLockForbiddenWork::HistoryScan);
         let operations = self.storage_root.join("operations");
-        let mut paths = read_operation_paths(&operations)?;
-        let deferred = paths.len() > RECOVERY_BATCH_LIMIT;
-        paths.truncate(RECOVERY_BATCH_LIMIT);
+        let (paths, deferred) =
+            read_operation_page(&self.recovery_pager, &operations, RECOVERY_BATCH_LIMIT)?;
         let mut report = RecoveryReport {
             deferred,
             ..RecoveryReport::default()
@@ -691,6 +834,7 @@ where
                 continue;
             };
             if recognizes_materialization_state(&path, &bytes) {
+                report.materialization_operations.push(path);
                 continue;
             }
             let state = decode_state(&bytes, digest)?;
@@ -736,7 +880,11 @@ where
                 .ok_or(OperationError::Invalid("terminal expiry overflow"))?;
             let terminal_bytes = encode_state(&terminal, digest)?;
             let mut prepared_terminal = PreparedStateFile::new(&state_path, &terminal_bytes)?;
-            self.with_lock(|| prepared_terminal.replace_and_sync(&state_path))?;
+            self.with_lock(|| {
+                prepared_terminal.replace_and_sync(&state_path)?;
+                self.reconcile_active_common_operations(digest)?;
+                Ok(())
+            })?;
             if reap_work(&path.join("work"))? {
                 report.reaped_work_directories = report.reaped_work_directories.saturating_add(1);
             }
@@ -781,9 +929,57 @@ where
             state.acknowledged = false;
             validate_state(&state)?;
             replace_state(&self.state_path(id), &state, digest)?;
+            self.reconcile_active_common_operations(digest)?;
             reap_work(&self.work_path(id))?;
             Ok(outcome)
         })
+    }
+
+    fn active_common_operations_path(&self) -> PathBuf {
+        self.storage_root
+            .join("operations")
+            .join(ACTIVE_COMMON_OPERATIONS_FILE)
+    }
+
+    fn reconcile_active_common_operations<D>(
+        &self,
+        digest: &mut D,
+    ) -> Result<Vec<OperationId>, OperationError>
+    where
+        D: RawDigest,
+    {
+        let path = self.active_common_operations_path();
+        let Some(bytes) = read_bounded_optional(&path, ACTIVE_COMMON_OPERATIONS_MAX_BYTES)? else {
+            return Ok(Vec::new());
+        };
+        let active = decode_active_common_operations(&bytes, digest)?;
+        let mut retained = Vec::with_capacity(active.len());
+        for id in active.iter().copied() {
+            let Some(state_bytes) = read_bounded_optional(&self.state_path(id), STATE_MAX_BYTES)?
+            else {
+                continue;
+            };
+            let state = decode_state(&state_bytes, digest)?;
+            if !state.phase.is_terminal() {
+                retained.push(id);
+            }
+        }
+        if retained != active {
+            self.write_active_common_operations(&retained, digest)?;
+        }
+        Ok(retained)
+    }
+
+    fn write_active_common_operations<D>(
+        &self,
+        active: &[OperationId],
+        digest: &mut D,
+    ) -> Result<(), OperationError>
+    where
+        D: RawDigest,
+    {
+        let bytes = encode_active_common_operations(active, digest)?;
+        replace_common_state(&self.active_common_operations_path(), &bytes)
     }
 
     fn with_lock<T, F>(&self, operation: F) -> Result<T, OperationError>
@@ -1147,16 +1343,78 @@ where
 }
 
 pub(crate) fn replace_common_state(path: &Path, bytes: &[u8]) -> Result<(), OperationError> {
-    let mut prepared = PreparedStateFile::new(path, bytes)?;
+    let mut prepared = PreparedStateFile::new_common(path, bytes)?;
     prepared.replace_and_sync(path)
 }
 
+pub(crate) struct PreparedCommonStateFile {
+    final_path: PathBuf,
+    prepared: PreparedStateFile,
+}
+
+impl PreparedCommonStateFile {
+    pub(crate) fn replace_and_sync(mut self) -> Result<(), OperationError> {
+        self.prepared.replace_and_sync(&self.final_path)
+    }
+}
+
+pub(crate) fn prepare_common_state(
+    path: &Path,
+    bytes: &[u8],
+) -> Result<PreparedCommonStateFile, OperationError> {
+    Ok(PreparedCommonStateFile {
+        final_path: path.to_path_buf(),
+        prepared: PreparedStateFile::new_common(path, bytes)?,
+    })
+}
+
+/// Prepare several bounded common STATE replacements as one data-flush batch.
+///
+/// Every temporary file is still individually `sync_data`-ed before this
+/// function returns. Staging all bytes first lets the filesystem coalesce the
+/// writes behind those barriers; callers retain independent atomic rename and
+/// parent-directory fsync authority for each visible phase transition.
+pub(crate) fn prepare_common_states(
+    states: &[(PathBuf, Vec<u8>)],
+) -> Result<Vec<PreparedCommonStateFile>, OperationError> {
+    let mut prepared = Vec::with_capacity(states.len());
+    for (path, bytes) in states {
+        prepared.push(PreparedCommonStateFile {
+            final_path: path.clone(),
+            prepared: PreparedStateFile::stage_common(path, bytes)?,
+        });
+    }
+    for state in &mut prepared {
+        state.prepared.sync_data()?;
+    }
+    Ok(prepared)
+}
+
 pub(crate) fn read_common_state(path: &Path) -> Result<Option<Vec<u8>>, OperationError> {
-    read_bounded_optional(path, STATE_MAX_BYTES)
+    read_bounded_optional(path, COMMON_STATE_MAX_BYTES)
 }
 
 pub(crate) fn reap_common_work(path: &Path) -> Result<bool, OperationError> {
+    if path.file_name().and_then(|name| name.to_str()) != Some("work") {
+        return Err(OperationError::Invalid(
+            "common cleanup target is not an exact operation work directory",
+        ));
+    }
     reap_work(path)
+}
+
+/// Remove an exact common-operation work directory without syncing its parent.
+///
+/// The caller must immediately durably replace a state file in the same parent
+/// directory. That replacement's parent-directory fsync is the durability
+/// barrier for both namespace changes.
+pub(crate) fn reap_common_work_before_state_replace(path: &Path) -> Result<bool, OperationError> {
+    if path.file_name().and_then(|name| name.to_str()) != Some("work") {
+        return Err(OperationError::Invalid(
+            "common cleanup target is not an exact operation work directory",
+        ));
+    }
+    reap_work_without_parent_sync(path)
 }
 
 pub(crate) fn sync_common_parent(path: &Path) -> Result<(), OperationError> {
@@ -1165,42 +1423,84 @@ pub(crate) fn sync_common_parent(path: &Path) -> Result<(), OperationError> {
 
 struct PreparedStateFile {
     path: Option<PathBuf>,
+    file: Option<File>,
 }
 
 impl PreparedStateFile {
     fn new(final_path: &Path, bytes: &[u8]) -> Result<Self, OperationError> {
-        if bytes.len() as u64 > STATE_MAX_BYTES {
+        Self::new_bounded(final_path, bytes, STATE_MAX_BYTES)
+    }
+
+    fn new_common(final_path: &Path, bytes: &[u8]) -> Result<Self, OperationError> {
+        Self::new_bounded(final_path, bytes, COMMON_STATE_MAX_BYTES)
+    }
+
+    fn new_bounded(final_path: &Path, bytes: &[u8], maximum: u64) -> Result<Self, OperationError> {
+        let mut prepared = Self::stage_bounded(final_path, bytes, maximum)?;
+        prepared.sync_data()?;
+        Ok(prepared)
+    }
+
+    fn stage_common(final_path: &Path, bytes: &[u8]) -> Result<Self, OperationError> {
+        Self::stage_bounded(final_path, bytes, COMMON_STATE_MAX_BYTES)
+    }
+
+    fn stage_bounded(
+        final_path: &Path,
+        bytes: &[u8],
+        maximum: u64,
+    ) -> Result<Self, OperationError> {
+        if bytes.len() as u64 > maximum {
             return Err(OperationError::Invalid(
-                "operation state exceeds 4096 bytes",
+                "operation state exceeds its configured bound",
             ));
         }
         let parent = final_path
             .parent()
             .ok_or(OperationError::Invalid("operation state has no parent"))?;
+        let parent_existed = parent.try_exists()?;
         std::fs::create_dir_all(parent)?;
-        fsync_dir(parent)?;
+        if !parent_existed {
+            fsync_parent(parent)?;
+        }
         let temporary = parent.join(format!(
             ".STATE.{}.{}.tmp",
             std::process::id(),
             NEXT_STATE_TEMP.fetch_add(1, Ordering::Relaxed)
         ));
-        let prepared = Self {
+        let mut prepared = Self {
             path: Some(temporary.clone()),
+            file: None,
         };
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(&temporary)?;
         file.write_all(bytes)?;
-        file.sync_all()?;
-        drop(file);
-        if std::fs::read(&temporary)? != bytes {
-            return Err(OperationError::Invalid("prepared state validation failed"));
-        }
+        prepared.file = Some(file);
         Ok(prepared)
     }
 
+    fn sync_data(&mut self) -> Result<(), OperationError> {
+        let file = self
+            .file
+            .take()
+            .ok_or(OperationError::Invalid("prepared state is already synced"))?;
+        // The subsequent atomic rename plus parent-directory fsync makes the
+        // namespace change durable. `sync_data` is sufficient for the file
+        // bytes (and retrieval-critical metadata such as length) and avoids
+        // flushing unrelated inode metadata on every bounded STATE update.
+        file.sync_data()?;
+        drop(file);
+        Ok(())
+    }
+
     fn replace_and_sync(&mut self, final_path: &Path) -> Result<(), OperationError> {
+        if self.file.is_some() {
+            return Err(OperationError::Invalid(
+                "prepared state bytes are not durable",
+            ));
+        }
         let temporary = self
             .path
             .take()
@@ -1212,6 +1512,7 @@ impl PreparedStateFile {
 
 impl Drop for PreparedStateFile {
     fn drop(&mut self) {
+        drop(self.file.take());
         if let Some(path) = self.path.take() {
             let _ = std::fs::remove_file(path);
         }
@@ -1241,28 +1542,270 @@ fn read_bounded_optional(path: &Path, maximum: u64) -> Result<Option<Vec<u8>>, O
     Ok(Some(bytes))
 }
 
-fn read_operation_paths(root: &Path) -> Result<Vec<PathBuf>, OperationError> {
-    let entries = match std::fs::read_dir(root) {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(error) => return Err(error.into()),
-    };
-    let mut paths = Vec::new();
-    for entry in entries {
-        let entry = entry?;
-        if entry.file_type()?.is_dir() {
-            paths.push(entry.path());
+fn register_active_common_operation(
+    active: &mut Vec<OperationId>,
+    id: OperationId,
+) -> Result<(), OperationError> {
+    match active.binary_search(&id) {
+        Ok(_) => Ok(()),
+        Err(_) if active.len() >= MAX_NONTERMINAL_COMMON_OPERATIONS => {
+            Err(OperationError::ResourceExhausted)
+        }
+        Err(index) => {
+            active.insert(index, id);
+            Ok(())
         }
     }
-    paths.sort();
-    Ok(paths)
+}
+
+fn unregister_active_common_operation(active: &mut Vec<OperationId>, id: OperationId) {
+    if let Ok(index) = active.binary_search(&id) {
+        active.remove(index);
+    }
+}
+
+fn encode_active_common_operations<D>(
+    active: &[OperationId],
+    digest: &mut D,
+) -> Result<Vec<u8>, OperationError>
+where
+    D: RawDigest,
+{
+    if active.len() > MAX_NONTERMINAL_COMMON_OPERATIONS
+        || active.windows(2).any(|pair| pair[0] >= pair[1])
+    {
+        return Err(OperationError::Invalid(
+            "active common operation registry is not bounded canonical order",
+        ));
+    }
+    let count = u16::try_from(active.len())
+        .map_err(|_| OperationError::Invalid("active common operation count overflow"))?;
+    let entries_bytes = active.len().checked_mul(32).ok_or(OperationError::Invalid(
+        "active common operation registry length overflow",
+    ))?;
+    let payload_len = ACTIVE_COMMON_OPERATIONS_MAGIC
+        .len()
+        .checked_add(2)
+        .and_then(|length| length.checked_add(entries_bytes))
+        .ok_or(OperationError::Invalid(
+            "active common operation registry length overflow",
+        ))?;
+    let total_len = payload_len.checked_add(32).ok_or(OperationError::Invalid(
+        "active common operation registry length overflow",
+    ))?;
+    if total_len as u64 > ACTIVE_COMMON_OPERATIONS_MAX_BYTES {
+        return Err(OperationError::Invalid(
+            "active common operation registry exceeds its bound",
+        ));
+    }
+    let mut bytes = Vec::with_capacity(total_len);
+    bytes.extend_from_slice(ACTIVE_COMMON_OPERATIONS_MAGIC);
+    bytes.extend_from_slice(&count.to_be_bytes());
+    for id in active {
+        bytes.extend_from_slice(id.digest().as_bytes());
+    }
+    let mut checksum_preimage =
+        Vec::with_capacity(ACTIVE_COMMON_OPERATIONS_CHECKSUM_DOMAIN.len() + bytes.len());
+    checksum_preimage.extend_from_slice(ACTIVE_COMMON_OPERATIONS_CHECKSUM_DOMAIN);
+    checksum_preimage.extend_from_slice(&bytes);
+    let checksum = digest.digest_bytes(&checksum_preimage)?;
+    bytes.extend_from_slice(checksum.as_bytes());
+    Ok(bytes)
+}
+
+fn decode_active_common_operations<D>(
+    bytes: &[u8],
+    digest: &mut D,
+) -> Result<Vec<OperationId>, OperationError>
+where
+    D: RawDigest,
+{
+    let minimum_len = ACTIVE_COMMON_OPERATIONS_MAGIC
+        .len()
+        .checked_add(2 + 32)
+        .ok_or(OperationError::Invalid(
+            "active common operation registry length overflow",
+        ))?;
+    if bytes.len() < minimum_len || bytes.len() as u64 > ACTIVE_COMMON_OPERATIONS_MAX_BYTES {
+        return Err(OperationError::Invalid(
+            "active common operation registry framing",
+        ));
+    }
+    let (payload, encoded_checksum) = bytes.split_at(bytes.len() - 32);
+    if !payload.starts_with(ACTIVE_COMMON_OPERATIONS_MAGIC) {
+        return Err(OperationError::Invalid(
+            "active common operation registry magic",
+        ));
+    }
+    let count_offset = ACTIVE_COMMON_OPERATIONS_MAGIC.len();
+    let count = usize::from(u16::from_be_bytes(fixed::<2>(
+        &payload[count_offset..count_offset + 2],
+    )?));
+    if count > MAX_NONTERMINAL_COMMON_OPERATIONS {
+        return Err(OperationError::Invalid(
+            "active common operation registry count",
+        ));
+    }
+    let expected_payload_len = count
+        .checked_mul(32)
+        .and_then(|length| length.checked_add(count_offset + 2))
+        .ok_or(OperationError::Invalid(
+            "active common operation registry length overflow",
+        ))?;
+    if payload.len() != expected_payload_len {
+        return Err(OperationError::Invalid(
+            "active common operation registry length",
+        ));
+    }
+    let mut checksum_preimage =
+        Vec::with_capacity(ACTIVE_COMMON_OPERATIONS_CHECKSUM_DOMAIN.len() + payload.len());
+    checksum_preimage.extend_from_slice(ACTIVE_COMMON_OPERATIONS_CHECKSUM_DOMAIN);
+    checksum_preimage.extend_from_slice(payload);
+    if digest.digest_bytes(&checksum_preimage)?.as_bytes() != encoded_checksum {
+        return Err(OperationError::Invalid(
+            "active common operation registry checksum",
+        ));
+    }
+    let mut active = Vec::with_capacity(count);
+    for entry in payload[count_offset + 2..].chunks_exact(32) {
+        active.push(OperationId(Digest32::new(fixed::<32>(entry)?)));
+    }
+    if active.windows(2).any(|pair| pair[0] >= pair[1]) {
+        return Err(OperationError::Invalid(
+            "active common operation registry order",
+        ));
+    }
+    Ok(active)
+}
+
+#[derive(Default)]
+struct RecoveryPager {
+    entries: Option<std::fs::ReadDir>,
+    pending: Option<PathBuf>,
+}
+
+fn read_operation_page(
+    pager: &std::sync::Mutex<RecoveryPager>,
+    root: &Path,
+    limit: usize,
+) -> Result<(Vec<PathBuf>, bool), OperationError> {
+    if limit == 0 {
+        return Err(OperationError::Invalid(
+            "operation recovery page limit is zero",
+        ));
+    }
+    let mut pager = pager
+        .lock()
+        .map_err(|_| OperationError::Invalid("operation recovery pager poisoned"))?;
+    if pager.entries.is_none() {
+        pager.entries = match std::fs::read_dir(root) {
+            Ok(entries) => Some(entries),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok((Vec::new(), false));
+            }
+            Err(error) => return Err(error.into()),
+        };
+    }
+    let mut paths = Vec::with_capacity(limit);
+    if let Some(path) = pager.pending.take() {
+        paths.push(path);
+    }
+    while paths.len() < limit {
+        let next = next_operation_path(
+            pager
+                .entries
+                .as_mut()
+                .expect("recovery directory is initialized"),
+        )?;
+        let Some(path) = next else {
+            pager.entries = None;
+            return Ok((paths, false));
+        };
+        paths.push(path);
+    }
+    let next = next_operation_path(
+        pager
+            .entries
+            .as_mut()
+            .expect("recovery directory is initialized"),
+    )?;
+    match next {
+        Some(path) => {
+            pager.pending = Some(path);
+            Ok((paths, true))
+        }
+        None => {
+            pager.entries = None;
+            Ok((paths, false))
+        }
+    }
+}
+
+fn next_operation_path(entries: &mut std::fs::ReadDir) -> Result<Option<PathBuf>, OperationError> {
+    loop {
+        let Some(entry) = entries.next() else {
+            return Ok(None);
+        };
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            return Ok(Some(entry.path()));
+        }
+        if file_type.is_file() && entry.file_name() == ACTIVE_COMMON_OPERATIONS_FILE {
+            continue;
+        }
+        return Err(OperationError::Invalid(
+            "operation registry entry is not a directory",
+        ));
+    }
+}
+
+fn shared_recovery_pager(storage_root: &Path) -> std::sync::Arc<std::sync::Mutex<RecoveryPager>> {
+    const MAX_RECOVERY_ROOTS: usize = 64;
+    static PAGERS: std::sync::OnceLock<
+        std::sync::Mutex<
+            std::collections::HashMap<String, std::sync::Arc<std::sync::Mutex<RecoveryPager>>>,
+        >,
+    > = std::sync::OnceLock::new();
+    let key = std::fs::canonicalize(storage_root)
+        .unwrap_or_else(|_| storage_root.to_path_buf())
+        .to_string_lossy()
+        .into_owned();
+    let registry = PAGERS.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+    let mut registry = registry
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some(pager) = registry.get(&key) {
+        return std::sync::Arc::clone(pager);
+    }
+    if registry.len() >= MAX_RECOVERY_ROOTS {
+        let idle = registry
+            .iter()
+            .find(|(_, pager)| std::sync::Arc::strong_count(pager) == 1)
+            .map(|(key, _)| key.clone());
+        if let Some(idle) = idle {
+            registry.remove(&idle);
+        }
+    }
+    let pager = std::sync::Arc::new(std::sync::Mutex::new(RecoveryPager::default()));
+    if registry.len() < MAX_RECOVERY_ROOTS {
+        registry.insert(key, std::sync::Arc::clone(&pager));
+    }
+    pager
 }
 
 fn reap_work(path: &Path) -> Result<bool, OperationError> {
+    let removed = reap_work_without_parent_sync(path)?;
+    if removed {
+        fsync_parent(path)?;
+    }
+    Ok(removed)
+}
+
+fn reap_work_without_parent_sync(path: &Path) -> Result<bool, OperationError> {
     match std::fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_dir() => {
             std::fs::remove_dir_all(path)?;
-            fsync_parent(path)?;
             Ok(true)
         }
         Ok(_) => Err(OperationError::Invalid("operation work is not a directory")),

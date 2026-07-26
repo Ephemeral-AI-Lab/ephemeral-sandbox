@@ -8,7 +8,7 @@ mod stack;
 mod storage;
 mod workspace_base;
 
-pub(crate) use storage::{fs, lock, whiteout};
+pub(crate) use storage::{fs, lock, supervisor, whiteout};
 
 pub use model::portable::{
     canonical_root_json, canonical_tree_json, chunk_payload_id, parse_canonical_root_json,

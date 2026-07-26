@@ -20,6 +20,7 @@ pub struct Snapshot {
 pub struct CandidateGenerationSelection {
     pub materialization_id: String,
     pub root_id: String,
+    pub attribution_root_id: String,
     pub backend_kind: String,
     pub backend_format_version: u16,
     pub target_profile: String,
@@ -161,6 +162,22 @@ pub struct LayerStackRouteSnapshot {
     pub counter_saturated: bool,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct WriterLockMetrics {
+    pub acquisitions: u64,
+    pub wait_ns: u64,
+    pub maximum_wait_ns: u64,
+    pub hold_ns: u64,
+    pub maximum_hold_ns: u64,
+    pub forbidden_tree_walks: u64,
+    pub forbidden_payload_verifications: u64,
+    pub forbidden_history_scans: u64,
+    pub forbidden_permit_or_flight_waits: u64,
+    pub forbidden_worker_joins: u64,
+    pub forbidden_cleanups: u64,
+    pub forbidden_provider_payload_io: u64,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct LayerStackResourceSnapshot {
     pub schema_version: u16,
@@ -193,10 +210,32 @@ pub struct LayerStackResourceSnapshot {
     pub high_water_cache_entries: u32,
     pub registry_entries: u32,
     pub high_water_registry_entries: u32,
+    pub materialization_owners: u32,
+    pub high_water_materialization_owners: u32,
+    pub materialization_waiters: u32,
+    pub high_water_materialization_waiters: u32,
+    pub materialization_targets: u32,
+    pub high_water_materialization_targets: u32,
+    pub materialization_byte_reservations: u64,
+    pub high_water_materialization_byte_reservations: u64,
+    pub materialization_workspace_bytes: u64,
+    pub high_water_materialization_workspace_bytes: u64,
     pub open_file_descriptors: Option<u32>,
     pub high_water_open_file_descriptors: Option<u32>,
     pub mapped_bytes: Option<u64>,
     pub high_water_mapped_bytes: Option<u64>,
+    pub writer_lock_acquisitions: u64,
+    pub writer_lock_wait_ns: u64,
+    pub writer_lock_maximum_wait_ns: u64,
+    pub writer_lock_hold_ns: u64,
+    pub writer_lock_maximum_hold_ns: u64,
+    pub writer_lock_forbidden_tree_walks: u64,
+    pub writer_lock_forbidden_payload_verifications: u64,
+    pub writer_lock_forbidden_history_scans: u64,
+    pub writer_lock_forbidden_permit_or_flight_waits: u64,
+    pub writer_lock_forbidden_worker_joins: u64,
+    pub writer_lock_forbidden_cleanups: u64,
+    pub writer_lock_forbidden_provider_payload_io: u64,
     pub logical_cleanup_complete: bool,
     pub quiescence_ms: Option<u64>,
     pub counter_saturated: bool,

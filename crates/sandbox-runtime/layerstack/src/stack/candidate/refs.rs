@@ -896,8 +896,11 @@ impl PreparedFile {
         let parent = final_path
             .parent()
             .ok_or(RefError::Invalid("ref has no parent"))?;
+        let parent_existed = parent.try_exists()?;
         std::fs::create_dir_all(parent)?;
-        fsync_dir(parent)?;
+        if !parent_existed {
+            fsync_parent(parent)?;
+        }
         let file_name = final_path
             .file_name()
             .and_then(|name| name.to_str())

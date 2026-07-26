@@ -1064,7 +1064,7 @@ fn launch_failure_completes_under_the_held_guard_without_deadlock() {
 }
 
 #[test]
-fn completion_against_a_missing_session_is_a_silent_no_op() {
+fn faulty_destroy_waits_for_command_owner_release_before_deleting_session() {
     let fake = Arc::new(FakeWorkspaceService::new());
     fake.push_create_result(Ok(workspace_handle("ws-faulty", "lease-1")));
     let launch_driver = Arc::new(FakeLaunchDriver::new());
@@ -1083,21 +1083,32 @@ fn completion_against_a_missing_session_is_a_silent_no_op() {
     let command_session_id = output.command_session_id.expect("command is running");
 
     let lease_errors = env.workspace.destroy_faulty_session(&workspace_session_id);
-    assert!(lease_errors.is_empty());
-    assert_eq!(fake.destroy_calls(), vec![workspace_session_id.clone()]);
+    assert_eq!(lease_errors.len(), 1);
+    assert!(
+        lease_errors[0].contains("1 active command scratch owner(s) remain"),
+        "faulty destroy must expose the live command owner: {lease_errors:?}"
+    );
+    assert!(
+        fake.destroy_calls().is_empty(),
+        "workspace storage remains intact while command scratch is live"
+    );
 
     launcher.complete_request(&command_session_id.0, ok_run_result());
     assert!(
         wait_until(Duration::from_secs(5), || {
-            env.workspace.gate_entry_count() == 0
+            env.command.active_namespace_executions().is_empty()
         }),
-        "the late completion no-ops against the missing session and leaves no gate entry"
+        "the command owner must reach terminal release before retrying destroy"
     );
+
+    let lease_errors = env.workspace.destroy_faulty_session(&workspace_session_id);
+    assert!(lease_errors.is_empty());
     assert_eq!(
         fake.destroy_calls(),
         vec![workspace_session_id.clone()],
-        "the late completion never destroys again"
+        "the retry destroys exactly once after command-owner release"
     );
+    assert_eq!(env.workspace.gate_entry_count(), 0);
 }
 
 #[test]

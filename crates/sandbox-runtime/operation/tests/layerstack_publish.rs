@@ -328,22 +328,27 @@ fn implicit_publish_notifies_autosquash_only_after_destroy_is_attempted(
     assert!(publish_records(&trace_log).iter().all(|record| {
         !matches!(record, Record::Event(event)
             if event.name == names::LAYERSTACK_AUTOSQUASH_TRIGGERED
-                || event.name == names::LAYERSTACK_AUTOSQUASH_COMPLETED)
+                || event.name == names::LAYERSTACK_AUTOSQUASH_COMPLETED
+                || event.name == names::LAYERSTACK_AUTOSQUASH_FAILED)
     }));
 
     release_destroy.send(())?;
     let output = exec.join().expect("command test thread does not panic")?;
     assert_eq!(output.status, CommandStatus::Ok);
     wait_for_publish_condition(Duration::from_secs(5), || {
-        let squashed = stack
+        let layer_count = stack
             .read_active_manifest()
-            .map(|manifest| manifest.layers.len() == 2)
-            .unwrap_or(false);
-        squashed
-            && publish_records(&trace_log).iter().any(|record| {
-                matches!(record, Record::Event(event)
-                    if event.name == names::LAYERSTACK_AUTOSQUASH_COMPLETED)
-            })
+            .map(|manifest| manifest.layers.len())
+            .unwrap_or_default();
+        let terminal = if cfg!(target_os = "linux") {
+            (2, names::LAYERSTACK_AUTOSQUASH_COMPLETED)
+        } else {
+            (3, names::LAYERSTACK_AUTOSQUASH_FAILED)
+        };
+        layer_count == terminal.0
+            && publish_records(&trace_log)
+                .iter()
+                .any(|record| matches!(record, Record::Event(event) if event.name == terminal.1))
     });
     assert_eq!(
         fake.destroy_calls(),

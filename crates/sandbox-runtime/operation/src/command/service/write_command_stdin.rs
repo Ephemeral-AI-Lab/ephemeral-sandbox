@@ -1,5 +1,6 @@
 use crate::command::service::r#yield::{command_not_found, finalize_message};
 use crate::command::service::CommandOperationService;
+use crate::command::terminal_echo::max_terminal_echo_bytes;
 use crate::command::{CommandOutput, CommandServiceError, WriteCommandStdinInput};
 use sandbox_runtime_namespace_execution::{OutputActivity, OutputActivitySnapshot};
 use std::sync::Arc;
@@ -117,21 +118,4 @@ enum WriteTarget {
 
 fn is_kill_input(stdin: &str) -> bool {
     stdin.contains('\u{3}') || stdin.contains('\u{4}')
-}
-
-fn max_terminal_echo_bytes(stdin: &str) -> u64 {
-    u64::try_from(stdin.len())
-        .unwrap_or(u64::MAX)
-        .saturating_mul(2)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::max_terminal_echo_bytes;
-
-    #[test]
-    fn terminal_echo_bound_covers_control_expansion() {
-        assert_eq!(max_terminal_echo_bytes("input\n"), 12);
-        assert_eq!(max_terminal_echo_bytes("\u{7}"), 2);
-    }
 }

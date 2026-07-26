@@ -289,7 +289,13 @@ where
     B: GcBarrier,
     D: RawDigest + TypedDigest,
 {
-    let opened = journal.open(request, now_unix_seconds, digest)?;
+    let opened = journal.open_prepared(
+        request,
+        target,
+        changed_path_digest,
+        now_unix_seconds,
+        digest,
+    )?;
     if let OpenDisposition::Terminal(outcome) = opened.disposition {
         return Ok(outcome);
     }
@@ -300,23 +306,13 @@ where
             "operation base changed on retry",
         ));
     }
-    match opened.state.phase {
-        OperationPhase::Preparing => {
-            journal.prepare(opened.id, target, changed_path_digest, 0, digest)?;
-        }
-        OperationPhase::Prepared
-            if opened.state.prepared == Some(target)
-                && opened.state.changed_path_digest == changed_path_digest => {}
-        OperationPhase::Prepared => {
-            return Err(RefOperationError::Invalid(
-                "prepared target changed on retry",
-            ));
-        }
-        _ => {
-            return Err(RefOperationError::Invalid(
-                "ref operation has an invalid nonterminal phase",
-            ));
-        }
+    if opened.state.phase != OperationPhase::Prepared
+        || opened.state.prepared != Some(target)
+        || opened.state.changed_path_digest != changed_path_digest
+    {
+        return Err(RefOperationError::Invalid(
+            "ref operation has an invalid prepared state",
+        ));
     }
     Ok(journal.commit_success(opened.id, refs, now_unix_seconds, digest, |_| Ok(()))?)
 }

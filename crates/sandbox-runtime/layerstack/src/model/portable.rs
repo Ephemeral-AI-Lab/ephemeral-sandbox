@@ -1,5 +1,3 @@
-#![cfg_attr(test, allow(dead_code))]
-
 use std::fmt::Write as _;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Write};

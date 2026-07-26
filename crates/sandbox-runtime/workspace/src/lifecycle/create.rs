@@ -184,7 +184,7 @@ impl WorkspaceManager {
             return Err(self.fail_after_partial_create(&handle, err));
         }
 
-        if handle.candidate_admission.is_some() {
+        if let Some(candidate_admission) = handle.candidate_admission.as_mut() {
             let Some(lease_ttl) = candidate_session_lease_ttl else {
                 let error = WorkspaceManagerError::InvalidArgument(
                     "candidate session lease duration is required".to_owned(),
@@ -197,15 +197,10 @@ impl WorkspaceManager {
                 };
                 return Err(self.fail_after_partial_create(&handle, error));
             };
-            let lease = &handle
-                .candidate_admission
-                .as_ref()
-                .expect("candidate admission was checked")
-                .lease;
             let renewed =
                 match sandbox_runtime_layerstack::service::finalize_hidden_candidate_session(
                     &layer_stack_root,
-                    lease,
+                    &candidate_admission.lease,
                     lease_ttl,
                 ) {
                     Ok(lease) => lease,
@@ -216,11 +211,7 @@ impl WorkspaceManager {
                         return Err(self.fail_after_partial_create(&handle, error));
                     }
                 };
-            handle
-                .candidate_admission
-                .as_mut()
-                .expect("candidate admission was checked")
-                .lease = renewed;
+            candidate_admission.lease = renewed;
         } else if candidate_session_lease_ttl.is_some() {
             let error = WorkspaceManagerError::InvalidArgument(
                 "candidate session lease duration requires an admission".to_owned(),

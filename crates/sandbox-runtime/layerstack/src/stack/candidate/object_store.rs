@@ -139,7 +139,7 @@ impl AuthenticatedChunk {
         &self.encoded[RECORD_HEADER_BYTES..]
     }
 
-    pub(crate) const fn encoded_len(&self) -> usize {
+    pub(crate) fn encoded_len(&self) -> usize {
         self.encoded.len()
     }
 }

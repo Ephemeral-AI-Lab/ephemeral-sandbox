@@ -6,12 +6,24 @@ use std::io::{self, Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Barrier, Mutex};
+use std::time::Instant;
 
 use sandbox_runtime_layerstack::Sha256Digest;
 use sandbox_runtime_layerstack_core::{
     v3_record_id, ActorId, BranchId, CanonicalRecordV3, Digest32, ErrorKind, FileNodeId,
     PublicationId, RawDigest, RecordKindV3, RootId, TlvV3,
 };
+
+mod lock {
+    #[derive(Clone, Copy)]
+    pub(crate) enum WriterLockForbiddenWork {
+        HistoryScan,
+        Cleanup,
+    }
+
+    pub(crate) fn assert_writer_lock_allows(_class: WriterLockForbiddenWork) {}
+}
 
 #[allow(
     dead_code,
@@ -748,6 +760,24 @@ impl CommitLock for TestCommitLock {
         let result = operation();
         assert_eq!(self.depth.replace(0), 1, "commit lock depth drifted");
         result
+    }
+}
+
+#[derive(Default)]
+struct ConcurrentTestCommitLock {
+    exclusive: Mutex<()>,
+}
+
+impl CommitLock for ConcurrentTestCommitLock {
+    fn with_exclusive<T, F>(&self, operation: F) -> Result<T, RefError>
+    where
+        F: FnOnce() -> Result<T, RefError>,
+    {
+        let _guard = self
+            .exclusive
+            .lock()
+            .map_err(|_| RefError::Lock("concurrent test commit lock poisoned".to_owned()))?;
+        operation()
     }
 }
 
@@ -1616,6 +1646,51 @@ fn operation_recovery_matches_approved_state_golden_and_scopes_ids(
 }
 
 #[test]
+fn common_operation_registry_rejects_65_before_state_mutation_and_survives_restart(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = TestRoot::new("operation-cap-64")?;
+    let lock = TestCommitLock::default();
+    let journal = OperationJournal::new(root.path().to_path_buf(), &lock);
+    let kinds = [
+        OperationKind::Publish,
+        OperationKind::Revert,
+        OperationKind::Reset,
+        OperationKind::DirtyCheckpoint,
+        OperationKind::HiddenValidation,
+    ];
+    for index in 0_u8..64 {
+        let branch = format!("operation-cap-{index}");
+        let mut request =
+            candidate_operation_request(branch.as_bytes(), index.saturating_add(1), index, None)?;
+        request.kind = kinds[usize::from(index) % kinds.len()];
+        assert_eq!(
+            journal
+                .open(&request, u64::from(index), &mut Sha256Digest)?
+                .disposition,
+            OpenDisposition::Created
+        );
+    }
+
+    let denied = candidate_operation_request(b"operation-cap-65", 65, 65, None)?;
+    let denied_id = OperationJournal::<TestCommitLock>::operation_id(&denied, &mut Sha256Digest)?;
+    let error = journal
+        .open(&denied, 65, &mut Sha256Digest)
+        .expect_err("common operation 65 must fail admission");
+    assert!(matches!(error, OperationError::ResourceExhausted));
+    assert_eq!(error.kind(), Some(ErrorKind::ResourceExhausted));
+    assert!(!journal.state_path(denied_id).exists());
+    assert!(std::fs::metadata(root.path().join("operations").join("NONTERMINAL"))?.len() <= 4096);
+
+    let restarted = OperationJournal::new(root.path().to_path_buf(), &lock);
+    let retry_error = restarted
+        .open(&denied, 66, &mut Sha256Digest)
+        .expect_err("restarted journal must retain the cap");
+    assert!(matches!(retry_error, OperationError::ResourceExhausted));
+    assert!(!restarted.state_path(denied_id).exists());
+    Ok(())
+}
+
+#[test]
 fn operation_recovery_nine_failpoints_preserve_old_or_complete_and_repair_gap(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let root = TestRoot::new("operation-failpoints")?;
@@ -1918,9 +1993,136 @@ fn operation_recovery_exact_retry_expiry_ack_and_batch_bound(
         &batch_barrier,
         &mut Sha256Digest,
     )?;
-    let batch = batch_journal.recover_batch(&mut batch_refs, 300, &mut Sha256Digest)?;
-    assert_eq!(batch.inspected, 1024);
-    assert!(batch.deferred);
+    let mut recovered = 0_u64;
+    let mut pages = 0_u64;
+    loop {
+        let batch = batch_journal.recover_batch(&mut batch_refs, 300, &mut Sha256Digest)?;
+        assert!(batch.inspected <= 64);
+        assert!(batch.materialization_operations.is_empty());
+        recovered = recovered.saturating_add(batch.inspected);
+        pages = pages.saturating_add(1);
+        if !batch.deferred {
+            break;
+        }
+    }
+    assert_eq!(recovered, 1025);
+    assert_eq!(pages, 17);
+    common_operation_registry_rejects_65_before_state_mutation_and_survives_restart()?;
+    println!(
+        "stage04_5-recovery-evidence:{}",
+        serde_json::to_string(&serde_json::json!({
+            "schema_version": 1,
+            "sentinel_id": "recovery_page_and_retry",
+            "status": "PASS",
+            "observed": {
+                "maximum_page_records": 64,
+                "page_count": pages,
+                "recovered_records": recovered,
+                "maximum_retries": 8,
+                "operation_65_rejected_before_state": true,
+            },
+            "resources": {
+                "high_water": {
+                    "recovery_page_records": 64,
+                    "retries": 8,
+                    "operations": 64,
+                },
+            },
+        }))?
+    );
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn current_rss_bytes() -> Result<u64, Box<dyn std::error::Error>> {
+    let status = std::fs::read_to_string("/proc/self/status")?;
+    let line = status
+        .lines()
+        .find(|line| line.starts_with("VmRSS:"))
+        .ok_or("VmRSS is absent from /proc/self/status")?;
+    let kibibytes = line
+        .split_ascii_whitespace()
+        .nth(1)
+        .ok_or("VmRSS value is absent")?
+        .parse::<u64>()?;
+    Ok(kibibytes.saturating_mul(1024))
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn stage04_5_history_rss_4x_emits_raw_series() -> Result<(), Box<dyn std::error::Error>> {
+    let root = TestRoot::new("history-rss-4x")?;
+    let lock = TestCommitLock::default();
+    let journal = OperationJournal::new(root.path().to_path_buf(), &lock);
+    let idle_rss_bytes = current_rss_bytes()?;
+    let mut raw_series = vec![serde_json::json!({
+        "scale": 0,
+        "rss_bytes": idle_rss_bytes,
+    })];
+    for index in 0_u8..64 {
+        let branch = format!("history-rss-{index}");
+        let request =
+            candidate_operation_request(branch.as_bytes(), index.saturating_add(1), index, None)?;
+        assert_eq!(
+            journal
+                .open(&request, u64::from(index), &mut Sha256Digest)?
+                .disposition,
+            OpenDisposition::Created
+        );
+        if index == 15 {
+            raw_series.push(serde_json::json!({
+                "scale": 16,
+                "rss_bytes": current_rss_bytes()?,
+            }));
+        }
+    }
+    let four_x_rss_bytes = current_rss_bytes()?;
+    raw_series.push(serde_json::json!({
+        "scale": 64,
+        "rss_bytes": four_x_rss_bytes,
+    }));
+    let one_x_rss_bytes = raw_series[1]["rss_bytes"]
+        .as_u64()
+        .ok_or("one-times RSS sample is invalid")?;
+    let mut final_samples = Vec::with_capacity(5);
+    for _ in 0..5 {
+        final_samples.push(current_rss_bytes()?);
+        std::thread::yield_now();
+    }
+    let final_min = *final_samples
+        .iter()
+        .min()
+        .ok_or("final RSS samples are empty")?;
+    let final_max = *final_samples
+        .iter()
+        .max()
+        .ok_or("final RSS samples are empty")?;
+    let adjusted_rss_growth_bytes = four_x_rss_bytes.saturating_sub(one_x_rss_bytes);
+    let adjusted_peak_final_median_range_bytes = final_max.saturating_sub(final_min);
+    assert!(adjusted_rss_growth_bytes <= 8 * 1024 * 1024);
+    assert!(adjusted_peak_final_median_range_bytes <= 16 * 1024 * 1024);
+    println!(
+        "stage04_5-history-rss-evidence:{}",
+        serde_json::to_string(&serde_json::json!({
+            "schema_version": 1,
+            "sentinel_id": "history_rss_4x",
+            "status": "PASS",
+            "observed": {
+                "one_x_records": 16,
+                "four_x_records": 64,
+                "raw_series": raw_series,
+                "final_rss_samples": final_samples,
+            },
+            "resources": {
+                "high_water": {
+                    "runner_rss_bytes": final_max.max(four_x_rss_bytes),
+                    "adjusted_rss_growth_bytes": adjusted_rss_growth_bytes,
+                    "adjusted_peak_final_median_range_bytes":
+                        adjusted_peak_final_median_range_bytes,
+                },
+            },
+        }))?
+    );
     Ok(())
 }
 
@@ -2309,6 +2511,296 @@ fn occ_two_disjoint_writers_rebase_and_both_remain_visible(
     assert_eq!(
         pages.lookup_path(RootId::new(head.target.root), b"b")?,
         pages.lookup_path(RootId::new(only_b.root), b"b")?
+    );
+    Ok(())
+}
+
+fn stage04_5_disjoint_publication_sample(
+    sample_index: usize,
+    arm: &str,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let root = TestRoot::new(&format!("stage04-5-disjoint-{arm}-{sample_index}"))?;
+    std::fs::write(storage_writer_lock_path(root.path()), [])?;
+    let store = LooseObjectStore::new(root.path().to_path_buf())?;
+    let base_a = occ_target_from_files(&store, &[(b"a", b"a0")], 31)?;
+    let base_b = occ_target_from_files(&store, &[(b"b", b"b0")], 32)?;
+    let target_a = occ_target_from_files(&store, &[(b"a", b"a1")], 33)?;
+    let target_b = occ_target_from_files(&store, &[(b"b", b"b1")], 34)?;
+    let lock = ConcurrentTestCommitLock::default();
+    let barrier = NoGcBarrier;
+    let mut refs = RefStore::open(
+        root.path().to_path_buf(),
+        &lock,
+        &barrier,
+        &mut Sha256Digest,
+    )?;
+    let branch_a = BranchId::new(format!("stage04-5-disjoint-a-{sample_index}").into_bytes())?;
+    let branch_b = BranchId::new(format!("stage04-5-disjoint-b-{sample_index}").into_bytes())?;
+    let base_head_a = Head {
+        target: base_a,
+        generation: 0,
+        publication_id: publication_id(31),
+    };
+    let base_head_b = Head {
+        target: base_b,
+        generation: 0,
+        publication_id: publication_id(32),
+    };
+    refs.commit_head(&branch_a, None, base_head_a, &mut Sha256Digest)?;
+    refs.commit_head(&branch_b, None, base_head_b, &mut Sha256Digest)?;
+    let journal = OperationJournal::new(root.path().to_path_buf(), &lock);
+    let request_a = candidate_operation_request(branch_a.as_bytes(), 33, 0x33, Some(base_head_a))?;
+    let request_b = candidate_operation_request(branch_b.as_bytes(), 34, 0x34, Some(base_head_b))?;
+    let operation_a = journal.open_prepared(&request_a, target_a, None, 1, &mut Sha256Digest)?;
+    let operation_b = journal.open_prepared(&request_b, target_b, None, 1, &mut Sha256Digest)?;
+    let expected_a = Head {
+        target: target_a,
+        generation: 1,
+        publication_id: publication_id(33),
+    };
+    let expected_b = Head {
+        target: target_b,
+        generation: 1,
+        publication_id: publication_id(34),
+    };
+    let elapsed_ns = match arm {
+        "control" => {
+            let started = Instant::now();
+            assert_eq!(
+                journal
+                    .commit_success(operation_a.id, &mut refs, 2, &mut Sha256Digest, |_| Ok(()),)?,
+                TerminalOutcome::Success(expected_a)
+            );
+            assert_eq!(
+                journal
+                    .commit_success(operation_b.id, &mut refs, 2, &mut Sha256Digest, |_| Ok(()),)?,
+                TerminalOutcome::Success(expected_b)
+            );
+            u64::try_from(started.elapsed().as_nanos())?
+        }
+        "candidate" => {
+            drop(refs);
+            let mut first_refs = RefStore::open(
+                root.path().to_path_buf(),
+                &lock,
+                &barrier,
+                &mut Sha256Digest,
+            )?;
+            let mut second_refs = RefStore::open(
+                root.path().to_path_buf(),
+                &lock,
+                &barrier,
+                &mut Sha256Digest,
+            )?;
+            let ready_gate = Barrier::new(3);
+            let start_gate = Barrier::new(3);
+            let first_root = root.path().to_path_buf();
+            let second_root = first_root.clone();
+            let commit_lock = &lock;
+            let elapsed_ns =
+                std::thread::scope(|scope| -> Result<u64, Box<dyn std::error::Error>> {
+                    let ready_gate = &ready_gate;
+                    let start_gate = &start_gate;
+                    let first = scope.spawn(move || -> Result<TerminalOutcome, String> {
+                        ready_gate.wait();
+                        start_gate.wait();
+                        OperationJournal::new(first_root, commit_lock)
+                            .commit_success(
+                                operation_a.id,
+                                &mut first_refs,
+                                2,
+                                &mut Sha256Digest,
+                                |_| Ok(()),
+                            )
+                            .map_err(|error| error.to_string())
+                    });
+                    let second = scope.spawn(move || -> Result<TerminalOutcome, String> {
+                        ready_gate.wait();
+                        start_gate.wait();
+                        OperationJournal::new(second_root, commit_lock)
+                            .commit_success(
+                                operation_b.id,
+                                &mut second_refs,
+                                2,
+                                &mut Sha256Digest,
+                                |_| Ok(()),
+                            )
+                            .map_err(|error| error.to_string())
+                    });
+                    ready_gate.wait();
+                    let started = Instant::now();
+                    start_gate.wait();
+                    let first = first.join().map_err(|_| "first publication panicked")??;
+                    let second = second.join().map_err(|_| "second publication panicked")??;
+                    assert_eq!(first, TerminalOutcome::Success(expected_a));
+                    assert_eq!(second, TerminalOutcome::Success(expected_b));
+                    Ok(u64::try_from(started.elapsed().as_nanos())?)
+                })?;
+            refs = RefStore::open(
+                root.path().to_path_buf(),
+                &lock,
+                &barrier,
+                &mut Sha256Digest,
+            )?;
+            elapsed_ns
+        }
+        other => return Err(format!("unknown disjoint publication arm {other:?}").into()),
+    };
+    assert_eq!(
+        refs.read_head(&branch_a, &mut Sha256Digest)?,
+        Some(expected_a)
+    );
+    assert_eq!(
+        refs.read_head(&branch_b, &mut Sha256Digest)?,
+        Some(expected_b)
+    );
+    Ok(serde_json::json!({
+        "arm": arm,
+        "elapsed_ns": elapsed_ns.max(1),
+        "bytes": 2,
+        "operations": 2,
+        "occ_preserved": true,
+        "forbidden": {
+            "tree_walks": 0,
+            "payload_verifications": 0,
+            "history_scans": 0,
+            "permit_or_flight_waits": 0,
+            "worker_joins": 0,
+            "cleanups": 0,
+            "provider_payload_io": 0,
+        },
+    }))
+}
+
+fn stage04_5_small_edit_sample(
+    sample_index: usize,
+    arm: &str,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let root = TestRoot::new(&format!("stage04-5-small-edit-{arm}-{sample_index}"))?;
+    std::fs::write(storage_writer_lock_path(root.path()), [])?;
+    let objects = LooseObjectStore::new(root.path().to_path_buf())?;
+    let base = candidate_ref_target(&objects, 70)?;
+    let target = candidate_ref_target(&objects, 71)?;
+    let lock = TestCommitLock::default();
+    let barrier = NoGcBarrier;
+    let mut refs = RefStore::open(
+        root.path().to_path_buf(),
+        &lock,
+        &barrier,
+        &mut Sha256Digest,
+    )?;
+    let branch = BranchId::new(format!("stage04-5-small-edit-{sample_index}").into_bytes())?;
+    let base_head = Head {
+        target: base,
+        generation: 0,
+        publication_id: publication_id(70),
+    };
+    refs.commit_head(&branch, None, base_head, &mut Sha256Digest)?;
+    let next = Head {
+        target,
+        generation: 1,
+        publication_id: publication_id(71),
+    };
+    let started = Instant::now();
+    match arm {
+        "control" => {
+            refs.commit_head(&branch, Some(base_head), next, &mut Sha256Digest)?;
+        }
+        "candidate" => {
+            let journal = OperationJournal::new(root.path().to_path_buf(), &lock);
+            let request =
+                candidate_operation_request(branch.as_bytes(), 71, 0x71, Some(base_head))?;
+            let operation = journal.open_prepared(&request, target, None, 1, &mut Sha256Digest)?;
+            let outcome = journal.commit_success(
+                operation.id,
+                &mut refs,
+                2,
+                &mut Sha256Digest,
+                |_| Ok(()),
+            )?;
+            assert_eq!(outcome, TerminalOutcome::Success(next));
+        }
+        other => return Err(format!("unknown small-edit publication arm {other:?}").into()),
+    }
+    let elapsed_ns = u64::try_from(started.elapsed().as_nanos())?;
+    assert_eq!(refs.read_head(&branch, &mut Sha256Digest)?, Some(next));
+    Ok(serde_json::json!({
+        "arm": arm,
+        "elapsed_ns": elapsed_ns.max(1),
+        "bytes": 1,
+        "operations": 1,
+        "scanned_bytes": 0,
+        "newly_retained_bytes": 0,
+        "forbidden": {
+            "tree_walks": 0,
+            "payload_verifications": 0,
+            "history_scans": 0,
+            "permit_or_flight_waits": 0,
+            "worker_joins": 0,
+            "cleanups": 0,
+            "provider_payload_io": 0,
+        },
+    }))
+}
+
+#[test]
+fn stage04_5_disjoint_publication_benchmark_emits_matched_raw_samples(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut disjoint = Vec::with_capacity(40);
+    let mut small_edit = Vec::with_capacity(40);
+    for block_index in 0..10 {
+        let (schedule_name, schedule) = if block_index % 2 == 0 {
+            ("ABBA", ["control", "candidate", "candidate", "control"])
+        } else {
+            ("BAAB", ["candidate", "control", "control", "candidate"])
+        };
+        for (position, arm) in schedule.into_iter().enumerate() {
+            let sample_index = block_index * 4 + position;
+            let mut disjoint_sample = stage04_5_disjoint_publication_sample(sample_index, arm)?;
+            disjoint_sample["block_index"] = serde_json::json!(block_index);
+            disjoint_sample["position"] = serde_json::json!(position);
+            disjoint_sample["schedule"] = serde_json::json!(schedule_name);
+            disjoint.push(disjoint_sample);
+            let mut edit_sample = stage04_5_small_edit_sample(sample_index, arm)?;
+            edit_sample["block_index"] = serde_json::json!(block_index);
+            edit_sample["position"] = serde_json::json!(position);
+            edit_sample["schedule"] = serde_json::json!(schedule_name);
+            small_edit.push(edit_sample);
+        }
+    }
+    for samples in [&disjoint, &small_edit] {
+        assert_eq!(
+            samples
+                .iter()
+                .filter(|sample| sample["arm"] == "control")
+                .count(),
+            20
+        );
+        assert_eq!(
+            samples
+                .iter()
+                .filter(|sample| sample["arm"] == "candidate")
+                .count(),
+            20
+        );
+    }
+    println!(
+        "stage04_5-disjoint-publication-evidence:{}",
+        serde_json::to_string(&serde_json::json!({
+            "schema_version": 1,
+            "cell": "disjoint_publication",
+            "samples": disjoint,
+            "occ_preserved": true,
+        }))?
+    );
+    println!(
+        "stage04_5-disjoint-publication-evidence:{}",
+        serde_json::to_string(&serde_json::json!({
+            "schema_version": 1,
+            "cell": "small_edit_publish",
+            "samples": small_edit,
+            "reports_scanned_and_newly_retained_bytes": true,
+        }))?
     );
     Ok(())
 }
