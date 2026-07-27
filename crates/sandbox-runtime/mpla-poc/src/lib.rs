@@ -34,6 +34,7 @@ pub mod resources;
 pub mod semantic;
 pub mod session;
 pub mod state;
+pub mod storage_admin;
 
 pub use activation::{
     ActivatedSession, ActivationBinding, ActivationReceipt, ExactActivationRequest,
@@ -76,7 +77,9 @@ pub use process_tree::{CommandReceipt, ManagedProcessTree, ProcessAudit};
 pub use projection::{ExactProjectionReceipt, ProjectionRecipe};
 pub use protocol::{
     AdoptionReceipt, AllocationDescriptor, AllocationHandle, DeletionCapability, MutableLease,
-    OwnerTransitionRequest, QualificationRequest, StableAllocationReceipt, WriterCapability,
+    OwnerTransitionRequest, QualificationRequest, StableAllocationReceipt, StorageAdminAction,
+    StorageAdminAuthorization, StorageAdminReceipt, StorageAdminRequest, StorageAdminScope,
+    WriterCapability,
 };
 pub use publication::{
     PublicationOperationRecord, ReceiptHitPublicationReceipt, StationaryPublicationReceipt,
@@ -98,7 +101,12 @@ pub use resources::{
 pub use session::{MplaSession, SessionRecord};
 pub use state::{OwnerGeneration, OwnerSubject, PublicationPhase, SessionPhase};
 
-pub const INTERFACE_VERSION: &str = "m2-iface-v1";
+pub const INTERFACE_VERSION: &str = "m2r-iface-v1";
+pub const STORAGE_ADMIN_PROFILE_ID: &str = "mpla-storage-admin-v1";
+pub const STORAGE_ADMIN_TRUSTED_EXECUTABLE: &str =
+    "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1";
+pub const STORAGE_ADMIN_EFFECTIVE_CAPABILITIES: &[&str] = &["CAP_SYS_ADMIN"];
+pub const STORAGE_ADMIN_PRIVILEGED_SYSCALLS: &[&str] = &["mount", "umount2", "setns", "syncfs"];
 pub const SCHEMA_VERSION: u32 = 1;
 
 pub fn unix_time_ms() -> PocResult<u64> {

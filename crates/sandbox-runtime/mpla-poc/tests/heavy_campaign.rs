@@ -54,5 +54,5 @@ fn hv_10_lifecycle_scale_and_controls() {
 #[cfg(not(target_os = "linux"))]
 #[test]
 fn heavy_campaign_is_linux_gated() {
-    assert_eq!(sandbox_runtime_mpla_poc::INTERFACE_VERSION, "m2-iface-v1");
+    assert_eq!(sandbox_runtime_mpla_poc::INTERFACE_VERSION, "m2r-iface-v1");
 }

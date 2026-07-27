@@ -26,5 +26,5 @@ fn m1_sm12_child_fault_then_sigkill() {
 #[cfg(not(target_os = "linux"))]
 #[test]
 fn smoke_campaign_is_linux_gated() {
-    assert_eq!(sandbox_runtime_mpla_poc::INTERFACE_VERSION, "m2-iface-v1");
+    assert_eq!(sandbox_runtime_mpla_poc::INTERFACE_VERSION, "m2r-iface-v1");
 }

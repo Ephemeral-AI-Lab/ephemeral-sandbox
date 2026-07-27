@@ -99,3 +99,65 @@ pub struct QualificationRequest {
     pub allocation_root: PathBuf,
     pub workspace_root: PathBuf,
 }
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageAdminAction {
+    Mount,
+    Quiesce,
+    StrictUnmount,
+    Cleanup,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminScope {
+    pub run_id: RunId,
+    pub allocation_id: AllocationId,
+    pub lease_id: String,
+    pub lease_epoch: u64,
+    pub mount_namespace_id: String,
+    pub payload_root: PathBuf,
+    pub control_root: PathBuf,
+    pub lower_dirs_newest_first: Vec<PathBuf>,
+    pub allocation_root: PathBuf,
+    pub workspace_root: PathBuf,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminRequest {
+    pub schema_version: u32,
+    pub interface_version: String,
+    pub profile_id: String,
+    pub operation_id: OperationId,
+    pub action: StorageAdminAction,
+    pub scope: StorageAdminScope,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminAuthorization {
+    pub authenticated: bool,
+    pub actor_id: String,
+    pub run_id: RunId,
+    pub allocation_id: AllocationId,
+    pub lease_id: String,
+    pub lease_epoch: u64,
+    pub mount_namespace_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminReceipt {
+    pub schema_version: u32,
+    pub interface_version: String,
+    pub profile_id: String,
+    pub operation_id: OperationId,
+    pub action: StorageAdminAction,
+    pub request_sha256: String,
+    pub trusted_executable: PathBuf,
+    pub effective_capabilities: Vec<String>,
+    pub allowed_privileged_syscalls: Vec<String>,
+    pub scope: StorageAdminScope,
+    pub idempotent_replay: bool,
+    pub cleanup_complete: bool,
+    pub completed_unix_ms: u64,
+    pub receipt_path: PathBuf,
+}

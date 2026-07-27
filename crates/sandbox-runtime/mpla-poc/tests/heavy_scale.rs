@@ -56,9 +56,9 @@ const HV02_SAMPLES: usize = 6;
 const HV03_BYTES: u64 = GIB;
 const HV04_FILES: u64 = 250_000;
 const ACTOR_ID: &str = "mpla-poc-candidate";
-const INTERFACE_VERSION: &str = "m2-iface-v1";
-const LEASE_PREFIX: &str = "m2-20260727T230353p0800:worker-a:";
-const BRANCH: &str = "m2-worker-a";
+const INTERFACE_VERSION: &str = "m2r-iface-v1";
+const LEASE_PREFIX: &str = "m2r-20260728T015724p0800:lead:";
+const BRANCH: &str = "m2r-lead";
 
 #[derive(Clone, Debug)]
 struct Roots {
@@ -82,7 +82,7 @@ impl Roots {
             .into());
         }
         let run_id = RunId::parse(required_string("MPLA_POC_RUN_ID")?)?;
-        if run_id.as_str() != "m2-20260727T230353p0800" {
+        if run_id.as_str() != "m2r-20260728T015724p0800" {
             return Err("run ID differs from the lead assignment capsule".into());
         }
         let roots = Self {
@@ -131,7 +131,7 @@ impl Roots {
 
     fn campaign_root(&self) -> PathBuf {
         self.control_root
-            .join("m2-worker-a")
+            .join("m2r-lead")
             .join(self.run_id.as_str())
     }
 
@@ -398,11 +398,11 @@ fn heavy_scale_contract_is_frozen() {
                 "hv01_required_control_interface_value": "m2-iface-v1-current-i2-closing-tpub",
                 "single_case_filter_environment_supported": false,
                 "required_lease_tokens": {
-                    "prepare": "m2-20260727T230353p0800:worker-a:PREPARE",
-                    "HV-01": "m2-20260727T230353p0800:worker-a:HV-01",
-                    "HV-02": "m2-20260727T230353p0800:worker-a:HV-02",
-                    "HV-03": "m2-20260727T230353p0800:worker-a:HV-03",
-                    "HV-04": "m2-20260727T230353p0800:worker-a:HV-04"
+                    "prepare": "m2r-20260728T015724p0800:lead:PREPARE",
+                    "HV-01": "m2r-20260728T015724p0800:lead:HV-01",
+                    "HV-02": "m2r-20260728T015724p0800:lead:HV-02",
+                    "HV-03": "m2r-20260728T015724p0800:lead:HV-03",
+                    "HV-04": "m2r-20260728T015724p0800:lead:HV-04"
                 },
                 "hard_stop_seconds": {
                     "prepare": 7200,

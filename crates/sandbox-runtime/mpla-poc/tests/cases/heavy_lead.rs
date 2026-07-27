@@ -30,7 +30,7 @@ const HV05_FILES_PER_DELTA: usize = 10;
 const HV05_FILE_BYTES: u64 = 100 * 1024;
 const HV05_TPUB_MAX_NS: u64 = 1_070_000_000;
 const HV05_MEDIAN_OBJECTIVE_NS: u64 = 100_000_000;
-const HEAVY_LEASE_PREFIX: &str = "m2-20260727T230353p0800:lead:";
+const HEAVY_LEASE_PREFIX: &str = "m2r-20260728T015724p0800:lead:";
 const HEAVY_BRANCH: &str = "heavy-main";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -132,8 +132,8 @@ impl HeavyContext {
             .into());
         }
         let run_id = RunId::parse(required_env("MPLA_POC_RUN_ID")?)?;
-        if run_id.as_str() != "m2-20260727T230353p0800" {
-            return Err("M2 lead heavy run ID differs from the frozen capsule".into());
+        if run_id.as_str() != "m2r-20260728T015724p0800" {
+            return Err("M2R lead heavy run ID differs from the frozen capsule".into());
         }
         let payload_root = required_path("MPLA_POC_PAYLOAD_ROOT")?;
         let control_root = required_path("MPLA_POC_CONTROL_ROOT")?;
@@ -208,8 +208,8 @@ pub fn prepare_heavy() -> CampaignResult {
         .into());
     }
     let run_id = RunId::parse(required_env("MPLA_POC_RUN_ID")?)?;
-    if run_id.as_str() != "m2-20260727T230353p0800" {
-        return Err("M2 lead heavy run ID differs from the frozen capsule".into());
+    if run_id.as_str() != "m2r-20260728T015724p0800" {
+        return Err("M2R lead heavy run ID differs from the frozen capsule".into());
     }
     let payload_root = required_path("MPLA_POC_PAYLOAD_ROOT")?;
     let control_root = required_path("MPLA_POC_CONTROL_ROOT")?;

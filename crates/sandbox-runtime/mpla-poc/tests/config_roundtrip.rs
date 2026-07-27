@@ -1,4 +1,11 @@
-use sandbox_runtime_mpla_poc::{PocConfig, RunId, INTERFACE_VERSION};
+use std::path::PathBuf;
+
+use sandbox_runtime_mpla_poc::{
+    AllocationId, OperationId, PocConfig, RunId, StorageAdminAction, StorageAdminAuthorization,
+    StorageAdminReceipt, StorageAdminRequest, StorageAdminScope, INTERFACE_VERSION,
+    STORAGE_ADMIN_EFFECTIVE_CAPABILITIES, STORAGE_ADMIN_PRIVILEGED_SYSCALLS,
+    STORAGE_ADMIN_PROFILE_ID, STORAGE_ADMIN_TRUSTED_EXECUTABLE,
+};
 
 #[test]
 fn fixed_config_round_trips() {
@@ -7,7 +14,7 @@ fn fixed_config_round_trips() {
     let encoded = serde_json::to_vec(&config).expect("config must encode");
     let decoded: PocConfig = serde_json::from_slice(&encoded).expect("config must decode");
     assert_eq!(decoded, config);
-    assert_eq!(INTERFACE_VERSION, "m2-iface-v1");
+    assert_eq!(INTERFACE_VERSION, "m2r-iface-v1");
 }
 
 #[test]
@@ -16,4 +23,69 @@ fn run_id_rejects_unsafe_targets() {
         assert!(RunId::parse(invalid).is_err(), "{invalid}");
     }
     assert!(RunId::parse("m0-20260727T130703p0800").is_ok());
+}
+
+#[test]
+fn corrective_storage_admin_contract_round_trips() {
+    let scope = StorageAdminScope {
+        run_id: RunId::parse("m2r-20260728T015724p0800").expect("run ID"),
+        allocation_id: AllocationId::from_string("allocation-1"),
+        lease_id: "m2r-20260728T015724p0800:lead:SECURITY".to_owned(),
+        lease_epoch: 7,
+        mount_namespace_id: "mnt:[4026532999]".to_owned(),
+        payload_root: PathBuf::from("/mpla/payload"),
+        control_root: PathBuf::from("/mpla/control"),
+        lower_dirs_newest_first: vec![PathBuf::from("/mpla/lower")],
+        allocation_root: PathBuf::from("/mpla/allocation"),
+        workspace_root: PathBuf::from("/mpla/workspace"),
+    };
+    let request = StorageAdminRequest {
+        schema_version: 1,
+        interface_version: INTERFACE_VERSION.to_owned(),
+        profile_id: STORAGE_ADMIN_PROFILE_ID.to_owned(),
+        operation_id: OperationId::from_string("operation-1"),
+        action: StorageAdminAction::Mount,
+        scope: scope.clone(),
+    };
+    let authorization = StorageAdminAuthorization {
+        authenticated: true,
+        actor_id: "mpla-poc-candidate".to_owned(),
+        run_id: scope.run_id.clone(),
+        allocation_id: scope.allocation_id.clone(),
+        lease_id: scope.lease_id.clone(),
+        lease_epoch: scope.lease_epoch,
+        mount_namespace_id: scope.mount_namespace_id.clone(),
+    };
+    let receipt = StorageAdminReceipt {
+        schema_version: 1,
+        interface_version: INTERFACE_VERSION.to_owned(),
+        profile_id: STORAGE_ADMIN_PROFILE_ID.to_owned(),
+        operation_id: request.operation_id.clone(),
+        action: request.action,
+        request_sha256: "a".repeat(64),
+        trusted_executable: PathBuf::from(STORAGE_ADMIN_TRUSTED_EXECUTABLE),
+        effective_capabilities: STORAGE_ADMIN_EFFECTIVE_CAPABILITIES
+            .iter()
+            .map(|value| (*value).to_owned())
+            .collect(),
+        allowed_privileged_syscalls: STORAGE_ADMIN_PRIVILEGED_SYSCALLS
+            .iter()
+            .map(|value| (*value).to_owned())
+            .collect(),
+        scope,
+        idempotent_replay: false,
+        cleanup_complete: true,
+        completed_unix_ms: 1,
+        receipt_path: PathBuf::from("/mpla/control/receipts/operation-1.json"),
+    };
+
+    for value in [
+        serde_json::to_value(&request).expect("request"),
+        serde_json::to_value(&authorization).expect("authorization"),
+        serde_json::to_value(&receipt).expect("receipt"),
+    ] {
+        let encoded = serde_json::to_vec(&value).expect("encode");
+        let decoded: serde_json::Value = serde_json::from_slice(&encoded).expect("decode");
+        assert_eq!(decoded, value);
+    }
 }
