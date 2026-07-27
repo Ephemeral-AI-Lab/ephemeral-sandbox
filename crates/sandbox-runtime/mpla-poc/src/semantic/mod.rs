@@ -26,9 +26,9 @@ use crate::{
     PocResult, SemanticBuildReceipt, SemanticBuildRequest, SemanticPhaseSpan, SCHEMA_VERSION,
 };
 
-use self::record::{RecordMutation, SemanticRecord};
+use self::record::{RecordMutation, RecordStreamReader, SemanticRecord};
 use self::scan::ScanStats;
-use self::spool::{BoundedSpool, SpoolStats};
+use self::spool::{BoundedSpool, SortedSpool, SpoolStats};
 use self::trie::{ImmutableObjectStore, TrieRoots};
 
 const MAIN_SPOOL_MEMORY_BYTES: usize = 3 * 1024 * 1024;
@@ -101,6 +101,13 @@ struct RootManifest {
     attribution_descriptor_sha256: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct StreamRecipe {
+    version: u32,
+    prior_record_stream_sha256: String,
+    affected_stream_sha256: String,
+}
+
 pub fn build(request: &SemanticBuildRequest) -> PocResult<SemanticBuildReceipt> {
     build_with_output(request).map(|output| output.receipt)
 }
@@ -139,10 +146,10 @@ pub fn build_with_output(request: &SemanticBuildRequest) -> PocResult<SemanticBu
 
     let install_started = Instant::now();
     let manifest = manifest_for(&roots, spool_stats.records_out, &request.attribution);
+    let record_stream_path =
+        materialize_sorted_record_stream(&manifest, &request.canonical_object_dir, &sorted)?;
     store.sync_directory()?;
     let root_manifest_path = install_manifest(&request.canonical_object_dir, &manifest)?;
-    let record_stream_path =
-        materialize_record_stream(&root_manifest_path, &request.canonical_object_dir)?;
     let install_elapsed = elapsed_ns(install_started);
     let durability = durability_receipt(&root_manifest_path, &store)?;
     let receipt = build_receipt(
@@ -226,6 +233,7 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
     let update_elapsed = elapsed_ns(started);
     let manifest = manifest_for(&roots, entry_count, &request.attribution);
     let install_started = Instant::now();
+    install_incremental_stream_recipe(request, &prior, &manifest)?;
     store.sync_directory()?;
     let root_manifest_path = install_manifest(&request.canonical_object_dir, &manifest)?;
     let install_elapsed = elapsed_ns(install_started);
@@ -418,7 +426,87 @@ pub fn materialize_record_stream(
     canonical_object_dir: &Path,
 ) -> PocResult<PathBuf> {
     let manifest = load_manifest(manifest_path)?;
-    let roots = TrieRoots::from_hex(&manifest.content_root, &manifest.attribution_root)?;
+    materialize_record_stream_id(
+        &manifest.record_stream_sha256,
+        canonical_object_dir,
+        Some((&manifest.content_root, &manifest.attribution_root)),
+        Some(manifest.entry_count),
+        0,
+    )
+}
+
+fn materialize_record_stream_id(
+    record_stream_sha256: &str,
+    canonical_object_dir: &Path,
+    legacy_roots: Option<(&str, &str)>,
+    expected_count: Option<u64>,
+    depth: usize,
+) -> PocResult<PathBuf> {
+    if depth > 64 {
+        return Err(PocError::Integrity(
+            "semantic record-stream recipe chain exceeds fixed bound".to_owned(),
+        ));
+    }
+    let streams = canonical_object_dir.join("streams");
+    std::fs::create_dir_all(&streams)
+        .map_err(|error| PocError::io("create semantic streams directory", &streams, error))?;
+    let path = streams.join(format!("{record_stream_sha256}.records"));
+    if path.exists() {
+        return Ok(path);
+    }
+    let recipe_path = streams.join(format!("{record_stream_sha256}.recipe.json"));
+    if recipe_path.exists() {
+        let bytes = std::fs::read(&recipe_path)
+            .map_err(|error| PocError::io("read semantic stream recipe", &recipe_path, error))?;
+        let recipe: StreamRecipe = serde_json::from_slice(&bytes)?;
+        if recipe.version != MANIFEST_VERSION {
+            return Err(PocError::Integrity(
+                "semantic stream recipe has unsupported version".to_owned(),
+            ));
+        }
+        let affected = streams.join(format!("{record_stream_sha256}.delta"));
+        if sha256_file(&affected)? != recipe.affected_stream_sha256 {
+            return Err(PocError::Integrity(
+                "semantic stream recipe delta digest mismatch".to_owned(),
+            ));
+        }
+        let prior = materialize_record_stream_id(
+            &recipe.prior_record_stream_sha256,
+            canonical_object_dir,
+            None,
+            None,
+            depth + 1,
+        )?;
+        return install_merged_record_stream(&path, &streams, &prior, &affected, expected_count);
+    }
+    let Some((content_root, attribution_root)) = legacy_roots else {
+        return Err(PocError::RecoveryRequired(format!(
+            "semantic record stream {record_stream_sha256} has neither materialized bytes nor a durable recipe"
+        )));
+    };
+    let roots = TrieRoots::from_hex(content_root, attribution_root)?;
+    let temporary = streams.join(format!(".{record_stream_sha256}-{}.tmp", Uuid::new_v4(),));
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|error| PocError::io("create semantic record stream", &temporary, error))?;
+    let mut writer = BufWriter::new(file);
+    let mut store = ImmutableObjectStore::new(canonical_object_dir)?;
+    trie::visit_records(&roots, &mut store, |record| {
+        let frame = record.encode_frame()?;
+        writer
+            .write_all(&frame)
+            .map_err(|error| PocError::io("write semantic record stream", &temporary, error))
+    })?;
+    finish_record_stream_install(writer, &temporary, &path, &streams)
+}
+
+fn materialize_sorted_record_stream(
+    manifest: &RootManifest,
+    canonical_object_dir: &Path,
+    sorted: &SortedSpool,
+) -> PocResult<PathBuf> {
     let streams = canonical_object_dir.join("streams");
     std::fs::create_dir_all(&streams)
         .map_err(|error| PocError::io("create semantic streams directory", &streams, error))?;
@@ -437,36 +525,260 @@ pub fn materialize_record_stream(
         .open(&temporary)
         .map_err(|error| PocError::io("create semantic record stream", &temporary, error))?;
     let mut writer = BufWriter::new(file);
-    let mut store = ImmutableObjectStore::new(canonical_object_dir)?;
-    trie::visit_records(&roots, &mut store, |record| {
-        let frame = record.encode_frame()?;
+    let mut count = 0_u64;
+    sorted.for_each(|key, payload| {
+        let record = SemanticRecord::decode(payload)?;
+        if record.key_digest()?.as_slice() != key {
+            return Err(PocError::Integrity(
+                "semantic sorted record stream key mismatch".to_owned(),
+            ));
+        }
         writer
-            .write_all(&frame)
-            .map_err(|error| PocError::io("write semantic record stream", &temporary, error))
+            .write_all(&record.encode_frame()?)
+            .map_err(|error| PocError::io("write semantic record stream", &temporary, error))?;
+        count = count.saturating_add(1);
+        Ok(())
     })?;
+    if count != manifest.entry_count {
+        return Err(PocError::Integrity(
+            "semantic record stream count disagrees with root manifest".to_owned(),
+        ));
+    }
+    finish_record_stream_install(writer, &temporary, &path, &streams)
+}
+
+fn install_incremental_stream_recipe(
+    request: &IncrementalBuildRequest,
+    prior: &RootManifest,
+    manifest: &RootManifest,
+) -> PocResult<()> {
+    let streams = request.canonical_object_dir.join("streams");
+    std::fs::create_dir_all(&streams)
+        .map_err(|error| PocError::io("create semantic streams directory", &streams, error))?;
+    let materialized = streams.join(format!("{}.records", manifest.record_stream_sha256));
+    if materialized.exists() {
+        return Ok(());
+    }
+    let delta = streams.join(format!("{}.delta", manifest.record_stream_sha256));
+    install_immutable_file_copy(&request.affected_stream, &delta)?;
+    let recipe = StreamRecipe {
+        version: MANIFEST_VERSION,
+        prior_record_stream_sha256: prior.record_stream_sha256.clone(),
+        affected_stream_sha256: request.affected_stream_sha256.clone(),
+    };
+    let recipe_path = streams.join(format!("{}.recipe.json", manifest.record_stream_sha256));
+    install_immutable_bytes(&serde_json::to_vec(&recipe)?, &recipe_path)?;
+    sync_directory(&streams)
+}
+
+fn install_merged_record_stream(
+    path: &Path,
+    streams: &Path,
+    prior_path: &Path,
+    affected_path: &Path,
+    expected_count: Option<u64>,
+) -> PocResult<PathBuf> {
+    if path.exists() {
+        return Ok(path.to_path_buf());
+    }
+    let temporary = streams.join(format!(
+        ".{}-{}.tmp",
+        path.file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or("semantic-stream"),
+        Uuid::new_v4()
+    ));
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|error| PocError::io("create semantic record stream", &temporary, error))?;
+    let mut writer = BufWriter::new(file);
+    let prior_file = File::open(prior_path)
+        .map_err(|error| PocError::io("open prior semantic record stream", prior_path, error))?;
+    let mut prior = RecordStreamReader::new(BufReader::new(prior_file));
+    let mut affected = DeltaStreamReader::open(affected_path)?;
+    let mut prior_head = prior.next_record()?;
+    let mut affected_head = affected.next_mutation()?;
+    let mut count = 0_u64;
+    let mut previous = None;
+    while prior_head.is_some() || affected_head.is_some() {
+        let prior_key = prior_head
+            .as_ref()
+            .map(SemanticRecord::key_digest)
+            .transpose()?;
+        let affected_key = affected_head
+            .as_ref()
+            .map(RecordMutation::key_digest)
+            .transpose()?;
+        let next = match (prior_key, affected_key) {
+            (Some(left), Some(right)) if left < right => {
+                let record = prior_head
+                    .take()
+                    .ok_or_else(|| PocError::Integrity("prior stream head vanished".to_owned()))?;
+                prior_head = prior.next_record()?;
+                Some(record)
+            }
+            (Some(left), Some(right)) if left == right => {
+                let mutation = affected_head.take().ok_or_else(|| {
+                    PocError::Integrity("affected stream head vanished".to_owned())
+                })?;
+                prior_head = prior.next_record()?;
+                affected_head = affected.next_mutation()?;
+                match mutation {
+                    RecordMutation::Replace(record) => Some(record),
+                    RecordMutation::Delete { .. } => None,
+                }
+            }
+            (Some(_), Some(_)) | (None, Some(_)) => {
+                let mutation = affected_head.take().ok_or_else(|| {
+                    PocError::Integrity("affected stream head vanished".to_owned())
+                })?;
+                affected_head = affected.next_mutation()?;
+                match mutation {
+                    RecordMutation::Replace(record) => Some(record),
+                    RecordMutation::Delete { .. } => {
+                        return Err(PocError::Integrity(
+                            "semantic stream recipe deletes a missing record".to_owned(),
+                        ))
+                    }
+                }
+            }
+            (Some(_), None) => {
+                let record = prior_head
+                    .take()
+                    .ok_or_else(|| PocError::Integrity("prior stream head vanished".to_owned()))?;
+                prior_head = prior.next_record()?;
+                Some(record)
+            }
+            (None, None) => None,
+        };
+        if let Some(record) = next {
+            let key = record.key_digest()?;
+            if previous.as_ref().is_some_and(|value| value >= &key) {
+                return Err(PocError::Integrity(
+                    "materialized semantic stream is not strictly ordered".to_owned(),
+                ));
+            }
+            writer
+                .write_all(&record.encode_frame()?)
+                .map_err(|error| PocError::io("write semantic record stream", &temporary, error))?;
+            previous = Some(key);
+            count = count.saturating_add(1);
+        }
+    }
+    if expected_count.is_some_and(|expected| expected != count) {
+        return Err(PocError::Integrity(
+            "materialized semantic stream count disagrees with manifest".to_owned(),
+        ));
+    }
+    finish_record_stream_install(writer, &temporary, path, streams)
+}
+
+fn finish_record_stream_install(
+    mut writer: BufWriter<File>,
+    temporary: &Path,
+    path: &Path,
+    streams: &Path,
+) -> PocResult<PathBuf> {
     writer
         .flush()
-        .map_err(|error| PocError::io("flush semantic record stream", &temporary, error))?;
+        .map_err(|error| PocError::io("flush semantic record stream", temporary, error))?;
     writer
         .get_ref()
         .sync_all()
-        .map_err(|error| PocError::io("fsync semantic record stream", &temporary, error))?;
-    match std::fs::hard_link(&temporary, &path) {
+        .map_err(|error| PocError::io("fsync semantic record stream", temporary, error))?;
+    match std::fs::hard_link(temporary, path) {
         Ok(()) => {}
         Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
         Err(error) => {
-            return Err(PocError::io("install semantic record stream", &path, error));
+            return Err(PocError::io("install semantic record stream", path, error));
         }
     }
-    std::fs::remove_file(&temporary).map_err(|error| {
+    std::fs::remove_file(temporary).map_err(|error| {
         PocError::io(
             "remove installed semantic record stream temporary",
-            &temporary,
+            temporary,
             error,
         )
     })?;
-    sync_directory(&streams)?;
-    Ok(path)
+    sync_directory(streams)?;
+    Ok(path.to_path_buf())
+}
+
+fn install_immutable_file_copy(source: &Path, path: &Path) -> PocResult<()> {
+    if path.exists() {
+        if sha256_file(path)? == sha256_file(source)? {
+            return Ok(());
+        }
+        return Err(PocError::Integrity(
+            "immutable semantic delta collision".to_owned(),
+        ));
+    }
+    let temporary = path.with_file_name(format!(
+        ".{}-{}.tmp",
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("semantic-delta"),
+        Uuid::new_v4()
+    ));
+    std::fs::copy(source, &temporary)
+        .map_err(|error| PocError::io("copy semantic delta", &temporary, error))?;
+    File::open(&temporary)
+        .and_then(|file| file.sync_all())
+        .map_err(|error| PocError::io("fsync semantic delta", &temporary, error))?;
+    install_immutable_temporary(&temporary, path)
+}
+
+fn install_immutable_bytes(bytes: &[u8], path: &Path) -> PocResult<()> {
+    if path.exists() {
+        let existing = std::fs::read(path)
+            .map_err(|error| PocError::io("read immutable semantic metadata", path, error))?;
+        if existing == bytes {
+            return Ok(());
+        }
+        return Err(PocError::Integrity(
+            "immutable semantic metadata collision".to_owned(),
+        ));
+    }
+    let temporary = path.with_file_name(format!(
+        ".{}-{}.tmp",
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("semantic-metadata"),
+        Uuid::new_v4()
+    ));
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|error| PocError::io("create immutable semantic metadata", &temporary, error))?;
+    file.write_all(bytes)
+        .map_err(|error| PocError::io("write immutable semantic metadata", &temporary, error))?;
+    file.sync_all()
+        .map_err(|error| PocError::io("fsync immutable semantic metadata", &temporary, error))?;
+    drop(file);
+    install_immutable_temporary(&temporary, path)
+}
+
+fn install_immutable_temporary(temporary: &Path, path: &Path) -> PocResult<()> {
+    let install = match std::fs::hard_link(temporary, path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            if sha256_file(temporary)? != sha256_file(path)? {
+                Err(PocError::Integrity(
+                    "immutable semantic file collision".to_owned(),
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        Err(error) => Err(PocError::io("install immutable semantic file", path, error)),
+    };
+    let cleanup = std::fs::remove_file(temporary)
+        .map_err(|error| PocError::io("remove immutable semantic temporary", temporary, error));
+    install?;
+    cleanup
 }
 
 fn validate_full_request(request: &SemanticBuildRequest) -> PocResult<()> {

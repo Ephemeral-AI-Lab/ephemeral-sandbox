@@ -258,11 +258,11 @@ pub fn build_from_sorted_records(
             ));
         }
         let record_digest = record.record_digest()?;
-        let content_leaf = store.install(&encode_content_leaf(
+        let content_leaf = object_digest(&encode_content_leaf(
             key_digest,
             &record.canonical_key()?,
             payload,
-        )?)?;
+        )?);
         let attribution_leaf = object_digest(&encode_attribution_leaf(
             key_digest,
             attribution::leaf_digest(record_digest, attribution_input),
@@ -287,11 +287,11 @@ pub fn apply_mutation(
     let content_leaf = match mutation {
         RecordMutation::Replace(record) => Some(ChildRef::leaf(
             key_digest,
-            store.install(&encode_content_leaf(
+            object_digest(&encode_content_leaf(
                 key_digest,
                 &canonical_key,
                 &record.encode()?,
-            )?)?,
+            )?),
         )),
         RecordMutation::Delete { .. } => None,
     };

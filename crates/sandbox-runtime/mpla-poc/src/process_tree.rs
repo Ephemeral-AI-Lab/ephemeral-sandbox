@@ -1,11 +1,15 @@
 use std::collections::BTreeSet;
 use std::fs;
+#[cfg(target_os = "linux")]
+use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "linux")]
+use std::os::fd::AsRawFd;
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 
@@ -105,7 +109,8 @@ impl ManagedProcessTree {
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null());
-        install_process_group(&mut command);
+        let _child_cgroup =
+            install_child_isolation(&mut command, self.cgroup_procs_path.as_deref())?;
         let child = command
             .spawn()
             .map_err(|error| PocError::io("spawn managed command", program, error))?;
@@ -227,8 +232,46 @@ fn command_receipt(
     })
 }
 
-#[cfg(unix)]
-fn install_process_group(command: &mut Command) {
+#[cfg(target_os = "linux")]
+fn install_child_isolation(
+    command: &mut Command,
+    cgroup_procs_path: Option<&Path>,
+) -> PocResult<Option<File>> {
+    let cgroup = cgroup_procs_path
+        .map(|path| {
+            OpenOptions::new()
+                .write(true)
+                .open(path)
+                .map_err(|error| PocError::io("open session cgroup.procs for child", path, error))
+        })
+        .transpose()?;
+    let cgroup_fd = cgroup.as_ref().map(AsRawFd::as_raw_fd);
+    // SAFETY: `pre_exec` executes in the forked child and calls only
+    // async-signal-safe syscalls. Writing `0` to cgroup.procs enrolls the
+    // writing child before it can exec or fork descendants.
+    unsafe {
+        command.pre_exec(move || {
+            if libc::setpgid(0, 0) != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            if let Some(fd) = cgroup_fd {
+                let membership = b"0\n";
+                let written = libc::write(fd, membership.as_ptr().cast(), membership.len());
+                if written != membership.len() as isize {
+                    return Err(std::io::Error::last_os_error());
+                }
+            }
+            Ok(())
+        });
+    }
+    Ok(cgroup)
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+fn install_child_isolation(
+    command: &mut Command,
+    _cgroup_procs_path: Option<&Path>,
+) -> PocResult<Option<()>> {
     // SAFETY: `pre_exec` executes in the forked child and calls only the
     // async-signal-safe `setpgid(2)` syscall with constant integer arguments.
     unsafe {
@@ -240,10 +283,16 @@ fn install_process_group(command: &mut Command) {
             }
         });
     }
+    Ok(None)
 }
 
 #[cfg(not(unix))]
-fn install_process_group(_command: &mut Command) {}
+fn install_child_isolation(
+    _command: &mut Command,
+    _cgroup_procs_path: Option<&Path>,
+) -> PocResult<Option<()>> {
+    Ok(None)
+}
 
 fn signal_process_group(process_group: u32, signal: i32) -> PocResult<()> {
     let group = i32::try_from(process_group).map_err(|_| {
