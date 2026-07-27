@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use sandbox_runtime_mpla_poc::{
-    qualify, AllocationId, PocConfig, QualificationRequest, RunId, SCHEMA_VERSION,
+    qualify, report, AllocationId, PocConfig, QualificationRequest, RunId, SCHEMA_VERSION,
 };
 
 #[derive(Debug, Parser)]
@@ -13,9 +13,16 @@ struct Cli {
 }
 
 #[derive(Debug, Subcommand)]
-#[expect(clippy::large_enum_variant, reason = "clap subcommand arguments")]
 enum Command {
     Config,
+    EvidenceSeal {
+        #[arg(long)]
+        evidence_root: PathBuf,
+    },
+    EvidenceVerify {
+        #[arg(long)]
+        evidence_root: PathBuf,
+    },
     Qualification {
         #[arg(long)]
         run_id: String,
@@ -52,6 +59,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Command::Config => {
             println!("{}", serde_json::to_string_pretty(&config)?);
+        }
+        Command::EvidenceSeal { evidence_root } => {
+            let receipt = report::seal_manifest(&evidence_root)?;
+            println!("{}", serde_json::to_string_pretty(&receipt)?);
+        }
+        Command::EvidenceVerify { evidence_root } => {
+            let receipt = report::verify_manifest(&evidence_root)?;
+            println!("{}", serde_json::to_string_pretty(&receipt)?);
         }
         Command::Qualification {
             run_id,

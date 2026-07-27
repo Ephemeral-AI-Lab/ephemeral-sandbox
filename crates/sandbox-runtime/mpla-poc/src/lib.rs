@@ -26,6 +26,7 @@ pub mod quiesce;
 pub mod reconcile;
 pub mod recovery;
 pub mod ref_store;
+pub mod report;
 pub mod resources;
 pub mod semantic;
 pub mod session;
@@ -64,6 +65,9 @@ pub use publication::{
 pub use quiesce::{QuiescenceReceipt, SealedAllocation, SealingRecord};
 pub use reconcile::{
     LeakCounts, ReconciliationReceipt, StorageCategoryReceipt, StorageCategoryRoot,
+};
+pub use report::{
+    AssertionReceipt, CaseOutcome, CaseReceipt, EvidenceClass, ManifestEntry, ManifestReceipt,
 };
 pub use resources::{
     AdmissionController, AdmissionGuard, AdmissionReceipt, AdmissionTier, ResourceSnapshot,

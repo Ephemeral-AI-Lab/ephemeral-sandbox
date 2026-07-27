@@ -38,6 +38,34 @@ pub fn write_atomic_json<T: Serialize>(path: &Path, value: &T) -> PocResult<()> 
     result
 }
 
+pub fn write_atomic_bytes(path: &Path, bytes: &[u8]) -> PocResult<()> {
+    let parent = path.parent().ok_or_else(|| {
+        PocError::Integrity(format!(
+            "evidence path has no parent directory: {}",
+            path.display()
+        ))
+    })?;
+    fs::create_dir_all(parent)
+        .map_err(|error| PocError::io("create evidence parent", parent, error))?;
+    let file_name = path.file_name().ok_or_else(|| {
+        PocError::Integrity(format!(
+            "evidence path has no file name: {}",
+            path.display()
+        ))
+    })?;
+    let temporary_path = parent.join(format!(
+        ".{}.tmp.{}.{}",
+        file_name.to_string_lossy(),
+        std::process::id(),
+        Uuid::new_v4()
+    ));
+    let result = write_bytes_and_install(path, &temporary_path, parent, bytes);
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary_path);
+    }
+    result
+}
+
 pub fn read_json<T: DeserializeOwned>(path: &Path) -> PocResult<T> {
     let file = File::open(path).map_err(|error| PocError::io("open JSON evidence", path, error))?;
     serde_json::from_reader(BufReader::new(file)).map_err(PocError::from)
@@ -156,6 +184,33 @@ fn write_and_install<T: Serialize>(
     drop(temporary);
     fs::rename(temporary_path, path)
         .map_err(|error| PocError::io("replace JSON evidence", path, error))?;
+    let parent_dir =
+        File::open(parent).map_err(|error| PocError::io("open evidence parent", parent, error))?;
+    parent_dir
+        .sync_all()
+        .map_err(|error| PocError::io("fsync evidence parent", parent, error))
+}
+
+fn write_bytes_and_install(
+    path: &Path,
+    temporary_path: &Path,
+    parent: &Path,
+    bytes: &[u8],
+) -> PocResult<()> {
+    let mut temporary = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(temporary_path)
+        .map_err(|error| PocError::io("create temporary evidence", temporary_path, error))?;
+    temporary
+        .write_all(bytes)
+        .map_err(|error| PocError::io("write temporary evidence", temporary_path, error))?;
+    temporary
+        .sync_all()
+        .map_err(|error| PocError::io("fsync temporary evidence", temporary_path, error))?;
+    drop(temporary);
+    fs::rename(temporary_path, path)
+        .map_err(|error| PocError::io("replace evidence", path, error))?;
     let parent_dir =
         File::open(parent).map_err(|error| PocError::io("open evidence parent", parent, error))?;
     parent_dir
