@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use sandbox_runtime_mpla_poc::{
-    qualify, report, AllocationId, PocConfig, QualificationRequest, RunId, SCHEMA_VERSION,
+    prepare_fixture, qualify, report, AllocationId, FixtureId, FixtureTier, PocConfig,
+    QualificationRequest, RunId, SCHEMA_VERSION,
 };
 
 #[derive(Debug, Parser)]
@@ -22,6 +23,14 @@ enum Command {
     EvidenceVerify {
         #[arg(long)]
         evidence_root: PathBuf,
+    },
+    FixturePrepare {
+        #[arg(long)]
+        root: PathBuf,
+        #[arg(long)]
+        fixture: String,
+        #[arg(long)]
+        tier: String,
     },
     Qualification {
         #[arg(long)]
@@ -66,6 +75,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         Command::EvidenceVerify { evidence_root } => {
             let receipt = report::verify_manifest(&evidence_root)?;
+            println!("{}", serde_json::to_string_pretty(&receipt)?);
+        }
+        Command::FixturePrepare {
+            root,
+            fixture,
+            tier,
+        } => {
+            let receipt = prepare_fixture(
+                &root,
+                FixtureId::parse(&fixture)?,
+                FixtureTier::parse(&tier)?,
+            )?;
             println!("{}", serde_json::to_string_pretty(&receipt)?);
         }
         Command::Qualification {

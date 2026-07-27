@@ -9,6 +9,7 @@ pub mod error;
 pub mod evidence;
 pub mod evidence_schema;
 pub mod fault;
+pub mod fixtures;
 pub mod id;
 pub mod inventory;
 pub mod lease;
@@ -42,6 +43,9 @@ pub use evidence_schema::{
     QualificationReceipt,
 };
 pub use fault::{FaultInjector, FaultPoint, NamedFaultInjector, NamedFaultPoint};
+pub use fixtures::{
+    fixture_plan, prepare_fixture, FixtureId, FixturePlan, FixtureReceipt, FixtureTier,
+};
 pub use id::{
     ActivationOperationId, AllocationId, AttributionRootId, LocatorGeneration, OperationId,
     PublicationId, RefSequence, RootId, RunId, SessionId,
