@@ -205,6 +205,8 @@ pub fn prepare() -> CampaignResult {
         .join("campaign")
         .join(roots.run_id.as_str());
     fs::create_dir_all(&campaign_root)?;
+    let empty_lower = campaign_root.join("empty-lower");
+    fs::create_dir(&empty_lower)?;
     let canonical_object_dir = campaign_root.join("canonical");
     fs::create_dir_all(&canonical_object_dir)?;
 
@@ -416,7 +418,7 @@ fn sm_02(context: &Context) -> CampaignResult<CaseExecution> {
         &context.control_root,
         allocation,
         lease.clone(),
-        Vec::new(),
+        context.raw_session_lower_dirs(),
         context.cgroup_procs_path.clone(),
     )?;
     let command = session.execute(
@@ -456,7 +458,7 @@ fn sm_03(context: &Context) -> CampaignResult<CaseExecution> {
         &context.control_root,
         allocation.clone(),
         lease.clone(),
-        Vec::new(),
+        context.raw_session_lower_dirs(),
         context.cgroup_procs_path.clone(),
     )?;
     let affected_paths = (0..10_u64)
@@ -1033,7 +1035,7 @@ fn sm_07(context: &Context) -> CampaignResult<CaseExecution> {
         &context.control_root,
         allocation.clone(),
         lease.clone(),
-        Vec::new(),
+        context.raw_session_lower_dirs(),
         context.cgroup_procs_path.clone(),
     )?;
     let relative = PathBuf::from("large-0.bin");
@@ -1219,7 +1221,7 @@ fn sm_09(context: &Context) -> CampaignResult<CaseExecution> {
         &context.control_root,
         allocation.clone(),
         lease,
-        Vec::new(),
+        context.raw_session_lower_dirs(),
         context.cgroup_procs_path.clone(),
     )?;
 
@@ -2130,7 +2132,7 @@ fn prepare_sm12_recovery_candidate(
         &context.control_root,
         allocation.clone(),
         lease.clone(),
-        Vec::new(),
+        context.raw_session_lower_dirs(),
         context.cgroup_procs_path.clone(),
     )?;
     let command = session.execute(
@@ -2470,7 +2472,7 @@ fn sm_14(context: &Context) -> CampaignResult<CaseExecution> {
         &context.control_root,
         allocation.clone(),
         lease.clone(),
-        Vec::new(),
+        context.raw_session_lower_dirs(),
         context.cgroup_procs_path.clone(),
     )?;
     let command = session.execute(
@@ -3241,7 +3243,7 @@ fn prepare_occ_candidate(
         &context.control_root,
         allocation.clone(),
         lease.clone(),
-        Vec::new(),
+        context.raw_session_lower_dirs(),
         context.cgroup_procs_path.clone(),
     )?;
     let result = session.execute(
@@ -3328,7 +3330,7 @@ fn build_tiny_delta_carrier(
         &context.control_root,
         allocation.clone(),
         lease.clone(),
-        Vec::new(),
+        context.raw_session_lower_dirs(),
         context.cgroup_procs_path.clone(),
     )?;
     let writes = (0..delta_count)
@@ -3611,6 +3613,10 @@ impl Context {
         self.control_root
             .join("campaign")
             .join(self.run_id.as_str())
+    }
+
+    fn raw_session_lower_dirs(&self) -> Vec<PathBuf> {
+        vec![self.campaign_root().join("empty-lower")]
     }
 }
 
