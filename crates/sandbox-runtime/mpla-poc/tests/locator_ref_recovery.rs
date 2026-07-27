@@ -2,8 +2,8 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use sandbox_runtime_mpla_poc::locator::{
-    ForwardLocatorEntry, LocatorDelta, LocatorExtent, LocatorStore, PayloadRootId,
-    ReverseLocatorEntry,
+    ForwardLocatorEntry, LocatorDelta, LocatorExtent, LocatorReplacement, LocatorStore,
+    PayloadRootId, ReverseLocatorEntry,
 };
 use sandbox_runtime_mpla_poc::ref_store::{PairedRefStore, RefCommitOutcome};
 use sandbox_runtime_mpla_poc::{
@@ -120,6 +120,104 @@ fn locator_fault_replay_never_selects_an_incomplete_generation() {
         assert_eq!(selected.forward.len(), 1);
         assert_eq!(selected.reverse.len(), 1);
     }
+}
+
+#[test]
+fn exact_locator_replacement_is_atomic_replayable_and_preserves_coverage() {
+    for point in [
+        NamedFaultPoint::LocatorAfterForward,
+        NamedFaultPoint::LocatorAfterReverse,
+        NamedFaultPoint::LocatorAfterManifestFsync,
+        NamedFaultPoint::LocatorAfterSelectorRename,
+        NamedFaultPoint::LocatorAfterSelectorDirFsync,
+    ] {
+        let root = TestRoot::new(&format!("replacement-{}", point.as_str()));
+        let path = root.path.join("locators");
+        let store = LocatorStore::open(&path).expect("open locator store");
+        let source = locator_delta(1, point.as_str());
+        let source_receipt = store
+            .install(&source, &mut NamedFaultInjector::default())
+            .expect("install source locator");
+        let replacement = locator_replacement(&source, source_receipt.generation);
+        let mut faults = NamedFaultInjector::armed([(point, 1)]);
+        assert!(matches!(
+            store.replace_exact(&replacement, &mut faults),
+            Err(PocError::RecoveryRequired(_))
+        ));
+
+        let reopened = LocatorStore::open(&path).expect("reopen locator store");
+        let selected = reopened
+            .selected()
+            .expect("read selected")
+            .expect("selector");
+        let observed = selected
+            .forward
+            .iter()
+            .find(|entry| entry.payload_root == replacement.payload_root)
+            .expect("selected root remains covered");
+        assert!(
+            observed.allocation_id == replacement.expected_source_allocation_id
+                || observed == &replacement.target
+        );
+        assert!(selected.reverse.iter().any(|entry| {
+            entry.allocation_id == observed.allocation_id
+                && entry.owner_epoch == observed.owner_epoch
+                && entry.payload_roots.contains(&observed.payload_root)
+        }));
+
+        let receipt = reopened
+            .replace_exact(&replacement, &mut NamedFaultInjector::default())
+            .expect("durable replacement replay");
+        reopened
+            .validate_receipt(&receipt)
+            .expect("replacement generation is complete");
+        reopened
+            .validate_generation_receipt(&source_receipt)
+            .expect("source generation remains immutable");
+        assert_eq!(
+            reopened
+                .resolve(&replacement.payload_root)
+                .expect("resolve replacement")
+                .expect("target locator"),
+            replacement.target
+        );
+        let selected = reopened.selected().expect("read replay").expect("selector");
+        assert!(!selected
+            .reverse
+            .iter()
+            .any(|entry| { entry.allocation_id == replacement.expected_source_allocation_id }));
+        assert_eq!(
+            selected
+                .reverse
+                .iter()
+                .find(|entry| entry.allocation_id == replacement.target.allocation_id),
+            Some(&replacement.target_reverse)
+        );
+        let stable = reopened
+            .replace_exact(&replacement, &mut NamedFaultInjector::default())
+            .expect("stable replacement response replay");
+        assert_eq!(stable, receipt);
+    }
+}
+
+#[test]
+fn exact_locator_replacement_rejects_stale_source_without_advancing() {
+    let root = TestRoot::new("replacement-stale-source");
+    let store = LocatorStore::open(root.path.join("locators")).expect("open locator store");
+    let source = locator_delta(1, "replacement-stale-source");
+    let source_receipt = store
+        .install(&source, &mut NamedFaultInjector::default())
+        .expect("install source locator");
+    let mut replacement = locator_replacement(&source, source_receipt.generation);
+    replacement.expected_source_owner_epoch += 1;
+    let error = store
+        .replace_exact(&replacement, &mut NamedFaultInjector::default())
+        .expect_err("stale source epoch must fail");
+    assert!(matches!(error, PocError::OwnerConflict(_)));
+    let selected = store.selected().expect("read selected").expect("selector");
+    assert_eq!(selected.receipt, source_receipt);
+    assert_eq!(selected.forward, source.forward);
+    assert_eq!(selected.reverse, source.reverse);
 }
 
 #[test]
@@ -310,6 +408,43 @@ fn locator_delta(seed: u8, label: &str) -> LocatorDelta {
             payload_roots: vec![payload_root(seed)],
             accounted_bytes: 4_096,
         }],
+    }
+}
+
+fn locator_replacement(
+    source: &LocatorDelta,
+    expected_parent: LocatorGeneration,
+) -> LocatorReplacement {
+    let operation_id = OperationId::from_string("operation-evacuate");
+    let publication_id = PublicationId::from_string("publication-evacuate");
+    let allocation_id =
+        sandbox_runtime_mpla_poc::AllocationId::from_string(Uuid::new_v4().to_string());
+    LocatorReplacement {
+        schema_version: SCHEMA_VERSION,
+        operation_id: operation_id.clone(),
+        publication_id: publication_id.clone(),
+        expected_parent,
+        payload_root: source.forward[0].payload_root.clone(),
+        expected_source_allocation_id: source.forward[0].allocation_id.clone(),
+        expected_source_owner_epoch: source.forward[0].owner_epoch,
+        target: ForwardLocatorEntry {
+            payload_root: source.forward[0].payload_root.clone(),
+            allocation_id: allocation_id.clone(),
+            owner_epoch: source.forward[0].owner_epoch + 1,
+            extents: vec![LocatorExtent {
+                relative_path: "payload/evacuated".to_owned(),
+                offset: 0,
+                length: 4_096,
+            }],
+        },
+        target_reverse: ReverseLocatorEntry {
+            allocation_id,
+            owner_epoch: source.forward[0].owner_epoch + 1,
+            operation_id,
+            publication_id,
+            payload_roots: vec![source.forward[0].payload_root.clone()],
+            accounted_bytes: 4_096,
+        },
     }
 }
 

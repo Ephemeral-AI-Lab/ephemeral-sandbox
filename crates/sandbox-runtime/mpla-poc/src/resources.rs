@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
@@ -44,6 +45,8 @@ pub struct ResourceSnapshot {
 #[derive(Debug, Default)]
 struct State {
     snapshot: ResourceSnapshot,
+    coordinator_queue: BTreeSet<u32>,
+    pending_queue: BTreeSet<u32>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -66,7 +69,11 @@ impl AdmissionController {
             ..ResourceSnapshot::default()
         };
         Self {
-            state: Arc::new(Mutex::new(State { snapshot })),
+            state: Arc::new(Mutex::new(State {
+                snapshot,
+                coordinator_queue: BTreeSet::new(),
+                pending_queue: BTreeSet::new(),
+            })),
         }
     }
 
@@ -91,6 +98,7 @@ impl AdmissionController {
             (AdmissionTier::ActiveData, true)
         } else if state.snapshot.coordinators < MAX_COORDINATORS {
             state.snapshot.coordinators += 1;
+            state.coordinator_queue.insert(job_ordinal);
             (AdmissionTier::Coordinator, false)
         } else {
             if descriptor_bytes > MAX_PENDING_DESCRIPTOR_BYTES {
@@ -111,6 +119,7 @@ impl AdmissionController {
             }
             state.snapshot.pending_descriptors += 1;
             state.snapshot.pending_descriptor_bytes += descriptor_bytes;
+            state.pending_queue.insert(job_ordinal);
             (AdmissionTier::PendingDescriptor, false)
         };
         state.snapshot.submitted_jobs = job_ordinal;
@@ -139,6 +148,50 @@ impl AdmissionGuard {
     pub const fn receipt(&self) -> &AdmissionReceipt {
         &self.receipt
     }
+
+    pub fn try_promote(&mut self) -> PocResult<Option<AdmissionReceipt>> {
+        let mut state = lock_state(&self.state)?;
+        match self.receipt.tier {
+            AdmissionTier::ActiveData => Ok(Some(self.receipt.clone())),
+            AdmissionTier::Coordinator => {
+                if state.snapshot.active_data_workers >= MAX_DATA_WORKERS
+                    || state.coordinator_queue.first() != Some(&self.receipt.job_ordinal)
+                {
+                    return Ok(None);
+                }
+                if !state.coordinator_queue.remove(&self.receipt.job_ordinal) {
+                    return Err(PocError::Integrity(
+                        "coordinator admission queue lost a live job".to_owned(),
+                    ));
+                }
+                state.snapshot.active_data_workers += 1;
+                state.snapshot.private_allocations += 1;
+                state.snapshot.active_mounts += 1;
+                self.receipt.tier = AdmissionTier::ActiveData;
+                self.receipt.owns_payload_allocation = true;
+                self.receipt.owns_workspace_mount = true;
+                Ok(Some(self.receipt.clone()))
+            }
+            AdmissionTier::PendingDescriptor => {
+                if state.snapshot.coordinators >= MAX_COORDINATORS
+                    || state.pending_queue.first() != Some(&self.receipt.job_ordinal)
+                {
+                    return Ok(None);
+                }
+                if !state.pending_queue.remove(&self.receipt.job_ordinal) {
+                    return Err(PocError::Integrity(
+                        "pending admission queue lost a live job".to_owned(),
+                    ));
+                }
+                state.snapshot.pending_descriptors -= 1;
+                state.snapshot.pending_descriptor_bytes -= self.receipt.descriptor_bytes;
+                state.snapshot.coordinators += 1;
+                state.coordinator_queue.insert(self.receipt.job_ordinal);
+                self.receipt.tier = AdmissionTier::Coordinator;
+                Ok(Some(self.receipt.clone()))
+            }
+        }
+    }
 }
 
 impl Drop for AdmissionGuard {
@@ -151,10 +204,14 @@ impl Drop for AdmissionGuard {
                     state.snapshot.private_allocations -= 1;
                     state.snapshot.active_mounts -= 1;
                 }
-                AdmissionTier::Coordinator => state.snapshot.coordinators -= 1,
+                AdmissionTier::Coordinator => {
+                    state.snapshot.coordinators -= 1;
+                    state.coordinator_queue.remove(&self.receipt.job_ordinal);
+                }
                 AdmissionTier::PendingDescriptor => {
                     state.snapshot.pending_descriptors -= 1;
                     state.snapshot.pending_descriptor_bytes -= self.receipt.descriptor_bytes;
+                    state.pending_queue.remove(&self.receipt.job_ordinal);
                 }
             }
         }

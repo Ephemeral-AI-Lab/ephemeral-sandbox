@@ -74,6 +74,19 @@ pub struct LocatorDelta {
     pub reverse: Vec<ReverseLocatorEntry>,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LocatorReplacement {
+    pub schema_version: u32,
+    pub operation_id: OperationId,
+    pub publication_id: PublicationId,
+    pub expected_parent: LocatorGeneration,
+    pub payload_root: PayloadRootId,
+    pub expected_source_allocation_id: AllocationId,
+    pub expected_source_owner_epoch: u64,
+    pub target: ForwardLocatorEntry,
+    pub target_reverse: ReverseLocatorEntry,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SelectedLocatorGeneration {
     pub receipt: LocatorDurabilityReceipt,
@@ -82,6 +95,14 @@ pub struct SelectedLocatorGeneration {
     pub publication_id: PublicationId,
     pub forward: Vec<ForwardLocatorEntry>,
     pub reverse: Vec<ReverseLocatorEntry>,
+}
+
+struct LocatorGenerationCandidate {
+    operation_id: OperationId,
+    publication_id: PublicationId,
+    candidate_sha256: String,
+    forward: Vec<ForwardLocatorEntry>,
+    reverse: Vec<ReverseLocatorEntry>,
 }
 
 #[derive(Clone, Debug)]
@@ -189,11 +210,6 @@ impl LocatorStore {
             }
         }
 
-        let generation = selected
-            .as_ref()
-            .map_or(Ok(LocatorGeneration::INITIAL), |current| {
-                current.receipt.generation.checked_next()
-            })?;
         let mut forward = selected
             .as_ref()
             .map_or_else(Vec::new, |current| current.forward.clone());
@@ -203,20 +219,135 @@ impl LocatorStore {
         merge_forward(&mut forward, &delta.forward)?;
         merge_reverse(&mut reverse, &delta.reverse)?;
         normalize_and_validate(&mut forward, &mut reverse)?;
+        self.persist_generation(
+            selected.as_ref(),
+            LocatorGenerationCandidate {
+                operation_id: delta.operation_id.clone(),
+                publication_id: delta.publication_id.clone(),
+                candidate_sha256: digest_json(delta)?,
+                forward,
+                reverse,
+            },
+            faults,
+        )
+    }
 
+    pub fn replace_exact(
+        &self,
+        replacement: &LocatorReplacement,
+        faults: &mut NamedFaultInjector,
+    ) -> PocResult<LocatorDurabilityReceipt> {
+        validate_replacement(replacement)?;
+        let _lock = FileLock::exclusive(&self.lock_path())?;
+        let selected = self.selected_locked()?.ok_or_else(|| {
+            PocError::OwnerConflict("locator replacement has no selected source".to_owned())
+        })?;
+        if generation_contains_replacement(&selected, replacement) {
+            fsync_dir(&self.root)?;
+            return Ok(selected.receipt);
+        }
+        if selected.receipt.generation != replacement.expected_parent {
+            return Err(PocError::OwnerConflict(format!(
+                "locator replacement expected parent {}, observed {}",
+                replacement.expected_parent, selected.receipt.generation
+            )));
+        }
+
+        let source_index = selected
+            .forward
+            .iter()
+            .position(|entry| entry.payload_root == replacement.payload_root)
+            .ok_or_else(|| {
+                PocError::OwnerConflict(format!(
+                    "locator source root {} is not selected",
+                    replacement.payload_root.as_str()
+                ))
+            })?;
+        let source = &selected.forward[source_index];
+        if source.allocation_id != replacement.expected_source_allocation_id
+            || source.owner_epoch != replacement.expected_source_owner_epoch
+        {
+            return Err(PocError::OwnerConflict(format!(
+                "locator source root {} changed allocation or owner epoch",
+                replacement.payload_root.as_str()
+            )));
+        }
+        if selected
+            .reverse
+            .iter()
+            .any(|entry| entry.allocation_id == replacement.target.allocation_id)
+        {
+            return Err(PocError::OwnerConflict(format!(
+                "locator target allocation {} is already selected",
+                replacement.target.allocation_id
+            )));
+        }
+
+        let mut forward = selected.forward.clone();
+        forward[source_index] = replacement.target.clone();
+        let source_reverse_index = selected
+            .reverse
+            .iter()
+            .position(|entry| entry.allocation_id == replacement.expected_source_allocation_id)
+            .ok_or_else(|| {
+                PocError::Integrity(format!(
+                    "locator source allocation {} has no reverse entry",
+                    replacement.expected_source_allocation_id
+                ))
+            })?;
+        let mut reverse = selected.reverse.clone();
+        let source_reverse = &mut reverse[source_reverse_index];
+        if source_reverse.owner_epoch != replacement.expected_source_owner_epoch
+            || !source_reverse
+                .payload_roots
+                .contains(&replacement.payload_root)
+        {
+            return Err(PocError::Integrity(
+                "locator source reverse entry disagrees with the exact replacement".to_owned(),
+            ));
+        }
+        source_reverse
+            .payload_roots
+            .retain(|root| root != &replacement.payload_root);
+        if source_reverse.payload_roots.is_empty() {
+            reverse.remove(source_reverse_index);
+        }
+        reverse.push(replacement.target_reverse.clone());
+        normalize_and_validate(&mut forward, &mut reverse)?;
+        self.persist_generation(
+            Some(&selected),
+            LocatorGenerationCandidate {
+                operation_id: replacement.operation_id.clone(),
+                publication_id: replacement.publication_id.clone(),
+                candidate_sha256: digest_json(replacement)?,
+                forward,
+                reverse,
+            },
+            faults,
+        )
+    }
+
+    fn persist_generation(
+        &self,
+        selected: Option<&SelectedLocatorGeneration>,
+        candidate: LocatorGenerationCandidate,
+        faults: &mut NamedFaultInjector,
+    ) -> PocResult<LocatorDurabilityReceipt> {
+        let generation = selected.map_or(Ok(LocatorGeneration::INITIAL), |current| {
+            current.receipt.generation.checked_next()
+        })?;
         let forward_file = ForwardFile {
             schema_version: SCHEMA_VERSION,
             format: LOCATOR_FORMAT.to_owned(),
             generation,
-            entries: forward,
+            entries: candidate.forward,
         };
         let reverse_file = ReverseFile {
             schema_version: SCHEMA_VERSION,
             format: LOCATOR_FORMAT.to_owned(),
             generation,
-            entries: reverse,
+            entries: candidate.reverse,
         };
-        let candidate_sha256 = digest_json(delta)?;
         let forward_sha256 = digest_json(&forward_file)?;
         let reverse_sha256 = digest_json(&reverse_file)?;
         let generation_dir = self.generation_dir(generation);
@@ -236,10 +367,10 @@ impl LocatorStore {
             schema_version: SCHEMA_VERSION,
             format: LOCATOR_FORMAT.to_owned(),
             generation,
-            parent: selected.as_ref().map(|current| current.receipt.generation),
-            operation_id: delta.operation_id.clone(),
-            publication_id: delta.publication_id.clone(),
-            candidate_sha256,
+            parent: selected.map(|current| current.receipt.generation),
+            operation_id: candidate.operation_id.clone(),
+            publication_id: candidate.publication_id.clone(),
+            candidate_sha256: candidate.candidate_sha256,
             forward_sha256: forward_sha256.clone(),
             reverse_sha256: reverse_sha256.clone(),
             forward_entries: usize_to_u64(forward_file.entries.len())?,
@@ -254,8 +385,8 @@ impl LocatorStore {
         let mut selector = LocatorSelector {
             schema_version: SCHEMA_VERSION,
             generation,
-            operation_id: delta.operation_id.clone(),
-            publication_id: delta.publication_id.clone(),
+            operation_id: candidate.operation_id,
+            publication_id: candidate.publication_id,
             generation_manifest_sha256: manifest.manifest_sha256.clone(),
             checksum_sha256: String::new(),
         };
@@ -414,6 +545,40 @@ fn validate_delta(delta: &LocatorDelta) -> PocResult<()> {
     normalize_and_validate(&mut forward, &mut reverse)
 }
 
+fn validate_replacement(replacement: &LocatorReplacement) -> PocResult<()> {
+    if replacement.schema_version != SCHEMA_VERSION {
+        return Err(PocError::Integrity(format!(
+            "unsupported locator replacement schema {}",
+            replacement.schema_version
+        )));
+    }
+    validate_path_component(replacement.operation_id.as_str(), "operation ID")?;
+    if replacement.expected_source_owner_epoch == 0 {
+        return Err(PocError::Integrity(
+            "locator replacement source owner epoch must be non-zero".to_owned(),
+        ));
+    }
+    if replacement.expected_source_allocation_id == replacement.target.allocation_id {
+        return Err(PocError::Integrity(
+            "locator replacement target must use a distinct allocation".to_owned(),
+        ));
+    }
+    if replacement.target.payload_root != replacement.payload_root
+        || replacement.target_reverse.allocation_id != replacement.target.allocation_id
+        || replacement.target_reverse.owner_epoch != replacement.target.owner_epoch
+        || replacement.target_reverse.operation_id != replacement.operation_id
+        || replacement.target_reverse.publication_id != replacement.publication_id
+        || replacement.target_reverse.payload_roots != [replacement.payload_root.clone()]
+    {
+        return Err(PocError::Integrity(
+            "locator replacement target forward and reverse entries disagree".to_owned(),
+        ));
+    }
+    let mut forward = vec![replacement.target.clone()];
+    let mut reverse = vec![replacement.target_reverse.clone()];
+    normalize_and_validate(&mut forward, &mut reverse)
+}
+
 fn validate_generation_files(
     forward: &ForwardFile,
     reverse: &ReverseFile,
@@ -523,6 +688,24 @@ fn generation_contains_delta(
         }
     }
     Ok(true)
+}
+
+fn generation_contains_replacement(
+    selected: &SelectedLocatorGeneration,
+    replacement: &LocatorReplacement,
+) -> bool {
+    selected.operation_id == replacement.operation_id
+        && selected.publication_id == replacement.publication_id
+        && selected
+            .forward
+            .iter()
+            .find(|entry| entry.payload_root == replacement.payload_root)
+            == Some(&replacement.target)
+        && selected
+            .reverse
+            .iter()
+            .find(|entry| entry.allocation_id == replacement.target.allocation_id)
+            == Some(&replacement.target_reverse)
 }
 
 fn merge_forward(

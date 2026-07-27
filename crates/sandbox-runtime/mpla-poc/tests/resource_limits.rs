@@ -50,3 +50,52 @@ fn pending_descriptor_bytes_fail_closed() {
     assert!(matches!(error, PocError::Overloaded(_)));
     drop((guards, pending));
 }
+
+#[test]
+fn admitted_jobs_promote_in_fifo_order_without_changing_identity() {
+    let controller = AdmissionController::new();
+    let mut guards = (1..=32)
+        .map(|_| controller.submit(MAX_PENDING_DESCRIPTOR_BYTES / 16))
+        .collect::<Result<Vec<_>, _>>()
+        .expect("admit complete bounded queue");
+
+    assert_eq!(guards[4].receipt().job_ordinal, 5);
+    assert_eq!(guards[16].receipt().job_ordinal, 17);
+    drop(guards.remove(0));
+
+    assert!(guards[4]
+        .try_promote()
+        .expect("later coordinator promotion check")
+        .is_none());
+    let promoted = guards[3]
+        .try_promote()
+        .expect("promote oldest coordinator")
+        .expect("active slot is available");
+    assert_eq!(promoted.job_ordinal, 5);
+    assert_eq!(promoted.tier, AdmissionTier::ActiveData);
+    assert!(promoted.owns_payload_allocation);
+    assert!(promoted.owns_workspace_mount);
+
+    let descriptor = guards[15]
+        .try_promote()
+        .expect("promote oldest pending descriptor")
+        .expect("coordinator slot is available");
+    assert_eq!(descriptor.job_ordinal, 17);
+    assert_eq!(descriptor.tier, AdmissionTier::Coordinator);
+    assert!(!descriptor.owns_payload_allocation);
+    assert!(guards[16]
+        .try_promote()
+        .expect("later pending promotion check")
+        .is_none());
+
+    let snapshot = controller.snapshot().expect("promoted snapshot");
+    assert_eq!(snapshot.active_data_workers, 4);
+    assert_eq!(snapshot.coordinators, 16);
+    assert_eq!(snapshot.pending_descriptors, 15);
+    assert_eq!(
+        snapshot.pending_descriptor_bytes,
+        15 * (MAX_PENDING_DESCRIPTOR_BYTES / 16)
+    );
+    assert_eq!(snapshot.private_allocations, 4);
+    assert_eq!(snapshot.active_mounts, 4);
+}
