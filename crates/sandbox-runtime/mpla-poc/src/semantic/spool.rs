@@ -10,6 +10,14 @@ use super::record::{SemanticRecord, MAX_KEY_BYTES, MAX_RECORD_BYTES};
 const RUN_MAGIC: &[u8; 8] = b"MPLARUN1";
 const IO_BUFFER_BYTES: usize = 32 * 1024;
 
+pub(super) trait SpoolSink {
+    fn push(&mut self, key: Vec<u8>, payload: Vec<u8>) -> PocResult<()>;
+
+    fn push_record(&mut self, record: SemanticRecord) -> PocResult<()> {
+        self.push(record.key_digest()?.to_vec(), record.encode()?)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct SpoolStats {
     pub records_in: u64,
@@ -227,6 +235,12 @@ impl BoundedSpool {
         let sequence = self.next_run;
         self.next_run = self.next_run.saturating_add(1);
         self.root.join(format!("{class}-{sequence:016x}.run"))
+    }
+}
+
+impl SpoolSink for BoundedSpool {
+    fn push(&mut self, key: Vec<u8>, payload: Vec<u8>) -> PocResult<()> {
+        Self::push(self, key, payload)
     }
 }
 

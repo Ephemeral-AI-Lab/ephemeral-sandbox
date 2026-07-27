@@ -26,15 +26,16 @@ use sandbox_runtime_mpla_poc::occ::{
 };
 use sandbox_runtime_mpla_poc::owner::{compare_and_adopt, current_owner};
 use sandbox_runtime_mpla_poc::publication::{
-    stationary_adopt, stationary_adopt_receipt_hit, StationaryPublicationRequest,
+    stationary_adopt, stationary_adopt_receipt_hit, ReceiptHitPublicationReceipt,
+    StationaryPublicationRequest,
 };
 use sandbox_runtime_mpla_poc::recovery::{PublicationRecovery, RecoveryOutcome, RecoveryRequest};
 use sandbox_runtime_mpla_poc::ref_store::{PairedRefStore, RefCommitOutcome};
 use sandbox_runtime_mpla_poc::semantic::record::{RecordStreamReader, SemanticRecord};
 use sandbox_runtime_mpla_poc::semantic::{
     build_incremental, build_with_output, capture_affected_paths, materialize_record_stream,
-    write_affected_stream_from_snapshots, AffectedPathSnapshot, IncrementalBuildRequest,
-    SemanticBuildOutput,
+    write_affected_stream_from_snapshots, AffectedPathSnapshot, IncrementalBuildOutput,
+    IncrementalBuildRequest, SemanticBuildOutput,
 };
 use sandbox_runtime_mpla_poc::{
     durable, populate_empty_fixture_root, ActivationOperationId, AllocationHandle, AllocationId,
@@ -103,7 +104,20 @@ struct Context {
     cli_path: PathBuf,
     catalog_binding_path: PathBuf,
     cgroup_procs_path: Option<PathBuf>,
+    storage_cgroup_dir: Option<PathBuf>,
     preparation: PreparationReceipt,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct StorageCgroupSnapshot {
+    sampled_unix_ms: u64,
+    memory_current: u64,
+    memory_peak: u64,
+    memory_high: String,
+    memory_max: String,
+    memory_events: std::collections::BTreeMap<String, u64>,
+    memory_stat: std::collections::BTreeMap<String, u64>,
+    process_ids: Vec<u32>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -305,14 +319,16 @@ pub fn run() -> CampaignResult {
 
 fn run_case(context: &Context, case_id: &str) -> CampaignResult {
     let started_unix_ms = sandbox_runtime_mpla_poc::unix_time_ms()?;
+    let storage_before = context.storage_cgroup_snapshot()?;
     let started = Instant::now();
     let execution = dispatch_case(context, case_id);
     let duration_ns = ns(started.elapsed());
+    let storage_after = context.storage_cgroup_snapshot()?;
     let finished_unix_ms = sandbox_runtime_mpla_poc::unix_time_ms()?;
     let case_dir = context.evidence_root.join("cases").join(case_id);
     fs::create_dir_all(&case_dir)?;
     let result_path = case_dir.join("result.json");
-    let (outcome, assertions, failures_and_unknowns, details) = match execution {
+    let (outcome, assertions, failures_and_unknowns, mut details) = match execution {
         Ok(execution) => {
             let failed = execution
                 .assertions
@@ -339,6 +355,21 @@ fn run_case(context: &Context, case_id: &str) -> CampaignResult {
             json!({"error": error.to_string()}),
         ),
     };
+    let storage_evidence = json!({
+        "before": storage_before,
+        "after": storage_after,
+    });
+    match &mut details {
+        Value::Object(fields) => {
+            fields.insert("storage_cgroup".to_owned(), storage_evidence);
+        }
+        _ => {
+            details = json!({
+                "case": details,
+                "storage_cgroup": storage_evidence,
+            });
+        }
+    }
     durable::replace_json(&case_dir.join("details.json"), &details)?;
     let receipt = CaseReceipt {
         schema_version: SCHEMA_VERSION,
@@ -501,29 +532,30 @@ fn sm_03(context: &Context) -> CampaignResult<CaseExecution> {
     };
 
     let publish_started = Instant::now();
-    let stationary = stationary_adopt_receipt_hit(
-        &mut session,
-        &StationaryPublicationRequest {
-            schema_version: SCHEMA_VERSION,
-            operation_id: operation_id.clone(),
-            publication_id: publication_id.clone(),
-        },
-        &context.control_root.join("operations"),
-        &seal_input,
-        &mut FaultInjector::default(),
-    )?;
-    let incremental = build_incremental(&IncrementalBuildRequest {
-        schema_version: SCHEMA_VERSION,
-        operation_id: operation_id.clone(),
-        prior_manifest: prior.root_manifest_path.clone(),
-        expected_prior_roots: prior.receipt.roots.clone(),
-        expected_prior_record_stream_sha256: prior.receipt.record_stream_sha256.clone(),
-        affected_stream,
-        affected_stream_sha256,
-        affected_ranges_complete: true,
-        canonical_object_dir: context.preparation.canonical_object_dir.clone(),
-        attribution: attribution(),
-    })?;
+    let (stationary, incremental, stationary_elapsed, incremental_elapsed) =
+        parallel_receipt_hit_publication(
+            &mut session,
+            StationaryPublicationRequest {
+                schema_version: SCHEMA_VERSION,
+                operation_id: operation_id.clone(),
+                publication_id: publication_id.clone(),
+            },
+            context.control_root.join("operations"),
+            seal_input,
+            IncrementalBuildRequest {
+                schema_version: SCHEMA_VERSION,
+                operation_id: operation_id.clone(),
+                prior_manifest: prior.root_manifest_path.clone(),
+                expected_prior_roots: prior.receipt.roots.clone(),
+                expected_prior_record_stream_sha256: prior.receipt.record_stream_sha256.clone(),
+                affected_stream,
+                affected_stream_sha256,
+                affected_ranges_complete: true,
+                canonical_object_dir: context.preparation.canonical_object_dir.clone(),
+                attribution: attribution(),
+            },
+        )?;
+    let ref_started = Instant::now();
     let selected_ref = install_ref(
         context,
         &allocation,
@@ -533,6 +565,7 @@ fn sm_03(context: &Context) -> CampaignResult<CaseExecution> {
         &operation_id,
         &publication_id,
     )?;
+    let ref_elapsed = ref_started.elapsed();
     let publish_elapsed = publish_started.elapsed();
     let record_stream_path = materialize_record_stream(
         &incremental.root_manifest_path,
@@ -556,11 +589,7 @@ fn sm_03(context: &Context) -> CampaignResult<CaseExecution> {
             .control_root
             .join("campaign")
             .join(context.run_id.as_str()),
-        &context
-            .control_root
-            .join("campaign")
-            .join(context.run_id.as_str())
-            .join("forced-sm03-objects"),
+        &context.preparation.canonical_object_dir,
         &allocation,
         "forced-sm03",
     )?;
@@ -609,7 +638,11 @@ fn sm_03(context: &Context) -> CampaignResult<CaseExecution> {
             "semantic": incremental.receipt,
             "selected_ref": selected_ref,
             "publish_duration_ns": ns(publish_elapsed),
+            "stationary_duration_ns": ns(stationary_elapsed),
+            "incremental_duration_ns": ns(incremental_elapsed),
+            "locator_ref_duration_ns": ns(ref_elapsed),
             "forced_miss_duration_ns": ns(forced_elapsed),
+            "forced_miss_semantic": forced.receipt,
             "before_payload_bytes_read": before.payload_bytes_read,
             "after_payload_bytes_read": after.payload_bytes_read,
         }),
@@ -685,11 +718,8 @@ fn sm_05(context: &Context) -> CampaignResult<CaseExecution> {
             arena_root: context.arena_root(),
             control_root: context.control_root.clone(),
             cgroup_procs_path: context.cgroup_procs_path.clone(),
-            readiness_program: PathBuf::from("/bin/sh"),
-            readiness_arguments: vec![
-                "-c".to_owned(),
-                "test -f src/d0000/module-00000000.rs".to_owned(),
-            ],
+            readiness_path: PathBuf::from("src/d0000/module-00000000.rs"),
+            readiness_contains: None,
             readiness_timeout: Duration::from_secs(2),
         })?;
         durations.push(activated.receipt.elapsed_ns);
@@ -728,11 +758,16 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
     let initial: PublishedSemanticState =
         durable::read_json(&context.campaign_root().join("SM03_STATE.json"))?;
     let base = open_allocation(&context.arena_root(), &initial.allocation_id)?;
-    let mut prior = initial.semantic;
-    let mut selected_ref = initial.selected_ref;
+    let mut prior_receipt = initial.semantic.receipt.clone();
+    let mut prior_manifest = initial.semantic.root_manifest_path.clone();
+    let mut selected_ref = initial.selected_ref.clone();
     let mut recent = Vec::<AllocationHandle>::new();
     let mut carrier = None::<AllocationHandle>;
     let mut durations_ns = Vec::new();
+    let mut activation_durations_ns = Vec::new();
+    let mut stationary_durations_ns = Vec::new();
+    let mut incremental_durations_ns = Vec::new();
+    let mut locator_ref_durations_ns = Vec::new();
     let mut affected_input_bytes = Vec::new();
     let mut immutable_payload_bytes = Vec::new();
     let mut sequences = Vec::new();
@@ -742,7 +777,7 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
     for index in 0..16_u8 {
         let recipe = ProjectionRecipe {
             schema_version: SCHEMA_VERSION,
-            roots: prior.receipt.roots.clone(),
+            roots: prior_receipt.roots.clone(),
             base_allocation_id: base.descriptor.allocation_id.clone(),
             net_delta_carrier_id: carrier
                 .as_ref()
@@ -758,6 +793,7 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
             payload_allocations.push(allocation.clone());
         }
         payload_allocations.extend(recent.iter().cloned());
+        let activation_started = Instant::now();
         let activated = activate_exact(ExactActivationRequest {
             activation_operation_id: ActivationOperationId::from_string(format!(
                 "{}-sm06-activate-{index:02}",
@@ -773,46 +809,39 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
             arena_root: context.arena_root(),
             control_root: context.control_root.clone(),
             cgroup_procs_path: context.cgroup_procs_path.clone(),
-            readiness_program: PathBuf::from("/bin/sh"),
-            readiness_arguments: vec![
-                "-c".to_owned(),
-                "test -f src/d0000/module-00000000.rs".to_owned(),
-            ],
+            readiness_path: PathBuf::from("src/d0000/module-00000000.rs"),
+            readiness_contains: None,
             readiness_timeout: Duration::from_secs(2),
         })?;
+        activation_durations_ns.push(ns(activation_started.elapsed()));
         let mut session = activated.session;
         let allocation = session.allocation().clone();
         let lease = session.mutable_lease().clone();
-        let path = PathBuf::from(format!("tiny/delta-{index:02}.txt"));
+        let path = s1_module_path(200 + u64::from(index));
+        let affected_paths = vec![path.clone()];
         let work = context
             .campaign_root()
             .join("receipt-sm06")
             .join(format!("{index:02}"));
         fs::create_dir_all(&work)?;
-        let before = AffectedPathSnapshot {
-            paths: vec![path.clone()],
-            records: Vec::new(),
-            payload_bytes_read: 0,
-        };
+        let workspace = session
+            .workspace_root()
+            .ok_or("SM-06 workspace disappeared")?
+            .to_path_buf();
+        let before = capture_affected_paths(&workspace, &affected_paths, &work.join("before"))?;
         let edit = session.execute(
             &lease.writer,
             Path::new("/bin/sh"),
             &[
                 "-c".to_owned(),
-                format!(
-                    "mkdir -p tiny && printf 'delta-{index:02}' > '{}'",
-                    path.display()
-                ),
+                format!("printf 'delta-{index:02}' > '{}'", path.display()),
             ],
             Duration::from_secs(2),
         )?;
         if !edit.success {
             return Err(format!("SM-06 edit {index} failed").into());
         }
-        let workspace = session
-            .workspace_root()
-            .ok_or("SM-06 workspace disappeared")?;
-        let after = capture_affected_paths(workspace, &[path.clone()], &work.join("after"))?;
+        let after = capture_affected_paths(&workspace, &affected_paths, &work.join("after"))?;
         let affected_stream = work.join("affected.records");
         let affected_stream_sha256 =
             write_affected_stream_from_snapshots(&affected_stream, &before, &after)?;
@@ -820,7 +849,7 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
             schema_version: SCHEMA_VERSION,
             affected_stream: affected_stream.clone(),
             affected_stream_sha256: affected_stream_sha256.clone(),
-            affected_paths: vec![path],
+            affected_paths,
         };
         let operation_id =
             OperationId::from_string(format!("{}-sm06-publish-{index:02}", context.run_id));
@@ -828,29 +857,32 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
             PublicationId::from_string(format!("{}-sm06-{index:02}", context.run_id));
 
         let publish_started = Instant::now();
-        let stationary = stationary_adopt_receipt_hit(
-            &mut session,
-            &StationaryPublicationRequest {
-                schema_version: SCHEMA_VERSION,
-                operation_id: operation_id.clone(),
-                publication_id: publication_id.clone(),
-            },
-            &context.control_root.join("operations"),
-            &seal_input,
-            &mut FaultInjector::default(),
-        )?;
-        let incremental = build_incremental(&IncrementalBuildRequest {
-            schema_version: SCHEMA_VERSION,
-            operation_id: operation_id.clone(),
-            prior_manifest: prior.root_manifest_path.clone(),
-            expected_prior_roots: prior.receipt.roots.clone(),
-            expected_prior_record_stream_sha256: prior.receipt.record_stream_sha256.clone(),
-            affected_stream,
-            affected_stream_sha256,
-            affected_ranges_complete: true,
-            canonical_object_dir: context.preparation.canonical_object_dir.clone(),
-            attribution: attribution(),
-        })?;
+        let (stationary, incremental, stationary_elapsed, incremental_elapsed) =
+            parallel_receipt_hit_publication(
+                &mut session,
+                StationaryPublicationRequest {
+                    schema_version: SCHEMA_VERSION,
+                    operation_id: operation_id.clone(),
+                    publication_id: publication_id.clone(),
+                },
+                context.control_root.join("operations"),
+                seal_input,
+                IncrementalBuildRequest {
+                    schema_version: SCHEMA_VERSION,
+                    operation_id: operation_id.clone(),
+                    prior_manifest: prior_manifest.clone(),
+                    expected_prior_roots: prior_receipt.roots.clone(),
+                    expected_prior_record_stream_sha256: prior_receipt.record_stream_sha256.clone(),
+                    affected_stream,
+                    affected_stream_sha256,
+                    affected_ranges_complete: true,
+                    canonical_object_dir: context.preparation.canonical_object_dir.clone(),
+                    attribution: attribution(),
+                },
+            )?;
+        stationary_durations_ns.push(ns(stationary_elapsed));
+        incremental_durations_ns.push(ns(incremental_elapsed));
+        let ref_started = Instant::now();
         selected_ref = install_ref(
             context,
             &allocation,
@@ -860,28 +892,31 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
             &operation_id,
             &publication_id,
         )?;
+        locator_ref_durations_ns.push(ns(ref_started.elapsed()));
         final_owner_epoch = stationary.stationary.adoption.new_owner.owner_epoch;
         let publish_elapsed = publish_started.elapsed();
         durations_ns.push(ns(publish_elapsed));
         affected_input_bytes.push(incremental.affected_input_bytes);
         immutable_payload_bytes.push(incremental.immutable_payload_bytes_read);
         sequences.push(selected_ref.sequence.get());
-        prior = PreparedSemantic {
-            receipt: incremental.receipt,
-            record_stream_path: materialize_record_stream(
-                &incremental.root_manifest_path,
-                &context.preparation.canonical_object_dir,
-            )?,
-            root_manifest_path: incremental.root_manifest_path,
-        };
+        prior_receipt = incremental.receipt;
+        prior_manifest = incremental.root_manifest_path;
         recent.push(allocation);
 
         if index == 7 {
-            carrier = Some(build_tiny_delta_carrier(context, 8)?);
+            carrier = Some(build_tiny_delta_carrier(context, &base, &initial, &recent)?);
             recent.clear();
         }
     }
     let campaign_elapsed = campaign_started.elapsed();
+    let prior = PreparedSemantic {
+        record_stream_path: materialize_record_stream(
+            &prior_manifest,
+            &context.preparation.canonical_object_dir,
+        )?,
+        root_manifest_path: prior_manifest,
+        receipt: prior_receipt,
+    };
 
     let recipe = ProjectionRecipe {
         schema_version: SCHEMA_VERSION,
@@ -916,8 +951,8 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
         arena_root: context.arena_root(),
         control_root: context.control_root.clone(),
         cgroup_procs_path: context.cgroup_procs_path.clone(),
-        readiness_program: PathBuf::from("/bin/sh"),
-        readiness_arguments: vec!["-c".to_owned(), "test -f tiny/delta-15.txt".to_owned()],
+        readiness_path: s1_module_path(215),
+        readiness_contains: Some(b"delta-15".to_vec()),
         readiness_timeout: Duration::from_secs(2),
     })?;
     let validation_allocation_id = validation
@@ -1007,6 +1042,10 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
         ],
         details: json!({
             "duration_ns": durations_ns,
+            "activation_duration_ns": activation_durations_ns,
+            "stationary_duration_ns": stationary_durations_ns,
+            "incremental_duration_ns": incremental_durations_ns,
+            "locator_ref_duration_ns": locator_ref_durations_ns,
             "affected_input_bytes": affected_input_bytes,
             "immutable_payload_bytes_read": immutable_payload_bytes,
             "ref_sequences": sequences,
@@ -1417,7 +1456,9 @@ fn sm_10(context: &Context) -> CampaignResult<CaseExecution> {
     let occ = BranchOcc::open(context.campaign_root().join("occ"))?;
     let mut responses = Vec::new();
     for (index, candidate) in candidates.iter().enumerate() {
-        let changed = format!("src/d0000/module-{:08}.rs", 100 + index);
+        let changed = s1_module_path(100 + u64::try_from(index)?)
+            .to_string_lossy()
+            .into_owned();
         let publication = occ_publication(candidate, RefSequence::ZERO, [&changed])?;
         let own_roots = candidate.semantic.roots.clone();
         let own_durability = candidate.semantic.durability.clone();
@@ -1476,7 +1517,7 @@ fn sm_10(context: &Context) -> CampaignResult<CaseExecution> {
         candidates[3]
             .allocation
             .upper_dir
-            .join(format!("src/d0000/module-{:08}.rs", 100 + index))
+            .join(s1_module_path(100 + u64::from(index)))
             .is_file()
     });
     let owners = candidates
@@ -1572,18 +1613,18 @@ fn sm_10(context: &Context) -> CampaignResult<CaseExecution> {
                 .map(|candidate| candidate.allocation.descriptor.allocation_id.clone())
                 .collect::<Vec<_>>(),
             "cumulative_fixture": {
-                "agent_0": ["src/d0000/module-00000100.rs"],
-                "agent_1": ["src/d0000/module-00000100.rs", "src/d0000/module-00000101.rs"],
+                "agent_0": ["src/d0036/module-00000100.rs"],
+                "agent_1": ["src/d0036/module-00000100.rs", "src/d0037/module-00000101.rs"],
                 "agent_2": [
-                    "src/d0000/module-00000100.rs",
-                    "src/d0000/module-00000101.rs",
-                    "src/d0000/module-00000102.rs"
+                    "src/d0036/module-00000100.rs",
+                    "src/d0037/module-00000101.rs",
+                    "src/d0038/module-00000102.rs"
                 ],
                 "agent_3": [
-                    "src/d0000/module-00000100.rs",
-                    "src/d0000/module-00000101.rs",
-                    "src/d0000/module-00000102.rs",
-                    "src/d0000/module-00000103.rs"
+                    "src/d0036/module-00000100.rs",
+                    "src/d0037/module-00000101.rs",
+                    "src/d0038/module-00000102.rs",
+                    "src/d0039/module-00000103.rs"
                 ],
             },
         }),
@@ -2346,21 +2387,24 @@ fn sm_13(context: &Context) -> CampaignResult<CaseExecution> {
         .parent()
         .ok_or("payload root has no reconciliation parent")?
         .to_path_buf();
-    if roots
-        .iter()
-        .any(|(_, root)| root.parent() != Some(scope.as_path()))
-    {
-        return Err("smoke storage roots do not share one reconciliation scope".into());
-    }
     let categories = roots
         .iter()
-        .map(
-            |(category, root)| sandbox_runtime_mpla_poc::StorageCategoryRoot {
+        .map(|(category, root)| {
+            let relative = root
+                .strip_prefix(&scope)
+                .map_err(|_| "smoke storage root escapes reconciliation scope")?;
+            let volume = relative
+                .components()
+                .next()
+                .ok_or("smoke storage category has no volume component")?;
+            Ok(sandbox_runtime_mpla_poc::StorageCategoryRoot {
                 category: (*category).to_owned(),
-                root: (*root).clone(),
+                root: scope.join(volume.as_os_str()),
                 recursive: true,
-            },
-        )
+            })
+        })
+        .collect::<CampaignResult<Vec<_>>>()?
+        .into_iter()
         .chain(std::iter::once(
             sandbox_runtime_mpla_poc::StorageCategoryRoot {
                 category: "scope-root".to_owned(),
@@ -2535,6 +2579,7 @@ fn sm_14(context: &Context) -> CampaignResult<CaseExecution> {
     };
     let mut forks = Vec::new();
     let mut fork_activation_ns = Vec::new();
+    let mut fork_activation_phase_spans = Vec::new();
     let mut first_command_ns = Vec::new();
     let mut first_commands = Vec::new();
     let mut fresh_activation_ids = Vec::new();
@@ -2582,14 +2627,12 @@ fn sm_14(context: &Context) -> CampaignResult<CaseExecution> {
             arena_root: context.arena_root(),
             control_root: context.control_root.clone(),
             cgroup_procs_path: context.cgroup_procs_path.clone(),
-            readiness_program: PathBuf::from("/bin/sh"),
-            readiness_arguments: vec![
-                "-c".to_owned(),
-                "test -f tree/d0000/node-00000000.bin".to_owned(),
-            ],
+            readiness_path: PathBuf::from("tree/d0000/node-00000000.bin"),
+            readiness_contains: None,
             readiness_timeout: Duration::from_secs(2),
         })?;
         fork_activation_ns.push(activated.receipt.elapsed_ns);
+        fork_activation_phase_spans.push(activated.receipt.phase_spans.clone());
         let writer = activated.session.mutable_lease().writer.clone();
         let first_started = Instant::now();
         let first = activated.session.execute(
@@ -2861,6 +2904,7 @@ fn sm_14(context: &Context) -> CampaignResult<CaseExecution> {
             "timings": {
                 "fork_outer_ns": fork_outer,
                 "fork_activation_ns": fork_activation_ns,
+                "fork_activation_phase_spans": fork_activation_phase_spans,
                 "first_command_ns": first_command_ns,
                 "rollback_outer_ns": rollback_outer,
                 "rollback_service_ns": rollback_service,
@@ -3058,36 +3102,165 @@ fn install_locator(
     publication_id: &PublicationId,
 ) -> CampaignResult<LocatorDurabilityReceipt> {
     let payload_root = PayloadRootId::parse(semantic.roots.root_id.as_str())?;
-    let selected = locator_store.selected()?;
-    Ok(locator_store.install(
-        &LocatorDelta {
+    for attempt in 0..64_u8 {
+        let selected = locator_store.selected()?;
+        let result = locator_store.install(
+            &LocatorDelta {
+                schema_version: SCHEMA_VERSION,
+                operation_id: operation_id.clone(),
+                publication_id: publication_id.clone(),
+                expected_parent: selected
+                    .as_ref()
+                    .map(|generation| generation.receipt.generation),
+                forward: vec![ForwardLocatorEntry {
+                    payload_root: payload_root.clone(),
+                    allocation_id: allocation.descriptor.allocation_id.clone(),
+                    owner_epoch,
+                    extents: vec![LocatorExtent {
+                        relative_path: "upper".to_owned(),
+                        offset: 0,
+                        length: accounted_bytes.max(1),
+                    }],
+                }],
+                reverse: vec![ReverseLocatorEntry {
+                    allocation_id: allocation.descriptor.allocation_id.clone(),
+                    owner_epoch,
+                    operation_id: operation_id.clone(),
+                    publication_id: publication_id.clone(),
+                    payload_roots: vec![payload_root.clone()],
+                    accounted_bytes: accounted_bytes.max(1),
+                }],
+            },
+            &mut NamedFaultInjector::default(),
+        );
+        match result {
+            Ok(receipt) => return Ok(receipt),
+            Err(PocError::OwnerConflict(message))
+                if attempt < 63 && message.starts_with("locator expected parent ") =>
+            {
+                continue;
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Err(
+        PocError::RecoveryRequired("locator compare-and-install retry bound exhausted".to_owned())
+            .into(),
+    )
+}
+
+fn build_tiny_delta_carrier(
+    context: &Context,
+    base: &AllocationHandle,
+    initial: &PublishedSemanticState,
+    deltas: &[AllocationHandle],
+) -> CampaignResult<AllocationHandle> {
+    if deltas.is_empty() || deltas.len() > sandbox_runtime_mpla_poc::projection::MAX_RECENT_DELTAS {
+        return Err("SM-06 carrier delta count is outside the projection bound".into());
+    }
+    let delta_count = u8::try_from(deltas.len())?;
+    let mut carrier_sources = Vec::with_capacity(deltas.len());
+    for (index, delta) in deltas.iter().enumerate() {
+        let index = u8::try_from(index)?;
+        let path = s1_module_path(200 + u64::from(index));
+        let source = delta.upper_dir.join(&path);
+        if !source.is_file() {
+            return Err(format!("SM-06 carrier source is absent: {}", source.display()).into());
+        }
+        carrier_sources.push((source, path));
+    }
+    let operation_id =
+        OperationId::from_string(format!("{}-sm06-carrier-{delta_count:02}", context.run_id));
+    let activated = activate_exact(ExactActivationRequest {
+        activation_operation_id: ActivationOperationId::from_string(format!(
+            "{}-sm06-carrier-build-{delta_count:02}",
+            context.run_id
+        )),
+        allocation_operation_id: operation_id.clone(),
+        selected_ref: initial.selected_ref.clone(),
+        recipe: ProjectionRecipe {
+            schema_version: SCHEMA_VERSION,
+            roots: initial.semantic.receipt.roots.clone(),
+            base_allocation_id: base.descriptor.allocation_id.clone(),
+            net_delta_carrier_id: None,
+            recent_delta_ids: Vec::new(),
+        },
+        payload_allocations: vec![base.clone()],
+        arena_root: context.arena_root(),
+        control_root: context.control_root.clone(),
+        cgroup_procs_path: context.cgroup_procs_path.clone(),
+        readiness_path: PathBuf::from("src/d0000/module-00000000.rs"),
+        readiness_contains: None,
+        readiness_timeout: Duration::from_secs(2),
+    })?;
+    let mut session = activated.session;
+    let allocation = session.allocation().clone();
+    let lease = session.mutable_lease().clone();
+    let mut commands = Vec::with_capacity(carrier_sources.len() + 1);
+    for (source, path) in carrier_sources {
+        commands.push(format!(
+            "cp --preserve=mode,ownership,timestamps --reflink=never --no-target-directory '{}' '{}'",
+            source.display(),
+            path.display()
+        ));
+    }
+    commands.push(format!(
+        "touch --no-dereference --reference='{}' .",
+        base.upper_dir.display()
+    ));
+    let result = session.execute(
+        &lease.writer,
+        Path::new("/bin/sh"),
+        &["-c".to_owned(), commands.join(" && ")],
+        Duration::from_secs(2),
+    );
+    let result = match result {
+        Ok(result) => result,
+        Err(error) => {
+            drop(session);
+            let cleanup = destroy_workspace_allocation(
+                &context.arena_root(),
+                &allocation.descriptor.allocation_id,
+                &lease.deleter,
+            );
+            return match cleanup {
+                Ok(()) => Err(error.into()),
+                Err(cleanup_error) => Err(format!(
+                    "SM-06 carrier execution failed: {error}; cleanup failed: {cleanup_error}"
+                )
+                .into()),
+            };
+        }
+    };
+    if !result.success {
+        drop(session);
+        let cleanup = destroy_workspace_allocation(
+            &context.arena_root(),
+            &allocation.descriptor.allocation_id,
+            &lease.deleter,
+        );
+        let failure = format!(
+            "SM-06 carrier materialization failed: exit_code={:?}, timed_out={}",
+            result.exit_code, result.timed_out
+        );
+        return match cleanup {
+            Ok(()) => Err(failure.into()),
+            Err(cleanup_error) => Err(format!("{failure}; cleanup failed: {cleanup_error}").into()),
+        };
+    }
+    let publication_id =
+        PublicationId::from_string(format!("{}-sm06-carrier-{delta_count:02}", context.run_id));
+    stationary_adopt(
+        &mut session,
+        &StationaryPublicationRequest {
             schema_version: SCHEMA_VERSION,
             operation_id: operation_id.clone(),
             publication_id: publication_id.clone(),
-            expected_parent: selected
-                .as_ref()
-                .map(|generation| generation.receipt.generation),
-            forward: vec![ForwardLocatorEntry {
-                payload_root: payload_root.clone(),
-                allocation_id: allocation.descriptor.allocation_id.clone(),
-                owner_epoch,
-                extents: vec![LocatorExtent {
-                    relative_path: "upper".to_owned(),
-                    offset: 0,
-                    length: accounted_bytes.max(1),
-                }],
-            }],
-            reverse: vec![ReverseLocatorEntry {
-                allocation_id: allocation.descriptor.allocation_id.clone(),
-                owner_epoch,
-                operation_id: operation_id.clone(),
-                publication_id: publication_id.clone(),
-                payload_roots: vec![payload_root],
-                accounted_bytes: accounted_bytes.max(1),
-            }],
         },
-        &mut NamedFaultInjector::default(),
-    )?)
+        &context.control_root.join("operations"),
+        &mut FaultInjector::default(),
+    )?;
+    Ok(allocation)
 }
 
 fn published_s1(context: &Context) -> CampaignResult<Published> {
@@ -3138,18 +3311,15 @@ fn prepare_sm10_candidate(
         arena_root: context.arena_root(),
         control_root: context.control_root.clone(),
         cgroup_procs_path: context.cgroup_procs_path.clone(),
-        readiness_program: PathBuf::from("/bin/sh"),
-        readiness_arguments: vec![
-            "-c".to_owned(),
-            "test -f src/d0000/module-00000000.rs".to_owned(),
-        ],
+        readiness_path: PathBuf::from("src/d0000/module-00000000.rs"),
+        readiness_contains: None,
         readiness_timeout: Duration::from_secs(2),
     })?;
     let mut session = activated.session;
     let allocation = session.allocation().clone();
     let lease = session.mutable_lease().clone();
     let paths = (0..=agent)
-        .map(|index| PathBuf::from(format!("src/d0000/module-{:08}.rs", 100 + index)))
+        .map(|index| s1_module_path(100 + u64::from(index)))
         .collect::<Vec<_>>();
     let work = context
         .campaign_root()
@@ -3329,48 +3499,48 @@ fn occ_publication<const N: usize>(
     })
 }
 
-fn build_tiny_delta_carrier(
-    context: &Context,
-    delta_count: u8,
-) -> CampaignResult<AllocationHandle> {
-    let operation_id =
-        OperationId::from_string(format!("{}-sm06-carrier-{delta_count:02}", context.run_id));
-    let allocation = create_allocation(&context.arena_root(), &operation_id)?;
-    let lease = issue_workspace_lease(&allocation, SessionId::new(), &operation_id)?;
-    let mut session = sandbox_runtime_mpla_poc::MplaSession::open(
-        &context.control_root,
-        allocation.clone(),
-        lease.clone(),
-        context.raw_session_lower_dirs(),
-        context.cgroup_procs_path.clone(),
-    )?;
-    let writes = (0..delta_count)
-        .map(|index| format!("printf 'delta-{index:02}' > 'tiny/delta-{index:02}.txt'"))
-        .collect::<Vec<_>>()
-        .join(" && ");
-    let command = format!("mkdir -p tiny && {writes}");
-    let result = session.execute(
-        &lease.writer,
-        Path::new("/bin/sh"),
-        &["-c".to_owned(), command],
-        Duration::from_secs(2),
-    )?;
-    if !result.success {
-        return Err("SM-06 carrier materialization failed".into());
-    }
-    let publication_id =
-        PublicationId::from_string(format!("{}-sm06-carrier-{delta_count:02}", context.run_id));
-    stationary_adopt(
-        &mut session,
-        &StationaryPublicationRequest {
-            schema_version: SCHEMA_VERSION,
-            operation_id,
-            publication_id,
-        },
-        &context.control_root.join("operations"),
-        &mut FaultInjector::default(),
-    )?;
-    Ok(allocation)
+fn s1_module_path(index: u64) -> PathBuf {
+    PathBuf::from(format!("src/d{:04}/module-{index:08}.rs", index % 64))
+}
+
+fn parallel_receipt_hit_publication(
+    session: &mut sandbox_runtime_mpla_poc::MplaSession,
+    publication_request: StationaryPublicationRequest,
+    operations_root: PathBuf,
+    seal_input: ReceiptHitSealInput,
+    incremental_request: IncrementalBuildRequest,
+) -> CampaignResult<(
+    ReceiptHitPublicationReceipt,
+    IncrementalBuildOutput,
+    Duration,
+    Duration,
+)> {
+    let (stationary, incremental) = std::thread::scope(|scope| {
+        let stationary_task = scope.spawn(move || {
+            let started = Instant::now();
+            let receipt = stationary_adopt_receipt_hit(
+                session,
+                &publication_request,
+                &operations_root,
+                &seal_input,
+                &mut FaultInjector::default(),
+            )?;
+            Ok::<_, PocError>((receipt, started.elapsed()))
+        });
+        let incremental_task = scope.spawn(move || {
+            let started = Instant::now();
+            let output = build_incremental(&incremental_request)?;
+            Ok::<_, PocError>((output, started.elapsed()))
+        });
+        let stationary = stationary_task.join().map_err(|_| {
+            PocError::Integrity("stationary receipt-hit publication thread panicked".to_owned())
+        })??;
+        let incremental = incremental_task.join().map_err(|_| {
+            PocError::Integrity("incremental semantic publication thread panicked".to_owned())
+        })??;
+        Ok::<_, PocError>((stationary, incremental))
+    })?;
+    Ok((stationary.0, incremental.0, stationary.1, incremental.1))
 }
 
 fn prior_changed_window_snapshot(
@@ -3597,6 +3767,7 @@ impl Context {
             return Err("preparation receipt scope mismatch".into());
         }
         let cgroup_procs_path = std::env::var_os("MPLA_POC_CGROUP_PROCS").map(PathBuf::from);
+        let storage_cgroup_dir = std::env::var_os("MPLA_POC_STORAGE_CGROUP_DIR").map(PathBuf::from);
         Ok(Self {
             run_id: roots.run_id,
             payload_root: roots.payload_root,
@@ -3608,6 +3779,7 @@ impl Context {
             cli_path: required_path("MPLA_POC_CLI_BIN")?,
             catalog_binding_path: required_path("MPLA_POC_CATALOG_BINDING_PATH")?,
             cgroup_procs_path,
+            storage_cgroup_dir,
             preparation,
         })
     }
@@ -3633,6 +3805,49 @@ impl Context {
     fn raw_session_lower_dirs(&self) -> Vec<PathBuf> {
         vec![self.campaign_root().join("empty-lower")]
     }
+
+    fn storage_cgroup_snapshot(&self) -> CampaignResult<Option<StorageCgroupSnapshot>> {
+        let Some(root) = &self.storage_cgroup_dir else {
+            return Ok(None);
+        };
+        Ok(Some(StorageCgroupSnapshot {
+            sampled_unix_ms: sandbox_runtime_mpla_poc::unix_time_ms()?,
+            memory_current: read_u64_file(&root.join("memory.current"))?,
+            memory_peak: read_u64_file(&root.join("memory.peak"))?,
+            memory_high: fs::read_to_string(root.join("memory.high"))?
+                .trim()
+                .to_owned(),
+            memory_max: fs::read_to_string(root.join("memory.max"))?
+                .trim()
+                .to_owned(),
+            memory_events: read_counter_file(&root.join("memory.events"))?,
+            memory_stat: read_counter_file(&root.join("memory.stat"))?,
+            process_ids: fs::read_to_string(root.join("cgroup.procs"))?
+                .lines()
+                .map(str::parse)
+                .collect::<Result<Vec<_>, _>>()?,
+        }))
+    }
+}
+
+fn read_u64_file(path: &Path) -> CampaignResult<u64> {
+    Ok(fs::read_to_string(path)?.trim().parse()?)
+}
+
+fn read_counter_file(path: &Path) -> CampaignResult<std::collections::BTreeMap<String, u64>> {
+    let mut counters = std::collections::BTreeMap::new();
+    for line in fs::read_to_string(path)?.lines() {
+        let mut fields = line.split_whitespace();
+        let name = fields.next().ok_or("cgroup counter name is missing")?;
+        let value = fields
+            .next()
+            .ok_or("cgroup counter value is missing")?
+            .parse()?;
+        if fields.next().is_some() || counters.insert(name.to_owned(), value).is_some() {
+            return Err(format!("invalid cgroup counter line in {}", path.display()).into());
+        }
+    }
+    Ok(counters)
 }
 
 fn required_env(name: &str) -> CampaignResult<String> {

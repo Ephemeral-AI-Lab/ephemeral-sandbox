@@ -37,6 +37,10 @@ fn separately_compiled_oracle_matches_decoded_records_roots_and_physical_substit
         &attribution,
     );
     compare_candidate_and_oracle(&candidate, &oracle);
+    assert!(!decoded_records(&candidate.record_stream_path)
+        .iter()
+        .any(|record| matches!(record, SemanticRecord::Xattr { name, .. }
+            if name == b"user.overlay.uuid")));
 
     let substitute_tree = temporary.path.join("substituted-tree");
     reconstruct_fixture(&source_tree, &substitute_tree);
@@ -162,6 +166,13 @@ fn run_oracle(tree: &Path, records: &Path, attribution: &AttributionInput) -> Or
 
 fn create_fixture(tree: &Path) {
     std::fs::create_dir(tree).expect("test operation must succeed");
+    rustix::fs::lsetxattr(
+        tree,
+        "user.overlay.uuid",
+        b"physical-overlay-identity",
+        XattrFlags::empty(),
+    )
+    .expect("test operation must succeed");
     let regular = tree.join("regular");
     std::fs::write(&regular, b"oracle payload").expect("test operation must succeed");
     std::fs::set_permissions(&regular, std::fs::Permissions::from_mode(0o640))

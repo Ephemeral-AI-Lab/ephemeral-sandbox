@@ -126,7 +126,7 @@ impl LifecycleAction {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 struct LifecycleSelection {
     schema_version: u32,
     branch: String,
@@ -427,25 +427,63 @@ fn apply_lifecycle_metadata(
             }
         }
         LifecycleAction::Squash => {
-            let current = read_lifecycle_selection(&request.state_root, &request.branch)?;
-            let sequence = current
-                .sequence
-                .checked_add(1)
-                .ok_or("lifecycle branch sequence overflow")?;
-            LifecycleSelection {
-                schema_version: SCHEMA_VERSION,
-                branch: request.branch.clone(),
-                sequence,
-                allocation_id: current.allocation_id,
-                root_id: current.root_id,
-                attribution_root_id: current.attribution_root_id,
-                ancestry: vec![sequence],
-                selected_unix_ms,
-            }
+            return select_prepared_squash(request, selector_path);
         }
     };
+    prepare_squash_selection(request, &selection)?;
     durable::replace_json(selector_path, &selection)?;
     Ok(selection)
+}
+
+fn prepare_squash_selection(
+    request: &LifecycleMetadataRequest,
+    current: &LifecycleSelection,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let sequence = current
+        .sequence
+        .checked_add(1)
+        .ok_or("lifecycle branch sequence overflow")?;
+    let mut prepared = current.clone();
+    prepared.sequence = sequence;
+    prepared.ancestry = vec![sequence];
+    durable::replace_json(&prepared_squash_path(request), &prepared)?;
+    Ok(())
+}
+
+fn select_prepared_squash(
+    request: &LifecycleMetadataRequest,
+    selector_path: &std::path::Path,
+) -> Result<LifecycleSelection, Box<dyn std::error::Error>> {
+    let current = read_lifecycle_selection(&request.state_root, &request.branch)?;
+    let prepared_path = prepared_squash_path(request);
+    let prepared: LifecycleSelection = durable::read_json(&prepared_path)?;
+    let already_selected = current == prepared;
+    let expected_sequence = current
+        .sequence
+        .checked_add(1)
+        .ok_or("lifecycle branch sequence overflow")?;
+    let valid_next = prepared.schema_version == current.schema_version
+        && prepared.branch == current.branch
+        && prepared.sequence == expected_sequence
+        && prepared.allocation_id == current.allocation_id
+        && prepared.root_id == current.root_id
+        && prepared.attribution_root_id == current.attribution_root_id
+        && prepared.ancestry == [expected_sequence];
+    if !already_selected && !valid_next {
+        return Err("prepared squash selection does not match the current branch state".into());
+    }
+    if already_selected {
+        return Ok(prepared);
+    }
+    durable::replace_with_synced_file(selector_path, &prepared_path)?;
+    Ok(prepared)
+}
+
+fn prepared_squash_path(request: &LifecycleMetadataRequest) -> PathBuf {
+    request
+        .state_root
+        .join("prepared-squashes")
+        .join(format!("{}.json", request.branch))
 }
 
 fn read_lifecycle_selection(

@@ -49,6 +49,27 @@ impl MplaSession {
                 "session lease allocation does not match allocation handle".to_owned(),
             ));
         }
+        let activation_root = control_root.join("activations");
+        std::fs::create_dir_all(control_root)
+            .map_err(|error| PocError::io("create session control root", control_root, error))?;
+        match std::fs::create_dir(&activation_root) {
+            Ok(()) => durable::fsync_dir(control_root)?,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                if !activation_root.is_dir() {
+                    return Err(PocError::Integrity(format!(
+                        "activation control root is not a directory: {}",
+                        activation_root.display()
+                    )));
+                }
+            }
+            Err(error) => {
+                return Err(PocError::io(
+                    "create activation control root",
+                    &activation_root,
+                    error,
+                ));
+            }
+        }
         let session_dir = control_root
             .join("sessions")
             .join(lease.session_id.as_str());
@@ -119,6 +140,26 @@ impl MplaSession {
         }
         lease::validate_writer(&self.allocation.allocation_root, capability)?;
         self.process_tree.run(program, arguments, timeout)
+    }
+
+    pub fn probe_readiness(
+        &mut self,
+        capability: &WriterCapability,
+        relative_path: &Path,
+        contains: Option<&[u8]>,
+        timeout: Duration,
+    ) -> PocResult<CommandReceipt> {
+        if self.phase != SessionPhase::Open {
+            return Err(PocError::StaleCapability {
+                capability: "writer",
+                allocation_id: self.lease.allocation_id.to_string(),
+                expected_epoch: self.lease.lease_epoch,
+                observed_epoch: capability.lease_epoch,
+            });
+        }
+        lease::validate_writer(&self.allocation.allocation_root, capability)?;
+        self.process_tree
+            .probe_file(relative_path, contains, timeout)
     }
 
     /// Cross the terminal Sealing boundary and produce a stable allocation

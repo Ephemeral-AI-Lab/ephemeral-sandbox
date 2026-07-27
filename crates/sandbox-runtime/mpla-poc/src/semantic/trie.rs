@@ -1,6 +1,8 @@
+use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -19,6 +21,11 @@ const OBJECT_DOMAIN: &[u8] = b"mpla-poc-semantic-v1/object\0";
 const MAX_OBJECT_BYTES: u64 = 320 * 1024;
 const TRIE_DEPTH: usize = 64;
 const FAN_OUT: usize = 16;
+const MAX_CACHED_EXISTING_OBJECTS: usize = 128 * 1024;
+const MAX_CACHED_INSTALLED_OBJECTS: usize = 4 * 1024;
+pub(super) const EXISTING_OBJECT_CACHE_BYTES: usize = MAX_CACHED_EXISTING_OBJECTS
+    * std::mem::size_of::<[u8; 32]>()
+    + MAX_CACHED_INSTALLED_OBJECTS * 64;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TrieRoots {
@@ -71,15 +78,30 @@ pub struct ImmutableObjectStore {
     bytes_read: u64,
     object_set: Sha256,
     touched_prefixes: [bool; 256],
+    existing_digests: Option<Arc<Vec<[u8; 32]>>>,
+    installed_digests: HashSet<[u8; 32]>,
 }
 
 impl ImmutableObjectStore {
     pub fn new(root: &Path) -> PocResult<Self> {
+        Self::open(root, true)
+    }
+
+    pub(super) fn new_incremental(root: &Path) -> PocResult<Self> {
+        Self::open(root, false)
+    }
+
+    fn open(root: &Path, preload_existing_digests: bool) -> PocResult<Self> {
         let objects = root.join("objects");
         std::fs::create_dir_all(&objects)
             .map_err(|error| PocError::io("create semantic object store", &objects, error))?;
         let mut object_set = Sha256::new();
         object_set.update(b"mpla-poc-semantic-v1/installed-object-set\0");
+        let existing_digests = if preload_existing_digests {
+            load_existing_digest_cache(&objects)?.map(Arc::new)
+        } else {
+            None
+        };
         Ok(Self {
             root: root.to_path_buf(),
             objects,
@@ -88,6 +110,8 @@ impl ImmutableObjectStore {
             bytes_read: 0,
             object_set,
             touched_prefixes: [false; 256],
+            existing_digests,
+            installed_digests: HashSet::new(),
         })
     }
 
@@ -143,12 +167,17 @@ impl ImmutableObjectStore {
         let digest = object_digest(bytes);
         let prefix = usize::from(digest[0]);
         let directory = self.objects.join(format!("{prefix:02x}"));
-        std::fs::create_dir_all(&directory)
-            .map_err(|error| PocError::io("create semantic object shard", &directory, error))?;
         let path = directory.join(super::hex_digest(digest));
-        if path.exists() {
+        let cached = self
+            .existing_digests
+            .as_ref()
+            .is_some_and(|digests| digests.binary_search(&digest).is_ok())
+            || self.installed_digests.contains(&digest);
+        if cached || (self.existing_digests.is_none() && path.exists()) {
             return Ok(digest);
         }
+        std::fs::create_dir_all(&directory)
+            .map_err(|error| PocError::io("create semantic object shard", &directory, error))?;
         let temporary = directory.join(format!(
             ".{}-{}.tmp",
             super::hex_digest(digest),
@@ -177,6 +206,7 @@ impl ImmutableObjectStore {
                     )
                 })?;
                 let _ = error;
+                self.remember_installed(digest);
                 return Ok(digest);
             }
             Err(error) => {
@@ -200,6 +230,7 @@ impl ImmutableObjectStore {
             .bytes_written
             .saturating_add(u64::try_from(bytes.len()).unwrap_or(u64::MAX));
         self.object_set.update(digest);
+        self.remember_installed(digest);
         Ok(digest)
     }
 
@@ -233,6 +264,85 @@ impl ImmutableObjectStore {
             .saturating_add(u64::try_from(bytes.len()).unwrap_or(u64::MAX));
         Ok(bytes)
     }
+
+    fn remember_installed(&mut self, digest: [u8; 32]) {
+        if self.installed_digests.len() < MAX_CACHED_INSTALLED_OBJECTS {
+            self.installed_digests.insert(digest);
+        }
+    }
+
+    fn fork(&self) -> Self {
+        let mut object_set = Sha256::new();
+        object_set.update(b"mpla-poc-semantic-v1/installed-object-set\0");
+        Self {
+            root: self.root.clone(),
+            objects: self.objects.clone(),
+            objects_written: 0,
+            bytes_written: 0,
+            bytes_read: 0,
+            object_set,
+            touched_prefixes: [false; 256],
+            existing_digests: self.existing_digests.clone(),
+            installed_digests: self.installed_digests.clone(),
+        }
+    }
+
+    fn absorb_parallel(&mut self, other: Self) {
+        self.objects_written = self.objects_written.saturating_add(other.objects_written);
+        self.bytes_written = self.bytes_written.saturating_add(other.bytes_written);
+        self.bytes_read = self.bytes_read.saturating_add(other.bytes_read);
+        for (touched, other_touched) in self.touched_prefixes.iter_mut().zip(other.touched_prefixes)
+        {
+            *touched |= other_touched;
+        }
+        if other.objects_written > 0 {
+            self.object_set
+                .update(b"mpla-poc-semantic-v1/parallel-attribution-set\0");
+            self.object_set.update(other.objects_written.to_be_bytes());
+            self.object_set.update(other.object_set.finalize());
+        }
+        for digest in other.installed_digests {
+            self.remember_installed(digest);
+        }
+    }
+}
+
+fn load_existing_digest_cache(objects: &Path) -> PocResult<Option<Vec<[u8; 32]>>> {
+    let mut digests = Vec::new();
+    for prefix in 0..=u8::MAX {
+        let directory = objects.join(format!("{prefix:02x}"));
+        let entries = match std::fs::read_dir(&directory) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => {
+                return Err(PocError::io(
+                    "read semantic object shard",
+                    &directory,
+                    error,
+                ));
+            }
+        };
+        for entry in entries {
+            let entry = entry
+                .map_err(|error| PocError::io("read semantic object entry", &directory, error))?;
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                continue;
+            };
+            let Ok(digest) = parse_hex_digest(&name) else {
+                continue;
+            };
+            if digest[0] != prefix {
+                continue;
+            }
+            digests.push(digest);
+            if digests.len() > MAX_CACHED_EXISTING_OBJECTS {
+                return Ok(None);
+            }
+        }
+    }
+    digests.sort_unstable();
+    digests.dedup();
+    Ok(Some(digests))
 }
 
 pub fn build_from_sorted_records(
@@ -240,8 +350,36 @@ pub fn build_from_sorted_records(
     attribution_input: &AttributionInput,
     store: &mut ImmutableObjectStore,
 ) -> PocResult<TrieRoots> {
-    let mut content_builder = StreamingTrieBuilder::new(TrieKind::Content);
-    let mut attribution_builder = StreamingTrieBuilder::new(TrieKind::Attribution);
+    let mut attribution_store = store.fork();
+    let (content, attribution) = std::thread::scope(|scope| {
+        let attribution_handle = scope.spawn(|| {
+            build_kind(
+                sorted,
+                attribution_input,
+                TrieKind::Attribution,
+                &mut attribution_store,
+            )
+        });
+        let content = build_kind(sorted, attribution_input, TrieKind::Content, store)?;
+        let attribution = attribution_handle
+            .join()
+            .map_err(|_| PocError::Integrity("attribution trie worker panicked".to_owned()))??;
+        Ok::<_, PocError>((content, attribution))
+    })?;
+    store.absorb_parallel(attribution_store);
+    Ok(TrieRoots {
+        content,
+        attribution,
+    })
+}
+
+fn build_kind(
+    sorted: &SortedSpool,
+    attribution_input: &AttributionInput,
+    kind: TrieKind,
+    store: &mut ImmutableObjectStore,
+) -> PocResult<[u8; 32]> {
+    let mut builder = StreamingTrieBuilder::new(kind);
     sorted.for_each(|key, payload| {
         if key.len() != 32 {
             return Err(PocError::Integrity(
@@ -257,23 +395,20 @@ pub fn build_from_sorted_records(
                 "semantic record and sorted key disagree".to_owned(),
             ));
         }
-        let record_digest = record.record_digest()?;
-        let content_leaf = object_digest(&encode_content_leaf(
-            key_digest,
-            &record.canonical_key()?,
-            payload,
-        )?);
-        let attribution_leaf = object_digest(&encode_attribution_leaf(
-            key_digest,
-            attribution::leaf_digest(record_digest, attribution_input),
-        ));
-        content_builder.add(ChildRef::leaf(key_digest, content_leaf), store)?;
-        attribution_builder.add(ChildRef::leaf(key_digest, attribution_leaf), store)
+        let leaf = match kind {
+            TrieKind::Content => object_digest(&encode_content_leaf(
+                key_digest,
+                &record.canonical_key()?,
+                payload,
+            )?),
+            TrieKind::Attribution => object_digest(&encode_attribution_leaf(
+                key_digest,
+                attribution::leaf_digest(record.record_digest()?, attribution_input),
+            )),
+        };
+        builder.add(ChildRef::leaf(key_digest, leaf), store)
     })?;
-    Ok(TrieRoots {
-        content: content_builder.finish(store)?,
-        attribution: attribution_builder.finish(store)?,
-    })
+    builder.finish(store)
 }
 
 pub fn apply_mutation(
@@ -295,14 +430,6 @@ pub fn apply_mutation(
         )),
         RecordMutation::Delete { .. } => None,
     };
-    let (content, content_existed) = update_one(
-        roots.content,
-        key_digest,
-        content_leaf,
-        TrieKind::Content,
-        store,
-    )?;
-
     let attribution_leaf = match mutation {
         RecordMutation::Replace(record) => Some(ChildRef::leaf(
             key_digest,
@@ -313,13 +440,31 @@ pub fn apply_mutation(
         )),
         RecordMutation::Delete { .. } => None,
     };
-    let (attribution, attribution_existed) = update_one(
-        roots.attribution,
-        key_digest,
-        attribution_leaf,
-        TrieKind::Attribution,
-        store,
-    )?;
+    let mut attribution_store = store.fork();
+    let ((content, content_existed), (attribution, attribution_existed)) =
+        std::thread::scope(|scope| {
+            let attribution_handle = scope.spawn(|| {
+                update_one(
+                    roots.attribution,
+                    key_digest,
+                    attribution_leaf,
+                    TrieKind::Attribution,
+                    &mut attribution_store,
+                )
+            });
+            let content = update_one(
+                roots.content,
+                key_digest,
+                content_leaf,
+                TrieKind::Content,
+                store,
+            )?;
+            let attribution = attribution_handle.join().map_err(|_| {
+                PocError::Integrity("attribution update worker panicked".to_owned())
+            })??;
+            Ok::<_, PocError>((content, attribution))
+        })?;
+    store.absorb_parallel(attribution_store);
     if content_existed != attribution_existed {
         return Err(PocError::Integrity(
             "content and attribution tries disagree about canonical key existence".to_owned(),

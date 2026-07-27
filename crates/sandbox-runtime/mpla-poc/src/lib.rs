@@ -7,6 +7,7 @@ pub mod controls;
 pub mod docker_protocol;
 pub mod durable;
 pub mod error;
+pub mod evacuation;
 pub mod evidence;
 pub mod evidence_schema;
 pub mod fault;
@@ -94,7 +95,7 @@ pub use resources::{
 pub use session::{MplaSession, SessionRecord};
 pub use state::{OwnerGeneration, OwnerSubject, PublicationPhase, SessionPhase};
 
-pub const INTERFACE_VERSION: &str = "m1-iface-v1";
+pub const INTERFACE_VERSION: &str = "m2-iface-v1";
 pub const SCHEMA_VERSION: u32 = 1;
 
 pub fn unix_time_ms() -> PocResult<u64> {

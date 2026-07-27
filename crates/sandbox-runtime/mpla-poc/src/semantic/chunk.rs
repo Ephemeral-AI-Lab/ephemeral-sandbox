@@ -2,6 +2,8 @@ use std::fs::File;
 use std::os::unix::fs::FileExt;
 use std::path::Path;
 
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use rustix::fs::Advice;
 use rustix::fs::SeekFrom;
 use sha2::{Digest, Sha256};
 
@@ -9,7 +11,7 @@ use crate::config::SEMANTIC_SCAN_WINDOW_BYTES;
 use crate::{PocError, PocResult};
 
 use super::record::{ExtentKind, SemanticRecord};
-use super::spool::BoundedSpool;
+use super::spool::SpoolSink;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ChunkScan {
@@ -17,11 +19,11 @@ pub struct ChunkScan {
     pub content_sha256: [u8; 32],
 }
 
-pub fn scan_regular(
+pub(super) fn scan_regular(
     path: &Path,
     normalized_path: &[u8],
     logical_size: u64,
-    records: &mut BoundedSpool,
+    records: &mut impl SpoolSink,
 ) -> PocResult<ChunkScan> {
     let file = File::open(path)
         .map_err(|error| PocError::io("open semantic regular file", path, error))?;
@@ -102,6 +104,8 @@ pub fn scan_regular(
         )?);
         cursor = data_end;
     }
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    let _ = rustix::fs::fadvise(&file, 0, logical_size, Advice::DontNeed);
     Ok(ChunkScan {
         bytes_read,
         content_sha256: content.finalize().into(),
@@ -109,7 +113,7 @@ pub fn scan_regular(
 }
 
 fn emit_extent(
-    records: &mut BoundedSpool,
+    records: &mut impl SpoolSink,
     content: &mut Sha256,
     path: &[u8],
     offset: u64,
@@ -135,7 +139,7 @@ fn read_data_extent(
     normalized_path: &[u8],
     start: u64,
     end: u64,
-    records: &mut BoundedSpool,
+    records: &mut impl SpoolSink,
     content: &mut Sha256,
 ) -> PocResult<u64> {
     let mut buffer = vec![0_u8; SEMANTIC_SCAN_WINDOW_BYTES];

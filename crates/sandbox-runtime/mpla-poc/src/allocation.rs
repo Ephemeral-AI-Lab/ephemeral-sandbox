@@ -36,7 +36,6 @@ pub fn create_allocation(
                 ));
             }
         }
-        fsync_dir(&prefix_root)?;
         let descriptor = AllocationDescriptor {
             schema_version: SCHEMA_VERSION,
             allocation_id: allocation_id.clone(),
@@ -48,7 +47,14 @@ pub fn create_allocation(
             let _ = fsync_dir(&prefix_root);
             return Err(error);
         }
-        return open_allocation(arena_root, &allocation_id);
+        fsync_dir(&prefix_root)?;
+        return Ok(AllocationHandle {
+            descriptor,
+            upper_dir: allocation_root.join("upper"),
+            work_dir: allocation_root.join("work"),
+            owner_dir: allocation_root.join(OWNER_DIRECTORY),
+            allocation_root,
+        });
     }
     Err(PocError::Integrity(
         "failed to allocate a unique random AllocationId".to_owned(),
@@ -173,37 +179,38 @@ fn initialize_allocation(
         let path = allocation_root.join(directory);
         std::fs::create_dir(&path)
             .map_err(|source| PocError::io("create allocation directory", &path, source))?;
-        fsync_dir(allocation_root)?;
     }
     let owner_dir = allocation_root.join(OWNER_DIRECTORY);
     for directory in ["generations", "receipts"] {
         let path = owner_dir.join(directory);
         std::fs::create_dir(&path)
             .map_err(|source| PocError::io("create owner metadata directory", &path, source))?;
-        fsync_dir(&owner_dir)?;
     }
     for file_name in [OWNER_LOCK_FILE, OWNER_JOURNAL_FILE] {
         let path = owner_dir.join(file_name);
-        let file = OpenOptions::new()
+        OpenOptions::new()
             .create_new(true)
             .write(true)
             .open(&path)
             .map_err(|source| PocError::io("create owner metadata file", &path, source))?;
-        file.sync_all()
-            .map_err(|source| PocError::io("fsync owner metadata file", &path, source))?;
-        fsync_dir(&owner_dir)?;
     }
+    fsync_dir(&owner_dir)?;
     write_immutable_json(&allocation_root.join(DESCRIPTOR_FILE), descriptor)?;
-    fsync_dir(allocation_root)
+    Ok(())
 }
 
 fn prepare_arena(arena_root: &Path) -> PocResult<()> {
-    std::fs::create_dir_all(arena_root)
-        .map_err(|source| PocError::io("create allocation arena", arena_root, source))?;
+    let existed = arena_root.exists();
+    if !existed {
+        std::fs::create_dir_all(arena_root)
+            .map_err(|source| PocError::io("create allocation arena", arena_root, source))?;
+    }
     require_directory(arena_root, "allocation arena")?;
-    fsync_dir(arena_root)?;
-    if let Some(parent) = arena_root.parent() {
-        fsync_dir(parent)?;
+    if !existed {
+        fsync_dir(arena_root)?;
+        if let Some(parent) = arena_root.parent() {
+            fsync_dir(parent)?;
+        }
     }
     Ok(())
 }

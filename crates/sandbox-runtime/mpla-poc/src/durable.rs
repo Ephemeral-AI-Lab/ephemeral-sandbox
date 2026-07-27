@@ -59,6 +59,29 @@ pub fn replace_json<T: Serialize>(path: &Path, value: &T) -> PocResult<()> {
     result
 }
 
+pub fn replace_with_synced_file(path: &Path, source: &Path) -> PocResult<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| PocError::Integrity("durable selector has no parent".to_owned()))?;
+    let metadata = source
+        .metadata()
+        .map_err(|error| PocError::io("stat durable selector source", source, error))?;
+    if !metadata.is_file() {
+        return Err(PocError::Integrity(format!(
+            "durable selector source is not a file at {}",
+            source.display()
+        )));
+    }
+    let temporary = create_hard_link_temporary(path, source)?;
+    let result = (|| {
+        std::fs::rename(&temporary, path)
+            .map_err(|error| PocError::io("replace durable selector", path, error))?;
+        fsync_dir(parent)
+    })();
+    let _ = std::fs::remove_file(&temporary);
+    result
+}
+
 pub fn read_json<T: DeserializeOwned>(path: &Path) -> PocResult<T> {
     let file =
         File::open(path).map_err(|source| PocError::io("open durable JSON", path, source))?;
@@ -129,20 +152,8 @@ fn encoded_json<T: Serialize>(value: &T) -> PocResult<Vec<u8>> {
 }
 
 fn create_temporary(path: &Path) -> PocResult<(PathBuf, File)> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| PocError::Integrity("durable file has no parent".to_owned()))?;
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("state");
     for _ in 0..64 {
-        let sequence = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
-        let temporary = parent.join(format!(
-            ".{file_name}.{}.{}.tmp",
-            std::process::id(),
-            sequence
-        ));
+        let temporary = next_temporary_path(path)?;
         match OpenOptions::new()
             .create_new(true)
             .write(true)
@@ -162,6 +173,43 @@ fn create_temporary(path: &Path) -> PocResult<(PathBuf, File)> {
     Err(PocError::Integrity(format!(
         "unable to allocate durable temporary beside {}",
         path.display()
+    )))
+}
+
+fn create_hard_link_temporary(path: &Path, source: &Path) -> PocResult<PathBuf> {
+    for _ in 0..64 {
+        let temporary = next_temporary_path(path)?;
+        match std::fs::hard_link(source, &temporary) {
+            Ok(()) => return Ok(temporary),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => {
+                return Err(PocError::io(
+                    "link durable selector temporary",
+                    &temporary,
+                    error,
+                ));
+            }
+        }
+    }
+    Err(PocError::Integrity(format!(
+        "unable to link durable temporary beside {}",
+        path.display()
+    )))
+}
+
+fn next_temporary_path(path: &Path) -> PocResult<PathBuf> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| PocError::Integrity("durable file has no parent".to_owned()))?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("state");
+    let sequence = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
+    Ok(parent.join(format!(
+        ".{file_name}.{}.{}.tmp",
+        std::process::id(),
+        sequence
     )))
 }
 

@@ -59,6 +59,10 @@ fn semantic_v1_covers_normalized_node_and_overlay_facts() {
         |record| matches!(record, SemanticRecord::Xattr { path, name, value }
             if path == b"regular" && name == b"user.mpla" && value == b"semantic")
     ));
+    assert!(!records
+        .iter()
+        .any(|record| matches!(record, SemanticRecord::Xattr { name, .. }
+            if name == b"user.overlay.uuid")));
     let mut sparse_extents = records
         .iter()
         .filter_map(|record| match record {
@@ -199,6 +203,13 @@ fn scanner_rejects_storage_paths_inside_the_semantic_tree() {
 
 fn create_semantic_fixture(tree: &Path) {
     std::fs::create_dir(tree).expect("test operation must succeed");
+    rustix::fs::lsetxattr(
+        tree,
+        "user.overlay.uuid",
+        b"physical-overlay-identity",
+        XattrFlags::empty(),
+    )
+    .expect("test operation must succeed");
     let regular = tree.join("regular");
     std::fs::write(&regular, b"semantic payload").expect("test operation must succeed");
     std::fs::set_permissions(&regular, std::fs::Permissions::from_mode(0o640))

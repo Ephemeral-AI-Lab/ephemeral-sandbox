@@ -167,7 +167,11 @@ pub fn build_with_output(request: &SemanticBuildRequest) -> PocResult<SemanticBu
             phase("semantic-total", elapsed_ns(started)),
         ],
     )?;
-    let resource_maxima = resource_maxima(&spool_stats, scan.peak_open_data_fds);
+    let resource_maxima = resource_maxima(
+        &spool_stats,
+        scan.peak_open_data_fds,
+        scan.peak_data_workers,
+    );
     Ok(SemanticBuildOutput {
         receipt,
         record_stream_path,
@@ -199,7 +203,7 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
 
     let started = Instant::now();
     let mut reader = DeltaStreamReader::open(&request.affected_stream)?;
-    let mut store = ImmutableObjectStore::new(&request.canonical_object_dir)?;
+    let mut store = ImmutableObjectStore::new_incremental(&request.canonical_object_dir)?;
     let mut roots = TrieRoots::from_hex(&prior.content_root, &prior.attribution_root)?;
     trie::validate_roots(&roots, &mut store)?;
     let mut entry_count = prior.entry_count;
@@ -249,8 +253,8 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
         bytes_read: reader.bytes_read(),
         spool_runs: 0,
         spool_bytes: 0,
-        peak_open_data_fds: 2,
-        peak_data_workers: 1,
+        peak_open_data_fds: 3,
+        peak_data_workers: 2,
         phase_spans: vec![
             phase("incremental-validate-update", update_elapsed),
             phase("canonical-install", install_elapsed),
@@ -265,7 +269,7 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
         affected_input_bytes: reader.bytes_read(),
         prior_node_bytes_read: store.bytes_read(),
         immutable_payload_bytes_read: 0,
-        resource_maxima: resource_maxima(&spool_stats, 2),
+        resource_maxima: resource_maxima(&spool_stats, 3, 2),
     })
 }
 
@@ -991,7 +995,7 @@ fn build_receipt(
         peak_open_data_fds: peak_open_data_fds
             .try_into()
             .map_err(|_| PocError::Integrity("semantic FD maximum overflow".to_owned()))?,
-        peak_data_workers: 1,
+        peak_data_workers: scan.peak_data_workers,
         phase_spans,
         durability,
     })
@@ -1013,22 +1017,26 @@ fn durability_receipt(
     })
 }
 
-fn resource_maxima(spool: &SpoolStats, scan_peak_fds: usize) -> SemanticResourceMaxima {
+fn resource_maxima(
+    spool: &SpoolStats,
+    scan_peak_fds: usize,
+    peak_data_workers: u16,
+) -> SemanticResourceMaxima {
+    let scan_managed_bytes = MAIN_SPOOL_MEMORY_BYTES
+        + HARDLINK_SPOOL_MEMORY_BYTES
+        + SEMANTIC_SCAN_WINDOW_BYTES.saturating_mul(usize::from(peak_data_workers))
+        + scan::MAX_XATTR_TRANSIENT_BYTES;
     SemanticResourceMaxima {
         application_pool_bytes: RESIDENT_POOL_BYTES,
-        peak_managed_bytes: u64::try_from(
-            MAIN_SPOOL_MEMORY_BYTES
-                + HARDLINK_SPOOL_MEMORY_BYTES
-                + SEMANTIC_SCAN_WINDOW_BYTES
-                + scan::MAX_XATTR_TRANSIENT_BYTES,
-        )
-        .unwrap_or(u64::MAX),
+        peak_managed_bytes: u64::try_from(scan_managed_bytes)
+            .unwrap_or(u64::MAX)
+            .max(u64::try_from(trie::EXISTING_OBJECT_CACHE_BYTES).unwrap_or(u64::MAX)),
         scan_window_bytes: SEMANTIC_SCAN_WINDOW_BYTES,
         spool_run_bytes: SEMANTIC_SPOOL_RUN_BYTES,
         merge_fan_in: SEMANTIC_MERGE_FAN_IN,
         peak_open_data_fds: u16::try_from(scan_peak_fds.max(spool.peak_open_files))
             .unwrap_or(u16::MAX),
-        peak_data_workers: MAX_DATA_WORKERS.min(1),
+        peak_data_workers: MAX_DATA_WORKERS.min(peak_data_workers),
         trie_fan_out: SEMANTIC_TRIE_FAN_OUT,
     }
 }

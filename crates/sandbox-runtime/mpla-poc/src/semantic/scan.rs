@@ -4,17 +4,22 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::os::unix::fs::{FileExt, FileTypeExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::{Receiver, SyncSender};
+use std::sync::Mutex;
 
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+use crate::config::MAX_DATA_WORKERS;
 use crate::{PocError, PocResult};
 
 use super::chunk;
 use super::record::{validate_path, NodeKind, NodeRecord, SemanticRecord, MAX_PATH_BYTES};
-use super::spool::{BoundedSpool, SortedSpool};
+use super::spool::{BoundedSpool, SortedSpool, SpoolSink};
 
 const OPAQUE_XATTRS: [&[u8]; 2] = [b"trusted.overlay.opaque", b"user.overlay.opaque"];
+const OVERLAY_INTERNAL_XATTRS: [&[u8]; 2] = [b"trusted.overlay.uuid", b"user.overlay.uuid"];
 const OPAQUE_MARKER: &[u8] = b".wh..wh..opq";
 const WHITEOUT_PREFIX: &[u8] = b".wh.";
 const QUEUE_MAGIC: &[u8; 8] = b"MPLAQUE1";
@@ -27,6 +32,7 @@ pub struct ScanStats {
     pub bytes_read: u64,
     pub entry_count: u64,
     pub peak_open_data_fds: usize,
+    pub peak_data_workers: u16,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -65,6 +71,7 @@ fn scan_selected_paths_in(
     let mut hardlinks = BoundedSpool::new(scan_dir.join("hardlinks"), 1024 * 1024)?;
     let mut stats = ScanStats {
         peak_open_data_fds: 3,
+        peak_data_workers: 1,
         ..ScanStats::default()
     };
     for relative_path in relative_paths {
@@ -84,14 +91,14 @@ fn scan_selected_paths_in(
                 relative_path.display()
             )));
         }
-        scan_node(
+        let node = scan_node(
             &physical,
             &relative,
             &metadata,
             &mut records,
             &mut hardlinks,
-            &mut stats,
         )?;
+        stats.bytes_read = stats.bytes_read.saturating_add(node.bytes_read);
         stats.entry_count = stats.entry_count.saturating_add(1);
     }
     let hardlinks = hardlinks.finish()?;
@@ -156,11 +163,108 @@ pub fn scan_tree(
     let queue_path = hardlinks.root().join("directory.queue");
     let mut queue = DirectoryQueue::create(queue_path)?;
     queue.push(&[])?;
+    let worker_count = usize::from(MAX_DATA_WORKERS);
+    let (sender, receiver) = std::sync::mpsc::sync_channel(worker_count.saturating_mul(2));
+    let receiver = Mutex::new(receiver);
+    let records_lock = Mutex::new(&mut *records);
+    let hardlinks_lock = Mutex::new(&mut *hardlinks);
+    let first_error = Mutex::new(None);
+    let cancelled = AtomicBool::new(false);
+    let bytes_read = AtomicU64::new(0);
     let mut stats = ScanStats {
-        peak_open_data_fds: 5,
+        peak_open_data_fds: 5_usize.saturating_add(worker_count.saturating_sub(1)),
+        peak_data_workers: MAX_DATA_WORKERS,
         ..ScanStats::default()
     };
+    let traversal = std::thread::scope(|scope| {
+        let mut workers = Vec::with_capacity(worker_count);
+        for _ in 0..worker_count {
+            workers.push(scope.spawn(|| {
+                scan_worker(
+                    &receiver,
+                    &records_lock,
+                    &hardlinks_lock,
+                    &cancelled,
+                    &first_error,
+                    &bytes_read,
+                );
+            }));
+        }
+        let result = traverse_tree(
+            root,
+            &mut queue,
+            &sender,
+            &records_lock,
+            &hardlinks_lock,
+            &cancelled,
+            &mut stats,
+        );
+        drop(sender);
+        for worker in workers {
+            if worker.join().is_err() {
+                record_first_error(
+                    &first_error,
+                    PocError::Integrity("semantic scan worker panicked".to_owned()),
+                );
+            }
+        }
+        result
+    });
+    traversal?;
+    if let Some(error) = first_error
+        .into_inner()
+        .map_err(|_| PocError::Integrity("semantic scan error lock poisoned".to_owned()))?
+    {
+        return Err(error);
+    }
+    stats.bytes_read = bytes_read.load(Ordering::Relaxed);
+    Ok(stats)
+}
+
+struct ScanTask {
+    physical: PathBuf,
+    relative: Vec<u8>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct NodeScan {
+    bytes_read: u64,
+    opaque: bool,
+}
+
+struct LockedSpool<'lock, 'spool> {
+    inner: &'lock Mutex<&'spool mut BoundedSpool>,
+}
+
+impl SpoolSink for LockedSpool<'_, '_> {
+    fn push(&mut self, key: Vec<u8>, payload: Vec<u8>) -> PocResult<()> {
+        let mut spool = self
+            .inner
+            .lock()
+            .map_err(|_| PocError::Integrity("semantic spool lock poisoned".to_owned()))?;
+        spool.push(key, payload)
+    }
+}
+
+fn traverse_tree(
+    root: &Path,
+    queue: &mut DirectoryQueue,
+    sender: &SyncSender<ScanTask>,
+    records_lock: &Mutex<&mut BoundedSpool>,
+    hardlinks_lock: &Mutex<&mut BoundedSpool>,
+    cancelled: &AtomicBool,
+    stats: &mut ScanStats,
+) -> PocResult<()> {
+    let mut records = LockedSpool {
+        inner: records_lock,
+    };
+    let mut hardlinks = LockedSpool {
+        inner: hardlinks_lock,
+    };
     while let Some(relative) = queue.pop()? {
+        if cancelled.load(Ordering::Acquire) {
+            break;
+        }
         let physical = physical_path(root, &relative);
         let metadata = std::fs::symlink_metadata(&physical)
             .map_err(|error| PocError::io("lstat semantic directory", &physical, error))?;
@@ -169,14 +273,20 @@ pub fn scan_tree(
                 "semantic directory queue contains a non-directory".to_owned(),
             ));
         }
-        scan_node(
-            &physical, &relative, &metadata, records, hardlinks, &mut stats,
+        let directory = scan_node(
+            &physical,
+            &relative,
+            &metadata,
+            &mut records,
+            &mut hardlinks,
         )?;
         stats.entry_count = stats.entry_count.saturating_add(1);
-        let opaque_from_xattr = directory_is_opaque(&physical)?;
         let entries = std::fs::read_dir(&physical)
             .map_err(|error| PocError::io("read semantic directory", &physical, error))?;
         for entry in entries {
+            if cancelled.load(Ordering::Acquire) {
+                break;
+            }
             let entry = entry
                 .map_err(|error| PocError::io("iterate semantic directory", &physical, error))?;
             let name = entry.file_name().into_vec();
@@ -186,7 +296,7 @@ pub fn scan_tree(
                 ));
             }
             if name == OPAQUE_MARKER {
-                if !opaque_from_xattr {
+                if !directory.opaque {
                     records.push_record(SemanticRecord::OpaqueDirectory {
                         path: relative.clone(),
                     })?;
@@ -207,37 +317,107 @@ pub fn scan_tree(
             }
             let child = join_normalized(&relative, &name)?;
             let child_path = physical_path(root, &child);
-            let child_metadata = std::fs::symlink_metadata(&child_path)
-                .map_err(|error| PocError::io("lstat semantic entry", &child_path, error))?;
-            if is_kernel_whiteout(&child_metadata)? {
-                records.push_record(SemanticRecord::Whiteout { path: child })?;
-                stats.entry_count = stats.entry_count.saturating_add(1);
-            } else if child_metadata.file_type().is_dir() {
+            let child_type = entry
+                .file_type()
+                .map_err(|error| PocError::io("classify semantic entry", &child_path, error))?;
+            if child_type.is_dir() {
                 queue.push(&child)?;
             } else {
-                scan_node(
-                    &child_path,
-                    &child,
-                    &child_metadata,
-                    records,
-                    hardlinks,
-                    &mut stats,
-                )?;
+                sender
+                    .send(ScanTask {
+                        physical: child_path,
+                        relative: child,
+                    })
+                    .map_err(|_| {
+                        PocError::Integrity("semantic scan workers disconnected".to_owned())
+                    })?;
                 stats.entry_count = stats.entry_count.saturating_add(1);
             }
         }
     }
-    Ok(stats)
+    Ok(())
+}
+
+fn scan_worker(
+    receiver: &Mutex<Receiver<ScanTask>>,
+    records_lock: &Mutex<&mut BoundedSpool>,
+    hardlinks_lock: &Mutex<&mut BoundedSpool>,
+    cancelled: &AtomicBool,
+    first_error: &Mutex<Option<PocError>>,
+    bytes_read: &AtomicU64,
+) {
+    loop {
+        let task = match receiver.lock() {
+            Ok(receiver) => receiver.recv(),
+            Err(_) => {
+                record_first_error(
+                    first_error,
+                    PocError::Integrity("semantic scan receiver lock poisoned".to_owned()),
+                );
+                return;
+            }
+        };
+        let Ok(task) = task else {
+            return;
+        };
+        if cancelled.load(Ordering::Acquire) {
+            continue;
+        }
+        let result = (|| {
+            let metadata = std::fs::symlink_metadata(&task.physical)
+                .map_err(|error| PocError::io("lstat semantic entry", &task.physical, error))?;
+            if metadata.file_type().is_dir() {
+                return Err(PocError::Integrity(
+                    "semantic entry changed from non-directory to directory during scan".to_owned(),
+                ));
+            }
+            let mut records = LockedSpool {
+                inner: records_lock,
+            };
+            if is_kernel_whiteout(&metadata)? {
+                records.push_record(SemanticRecord::Whiteout {
+                    path: task.relative,
+                })?;
+                return Ok(NodeScan::default());
+            }
+            let mut hardlinks = LockedSpool {
+                inner: hardlinks_lock,
+            };
+            scan_node(
+                &task.physical,
+                &task.relative,
+                &metadata,
+                &mut records,
+                &mut hardlinks,
+            )
+        })();
+        match result {
+            Ok(node) => {
+                bytes_read.fetch_add(node.bytes_read, Ordering::Relaxed);
+            }
+            Err(error) => {
+                record_first_error(first_error, error);
+                cancelled.store(true, Ordering::Release);
+            }
+        }
+    }
+}
+
+fn record_first_error(slot: &Mutex<Option<PocError>>, error: PocError) {
+    if let Ok(mut slot) = slot.lock() {
+        if slot.is_none() {
+            *slot = Some(error);
+        }
+    }
 }
 
 fn scan_node(
     physical: &Path,
     relative: &[u8],
     metadata: &std::fs::Metadata,
-    records: &mut BoundedSpool,
-    hardlinks: &mut BoundedSpool,
-    stats: &mut ScanStats,
-) -> PocResult<()> {
+    records: &mut impl SpoolSink,
+    hardlinks: &mut impl SpoolSink,
+) -> PocResult<NodeScan> {
     let kind = node_kind(metadata)?;
     let symlink_target = if kind == NodeKind::Symlink {
         std::fs::read_link(physical)
@@ -285,7 +465,6 @@ fn scan_node(
 
     if kind == NodeKind::Regular {
         let scanned = chunk::scan_regular(physical, relative, logical_size, records)?;
-        stats.bytes_read = stats.bytes_read.saturating_add(scanned.bytes_read);
         if metadata.nlink() > 1 {
             append_hardlink_claim(
                 hardlinks,
@@ -295,11 +474,18 @@ fn scan_node(
                 scanned.content_sha256,
             )?;
         }
+        return Ok(NodeScan {
+            bytes_read: scanned.bytes_read,
+            opaque,
+        });
     }
-    Ok(())
+    Ok(NodeScan {
+        bytes_read: 0,
+        opaque,
+    })
 }
 
-fn scan_xattrs(physical: &Path, relative: &[u8], records: &mut BoundedSpool) -> PocResult<bool> {
+fn scan_xattrs(physical: &Path, relative: &[u8], records: &mut impl SpoolSink) -> PocResult<bool> {
     let size = rustix::fs::llistxattr(physical, &mut []).map_err(|error| {
         PocError::io(
             "size semantic xattr list",
@@ -359,6 +545,9 @@ fn scan_xattrs(physical: &Path, relative: &[u8], records: &mut BoundedSpool) -> 
             opaque |= matches!(value.as_slice(), b"y" | b"Y" | b"1");
             continue;
         }
+        if OVERLAY_INTERNAL_XATTRS.contains(&name) {
+            continue;
+        }
         records.push_record(SemanticRecord::Xattr {
             path: relative.to_vec(),
             name: name.to_vec(),
@@ -368,27 +557,8 @@ fn scan_xattrs(physical: &Path, relative: &[u8], records: &mut BoundedSpool) -> 
     Ok(opaque)
 }
 
-fn directory_is_opaque(path: &Path) -> PocResult<bool> {
-    for name in OPAQUE_XATTRS {
-        let mut value = [0_u8; 8];
-        match rustix::fs::lgetxattr(path, OsStr::from_bytes(name), &mut value) {
-            Ok(count) if matches!(&value[..count], b"y" | b"Y" | b"1") => return Ok(true),
-            Ok(_) => {}
-            Err(error) if missing_xattr(error) => {}
-            Err(error) => {
-                return Err(PocError::io(
-                    "read semantic opaque xattr",
-                    path,
-                    std::io::Error::from_raw_os_error(error.raw_os_error()),
-                ));
-            }
-        }
-    }
-    Ok(false)
-}
-
 fn append_hardlink_claim(
-    hardlinks: &mut BoundedSpool,
+    hardlinks: &mut impl SpoolSink,
     device: u64,
     inode: u64,
     path: &[u8],
@@ -732,26 +902,6 @@ fn device_components(metadata: &std::fs::Metadata) -> PocResult<(u32, u32)> {
         PocError::Integrity("device identifier does not fit the platform dev_t".to_owned())
     })?;
     Ok((rustix::fs::major(device), rustix::fs::minor(device)))
-}
-
-fn missing_xattr(error: rustix::io::Errno) -> bool {
-    if error == rustix::io::Errno::NODATA {
-        return true;
-    }
-    #[cfg(any(
-        target_os = "macos",
-        target_os = "ios",
-        target_os = "freebsd",
-        target_os = "openbsd",
-        target_os = "netbsd",
-        target_os = "dragonfly"
-    ))]
-    {
-        if error == rustix::io::Errno::NOATTR {
-            return true;
-        }
-    }
-    false
 }
 
 fn join_normalized(parent: &[u8], name: &[u8]) -> PocResult<Vec<u8>> {

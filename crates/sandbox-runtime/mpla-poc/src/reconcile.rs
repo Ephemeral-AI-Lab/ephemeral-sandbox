@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -52,7 +52,8 @@ pub struct ReconciliationReceipt {
 struct PhysicalObject {
     allocated_bytes: u64,
     logical_bytes: u64,
-    witness_path: PathBuf,
+    witness_path: Option<PathBuf>,
+    categories: Vec<usize>,
 }
 
 pub fn reconcile(
@@ -60,8 +61,6 @@ pub fn reconcile(
     category_roots: &[StorageCategoryRoot],
     leaks: LeakCounts,
 ) -> PocResult<ReconciliationReceipt> {
-    let scope_objects = walk_physical_union(scope_root, true)?;
-    let mut object_categories: BTreeMap<(u64, u64), BTreeSet<String>> = BTreeMap::new();
     let mut category_paths: BTreeMap<String, Vec<PathBuf>> = BTreeMap::new();
     for category_root in category_roots {
         require_within(scope_root, &category_root.root)?;
@@ -69,37 +68,65 @@ pub fn reconcile(
             .entry(category_root.category.clone())
             .or_default()
             .push(category_root.root.clone());
-        for key in walk_physical_union(&category_root.root, category_root.recursive)?.keys() {
-            object_categories
-                .entry(*key)
-                .or_default()
-                .insert(category_root.category.clone());
-        }
     }
+    let category_names = category_paths.keys().cloned().collect::<Vec<_>>();
+    let category_indices = category_names
+        .iter()
+        .enumerate()
+        .map(|(index, category)| (category.as_str(), index))
+        .collect::<HashMap<_, _>>();
+    let indexed_roots = category_roots
+        .iter()
+        .map(|category_root| {
+            let index = category_indices
+                .get(category_root.category.as_str())
+                .copied()
+                .ok_or_else(|| {
+                    PocError::Integrity(format!(
+                        "reconciliation category {} has no index",
+                        category_root.category
+                    ))
+                })?;
+            Ok(IndexedCategoryRoot {
+                index,
+                root: &category_root.root,
+                recursive: category_root.recursive,
+            })
+        })
+        .collect::<PocResult<Vec<_>>>()?;
+    let scope_objects = walk_reconciliation_scope(scope_root, &indexed_roots)?;
 
-    let mut category_totals: BTreeMap<String, (u64, u64, u64)> = BTreeMap::new();
-    let mut classified_keys = BTreeSet::new();
-    let mut unexplained_paths = Vec::new();
-    for (key, object) in &scope_objects {
-        if let Some(categories) = object_categories.get(key) {
-            let category = categories.iter().next().expect("non-empty category set");
-            let totals = category_totals.entry(category.clone()).or_default();
+    let mut category_totals = vec![(0_u64, 0_u64, 0_u64); category_names.len()];
+    let mut unexplained_paths = BTreeSet::new();
+    let mut physical_union_allocated_bytes = 0_u64;
+    let mut classified_allocated_bytes = 0_u64;
+    let mut classified_inodes = 0_u64;
+    for object in scope_objects.values() {
+        physical_union_allocated_bytes =
+            physical_union_allocated_bytes.saturating_add(object.allocated_bytes);
+        if let Some(category) = object.categories.first().copied() {
+            let totals = &mut category_totals[category];
             totals.0 = totals.0.saturating_add(object.allocated_bytes);
             totals.1 = totals.1.saturating_add(object.logical_bytes);
             totals.2 = totals.2.saturating_add(1);
-            classified_keys.insert(*key);
-        } else if unexplained_paths.len() < 64 {
-            unexplained_paths.push(object.witness_path.clone());
+            classified_allocated_bytes =
+                classified_allocated_bytes.saturating_add(object.allocated_bytes);
+            classified_inodes = classified_inodes.saturating_add(1);
+        } else if let Some(witness_path) = &object.witness_path {
+            unexplained_paths.insert(witness_path.clone());
+            if unexplained_paths.len() > 64 {
+                unexplained_paths.pop_last();
+            }
         }
     }
-    let categories = category_paths
+    let categories = category_names
         .into_iter()
-        .map(|(category, roots)| {
-            let (allocated_bytes, logical_bytes, unique_inodes) =
-                category_totals.get(&category).copied().unwrap_or_default();
+        .enumerate()
+        .map(|(index, category)| {
+            let (allocated_bytes, logical_bytes, unique_inodes) = category_totals[index];
             StorageCategoryReceipt {
+                roots: category_paths.remove(&category).unwrap_or_default(),
                 category,
-                roots,
                 allocated_bytes,
                 logical_bytes,
                 unique_inodes,
@@ -107,16 +134,9 @@ pub fn reconcile(
         })
         .collect::<Vec<_>>();
 
-    let physical_union_allocated_bytes = sum_allocated(scope_objects.values());
-    let classified_allocated_bytes = classified_keys
-        .iter()
-        .filter_map(|key| scope_objects.get(key))
-        .map(|object| object.allocated_bytes)
-        .sum();
     let unexplained_allocated_bytes =
         physical_union_allocated_bytes.saturating_sub(classified_allocated_bytes);
     let physical_union_inodes = u64::try_from(scope_objects.len()).unwrap_or(u64::MAX);
-    let classified_inodes = u64::try_from(classified_keys.len()).unwrap_or(u64::MAX);
     let unexplained_inodes = physical_union_inodes.saturating_sub(classified_inodes);
     let no_leaks = leaks == LeakCounts::default();
     Ok(ReconciliationReceipt {
@@ -129,7 +149,7 @@ pub fn reconcile(
         physical_union_inodes,
         classified_inodes,
         unexplained_inodes,
-        unexplained_paths,
+        unexplained_paths: unexplained_paths.into_iter().collect(),
         leaks,
         balanced: unexplained_allocated_bytes == 0 && unexplained_inodes == 0 && no_leaks,
     })
@@ -155,22 +175,22 @@ fn require_within(scope_root: &Path, category_root: &Path) -> PocResult<()> {
     Ok(())
 }
 
-fn walk_physical_union(
-    root: &Path,
+#[derive(Clone, Copy)]
+struct IndexedCategoryRoot<'a> {
+    index: usize,
+    root: &'a Path,
     recursive: bool,
-) -> PocResult<BTreeMap<(u64, u64), PhysicalObject>> {
-    let mut objects = BTreeMap::new();
+}
+
+fn walk_reconciliation_scope(
+    root: &Path,
+    category_roots: &[IndexedCategoryRoot<'_>],
+) -> PocResult<HashMap<(u64, u64), PhysicalObject>> {
+    let mut objects = HashMap::new();
     let mut pending = vec![root.to_path_buf()];
     while let Some(path) = pending.pop() {
-        let metadata = std::fs::symlink_metadata(&path)
-            .map_err(|source| PocError::io("stat reconciliation entry", &path, source))?;
-        let key = physical_key(&metadata);
-        objects.entry(key).or_insert_with(|| PhysicalObject {
-            allocated_bytes: allocated_bytes(&metadata),
-            logical_bytes: metadata.len(),
-            witness_path: path.clone(),
-        });
-        if recursive && metadata.is_dir() && !metadata.file_type().is_symlink() {
+        let is_directory = record_physical_path(&path, category_roots, &mut objects)?;
+        if is_directory {
             let entries = std::fs::read_dir(&path)
                 .map_err(|source| PocError::io("read reconciliation directory", &path, source))?;
             for entry in entries {
@@ -183,10 +203,57 @@ fn walk_physical_union(
     Ok(objects)
 }
 
-fn sum_allocated<'a>(objects: impl Iterator<Item = &'a PhysicalObject>) -> u64 {
-    objects
-        .map(|object| object.allocated_bytes)
-        .fold(0_u64, u64::saturating_add)
+fn record_physical_path(
+    path: &Path,
+    category_roots: &[IndexedCategoryRoot<'_>],
+    objects: &mut HashMap<(u64, u64), PhysicalObject>,
+) -> PocResult<bool> {
+    let metadata = std::fs::symlink_metadata(path)
+        .map_err(|source| PocError::io("stat reconciliation entry", path, source))?;
+    let key = physical_key(&metadata);
+    let mut categories = category_roots
+        .iter()
+        .filter(|category_root| {
+            if category_root.recursive {
+                path == category_root.root || path.starts_with(category_root.root)
+            } else {
+                path == category_root.root
+            }
+        })
+        .map(|category_root| category_root.index)
+        .collect::<Vec<_>>();
+    categories.sort_unstable();
+    categories.dedup();
+    match objects.get_mut(&key) {
+        Some(object) => {
+            if !categories.is_empty() {
+                object.categories.extend(categories);
+                object.categories.sort_unstable();
+                object.categories.dedup();
+                object.witness_path = None;
+            } else if object.categories.is_empty()
+                && object
+                    .witness_path
+                    .as_ref()
+                    .is_none_or(|witness| path < witness)
+            {
+                object.witness_path = Some(path.to_path_buf());
+            }
+        }
+        None => {
+            let witness_path = categories.is_empty().then(|| path.to_path_buf());
+            objects.insert(
+                key,
+                PhysicalObject {
+                    allocated_bytes: allocated_bytes(&metadata),
+                    logical_bytes: metadata.len(),
+                    witness_path,
+                    categories,
+                },
+            );
+        }
+    }
+    Ok(metadata.is_dir() && !metadata.file_type().is_symlink())
 }
 
 #[cfg(unix)]

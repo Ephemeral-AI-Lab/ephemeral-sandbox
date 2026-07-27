@@ -20,6 +20,7 @@ const MAX_XATTR_TRANSIENT_BYTES: usize = 2 * MAX_XATTR_LIST_BYTES + MAX_XATTR_BY
 const RUN_MAGIC: &[u8; 8] = b"MPLAORU1";
 const QUEUE_MAGIC: &[u8; 8] = b"MPLAOQU1";
 const OPAQUE_XATTRS: [&[u8]; 2] = [b"trusted.overlay.opaque", b"user.overlay.opaque"];
+const OVERLAY_INTERNAL_XATTRS: [&[u8]; 2] = [b"trusted.overlay.uuid", b"user.overlay.uuid"];
 
 pub fn scan(
     tree: &Path,
@@ -403,6 +404,8 @@ fn scan_xattrs(path: &Path, relative: &[u8], records: &mut DiskSorter) -> Oracle
         value.truncate(read);
         if OPAQUE_XATTRS.contains(&name) {
             opaque |= matches!(value.as_slice(), b"y" | b"Y" | b"1");
+        } else if OVERLAY_INTERNAL_XATTRS.contains(&name) {
+            continue;
         } else {
             push_record(
                 records,

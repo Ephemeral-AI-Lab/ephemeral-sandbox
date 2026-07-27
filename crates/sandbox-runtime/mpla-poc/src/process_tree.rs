@@ -1,21 +1,27 @@
 use std::collections::BTreeSet;
+#[cfg(unix)]
+use std::ffi::CString;
 use std::fs;
+#[cfg(unix)]
+use std::fs::File;
 #[cfg(target_os = "linux")]
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 use std::os::fd::AsRawFd;
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt;
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 
 use crate::{unix_time_ms, PocError, PocResult};
 
-const POLL_INTERVAL: Duration = Duration::from_millis(5);
+const POLL_INTERVAL: Duration = Duration::from_millis(1);
 const TERM_GRACE: Duration = Duration::from_millis(100);
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -141,6 +147,9 @@ impl ManagedProcessTree {
             thread::sleep(POLL_INTERVAL);
         };
         let _ = self.children.pop();
+        if !process_group_exists(process_group_id)? {
+            self.process_groups.remove(&process_group_id);
+        }
         command_receipt(
             program,
             arguments,
@@ -151,24 +160,161 @@ impl ManagedProcessTree {
         )
     }
 
+    #[cfg(unix)]
+    #[allow(clippy::undocumented_unsafe_blocks)]
+    pub fn probe_file(
+        &mut self,
+        relative_path: &Path,
+        contains: Option<&[u8]>,
+        timeout: Duration,
+    ) -> PocResult<CommandReceipt> {
+        if self.fenced {
+            return Err(PocError::Integrity(
+                "readiness admission is terminally fenced".to_owned(),
+            ));
+        }
+        if relative_path.as_os_str().is_empty()
+            || relative_path.is_absolute()
+            || !relative_path
+                .components()
+                .all(|component| matches!(component, std::path::Component::Normal(_)))
+        {
+            return Err(PocError::Integrity(format!(
+                "readiness path must be a normalized relative path: {}",
+                relative_path.display()
+            )));
+        }
+        if contains.is_some_and(<[u8]>::is_empty) {
+            return Err(PocError::Integrity(
+                "readiness content sentinel must not be empty".to_owned(),
+            ));
+        }
+
+        ensure_child_subreaper()?;
+        let workspace = File::open(&self.workspace_root).map_err(|error| {
+            PocError::io("open readiness workspace", &self.workspace_root, error)
+        })?;
+        let relative = CString::new(relative_path.as_os_str().as_bytes()).map_err(|_| {
+            PocError::Integrity("readiness path contains an interior NUL byte".to_owned())
+        })?;
+        let prefix = contains.map(build_prefix_table).unwrap_or_default();
+        let cgroup = open_direct_child_cgroup(self.cgroup_procs_path.as_deref())?;
+        let cgroup_fd = cgroup.as_ref().map(AsRawFd::as_raw_fd);
+        let started_unix_ms = unix_time_ms()?;
+
+        let pid = unsafe { libc::fork() };
+        if pid < 0 {
+            return Err(PocError::io(
+                "fork external readiness probe",
+                &self.workspace_root,
+                std::io::Error::last_os_error(),
+            ));
+        }
+        if pid == 0 {
+            unsafe {
+                if libc::setpgid(0, 0) != 0 {
+                    libc::_exit(125);
+                }
+                if let Some(fd) = cgroup_fd {
+                    let membership = b"0\n";
+                    if libc::write(fd, membership.as_ptr().cast(), membership.len())
+                        != membership.len() as isize
+                    {
+                        libc::_exit(126);
+                    }
+                }
+                let fd = open_readiness_at(workspace.as_raw_fd(), relative.as_ptr());
+                if fd < 0 {
+                    libc::_exit(2);
+                }
+                let mut metadata: libc::stat = std::mem::zeroed();
+                if libc::fstat(fd, std::ptr::addr_of_mut!(metadata)) != 0 {
+                    libc::close(fd);
+                    libc::_exit(3);
+                }
+                let passed = probe_fd(fd, contains, &prefix);
+                libc::close(fd);
+                libc::_exit(if passed { 0 } else { 4 });
+            }
+        }
+
+        let process_group_id = u32::try_from(pid)
+            .map_err(|_| PocError::Integrity(format!("readiness PID {pid} is invalid")))?;
+        self.process_groups.insert(process_group_id);
+        let wait_result = wait_direct_child(pid, timeout);
+        self.process_groups.remove(&process_group_id);
+        let (status, timed_out) = wait_result?;
+        let exit_code = if libc::WIFEXITED(status) {
+            Some(libc::WEXITSTATUS(status))
+        } else {
+            None
+        };
+        let mut arguments = vec!["--path".to_owned(), relative_path.display().to_string()];
+        if let Some(needle) = contains {
+            arguments.push("--contains".to_owned());
+            arguments.push(String::from_utf8_lossy(needle).into_owned());
+        }
+        Ok(CommandReceipt {
+            schema_version: crate::SCHEMA_VERSION,
+            program: PathBuf::from("adapter-direct-open-read-metadata"),
+            arguments,
+            started_unix_ms,
+            finished_unix_ms: unix_time_ms()?,
+            exit_code,
+            success: exit_code == Some(0) && !timed_out,
+            timed_out,
+            process_group_id,
+        })
+    }
+
+    #[cfg(not(unix))]
+    pub fn probe_file(
+        &mut self,
+        _relative_path: &Path,
+        _contains: Option<&[u8]>,
+        _timeout: Duration,
+    ) -> PocResult<CommandReceipt> {
+        Err(PocError::Unsupported(
+            "external readiness requires unix".to_owned(),
+        ))
+    }
+
     /// Stop every recorded process group plus every remaining cgroup member,
     /// then reap all direct children owned by this process.
     pub fn stop_kill_reap(&mut self) -> PocResult<Vec<i32>> {
         self.fence();
         let mut signaled = BTreeSet::new();
         for process_group in &self.process_groups {
-            signal_process_group_allow_missing(*process_group, libc::SIGTERM)?;
-            signaled.insert(i32::try_from(*process_group).map_err(|_| {
-                PocError::Integrity(format!("process group {process_group} does not fit i32"))
-            })?);
+            if process_group_exists(*process_group)? {
+                signal_process_group_allow_missing(*process_group, libc::SIGTERM)?;
+                signaled.insert(i32::try_from(*process_group).map_err(|_| {
+                    PocError::Integrity(format!("process group {process_group} does not fit i32"))
+                })?);
+            }
         }
         for pid in self.cgroup_members()? {
             signal_pid_allow_missing(pid, libc::SIGTERM)?;
             signaled.insert(pid);
         }
-        thread::sleep(TERM_GRACE);
+        let deadline = Instant::now() + TERM_GRACE;
+        while !signaled.is_empty()
+            && (self
+                .process_groups
+                .iter()
+                .copied()
+                .map(process_group_exists)
+                .collect::<PocResult<Vec<_>>>()?
+                .into_iter()
+                .any(|exists| exists)
+                || !self.cgroup_members()?.is_empty())
+            && Instant::now() < deadline
+        {
+            thread::sleep(POLL_INTERVAL);
+        }
         for process_group in &self.process_groups {
-            signal_process_group_allow_missing(*process_group, libc::SIGKILL)?;
+            if process_group_exists(*process_group)? {
+                signal_process_group_allow_missing(*process_group, libc::SIGKILL)?;
+            }
         }
         for pid in self.cgroup_members()? {
             signal_pid_allow_missing(pid, libc::SIGKILL)?;
@@ -208,6 +354,214 @@ impl ManagedProcessTree {
             .filter_map(|line| line.trim().parse::<i32>().ok())
             .filter(|pid| u32::try_from(*pid).ok() != Some(std::process::id()))
             .collect())
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[allow(clippy::undocumented_unsafe_blocks)]
+unsafe fn open_readiness_at(directory_fd: i32, relative_path: *const libc::c_char) -> i32 {
+    let mut how: libc::open_how = unsafe { std::mem::zeroed() };
+    how.flags = (libc::O_RDONLY | libc::O_CLOEXEC) as u64;
+    how.resolve = libc::RESOLVE_BENEATH | libc::RESOLVE_NO_MAGICLINKS;
+    unsafe {
+        libc::syscall(
+            libc::SYS_openat2,
+            directory_fd,
+            relative_path,
+            std::ptr::addr_of!(how),
+            std::mem::size_of::<libc::open_how>(),
+        ) as i32
+    }
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+#[allow(clippy::undocumented_unsafe_blocks)]
+unsafe fn open_readiness_at(directory_fd: i32, relative_path: *const libc::c_char) -> i32 {
+    unsafe {
+        libc::openat(
+            directory_fd,
+            relative_path,
+            libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+        )
+    }
+}
+
+fn build_prefix_table(needle: &[u8]) -> Vec<usize> {
+    let mut prefix = vec![0; needle.len()];
+    let mut matched = 0;
+    for index in 1..needle.len() {
+        while matched > 0 && needle[index] != needle[matched] {
+            matched = prefix[matched - 1];
+        }
+        if needle[index] == needle[matched] {
+            matched += 1;
+            prefix[index] = matched;
+        }
+    }
+    prefix
+}
+
+#[cfg(unix)]
+#[allow(clippy::undocumented_unsafe_blocks)]
+unsafe fn probe_fd(fd: i32, needle: Option<&[u8]>, prefix: &[usize]) -> bool {
+    let mut buffer = [0_u8; 4096];
+    let mut matched = 0;
+    loop {
+        let read = unsafe { libc::read(fd, buffer.as_mut_ptr().cast(), buffer.len()) };
+        if read < 0 {
+            if std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
+                continue;
+            }
+            return false;
+        }
+        if read == 0 {
+            return needle.is_none() && matched > 0;
+        }
+        let bytes = &buffer[..usize::try_from(read).unwrap_or(0)];
+        let Some(needle) = needle else {
+            return !bytes.is_empty();
+        };
+        for byte in bytes {
+            while matched > 0 && *byte != needle[matched] {
+                matched = prefix[matched - 1];
+            }
+            if *byte == needle[matched] {
+                matched += 1;
+                if matched == needle.len() {
+                    return true;
+                }
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn open_direct_child_cgroup(path: Option<&Path>) -> PocResult<Option<File>> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    let members = fs::read_to_string(path)
+        .map_err(|error| PocError::io("read readiness cgroup.procs", path, error))?;
+    if members
+        .lines()
+        .filter_map(|line| line.trim().parse::<u32>().ok())
+        .any(|pid| pid == std::process::id())
+    {
+        return Ok(None);
+    }
+    OpenOptions::new()
+        .write(true)
+        .open(path)
+        .map(Some)
+        .map_err(|error| PocError::io("open readiness cgroup.procs", path, error))
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+fn open_direct_child_cgroup(_path: Option<&Path>) -> PocResult<Option<File>> {
+    Ok(None)
+}
+
+#[cfg(target_os = "linux")]
+#[allow(clippy::undocumented_unsafe_blocks)]
+fn wait_direct_child(pid: i32, timeout: Duration) -> PocResult<(i32, bool)> {
+    let deadline = Instant::now() + timeout;
+    let pidfd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid, 0) } as i32;
+    if pidfd < 0 {
+        return wait_direct_child_fallback(pid, deadline);
+    }
+    let mut descriptor = libc::pollfd {
+        fd: pidfd,
+        events: libc::POLLIN,
+        revents: 0,
+    };
+    loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        let timeout_ms = remaining
+            .as_nanos()
+            .div_ceil(1_000_000)
+            .min(i32::MAX as u128) as i32;
+        let result = unsafe { libc::poll(std::ptr::addr_of_mut!(descriptor), 1, timeout_ms) };
+        if result > 0 {
+            unsafe {
+                libc::close(pidfd);
+            }
+            return wait_direct_child_blocking(pid).map(|status| (status, false));
+        }
+        if result == 0 {
+            unsafe {
+                libc::close(pidfd);
+            }
+            signal_pid_allow_missing(pid, libc::SIGKILL)?;
+            return wait_direct_child_blocking(pid).map(|status| (status, true));
+        }
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() == Some(libc::EINTR) {
+            continue;
+        }
+        unsafe {
+            libc::close(pidfd);
+        }
+        signal_pid_allow_missing(pid, libc::SIGKILL)?;
+        let _ = wait_direct_child_blocking(pid);
+        return Err(PocError::io(
+            "poll external readiness child",
+            Path::new("/proc"),
+            error,
+        ));
+    }
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+fn wait_direct_child(pid: i32, timeout: Duration) -> PocResult<(i32, bool)> {
+    wait_direct_child_fallback(pid, Instant::now() + timeout)
+}
+
+#[cfg(unix)]
+#[allow(clippy::undocumented_unsafe_blocks)]
+fn wait_direct_child_fallback(pid: i32, deadline: Instant) -> PocResult<(i32, bool)> {
+    loop {
+        let mut status = 0;
+        let result = unsafe { libc::waitpid(pid, std::ptr::addr_of_mut!(status), libc::WNOHANG) };
+        if result == pid {
+            return Ok((status, false));
+        }
+        if result < 0 {
+            let error = std::io::Error::last_os_error();
+            if error.raw_os_error() == Some(libc::EINTR) {
+                continue;
+            }
+            return Err(PocError::io(
+                "poll external readiness child",
+                Path::new("/proc"),
+                error,
+            ));
+        }
+        if Instant::now() >= deadline {
+            signal_pid_allow_missing(pid, libc::SIGKILL)?;
+            return wait_direct_child_blocking(pid).map(|status| (status, true));
+        }
+        thread::sleep(Duration::from_micros(100));
+    }
+}
+
+#[cfg(unix)]
+#[allow(clippy::undocumented_unsafe_blocks)]
+fn wait_direct_child_blocking(pid: i32) -> PocResult<i32> {
+    loop {
+        let mut status = 0;
+        let result = unsafe { libc::waitpid(pid, std::ptr::addr_of_mut!(status), 0) };
+        if result == pid {
+            return Ok(status);
+        }
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() == Some(libc::EINTR) {
+            continue;
+        }
+        return Err(PocError::io(
+            "reap external readiness child",
+            Path::new("/proc"),
+            error,
+        ));
     }
 }
 
@@ -310,6 +664,33 @@ fn signal_process_group_allow_missing(process_group: u32, signal: i32) -> PocRes
 
 fn signal_pid_allow_missing(pid: i32, signal: i32) -> PocResult<()> {
     signal_raw(pid, signal, true)
+}
+
+#[cfg(unix)]
+#[allow(clippy::undocumented_unsafe_blocks)]
+fn process_group_exists(process_group: u32) -> PocResult<bool> {
+    let group = i32::try_from(process_group).map_err(|_| {
+        PocError::Integrity(format!("process group {process_group} does not fit i32"))
+    })?;
+    let result = unsafe { libc::kill(-group, 0) };
+    if result == 0 {
+        return Ok(true);
+    }
+    let error = std::io::Error::last_os_error();
+    match error.raw_os_error() {
+        Some(libc::ESRCH) => Ok(false),
+        Some(libc::EPERM) => Ok(true),
+        _ => Err(PocError::io(
+            "probe managed process group",
+            Path::new("/proc"),
+            error,
+        )),
+    }
+}
+
+#[cfg(not(unix))]
+fn process_group_exists(_process_group: u32) -> PocResult<bool> {
+    Ok(false)
 }
 
 #[cfg(target_os = "linux")]

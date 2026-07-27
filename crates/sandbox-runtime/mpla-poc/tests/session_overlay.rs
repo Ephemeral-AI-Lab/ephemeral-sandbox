@@ -172,6 +172,55 @@ fn managed_process_tree_executes_then_fences_admission() {
     tree.stop_kill_reap().expect("clean process groups");
 }
 
+#[cfg(unix)]
+#[test]
+fn managed_process_tree_probes_from_external_adapter_child() {
+    let root = TestDirectory::new("readiness-probe");
+    let mut content = vec![b'x'; 4094];
+    content.extend_from_slice(b"boundary-sentinel");
+    fs::write(root.0.join("sentinel"), content).expect("write readiness sentinel");
+    let mut tree = ManagedProcessTree::new(root.0.clone(), None);
+
+    let receipt = tree
+        .probe_file(
+            std::path::Path::new("sentinel"),
+            Some(b"boundary-sentinel"),
+            Duration::from_secs(2),
+        )
+        .expect("probe readiness from adapter child");
+    assert!(receipt.success);
+    assert_eq!(
+        receipt.program,
+        std::path::Path::new("adapter-direct-open-read-metadata")
+    );
+    assert!(
+        !tree
+            .probe_file(
+                std::path::Path::new("sentinel"),
+                Some(b"missing"),
+                Duration::from_secs(2),
+            )
+            .expect("report content mismatch")
+            .success
+    );
+    assert!(tree
+        .probe_file(
+            std::path::Path::new("../escape"),
+            None,
+            Duration::from_secs(2),
+        )
+        .is_err());
+    assert!(tree
+        .probe_file(
+            std::path::Path::new("sentinel"),
+            Some(b""),
+            Duration::from_secs(2),
+        )
+        .is_err());
+    assert!(tree.audit(false).expect("audit readiness child").is_clear());
+    tree.stop_kill_reap().expect("clean readiness child");
+}
+
 fn allocation_handle(root: &std::path::Path) -> AllocationHandle {
     let allocation_root = root.join("allocations").join("aa").join("fixture");
     let upper_dir = allocation_root.join("upper");

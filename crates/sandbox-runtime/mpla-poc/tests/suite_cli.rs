@@ -116,6 +116,41 @@ fn lifecycle_metadata_command_persists_typed_success_failure_and_cancellation() 
     assert_eq!(squash["status"], "succeeded");
     assert_eq!(squash["selection"]["sequence"], 3);
     assert_eq!(squash["selection"]["ancestry"], serde_json::json!([3]));
+    let branches_modified_before_replay = std::fs::metadata(root.join("branches"))
+        .and_then(|metadata| metadata.modified())
+        .expect("stat branches before squash replay");
+    let squash_replay = invoke_lifecycle(
+        binary,
+        &root,
+        &[
+            "--operation-id",
+            "squash-main-again",
+            "--action",
+            "squash",
+            "--branch",
+            "main",
+        ],
+    );
+    assert_eq!(squash_replay["status"], "succeeded");
+    assert_eq!(squash_replay["selection"], squash["selection"]);
+    let branches_modified_after_replay = std::fs::metadata(root.join("branches"))
+        .and_then(|metadata| metadata.modified())
+        .expect("stat branches after squash replay");
+    assert_eq!(
+        branches_modified_after_replay, branches_modified_before_replay,
+        "idempotent squash replay must not rewrite the selected branch"
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+
+        let selector =
+            std::fs::metadata(root.join("branches/main.json")).expect("stat selected squash");
+        let prepared = std::fs::metadata(root.join("prepared-squashes/main.json"))
+            .expect("stat prepared squash");
+        assert_eq!(selector.dev(), prepared.dev());
+        assert_eq!(selector.ino(), prepared.ino());
+    }
 
     let failure = invoke_lifecycle(
         binary,
@@ -189,7 +224,7 @@ fn lifecycle_metadata_command_persists_typed_success_failure_and_cancellation() 
     let outcomes = std::fs::read_dir(root.join("outcomes"))
         .expect("read lifecycle outcomes")
         .count();
-    assert_eq!(outcomes, 6);
+    assert_eq!(outcomes, 7);
     std::fs::remove_dir_all(root).expect("remove lifecycle root");
 }
 

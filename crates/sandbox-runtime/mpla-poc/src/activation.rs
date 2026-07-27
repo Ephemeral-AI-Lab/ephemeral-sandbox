@@ -1,7 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs::File;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use rustix::fs::{AtFlags, Timespec, Timestamps, CWD};
 use serde::{Deserialize, Serialize};
 
 use crate::projection::{select_exact, ExactProjectionReceipt, ProjectionRecipe};
@@ -21,8 +24,8 @@ pub struct ExactActivationRequest {
     pub arena_root: PathBuf,
     pub control_root: PathBuf,
     pub cgroup_procs_path: Option<PathBuf>,
-    pub readiness_program: PathBuf,
-    pub readiness_arguments: Vec<String>,
+    pub readiness_path: PathBuf,
+    pub readiness_contains: Option<Vec<u8>>,
     pub readiness_timeout: Duration,
 }
 
@@ -47,9 +50,16 @@ pub struct ActivationReceipt {
     pub projection: ExactProjectionReceipt,
     pub fresh_upper_empty_before_mount: bool,
     pub readiness: CommandReceipt,
+    pub phase_spans: Vec<ActivationPhaseSpan>,
     pub elapsed_ns: u64,
     pub session_binding_path: PathBuf,
     pub session_binding_parent_synced: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ActivationPhaseSpan {
+    pub phase: String,
+    pub elapsed_ns: u64,
 }
 
 #[derive(Debug)]
@@ -60,6 +70,7 @@ pub struct ActivatedSession {
 
 pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSession> {
     let started = Instant::now();
+    let selection_started = Instant::now();
     validate_request(&request)?;
     let projection = select_exact(&request.recipe)?;
     let payload_by_id: BTreeMap<_, _> = request
@@ -83,7 +94,9 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
             })
         })
         .collect::<PocResult<Vec<_>>>()?;
+    let selection_elapsed_ns = elapsed_ns(selection_started);
 
+    let allocation_started = Instant::now();
     let fresh =
         allocation::create_allocation(&request.arena_root, &request.allocation_operation_id)?;
     if projection
@@ -101,10 +114,18 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
             fresh.upper_dir.display()
         )));
     }
+    let selected_root = lower_dirs.first().ok_or_else(|| {
+        PocError::Integrity("activation projection selected no payload root".to_owned())
+    })?;
+    inherit_projection_root_metadata(selected_root, &fresh.upper_dir)?;
+    let allocation_elapsed_ns = elapsed_ns(allocation_started);
 
+    let lease_started = Instant::now();
     let session_id = SessionId::new();
     let mutable_lease =
         lease::issue_workspace_lease(&fresh, session_id.clone(), &request.allocation_operation_id)?;
+    let lease_elapsed_ns = elapsed_ns(lease_started);
+    let session_started = Instant::now();
     let mut session = MplaSession::open(
         &request.control_root,
         fresh,
@@ -112,10 +133,12 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
         lower_dirs,
         request.cgroup_procs_path,
     )?;
-    let readiness = session.execute(
+    let session_elapsed_ns = elapsed_ns(session_started);
+    let readiness_started = Instant::now();
+    let readiness = session.probe_readiness(
         &mutable_lease.writer,
-        &request.readiness_program,
-        &request.readiness_arguments,
+        &request.readiness_path,
+        request.readiness_contains.as_deref(),
         request.readiness_timeout,
     )?;
     if !readiness.success {
@@ -123,7 +146,9 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
             "external activation readiness probe failed".to_owned(),
         ));
     }
+    let readiness_elapsed_ns = elapsed_ns(readiness_started);
 
+    let binding_started = Instant::now();
     let activation_directory = request
         .control_root
         .join("activations")
@@ -139,7 +164,8 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
         bound_unix_ms: crate::unix_time_ms()?,
     };
     durable::replace_json(&session_binding_path, &binding)?;
-    let elapsed_ns = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
+    let binding_elapsed_ns = elapsed_ns(binding_started);
+    let elapsed_ns = elapsed_ns(started);
     let receipt = ActivationReceipt {
         schema_version: SCHEMA_VERSION,
         activation_operation_id: request.activation_operation_id,
@@ -149,6 +175,15 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
         projection,
         fresh_upper_empty_before_mount,
         readiness,
+        phase_spans: vec![
+            phase("validate-select", selection_elapsed_ns),
+            phase("durable-allocation", allocation_elapsed_ns),
+            phase("durable-lease", lease_elapsed_ns),
+            phase("mount-session", session_elapsed_ns),
+            phase("readiness", readiness_elapsed_ns),
+            phase("durable-binding", binding_elapsed_ns),
+            phase("activation-total", elapsed_ns),
+        ],
         elapsed_ns,
         session_binding_path,
         session_binding_parent_synced: true,
@@ -156,8 +191,40 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
     Ok(ActivatedSession { session, receipt })
 }
 
+fn phase(name: &str, elapsed_ns: u64) -> ActivationPhaseSpan {
+    ActivationPhaseSpan {
+        phase: name.to_owned(),
+        elapsed_ns,
+    }
+}
+
+fn elapsed_ns(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX)
+}
+
 fn validate_request(request: &ExactActivationRequest) -> PocResult<()> {
     request.recipe.validate()?;
+    if request.readiness_path.as_os_str().is_empty()
+        || request.readiness_path.is_absolute()
+        || !request
+            .readiness_path
+            .components()
+            .all(|component| matches!(component, std::path::Component::Normal(_)))
+    {
+        return Err(PocError::Integrity(format!(
+            "readiness path must be a normalized relative path: {}",
+            request.readiness_path.display()
+        )));
+    }
+    if request
+        .readiness_contains
+        .as_deref()
+        .is_some_and(<[u8]>::is_empty)
+    {
+        return Err(PocError::Integrity(
+            "readiness content sentinel must not be empty".to_owned(),
+        ));
+    }
     if request.selected_ref.roots != request.recipe.roots {
         return Err(PocError::Integrity(
             "selected ref roots differ from projection roots".to_owned(),
@@ -191,4 +258,59 @@ fn directory_is_empty(path: &Path) -> PocResult<bool> {
         Some(Ok(_)) => Ok(false),
         Some(Err(source)) => Err(PocError::io("read activation upper entry", path, source)),
     }
+}
+
+fn inherit_projection_root_metadata(source: &Path, target: &Path) -> PocResult<()> {
+    let source_metadata = std::fs::symlink_metadata(source)
+        .map_err(|error| PocError::io("stat selected projection root", source, error))?;
+    if !source_metadata.is_dir() {
+        return Err(PocError::Integrity(format!(
+            "selected projection root is not a directory: {}",
+            source.display()
+        )));
+    }
+    let target_metadata = std::fs::symlink_metadata(target)
+        .map_err(|error| PocError::io("stat fresh activation root", target, error))?;
+    if !target_metadata.is_dir() {
+        return Err(PocError::Integrity(format!(
+            "fresh activation root is not a directory: {}",
+            target.display()
+        )));
+    }
+
+    if source_metadata.uid() != target_metadata.uid()
+        || source_metadata.gid() != target_metadata.gid()
+    {
+        std::os::unix::fs::chown(
+            target,
+            Some(source_metadata.uid()),
+            Some(source_metadata.gid()),
+        )
+        .map_err(|error| PocError::io("inherit activation root ownership", target, error))?;
+    }
+    std::fs::set_permissions(
+        target,
+        std::fs::Permissions::from_mode(source_metadata.permissions().mode() & 0o7777),
+    )
+    .map_err(|error| PocError::io("inherit activation root permissions", target, error))?;
+    let timestamps = Timestamps {
+        last_access: Timespec {
+            tv_sec: source_metadata.atime(),
+            tv_nsec: source_metadata.atime_nsec(),
+        },
+        last_modification: Timespec {
+            tv_sec: source_metadata.mtime(),
+            tv_nsec: source_metadata.mtime_nsec(),
+        },
+    };
+    rustix::fs::utimensat(CWD, target, &timestamps, AtFlags::empty()).map_err(|error| {
+        PocError::io(
+            "inherit activation root timestamps",
+            target,
+            std::io::Error::from_raw_os_error(error.raw_os_error()),
+        )
+    })?;
+    File::open(target)
+        .and_then(|directory| directory.sync_all())
+        .map_err(|error| PocError::io("sync inherited activation root", target, error))
 }
