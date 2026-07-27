@@ -2,7 +2,9 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use sandbox_runtime_mpla_poc::allocation::{create_allocation, open_allocation};
+use sandbox_runtime_mpla_poc::allocation::{
+    create_allocation, destroy_workspace_allocation, open_allocation,
+};
 use sandbox_runtime_mpla_poc::durable::{read_json, replace_json};
 use sandbox_runtime_mpla_poc::lease::{issue_workspace_lease, validate_deleter, validate_writer};
 use sandbox_runtime_mpla_poc::owner::{compare_and_adopt, current_owner};
@@ -130,6 +132,45 @@ fn lease_replay_is_idempotent_and_other_issuers_conflict() {
         issue_workspace_lease(&allocation, SessionId::new(), &OperationId::new()),
         Err(PocError::OwnerConflict(_))
     ));
+}
+
+#[test]
+fn only_the_current_workspace_deleter_can_destroy_an_allocation() {
+    let root = TestRoot::new();
+    let arena = root.path.join("arena");
+    let allocation = create_allocation(&arena, &OperationId::new()).expect("allocate");
+    let lease = issue_workspace_lease(&allocation, SessionId::new(), &OperationId::new())
+        .expect("workspace lease");
+    std::fs::write(allocation.upper_dir.join("payload"), b"delete me").expect("write payload");
+
+    let mut forged = lease.deleter.clone();
+    forged.nonce = Uuid::new_v4().to_string();
+    assert!(matches!(
+        destroy_workspace_allocation(&arena, &allocation.descriptor.allocation_id, &forged),
+        Err(PocError::StaleCapability { .. })
+    ));
+    assert!(allocation.allocation_root.exists());
+
+    destroy_workspace_allocation(&arena, &allocation.descriptor.allocation_id, &lease.deleter)
+        .expect("authorized destroy");
+    assert!(!allocation.allocation_root.exists());
+}
+
+#[test]
+fn payload_owned_allocation_cannot_be_destroyed_by_the_stale_workspace_deleter() {
+    let fixture = Fixture::new();
+    let (stable, request) = fixture.transition();
+    compare_and_adopt(&fixture.allocation.allocation_root, &stable, &request).expect("adopt");
+
+    assert!(matches!(
+        destroy_workspace_allocation(
+            &fixture._root.path.join("arena"),
+            &fixture.allocation.descriptor.allocation_id,
+            &fixture.lease.deleter,
+        ),
+        Err(PocError::StaleCapability { .. })
+    ));
+    assert!(fixture.allocation.allocation_root.exists());
 }
 
 #[test]

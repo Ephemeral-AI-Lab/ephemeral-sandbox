@@ -1,7 +1,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use sandbox_runtime_mpla_poc::{fixture_plan, prepare_fixture, FixtureId, FixtureTier, PocError};
+use sandbox_runtime_mpla_poc::{
+    fixture_plan, populate_empty_fixture_root, prepare_fixture, FixtureId, FixtureTier, PocError,
+};
+use uuid::Uuid;
 
 #[test]
 fn plans_preserve_required_smoke_and_heavy_envelopes() {
@@ -31,6 +34,21 @@ fn empty_fixture_is_durable_and_refuses_overwrite() {
 }
 
 #[test]
+fn empty_existing_allocation_upper_can_be_populated_once() {
+    let temp = TempDirectory::new();
+    let root = temp.0.join("upper");
+    fs::create_dir(&root).expect("create upper");
+    let receipt = populate_empty_fixture_root(&root, FixtureId::S0Empty, FixtureTier::Smoke)
+        .expect("populate upper");
+    assert_eq!(receipt.root, root);
+    fs::write(root.join("payload"), b"x").expect("write payload");
+    assert!(matches!(
+        populate_empty_fixture_root(&root, FixtureId::S0Empty, FixtureTier::Smoke),
+        Err(PocError::Integrity(_))
+    ));
+}
+
+#[test]
 fn parsers_fail_closed() {
     assert_eq!(
         FixtureId::parse("S5-semantics").expect("fixture"),
@@ -51,7 +69,7 @@ impl TempDirectory {
         let path = std::env::temp_dir().join(format!(
             "mpla-fixtures-{}-{}",
             std::process::id(),
-            sandbox_runtime_mpla_poc::unix_time_ms().expect("time")
+            Uuid::new_v4()
         ));
         fs::create_dir(&path).expect("create temp directory");
         Self(path)

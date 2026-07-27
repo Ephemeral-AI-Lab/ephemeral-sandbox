@@ -228,6 +228,44 @@ pub fn prepare_fixture(
     }
     let started = Instant::now();
     fs::create_dir(root).map_err(|error| PocError::io("create fixture root", root, error))?;
+    build_fixture(root, fixture_id, tier, started)
+}
+
+pub fn populate_empty_fixture_root(
+    root: &Path,
+    fixture_id: FixtureId,
+    tier: FixtureTier,
+) -> PocResult<FixtureReceipt> {
+    let metadata = fs::symlink_metadata(root)
+        .map_err(|error| PocError::io("stat fixture root", root, error))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(PocError::Integrity(format!(
+            "fixture root is not a real directory: {}",
+            root.display()
+        )));
+    }
+    let mut entries =
+        fs::read_dir(root).map_err(|error| PocError::io("read fixture root", root, error))?;
+    if entries
+        .next()
+        .transpose()
+        .map_err(|error| PocError::io("read fixture root entry", root, error))?
+        .is_some()
+    {
+        return Err(PocError::Integrity(format!(
+            "fixture destination is not empty: {}",
+            root.display()
+        )));
+    }
+    build_fixture(root, fixture_id, tier, Instant::now())
+}
+
+fn build_fixture(
+    root: &Path,
+    fixture_id: FixtureId,
+    tier: FixtureTier,
+    started: Instant,
+) -> PocResult<FixtureReceipt> {
     let plan = fixture_plan(fixture_id, tier);
     if plan.maximum_chain_bytes >= 10 * GIB {
         return Err(PocError::Integrity(format!(

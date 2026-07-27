@@ -54,7 +54,8 @@ pub use evidence_schema::{
 };
 pub use fault::{FaultInjector, FaultPoint, NamedFaultInjector, NamedFaultPoint};
 pub use fixtures::{
-    fixture_plan, prepare_fixture, FixtureId, FixturePlan, FixtureReceipt, FixtureTier,
+    fixture_plan, populate_empty_fixture_root, prepare_fixture, FixtureId, FixturePlan,
+    FixtureReceipt, FixtureTier,
 };
 pub use id::{
     ActivationOperationId, AllocationId, AttributionRootId, LocatorGeneration, OperationId,

@@ -5,8 +5,8 @@ use uuid::Uuid;
 
 use crate::durable::{fsync_dir, read_json, write_immutable_json};
 use crate::{
-    AllocationDescriptor, AllocationHandle, AllocationId, OperationId, PocError, PocResult,
-    SCHEMA_VERSION,
+    AllocationDescriptor, AllocationHandle, AllocationId, DeletionCapability, OperationId,
+    OwnerSubject, PocError, PocResult, SCHEMA_VERSION,
 };
 
 const DESCRIPTOR_FILE: &str = "ALLOCATION.json";
@@ -91,6 +91,78 @@ pub fn open_allocation(
         work_dir,
         owner_dir,
     })
+}
+
+pub fn destroy_workspace_allocation(
+    arena_root: &Path,
+    allocation_id: &AllocationId,
+    capability: &DeletionCapability,
+) -> PocResult<()> {
+    let allocation = open_allocation(arena_root, allocation_id)?;
+    let expected_root = arena_root
+        .join(allocation_prefix(allocation_id)?)
+        .join(allocation_id.as_str());
+    if allocation.allocation_root != expected_root || capability.allocation_id != *allocation_id {
+        return Err(PocError::Integrity(
+            "allocation deletion target does not match its capability".to_owned(),
+        ));
+    }
+
+    let _lock =
+        crate::durable::FileLock::exclusive(&crate::owner::owner_lock_path(&expected_root))?;
+    crate::lease::validate_deleter_locked(&expected_root, capability)?;
+    let owner = crate::owner::selected_owner_locked(&expected_root)?.ok_or_else(|| {
+        PocError::RecoveryRequired("allocation deletion target has no selected owner".to_owned())
+    })?;
+    if !matches!(
+        owner.subject,
+        OwnerSubject::WorkspaceOwned {
+            ref session_id,
+            lease_epoch,
+        } if session_id == &capability.session_id && lease_epoch == capability.lease_epoch
+    ) {
+        return Err(PocError::OwnerConflict(
+            "only the exact workspace owner may delete an allocation".to_owned(),
+        ));
+    }
+    reject_live_mount_reference(&expected_root)?;
+
+    std::fs::remove_dir_all(&expected_root)
+        .map_err(|source| PocError::io("delete workspace allocation", &expected_root, source))?;
+    let prefix_root = expected_root
+        .parent()
+        .ok_or_else(|| PocError::Integrity("allocation has no prefix directory".to_owned()))?;
+    fsync_dir(prefix_root)?;
+    match std::fs::remove_dir(prefix_root) {
+        Ok(()) => fsync_dir(arena_root),
+        Err(source) if source.kind() == std::io::ErrorKind::DirectoryNotEmpty => Ok(()),
+        Err(source) => Err(PocError::io(
+            "remove empty allocation prefix",
+            prefix_root,
+            source,
+        )),
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn reject_live_mount_reference(allocation_root: &Path) -> PocResult<()> {
+    let mountinfo = std::fs::read_to_string("/proc/self/mountinfo")
+        .map_err(|source| PocError::io("read process mountinfo", "/proc/self/mountinfo", source))?;
+    let allocation_path = allocation_root.to_str().ok_or_else(|| {
+        PocError::Integrity("allocation path is not valid UTF-8 for mount audit".to_owned())
+    })?;
+    if mountinfo.contains(allocation_path) {
+        return Err(PocError::OwnerConflict(format!(
+            "allocation is still referenced by a live mount: {}",
+            allocation_root.display()
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn reject_live_mount_reference(_allocation_root: &Path) -> PocResult<()> {
+    Ok(())
 }
 
 fn initialize_allocation(

@@ -96,7 +96,15 @@ pub fn validate_writer(allocation_root: &Path, capability: &WriterCapability) ->
 }
 
 pub fn validate_deleter(allocation_root: &Path, capability: &DeletionCapability) -> PocResult<()> {
-    validate_capability(
+    let _lock = FileLock::shared(&crate::owner::owner_lock_path(allocation_root))?;
+    validate_deleter_locked(allocation_root, capability)
+}
+
+pub(crate) fn validate_deleter_locked(
+    allocation_root: &Path,
+    capability: &DeletionCapability,
+) -> PocResult<()> {
+    validate_capability_locked(
         allocation_root,
         &capability.allocation_id,
         &capability.session_id,
@@ -185,6 +193,27 @@ fn validate_capability(
     kind: CapabilityKind,
 ) -> PocResult<()> {
     let _lock = FileLock::shared(&crate::owner::owner_lock_path(allocation_root))?;
+    validate_capability_locked(
+        allocation_root,
+        allocation_id,
+        session_id,
+        lease_epoch,
+        owner_epoch,
+        nonce,
+        kind,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_capability_locked(
+    allocation_root: &Path,
+    allocation_id: &AllocationId,
+    session_id: &SessionId,
+    lease_epoch: u64,
+    owner_epoch: u64,
+    nonce: &str,
+    kind: CapabilityKind,
+) -> PocResult<()> {
     let descriptor: AllocationDescriptor = read_json(&allocation_root.join("ALLOCATION.json"))?;
     let state = read_lease(allocation_root)?;
     let selected = crate::owner::selected_owner_locked(allocation_root)?;
