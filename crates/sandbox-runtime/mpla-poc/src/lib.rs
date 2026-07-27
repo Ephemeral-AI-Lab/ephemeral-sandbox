@@ -11,6 +11,9 @@ pub mod fault;
 pub mod id;
 pub mod inventory;
 pub mod lease;
+pub mod locator;
+pub mod m1_contract;
+pub mod occ;
 pub mod overlay_adapter;
 pub mod owner;
 pub mod process_tree;
@@ -18,6 +21,9 @@ pub mod protocol;
 pub mod publication;
 pub mod qualify;
 pub mod quiesce;
+pub mod recovery;
+pub mod ref_store;
+pub mod semantic;
 pub mod session;
 pub mod state;
 
@@ -27,9 +33,17 @@ pub use evidence_schema::{
     ArtifactStatus, EnvironmentReceipt, InodeWitness, PhysicalSnapshot, ProbeReceipt, ProbeStatus,
     QualificationReceipt,
 };
-pub use fault::{FaultInjector, FaultPoint};
-pub use id::{ActivationOperationId, AllocationId, OperationId, PublicationId, RunId, SessionId};
+pub use fault::{FaultInjector, FaultPoint, NamedFaultInjector, NamedFaultPoint};
+pub use id::{
+    ActivationOperationId, AllocationId, AttributionRootId, LocatorGeneration, OperationId,
+    PublicationId, RefSequence, RootId, RunId, SessionId,
+};
 pub use inventory::{AllocationInventory, InventoryEntry, InventoryEntryKind};
+pub use m1_contract::{
+    AttributionInput, CanonicalDurabilityReceipt, CanonicalRootPair, LocatorDurabilityReceipt,
+    LocatorRefCandidate, PairedRefValue, SemanticBuildReceipt, SemanticBuildRequest,
+    SemanticPhaseSpan,
+};
 pub use overlay_adapter::{PermanentOverlayMount, UnmountedOverlay};
 pub use process_tree::{CommandReceipt, ManagedProcessTree, ProcessAudit};
 pub use protocol::{
@@ -43,7 +57,7 @@ pub use quiesce::{QuiescenceReceipt, SealedAllocation, SealingRecord};
 pub use session::{MplaSession, SessionRecord};
 pub use state::{OwnerGeneration, OwnerSubject, PublicationPhase, SessionPhase};
 
-pub const INTERFACE_VERSION: &str = "m0-iface-v1";
+pub const INTERFACE_VERSION: &str = "m1-iface-v1";
 pub const SCHEMA_VERSION: u32 = 1;
 
 pub fn unix_time_ms() -> PocResult<u64> {

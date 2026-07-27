@@ -9,6 +9,10 @@ license.workspace = true
 name = "mpla-poc"
 path = "src/bin/mpla-poc.rs"
 
+[[bin]]
+name = "mpla-poc-oracle"
+path = "src/bin/mpla-poc-oracle.rs"
+
 [dependencies]
 clap.workspace = true
 libc.workspace = true

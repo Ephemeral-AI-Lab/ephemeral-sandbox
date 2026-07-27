@@ -12,6 +12,11 @@ pub const MAX_DATA_WORKERS: u16 = 4;
 pub const MAX_COORDINATORS: u16 = 16;
 pub const MAX_PENDING_DESCRIPTORS: u16 = 16;
 pub const MAX_PENDING_DESCRIPTOR_BYTES: u64 = 64 * 1024;
+pub const SEMANTIC_SCAN_WINDOW_BYTES: usize = 32 * 1024;
+pub const SEMANTIC_SPOOL_RUN_BYTES: usize = 4 * 1024 * 1024;
+pub const SEMANTIC_MERGE_FAN_IN: usize = 8;
+pub const SEMANTIC_MAX_DATA_FDS: usize = 16;
+pub const SEMANTIC_TRIE_FAN_OUT: usize = 16;
 pub const REQUIRED_IMAGE_DIGEST: &str =
     "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90";
 pub const REQUIRED_IMAGE_PLATFORM: &str = "linux/arm64";

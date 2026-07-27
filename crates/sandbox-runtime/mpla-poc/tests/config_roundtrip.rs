@@ -7,7 +7,7 @@ fn fixed_config_round_trips() {
     let encoded = serde_json::to_vec(&config).expect("config must encode");
     let decoded: PocConfig = serde_json::from_slice(&encoded).expect("config must decode");
     assert_eq!(decoded, config);
-    assert_eq!(INTERFACE_VERSION, "m0-iface-v1");
+    assert_eq!(INTERFACE_VERSION, "m1-iface-v1");
 }
 
 #[test]
