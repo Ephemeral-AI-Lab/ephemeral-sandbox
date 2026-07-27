@@ -37,6 +37,8 @@ pub enum PocError {
     OwnerConflict(String),
     #[error("durable state is recovery-required: {0}")]
     RecoveryRequired(String),
+    #[error("fixed-capacity admission rejected the operation: {0}")]
+    Overloaded(String),
     #[error("overlay failure: {0}")]
     Overlay(#[from] sandbox_runtime_overlay::OverlayError),
 }

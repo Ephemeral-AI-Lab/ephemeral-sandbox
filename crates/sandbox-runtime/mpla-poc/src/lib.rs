@@ -1,5 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub mod activation;
 pub mod allocation;
 pub mod config;
 pub mod docker_protocol;
@@ -17,16 +18,22 @@ pub mod occ;
 pub mod overlay_adapter;
 pub mod owner;
 pub mod process_tree;
+pub mod projection;
 pub mod protocol;
 pub mod publication;
 pub mod qualify;
 pub mod quiesce;
+pub mod reconcile;
 pub mod recovery;
 pub mod ref_store;
+pub mod resources;
 pub mod semantic;
 pub mod session;
 pub mod state;
 
+pub use activation::{
+    ActivatedSession, ActivationBinding, ActivationReceipt, ExactActivationRequest,
+};
 pub use config::PocConfig;
 pub use error::{PocError, PocResult};
 pub use evidence_schema::{
@@ -46,6 +53,7 @@ pub use m1_contract::{
 };
 pub use overlay_adapter::{PermanentOverlayMount, UnmountedOverlay};
 pub use process_tree::{CommandReceipt, ManagedProcessTree, ProcessAudit};
+pub use projection::{ExactProjectionReceipt, ProjectionRecipe};
 pub use protocol::{
     AdoptionReceipt, AllocationDescriptor, AllocationHandle, DeletionCapability, MutableLease,
     OwnerTransitionRequest, QualificationRequest, StableAllocationReceipt, WriterCapability,
@@ -54,6 +62,12 @@ pub use publication::{
     PublicationOperationRecord, StationaryPublicationReceipt, StationaryPublicationRequest,
 };
 pub use quiesce::{QuiescenceReceipt, SealedAllocation, SealingRecord};
+pub use reconcile::{
+    LeakCounts, ReconciliationReceipt, StorageCategoryReceipt, StorageCategoryRoot,
+};
+pub use resources::{
+    AdmissionController, AdmissionGuard, AdmissionReceipt, AdmissionTier, ResourceSnapshot,
+};
 pub use session::{MplaSession, SessionRecord};
 pub use state::{OwnerGeneration, OwnerSubject, PublicationPhase, SessionPhase};
 
