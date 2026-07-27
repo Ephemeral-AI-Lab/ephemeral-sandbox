@@ -16,7 +16,8 @@ path = "src/bin/mpla-poc-oracle.rs"
 [dependencies]
 clap.workspace = true
 libc.workspace = true
-rustix.workspace = true
+rustix = { workspace = true, features = ["time"] }
+sandbox-runtime-layerstack.workspace = true
 sandbox-runtime-overlay.workspace = true
 serde.workspace = true
 serde_json.workspace = true

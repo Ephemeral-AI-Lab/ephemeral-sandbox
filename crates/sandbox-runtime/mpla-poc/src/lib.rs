@@ -3,6 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub mod activation;
 pub mod allocation;
 pub mod config;
+pub mod controls;
 pub mod docker_protocol;
 pub mod durable;
 pub mod error;
@@ -37,6 +38,15 @@ pub use activation::{
     ActivatedSession, ActivationBinding, ActivationReceipt, ExactActivationRequest,
 };
 pub use config::PocConfig;
+pub use controls::{
+    bind_product_catalog, collect_control_changes, run_current_i2_closing,
+    run_current_i2_materialization, CatalogBinding, CatalogCoverageReceipt, ControlApiCoverage,
+    ControlBoundary, ControlCacheExpectation, ControlCacheMatch, ControlCatalogFacts,
+    ControlChangeSet, ControlCollectionLimits, ControlIntent, ControlMaterializationOutcome,
+    ControlOperationReceipt, ControlPublicationOutcome, ControlSelectionKey, ControlSourceProfile,
+    ControlVerdict, CurrentI2ClosingRequest, CurrentI2MaterializationRequest,
+    ExternalReadinessReceipt, MonotonicClock, MonotonicSpan,
+};
 pub use error::{PocError, PocResult};
 pub use evidence_schema::{
     ArtifactStatus, EnvironmentReceipt, InodeWitness, PhysicalSnapshot, ProbeReceipt, ProbeStatus,

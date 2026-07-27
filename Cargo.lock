@@ -1726,6 +1726,7 @@ dependencies = [
  "clap",
  "libc",
  "rustix 0.38.44",
+ "sandbox-runtime-layerstack",
  "sandbox-runtime-overlay",
  "serde",
  "serde_json",

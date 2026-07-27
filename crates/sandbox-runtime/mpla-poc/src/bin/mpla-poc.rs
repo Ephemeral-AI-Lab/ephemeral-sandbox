@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use sandbox_runtime_mpla_poc::{
-    prepare_fixture, qualify, report, AllocationId, FixtureId, FixtureTier, PocConfig,
-    QualificationRequest, RunId, SCHEMA_VERSION,
+    bind_product_catalog, prepare_fixture, qualify, report, AllocationId, FixtureId, FixtureTier,
+    PocConfig, QualificationRequest, RunId, SCHEMA_VERSION,
 };
 
 #[derive(Debug, Parser)]
@@ -16,6 +16,14 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Command {
     Config,
+    CatalogBind {
+        #[arg(long)]
+        exporter: PathBuf,
+        #[arg(long)]
+        catalog: PathBuf,
+        #[arg(long)]
+        build_commit: String,
+    },
     EvidenceSeal {
         #[arg(long)]
         evidence_root: PathBuf,
@@ -68,6 +76,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Command::Config => {
             println!("{}", serde_json::to_string_pretty(&config)?);
+        }
+        Command::CatalogBind {
+            exporter,
+            catalog,
+            build_commit,
+        } => {
+            let binding = bind_product_catalog(&exporter, &catalog, &build_commit)?;
+            println!("{}", serde_json::to_string_pretty(&binding)?);
         }
         Command::EvidenceSeal { evidence_root } => {
             let receipt = report::seal_manifest(&evidence_root)?;

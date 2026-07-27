@@ -41,6 +41,8 @@ pub enum PocError {
     Overloaded(String),
     #[error("overlay failure: {0}")]
     Overlay(#[from] sandbox_runtime_overlay::OverlayError),
+    #[error("LayerStack failure: {0}")]
+    LayerStack(#[from] sandbox_runtime_layerstack::LayerStackError),
 }
 
 impl PocError {
