@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/.." && pwd)"
+
+if [[ $# -eq 0 ]]; then
+  echo "usage: mpla-poc build|config|qualification ..." >&2
+  exit 64
+fi
+
+command_name="$1"
+shift
+
+case "${command_name}" in
+  build)
+    exec cargo build --manifest-path "${repo_root}/Cargo.toml" -p sandbox-runtime-mpla-poc "$@"
+    ;;
+  config)
+    exec cargo run --quiet --manifest-path "${repo_root}/Cargo.toml" -p sandbox-runtime-mpla-poc -- config "$@"
+    ;;
+  qualification)
+    exec cargo run --quiet --manifest-path "${repo_root}/Cargo.toml" -p sandbox-runtime-mpla-poc -- qualification "$@"
+    ;;
+  *)
+    echo "unsupported mpla-poc command: ${command_name}" >&2
+    exit 64
+    ;;
+esac

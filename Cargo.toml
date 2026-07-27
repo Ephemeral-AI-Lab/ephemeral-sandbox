@@ -20,6 +20,7 @@ members = [
     "crates/sandbox-runtime/layerstack-core",
     "crates/sandbox-runtime/layerstack",
     "crates/sandbox-runtime/overlay",
+    "crates/sandbox-runtime/mpla-poc",
     "crates/sandbox-provider-docker",
     "xtask",
 ]

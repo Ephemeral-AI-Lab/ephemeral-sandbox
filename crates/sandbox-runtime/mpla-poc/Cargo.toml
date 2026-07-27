@@ -1,0 +1,24 @@
+[package]
+name = "sandbox-runtime-mpla-poc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "mpla-poc"
+path = "src/bin/mpla-poc.rs"
+
+[dependencies]
+clap.workspace = true
+libc.workspace = true
+rustix.workspace = true
+sandbox-runtime-overlay.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

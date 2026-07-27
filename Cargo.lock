@@ -1720,6 +1720,21 @@ name = "sandbox-runtime-layerstack-core"
 version = "0.1.0"
 
 [[package]]
+name = "sandbox-runtime-mpla-poc"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "libc",
+ "rustix 0.38.44",
+ "sandbox-runtime-overlay",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.18",
+ "uuid",
+]
+
+[[package]]
 name = "sandbox-runtime-namespace-execution"
 version = "0.1.0"
 dependencies = [
