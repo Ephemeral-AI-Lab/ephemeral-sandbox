@@ -6,6 +6,7 @@ use std::os::unix::fs::{FileExt, FileTypeExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 use crate::{PocError, PocResult};
 
@@ -26,6 +27,125 @@ pub struct ScanStats {
     pub bytes_read: u64,
     pub entry_count: u64,
     pub peak_open_data_fds: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SelectedPathScan {
+    pub records: Vec<SemanticRecord>,
+    pub bytes_read: u64,
+}
+
+pub fn scan_selected_paths(
+    root: &Path,
+    relative_paths: &[PathBuf],
+    work_dir: &Path,
+) -> PocResult<SelectedPathScan> {
+    validate_selected_paths(relative_paths)?;
+    std::fs::create_dir_all(work_dir)
+        .map_err(|error| PocError::io("create selected-path work directory", work_dir, error))?;
+    let scan_dir = work_dir.join(format!("selected-{}", Uuid::new_v4()));
+    std::fs::create_dir(&scan_dir)
+        .map_err(|error| PocError::io("create selected-path scan directory", &scan_dir, error))?;
+    let result = scan_selected_paths_in(root, relative_paths, &scan_dir);
+    let cleanup = std::fs::remove_dir_all(&scan_dir)
+        .map_err(|error| PocError::io("remove selected-path scan directory", &scan_dir, error));
+    match (result, cleanup) {
+        (Ok(scan), Ok(())) => Ok(scan),
+        (Err(error), _) => Err(error),
+        (Ok(_), Err(error)) => Err(error),
+    }
+}
+
+fn scan_selected_paths_in(
+    root: &Path,
+    relative_paths: &[PathBuf],
+    scan_dir: &Path,
+) -> PocResult<SelectedPathScan> {
+    let mut records = BoundedSpool::new(scan_dir.join("records"), 1024 * 1024)?;
+    let mut hardlinks = BoundedSpool::new(scan_dir.join("hardlinks"), 1024 * 1024)?;
+    let mut stats = ScanStats {
+        peak_open_data_fds: 3,
+        ..ScanStats::default()
+    };
+    for relative_path in relative_paths {
+        let relative = relative_path_bytes(relative_path)?;
+        let physical = root.join(relative_path);
+        let metadata = std::fs::symlink_metadata(&physical)
+            .map_err(|error| PocError::io("lstat selected semantic path", &physical, error))?;
+        if metadata.file_type().is_dir() {
+            return Err(PocError::Integrity(format!(
+                "selected semantic path is a directory: {}",
+                relative_path.display()
+            )));
+        }
+        if metadata.file_type().is_file() && metadata.nlink() > 1 {
+            return Err(PocError::Integrity(format!(
+                "receipt-hit selected path has hardlink aliases: {}",
+                relative_path.display()
+            )));
+        }
+        scan_node(
+            &physical,
+            &relative,
+            &metadata,
+            &mut records,
+            &mut hardlinks,
+            &mut stats,
+        )?;
+        stats.entry_count = stats.entry_count.saturating_add(1);
+    }
+    let hardlinks = hardlinks.finish()?;
+    if hardlinks.stats().records_out != 0 {
+        return Err(PocError::Integrity(
+            "receipt-hit selected scan produced hardlink claims".to_owned(),
+        ));
+    }
+    let sorted = records.finish()?;
+    let mut decoded = Vec::with_capacity(
+        usize::try_from(sorted.stats().records_out)
+            .map_err(|_| PocError::Integrity("selected record count overflow".to_owned()))?,
+    );
+    sorted.for_each(|_, payload| {
+        decoded.push(SemanticRecord::decode(payload)?);
+        Ok(())
+    })?;
+    Ok(SelectedPathScan {
+        records: decoded,
+        bytes_read: stats.bytes_read,
+    })
+}
+
+fn validate_selected_paths(paths: &[PathBuf]) -> PocResult<()> {
+    if paths.is_empty() || paths.len() > 64 {
+        return Err(PocError::Integrity(
+            "selected semantic path count is outside 1..=64".to_owned(),
+        ));
+    }
+    let mut previous = None;
+    for path in paths {
+        let bytes = relative_path_bytes(path)?;
+        if previous
+            .as_ref()
+            .is_some_and(|value: &Vec<u8>| value >= &bytes)
+        {
+            return Err(PocError::Integrity(
+                "selected semantic paths must be unique and byte-sorted".to_owned(),
+            ));
+        }
+        previous = Some(bytes);
+    }
+    Ok(())
+}
+
+fn relative_path_bytes(path: &Path) -> PocResult<Vec<u8>> {
+    if path.is_absolute() {
+        return Err(PocError::Integrity(
+            "selected semantic path must be relative".to_owned(),
+        ));
+    }
+    let bytes = path.as_os_str().as_bytes().to_vec();
+    validate_path(&bytes, false)?;
+    Ok(bytes)
 }
 
 pub fn scan_tree(

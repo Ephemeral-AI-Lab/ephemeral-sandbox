@@ -26,7 +26,7 @@ use crate::{
     PocResult, SemanticBuildReceipt, SemanticBuildRequest, SemanticPhaseSpan, SCHEMA_VERSION,
 };
 
-use self::record::RecordMutation;
+use self::record::{RecordMutation, SemanticRecord};
 use self::scan::ScanStats;
 use self::spool::{BoundedSpool, SpoolStats};
 use self::trie::{ImmutableObjectStore, TrieRoots};
@@ -81,6 +81,13 @@ pub struct IncrementalBuildOutput {
     pub prior_node_bytes_read: u64,
     pub immutable_payload_bytes_read: u64,
     pub resource_maxima: SemanticResourceMaxima,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AffectedPathSnapshot {
+    pub paths: Vec<PathBuf>,
+    pub records: Vec<SemanticRecord>,
+    pub payload_bytes_read: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -292,6 +299,72 @@ pub fn write_affected_stream(
         .sync_all()
         .map_err(|error| PocError::io("fsync affected semantic stream", path, error))?;
     sha256_file(path)
+}
+
+pub fn capture_affected_paths(
+    tree: &Path,
+    paths: &[PathBuf],
+    work_dir: &Path,
+) -> PocResult<AffectedPathSnapshot> {
+    let scanned = scan::scan_selected_paths(tree, paths, work_dir)?;
+    Ok(AffectedPathSnapshot {
+        paths: paths.to_vec(),
+        records: scanned.records,
+        payload_bytes_read: scanned.bytes_read,
+    })
+}
+
+pub fn write_affected_stream_from_snapshots(
+    path: &Path,
+    before: &AffectedPathSnapshot,
+    after: &AffectedPathSnapshot,
+) -> PocResult<String> {
+    if before.paths != after.paths {
+        return Err(PocError::Integrity(
+            "affected path snapshots name different path sets".to_owned(),
+        ));
+    }
+    let before = keyed_records(&before.records)?;
+    let after = keyed_records(&after.records)?;
+    let keys = before
+        .keys()
+        .chain(after.keys())
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
+    let mutations = keys
+        .into_iter()
+        .filter_map(|key| match (before.get(&key), after.get(&key)) {
+            (Some(old), Some(new)) if old == new => None,
+            (_, Some(new)) => Some(RecordMutation::Replace((*new).clone())),
+            (Some(old), None) => Some(RecordMutation::Delete {
+                canonical_key: old
+                    .canonical_key()
+                    .expect("validated semantic record has a canonical key"),
+            }),
+            (None, None) => None,
+        })
+        .collect::<Vec<_>>();
+    if mutations.is_empty() {
+        return Err(PocError::Integrity(
+            "affected path snapshots contain no semantic change".to_owned(),
+        ));
+    }
+    write_affected_stream(path, mutations)
+}
+
+fn keyed_records(
+    records: &[SemanticRecord],
+) -> PocResult<std::collections::BTreeMap<[u8; 32], &SemanticRecord>> {
+    let mut keyed = std::collections::BTreeMap::new();
+    for record in records {
+        let key = record.key_digest()?;
+        if keyed.insert(key, record).is_some() {
+            return Err(PocError::Integrity(
+                "affected path snapshot repeats a canonical key".to_owned(),
+            ));
+        }
+    }
+    Ok(keyed)
 }
 
 pub fn affected_stream_paths(path: &Path) -> PocResult<Vec<PathBuf>> {

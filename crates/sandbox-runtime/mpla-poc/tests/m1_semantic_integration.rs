@@ -7,7 +7,8 @@ use sandbox_runtime_mpla_poc::semantic::record::{
     RecordMutation, RecordStreamReader, SemanticRecord,
 };
 use sandbox_runtime_mpla_poc::semantic::{
-    build_incremental, build_with_output, materialize_record_stream, write_affected_stream,
+    affected_stream_paths, build_incremental, build_with_output, capture_affected_paths,
+    materialize_record_stream, write_affected_stream, write_affected_stream_from_snapshots,
     IncrementalBuildRequest, SemanticBuildOutput,
 };
 use sandbox_runtime_mpla_poc::{
@@ -164,6 +165,31 @@ fn incremental_input_fails_closed_when_completeness_or_prior_handle_is_invalid()
     missing_prior.affected_ranges_complete = true;
     missing_prior.prior_manifest = temporary.path.join("missing-prior-manifest");
     assert!(build_incremental(&missing_prior).is_err());
+}
+
+#[test]
+fn affected_path_snapshots_read_only_selected_payload_and_emit_exact_paths() {
+    let temporary = Temporary::new("semantic-affected-paths");
+    let tree = temporary.path.join("tree");
+    let work = temporary.path.join("work");
+    std::fs::create_dir(&tree).expect("test operation must succeed");
+    std::fs::write(tree.join("a"), vec![b'a'; 65_536]).expect("test operation must succeed");
+    std::fs::write(tree.join("b"), vec![b'b'; 65_536]).expect("test operation must succeed");
+    let paths = vec![PathBuf::from("a")];
+    let before = capture_affected_paths(&tree, &paths, &work)
+        .expect("selected before snapshot must succeed");
+    assert_eq!(before.payload_bytes_read, 65_536);
+    std::fs::write(tree.join("a"), vec![b'c'; 65_536]).expect("test operation must succeed");
+    let after =
+        capture_affected_paths(&tree, &paths, &work).expect("selected after snapshot must succeed");
+    assert_eq!(after.payload_bytes_read, 65_536);
+    let affected = temporary.path.join("affected.records");
+    write_affected_stream_from_snapshots(&affected, &before, &after)
+        .expect("selected diff must succeed");
+    assert_eq!(
+        affected_stream_paths(&affected).expect("affected paths must decode"),
+        paths
+    );
 }
 
 fn full_build(
