@@ -40,7 +40,8 @@ fn immutable_locator_generations_merge_and_preserve_reverse_accounting() {
         .install(&first, &mut NamedFaultInjector::default())
         .expect("install first generation");
     assert_eq!(first_receipt.generation, LocatorGeneration::INITIAL);
-    let second = locator_delta(2, "second");
+    let mut second = locator_delta(2, "second");
+    second.expected_parent = Some(first_receipt.generation);
     let second_receipt = store
         .install(&second, &mut NamedFaultInjector::default())
         .expect("install second generation");
@@ -50,6 +51,12 @@ fn immutable_locator_generations_merge_and_preserve_reverse_accounting() {
             .checked_next()
             .expect("next locator generation")
     );
+    let mut stale = locator_delta(3, "stale");
+    stale.expected_parent = Some(first_receipt.generation);
+    let error = store
+        .install(&stale, &mut NamedFaultInjector::default())
+        .expect_err("stale locator parent must fail");
+    assert!(matches!(error, PocError::OwnerConflict(_)));
 
     let selected = store.selected().expect("read selected").expect("selector");
     assert_eq!(selected.forward.len(), 2);

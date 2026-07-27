@@ -179,6 +179,15 @@ impl LocatorStore {
                 return Ok(current.receipt.clone());
             }
         }
+        if let Some(expected_parent) = delta.expected_parent {
+            let observed_parent = selected.as_ref().map(|current| current.receipt.generation);
+            if observed_parent != Some(expected_parent) {
+                return Err(PocError::OwnerConflict(format!(
+                    "locator expected parent {expected_parent}, observed {}",
+                    observed_parent.map_or_else(|| "none".to_owned(), |value| value.to_string())
+                )));
+            }
+        }
 
         let generation = selected
             .as_ref()
