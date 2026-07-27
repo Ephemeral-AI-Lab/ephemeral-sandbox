@@ -96,6 +96,7 @@ impl ManagedProcessTree {
                 "command admission is terminally fenced".to_owned(),
             ));
         }
+        ensure_child_subreaper()?;
         let started_unix_ms = unix_time_ms()?;
         let mut command = Command::new(program);
         command
@@ -174,6 +175,12 @@ impl ManagedProcessTree {
                 .map_err(|error| PocError::io("reap managed child", &self.workspace_root, error))?;
         }
         self.children.clear();
+        for process_group in &self.process_groups {
+            reap_process_group(*process_group)?;
+        }
+        for pid in &signaled {
+            reap_process(*pid)?;
+        }
         Ok(signaled.into_iter().collect())
     }
 
@@ -254,6 +261,79 @@ fn signal_process_group_allow_missing(process_group: u32, signal: i32) -> PocRes
 
 fn signal_pid_allow_missing(pid: i32, signal: i32) -> PocResult<()> {
     signal_raw(pid, signal, true)
+}
+
+#[cfg(target_os = "linux")]
+fn ensure_child_subreaper() -> PocResult<()> {
+    // SAFETY: `prctl` receives the fixed PR_SET_CHILD_SUBREAPER operation and
+    // integer enable flag. It does not retain or dereference user memory.
+    let result = unsafe { libc::prctl(libc::PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) };
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(PocError::io(
+            "enable managed child subreaper",
+            Path::new("/proc/self"),
+            std::io::Error::last_os_error(),
+        ))
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn ensure_child_subreaper() -> PocResult<()> {
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn reap_process_group(process_group: u32) -> PocResult<()> {
+    let group = i32::try_from(process_group).map_err(|_| {
+        PocError::Integrity(format!("process group {process_group} does not fit i32"))
+    })?;
+    reap_wait_target(-group, "reap managed process group")
+}
+
+#[cfg(not(target_os = "linux"))]
+fn reap_process_group(_process_group: u32) -> PocResult<()> {
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn reap_process(pid: i32) -> PocResult<()> {
+    reap_wait_target(pid, "reap managed process")
+}
+
+#[cfg(not(target_os = "linux"))]
+fn reap_process(_pid: i32) -> PocResult<()> {
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn reap_wait_target(target: i32, operation: &'static str) -> PocResult<()> {
+    let deadline = Instant::now() + TERM_GRACE;
+    loop {
+        let mut status = 0;
+        // SAFETY: `waitpid` writes only to the valid local status integer. The
+        // target is an exact adopted PID or a recorded process group.
+        let result =
+            unsafe { libc::waitpid(target, std::ptr::addr_of_mut!(status), libc::WNOHANG) };
+        if result > 0 {
+            continue;
+        }
+        if result == 0 {
+            if Instant::now() >= deadline {
+                return Err(PocError::RecoveryRequired(format!(
+                    "{operation} timed out for target {target}"
+                )));
+            }
+            thread::sleep(POLL_INTERVAL);
+            continue;
+        }
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() == Some(libc::ECHILD) {
+            return Ok(());
+        }
+        return Err(PocError::io(operation, Path::new("/proc"), error));
+    }
 }
 
 #[cfg(unix)]
@@ -413,6 +493,16 @@ fn mountinfo_has_mount(mountinfo_path: &Path, workspace_root: &Path) -> PocResul
         {
             return Ok(false);
         }
+        Err(error)
+            if error.raw_os_error() == Some(libc::EINVAL)
+                && process_is_zombie_or_gone(
+                    mountinfo_path
+                        .parent()
+                        .unwrap_or_else(|| Path::new("/proc")),
+                )? =>
+        {
+            return Ok(false);
+        }
         Err(error) => {
             return Err(PocError::io(
                 "audit process mountinfo",
@@ -427,6 +517,20 @@ fn mountinfo_has_mount(mountinfo_path: &Path, workspace_root: &Path) -> PocResul
             .nth(4)
             .is_some_and(|mountpoint| mountpoint == expected)
     }))
+}
+
+#[cfg(target_os = "linux")]
+fn process_is_zombie_or_gone(proc_root: &Path) -> PocResult<bool> {
+    let status_path = proc_root.join("status");
+    let status = match fs::read_to_string(&status_path) {
+        Ok(status) => status,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
+        Err(error) => return Err(PocError::io("audit process status", status_path, error)),
+    };
+    Ok(status
+        .lines()
+        .find_map(|line| line.strip_prefix("State:"))
+        .is_some_and(|state| state.trim_start().starts_with('Z')))
 }
 
 #[cfg(target_os = "linux")]
