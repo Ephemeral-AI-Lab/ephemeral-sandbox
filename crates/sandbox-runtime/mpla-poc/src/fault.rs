@@ -1,8 +1,27 @@
 use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{PocError, PocResult};
+use crate::{durable, unix_time_ms, PocError, PocResult, SCHEMA_VERSION};
+
+const PHYSICAL_POINT_ENV: &str = "MPLA_POC_PHYSICAL_FAULT_POINT";
+const PHYSICAL_ORDINAL_ENV: &str = "MPLA_POC_PHYSICAL_FAULT_ORDINAL";
+const PHYSICAL_ARMED_PATH_ENV: &str = "MPLA_POC_PHYSICAL_FAULT_ARMED_PATH";
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PhysicalFaultMarker {
+    pub schema_version: u32,
+    pub fault_point: NamedFaultPoint,
+    pub ordinal: u32,
+    pub process_id: u32,
+    pub post_sealing: bool,
+    pub operation_id: Option<String>,
+    pub durable_state_paths: Vec<PathBuf>,
+    pub mount_ids: Vec<u64>,
+    pub armed_unix_ms: u64,
+    pub marker_parent_synced: bool,
+}
 
 macro_rules! named_fault_points {
     ($($variant:ident => $name:literal),+ $(,)?) => {
@@ -139,6 +158,8 @@ impl FaultInjector {
 pub struct NamedFaultInjector {
     armed: BTreeSet<(NamedFaultPoint, u32)>,
     fired: BTreeSet<(NamedFaultPoint, u32)>,
+    physical_operation_id: Option<String>,
+    physical_state_paths: Vec<PathBuf>,
 }
 
 impl NamedFaultInjector {
@@ -147,7 +168,20 @@ impl NamedFaultInjector {
         Self {
             armed: points.into_iter().collect(),
             fired: BTreeSet::new(),
+            physical_operation_id: None,
+            physical_state_paths: Vec::new(),
         }
+    }
+
+    #[must_use]
+    pub fn with_physical_context(
+        mut self,
+        operation_id: impl Into<String>,
+        durable_state_paths: impl IntoIterator<Item = PathBuf>,
+    ) -> Self {
+        self.physical_operation_id = Some(operation_id.into());
+        self.physical_state_paths = durable_state_paths.into_iter().collect();
+        self
     }
 
     pub fn reach(
@@ -156,6 +190,13 @@ impl NamedFaultInjector {
         ordinal: u32,
         post_sealing: bool,
     ) -> PocResult<()> {
+        physical_reach(
+            point,
+            ordinal,
+            post_sealing,
+            self.physical_operation_id.as_deref(),
+            &self.physical_state_paths,
+        )?;
         if !self.armed.contains(&(point, ordinal)) || !self.fired.insert((point, ordinal)) {
             return Ok(());
         }
@@ -171,4 +212,135 @@ impl NamedFaultInjector {
     pub fn fired(&self, point: NamedFaultPoint, ordinal: u32) -> bool {
         self.fired.contains(&(point, ordinal))
     }
+}
+
+/// Stops a disposable physical fault child at an exact named protocol edge.
+///
+/// The marker is durably replaced before `SIGSTOP`, allowing the host
+/// supervisor to kill the stopped process without timing guesses. When the
+/// physical environment is absent or names another point this is a no-op.
+pub fn physical_reach(
+    point: NamedFaultPoint,
+    ordinal: u32,
+    post_sealing: bool,
+    operation_id: Option<&str>,
+    durable_state_paths: &[PathBuf],
+) -> PocResult<()> {
+    let Some(configured) = std::env::var_os(PHYSICAL_POINT_ENV) else {
+        return Ok(());
+    };
+    let configured = configured
+        .into_string()
+        .map_err(|_| PocError::InvalidConfig(format!("{PHYSICAL_POINT_ENV} is not UTF-8")))?;
+    let configured = NamedFaultPoint::parse(&configured)?;
+    let configured_ordinal = match std::env::var(PHYSICAL_ORDINAL_ENV) {
+        Ok(value) => value.parse::<u32>().map_err(|error| {
+            PocError::InvalidConfig(format!(
+                "{PHYSICAL_ORDINAL_ENV} must be a positive u32: {error}"
+            ))
+        })?,
+        Err(std::env::VarError::NotPresent) => 1,
+        Err(std::env::VarError::NotUnicode(_)) => {
+            return Err(PocError::InvalidConfig(format!(
+                "{PHYSICAL_ORDINAL_ENV} is not UTF-8"
+            )));
+        }
+    };
+    if configured_ordinal == 0 {
+        return Err(PocError::InvalidConfig(format!(
+            "{PHYSICAL_ORDINAL_ENV} must be positive"
+        )));
+    }
+    if configured != point || configured_ordinal != ordinal {
+        return Ok(());
+    }
+    let armed_path = std::env::var_os(PHYSICAL_ARMED_PATH_ENV)
+        .map(PathBuf::from)
+        .ok_or_else(|| {
+            PocError::InvalidConfig(format!(
+                "{PHYSICAL_ARMED_PATH_ENV} is required for a physical fault"
+            ))
+        })?;
+    let marker = PhysicalFaultMarker {
+        schema_version: SCHEMA_VERSION,
+        fault_point: point,
+        ordinal,
+        process_id: std::process::id(),
+        post_sealing,
+        operation_id: operation_id.map(str::to_owned),
+        durable_state_paths: durable_state_paths.to_vec(),
+        mount_ids: current_mount_ids(durable_state_paths)?,
+        armed_unix_ms: unix_time_ms()?,
+        marker_parent_synced: true,
+    };
+    durable::replace_json(&armed_path, &marker)?;
+    stop_self()?;
+    Err(if post_sealing {
+        PocError::RecoveryRequired(format!(
+            "physical fault process unexpectedly resumed after {} ordinal {ordinal}",
+            point.as_str()
+        ))
+    } else {
+        PocError::Integrity(format!(
+            "physical fault process unexpectedly resumed after {} ordinal {ordinal}",
+            point.as_str()
+        ))
+    })
+}
+
+fn current_mount_ids(paths: &[PathBuf]) -> PocResult<Vec<u64>> {
+    #[cfg(target_os = "linux")]
+    {
+        let mountinfo_path = Path::new("/proc/self/mountinfo");
+        let mountinfo = std::fs::read_to_string(mountinfo_path).map_err(|error| {
+            PocError::io("read physical fault mountinfo", mountinfo_path, error)
+        })?;
+        let mut ids = BTreeSet::new();
+        for line in mountinfo.lines() {
+            let mut fields = line.split_ascii_whitespace();
+            let Some(id) = fields.next().and_then(|field| field.parse::<u64>().ok()) else {
+                continue;
+            };
+            let Some(mount_path) = fields.nth(3) else {
+                continue;
+            };
+            let mount_path = Path::new(mount_path);
+            if paths
+                .iter()
+                .any(|path| path.starts_with(mount_path) || mount_path.starts_with(path))
+            {
+                ids.insert(id);
+            }
+        }
+        Ok(ids.into_iter().collect())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = paths;
+        Ok(Vec::new())
+    }
+}
+
+#[cfg(unix)]
+fn stop_self() -> PocResult<()> {
+    let process_id = i32::try_from(std::process::id())
+        .map_err(|_| PocError::Integrity("process ID does not fit in pid_t".to_owned()))?;
+    // SAFETY: SIGSTOP is sent only to this explicitly disposable fault child.
+    let result = unsafe { libc::kill(process_id, libc::SIGSTOP) };
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(PocError::io(
+            "SIGSTOP physical fault child",
+            Path::new("/proc/self"),
+            std::io::Error::last_os_error(),
+        ))
+    }
+}
+
+#[cfg(not(unix))]
+fn stop_self() -> PocResult<()> {
+    Err(PocError::InvalidConfig(
+        "physical fault SIGSTOP is unsupported on this platform".to_owned(),
+    ))
 }

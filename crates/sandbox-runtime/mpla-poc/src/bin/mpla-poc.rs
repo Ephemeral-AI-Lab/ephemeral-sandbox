@@ -5,7 +5,8 @@ use std::time::{Duration, Instant};
 use clap::{Parser, Subcommand, ValueEnum};
 use sandbox_runtime_mpla_poc::{
     bind_product_catalog, durable, populate_empty_fixture_root, prepare_fixture, qualify, report,
-    AllocationId, FixtureId, FixtureTier, PocConfig, QualificationRequest, RunId, SCHEMA_VERSION,
+    AllocationId, FixtureId, FixtureTier, NamedFaultPoint, PocConfig, QualificationRequest, RunId,
+    SCHEMA_VERSION,
 };
 use serde::{Deserialize, Serialize};
 
@@ -101,9 +102,19 @@ enum Command {
         suite: String,
     },
     Test {
+        #[arg(long)]
+        run_id: Option<String>,
         case: String,
         #[arg(long, default_value_t = 1)]
         samples: u32,
+    },
+    Crash {
+        #[arg(long)]
+        run_id: String,
+        #[arg(long)]
+        test: String,
+        #[arg(long)]
+        point: String,
     },
 }
 
@@ -277,14 +288,29 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if suite != "smoke" {
                 return Err(format!("unsupported suite {suite:?}; expected \"smoke\"").into());
             }
-            dispatch_campaign("suite", None, 1)?;
+            dispatch_campaign("suite", None, 1, None, None)?;
         }
-        Command::Test { case, samples } => {
+        Command::Test {
+            run_id,
+            case,
+            samples,
+        } => {
             validate_case(&case)?;
             if samples == 0 {
                 return Err("--samples must be positive".into());
             }
-            dispatch_campaign("test", Some(&case), samples)?;
+            dispatch_campaign("test", Some(&case), samples, run_id.as_deref(), None)?;
+        }
+        Command::Crash {
+            run_id,
+            test,
+            point,
+        } => {
+            if test != "HV-07" {
+                return Err(format!("unsupported crash test {test:?}; expected \"HV-07\"").into());
+            }
+            let point = NamedFaultPoint::parse(&point)?;
+            dispatch_campaign("crash", Some(&test), 1, Some(&run_id), Some(point.as_str()))?;
         }
     }
     Ok(())
@@ -516,26 +542,41 @@ fn validate_component(value: &str, label: &str) -> Result<(), Box<dyn std::error
 }
 
 fn validate_case(case: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let Some(number) = case.strip_prefix("SM-") else {
-        return Err(format!("invalid smoke case {case:?}").into());
-    };
-    let parsed: u8 = number.parse()?;
-    if !(1..=14).contains(&parsed) || format!("SM-{parsed:02}") != case {
-        return Err(format!("invalid smoke case {case:?}").into());
+    if let Some(number) = case.strip_prefix("SM-") {
+        let parsed: u8 = number.parse()?;
+        if (1..=14).contains(&parsed) && format!("SM-{parsed:02}") == case {
+            return Ok(());
+        }
     }
-    Ok(())
+    if matches!(case, "HV-06" | "HV-09") {
+        return Ok(());
+    }
+    Err(format!("unsupported test case {case:?}").into())
 }
 
 fn dispatch_campaign(
     mode: &str,
     case: Option<&str>,
     samples: u32,
+    run_id: Option<&str>,
+    fault_point: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let test_binary = std::env::var_os("MPLA_POC_CAMPAIGN_TEST_BIN")
-        .ok_or("MPLA_POC_CAMPAIGN_TEST_BIN is required for suite/test dispatch")?;
+    let heavy = case.is_some_and(|case| case.starts_with("HV-"));
+    let binary_variable = if heavy {
+        "MPLA_POC_HEAVY_CAMPAIGN_TEST_BIN"
+    } else {
+        "MPLA_POC_CAMPAIGN_TEST_BIN"
+    };
+    let test_binary = std::env::var_os(binary_variable)
+        .ok_or_else(|| format!("{binary_variable} is required for campaign dispatch"))?;
+    let exact_test = if heavy {
+        "m2_heavy_campaign"
+    } else {
+        "m1_smoke_campaign"
+    };
     let mut command = ProcessCommand::new(test_binary);
     command
-        .args(["--ignored", "--exact", "m1_smoke_campaign", "--nocapture"])
+        .args(["--ignored", "--exact", exact_test, "--nocapture"])
         .env("MPLA_POC_CAMPAIGN_MODE", mode)
         .env("MPLA_POC_SAMPLES", samples.to_string())
         .stdin(Stdio::null())
@@ -546,10 +587,23 @@ fn dispatch_campaign(
     } else {
         command.env_remove("MPLA_POC_CASE_FILTER");
     }
+    if let Some(run_id) = run_id {
+        RunId::parse(run_id)?;
+        command.env("MPLA_POC_RUN_ID", run_id);
+    }
+    if let Some(fault_point) = fault_point {
+        command.env("MPLA_POC_FAULT_POINT", fault_point);
+    } else {
+        command.env_remove("MPLA_POC_FAULT_POINT");
+    }
 
     let mut child = command.spawn()?;
     let started = Instant::now();
-    let hard_stop = Duration::from_secs(179);
+    let hard_stop = if heavy {
+        Duration::from_secs(600)
+    } else {
+        Duration::from_secs(179)
+    };
     loop {
         if let Some(status) = child.try_wait()? {
             if status.success() {
@@ -560,7 +614,11 @@ fn dispatch_campaign(
         if started.elapsed() >= hard_stop {
             child.kill()?;
             let _ = child.wait();
-            return Err("physical campaign exceeded the 179-second hard stop".into());
+            return Err(format!(
+                "physical campaign exceeded the {}-second hard stop",
+                hard_stop.as_secs()
+            )
+            .into());
         }
         std::thread::sleep(Duration::from_millis(20));
     }

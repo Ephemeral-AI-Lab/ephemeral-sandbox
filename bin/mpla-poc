@@ -5,7 +5,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
 
 if [[ $# -eq 0 ]]; then
-  echo "usage: mpla-poc build|config|qualification ..." >&2
+  echo "usage: mpla-poc build|config|qualification|suite|test|crash|evidence-seal|evidence-verify ..." >&2
   exit 64
 fi
 
@@ -16,11 +16,8 @@ case "${command_name}" in
   build)
     exec cargo build --manifest-path "${repo_root}/Cargo.toml" -p sandbox-runtime-mpla-poc "$@"
     ;;
-  config)
-    exec cargo run --quiet --manifest-path "${repo_root}/Cargo.toml" -p sandbox-runtime-mpla-poc -- config "$@"
-    ;;
-  qualification)
-    exec cargo run --quiet --manifest-path "${repo_root}/Cargo.toml" -p sandbox-runtime-mpla-poc -- qualification "$@"
+  config|qualification|suite|test|crash|evidence-seal|evidence-verify|catalog-bind|fixture-prepare|fixture-populate|lifecycle-metadata)
+    exec cargo run --quiet --manifest-path "${repo_root}/Cargo.toml" -p sandbox-runtime-mpla-poc -- "${command_name}" "$@"
     ;;
   *)
     echo "unsupported mpla-poc command: ${command_name}" >&2

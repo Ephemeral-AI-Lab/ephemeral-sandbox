@@ -53,7 +53,10 @@ pub use evidence_schema::{
     ArtifactStatus, EnvironmentReceipt, InodeWitness, PhysicalSnapshot, ProbeReceipt, ProbeStatus,
     QualificationReceipt,
 };
-pub use fault::{FaultInjector, FaultPoint, NamedFaultInjector, NamedFaultPoint};
+pub use fault::{
+    physical_reach, FaultInjector, FaultPoint, NamedFaultInjector, NamedFaultPoint,
+    PhysicalFaultMarker,
+};
 pub use fixtures::{
     fixture_plan, populate_empty_fixture_root, prepare_fixture, FixtureId, FixturePlan,
     FixtureReceipt, FixtureTier,
