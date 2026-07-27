@@ -2970,9 +2970,9 @@ fn full_build(
     label: &str,
 ) -> CampaignResult<SemanticBuildOutput> {
     fs::create_dir_all(canonical_object_dir)?;
-    let spool_dir = campaign_root
-        .join("spool")
-        .join(format!("{label}-{}", OperationId::new()));
+    let spool_root = campaign_root.join("spool");
+    fs::create_dir_all(&spool_root)?;
+    let spool_dir = spool_root.join(format!("{label}-{}", OperationId::new()));
     Ok(build_with_output(&SemanticBuildRequest {
         schema_version: SCHEMA_VERSION,
         operation_id: OperationId::from_string(label),
