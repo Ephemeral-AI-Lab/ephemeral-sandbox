@@ -26,6 +26,8 @@ enum Command {
         catalog: PathBuf,
         #[arg(long)]
         build_commit: String,
+        #[arg(long, default_value_t = false)]
+        refresh_catalog: bool,
         #[arg(long)]
         output: Option<PathBuf>,
     },
@@ -174,8 +176,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             exporter,
             catalog,
             build_commit,
+            refresh_catalog,
             output,
         } => {
+            if refresh_catalog {
+                refresh_product_catalog(&exporter, &catalog)?;
+            }
             let binding = bind_product_catalog(&exporter, &catalog, &build_commit)?;
             if let Some(output) = output {
                 durable::replace_json(&output, &binding)?;
@@ -352,6 +358,24 @@ fn run_lifecycle_metadata(
     };
     durable::replace_json(&outcome_path, &receipt)?;
     Ok(receipt)
+}
+
+fn refresh_product_catalog(
+    exporter: &std::path::Path,
+    catalog: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let output = ProcessCommand::new(exporter).output()?;
+    if !output.status.success() {
+        return Err(format!(
+            "product catalog exporter failed with status {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        )
+        .into());
+    }
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    durable::replace_json(catalog, &value)?;
+    Ok(())
 }
 
 fn apply_lifecycle_metadata(
