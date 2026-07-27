@@ -17,6 +17,7 @@ const JOURNAL_FRAME_VERSION: u32 = 1;
 const JOURNAL_HEADER_BYTES: usize = 16;
 const MAX_JOURNAL_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_JOURNAL_RECORD_BYTES: usize = 1024 * 1024;
+const AFTER_LEASE_FENCE_FAULT: &str = ".fault-after-lease-fence";
 const BEFORE_SELECTOR_FAULT: &str = ".fault-before-owner-selector-replace";
 const AFTER_SELECTOR_FAULT: &str = ".fault-after-owner-selector-replace";
 
@@ -282,6 +283,14 @@ fn adopt_workspace_owner(
     }
 
     crate::lease::fence_for_adoption_locked(allocation_root, request)?;
+    if owner_dir(allocation_root)
+        .join(AFTER_LEASE_FENCE_FAULT)
+        .exists()
+    {
+        return Err(PocError::RecoveryRequired(
+            "injected failure after durable lease fence".to_owned(),
+        ));
+    }
     let new_owner = OwnerGeneration {
         schema_version: SCHEMA_VERSION,
         allocation_id: request.allocation_id.clone(),
