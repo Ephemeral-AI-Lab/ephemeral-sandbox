@@ -219,7 +219,7 @@ pub fn prepare() -> CampaignResult {
     ] {
         let operation_id =
             OperationId::from_string(format!("{}-prepare-{}", roots.run_id, fixture_id.as_str()));
-        let allocation = create_allocation(&roots.payload_root, &operation_id)?;
+        let allocation = create_allocation(&roots.payload_root.join("allocations"), &operation_id)?;
         let fixture =
             populate_empty_fixture_root(&allocation.upper_dir, fixture_id, FixtureTier::Smoke)?;
         let semantic = if matches!(fixture_id, FixtureId::S1Code | FixtureId::S2Large) {
@@ -411,7 +411,7 @@ fn sm_01(context: &Context) -> CampaignResult<CaseExecution> {
 
 fn sm_02(context: &Context) -> CampaignResult<CaseExecution> {
     let operation_id = OperationId::from_string(format!("{}-sm02", context.run_id));
-    let allocation = create_allocation(&context.payload_root, &operation_id)?;
+    let allocation = create_allocation(&context.arena_root(), &operation_id)?;
     let allocation_id = allocation.descriptor.allocation_id.clone();
     let lease = issue_workspace_lease(&allocation, SessionId::new(), &operation_id)?;
     let mut session = sandbox_runtime_mpla_poc::MplaSession::open(
@@ -428,13 +428,13 @@ fn sm_02(context: &Context) -> CampaignResult<CaseExecution> {
         Duration::from_secs(2),
     )?;
     drop(session);
-    destroy_workspace_allocation(&context.payload_root, &allocation_id, &lease.deleter)?;
+    destroy_workspace_allocation(&context.arena_root(), &allocation_id, &lease.deleter)?;
     Ok(CaseExecution {
         assertions: vec![
             assertion("exec_success", command.success, command.success, true),
             assertion(
                 "allocation_cleaned",
-                open_allocation(&context.payload_root, &allocation_id).is_err(),
+                open_allocation(&context.arena_root(), &allocation_id).is_err(),
                 "absent",
                 "absent",
             ),
@@ -449,7 +449,7 @@ fn sm_03(context: &Context) -> CampaignResult<CaseExecution> {
         .semantic
         .as_ref()
         .ok_or("S1 preparation has no semantic state")?;
-    let allocation = open_allocation(&context.payload_root, &fixture.allocation_id)?;
+    let allocation = open_allocation(&context.arena_root(), &fixture.allocation_id)?;
     let allocation_path = allocation.allocation_root.clone();
     let operation_id = OperationId::from_string(format!("{}-sm03-publish", context.run_id));
     let publication_id = PublicationId::from_string(format!("{}-sm03", context.run_id));
@@ -618,7 +618,7 @@ fn sm_03(context: &Context) -> CampaignResult<CaseExecution> {
 
 fn sm_04(context: &Context) -> CampaignResult<CaseExecution> {
     let fixture = context.fixture(FixtureId::S1Code)?;
-    let allocation = open_allocation(&context.payload_root, &fixture.allocation_id)?;
+    let allocation = open_allocation(&context.arena_root(), &fixture.allocation_id)?;
     let lease_path = allocation.owner_dir.join("LEASE");
     let permissions = fs::metadata(&allocation.upper_dir)?.permissions();
     fs::set_permissions(&allocation.upper_dir, fs::Permissions::from_mode(0o000))?;
@@ -682,7 +682,7 @@ fn sm_05(context: &Context) -> CampaignResult<CaseExecution> {
             selected_ref: published.selected_ref.clone(),
             recipe: recipe.clone(),
             payload_allocations: vec![published.allocation.clone()],
-            arena_root: context.payload_root.clone(),
+            arena_root: context.arena_root(),
             control_root: context.control_root.clone(),
             cgroup_procs_path: context.cgroup_procs_path.clone(),
             readiness_program: PathBuf::from("/bin/sh"),
@@ -702,7 +702,7 @@ fn sm_05(context: &Context) -> CampaignResult<CaseExecution> {
             .clone();
         let deleter = activated.session.mutable_lease().deleter.clone();
         drop(activated);
-        destroy_workspace_allocation(&context.payload_root, &allocation_id, &deleter)?;
+        destroy_workspace_allocation(&context.arena_root(), &allocation_id, &deleter)?;
     }
     let measured = &durations[1..];
     Ok(CaseExecution {
@@ -727,7 +727,7 @@ fn sm_05(context: &Context) -> CampaignResult<CaseExecution> {
 fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
     let initial: PublishedSemanticState =
         durable::read_json(&context.campaign_root().join("SM03_STATE.json"))?;
-    let base = open_allocation(&context.payload_root, &initial.allocation_id)?;
+    let base = open_allocation(&context.arena_root(), &initial.allocation_id)?;
     let mut prior = initial.semantic;
     let mut selected_ref = initial.selected_ref;
     let mut recent = Vec::<AllocationHandle>::new();
@@ -770,7 +770,7 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
             selected_ref: selected_ref.clone(),
             recipe,
             payload_allocations,
-            arena_root: context.payload_root.clone(),
+            arena_root: context.arena_root(),
             control_root: context.control_root.clone(),
             cgroup_procs_path: context.cgroup_procs_path.clone(),
             readiness_program: PathBuf::from("/bin/sh"),
@@ -913,7 +913,7 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
         selected_ref: selected_ref.clone(),
         recipe,
         payload_allocations,
-        arena_root: context.payload_root.clone(),
+        arena_root: context.arena_root(),
         control_root: context.control_root.clone(),
         cgroup_procs_path: context.cgroup_procs_path.clone(),
         readiness_program: PathBuf::from("/bin/sh"),
@@ -946,7 +946,7 @@ fn sm_06(context: &Context) -> CampaignResult<CaseExecution> {
     })?;
     drop(validation);
     destroy_workspace_allocation(
-        &context.payload_root,
+        &context.arena_root(),
         &validation_allocation_id,
         &validation_deleter,
     )?;
@@ -1027,7 +1027,7 @@ fn sm_07(context: &Context) -> CampaignResult<CaseExecution> {
         .semantic
         .clone()
         .ok_or("SM-07 prepared semantic state is missing")?;
-    let allocation = open_allocation(&context.payload_root, &fixture.allocation_id)?;
+    let allocation = open_allocation(&context.arena_root(), &fixture.allocation_id)?;
     let operation_id = OperationId::from_string(format!("{}-sm07-publish", context.run_id));
     let publication_id = PublicationId::from_string(format!("{}-sm07", context.run_id));
     let lease = issue_workspace_lease(&allocation, SessionId::new(), &operation_id)?;
@@ -1170,7 +1170,7 @@ fn sm_07(context: &Context) -> CampaignResult<CaseExecution> {
 
 fn sm_08(context: &Context) -> CampaignResult<CaseExecution> {
     let fixture = context.fixture(FixtureId::S3Small)?;
-    let allocation = open_allocation(&context.payload_root, &fixture.allocation_id)?;
+    let allocation = open_allocation(&context.arena_root(), &fixture.allocation_id)?;
     let started = Instant::now();
     let output = full_build(
         &context
@@ -1213,7 +1213,7 @@ fn sm_08(context: &Context) -> CampaignResult<CaseExecution> {
 
 fn sm_09(context: &Context) -> CampaignResult<CaseExecution> {
     let fixture = context.fixture(FixtureId::S5Semantics)?;
-    let allocation = open_allocation(&context.payload_root, &fixture.allocation_id)?;
+    let allocation = open_allocation(&context.arena_root(), &fixture.allocation_id)?;
     let operation_id = OperationId::from_string(format!("{}-sm09-publish", context.run_id));
     let publication_id = PublicationId::from_string(format!("{}-sm09", context.run_id));
     let lease = issue_workspace_lease(&allocation, SessionId::new(), &operation_id)?;
@@ -1262,7 +1262,7 @@ fn sm_09(context: &Context) -> CampaignResult<CaseExecution> {
 
     let substitute_operation =
         OperationId::from_string(format!("{}-sm09-substitute-allocation", context.run_id));
-    let substitute = create_allocation(&context.payload_root, &substitute_operation)?;
+    let substitute = create_allocation(&context.arena_root(), &substitute_operation)?;
     let substitute_lease =
         issue_workspace_lease(&substitute, SessionId::new(), &substitute_operation)?;
     copy_tree_test_only(&allocation.upper_dir, &substitute.upper_dir)?;
@@ -1278,7 +1278,7 @@ fn sm_09(context: &Context) -> CampaignResult<CaseExecution> {
         Path::new("tree/d0000/node-00000000.bin"),
     )?;
     destroy_workspace_allocation(
-        &context.payload_root,
+        &context.arena_root(),
         &substitute.descriptor.allocation_id,
         &substitute_lease.deleter,
     )?;
@@ -1912,7 +1912,7 @@ fn run_sm12_owner_edge(
 ) -> CampaignResult<Value> {
     let operation_id = OperationId::from_string(format!("{}-sm12-{edge}", context.run_id));
     let publication_id = PublicationId::from_string(format!("{}-sm12-{edge}", context.run_id));
-    let allocation = create_allocation(&context.payload_root, &operation_id)?;
+    let allocation = create_allocation(&context.arena_root(), &operation_id)?;
     let lease = issue_workspace_lease(&allocation, SessionId::new(), &operation_id)?;
     let payload_path = allocation.upper_dir.join("sm12.txt");
     let mut payload = File::create(&payload_path)?;
@@ -2126,7 +2126,7 @@ fn prepare_sm12_recovery_candidate(
 ) -> CampaignResult<Sm12RecoveryCandidate> {
     let operation_id = OperationId::from_string(format!("{}-sm12-{edge}", context.run_id));
     let publication_id = PublicationId::from_string(format!("{}-sm12-{edge}", context.run_id));
-    let allocation = create_allocation(&context.payload_root, &operation_id)?;
+    let allocation = create_allocation(&context.arena_root(), &operation_id)?;
     let lease = issue_workspace_lease(&allocation, SessionId::new(), &operation_id)?;
     let mut session = sandbox_runtime_mpla_poc::MplaSession::open(
         &context.control_root,
@@ -2414,22 +2414,17 @@ fn sm_13(context: &Context) -> CampaignResult<CaseExecution> {
 }
 
 fn sm13_leak_counts(context: &Context) -> CampaignResult<sandbox_runtime_mpla_poc::LeakCounts> {
-    let allocations = context.payload_root.join("allocations");
-    let active_leases = if allocations.exists() {
-        fs::read_dir(&allocations)?
-            .filter_map(Result::ok)
-            .filter_map(|entry| {
-                let lease = entry.path().join("owner/LEASE");
-                lease
-                    .exists()
-                    .then(|| durable::read_json::<Value>(&lease).ok())
-                    .flatten()
-            })
-            .filter(|lease| lease["active"].as_bool() == Some(true))
-            .count()
-    } else {
-        0
-    };
+    let active_leases = allocation_roots(&context.arena_root())?
+        .iter()
+        .filter_map(|allocation_root| {
+            let lease = allocation_root.join("owner/LEASE");
+            lease
+                .exists()
+                .then(|| durable::read_json::<Value>(&lease).ok())
+                .flatten()
+        })
+        .filter(|lease| lease["active"].as_bool() == Some(true))
+        .count();
     let mountinfo = fs::read_to_string("/proc/self/mountinfo")?;
     let active_mounts = mountinfo
         .lines()
@@ -2460,7 +2455,7 @@ fn sm_14(context: &Context) -> CampaignResult<CaseExecution> {
     let catalog_binding: CatalogBinding = durable::read_json(&context.catalog_binding_path)?;
     let operation_id = OperationId::from_string(format!("{}-sm14-publication", context.run_id));
     let publication_id = PublicationId::from_string(format!("{}-sm14", context.run_id));
-    let allocation = create_allocation(&context.payload_root, &operation_id)?;
+    let allocation = create_allocation(&context.arena_root(), &operation_id)?;
     let created_allocation_id = allocation.descriptor.allocation_id.clone();
     let fixture = populate_empty_fixture_root(
         &allocation.upper_dir,
@@ -2584,7 +2579,7 @@ fn sm_14(context: &Context) -> CampaignResult<CaseExecution> {
             selected_ref: selected_ref.clone(),
             recipe: recipe.clone(),
             payload_allocations: vec![allocation.clone()],
-            arena_root: context.payload_root.clone(),
+            arena_root: context.arena_root(),
             control_root: context.control_root.clone(),
             cgroup_procs_path: context.cgroup_procs_path.clone(),
             readiness_program: PathBuf::from("/bin/sh"),
@@ -2613,7 +2608,7 @@ fn sm_14(context: &Context) -> CampaignResult<CaseExecution> {
             .clone();
         let deleter = activated.session.mutable_lease().deleter.clone();
         drop(activated);
-        destroy_workspace_allocation(&context.payload_root, &fresh_id, &deleter)?;
+        destroy_workspace_allocation(&context.arena_root(), &fresh_id, &deleter)?;
         fresh_activation_ids.push(fresh_id);
     }
 
@@ -2728,7 +2723,7 @@ fn sm_14(context: &Context) -> CampaignResult<CaseExecution> {
     let mountinfo = fs::read_to_string("/proc/self/mountinfo")?;
     let no_sm14_mount = fresh_activation_ids.iter().all(|allocation_id| {
         !mountinfo.contains(allocation_id.as_str())
-            && open_allocation(&context.payload_root, allocation_id).is_err()
+            && open_allocation(&context.arena_root(), allocation_id).is_err()
     });
     Ok(CaseExecution {
         assertions: vec![
@@ -2953,16 +2948,32 @@ fn invoke_lifecycle_cli(
 }
 
 fn allocation_directory_count(payload_root: &Path) -> CampaignResult<u64> {
-    let allocations = payload_root.join("allocations");
-    if !allocations.exists() {
-        return Ok(0);
-    }
     Ok(u64::try_from(
-        fs::read_dir(allocations)?
-            .filter_map(Result::ok)
-            .filter(|entry| entry.file_type().is_ok_and(|file_type| file_type.is_dir()))
-            .count(),
+        allocation_roots(&payload_root.join("allocations"))?.len(),
     )?)
+}
+
+fn allocation_roots(arena_root: &Path) -> CampaignResult<Vec<PathBuf>> {
+    if !arena_root.exists() {
+        return Ok(Vec::new());
+    }
+    let mut roots = Vec::new();
+    for prefix in fs::read_dir(arena_root)? {
+        let prefix = prefix?;
+        if !prefix.file_type()?.is_dir() {
+            continue;
+        }
+        for allocation in fs::read_dir(prefix.path())? {
+            let allocation = allocation?;
+            let allocation_root = allocation.path();
+            if allocation.file_type()?.is_dir() && allocation_root.join("ALLOCATION.json").is_file()
+            {
+                roots.push(allocation_root);
+            }
+        }
+    }
+    roots.sort();
+    Ok(roots)
 }
 
 fn full_build(
@@ -3081,7 +3092,7 @@ fn install_locator(
 
 fn published_s1(context: &Context) -> CampaignResult<Published> {
     let fixture = context.fixture(FixtureId::S1Code)?;
-    let allocation = open_allocation(&context.payload_root, &fixture.allocation_id)?;
+    let allocation = open_allocation(&context.arena_root(), &fixture.allocation_id)?;
     let store = PairedRefStore::open(
         context
             .control_root
@@ -3105,7 +3116,7 @@ fn prepare_sm10_candidate(
 ) -> CampaignResult<(OccOwnedCandidate, Sm10Timeline)> {
     let prior: PublishedSemanticState =
         durable::read_json(&context.campaign_root().join("SM03_STATE.json"))?;
-    let base = open_allocation(&context.payload_root, &prior.allocation_id)?;
+    let base = open_allocation(&context.arena_root(), &prior.allocation_id)?;
     let operation_id = OperationId::from_string(format!("{}-sm10-agent-{agent}", context.run_id));
     let publication_id =
         PublicationId::from_string(format!("{}-sm10-agent-{agent}", context.run_id));
@@ -3124,7 +3135,7 @@ fn prepare_sm10_candidate(
             recent_delta_ids: Vec::new(),
         },
         payload_allocations: vec![base],
-        arena_root: context.payload_root.clone(),
+        arena_root: context.arena_root(),
         control_root: context.control_root.clone(),
         cgroup_procs_path: context.cgroup_procs_path.clone(),
         readiness_program: PathBuf::from("/bin/sh"),
@@ -3237,7 +3248,7 @@ fn prepare_occ_candidate(
 ) -> CampaignResult<OccOwnedCandidate> {
     let operation_id = OperationId::from_string(format!("{}-sm11-{label}", context.run_id));
     let publication_id = PublicationId::from_string(format!("{}-sm11-{label}", context.run_id));
-    let allocation = create_allocation(&context.payload_root, &operation_id)?;
+    let allocation = create_allocation(&context.arena_root(), &operation_id)?;
     let lease = issue_workspace_lease(&allocation, SessionId::new(), &operation_id)?;
     let mut session = sandbox_runtime_mpla_poc::MplaSession::open(
         &context.control_root,
@@ -3324,7 +3335,7 @@ fn build_tiny_delta_carrier(
 ) -> CampaignResult<AllocationHandle> {
     let operation_id =
         OperationId::from_string(format!("{}-sm06-carrier-{delta_count:02}", context.run_id));
-    let allocation = create_allocation(&context.payload_root, &operation_id)?;
+    let allocation = create_allocation(&context.arena_root(), &operation_id)?;
     let lease = issue_workspace_lease(&allocation, SessionId::new(), &operation_id)?;
     let mut session = sandbox_runtime_mpla_poc::MplaSession::open(
         &context.control_root,
@@ -3613,6 +3624,10 @@ impl Context {
         self.control_root
             .join("campaign")
             .join(self.run_id.as_str())
+    }
+
+    fn arena_root(&self) -> PathBuf {
+        self.payload_root.join("allocations")
     }
 
     fn raw_session_lower_dirs(&self) -> Vec<PathBuf> {
