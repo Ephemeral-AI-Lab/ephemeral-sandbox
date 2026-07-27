@@ -21,6 +21,11 @@ pub const DESTROY_WORKSPACE_SESSION: RoutedOperation = RoutedOperation {
     routing: RUNTIME_OWNED,
 };
 
+pub const MPLA_STORAGE_ADMIN: RoutedOperation = RoutedOperation {
+    spec: &MPLA_STORAGE_ADMIN_SPEC,
+    routing: RUNTIME_OWNED,
+};
+
 pub const WORKSPACE_SESSION_FAMILY: OperationFamilySpec = OperationFamilySpec {
     id: "workspace_session",
     title: "Workspace session",
@@ -93,3 +98,22 @@ const DESTROY_WORKSPACE_SESSION_ARGS: &[ArgSpec] = &[
         None,
     ),
 ];
+
+pub const MPLA_STORAGE_ADMIN_SPEC: OperationSpec = OperationSpec {
+    name: "mpla_storage_admin",
+    family: "workspace_session",
+    summary: "Run one authenticated MPLA storage lifecycle action.",
+    description: "Submit one m2r-iface-v1 storage lifecycle request for a live explicit workspace session. The daemon authenticates and binds the request to the sandbox, workspace session, allocation, lease, mount namespace, and exact MPLA roots before invoking the fixed mpla-storage-admin-v1 executable. Caller-selected executables, capabilities, syscalls, or path widening are never accepted.",
+    args: MPLA_STORAGE_ADMIN_ARGS,
+    related: &[
+        "create_workspace_session",
+        "destroy_workspace_session",
+        "exec_command",
+    ],
+};
+
+const MPLA_STORAGE_ADMIN_ARGS: &[ArgSpec] = &[ArgSpec::required(
+    "request_json",
+    ArgKind::String,
+    "Exact m2r-iface-v1 StorageAdminRequest JSON. Authority is reconstructed from server-owned state.",
+)];

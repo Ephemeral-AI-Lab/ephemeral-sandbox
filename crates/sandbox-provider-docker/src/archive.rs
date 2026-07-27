@@ -19,11 +19,14 @@ const DAEMON_BINARY_MODE: u32 = 0o755;
 const CONFIG_FILE_MODE: u32 = 0o644;
 const DIRECTORY_MODE: u32 = 0o755;
 
-/// Build a tar archive carrying the Linux daemon binary and config YAML at their
-/// container paths, plus every parent directory entry they require.
+/// Build a tar archive carrying the Linux daemon, the dedicated MPLA storage
+/// administrator, and config YAML at their container paths, plus every parent
+/// directory entry they require.
 pub fn build_install_archive(
     daemon_binary_container_path: &Path,
     daemon_binary: &[u8],
+    storage_admin_container_path: &Path,
+    storage_admin_binary: &[u8],
     config_container_path: &Path,
     config_yaml: &[u8],
 ) -> io::Result<Bytes> {
@@ -33,6 +36,13 @@ pub fn build_install_archive(
         &mut builder,
         daemon_binary_container_path,
         daemon_binary,
+        DAEMON_BINARY_MODE,
+    )?;
+    append_parent_dirs(&mut builder, storage_admin_container_path)?;
+    append_file(
+        &mut builder,
+        storage_admin_container_path,
+        storage_admin_binary,
         DAEMON_BINARY_MODE,
     )?;
     append_parent_dirs(&mut builder, config_container_path)?;

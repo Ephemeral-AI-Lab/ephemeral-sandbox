@@ -1,7 +1,8 @@
 use sandbox_operation_catalog::internal;
 use sandbox_operation_catalog::runtime::{
     CREATE_WORKSPACE_SESSION_SPEC, DESTROY_WORKSPACE_SESSION_SPEC, EXEC_COMMAND_SPEC,
-    FILE_EDIT_SPEC, FILE_WRITE_SPEC, PUBLISH_WORKSPACE_SESSION_SPEC, WRITE_STDIN_SPEC,
+    FILE_EDIT_SPEC, FILE_WRITE_SPEC, MPLA_STORAGE_ADMIN_SPEC, PUBLISH_WORKSPACE_SESSION_SPEC,
+    WRITE_STDIN_SPEC,
 };
 use sandbox_operation_contract::{OperationRequest, OperationResponse, OperationScope};
 
@@ -43,6 +44,7 @@ fn is_mutation(operation: &str) -> bool {
         CREATE_WORKSPACE_SESSION_SPEC.name,
         PUBLISH_WORKSPACE_SESSION_SPEC.name,
         DESTROY_WORKSPACE_SESSION_SPEC.name,
+        MPLA_STORAGE_ADMIN_SPEC.name,
         internal::runtime::SQUASH_LAYERSTACK,
     ]
     .contains(&operation)

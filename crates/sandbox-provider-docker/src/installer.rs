@@ -5,6 +5,7 @@
 use std::collections::HashSet;
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::net::{Shutdown, TcpStream};
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crate::archive::build_install_archive;
@@ -18,6 +19,10 @@ use sandbox_manager::{
 
 const ARCHIVE_ROOT: &str = "/";
 const READINESS_IO_TIMEOUT: Duration = Duration::from_millis(250);
+const DAEMON_ARTIFACT_PREFIX: &str = "sandbox-daemon";
+const STORAGE_ADMIN_ARTIFACT_PREFIX: &str = "mpla-storage-admin-v1";
+const STORAGE_ADMIN_CONTAINER_PATH: &str =
+    "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1";
 
 /// Docker-backed daemon installer.
 pub struct DockerSandboxDaemonInstaller {
@@ -43,6 +48,14 @@ impl SandboxDaemonInstaller for DockerSandboxDaemonInstaller {
                 config.daemon_binary_path.display()
             ))
         })?;
+        let storage_admin_binary_path =
+            storage_admin_binary_path(&config.daemon_binary_path).map_err(daemon_install_failed)?;
+        let storage_admin_binary = std::fs::read(&storage_admin_binary_path).map_err(|error| {
+            daemon_install_failed(format!(
+                "read storage administrator binary {}: {error}",
+                storage_admin_binary_path.display()
+            ))
+        })?;
         let config_yaml = std::fs::read(&config.daemon_config_yaml_path).map_err(|error| {
             daemon_install_failed(format!(
                 "read daemon config {}: {error}",
@@ -52,6 +65,8 @@ impl SandboxDaemonInstaller for DockerSandboxDaemonInstaller {
         let archive = build_install_archive(
             &config.container_daemon_binary_path,
             &daemon_binary,
+            Path::new(STORAGE_ADMIN_CONTAINER_PATH),
+            &storage_admin_binary,
             &config.container_daemon_config_yaml_path,
             &config_yaml,
         )
@@ -144,6 +159,27 @@ impl SandboxDaemonInstaller for DockerSandboxDaemonInstaller {
             )
         })
     }
+}
+
+fn storage_admin_binary_path(daemon_binary_path: &Path) -> Result<PathBuf, String> {
+    let file_name = daemon_binary_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| {
+            format!(
+                "daemon binary path has no UTF-8 filename: {}",
+                daemon_binary_path.display()
+            )
+        })?;
+    let suffix = file_name
+        .strip_prefix(DAEMON_ARTIFACT_PREFIX)
+        .ok_or_else(|| {
+            format!(
+                "daemon binary filename must start with {DAEMON_ARTIFACT_PREFIX:?}: {}",
+                daemon_binary_path.display()
+            )
+        })?;
+    Ok(daemon_binary_path.with_file_name(format!("{STORAGE_ADMIN_ARTIFACT_PREFIX}{suffix}")))
 }
 
 /// Poll the published port with an authenticated, sandbox-scoped readiness

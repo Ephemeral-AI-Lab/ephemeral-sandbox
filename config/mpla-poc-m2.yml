@@ -49,7 +49,7 @@ observability:
 
 manager:
   docker:
-    privileged: true
+    privileged: false
     daemon_binary_path: dist/sandbox-daemon-linux-arm64
     daemon_config_yaml_path: config/mpla-poc-m2.yml
     platform: linux/arm64

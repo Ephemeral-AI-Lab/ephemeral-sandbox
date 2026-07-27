@@ -16,12 +16,16 @@ use anyhow::{bail, Context, Result};
 use ignore::WalkBuilder;
 use sha2::{Digest, Sha256};
 use xtask::operation_architecture;
-use xtask::package::{daemon_build_arguments, isolated_package_target_dir};
+use xtask::package::{
+    daemon_build_arguments, isolated_package_target_dir, storage_admin_build_arguments,
+};
 
 const AMD64_TARGET: &str = "x86_64-unknown-linux-musl";
 const ARM64_TARGET: &str = "aarch64-unknown-linux-musl";
 const DAEMON_BINARY: &str = "sandbox-daemon";
 const DAEMON_ARTIFACT_PREFIX: &str = "sandbox-daemon";
+const STORAGE_ADMIN_BINARY: &str = "mpla-storage-admin-v1";
+const STORAGE_ADMIN_ARTIFACT_PREFIX: &str = "mpla-storage-admin-v1";
 const DEFAULT_PACKAGE_PROFILE: &str = "package-fast";
 const FAST_PACKAGE_PROFILE: &str = "package-fast";
 const DEFAULT_BUILDER: &str = "auto";
@@ -987,33 +991,74 @@ fn package(args: &PackageArgs) -> Result<()> {
     }
 
     let arch = arch_for_target(&args.target)?;
-    let built = package_target_dir
+    let built_daemon = package_target_dir
         .join(&args.target)
         .join(cargo_profile_dir(&args.profile))
         .join(DAEMON_BINARY);
-    let artifact_name = format!("{DAEMON_ARTIFACT_PREFIX}-linux-{arch}");
-    let artifact = out_dir.join(&artifact_name);
-    fs::copy(&built, &artifact)
-        .with_context(|| format!("copy {} to {}", built.display(), artifact.display()))?;
+    let daemon_artifact_name = format!("{DAEMON_ARTIFACT_PREFIX}-linux-{arch}");
+    let daemon_artifact = out_dir.join(&daemon_artifact_name);
+    fs::copy(&built_daemon, &daemon_artifact).with_context(|| {
+        format!(
+            "copy {} to {}",
+            built_daemon.display(),
+            daemon_artifact.display()
+        )
+    })?;
+
+    let built_storage_admin = package_target_dir
+        .join(&args.target)
+        .join(cargo_profile_dir(&args.profile))
+        .join(STORAGE_ADMIN_BINARY);
+    let storage_admin_artifact_name = format!("{STORAGE_ADMIN_ARTIFACT_PREFIX}-linux-{arch}");
+    let storage_admin_artifact = out_dir.join(&storage_admin_artifact_name);
+    fs::copy(&built_storage_admin, &storage_admin_artifact).with_context(|| {
+        format!(
+            "copy {} to {}",
+            built_storage_admin.display(),
+            storage_admin_artifact.display()
+        )
+    })?;
 
     #[cfg(unix)]
-    set_executable(&artifact)?;
+    {
+        set_executable(&daemon_artifact)?;
+        set_executable(&storage_admin_artifact)?;
+    }
 
-    let sha = sha256_file(&artifact)?;
+    let daemon_sha = sha256_file(&daemon_artifact)?;
+    let storage_admin_sha = sha256_file(&storage_admin_artifact)?;
     write_checksums(&out_dir)?;
-    write_manifest(&out_dir, &args.target, arch, &artifact_name, &sha)?;
+    write_manifest(
+        &out_dir,
+        &args.target,
+        arch,
+        &daemon_artifact_name,
+        &daemon_sha,
+    )?;
+    write_manifest(
+        &out_dir,
+        &args.target,
+        arch,
+        &storage_admin_artifact_name,
+        &storage_admin_sha,
+    )?;
 
     if args.sign {
         let key = args
             .minisign_key
             .as_deref()
             .context("--sign requires --minisign-key <path>")?;
-        sign_artifact(&artifact, key)?;
+        sign_artifact(&daemon_artifact, key)?;
+        sign_artifact(&storage_admin_artifact, key)?;
     }
 
     println!(
-        "packaged {artifact_name} target={} profile={} sha256={}",
-        args.target, args.profile, sha
+        "packaged {daemon_artifact_name} target={} profile={} sha256={daemon_sha}",
+        args.target, args.profile
+    );
+    println!(
+        "packaged {storage_admin_artifact_name} target={} profile={} sha256={storage_admin_sha}",
+        args.target, args.profile
     );
     Ok(())
 }
@@ -1084,19 +1129,37 @@ fn run_build(
 ) -> Result<()> {
     let builder = Builder::resolve(builder)?;
     println!("using builder: {}", builder.name());
-    let status = builder
-        .build_command(target, profile)
-        .current_dir(root)
-        .env("CARGO_TARGET_DIR", package_target_dir)
-        .status()
-        .with_context(|| format!("spawn {} build", builder.name()))?;
-    if !status.success() {
-        bail!(
-            "{} build failed for {target} profile {profile} with {status}",
-            builder.name()
-        );
+    for artifact in [PackageArtifact::Daemon, PackageArtifact::StorageAdmin] {
+        let status = builder
+            .build_command(target, profile, artifact)
+            .current_dir(root)
+            .env("CARGO_TARGET_DIR", package_target_dir)
+            .status()
+            .with_context(|| format!("spawn {} {} build", builder.name(), artifact.name()))?;
+        if !status.success() {
+            bail!(
+                "{} {} build failed for {target} profile {profile} with {status}",
+                builder.name(),
+                artifact.name()
+            );
+        }
     }
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+enum PackageArtifact {
+    Daemon,
+    StorageAdmin,
+}
+
+impl PackageArtifact {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Daemon => "sandbox-daemon",
+            Self::StorageAdmin => "mpla-storage-admin-v1",
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -1164,28 +1227,28 @@ or force a host toolchain with --builder rust-lld"
         }
     }
 
-    fn build_command(self, target: &str, profile: &str) -> Command {
+    fn build_command(self, target: &str, profile: &str, artifact: PackageArtifact) -> Command {
         match self {
             Self::Zigbuild => {
                 let mut command = Command::new("cargo");
                 command.arg("zigbuild");
-                command.args(daemon_build_arguments(target, profile));
+                append_build_arguments(&mut command, artifact, target, profile);
                 command
             }
             Self::Cross => {
                 let mut command = Command::new("cross");
                 command.arg("build");
-                command.args(daemon_build_arguments(target, profile));
+                append_build_arguments(&mut command, artifact, target, profile);
                 command
             }
             Self::RustLld => {
-                let mut command = cargo_build_command(target, profile);
+                let mut command = cargo_build_command(artifact, target, profile);
                 command.env("RUSTFLAGS", rustflags_with_rust_lld());
                 configure_arm64_musl_cc(&mut command, target);
                 command
             }
             Self::Cargo => {
-                let mut command = cargo_build_command(target, profile);
+                let mut command = cargo_build_command(artifact, target, profile);
                 configure_arm64_musl_cc(&mut command, target);
                 command
             }
@@ -1209,11 +1272,27 @@ fn command_exists(name: &str) -> bool {
     Command::new(name).arg("--version").output().is_ok()
 }
 
-fn cargo_build_command(target: &str, profile: &str) -> Command {
+fn cargo_build_command(artifact: PackageArtifact, target: &str, profile: &str) -> Command {
     let mut command = Command::new("cargo");
     command.arg("build");
-    command.args(daemon_build_arguments(target, profile));
+    append_build_arguments(&mut command, artifact, target, profile);
     command
+}
+
+fn append_build_arguments(
+    command: &mut Command,
+    artifact: PackageArtifact,
+    target: &str,
+    profile: &str,
+) {
+    match artifact {
+        PackageArtifact::Daemon => {
+            command.args(daemon_build_arguments(target, profile));
+        }
+        PackageArtifact::StorageAdmin => {
+            command.args(storage_admin_build_arguments(target, profile));
+        }
+    }
 }
 
 fn rustflags_with_rust_lld() -> String {
@@ -1267,7 +1346,7 @@ fn write_checksums(out_dir: &Path) -> Result<()> {
     artifacts.retain(|path| {
         path.file_name()
             .and_then(|name| name.to_str())
-            .is_some_and(is_primary_daemon_artifact)
+            .is_some_and(is_primary_package_artifact)
     });
     artifacts.sort();
 
@@ -1315,10 +1394,13 @@ fn write_manifest(
     })
 }
 
-fn is_primary_daemon_artifact(name: &str) -> bool {
+fn is_primary_package_artifact(name: &str) -> bool {
     matches!(
         name,
-        "sandbox-daemon-linux-amd64" | "sandbox-daemon-linux-arm64"
+        "sandbox-daemon-linux-amd64"
+            | "sandbox-daemon-linux-arm64"
+            | "mpla-storage-admin-v1-linux-amd64"
+            | "mpla-storage-admin-v1-linux-arm64"
     )
 }
 

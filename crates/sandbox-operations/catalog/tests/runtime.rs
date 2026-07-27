@@ -44,6 +44,7 @@ fn runtime_catalog_is_the_exact_public_runtime_surface() {
             "create_workspace_session",
             "publish_workspace_session",
             "destroy_workspace_session",
+            "mpla_storage_admin",
         ]
     );
     let edits = catalog
@@ -98,6 +99,21 @@ fn runtime_catalog_is_the_exact_public_runtime_surface() {
             ("workspace_session_id", ArgKind::String, true),
             ("grace_s", ArgKind::Float, false),
         ]
+    );
+
+    let storage_admin = catalog
+        .operations
+        .iter()
+        .find(|operation| operation.name == "mpla_storage_admin")
+        .expect("mpla_storage_admin operation");
+    assert_eq!(storage_admin.family, "workspace_session");
+    assert_eq!(
+        storage_admin
+            .args
+            .iter()
+            .map(|argument| (argument.name, argument.kind, argument.required))
+            .collect::<Vec<_>>(),
+        [("request_json", ArgKind::String, true)]
     );
 }
 
