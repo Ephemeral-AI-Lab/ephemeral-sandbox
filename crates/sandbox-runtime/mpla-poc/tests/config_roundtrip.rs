@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use sandbox_runtime_mpla_poc::{
-    AllocationId, OperationId, PocConfig, RunId, StorageAdminAction, StorageAdminAuthorization,
-    StorageAdminReceipt, StorageAdminRequest, StorageAdminScope, INTERFACE_VERSION,
-    STORAGE_ADMIN_EFFECTIVE_CAPABILITIES, STORAGE_ADMIN_PRIVILEGED_SYSCALLS,
-    STORAGE_ADMIN_PROFILE_ID, STORAGE_ADMIN_TRUSTED_EXECUTABLE,
+    AllocationId, OperationId, PocConfig, RunId, SessionId, StorageAdminAction,
+    StorageAdminAuthorization, StorageAdminOutcome, StorageAdminReceipt, StorageAdminRequest,
+    StorageAdminScope, INTERFACE_VERSION, STORAGE_ADMIN_EFFECTIVE_CAPABILITIES,
+    STORAGE_ADMIN_PRIVILEGED_SYSCALLS, STORAGE_ADMIN_PROFILE_ID, STORAGE_ADMIN_TRUSTED_EXECUTABLE,
 };
 
 #[test]
@@ -29,6 +29,9 @@ fn run_id_rejects_unsafe_targets() {
 fn corrective_storage_admin_contract_round_trips() {
     let scope = StorageAdminScope {
         run_id: RunId::parse("m2r-20260728T015724p0800").expect("run ID"),
+        sandbox_id: "eos-corrective".to_owned(),
+        workspace_session_id: "workspace-corrective".to_owned(),
+        session_id: SessionId::from_string("session-1"),
         allocation_id: AllocationId::from_string("allocation-1"),
         lease_id: "m2r-20260728T015724p0800:lead:SECURITY".to_owned(),
         lease_epoch: 7,
@@ -50,7 +53,11 @@ fn corrective_storage_admin_contract_round_trips() {
     let authorization = StorageAdminAuthorization {
         authenticated: true,
         actor_id: "mpla-poc-candidate".to_owned(),
+        operation_id: request.operation_id.clone(),
         run_id: scope.run_id.clone(),
+        sandbox_id: scope.sandbox_id.clone(),
+        workspace_session_id: scope.workspace_session_id.clone(),
+        session_id: scope.session_id.clone(),
         allocation_id: scope.allocation_id.clone(),
         lease_id: scope.lease_id.clone(),
         lease_epoch: scope.lease_epoch,
@@ -73,8 +80,11 @@ fn corrective_storage_admin_contract_round_trips() {
             .map(|value| (*value).to_owned())
             .collect(),
         scope,
+        outcome: StorageAdminOutcome::Succeeded,
         idempotent_replay: false,
         cleanup_complete: true,
+        failure: None,
+        started_unix_ms: 0,
         completed_unix_ms: 1,
         receipt_path: PathBuf::from("/mpla/control/receipts/operation-1.json"),
     };

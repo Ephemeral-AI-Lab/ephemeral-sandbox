@@ -78,8 +78,8 @@ pub use projection::{ExactProjectionReceipt, ProjectionRecipe};
 pub use protocol::{
     AdoptionReceipt, AllocationDescriptor, AllocationHandle, DeletionCapability, MutableLease,
     OwnerTransitionRequest, QualificationRequest, StableAllocationReceipt, StorageAdminAction,
-    StorageAdminAuthorization, StorageAdminReceipt, StorageAdminRequest, StorageAdminScope,
-    WriterCapability,
+    StorageAdminAuthorization, StorageAdminOutcome, StorageAdminReceipt, StorageAdminRequest,
+    StorageAdminScope, WriterCapability,
 };
 pub use publication::{
     PublicationOperationRecord, ReceiptHitPublicationReceipt, StationaryPublicationReceipt,

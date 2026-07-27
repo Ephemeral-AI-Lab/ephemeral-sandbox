@@ -109,9 +109,20 @@ pub enum StorageAdminAction {
     Cleanup,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageAdminOutcome {
+    Succeeded,
+    Failed,
+    Cancelled,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct StorageAdminScope {
     pub run_id: RunId,
+    pub sandbox_id: String,
+    pub workspace_session_id: String,
+    pub session_id: SessionId,
     pub allocation_id: AllocationId,
     pub lease_id: String,
     pub lease_epoch: u64,
@@ -137,7 +148,11 @@ pub struct StorageAdminRequest {
 pub struct StorageAdminAuthorization {
     pub authenticated: bool,
     pub actor_id: String,
+    pub operation_id: OperationId,
     pub run_id: RunId,
+    pub sandbox_id: String,
+    pub workspace_session_id: String,
+    pub session_id: SessionId,
     pub allocation_id: AllocationId,
     pub lease_id: String,
     pub lease_epoch: u64,
@@ -156,8 +171,11 @@ pub struct StorageAdminReceipt {
     pub effective_capabilities: Vec<String>,
     pub allowed_privileged_syscalls: Vec<String>,
     pub scope: StorageAdminScope,
+    pub outcome: StorageAdminOutcome,
     pub idempotent_replay: bool,
     pub cleanup_complete: bool,
+    pub failure: Option<String>,
+    pub started_unix_ms: u64,
     pub completed_unix_ms: u64,
     pub receipt_path: PathBuf,
 }
