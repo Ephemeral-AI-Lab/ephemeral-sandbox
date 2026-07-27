@@ -88,6 +88,21 @@ pub enum RecordMutation {
 }
 
 impl SemanticRecord {
+    pub fn affected_path(&self) -> PocResult<&[u8]> {
+        match self {
+            Self::Node(record) => Ok(&record.path),
+            Self::Xattr { path, .. }
+            | Self::Extent { path, .. }
+            | Self::Chunk { path, .. }
+            | Self::Whiteout { path }
+            | Self::OpaqueDirectory { path }
+            | Self::HardlinkMember { path, .. } => Ok(path),
+            Self::HardlinkGroup { .. } => Err(PocError::Integrity(
+                "receipt-hit stream cannot witness a pathless hardlink group".to_owned(),
+            )),
+        }
+    }
+
     pub fn canonical_key(&self) -> PocResult<Vec<u8>> {
         let mut key = Vec::with_capacity(128);
         match self {
@@ -371,6 +386,13 @@ impl SemanticRecord {
 }
 
 impl RecordMutation {
+    pub fn affected_path(&self) -> PocResult<Vec<u8>> {
+        match self {
+            Self::Replace(record) => Ok(record.affected_path()?.to_vec()),
+            Self::Delete { canonical_key } => path_from_canonical_key(canonical_key),
+        }
+    }
+
     pub fn canonical_key(&self) -> PocResult<Vec<u8>> {
         match self {
             Self::Replace(record) => record.canonical_key(),
@@ -431,6 +453,37 @@ impl RecordMutation {
         mutation.canonical_key()?;
         Ok(mutation)
     }
+}
+
+fn path_from_canonical_key(key: &[u8]) -> PocResult<Vec<u8>> {
+    let length_offset: usize = match key.first().copied() {
+        Some(0x10..=0x15) => 1,
+        Some(0x21) => 33,
+        _ => {
+            return Err(PocError::Integrity(
+                "receipt-hit delete has no path-addressable canonical key".to_owned(),
+            ));
+        }
+    };
+    let length_end = length_offset
+        .checked_add(4)
+        .ok_or_else(|| PocError::Integrity("semantic key offset overflow".to_owned()))?;
+    let length_bytes: [u8; 4] = key
+        .get(length_offset..length_end)
+        .ok_or_else(|| PocError::Integrity("truncated semantic path key".to_owned()))?
+        .try_into()
+        .map_err(|_| PocError::Integrity("semantic path length mismatch".to_owned()))?;
+    let path_length = usize::try_from(u32::from_be_bytes(length_bytes))
+        .map_err(|_| PocError::Integrity("semantic path length overflow".to_owned()))?;
+    let path_end = length_end
+        .checked_add(path_length)
+        .ok_or_else(|| PocError::Integrity("semantic path offset overflow".to_owned()))?;
+    let path = key
+        .get(length_end..path_end)
+        .ok_or_else(|| PocError::Integrity("truncated semantic path key".to_owned()))?
+        .to_vec();
+    validate_path(&path, false)?;
+    Ok(path)
 }
 
 pub struct RecordStreamReader<R> {

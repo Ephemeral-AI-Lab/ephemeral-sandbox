@@ -9,6 +9,8 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+#[cfg(unix)]
+use std::{ffi::OsString, os::unix::ffi::OsStringExt};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -33,6 +35,8 @@ const MAIN_SPOOL_MEMORY_BYTES: usize = 3 * 1024 * 1024;
 const HARDLINK_SPOOL_MEMORY_BYTES: usize = 1024 * 1024;
 const DELTA_MAGIC: &[u8; 8] = b"MPLADLT1";
 const MANIFEST_VERSION: u32 = 1;
+const MAX_AFFECTED_STREAM_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_AFFECTED_RECORDS: u64 = 4_096;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticResourceMaxima {
@@ -288,6 +292,52 @@ pub fn write_affected_stream(
         .sync_all()
         .map_err(|error| PocError::io("fsync affected semantic stream", path, error))?;
     sha256_file(path)
+}
+
+pub fn affected_stream_paths(path: &Path) -> PocResult<Vec<PathBuf>> {
+    let metadata = std::fs::metadata(path)
+        .map_err(|error| PocError::io("stat affected semantic stream", path, error))?;
+    if !metadata.is_file() || metadata.len() > MAX_AFFECTED_STREAM_BYTES {
+        return Err(PocError::Integrity(
+            "affected semantic stream is not a bounded regular file".to_owned(),
+        ));
+    }
+    let mut reader = DeltaStreamReader::open(path)?;
+    let mut previous_key = None;
+    let mut paths = Vec::new();
+    let mut record_count = 0_u64;
+    while let Some(mutation) = reader.next_mutation()? {
+        let key = mutation.key_digest()?;
+        if previous_key
+            .as_ref()
+            .is_some_and(|previous| previous >= &key)
+        {
+            return Err(PocError::Integrity(
+                "affected semantic stream is not strictly key-sorted".to_owned(),
+            ));
+        }
+        previous_key = Some(key);
+        paths.push(path_from_semantic_bytes(mutation.affected_path()?)?);
+        record_count = record_count.saturating_add(1);
+        if record_count > MAX_AFFECTED_RECORDS {
+            return Err(PocError::Integrity(
+                "affected semantic stream exceeds the record bound".to_owned(),
+            ));
+        }
+    }
+    if record_count == 0 {
+        return Err(PocError::Integrity(
+            "receipt-hit affected semantic stream is empty".to_owned(),
+        ));
+    }
+    paths.sort();
+    paths.dedup();
+    if paths.len() > 64 {
+        return Err(PocError::Integrity(
+            "affected semantic stream exceeds the path bound".to_owned(),
+        ));
+    }
+    Ok(paths)
 }
 
 pub fn materialize_record_stream(
@@ -642,6 +692,18 @@ fn hex_digest(bytes: [u8; 32]) -> String {
         write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
     }
     output
+}
+
+#[cfg(unix)]
+fn path_from_semantic_bytes(bytes: Vec<u8>) -> PocResult<PathBuf> {
+    Ok(PathBuf::from(OsString::from_vec(bytes)))
+}
+
+#[cfg(not(unix))]
+fn path_from_semantic_bytes(bytes: Vec<u8>) -> PocResult<PathBuf> {
+    String::from_utf8(bytes).map(PathBuf::from).map_err(|_| {
+        PocError::Integrity("semantic path is not valid UTF-8 on this host".to_owned())
+    })
 }
 
 struct DeltaStreamReader {

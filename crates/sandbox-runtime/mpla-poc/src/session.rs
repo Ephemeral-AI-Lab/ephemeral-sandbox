@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::fault::{FaultInjector, FaultPoint};
 use crate::overlay_adapter::{mount_permanent_overlay, PermanentOverlayMount};
 use crate::process_tree::{CommandReceipt, ManagedProcessTree};
-use crate::quiesce::{self, SealedAllocation};
+use crate::quiesce::{self, ReceiptHitSealInput, ReceiptSealedAllocation, SealedAllocation};
 use crate::{
     durable, lease, unix_time_ms, AllocationHandle, MutableLease, OperationId, PocError, PocResult,
     SessionId, SessionPhase, WriterCapability, SCHEMA_VERSION,
@@ -129,12 +129,53 @@ impl MplaSession {
         operation_id: &OperationId,
         faults: &mut FaultInjector,
     ) -> PocResult<SealedAllocation> {
-        if self.phase != SessionPhase::Open {
-            return Err(PocError::Integrity(format!(
-                "session {} cannot seal from {:?}",
-                self.lease.session_id, self.phase
-            )));
-        }
+        let overlay = self.begin_sealing(operation_id, faults)?;
+        quiesce::quiesce_and_stabilize(
+            &self.session_dir,
+            operation_id,
+            &self.allocation,
+            &self.lease,
+            &mut self.process_tree,
+            overlay,
+            faults,
+        )
+        .inspect_err(|_error| {
+            self.phase = SessionPhase::RecoveryRequired;
+            let _ = self.persist_record();
+        })
+    }
+
+    pub fn seal_receipt_hit(
+        &mut self,
+        operation_id: &OperationId,
+        input: &ReceiptHitSealInput,
+        faults: &mut FaultInjector,
+    ) -> PocResult<ReceiptSealedAllocation> {
+        self.ensure_open_for_sealing()?;
+        quiesce::validate_receipt_hit_input(input)?;
+        durable::replace_json(&self.session_dir.join("RECEIPT-HIT.json"), input)?;
+        let overlay = self.begin_sealing(operation_id, faults)?;
+        quiesce::quiesce_and_stabilize_receipt_hit(
+            &self.session_dir,
+            operation_id,
+            &self.allocation,
+            &self.lease,
+            &mut self.process_tree,
+            overlay,
+            faults,
+        )
+        .inspect_err(|_error| {
+            self.phase = SessionPhase::RecoveryRequired;
+            let _ = self.persist_record();
+        })
+    }
+
+    fn begin_sealing(
+        &mut self,
+        operation_id: &OperationId,
+        faults: &mut FaultInjector,
+    ) -> PocResult<PermanentOverlayMount> {
+        self.ensure_open_for_sealing()?;
         faults.hit(FaultPoint::BeforeSealing, false)?;
         self.phase = SessionPhase::Closing;
         self.process_tree.fence();
@@ -166,22 +207,20 @@ impl MplaSession {
         })?;
         faults.hit(FaultPoint::AfterSealingDurable, true)?;
 
-        let overlay = self.overlay.take().ok_or_else(|| {
+        self.overlay.take().ok_or_else(|| {
             PocError::RecoveryRequired("sealed session has no live overlay guard".to_owned())
-        })?;
-        quiesce::quiesce_and_stabilize(
-            &self.session_dir,
-            operation_id,
-            &self.allocation,
-            &self.lease,
-            &mut self.process_tree,
-            overlay,
-            faults,
-        )
-        .inspect_err(|_error| {
-            self.phase = SessionPhase::RecoveryRequired;
-            let _ = self.persist_record();
         })
+    }
+
+    fn ensure_open_for_sealing(&self) -> PocResult<()> {
+        if self.phase == SessionPhase::Open {
+            Ok(())
+        } else {
+            Err(PocError::Integrity(format!(
+                "session {} cannot seal from {:?}",
+                self.lease.session_id, self.phase
+            )))
+        }
     }
 
     pub fn mark_publication_committed(&mut self) -> PocResult<()> {

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::fault::{FaultInjector, FaultPoint};
-use crate::quiesce::{QuiescenceReceipt, SealedAllocation};
+use crate::quiesce::{QuiescenceReceipt, ReceiptHitSealInput, SealedAllocation};
 use crate::session::MplaSession;
 use crate::{
     durable, lease, owner, AdoptionReceipt, AllocationId, OperationId, OwnerTransitionRequest,
@@ -41,6 +41,15 @@ pub struct StationaryPublicationReceipt {
     pub no_second_payload_allocation: bool,
     pub stale_writer_rejected: bool,
     pub stale_deleter_rejected: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ReceiptHitPublicationReceipt {
+    pub schema_version: u32,
+    pub affected_stream_sha256: String,
+    pub affected_paths: Vec<PathBuf>,
+    pub receipt_validated_before_sealing: bool,
+    pub stationary: StationaryPublicationReceipt,
 }
 
 /// M0 stationary publication: terminally seal the old session, prove a stable
@@ -86,32 +95,113 @@ pub fn stationary_adopt(
         request,
         sealed.stable.allocation.allocation_id.clone(),
         PublicationPhase::StableAllocation,
-        Some(inventory_digest),
+        Some(inventory_digest.clone()),
     )?;
 
     validate_stationary_seal(session, &sealed)?;
+    finalize_stationary_adoption(
+        session,
+        request,
+        &operation_dir,
+        sealed.stable,
+        sealed.quiescence,
+        inventory_digest,
+        faults,
+    )
+}
+
+pub fn stationary_adopt_receipt_hit(
+    session: &mut MplaSession,
+    request: &StationaryPublicationRequest,
+    operations_root: &Path,
+    input: &ReceiptHitSealInput,
+    faults: &mut FaultInjector,
+) -> PocResult<ReceiptHitPublicationReceipt> {
+    if request.schema_version != SCHEMA_VERSION {
+        return Err(PocError::Integrity(format!(
+            "unsupported stationary publication schema {}",
+            request.schema_version
+        )));
+    }
+    crate::quiesce::validate_receipt_hit_input(input)?;
+    let operation_dir = operations_root
+        .join("publication")
+        .join(request.operation_id.as_str());
+    std::fs::create_dir_all(&operation_dir).map_err(|error| {
+        PocError::io(
+            "create publication operation directory",
+            &operation_dir,
+            error,
+        )
+    })?;
+    persist_operation(
+        &operation_dir,
+        request,
+        session.allocation().descriptor.allocation_id.clone(),
+        PublicationPhase::Prepared,
+        None,
+    )?;
+
+    let sealed = session.seal_receipt_hit(&request.operation_id, input, faults)?;
+    persist_operation(
+        &operation_dir,
+        request,
+        sealed.stable.allocation.allocation_id.clone(),
+        PublicationPhase::StableAllocation,
+        Some(sealed.quiescence.first_inventory_sha256.clone()),
+    )?;
+    validate_receipt_stationary_seal(session, &sealed)?;
+    let stationary = finalize_stationary_adoption(
+        session,
+        request,
+        &operation_dir,
+        sealed.stable,
+        sealed.quiescence,
+        input.affected_stream_sha256.clone(),
+        faults,
+    )?;
+    let receipt = ReceiptHitPublicationReceipt {
+        schema_version: SCHEMA_VERSION,
+        affected_stream_sha256: sealed.affected_stream_sha256,
+        affected_paths: sealed.affected_paths,
+        receipt_validated_before_sealing: true,
+        stationary,
+    };
+    durable::replace_json(&operation_dir.join("receipt-hit-adoption.json"), &receipt)?;
+    Ok(receipt)
+}
+
+fn finalize_stationary_adoption(
+    session: &mut MplaSession,
+    request: &StationaryPublicationRequest,
+    operation_dir: &Path,
+    stable: StableAllocationReceipt,
+    quiescence: QuiescenceReceipt,
+    stable_inventory_sha256: String,
+    faults: &mut FaultInjector,
+) -> PocResult<StationaryPublicationReceipt> {
     let owner_request = OwnerTransitionRequest {
         schema_version: SCHEMA_VERSION,
         operation_id: request.operation_id.clone(),
         publication_id: request.publication_id.clone(),
         session_id: session.session_id().clone(),
-        allocation_id: sealed.stable.allocation.allocation_id.clone(),
+        allocation_id: stable.allocation.allocation_id.clone(),
         expected_lease_epoch: session.mutable_lease().lease_epoch,
         expected_owner_epoch: session.mutable_lease().owner_epoch,
     };
     durable::replace_json(&operation_dir.join("owner-intent.json"), &owner_request)?;
     persist_operation(
-        &operation_dir,
+        operation_dir,
         request,
         owner_request.allocation_id.clone(),
         PublicationPhase::OwnerIntentDurable,
-        Some(sealed.first_inventory.inventory_sha256.clone()),
+        Some(stable_inventory_sha256.clone()),
     )?;
     faults.hit(FaultPoint::AfterOwnerIntent, true)?;
 
     let adoption = owner::compare_and_adopt(
         &session.allocation().allocation_root,
-        &sealed.stable,
+        &stable,
         &owner_request,
     )
     .inspect_err(|_error| {
@@ -119,11 +209,11 @@ pub fn stationary_adopt(
     })?;
     faults.hit(FaultPoint::AfterOwnerAdoption, true)?;
     persist_operation(
-        &operation_dir,
+        operation_dir,
         request,
         owner_request.allocation_id.clone(),
         PublicationPhase::PayloadOwned,
-        Some(sealed.first_inventory.inventory_sha256.clone()),
+        Some(stable_inventory_sha256),
     )?;
 
     let stale_writer_rejected = lease::validate_writer(
@@ -145,15 +235,16 @@ pub fn stationary_adopt(
 
     let receipt = build_receipt(
         request,
-        sealed,
+        stable,
         adoption,
+        quiescence,
         stale_writer_rejected,
         stale_deleter_rejected,
     )?;
     durable::replace_json(&operation_dir.join("stationary-adoption.json"), &receipt)?;
     session.mark_publication_committed()?;
     persist_operation(
-        &operation_dir,
+        operation_dir,
         request,
         owner_request.allocation_id,
         PublicationPhase::PublicationCommitted,
@@ -203,23 +294,43 @@ fn validate_stationary_seal(session: &MplaSession, sealed: &SealedAllocation) ->
     Ok(())
 }
 
+fn validate_receipt_stationary_seal(
+    session: &MplaSession,
+    sealed: &crate::quiesce::ReceiptSealedAllocation,
+) -> PocResult<()> {
+    let expected = session.allocation();
+    if sealed.stable.allocation.allocation_id != expected.descriptor.allocation_id
+        || sealed.unmounted.allocation_root != expected.allocation_root
+        || sealed.unmounted.allocation_upper != expected.upper_dir
+        || sealed.unmounted.allocation_work != expected.work_dir
+        || sealed.stable.before.allocation_path != expected.allocation_root
+        || sealed.stable.after.allocation_path != expected.allocation_root
+        || sealed.stable.before != sealed.stable.after
+    {
+        return Err(PocError::Integrity(
+            "receipt-hit seal changed allocation identity, paths, or affected witnesses".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 fn build_receipt(
     request: &StationaryPublicationRequest,
-    sealed: SealedAllocation,
+    stable: StableAllocationReceipt,
     adoption: AdoptionReceipt,
+    quiescence: QuiescenceReceipt,
     stale_writer_rejected: bool,
     stale_deleter_rejected: bool,
 ) -> PocResult<StationaryPublicationReceipt> {
     let representative_inodes_unchanged =
-        sealed.stable.before.representative_inodes == sealed.stable.after.representative_inodes;
-    let allocated_bytes_unchanged =
-        sealed.stable.before.allocated_bytes == sealed.stable.after.allocated_bytes;
+        stable.before.representative_inodes == stable.after.representative_inodes;
+    let allocated_bytes_unchanged = stable.before.allocated_bytes == stable.after.allocated_bytes;
     if !representative_inodes_unchanged || !allocated_bytes_unchanged {
         return Err(PocError::Integrity(
             "physical allocation changed across stationary adoption".to_owned(),
         ));
     }
-    if adoption.allocation_id != sealed.stable.allocation.allocation_id {
+    if adoption.allocation_id != stable.allocation.allocation_id {
         return Err(PocError::Integrity(
             "adoption receipt selected a different allocation".to_owned(),
         ));
@@ -227,11 +338,11 @@ fn build_receipt(
     Ok(StationaryPublicationReceipt {
         schema_version: SCHEMA_VERSION,
         request: request.clone(),
-        stable: sealed.stable,
+        allocation_path_before: stable.before.allocation_path.clone(),
+        allocation_path_after: stable.after.allocation_path.clone(),
+        stable,
         adoption,
-        quiescence: sealed.quiescence,
-        allocation_path_before: sealed.first_inventory.allocation_root,
-        allocation_path_after: sealed.second_inventory.allocation_root,
+        quiescence,
         representative_inodes_unchanged,
         allocated_bytes_unchanged,
         no_second_payload_allocation: true,

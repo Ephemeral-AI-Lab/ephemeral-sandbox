@@ -2,10 +2,17 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use sandbox_runtime_mpla_poc::inventory::{capture_inventory, capture_stable_pair};
+use sandbox_runtime_mpla_poc::inventory::{
+    capture_inventory, capture_physical_witness, capture_stable_pair,
+};
+use sandbox_runtime_mpla_poc::quiesce::validate_receipt_hit_input;
+use sandbox_runtime_mpla_poc::semantic::record::{
+    NodeKind, NodeRecord, RecordMutation, SemanticRecord,
+};
+use sandbox_runtime_mpla_poc::semantic::write_affected_stream;
 use sandbox_runtime_mpla_poc::{
     AllocationDescriptor, AllocationHandle, ManagedProcessTree, OperationId, PocError,
-    SCHEMA_VERSION,
+    ReceiptHitSealInput, SCHEMA_VERSION,
 };
 
 struct TestDirectory(PathBuf);
@@ -38,6 +45,100 @@ fn double_inventory_is_stable_and_detects_later_mutation() {
     fs::write(allocation.upper_dir.join("nested/file"), b"second").expect("mutate fixture");
     let changed = capture_inventory(&allocation).expect("capture changed inventory");
     assert_ne!(before.inventory_sha256, changed.inventory_sha256);
+}
+
+#[test]
+fn receipt_hit_witness_is_bounded_to_authenticated_affected_paths() {
+    let root = TestDirectory::new("receipt-witness");
+    let allocation = allocation_handle(&root.0);
+    let affected = PathBuf::from("nested/affected");
+    fs::create_dir_all(allocation.upper_dir.join("nested")).expect("create nested directory");
+    fs::write(allocation.upper_dir.join(&affected), b"first").expect("write affected fixture");
+    fs::write(
+        allocation.upper_dir.join("unrelated"),
+        vec![7_u8; 1024 * 1024],
+    )
+    .expect("write unrelated fixture");
+
+    let before = capture_physical_witness(&allocation, std::slice::from_ref(&affected))
+        .expect("capture bounded witness");
+    fs::write(allocation.upper_dir.join(&affected), b"later").expect("replace affected bytes");
+    let after = capture_physical_witness(&allocation, std::slice::from_ref(&affected))
+        .expect("recapture bounded witness");
+
+    assert_eq!(before, after);
+    assert_eq!(before.file_count, 1);
+    assert_eq!(before.logical_bytes, 5);
+    assert_eq!(before.representative_inodes.len(), 2);
+    assert!(!before
+        .representative_inodes
+        .iter()
+        .any(|entry| entry.relative_path == std::path::Path::new("unrelated")));
+    assert!(capture_physical_witness(&allocation, &[PathBuf::from("../escape")]).is_err());
+}
+
+#[test]
+fn receipt_hit_input_binds_stream_bytes_and_normalized_path_set() {
+    let root = TestDirectory::new("receipt-input");
+    let stream = root.0.join("affected.stream");
+    let digest = write_affected_stream(
+        &stream,
+        [RecordMutation::Replace(SemanticRecord::Node(node_record(
+            b"nested/affected",
+        )))],
+    )
+    .expect("write affected stream");
+    let input = ReceiptHitSealInput {
+        schema_version: SCHEMA_VERSION,
+        affected_stream: stream.clone(),
+        affected_stream_sha256: digest,
+        affected_paths: vec![PathBuf::from("nested/affected")],
+    };
+    validate_receipt_hit_input(&input).expect("validate exact receipt input");
+
+    fs::write(&stream, b"changed").expect("replace affected stream");
+    assert!(matches!(
+        validate_receipt_hit_input(&input),
+        Err(PocError::Integrity(_))
+    ));
+
+    let second_stream = root.0.join("second.stream");
+    let second_digest = write_affected_stream(
+        &second_stream,
+        [RecordMutation::Replace(SemanticRecord::Node(node_record(
+            b"nested/affected",
+        )))],
+    )
+    .expect("write second affected stream");
+    let mut invalid = input;
+    invalid.affected_stream = second_stream;
+    invalid.affected_stream_sha256 = second_digest;
+    invalid.affected_paths = vec![PathBuf::from("other")];
+    assert!(matches!(
+        validate_receipt_hit_input(&invalid),
+        Err(PocError::Integrity(_))
+    ));
+    invalid.affected_paths = vec![PathBuf::from("../escape")];
+    assert!(matches!(
+        validate_receipt_hit_input(&invalid),
+        Err(PocError::Integrity(_))
+    ));
+}
+
+fn node_record(path: &[u8]) -> NodeRecord {
+    NodeRecord {
+        path: path.to_vec(),
+        kind: NodeKind::Regular,
+        mode: 0o644,
+        uid: 1,
+        gid: 1,
+        mtime_seconds: 1,
+        mtime_nanoseconds: 0,
+        logical_size: 1,
+        symlink_target: Vec::new(),
+        device_major: 0,
+        device_minor: 0,
+    }
 }
 
 #[cfg(unix)]

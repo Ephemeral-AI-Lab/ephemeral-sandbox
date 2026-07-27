@@ -75,9 +75,13 @@ pub use protocol::{
     OwnerTransitionRequest, QualificationRequest, StableAllocationReceipt, WriterCapability,
 };
 pub use publication::{
-    PublicationOperationRecord, StationaryPublicationReceipt, StationaryPublicationRequest,
+    PublicationOperationRecord, ReceiptHitPublicationReceipt, StationaryPublicationReceipt,
+    StationaryPublicationRequest,
 };
-pub use quiesce::{QuiescenceReceipt, SealedAllocation, SealingRecord};
+pub use quiesce::{
+    QuiescenceReceipt, ReceiptHitSealInput, ReceiptSealedAllocation, SealedAllocation,
+    SealingRecord,
+};
 pub use reconcile::{
     LeakCounts, ReconciliationReceipt, StorageCategoryReceipt, StorageCategoryRoot,
 };

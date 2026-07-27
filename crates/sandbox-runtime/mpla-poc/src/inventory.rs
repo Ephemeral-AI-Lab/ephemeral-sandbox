@@ -1,6 +1,7 @@
 use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::{BufReader, Read};
+use std::path::Component;
 use std::path::{Path, PathBuf};
 use std::thread;
 
@@ -97,6 +98,94 @@ pub fn capture_stable_pair(
         )));
     }
     Ok((before, after))
+}
+
+pub fn capture_physical_witness(
+    allocation: &AllocationHandle,
+    affected_paths: &[PathBuf],
+) -> PocResult<PhysicalSnapshot> {
+    let root_metadata = fs::symlink_metadata(&allocation.upper_dir).map_err(|error| {
+        PocError::io(
+            "stat allocation upper for receipt witness",
+            &allocation.upper_dir,
+            error,
+        )
+    })?;
+    if !root_metadata.is_dir() || root_metadata.file_type().is_symlink() {
+        return Err(PocError::Integrity(
+            "allocation upper is not a real directory".to_owned(),
+        ));
+    }
+
+    let mut normalized = affected_paths.to_vec();
+    normalized.sort_by_key(|path| raw_path_bytes(path));
+    normalized.dedup();
+    if normalized.is_empty() || normalized.len() > 64 {
+        return Err(PocError::Integrity(
+            "receipt witness must name between one and 64 affected paths".to_owned(),
+        ));
+    }
+
+    let mut representative_inodes = vec![InodeWitness {
+        relative_path: PathBuf::from("."),
+        device: metadata_device(&root_metadata),
+        inode: metadata_inode(&root_metadata),
+    }];
+    let mut logical_bytes = 0_u64;
+    let mut allocated_bytes = 0_u64;
+    let mut file_count = 0_u64;
+    let mut directory_count = 1_u64;
+    for relative_path in &normalized {
+        validate_relative_witness_path(relative_path)?;
+        let path = allocation.upper_dir.join(relative_path);
+        let metadata = fs::symlink_metadata(&path)
+            .map_err(|error| PocError::io("stat affected receipt path", &path, error))?;
+        if metadata.file_type().is_symlink() {
+            return Err(PocError::Integrity(format!(
+                "receipt-hit witness does not accept symlink path {}",
+                relative_path.display()
+            )));
+        }
+        logical_bytes = logical_bytes.saturating_add(metadata.len());
+        allocated_bytes = allocated_bytes.saturating_add(metadata_allocated_bytes(&metadata));
+        file_count = file_count.saturating_add(u64::from(metadata.is_file()));
+        directory_count = directory_count.saturating_add(u64::from(metadata.is_dir()));
+        if representative_inodes.len() < 16 {
+            representative_inodes.push(InodeWitness {
+                relative_path: relative_path.clone(),
+                device: metadata_device(&metadata),
+                inode: metadata_inode(&metadata),
+            });
+        }
+    }
+
+    Ok(PhysicalSnapshot {
+        allocation_id: allocation.descriptor.allocation_id.clone(),
+        allocation_path: allocation.allocation_root.clone(),
+        device: metadata_device(&root_metadata),
+        representative_inodes,
+        logical_bytes,
+        allocated_bytes,
+        inode_count: u64::try_from(normalized.len())
+            .unwrap_or(u64::MAX)
+            .saturating_add(1),
+        file_count,
+        directory_count,
+    })
+}
+
+fn validate_relative_witness_path(path: &Path) -> PocResult<()> {
+    if path.as_os_str().is_empty()
+        || path
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
+    {
+        return Err(PocError::Integrity(format!(
+            "invalid affected receipt path {}",
+            path.display()
+        )));
+    }
+    Ok(())
 }
 
 fn walk_no_follow(
@@ -370,6 +459,26 @@ fn metadata_device(metadata: &fs::Metadata) -> u64 {
 #[cfg(not(unix))]
 const fn metadata_device(_metadata: &fs::Metadata) -> u64 {
     0
+}
+
+#[cfg(unix)]
+fn metadata_inode(metadata: &fs::Metadata) -> u64 {
+    metadata.ino()
+}
+
+#[cfg(not(unix))]
+const fn metadata_inode(_metadata: &fs::Metadata) -> u64 {
+    0
+}
+
+#[cfg(unix)]
+fn metadata_allocated_bytes(metadata: &fs::Metadata) -> u64 {
+    metadata.blocks().saturating_mul(512)
+}
+
+#[cfg(not(unix))]
+fn metadata_allocated_bytes(metadata: &fs::Metadata) -> u64 {
+    metadata.len()
 }
 
 #[cfg(unix)]
