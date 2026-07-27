@@ -170,6 +170,8 @@ pub struct StorageAdminReceipt {
     pub trusted_executable: PathBuf,
     pub effective_capabilities: Vec<String>,
     pub allowed_privileged_syscalls: Vec<String>,
+    pub process_evidence: crate::storage_admin::StorageAdminProcessEvidence,
+    pub mount_plan_evidence: crate::storage_admin::StorageAdminMountPlanEvidence,
     pub scope: StorageAdminScope,
     pub outcome: StorageAdminOutcome,
     pub idempotent_replay: bool,

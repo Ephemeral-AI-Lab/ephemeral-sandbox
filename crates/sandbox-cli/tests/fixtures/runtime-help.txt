@@ -60,5 +60,8 @@ Workspace session
   destroy_workspace_session
     Destroy an explicit workspace session.
 
+  mpla_storage_admin
+    Run one authenticated MPLA storage lifecycle action.
+
 Use:
   sandbox-runtime-cli --sandbox-id ID [--request-id VALUE] OPERATION

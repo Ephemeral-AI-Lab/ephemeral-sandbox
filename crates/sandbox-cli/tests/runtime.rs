@@ -40,6 +40,7 @@ async fn help_lists_exact_runtime_catalog() {
             "create_workspace_session",
             "publish_workspace_session",
             "destroy_workspace_session",
+            "mpla_storage_admin",
         ]
     );
     assert!(stdout
@@ -470,6 +471,37 @@ async fn publish_workspace_session_forwards_exact_sandbox_scoped_arguments() {
         request["args"],
         json!({"workspace_session_id": "ws-1", "grace_s": 1.25})
     );
+}
+
+#[tokio::test]
+async fn mpla_storage_admin_forwards_the_exact_request_json() {
+    let response = json!({"status": "accepted"});
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let request_json = r#"{"schema_version":1,"interface_version":"m2r-iface-v1"}"#;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        &addr,
+        "--sandbox-id",
+        "eos-x",
+        "--request-id",
+        "m2r-storage-01",
+        "mpla_storage_admin",
+        request_json,
+    ])
+    .await;
+
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["op"], "mpla_storage_admin");
+    assert_eq!(request["request_id"], "m2r-storage-01");
+    assert_eq!(
+        request["scope"],
+        json!({"kind": "sandbox", "sandbox_id": "eos-x"})
+    );
+    assert_eq!(request["args"], json!({"request_json": request_json}));
 }
 
 #[tokio::test]

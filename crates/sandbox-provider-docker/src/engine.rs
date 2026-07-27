@@ -32,10 +32,13 @@ const LOG_CAPTURE_TAIL: &str = "200";
 const LOG_CAPTURE_CAP_BYTES: usize = 8192;
 
 /// Capabilities the de-privileged sandbox container grants the daemon's setup
-/// paths: `SYS_ADMIN` for namespace/overlay/mount setup and `NET_ADMIN` for
-/// bridge/veth provisioning. Docker's default seccomp profile stays active and
-/// gates the corresponding syscalls on these capabilities.
-const DEPRIVILEGED_CAPABILITIES: &[&str] = &["SYS_ADMIN", "NET_ADMIN"];
+/// paths: `SYS_ADMIN` for namespace/overlay/mount setup, `NET_ADMIN` for
+/// bridge/veth provisioning, and `SETPCAP` solely while the fixed
+/// `mpla-storage-admin-v1` helper irrevocably trims its own bounding set.
+/// The normal shell policy removes `SETPCAP` before a workload command starts.
+/// Docker's default seccomp profile stays active and gates the corresponding
+/// syscalls on these capabilities.
+const DEPRIVILEGED_CAPABILITIES: &[&str] = &["SYS_ADMIN", "NET_ADMIN", "SETPCAP"];
 const NO_NEW_PRIVILEGES_SECURITY_OPT: &str = "no-new-privileges";
 
 #[derive(Debug, thiserror::Error)]

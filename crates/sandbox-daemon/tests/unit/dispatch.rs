@@ -223,7 +223,7 @@ fn daemon_scope_rejects_system_requests() {
         json!({}),
     );
 
-    let response = validate_daemon_scope(&request)
+    let response = validate_daemon_scope(None, &request)
         .expect_err("system scope rejected")
         .into_json_value();
 
@@ -231,5 +231,29 @@ fn daemon_scope_rejects_system_requests() {
     assert_eq!(
         response["error"]["message"],
         "daemon requests require sandbox scope"
+    );
+}
+
+#[test]
+fn daemon_scope_rejects_a_different_configured_sandbox() {
+    let request = sandbox_operation_contract::OperationRequest::new(
+        "exec_command",
+        "req-1",
+        sandbox_operation_contract::OperationScope::sandbox("other-sandbox"),
+        json!({}),
+    );
+
+    let response = validate_daemon_scope(Some("bound-sandbox"), &request)
+        .expect_err("cross-sandbox request rejected")
+        .into_json_value();
+
+    assert_eq!(response["error"]["kind"], "invalid_request");
+    assert_eq!(
+        response["error"]["details"]["fields"]["configured_sandbox_id"],
+        "bound-sandbox"
+    );
+    assert_eq!(
+        response["error"]["details"]["fields"]["requested_sandbox_id"],
+        "other-sandbox"
     );
 }

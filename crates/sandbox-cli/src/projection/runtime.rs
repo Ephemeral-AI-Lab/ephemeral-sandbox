@@ -57,6 +57,11 @@ const DESTROY_WORKSPACE_SESSION_ARGUMENTS: &[ArgumentProjection] = &[
     ArgumentProjection::flag("grace_s", "--grace-s"),
 ];
 
+const MPLA_STORAGE_ADMIN_ARGUMENTS: &[ArgumentProjection] = &[ArgumentProjection::positional(
+    "request_json",
+    "REQUEST_JSON",
+)];
+
 const OPERATIONS: &[OperationProjection] = &[
     OperationProjection {
         name: "exec_command",
@@ -153,6 +158,15 @@ const OPERATIONS: &[OperationProjection] = &[
             "sandbox-runtime-cli --sandbox-id ID destroy_workspace_session --workspace-session-id ws-1",
         ],
         arguments: DESTROY_WORKSPACE_SESSION_ARGUMENTS,
+    },
+    OperationProjection {
+        name: "mpla_storage_admin",
+        path: &["runtime", "mpla_storage_admin"],
+        usage: "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID mpla_storage_admin REQUEST_JSON",
+        examples: &[
+            "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID mpla_storage_admin '{\"schema_version\":1,...}'",
+        ],
+        arguments: MPLA_STORAGE_ADMIN_ARGUMENTS,
     },
 ];
 

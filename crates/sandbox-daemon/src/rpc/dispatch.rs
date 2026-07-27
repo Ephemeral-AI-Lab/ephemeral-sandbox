@@ -48,7 +48,7 @@ impl SandboxDaemonServer {
     }
 
     async fn dispatch_request(&self, request: OperationRequest) -> OperationResponse {
-        if let Err(response) = validate_daemon_scope(&request) {
+        if let Err(response) = validate_daemon_scope(self.config.sandbox_id.as_deref(), &request) {
             return response;
         }
         if request.op == DAEMON_READINESS_OPERATION {
@@ -243,13 +243,28 @@ pub(crate) fn daemon_readiness_response(
     }))
 }
 
-pub(crate) fn validate_daemon_scope(request: &OperationRequest) -> Result<(), OperationResponse> {
-    if request.scope.is_sandbox() {
-        return Ok(());
+pub(crate) fn validate_daemon_scope(
+    configured_sandbox_id: Option<&str>,
+    request: &OperationRequest,
+) -> Result<(), OperationResponse> {
+    let Some(requested_sandbox_id) = request.scope.sandbox_id() else {
+        return Err(super::error_response(
+            error::INVALID_REQUEST,
+            "daemon requests require sandbox scope",
+            serde_json::json!({}),
+        ));
+    };
+    if let Some(configured_sandbox_id) = configured_sandbox_id {
+        if requested_sandbox_id != configured_sandbox_id {
+            return Err(super::error_response(
+                error::INVALID_REQUEST,
+                "daemon request sandbox scope does not match its configured sandbox",
+                serde_json::json!({
+                    "configured_sandbox_id": configured_sandbox_id,
+                    "requested_sandbox_id": requested_sandbox_id,
+                }),
+            ));
+        }
     }
-    Err(super::error_response(
-        error::INVALID_REQUEST,
-        "daemon requests require sandbox scope",
-        serde_json::json!({}),
-    ))
+    Ok(())
 }

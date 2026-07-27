@@ -82,6 +82,7 @@ sandbox-operation-client = { path = "crates/sandbox-operations/client" }
 sandbox-config = { path = "crates/sandbox-config" }
 sandbox-runtime-layerstack-core = { path = "crates/sandbox-runtime/layerstack-core" }
 sandbox-runtime-layerstack = { path = "crates/sandbox-runtime/layerstack" }
+sandbox-runtime-mpla-poc = { path = "crates/sandbox-runtime/mpla-poc" }
 sandbox-runtime-namespace-process = { path = "crates/sandbox-runtime/namespace-process" }
 sandbox-runtime-namespace-execution = { path = "crates/sandbox-runtime/namespace-execution" }
 sandbox-runtime-overlay = { path = "crates/sandbox-runtime/overlay" }

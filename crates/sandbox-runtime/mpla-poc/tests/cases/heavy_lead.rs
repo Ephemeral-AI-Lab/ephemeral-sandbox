@@ -120,6 +120,15 @@ struct Hv07ChildRequest {
     ref_root: PathBuf,
     occ_root: PathBuf,
     durable_state_paths: Vec<PathBuf>,
+    operation_root: PathBuf,
+    allocation_root: PathBuf,
+    allocation_id: AllocationId,
+    owner_epoch: u64,
+    publication_id: PublicationId,
+    semantic_roots: sandbox_runtime_mpla_poc::CanonicalRootPair,
+    canonical: sandbox_runtime_mpla_poc::CanonicalDurabilityReceipt,
+    accounted_bytes: u64,
+    branch: String,
 }
 
 impl HeavyContext {
@@ -637,6 +646,15 @@ fn hv07(context: &HeavyContext) -> CampaignResult<CaseExecution> {
             ref_root: candidate.ref_root.clone(),
             occ_root: candidate.occ_root.clone(),
             durable_state_paths,
+            operation_root: point_dir.join("real-operation"),
+            allocation_root: candidate.allocation.allocation_root.clone(),
+            allocation_id: candidate.allocation.descriptor.allocation_id.clone(),
+            owner_epoch: candidate.owner_epoch,
+            publication_id: candidate.publication_id.clone(),
+            semantic_roots: candidate.semantic.receipt.roots.clone(),
+            canonical: candidate.semantic.receipt.durability.clone(),
+            accounted_bytes: candidate.accounted_bytes,
+            branch: candidate.branch.clone(),
         },
     )?;
     if marker_path.exists() {
@@ -949,49 +967,312 @@ pub fn run_hv07_child() -> CampaignResult {
     if configured != request.fault_point {
         return Err("HV-07 child request and configured faultpoint disagree".into());
     }
-    let core_publication_edge = matches!(
-        request.fault_point,
+    fs::create_dir_all(&request.operation_root)?;
+    match request.fault_point {
         NamedFaultPoint::LocatorAfterForward
-            | NamedFaultPoint::LocatorAfterReverse
-            | NamedFaultPoint::LocatorAfterManifestFsync
-            | NamedFaultPoint::LocatorAfterSelectorRename
-            | NamedFaultPoint::LocatorAfterSelectorDirFsync
-            | NamedFaultPoint::RefBeforeTemp
-            | NamedFaultPoint::RefAfterTempFsync
-            | NamedFaultPoint::RefAfterReplace
-            | NamedFaultPoint::RefAfterParentFsync
-            | NamedFaultPoint::ResponseLossPublish
-    );
-    if core_publication_edge {
-        let recovery = PublicationRecovery::open(request.recovery_root)?;
-        let locator_store = LocatorStore::open(request.locator_root)?;
-        let ref_store = PairedRefStore::open(request.ref_root)?;
-        let occ = BranchOcc::open(request.occ_root)?;
-        let mut faults = NamedFaultInjector::default()
-            .with_physical_context(request.operation_id.as_str(), request.durable_state_paths);
-        let outcome = recovery.replay(
-            &request.operation_id,
-            &locator_store,
-            &ref_store,
-            &occ,
-            &mut faults,
-            |_, _, _| {
-                Err(PocError::Integrity(
-                    "HV-07 child unexpectedly requested rebase".to_owned(),
-                ))
-            },
-        )?;
-        return Err(format!(
-            "HV-07 child passed {} without stopping: {outcome:?}",
-            request.fault_point.as_str()
-        )
-        .into());
+        | NamedFaultPoint::LocatorAfterReverse
+        | NamedFaultPoint::LocatorAfterManifestFsync
+        | NamedFaultPoint::LocatorAfterSelectorRename
+        | NamedFaultPoint::LocatorAfterSelectorDirFsync
+        | NamedFaultPoint::RefBeforeTemp
+        | NamedFaultPoint::RefAfterTempFsync
+        | NamedFaultPoint::RefAfterReplace
+        | NamedFaultPoint::RefAfterParentFsync
+        | NamedFaultPoint::ResponseLossPublish => run_hv07_publication_operation(&request),
+        NamedFaultPoint::FenceBeforeClose
+        | NamedFaultPoint::FenceAfterClose
+        | NamedFaultPoint::FenceAfterDrain
+        | NamedFaultPoint::SealingBeforeWrite
+        | NamedFaultPoint::SealingAfterFileFsync
+        | NamedFaultPoint::SealingAfterDirFsync
+        | NamedFaultPoint::QuiesceBeforeStop
+        | NamedFaultPoint::QuiesceAfterReap
+        | NamedFaultPoint::QuiesceAfterFdAudit
+        | NamedFaultPoint::UnmountBeforeStrict
+        | NamedFaultPoint::UnmountAfterStrict
+        | NamedFaultPoint::FlushBeforeSyncfs
+        | NamedFaultPoint::FlushAfterSyncfs
+        | NamedFaultPoint::InventoryAfterFirst
+        | NamedFaultPoint::InventoryAfterStableSecond => run_hv07_session_operation(&request),
+        NamedFaultPoint::OwnerBeforeIntent
+        | NamedFaultPoint::OwnerAfterIntentFsync
+        | NamedFaultPoint::OwnerBeforeCompare
+        | NamedFaultPoint::OwnerAfterGenerationFsync
+        | NamedFaultPoint::OwnerAfterJournalCommit
+        | NamedFaultPoint::OwnerAfterSelectorRename
+        | NamedFaultPoint::OwnerAfterSelectorDirFsync
+        | NamedFaultPoint::OwnerBeforeReceipt
+        | NamedFaultPoint::OwnerAfterReceiptDirFsync => run_hv07_owner_operation(&request),
+        NamedFaultPoint::CanonicalBeforeInstall
+        | NamedFaultPoint::CanonicalAfterObjectFsync
+        | NamedFaultPoint::CanonicalAfterObjectDirFsync
+        | NamedFaultPoint::CanonicalAfterRootManifestFsync => {
+            run_hv07_canonical_operation(&request)
+        }
+        NamedFaultPoint::ResponseLossRollback => run_hv07_rollback_operation(&request),
+        NamedFaultPoint::ResponseLossActivate
+        | NamedFaultPoint::ActivateAfterRefSelect
+        | NamedFaultPoint::ActivateAfterLocatorPin
+        | NamedFaultPoint::ActivateAfterFreshOwner
+        | NamedFaultPoint::ActivateAfterMount
+        | NamedFaultPoint::ActivateAfterReady
+        | NamedFaultPoint::ActivateAfterBindingFsync => run_hv07_activation_operation(&request),
     }
+}
+
+fn run_hv07_publication_operation(request: &Hv07ChildRequest) -> CampaignResult {
+    let recovery = PublicationRecovery::open(&request.recovery_root)?;
+    let locator_store = LocatorStore::open(&request.locator_root)?;
+    let ref_store = PairedRefStore::open(&request.ref_root)?;
+    let occ = BranchOcc::open(&request.occ_root)?;
+    let mut faults = NamedFaultInjector::default().with_physical_context(
+        request.operation_id.as_str(),
+        request.durable_state_paths.clone(),
+    );
+    let outcome = recovery.replay(
+        &request.operation_id,
+        &locator_store,
+        &ref_store,
+        &occ,
+        &mut faults,
+        |_, _, _| {
+            Err(PocError::Integrity(
+                "HV-07 child unexpectedly requested rebase".to_owned(),
+            ))
+        },
+    )?;
     Err(format!(
-        "HV-07 point {} has no child pre-edge request for its real durable operation; physical status remains UNKNOWN",
-        request.fault_point.as_str(),
+        "HV-07 publication operation passed {} without stopping: {outcome:?}",
+        request.fault_point.as_str()
     )
     .into())
+}
+
+fn run_hv07_session_operation(request: &Hv07ChildRequest) -> CampaignResult {
+    let source_root = request.operation_root.join("session");
+    let lower = source_root.join("lower");
+    fs::create_dir_all(&lower)?;
+    durable::replace_json(&lower.join("LOWER.json"), &json!({"kind": "hv07-lower"}))?;
+    let allocation = create_allocation(
+        &source_root.join("payload/allocations"),
+        &request.operation_id,
+    )?;
+    let lease = issue_workspace_lease(&allocation, SessionId::new(), &request.operation_id)?;
+    let mut session = sandbox_runtime_mpla_poc::MplaSession::open(
+        &source_root.join("control"),
+        allocation,
+        lease.clone(),
+        vec![lower],
+        None,
+    )?;
+    let command = session.execute(
+        &lease.writer,
+        Path::new("/bin/sh"),
+        &[
+            "-c".to_owned(),
+            "printf hv07-session > hv07-session.txt".to_owned(),
+        ],
+        Duration::from_secs(2),
+    )?;
+    if !command.success {
+        return Err("HV-07 session source command failed".into());
+    }
+    let result = session.seal(&request.operation_id, &mut FaultInjector::default());
+    Err(format!(
+        "HV-07 session operation passed {} without stopping: {result:?}",
+        request.fault_point.as_str()
+    )
+    .into())
+}
+
+fn run_hv07_owner_operation(request: &Hv07ChildRequest) -> CampaignResult {
+    let source_root = request.operation_root.join("owner");
+    let allocation = create_allocation(
+        &source_root.join("payload/allocations"),
+        &request.operation_id,
+    )?;
+    let lease = issue_workspace_lease(&allocation, SessionId::new(), &request.operation_id)?;
+    let payload_path = allocation.upper_dir.join("hv07-owner.txt");
+    let mut payload = File::create(&payload_path)?;
+    payload.write_all(b"hv07-owner")?;
+    payload.sync_all()?;
+    drop(payload);
+    let (before, after) = capture_stable_pair(&allocation)?;
+    let stable = StableAllocationReceipt {
+        schema_version: SCHEMA_VERSION,
+        operation_id: request.operation_id.clone(),
+        allocation: allocation.descriptor.clone(),
+        expected_owner_epoch: lease.owner_epoch,
+        before: before.physical,
+        after: after.physical,
+        sync_completed: true,
+    };
+    let transition = OwnerTransitionRequest {
+        schema_version: SCHEMA_VERSION,
+        operation_id: request.operation_id.clone(),
+        publication_id: request.publication_id.clone(),
+        session_id: lease.session_id,
+        allocation_id: allocation.descriptor.allocation_id,
+        expected_lease_epoch: lease.lease_epoch,
+        expected_owner_epoch: lease.owner_epoch,
+    };
+    let result = compare_and_adopt(&allocation.allocation_root, &stable, &transition);
+    Err(format!(
+        "HV-07 owner operation passed {} without stopping: {result:?}",
+        request.fault_point.as_str()
+    )
+    .into())
+}
+
+fn run_hv07_canonical_operation(request: &Hv07ChildRequest) -> CampaignResult {
+    let source_root = request.operation_root.join("canonical");
+    let sealed_tree = source_root.join("sealed-tree");
+    fs::create_dir_all(&sealed_tree)?;
+    let source_path = sealed_tree.join("hv07-canonical.txt");
+    let mut source = File::create(&source_path)?;
+    source.write_all(b"hv07-canonical")?;
+    source.sync_all()?;
+    drop(source);
+    File::open(&sealed_tree)?.sync_all()?;
+    let output = build_with_output(&SemanticBuildRequest {
+        schema_version: SCHEMA_VERSION,
+        operation_id: request.operation_id.clone(),
+        allocation_id: request.allocation_id.clone(),
+        sealed_tree,
+        spool_dir: source_root.join("spool"),
+        canonical_object_dir: source_root.join("objects"),
+        attribution: attribution(),
+    });
+    Err(format!(
+        "HV-07 canonical operation passed {} without stopping: {output:?}",
+        request.fault_point.as_str()
+    )
+    .into())
+}
+
+fn run_hv07_rollback_operation(request: &Hv07ChildRequest) -> CampaignResult {
+    let source_root = request.operation_root.join("rollback");
+    let locator_store = LocatorStore::open(source_root.join("locators"))?;
+    let ref_store = PairedRefStore::open(source_root.join("refs"))?;
+    let delta = hv07_locator_delta(request)?;
+    let locator = locator_store.install(&delta, &mut NamedFaultInjector::default())?;
+    let candidate = LocatorRefCandidate {
+        schema_version: SCHEMA_VERSION,
+        operation_id: request.operation_id.clone(),
+        publication_id: request.publication_id.clone(),
+        roots: request.semantic_roots.clone(),
+        locator_generation: locator.generation,
+        expected_sequence: RefSequence::ZERO,
+    };
+    let mut faults = NamedFaultInjector::default()
+        .with_physical_context(request.operation_id.as_str(), [source_root.join("refs")]);
+    let outcome = ref_store.commit_rollback(
+        "hv07-rollback",
+        &candidate,
+        &request.canonical,
+        &locator,
+        &locator_store,
+        &mut faults,
+    )?;
+    Err(format!(
+        "HV-07 rollback operation passed {} without stopping: {outcome:?}",
+        request.fault_point.as_str()
+    )
+    .into())
+}
+
+fn run_hv07_activation_operation(request: &Hv07ChildRequest) -> CampaignResult {
+    let source_root = request.operation_root.join("activation");
+    let payload = open_allocation(
+        request
+            .allocation_root
+            .parent()
+            .and_then(Path::parent)
+            .ok_or("HV-07 activation allocation has no allocations root")?,
+        &request.allocation_id,
+    )?;
+    let locator_store = LocatorStore::open(source_root.join("locators"))?;
+    let ref_store = PairedRefStore::open(source_root.join("refs"))?;
+    let locator = locator_store.install(
+        &hv07_locator_delta(request)?,
+        &mut NamedFaultInjector::default(),
+    )?;
+    let candidate = LocatorRefCandidate {
+        schema_version: SCHEMA_VERSION,
+        operation_id: request.operation_id.clone(),
+        publication_id: request.publication_id.clone(),
+        roots: request.semantic_roots.clone(),
+        locator_generation: locator.generation,
+        expected_sequence: RefSequence::ZERO,
+    };
+    let selected_ref = match ref_store.commit(
+        "hv07-activation",
+        &candidate,
+        &request.canonical,
+        &locator,
+        &locator_store,
+        &mut NamedFaultInjector::default(),
+    )? {
+        RefCommitOutcome::Committed(receipt) => receipt.value,
+        RefCommitOutcome::ExpectedParent { .. } => {
+            return Err("HV-07 activation seed ref had an unexpected parent".into())
+        }
+    };
+    let activation = activate_exact(ExactActivationRequest {
+        activation_operation_id: ActivationOperationId::from_string(request.operation_id.as_str()),
+        allocation_operation_id: OperationId::from_string(format!(
+            "{}-activation-allocation",
+            request.operation_id
+        )),
+        selected_ref,
+        recipe: ProjectionRecipe {
+            schema_version: SCHEMA_VERSION,
+            roots: request.semantic_roots.clone(),
+            base_allocation_id: request.allocation_id.clone(),
+            net_delta_carrier_id: None,
+            recent_delta_ids: Vec::new(),
+        },
+        payload_allocations: vec![payload],
+        arena_root: source_root.join("payload/allocations"),
+        control_root: source_root.join("control"),
+        cgroup_procs_path: None,
+        readiness_path: PathBuf::from("sm12.txt"),
+        readiness_contains: None,
+        readiness_timeout: Duration::from_secs(2),
+    });
+    Err(format!(
+        "HV-07 activation operation passed {} without stopping: {activation:?}",
+        request.fault_point.as_str()
+    )
+    .into())
+}
+
+fn hv07_locator_delta(request: &Hv07ChildRequest) -> CampaignResult<LocatorDelta> {
+    let payload_root = PayloadRootId::parse(request.semantic_roots.root_id.as_str())?;
+    Ok(LocatorDelta {
+        schema_version: SCHEMA_VERSION,
+        operation_id: request.operation_id.clone(),
+        publication_id: request.publication_id.clone(),
+        expected_parent: None,
+        forward: vec![ForwardLocatorEntry {
+            payload_root: payload_root.clone(),
+            allocation_id: request.allocation_id.clone(),
+            owner_epoch: request.owner_epoch,
+            extents: vec![LocatorExtent {
+                relative_path: "upper".to_owned(),
+                offset: 0,
+                length: request.accounted_bytes,
+            }],
+        }],
+        reverse: vec![ReverseLocatorEntry {
+            allocation_id: request.allocation_id.clone(),
+            owner_epoch: request.owner_epoch,
+            operation_id: request.operation_id.clone(),
+            publication_id: request.publication_id.clone(),
+            payload_roots: vec![payload_root],
+            accounted_bytes: request.accounted_bytes,
+        }],
+    })
 }
 
 fn hv09(context: &HeavyContext) -> CampaignResult<CaseExecution> {

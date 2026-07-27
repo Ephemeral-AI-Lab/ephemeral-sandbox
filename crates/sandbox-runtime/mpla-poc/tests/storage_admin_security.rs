@@ -85,6 +85,33 @@ impl StorageAdminLifecycle for FakeLifecycle {
     fn receipt_committed(&mut self, _action: StorageAdminAction, _scope: &StorageAdminScope) {
         self.commits += 1;
     }
+
+    fn authority_evidence(
+        &mut self,
+        scope: &StorageAdminScope,
+    ) -> sandbox_runtime_mpla_poc::PocResult<(
+        sandbox_runtime_mpla_poc::storage_admin::StorageAdminProcessEvidence,
+        sandbox_runtime_mpla_poc::storage_admin::StorageAdminMountPlanEvidence,
+    )> {
+        let status = "CapInh:\t0000000000000000\nCapPrm:\t0000000000200000\nCapEff:\t0000000000200000\nCapBnd:\t0000000000200000\nCapAmb:\t0000000000000000\nNoNewPrivs:\t1\nSeccomp:\t2\nSeccomp_filters:\t1\n";
+        Ok((
+            storage_admin_process_evidence_from_status(
+                PathBuf::from(STORAGE_ADMIN_TRUSTED_EXECUTABLE),
+                "00".repeat(32),
+                status,
+                PathBuf::from("/mpla-test/cgroup.procs"),
+                NAMESPACE_HOLDER_PID,
+                scope.mount_namespace_id.clone(),
+                scope
+                    .mount_namespace_id
+                    .trim_start_matches("mnt:[")
+                    .trim_end_matches(']')
+                    .parse()
+                    .expect("valid mount namespace inode"),
+            )?,
+            storage_admin_mount_plan_evidence(scope)?,
+        ))
+    }
 }
 
 fn invocation(root: &Path, operation_id: &str) -> StorageAdminInvocation {
@@ -129,6 +156,8 @@ fn invocation(root: &Path, operation_id: &str) -> StorageAdminInvocation {
         request,
         authorization,
         trusted_actor_id: TRUSTED_ACTOR.to_owned(),
+        trusted_executable_sha256: "00".repeat(32),
+        workload_cgroup_procs: root.join("workload/cgroup.procs"),
         mount_namespace_holder_pid: NAMESPACE_HOLDER_PID,
     }
 }
@@ -499,7 +528,10 @@ Seccomp_filters:\t1
 ";
     let process = storage_admin_process_evidence_from_status(
         PathBuf::from(STORAGE_ADMIN_TRUSTED_EXECUTABLE),
+        "00".repeat(32),
         status,
+        PathBuf::from("/mpla-test/cgroup.procs"),
+        NAMESPACE_HOLDER_PID,
         "mnt:[4026532999]".to_owned(),
         4_026_532_999,
     )
@@ -567,6 +599,8 @@ fn receipt_schema_captures_identity_security_scope_result_cleanup_and_time() {
         "trusted_executable",
         "effective_capabilities",
         "allowed_privileged_syscalls",
+        "process_evidence",
+        "mount_plan_evidence",
         "scope",
         "outcome",
         "idempotent_replay",
@@ -590,6 +624,14 @@ fn receipt_schema_captures_identity_security_scope_result_cleanup_and_time() {
         vec!["mount", "umount2", "setns", "syncfs"]
     );
     assert_eq!(receipt.scope, invocation.request.scope);
+    assert_eq!(
+        receipt.process_evidence.executable,
+        PathBuf::from(STORAGE_ADMIN_TRUSTED_EXECUTABLE)
+    );
+    assert_eq!(
+        receipt.mount_plan_evidence.target,
+        invocation.request.scope.workspace_root
+    );
     assert_eq!(receipt.outcome, StorageAdminOutcome::Succeeded);
     assert!(receipt.cleanup_complete);
     assert!(receipt.failure.is_none());

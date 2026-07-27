@@ -3,6 +3,8 @@ use std::collections::BTreeSet;
 use std::fs::File;
 use std::fs::{self, OpenOptions};
 #[cfg(target_os = "linux")]
+use std::io::Read;
+#[cfg(target_os = "linux")]
 use std::os::fd::AsRawFd;
 #[cfg(target_os = "linux")]
 use std::os::unix::ffi::OsStrExt;
@@ -28,10 +30,16 @@ const LOCK_FILE: &str = "LOCK";
 const MAX_INVOCATION_BYTES: usize = 1024 * 1024;
 const CAP_SYS_ADMIN_BIT: u64 = 1 << 21;
 pub const STORAGE_ADMIN_SECCOMP_PROFILE_ID: &str = "mpla-storage-admin-v1-seccomp-v1";
+const STORAGE_ADMIN_SECCOMP_PROFILE_CANONICAL: &[u8] =
+    b"mpla-storage-admin-v1-seccomp-v1;default=allow;deny=clone,clone3,execve,execveat,fork,vfork;errno=EPERM";
 #[cfg(target_os = "linux")]
 const CAP_SYS_ADMIN_NUMBER: u32 = 21;
 #[cfg(target_os = "linux")]
+const CAP_SETPCAP_NUMBER: u32 = 8;
+#[cfg(target_os = "linux")]
 const CAPABILITY_WORDS: usize = 2;
+#[cfg(target_os = "linux")]
+const MAX_CAPABILITY: u32 = 63;
 #[cfg(target_os = "linux")]
 const LINUX_CAPABILITY_VERSION_3: u32 = 0x2008_0522;
 #[cfg(target_os = "linux")]
@@ -39,7 +47,60 @@ const PR_CAP_AMBIENT: libc::c_int = 47;
 #[cfg(target_os = "linux")]
 const PR_CAP_AMBIENT_CLEAR_ALL: libc::c_ulong = 4;
 #[cfg(target_os = "linux")]
+const PR_CAPBSET_DROP: libc::c_int = 24;
+#[cfg(target_os = "linux")]
 const PR_SET_NO_NEW_PRIVS: libc::c_int = 38;
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const SYS_SECCOMP: libc::c_long = 317;
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+const SYS_SECCOMP: libc::c_long = 277;
+#[cfg(target_os = "linux")]
+const SECCOMP_SET_MODE_FILTER: libc::c_long = 1;
+#[cfg(target_os = "linux")]
+const BPF_LD: u16 = 0x00;
+#[cfg(target_os = "linux")]
+const BPF_W: u16 = 0x00;
+#[cfg(target_os = "linux")]
+const BPF_ABS: u16 = 0x20;
+#[cfg(target_os = "linux")]
+const BPF_JMP: u16 = 0x05;
+#[cfg(target_os = "linux")]
+const BPF_JEQ: u16 = 0x10;
+#[cfg(target_os = "linux")]
+const BPF_JGE: u16 = 0x30;
+#[cfg(target_os = "linux")]
+const BPF_RET: u16 = 0x06;
+#[cfg(target_os = "linux")]
+const BPF_K: u16 = 0x00;
+#[cfg(target_os = "linux")]
+const SECCOMP_DATA_NR_OFFSET: u32 = 0;
+#[cfg(target_os = "linux")]
+const SECCOMP_DATA_ARCH_OFFSET: u32 = 4;
+#[cfg(target_os = "linux")]
+const SECCOMP_RET_KILL_PROCESS: u32 = 0x8000_0000;
+#[cfg(target_os = "linux")]
+const SECCOMP_RET_ALLOW: u32 = 0x7fff_0000;
+#[cfg(target_os = "linux")]
+const SECCOMP_RET_ERRNO: u32 = 0x0005_0000;
+#[cfg(target_os = "linux")]
+const X32_SYSCALL_BIT: u32 = 0x4000_0000;
+
+#[cfg(target_os = "linux")]
+#[repr(C)]
+struct SockFprog {
+    len: libc::c_ushort,
+    filter: *const SockFilter,
+}
+
+#[cfg(target_os = "linux")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct SockFilter {
+    code: u16,
+    jt: u8,
+    jf: u8,
+    k: u32,
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -48,6 +109,14 @@ pub struct StorageAdminInvocation {
     pub request: StorageAdminRequest,
     pub authorization: StorageAdminAuthorization,
     pub trusted_actor_id: String,
+    /// Hash measured by the public runtime immediately before it executes the
+    /// fixed helper.  The helper re-measures `/proc/self/exe` before mounting,
+    /// closing the otherwise unrecorded executable-substitution gap.
+    pub trusted_executable_sha256: String,
+    /// Server-owned cgroup v2 membership file.  The public dispatcher places
+    /// the helper there before sending this invocation; the helper verifies
+    /// that membership again before any mount syscall.
+    pub workload_cgroup_procs: PathBuf,
     pub mount_namespace_holder_pid: u32,
 }
 
@@ -135,6 +204,18 @@ pub trait StorageAdminLifecycle {
 
     fn receipt_committed(&mut self, _action: StorageAdminAction, _scope: &StorageAdminScope) {}
 
+    /// Return the authority observed for this operation after the helper has
+    /// entered the server-bound mount namespace. A receipt is never permitted
+    /// to substitute profile constants for this measurement.
+    fn authority_evidence(
+        &mut self,
+        _scope: &StorageAdminScope,
+    ) -> PocResult<(StorageAdminProcessEvidence, StorageAdminMountPlanEvidence)> {
+        Err(PocError::Integrity(
+            "storage-admin lifecycle did not provide measured authority evidence".to_owned(),
+        ))
+    }
+
     fn cleanup_after_receipt_failure(
         &mut self,
         _action: StorageAdminAction,
@@ -169,6 +250,7 @@ pub struct StorageAdminCapabilitySetEvidence {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct StorageAdminSeccompEvidence {
     pub profile_id: String,
+    pub profile_sha256: String,
     pub mode: u32,
     pub filter_count: u32,
     pub no_new_privs: bool,
@@ -177,8 +259,11 @@ pub struct StorageAdminSeccompEvidence {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct StorageAdminProcessEvidence {
     pub executable: PathBuf,
+    pub executable_sha256: String,
     pub capabilities: StorageAdminCapabilitySetEvidence,
     pub seccomp: StorageAdminSeccompEvidence,
+    pub workload_cgroup_procs: PathBuf,
+    pub workload_cgroup_member_pid: u32,
     pub mount_namespace_id: String,
     pub mount_namespace_inode: u64,
 }
@@ -193,6 +278,30 @@ pub struct StorageAdminMountPlanEvidence {
     pub lower_dirs_newest_first: Vec<PathBuf>,
     pub upper_dir: PathBuf,
     pub work_dir: PathBuf,
+    /// Whole-table digests plus the exact target entry make the mount-table
+    /// observation durable without embedding an unbounded host mount table in
+    /// every operation receipt.
+    pub mountinfo_before: StorageAdminMountTableEvidence,
+    pub mountinfo_after: StorageAdminMountTableEvidence,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminMountTableEvidence {
+    pub sha256: String,
+    pub target: Option<StorageAdminObservedMount>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminObservedMount {
+    pub mount_id: u64,
+    pub source: String,
+    pub filesystem_type: String,
+    pub target: PathBuf,
+    pub mount_options: Vec<String>,
+    pub super_options: Vec<String>,
+    pub lower_dirs_newest_first: Vec<PathBuf>,
+    pub upper_dir: Option<PathBuf>,
+    pub work_dir: Option<PathBuf>,
 }
 
 impl StorageAdminProcessProfile {
@@ -301,6 +410,8 @@ struct StorageAdminAttempt {
     request_sha256: String,
     request: StorageAdminRequest,
     authorization: StorageAdminAuthorization,
+    trusted_executable_sha256: String,
+    workload_cgroup_procs: PathBuf,
     mount_namespace_holder_pid: u32,
     started_unix_ms: u64,
 }
@@ -324,6 +435,36 @@ struct CapabilityData {
 #[derive(Debug, Default)]
 pub struct PlatformStorageLifecycle {
     mounted_by_this_process: Option<PathBuf>,
+    authority_evidence: Option<(StorageAdminProcessEvidence, StorageAdminMountPlanEvidence)>,
+    authority_evidence_error: Option<PocError>,
+}
+
+impl PlatformStorageLifecycle {
+    fn measured(
+        process: StorageAdminProcessEvidence,
+        scope: &StorageAdminScope,
+    ) -> PocResult<Self> {
+        let mut mount_plan = storage_admin_mount_plan_evidence(scope)?;
+        mount_plan.mountinfo_before = capture_storage_admin_mountinfo(scope)?;
+        Ok(Self {
+            mounted_by_this_process: None,
+            authority_evidence: Some((process, mount_plan)),
+            authority_evidence_error: None,
+        })
+    }
+
+    fn refresh_mountinfo_after(&mut self, scope: &StorageAdminScope) {
+        let Some((_, mount_plan)) = self.authority_evidence.as_mut() else {
+            self.authority_evidence_error = Some(PocError::Integrity(
+                "platform storage-admin lifecycle lost its mount-table evidence".to_owned(),
+            ));
+            return;
+        };
+        match capture_storage_admin_mountinfo(scope) {
+            Ok(observation) => mount_plan.mountinfo_after = observation,
+            Err(error) => self.authority_evidence_error = Some(error),
+        }
+    }
 }
 
 impl StorageAdminLifecycle for PlatformStorageLifecycle {
@@ -332,18 +473,21 @@ impl StorageAdminLifecycle for PlatformStorageLifecycle {
         action: StorageAdminAction,
         scope: &StorageAdminScope,
     ) -> StorageAdminExecution {
-        match execute_platform_action(action, scope, &mut self.mounted_by_this_process) {
-            Ok(()) => StorageAdminExecution::succeeded(),
-            Err(error) => {
-                let cleanup = cleanup_platform_state(scope, &mut self.mounted_by_this_process);
-                let cleanup_complete = cleanup.is_ok();
-                let failure = match cleanup {
-                    Ok(()) => error.to_string(),
-                    Err(cleanup_error) => format!("{error}; cleanup failed: {cleanup_error}"),
-                };
-                StorageAdminExecution::failed(failure, cleanup_complete)
-            }
-        }
+        let execution =
+            match execute_platform_action(action, scope, &mut self.mounted_by_this_process) {
+                Ok(()) => StorageAdminExecution::succeeded(),
+                Err(error) => {
+                    let cleanup = cleanup_platform_state(scope, &mut self.mounted_by_this_process);
+                    let cleanup_complete = cleanup.is_ok();
+                    let failure = match cleanup {
+                        Ok(()) => error.to_string(),
+                        Err(cleanup_error) => format!("{error}; cleanup failed: {cleanup_error}"),
+                    };
+                    StorageAdminExecution::failed(failure, cleanup_complete)
+                }
+            };
+        self.refresh_mountinfo_after(scope);
+        execution
     }
 
     fn recover_incomplete(
@@ -359,7 +503,7 @@ impl StorageAdminLifecycle for PlatformStorageLifecycle {
             }
             StorageAdminAction::Quiesce => Ok(()),
         };
-        match cleanup {
+        let execution = match cleanup {
             Ok(()) => StorageAdminExecution::failed(
                 format!("recovered incomplete {action:?} operation"),
                 true,
@@ -368,11 +512,27 @@ impl StorageAdminLifecycle for PlatformStorageLifecycle {
                 format!("incomplete {action:?} recovery failed: {error}"),
                 false,
             ),
-        }
+        };
+        self.refresh_mountinfo_after(scope);
+        execution
     }
 
     fn receipt_committed(&mut self, _action: StorageAdminAction, _scope: &StorageAdminScope) {
         self.mounted_by_this_process = None;
+    }
+
+    fn authority_evidence(
+        &mut self,
+        _scope: &StorageAdminScope,
+    ) -> PocResult<(StorageAdminProcessEvidence, StorageAdminMountPlanEvidence)> {
+        if let Some(error) = self.authority_evidence_error.take() {
+            return Err(error);
+        }
+        self.authority_evidence.clone().ok_or_else(|| {
+            PocError::Integrity(
+                "platform storage-admin lifecycle lost its measured authority evidence".to_owned(),
+            )
+        })
     }
 
     fn cleanup_after_receipt_failure(
@@ -402,6 +562,11 @@ pub fn decode_invocation(bytes: &[u8]) -> PocResult<StorageAdminInvocation> {
     validate_wire_shape(&value)?;
     let invocation: StorageAdminInvocation = serde_json::from_value(value)?;
     validate_mount_namespace_holder_pid(invocation.mount_namespace_holder_pid)?;
+    validate_sha256(
+        "bound trusted executable hash",
+        &invocation.trusted_executable_sha256,
+    )?;
+    validate_workload_cgroup_procs(&invocation.workload_cgroup_procs)?;
     Ok(invocation)
 }
 
@@ -425,6 +590,11 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
     lifecycle: &mut L,
 ) -> PocResult<StorageAdminReceipt> {
     validate_mount_namespace_holder_pid(invocation.mount_namespace_holder_pid)?;
+    validate_sha256(
+        "bound trusted executable hash",
+        &invocation.trusted_executable_sha256,
+    )?;
+    validate_workload_cgroup_procs(&invocation.workload_cgroup_procs)?;
     let selection = authorize_storage_admin(
         &invocation.expected_request,
         &invocation.request,
@@ -468,6 +638,8 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
                 request_sha256: selection.request_sha256.clone(),
                 request: selection.request.clone(),
                 authorization: invocation.authorization.clone(),
+                trusted_executable_sha256: invocation.trusted_executable_sha256.clone(),
+                workload_cgroup_procs: invocation.workload_cgroup_procs.clone(),
                 mount_namespace_holder_pid: invocation.mount_namespace_holder_pid,
                 started_unix_ms,
             },
@@ -503,8 +675,25 @@ pub fn run_platform_invocation(
         &invocation.trusted_actor_id,
     )?;
     validate_mount_namespace_holder_pid(invocation.mount_namespace_holder_pid)?;
+    // Reject malformed server bindings before changing this helper's process
+    // credentials.  The cgroup membership itself is verified again after the
+    // helper has been placed in the bound workload cgroup.
+    validate_sha256(
+        "bound trusted executable hash",
+        &invocation.trusted_executable_sha256,
+    )?;
+    validate_workload_cgroup_procs(&invocation.workload_cgroup_procs)?;
     prepare_platform_process(invocation)?;
-    run_storage_admin(invocation, &mut PlatformStorageLifecycle::default())
+    let process_evidence =
+        capture_storage_admin_process_evidence(&invocation.workload_cgroup_procs)?;
+    require_equal(
+        "measured executable hash",
+        process_evidence.executable_sha256.as_str(),
+        invocation.trusted_executable_sha256.as_str(),
+    )?;
+    let mut lifecycle =
+        PlatformStorageLifecycle::measured(process_evidence, &invocation.request.scope)?;
+    run_storage_admin(invocation, &mut lifecycle)
 }
 
 fn commit_execution<L: StorageAdminLifecycle>(
@@ -516,6 +705,13 @@ fn commit_execution<L: StorageAdminLifecycle>(
 ) -> PocResult<StorageAdminReceipt> {
     validate_execution(&execution)?;
     let completed_unix_ms = unix_time_ms()?.max(started_unix_ms);
+    let (process_evidence, mount_plan_evidence) =
+        lifecycle.authority_evidence(&selection.request.scope)?;
+    validate_receipt_authority_evidence(
+        &process_evidence,
+        &mount_plan_evidence,
+        &selection.request.scope,
+    )?;
     let receipt = StorageAdminReceipt {
         schema_version: SCHEMA_VERSION,
         interface_version: INTERFACE_VERSION.to_owned(),
@@ -532,6 +728,8 @@ fn commit_execution<L: StorageAdminLifecycle>(
             .iter()
             .map(|syscall| (*syscall).to_owned())
             .collect(),
+        process_evidence,
+        mount_plan_evidence,
         scope: selection.request.scope.clone(),
         outcome: execution.outcome,
         idempotent_replay: false,
@@ -804,6 +1002,20 @@ fn request_sha256(request: &StorageAdminRequest) -> PocResult<String> {
     Ok(hex_digest(&digest))
 }
 
+fn storage_admin_seccomp_profile_sha256() -> String {
+    hex_digest(&Sha256::digest(STORAGE_ADMIN_SECCOMP_PROFILE_CANONICAL))
+}
+
+fn validate_sha256(label: &str, value: &str) -> PocResult<()> {
+    if value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        Ok(())
+    } else {
+        Err(PocError::Integrity(format!(
+            "storage-admin {label} is not a SHA-256 hex digest"
+        )))
+    }
+}
+
 fn hex_digest(bytes: &[u8]) -> String {
     let mut value = String::with_capacity(bytes.len() * 2);
     for byte in bytes {
@@ -900,6 +1112,16 @@ fn validate_stored_attempt(
         &invocation.authorization,
     )?;
     require_equal(
+        "stored attempt trusted executable hash",
+        &attempt.trusted_executable_sha256,
+        &invocation.trusted_executable_sha256,
+    )?;
+    require_equal(
+        "stored attempt workload cgroup",
+        &attempt.workload_cgroup_procs,
+        &invocation.workload_cgroup_procs,
+    )?;
+    require_equal(
         "stored attempt mount namespace holder pid",
         &attempt.mount_namespace_holder_pid,
         &invocation.mount_namespace_holder_pid,
@@ -964,6 +1186,11 @@ fn validate_stored_receipt(
         &receipt.allowed_privileged_syscalls,
         &expected_syscalls,
     )?;
+    validate_receipt_authority_evidence(
+        &receipt.process_evidence,
+        &receipt.mount_plan_evidence,
+        &receipt.scope,
+    )?;
     require_equal(
         "stored receipt scope",
         &receipt.scope,
@@ -989,6 +1216,146 @@ fn validate_stored_receipt(
         cleanup_complete: receipt.cleanup_complete,
         failure: receipt.failure.clone(),
     })
+}
+
+fn validate_receipt_authority_evidence(
+    process: &StorageAdminProcessEvidence,
+    mount_plan: &StorageAdminMountPlanEvidence,
+    scope: &StorageAdminScope,
+) -> PocResult<()> {
+    require_equal(
+        "receipt executable identity",
+        process.executable.as_path(),
+        Path::new(STORAGE_ADMIN_TRUSTED_EXECUTABLE),
+    )?;
+    require_equal(
+        "receipt effective capability mask",
+        &process.capabilities.effective,
+        &CAP_SYS_ADMIN_BIT,
+    )?;
+    require_equal(
+        "receipt permitted capability mask",
+        &process.capabilities.permitted,
+        &CAP_SYS_ADMIN_BIT,
+    )?;
+    require_equal(
+        "receipt bounding capability mask",
+        &process.capabilities.bounding,
+        &CAP_SYS_ADMIN_BIT,
+    )?;
+    require_equal(
+        "receipt inheritable capability mask",
+        &process.capabilities.inheritable,
+        &0,
+    )?;
+    require_equal(
+        "receipt ambient capability mask",
+        &process.capabilities.ambient,
+        &0,
+    )?;
+    require_equal(
+        "receipt seccomp profile",
+        process.seccomp.profile_id.as_str(),
+        STORAGE_ADMIN_SECCOMP_PROFILE_ID,
+    )?;
+    require_equal(
+        "receipt seccomp profile hash",
+        process.seccomp.profile_sha256.as_str(),
+        storage_admin_seccomp_profile_sha256().as_str(),
+    )?;
+    validate_sha256("receipt executable hash", &process.executable_sha256)?;
+    require_equal("receipt seccomp mode", &process.seccomp.mode, &2)?;
+    if process.seccomp.filter_count == 0 || !process.seccomp.no_new_privs {
+        return Err(PocError::Integrity(
+            "storage-admin receipt is missing active seccomp or NoNewPrivs evidence".to_owned(),
+        ));
+    }
+    validate_workload_cgroup_procs(&process.workload_cgroup_procs)?;
+    if process.workload_cgroup_member_pid == 0 {
+        return Err(PocError::Integrity(
+            "storage-admin receipt has an invalid cgroup member pid".to_owned(),
+        ));
+    }
+    require_equal(
+        "receipt process mount namespace",
+        &process.mount_namespace_id,
+        &scope.mount_namespace_id,
+    )?;
+    require_equal(
+        "receipt mount-plan namespace",
+        &mount_plan.mount_namespace_id,
+        &scope.mount_namespace_id,
+    )?;
+    require_equal(
+        "receipt mount-plan target",
+        &mount_plan.target,
+        &scope.workspace_root,
+    )?;
+    require_equal(
+        "receipt mount-plan lower directories",
+        &mount_plan.lower_dirs_newest_first,
+        &scope.lower_dirs_newest_first,
+    )?;
+    require_equal(
+        "receipt mount-plan upper directory",
+        &mount_plan.upper_dir,
+        &scope.allocation_root.join("upper"),
+    )?;
+    require_equal(
+        "receipt mount-plan work directory",
+        &mount_plan.work_dir,
+        &scope.allocation_root.join("work"),
+    )?;
+    validate_mount_table_evidence("before", &mount_plan.mountinfo_before, mount_plan)?;
+    validate_mount_table_evidence("after", &mount_plan.mountinfo_after, mount_plan)
+}
+
+fn validate_mount_table_evidence(
+    phase: &str,
+    table: &StorageAdminMountTableEvidence,
+    plan: &StorageAdminMountPlanEvidence,
+) -> PocResult<()> {
+    validate_sha256(&format!("receipt mountinfo {phase} hash"), &table.sha256)?;
+    let Some(target) = &table.target else {
+        return Ok(());
+    };
+    require_equal(
+        "receipt observed mount target",
+        &target.target,
+        &plan.target,
+    )?;
+    require_equal(
+        "receipt observed mount filesystem type",
+        target.filesystem_type.as_str(),
+        plan.filesystem_type.as_str(),
+    )?;
+    require_equal(
+        "receipt observed mount source",
+        target.source.as_str(),
+        plan.source.as_str(),
+    )?;
+    if !target.mount_options.iter().any(|value| value == "nodev")
+        || !target.mount_options.iter().any(|value| value == "nosuid")
+    {
+        return Err(PocError::Integrity(
+            "storage-admin observed mount is missing fixed nodev/nosuid options".to_owned(),
+        ));
+    }
+    require_equal(
+        "receipt observed mount lower directories",
+        &target.lower_dirs_newest_first,
+        &plan.lower_dirs_newest_first,
+    )?;
+    require_equal(
+        "receipt observed mount upper directory",
+        &target.upper_dir,
+        &Some(plan.upper_dir.clone()),
+    )?;
+    require_equal(
+        "receipt observed mount work directory",
+        &target.work_dir,
+        &Some(plan.work_dir.clone()),
+    )
 }
 
 fn owned_strings(values: &[&str]) -> Vec<String> {
@@ -1055,6 +1422,16 @@ fn validate_mount_namespace_id(value: &str) -> PocResult<()> {
     parse_mount_namespace_inode(value).map(|_| ())
 }
 
+fn validate_workload_cgroup_procs(path: &Path) -> PocResult<()> {
+    validate_absolute_normalized_path("workload cgroup.procs", path)?;
+    if path.file_name().and_then(|name| name.to_str()) != Some("cgroup.procs") {
+        return Err(PocError::Integrity(
+            "storage-admin workload cgroup path must name cgroup.procs".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 fn parse_mount_namespace_inode(value: &str) -> PocResult<u64> {
     let inode = value
         .strip_prefix("mnt:[")
@@ -1112,7 +1489,10 @@ pub fn validate_opened_mount_namespace(
 
 pub fn storage_admin_process_evidence_from_status(
     executable: PathBuf,
+    executable_sha256: String,
     status: &str,
+    workload_cgroup_procs: PathBuf,
+    workload_cgroup_member_pid: u32,
     mount_namespace_id: String,
     mount_namespace_inode: u64,
 ) -> PocResult<StorageAdminProcessEvidence> {
@@ -1121,6 +1501,12 @@ pub fn storage_admin_process_evidence_from_status(
         &mount_namespace_id,
         mount_namespace_inode,
     )?;
+    validate_workload_cgroup_procs(&workload_cgroup_procs)?;
+    if workload_cgroup_member_pid == 0 {
+        return Err(PocError::Integrity(
+            "storage-admin cgroup member pid is invalid".to_owned(),
+        ));
+    }
     let no_new_privs = match parse_status_u32(status, "NoNewPrivs")? {
         0 => false,
         1 => true,
@@ -1132,6 +1518,7 @@ pub fn storage_admin_process_evidence_from_status(
     };
     Ok(StorageAdminProcessEvidence {
         executable,
+        executable_sha256,
         capabilities: StorageAdminCapabilitySetEvidence {
             effective: parse_status_hex(status, "CapEff")?,
             permitted: parse_status_hex(status, "CapPrm")?,
@@ -1141,10 +1528,13 @@ pub fn storage_admin_process_evidence_from_status(
         },
         seccomp: StorageAdminSeccompEvidence {
             profile_id: STORAGE_ADMIN_SECCOMP_PROFILE_ID.to_owned(),
+            profile_sha256: storage_admin_seccomp_profile_sha256(),
             mode: parse_status_u32(status, "Seccomp")?,
             filter_count: parse_status_u32(status, "Seccomp_filters")?,
             no_new_privs,
         },
+        workload_cgroup_procs,
+        workload_cgroup_member_pid,
         mount_namespace_id,
         mount_namespace_inode,
     })
@@ -1163,7 +1553,141 @@ pub fn storage_admin_mount_plan_evidence(
         lower_dirs_newest_first: scope.lower_dirs_newest_first.clone(),
         upper_dir: scope.allocation_root.join("upper"),
         work_dir: scope.allocation_root.join("work"),
+        mountinfo_before: StorageAdminMountTableEvidence {
+            sha256: "00".repeat(32),
+            target: None,
+        },
+        mountinfo_after: StorageAdminMountTableEvidence {
+            sha256: "00".repeat(32),
+            target: None,
+        },
     })
+}
+
+#[cfg(target_os = "linux")]
+fn capture_storage_admin_mountinfo(
+    scope: &StorageAdminScope,
+) -> PocResult<StorageAdminMountTableEvidence> {
+    const MAX_MOUNTINFO_BYTES: u64 = 16 * 1024 * 1024;
+    let mut mountinfo = File::open("/proc/self/mountinfo").map_err(|error| {
+        PocError::io(
+            "open storage-admin mount table",
+            "/proc/self/mountinfo",
+            error,
+        )
+    })?;
+    let mut bytes = Vec::new();
+    mountinfo
+        .by_ref()
+        .take(MAX_MOUNTINFO_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| {
+            PocError::io(
+                "read storage-admin mount table",
+                "/proc/self/mountinfo",
+                error,
+            )
+        })?;
+    if bytes.len() as u64 > MAX_MOUNTINFO_BYTES {
+        return Err(PocError::Integrity(
+            "storage-admin mount table exceeds the bounded receipt budget".to_owned(),
+        ));
+    }
+    let raw = std::str::from_utf8(&bytes).map_err(|error| {
+        PocError::Integrity(format!("storage-admin mount table is not UTF-8: {error}"))
+    })?;
+    let target = raw
+        .lines()
+        .filter_map(parse_mountinfo_line)
+        .find(|entry| entry.target == scope.workspace_root);
+    Ok(StorageAdminMountTableEvidence {
+        sha256: hex_digest(&Sha256::digest(&bytes)),
+        target,
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+fn capture_storage_admin_mountinfo(
+    _scope: &StorageAdminScope,
+) -> PocResult<StorageAdminMountTableEvidence> {
+    Err(PocError::Unsupported(
+        "storage-admin mount-table evidence requires Linux".to_owned(),
+    ))
+}
+
+#[cfg(target_os = "linux")]
+fn parse_mountinfo_line(line: &str) -> Option<StorageAdminObservedMount> {
+    let (left, right) = line.split_once(" - ")?;
+    let left_fields: Vec<_> = left.split_ascii_whitespace().collect();
+    let right_fields: Vec<_> = right.split_ascii_whitespace().collect();
+    if left_fields.len() < 6 || right_fields.len() < 3 {
+        return None;
+    }
+    let mount_id = left_fields[0].parse().ok()?;
+    let target = PathBuf::from(unescape_mountinfo_path(left_fields[4])?);
+    let mount_options = split_mount_options(left_fields[5]);
+    let super_options = split_mount_options(right_fields[2]);
+    let lower_dirs_newest_first = mount_option_value(&super_options, "lowerdir")
+        .map(|value| {
+            value
+                .split(':')
+                .map(unescape_mountinfo_path)
+                .collect::<Option<Vec<_>>>()
+                .map(|paths| paths.into_iter().map(PathBuf::from).collect())
+        })
+        .flatten()
+        .unwrap_or_default();
+    let upper_dir = mount_option_value(&super_options, "upperdir")
+        .and_then(unescape_mountinfo_path)
+        .map(PathBuf::from);
+    let work_dir = mount_option_value(&super_options, "workdir")
+        .and_then(unescape_mountinfo_path)
+        .map(PathBuf::from);
+    Some(StorageAdminObservedMount {
+        mount_id,
+        source: right_fields[1].to_owned(),
+        filesystem_type: right_fields[0].to_owned(),
+        target,
+        mount_options,
+        super_options,
+        lower_dirs_newest_first,
+        upper_dir,
+        work_dir,
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn split_mount_options(value: &str) -> Vec<String> {
+    value.split(',').map(str::to_owned).collect()
+}
+
+#[cfg(target_os = "linux")]
+fn mount_option_value<'a>(options: &'a [String], key: &str) -> Option<&'a str> {
+    options.iter().find_map(|option| {
+        option
+            .strip_prefix(key)
+            .and_then(|value| value.strip_prefix('='))
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn unescape_mountinfo_path(value: &str) -> Option<String> {
+    let mut output = Vec::with_capacity(value.len());
+    let bytes = value.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'\\' {
+            let octal = bytes.get(index + 1..index + 4)?;
+            let text = std::str::from_utf8(octal).ok()?;
+            let byte = u8::from_str_radix(text, 8).ok()?;
+            output.push(byte);
+            index += 4;
+        } else {
+            output.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(output).ok()
 }
 
 fn require_equal<T: PartialEq + ?Sized>(label: &str, observed: &T, expected: &T) -> PocResult<()> {
@@ -1185,6 +1709,8 @@ fn validate_wire_shape(value: &serde_json::Value) -> PocResult<()> {
             "request",
             "authorization",
             "trusted_actor_id",
+            "trusted_executable_sha256",
+            "workload_cgroup_procs",
             "mount_namespace_holder_pid",
         ],
     )?;
@@ -1275,10 +1801,12 @@ fn validate_object_keys(
 fn prepare_platform_process(invocation: &StorageAdminInvocation) -> PocResult<()> {
     narrow_process_capabilities()?;
     set_no_new_privileges()?;
-    verify_process_identity()?;
+    install_storage_admin_seccomp_profile()?;
+    verify_process_identity(&invocation.workload_cgroup_procs)?;
     enter_bound_mount_namespace(
         invocation.mount_namespace_holder_pid,
         &invocation.request.scope.mount_namespace_id,
+        &invocation.workload_cgroup_procs,
     )
 }
 
@@ -1308,6 +1836,21 @@ fn narrow_process_capabilities() -> PocResult<()> {
         )));
     }
 
+    // CAP_SETPCAP is retained only long enough to make the helper's bounding
+    // set irreversible. It is absent before the helper enters the bound mount
+    // namespace and before any storage syscall can run.
+    set_capability_masks(&[CAP_SYS_ADMIN_NUMBER, CAP_SETPCAP_NUMBER])?;
+    for capability in 0..=MAX_CAPABILITY {
+        if capability != CAP_SYS_ADMIN_NUMBER {
+            drop_bounding_capability(capability)?;
+        }
+    }
+    set_capability_masks(&[CAP_SYS_ADMIN_NUMBER])?;
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn set_capability_masks(capabilities: &[u32]) -> PocResult<()> {
     let header = CapabilityHeader {
         version: LINUX_CAPABILITY_VERSION_3,
         pid: 0,
@@ -1317,20 +1860,39 @@ fn narrow_process_capabilities() -> PocResult<()> {
         permitted: 0,
         inheritable: 0,
     }; CAPABILITY_WORDS];
-    let word = (CAP_SYS_ADMIN_NUMBER / 32) as usize;
-    let bit = 1_u32 << (CAP_SYS_ADMIN_NUMBER % 32);
-    data[word].effective = bit;
-    data[word].permitted = bit;
-
+    for capability in capabilities {
+        let word = (*capability / 32) as usize;
+        let bit = 1_u32 << (*capability % 32);
+        data[word].effective |= bit;
+        data[word].permitted |= bit;
+    }
     // SAFETY: capset reads the fixed header and two-word capability array for this process.
     let result = unsafe { libc::syscall(libc::SYS_capset, &header, data.as_mut_ptr()) };
-    if result != 0 {
-        return Err(PocError::Integrity(format!(
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(PocError::Integrity(format!(
             "failed to narrow storage-admin capability masks: {}",
             std::io::Error::last_os_error()
-        )));
+        )))
     }
-    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn drop_bounding_capability(capability: u32) -> PocResult<()> {
+    // SAFETY: prctl is called with fixed integer arguments and no borrowed memory.
+    let result = unsafe { libc::prctl(PR_CAPBSET_DROP, capability as libc::c_ulong, 0, 0, 0) };
+    if result == 0 {
+        return Ok(());
+    }
+    let error = std::io::Error::last_os_error();
+    if error.raw_os_error() == Some(libc::EINVAL) {
+        Ok(())
+    } else {
+        Err(PocError::Integrity(format!(
+            "failed to drop storage-admin bounding capability {capability}: {error}"
+        )))
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -1347,8 +1909,108 @@ fn set_no_new_privileges() -> PocResult<()> {
     }
 }
 
+/// Install the helper's immutable post-bootstrap syscall policy. The helper
+/// has no reason to replace itself or create descendants after its fixed stdin
+/// payload is decoded; denying those syscalls makes the authority single-use.
 #[cfg(target_os = "linux")]
-pub fn capture_storage_admin_process_evidence() -> PocResult<StorageAdminProcessEvidence> {
+fn install_storage_admin_seccomp_profile() -> PocResult<()> {
+    let mut program = vec![
+        bpf_stmt(BPF_LD | BPF_W | BPF_ABS, SECCOMP_DATA_ARCH_OFFSET),
+        bpf_jump(BPF_JMP | BPF_JEQ | BPF_K, storage_admin_audit_arch(), 1, 0),
+        bpf_stmt(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
+        bpf_stmt(BPF_LD | BPF_W | BPF_ABS, SECCOMP_DATA_NR_OFFSET),
+        bpf_jump(BPF_JMP | BPF_JGE | BPF_K, X32_SYSCALL_BIT, 0, 1),
+        bpf_stmt(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
+    ];
+    for number in storage_admin_denied_syscalls() {
+        program.push(bpf_jump(BPF_JMP | BPF_JEQ | BPF_K, number, 0, 1));
+        program.push(bpf_stmt(
+            BPF_RET | BPF_K,
+            SECCOMP_RET_ERRNO | libc::EPERM as u32,
+        ));
+    }
+    program.push(bpf_stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
+    let fprog = SockFprog {
+        len: program.len().try_into().map_err(|_| {
+            PocError::Integrity("storage-admin seccomp profile is too large".to_owned())
+        })?,
+        filter: program.as_ptr(),
+    };
+    // SAFETY: seccomp reads the immutable BPF program while this stack frame is live.
+    let result = unsafe {
+        libc::syscall(
+            SYS_SECCOMP,
+            SECCOMP_SET_MODE_FILTER,
+            0,
+            &fprog as *const SockFprog,
+        )
+    };
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(PocError::Integrity(format!(
+            "install storage-admin seccomp profile: {}",
+            std::io::Error::last_os_error()
+        )))
+    }
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const fn storage_admin_audit_arch() -> u32 {
+    0xc000_003e
+}
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+const fn storage_admin_audit_arch() -> u32 {
+    0xc000_00b7
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const fn storage_admin_denied_syscalls() -> [u32; 6] {
+    [56, 435, 59, 322, 57, 58]
+}
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+const fn storage_admin_denied_syscalls() -> [u32; 4] {
+    [220, 435, 221, 281]
+}
+
+#[cfg(target_os = "linux")]
+const fn bpf_stmt(code: u16, k: u32) -> SockFilter {
+    SockFilter {
+        code,
+        jt: 0,
+        jf: 0,
+        k,
+    }
+}
+
+#[cfg(target_os = "linux")]
+const fn bpf_jump(code: u16, k: u32, jt: u8, jf: u8) -> SockFilter {
+    SockFilter { code, jt, jf, k }
+}
+
+#[cfg(target_os = "linux")]
+pub fn capture_storage_admin_process_evidence(
+    workload_cgroup_procs: &Path,
+) -> PocResult<StorageAdminProcessEvidence> {
+    validate_workload_cgroup_procs(workload_cgroup_procs)?;
+    let workload_cgroup_member_pid = std::process::id();
+    let members = fs::read_to_string(workload_cgroup_procs).map_err(|error| {
+        PocError::io(
+            "read storage-admin workload cgroup membership",
+            workload_cgroup_procs,
+            error,
+        )
+    })?;
+    if !members
+        .lines()
+        .any(|member| member.trim() == workload_cgroup_member_pid.to_string())
+    {
+        return Err(PocError::Integrity(
+            "storage-admin helper is not in its bound workload cgroup".to_owned(),
+        ));
+    }
     let executable = fs::read_link("/proc/self/exe").map_err(|error| {
         PocError::io(
             "read storage-admin executable identity",
@@ -1356,6 +2018,7 @@ pub fn capture_storage_admin_process_evidence() -> PocResult<StorageAdminProcess
             error,
         )
     })?;
+    let executable_sha256 = sha256_file(&executable)?;
     let status = fs::read_to_string("/proc/self/status").map_err(|error| {
         PocError::io(
             "read storage-admin process status",
@@ -1373,22 +2036,45 @@ pub fn capture_storage_admin_process_evidence() -> PocResult<StorageAdminProcess
         .ino();
     storage_admin_process_evidence_from_status(
         executable,
+        executable_sha256,
         &status,
+        workload_cgroup_procs.to_path_buf(),
+        workload_cgroup_member_pid,
         mount_namespace_id,
         mount_namespace_inode,
     )
 }
 
+#[cfg(target_os = "linux")]
+fn sha256_file(path: &Path) -> PocResult<String> {
+    let mut file = File::open(path)
+        .map_err(|error| PocError::io("open storage-admin executable for hashing", path, error))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer).map_err(|error| {
+            PocError::io("read storage-admin executable for hashing", path, error)
+        })?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(hex_digest(&hasher.finalize()))
+}
+
 #[cfg(not(target_os = "linux"))]
-pub fn capture_storage_admin_process_evidence() -> PocResult<StorageAdminProcessEvidence> {
+pub fn capture_storage_admin_process_evidence(
+    _workload_cgroup_procs: &Path,
+) -> PocResult<StorageAdminProcessEvidence> {
     Err(PocError::Unsupported(
         "storage-admin process evidence requires Linux".to_owned(),
     ))
 }
 
 #[cfg(target_os = "linux")]
-fn verify_process_identity() -> PocResult<()> {
-    let evidence = capture_storage_admin_process_evidence()?;
+fn verify_process_identity(workload_cgroup_procs: &Path) -> PocResult<()> {
+    let evidence = capture_storage_admin_process_evidence(workload_cgroup_procs)?;
     require_equal(
         "executable identity",
         evidence.executable.as_path(),
@@ -1405,6 +2091,11 @@ fn verify_process_identity() -> PocResult<()> {
         &CAP_SYS_ADMIN_BIT,
     )?;
     require_equal(
+        "bounding capability mask",
+        &evidence.capabilities.bounding,
+        &CAP_SYS_ADMIN_BIT,
+    )?;
+    require_equal(
         "inheritable capability mask",
         &evidence.capabilities.inheritable,
         &0,
@@ -1415,6 +2106,16 @@ fn verify_process_identity() -> PocResult<()> {
         &0,
     )?;
     require_equal("seccomp mode", &evidence.seccomp.mode, &2)?;
+    require_equal(
+        "seccomp profile",
+        evidence.seccomp.profile_id.as_str(),
+        STORAGE_ADMIN_SECCOMP_PROFILE_ID,
+    )?;
+    require_equal(
+        "seccomp profile hash",
+        evidence.seccomp.profile_sha256.as_str(),
+        storage_admin_seccomp_profile_sha256().as_str(),
+    )?;
     if evidence.seccomp.filter_count == 0 {
         return Err(PocError::Integrity(
             "storage-admin seccomp filter count must be non-zero".to_owned(),
@@ -1429,7 +2130,11 @@ fn verify_process_identity() -> PocResult<()> {
 }
 
 #[cfg(target_os = "linux")]
-fn enter_bound_mount_namespace(holder_pid: u32, expected_namespace_id: &str) -> PocResult<()> {
+fn enter_bound_mount_namespace(
+    holder_pid: u32,
+    expected_namespace_id: &str,
+    workload_cgroup_procs: &Path,
+) -> PocResult<()> {
     let namespace_path = mount_namespace_path(holder_pid)?;
     let namespace_file = File::open(&namespace_path).map_err(|error| {
         PocError::io(
@@ -1471,7 +2176,7 @@ fn enter_bound_mount_namespace(holder_pid: u32, expected_namespace_id: &str) -> 
         )));
     }
 
-    let current_evidence = capture_storage_admin_process_evidence()?;
+    let current_evidence = capture_storage_admin_process_evidence(workload_cgroup_procs)?;
     require_equal(
         "entered mount namespace",
         current_evidence.mount_namespace_id.as_str(),

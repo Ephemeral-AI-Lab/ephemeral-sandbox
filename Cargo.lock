@@ -1687,6 +1687,7 @@ dependencies = [
  "sandbox-operation-catalog",
  "sandbox-operation-contract",
  "sandbox-runtime-layerstack",
+ "sandbox-runtime-mpla-poc",
  "sandbox-runtime-namespace-execution",
  "sandbox-runtime-namespace-process",
  "sandbox-runtime-workspace",

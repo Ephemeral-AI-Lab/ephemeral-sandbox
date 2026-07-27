@@ -100,6 +100,45 @@ pub fn validate_deleter(allocation_root: &Path, capability: &DeletionCapability)
     validate_deleter_locked(allocation_root, capability)
 }
 
+/// Validates the immutable identity of the active MPLA lease for the one
+/// storage-administrator path.  This intentionally exposes no capability
+/// nonce: callers can prove only the currently selected session, never gain a
+/// general writer or deleter authority.
+pub fn validate_active_storage_admin_lease(
+    allocation_root: &Path,
+    allocation_id: &AllocationId,
+    session_id: &SessionId,
+    lease_id: &str,
+    lease_epoch: u64,
+) -> PocResult<()> {
+    let _lock = FileLock::shared(&crate::owner::owner_lock_path(allocation_root))?;
+    let descriptor: AllocationDescriptor = read_json(&allocation_root.join("ALLOCATION.json"))?;
+    let state = read_lease(allocation_root)?;
+    let selected = crate::owner::selected_owner_locked(allocation_root)?;
+    let owner_matches = matches!(
+        selected.as_ref().map(|owner| &owner.subject),
+        Some(OwnerSubject::WorkspaceOwned {
+            session_id: owner_session,
+            lease_epoch: owner_lease_epoch,
+        }) if owner_session == session_id && *owner_lease_epoch == lease_epoch
+    );
+    if descriptor.schema_version == SCHEMA_VERSION
+        && descriptor.allocation_id == *allocation_id
+        && state.schema_version == SCHEMA_VERSION
+        && state.allocation_id == *allocation_id
+        && state.session_id == *session_id
+        && state.operation_id.as_str() == lease_id
+        && state.lease_epoch == lease_epoch
+        && state.active
+        && owner_matches
+    {
+        return Ok(());
+    }
+    Err(PocError::RecoveryRequired(
+        "storage-admin request is not bound to the selected active MPLA lease".to_owned(),
+    ))
+}
+
 pub(crate) fn validate_deleter_locked(
     allocation_root: &Path,
     capability: &DeletionCapability,

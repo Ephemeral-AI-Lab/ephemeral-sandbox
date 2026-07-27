@@ -1,5 +1,8 @@
 use std::path::PathBuf;
 
+use sandbox_runtime_mpla_poc::storage_admin::{
+    storage_admin_mount_plan_evidence, storage_admin_process_evidence_from_status,
+};
 use sandbox_runtime_mpla_poc::{
     AllocationId, OperationId, PocConfig, RunId, SessionId, StorageAdminAction,
     StorageAdminAuthorization, StorageAdminOutcome, StorageAdminReceipt, StorageAdminRequest,
@@ -79,6 +82,18 @@ fn corrective_storage_admin_contract_round_trips() {
             .iter()
             .map(|value| (*value).to_owned())
             .collect(),
+        process_evidence: storage_admin_process_evidence_from_status(
+            PathBuf::from(STORAGE_ADMIN_TRUSTED_EXECUTABLE),
+            "00".repeat(32),
+            "CapInh:\t0000000000000000\nCapPrm:\t0000000000200000\nCapEff:\t0000000000200000\nCapBnd:\t0000000000200000\nCapAmb:\t0000000000000000\nNoNewPrivs:\t1\nSeccomp:\t2\nSeccomp_filters:\t1\n",
+            PathBuf::from("/mpla-test/cgroup.procs"),
+            4242,
+            "mnt:[4026532999]".to_owned(),
+            4_026_532_999,
+        )
+        .expect("process evidence"),
+        mount_plan_evidence: storage_admin_mount_plan_evidence(&scope)
+            .expect("mount-plan evidence"),
         scope,
         outcome: StorageAdminOutcome::Succeeded,
         idempotent_replay: false,

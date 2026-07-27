@@ -341,6 +341,7 @@ pub fn reach_real_operation(
                 point.as_str()
             )));
         }
+        let operation_state_parent_synced = sync_operation_state_parents(&durable_state_paths)?;
         let marker_path = std::env::var_os(PHYSICAL_ARMED_PATH_ENV)
             .map(PathBuf::from)
             .ok_or_else(|| {
@@ -361,7 +362,7 @@ pub fn reach_real_operation(
                 durable_boundary: binding.durable_boundary.to_owned(),
                 operation_id: operation_id.clone(),
                 durable_state_paths,
-                operation_state_parent_synced: true,
+                operation_state_parent_synced,
                 stationary_payload_path_before: stationary.clone(),
                 stationary_payload_path_after: stationary,
                 payload_bytes_moved: 0,
@@ -371,6 +372,26 @@ pub fn reach_real_operation(
         )?;
     }
     faults.reach(point, 1, post_sealing)
+}
+
+fn sync_operation_state_parents(paths: &[PathBuf]) -> PocResult<bool> {
+    let mut parents = std::collections::BTreeSet::new();
+    for path in paths {
+        let parent = path.parent().ok_or_else(|| {
+            PocError::Integrity(format!(
+                "real-operation durable state has no parent: {}",
+                path.display()
+            ))
+        })?;
+        parents.insert(parent.to_path_buf());
+    }
+    for parent in parents {
+        std::fs::File::open(&parent)
+            .map_err(|error| PocError::io("open real-operation state parent", &parent, error))?
+            .sync_all()
+            .map_err(|error| PocError::io("fsync real-operation state parent", &parent, error))?;
+    }
+    Ok(true)
 }
 
 fn operation_binding(point: NamedFaultPoint) -> PocResult<FaultOperationBinding> {

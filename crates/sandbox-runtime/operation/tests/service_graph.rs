@@ -256,6 +256,7 @@ fn runtime_operation_catalog_exports_only_public_runtime_operations() {
             "create_workspace_session",
             "publish_workspace_session",
             "destroy_workspace_session",
+            "mpla_storage_admin",
         ]
     );
 }
@@ -335,7 +336,8 @@ fn service_graph_workspace_session_source_boundaries_stay_private() {
     let adapter = include_str!("../src/operations/registry/workspace_session_operations.rs");
     assert!(adapter.contains(".create_workspace_session("));
     assert!(adapter.contains(".guarded_destroy("));
-    assert_eq!(adapter.matches("OperationEntry::public").count(), 3);
+    assert!(adapter.contains("dispatch_mpla_storage_admin"));
+    assert_eq!(adapter.matches("OperationEntry::public").count(), 4);
     assert!(adapter.contains("name: CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER"));
     assert_eq!(adapter.matches("spec: None").count(), 1);
     assert!(!adapter.contains("WorkspaceDestroyAdmission"));

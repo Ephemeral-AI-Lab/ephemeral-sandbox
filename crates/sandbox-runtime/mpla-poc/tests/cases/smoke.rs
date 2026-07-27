@@ -176,6 +176,7 @@ struct Sm12RecoveryCandidate {
     operation_id: OperationId,
     publication_id: PublicationId,
     owner_epoch: u64,
+    accounted_bytes: u64,
     semantic: SemanticBuildOutput,
     recovery_root: PathBuf,
     locator_root: PathBuf,
@@ -2157,6 +2158,7 @@ fn run_sm12_publication_edge(
         "old_or_complete_new": old_or_complete_new,
         "allocation_unchanged": before == after,
         "allocation_path": candidate.allocation.allocation_root,
+        "accounted_bytes": candidate.accounted_bytes,
     }))
 }
 
@@ -2261,6 +2263,7 @@ fn prepare_sm12_recovery_candidate(
         operation_id,
         publication_id,
         owner_epoch,
+        accounted_bytes,
         semantic,
         recovery_root,
         locator_root,
