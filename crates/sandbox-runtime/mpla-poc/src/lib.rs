@@ -7,11 +7,18 @@ pub mod durable;
 pub mod error;
 pub mod evidence;
 pub mod evidence_schema;
+pub mod fault;
 pub mod id;
+pub mod inventory;
 pub mod lease;
+pub mod overlay_adapter;
 pub mod owner;
+pub mod process_tree;
 pub mod protocol;
+pub mod publication;
 pub mod qualify;
+pub mod quiesce;
+pub mod session;
 pub mod state;
 
 pub use config::PocConfig;
@@ -20,11 +27,20 @@ pub use evidence_schema::{
     ArtifactStatus, EnvironmentReceipt, InodeWitness, PhysicalSnapshot, ProbeReceipt, ProbeStatus,
     QualificationReceipt,
 };
+pub use fault::{FaultInjector, FaultPoint};
 pub use id::{ActivationOperationId, AllocationId, OperationId, PublicationId, RunId, SessionId};
+pub use inventory::{AllocationInventory, InventoryEntry, InventoryEntryKind};
+pub use overlay_adapter::{PermanentOverlayMount, UnmountedOverlay};
+pub use process_tree::{CommandReceipt, ManagedProcessTree, ProcessAudit};
 pub use protocol::{
     AdoptionReceipt, AllocationDescriptor, AllocationHandle, DeletionCapability, MutableLease,
     OwnerTransitionRequest, QualificationRequest, StableAllocationReceipt, WriterCapability,
 };
+pub use publication::{
+    PublicationOperationRecord, StationaryPublicationReceipt, StationaryPublicationRequest,
+};
+pub use quiesce::{QuiescenceReceipt, SealedAllocation, SealingRecord};
+pub use session::{MplaSession, SessionRecord};
 pub use state::{OwnerGeneration, OwnerSubject, PublicationPhase, SessionPhase};
 
 pub const INTERFACE_VERSION: &str = "m0-iface-v1";
