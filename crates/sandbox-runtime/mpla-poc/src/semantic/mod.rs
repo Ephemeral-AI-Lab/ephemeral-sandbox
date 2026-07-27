@@ -21,9 +21,11 @@ use crate::config::{
     SEMANTIC_SCAN_WINDOW_BYTES, SEMANTIC_SPOOL_RUN_BYTES, SEMANTIC_TRIE_FAN_OUT,
 };
 use crate::m1_contract::SEMANTIC_FORMAT_VERSION;
+use crate::recovery::reach_real_operation;
 use crate::{
-    AttributionInput, CanonicalDurabilityReceipt, CanonicalRootPair, OperationId, PocError,
-    PocResult, SemanticBuildReceipt, SemanticBuildRequest, SemanticPhaseSpan, SCHEMA_VERSION,
+    AttributionInput, CanonicalDurabilityReceipt, CanonicalRootPair, NamedFaultInjector,
+    NamedFaultPoint, OperationId, PocError, PocResult, SemanticBuildReceipt, SemanticBuildRequest,
+    SemanticPhaseSpan, SCHEMA_VERSION,
 };
 
 use self::record::{RecordMutation, RecordStreamReader, SemanticRecord};
@@ -123,6 +125,13 @@ pub fn build_with_output(request: &SemanticBuildRequest) -> PocResult<SemanticBu
         )
     })?;
     validate_full_path_isolation(request)?;
+    let mut named_faults = NamedFaultInjector::default().with_physical_context(
+        request.operation_id.as_str(),
+        [
+            request.canonical_object_dir.clone(),
+            request.sealed_tree.clone(),
+        ],
+    );
 
     let started = Instant::now();
     let scan_started = Instant::now();
@@ -141,7 +150,23 @@ pub fn build_with_output(request: &SemanticBuildRequest) -> PocResult<SemanticBu
 
     let hash_started = Instant::now();
     let mut store = ImmutableObjectStore::new(&request.canonical_object_dir)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::CanonicalBeforeInstall,
+        &request.operation_id,
+        [request.canonical_object_dir.clone()],
+        Some(&request.sealed_tree),
+        true,
+    )?;
     let roots = trie::build_from_sorted_records(&sorted, &request.attribution, &mut store)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::CanonicalAfterObjectFsync,
+        &request.operation_id,
+        [request.canonical_object_dir.clone()],
+        Some(&request.sealed_tree),
+        true,
+    )?;
     let hash_elapsed = elapsed_ns(hash_started);
 
     let install_started = Instant::now();
@@ -149,7 +174,26 @@ pub fn build_with_output(request: &SemanticBuildRequest) -> PocResult<SemanticBu
     let record_stream_path =
         materialize_sorted_record_stream(&manifest, &request.canonical_object_dir, &sorted)?;
     store.sync_directory()?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::CanonicalAfterObjectDirFsync,
+        &request.operation_id,
+        [
+            request.canonical_object_dir.clone(),
+            record_stream_path.clone(),
+        ],
+        Some(&request.sealed_tree),
+        true,
+    )?;
     let root_manifest_path = install_manifest(&request.canonical_object_dir, &manifest)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::CanonicalAfterRootManifestFsync,
+        &request.operation_id,
+        [root_manifest_path.clone()],
+        Some(&request.sealed_tree),
+        true,
+    )?;
     let install_elapsed = elapsed_ns(install_started);
     let durability = durability_receipt(&root_manifest_path, &store)?;
     let receipt = build_receipt(
@@ -200,10 +244,25 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
             error,
         )
     })?;
+    let mut named_faults = NamedFaultInjector::default().with_physical_context(
+        request.operation_id.as_str(),
+        [
+            request.canonical_object_dir.clone(),
+            request.prior_manifest.clone(),
+        ],
+    );
 
     let started = Instant::now();
     let mut reader = DeltaStreamReader::open(&request.affected_stream)?;
     let mut store = ImmutableObjectStore::new_incremental(&request.canonical_object_dir)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::CanonicalBeforeInstall,
+        &request.operation_id,
+        [request.canonical_object_dir.clone()],
+        None,
+        true,
+    )?;
     let mut roots = TrieRoots::from_hex(&prior.content_root, &prior.attribution_root)?;
     trie::validate_roots(&roots, &mut store)?;
     let mut entry_count = prior.entry_count;
@@ -234,12 +293,36 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
         }
         affected_record_count = affected_record_count.saturating_add(1);
     }
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::CanonicalAfterObjectFsync,
+        &request.operation_id,
+        [request.canonical_object_dir.clone()],
+        None,
+        true,
+    )?;
     let update_elapsed = elapsed_ns(started);
     let manifest = manifest_for(&roots, entry_count, &request.attribution);
     let install_started = Instant::now();
     install_incremental_stream_recipe(request, &prior, &manifest)?;
     store.sync_directory()?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::CanonicalAfterObjectDirFsync,
+        &request.operation_id,
+        [request.canonical_object_dir.clone()],
+        None,
+        true,
+    )?;
     let root_manifest_path = install_manifest(&request.canonical_object_dir, &manifest)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::CanonicalAfterRootManifestFsync,
+        &request.operation_id,
+        [root_manifest_path.clone()],
+        None,
+        true,
+    )?;
     let install_elapsed = elapsed_ns(install_started);
     let durability = durability_receipt(&root_manifest_path, &store)?;
     let spool_stats = SpoolStats::default();

@@ -7,9 +7,11 @@ use crate::fault::{FaultInjector, FaultPoint};
 use crate::overlay_adapter::{mount_permanent_overlay, PermanentOverlayMount};
 use crate::process_tree::{CommandReceipt, ManagedProcessTree};
 use crate::quiesce::{self, ReceiptHitSealInput, ReceiptSealedAllocation, SealedAllocation};
+use crate::recovery::reach_real_operation;
 use crate::{
-    durable, lease, unix_time_ms, AllocationHandle, MutableLease, OperationId, PocError, PocResult,
-    SessionId, SessionPhase, WriterCapability, SCHEMA_VERSION,
+    durable, lease, unix_time_ms, AllocationHandle, MutableLease, NamedFaultInjector,
+    NamedFaultPoint, OperationId, PocError, PocResult, SessionId, SessionPhase, WriterCapability,
+    SCHEMA_VERSION,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -217,7 +219,21 @@ impl MplaSession {
         faults: &mut FaultInjector,
     ) -> PocResult<PermanentOverlayMount> {
         self.ensure_open_for_sealing()?;
+        let state_paths = [
+            self.session_dir.join("SESSION.json"),
+            quiesce::sealing_record_path(&self.session_dir),
+        ];
+        let mut named_faults = NamedFaultInjector::default()
+            .with_physical_context(operation_id.as_str(), state_paths.clone());
         faults.hit(FaultPoint::BeforeSealing, false)?;
+        reach_real_operation(
+            &mut named_faults,
+            NamedFaultPoint::FenceBeforeClose,
+            operation_id,
+            [self.session_dir.join("SESSION.json")],
+            Some(&self.allocation.upper_dir),
+            false,
+        )?;
         self.phase = SessionPhase::Closing;
         self.process_tree.fence();
         if let Err(error) = self.persist_record() {
@@ -225,9 +241,31 @@ impl MplaSession {
             self.process_tree.unfence();
             return Err(error);
         }
+        reach_real_operation(
+            &mut named_faults,
+            NamedFaultPoint::FenceAfterClose,
+            operation_id,
+            [self.session_dir.join("SESSION.json")],
+            Some(&self.allocation.upper_dir),
+            false,
+        )?;
+        reach_real_operation(
+            &mut named_faults,
+            NamedFaultPoint::FenceAfterDrain,
+            operation_id,
+            [self.session_dir.join("SESSION.json")],
+            Some(&self.allocation.upper_dir),
+            false,
+        )?;
 
         let sealing_path = quiesce::sealing_record_path(&self.session_dir);
-        if let Err(error) = quiesce::persist_sealing(&self.session_dir, operation_id, &self.lease) {
+        if let Err(error) = quiesce::persist_sealing(
+            &self.session_dir,
+            operation_id,
+            &self.lease,
+            &self.allocation.upper_dir,
+            &mut named_faults,
+        ) {
             if sealing_path.exists() {
                 self.phase = SessionPhase::Sealing;
                 let _ = self.persist_record();

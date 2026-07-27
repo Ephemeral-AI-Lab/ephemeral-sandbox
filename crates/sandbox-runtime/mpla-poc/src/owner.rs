@@ -5,11 +5,12 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::durable::{read_json, replace_json, write_immutable_json, FileLock};
+use crate::durable::{fsync_dir, read_json, replace_json, write_immutable_json, FileLock};
+use crate::recovery::reach_real_operation;
 use crate::{
-    AdoptionReceipt, AllocationDescriptor, AllocationId, OperationId, OwnerGeneration,
-    OwnerSubject, OwnerTransitionRequest, PocError, PocResult, StableAllocationReceipt,
-    SCHEMA_VERSION,
+    AdoptionReceipt, AllocationDescriptor, AllocationId, NamedFaultInjector, NamedFaultPoint,
+    OperationId, OwnerGeneration, OwnerSubject, OwnerTransitionRequest, PocError, PocResult,
+    StableAllocationReceipt, SCHEMA_VERSION,
 };
 
 const JOURNAL_MAGIC: [u8; 4] = *b"MPLJ";
@@ -89,6 +90,14 @@ pub fn compare_and_adopt(
     validate_transition_inputs(allocation_root, stable, request)?;
     validate_path_component(request.operation_id.as_str(), "operation ID")?;
     let _lock = FileLock::exclusive(&owner_lock_path(allocation_root))?;
+    let mut named_faults = NamedFaultInjector::default().with_physical_context(
+        request.operation_id.as_str(),
+        [
+            journal_path(allocation_root),
+            selector_path(allocation_root),
+            receipt_path(allocation_root, &request.operation_id),
+        ],
+    );
 
     if let Some(receipt) = read_receipt(allocation_root, &request.operation_id)? {
         validate_receipt(&receipt, request)?;
@@ -112,7 +121,12 @@ pub fn compare_and_adopt(
             let journal = read_journal(&journal_path(allocation_root))?;
             let committed = find_adoption_commit(&journal.records, request)?;
             let receipt = receipt_from_commit(committed, request, true)?;
-            persist_receipt(allocation_root, &receipt)?;
+            persist_receipt_named(
+                allocation_root,
+                &receipt,
+                &allocation_root.join("upper"),
+                &mut named_faults,
+            )?;
             Ok(receipt)
         }
         OwnerSubject::WorkspaceOwned {
@@ -131,7 +145,7 @@ pub fn compare_and_adopt(
                     current.owner_epoch
                 )));
             }
-            adopt_workspace_owner(allocation_root, stable, request, current)
+            adopt_workspace_owner(allocation_root, stable, request, current, &mut named_faults)
         }
         OwnerSubject::RecoveryRequired {
             operation_id,
@@ -250,6 +264,7 @@ fn adopt_workspace_owner(
     _stable: &StableAllocationReceipt,
     request: &OwnerTransitionRequest,
     prior_owner: OwnerGeneration,
+    faults: &mut NamedFaultInjector,
 ) -> PocResult<AdoptionReceipt> {
     let journal = read_journal(&journal_path(allocation_root))?;
     match journal.records.iter().find(|record| {
@@ -257,6 +272,14 @@ fn adopt_workspace_owner(
     }) {
         Some(record) => validate_intent(record, request, &prior_owner)?,
         None => {
+            reach_real_operation(
+                faults,
+                NamedFaultPoint::OwnerBeforeIntent,
+                &request.operation_id,
+                [journal_path(allocation_root)],
+                Some(&allocation_root.join("upper")),
+                true,
+            )?;
             let intent = OwnerGeneration {
                 schema_version: SCHEMA_VERSION,
                 allocation_id: request.allocation_id.clone(),
@@ -279,9 +302,35 @@ fn adopt_workspace_owner(
                 JournalPhase::AdoptionIntent,
                 JournalTerminalOutcome::Pending,
             )?;
+            reach_real_operation(
+                faults,
+                NamedFaultPoint::OwnerAfterIntentFsync,
+                &request.operation_id,
+                [journal_path(allocation_root)],
+                Some(&allocation_root.join("upper")),
+                true,
+            )?;
         }
     }
 
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::OwnerBeforeCompare,
+        &request.operation_id,
+        [
+            selector_path(allocation_root),
+            journal_path(allocation_root),
+        ],
+        Some(&allocation_root.join("upper")),
+        true,
+    )?;
+    let compared = current_owner_locked(allocation_root)?
+        .ok_or_else(|| PocError::OwnerConflict("allocation is not workspace-owned".to_owned()))?;
+    if compared != prior_owner {
+        return Err(PocError::OwnerConflict(
+            "workspace owner changed after durable adoption intent".to_owned(),
+        ));
+    }
     crate::lease::fence_for_adoption_locked(allocation_root, request)?;
     if owner_dir(allocation_root)
         .join(AFTER_LEASE_FENCE_FAULT)
@@ -291,19 +340,16 @@ fn adopt_workspace_owner(
             "injected failure after durable lease fence".to_owned(),
         ));
     }
-    let new_owner = OwnerGeneration {
-        schema_version: SCHEMA_VERSION,
-        allocation_id: request.allocation_id.clone(),
-        owner_epoch: prior_owner.owner_epoch.checked_add(1).ok_or_else(|| {
-            PocError::RecoveryRequired("owner epoch exhausted during adoption".to_owned())
-        })?,
-        previous_owner_epoch: Some(prior_owner.owner_epoch),
-        subject: OwnerSubject::PayloadOwned {
-            publication_id: request.publication_id.clone(),
-        },
-        operation_id: request.operation_id.clone(),
-        written_unix_ms: crate::unix_time_ms()?,
-    };
+    let new_owner = adoption_generation(allocation_root, request, &prior_owner)?;
+    install_generation(allocation_root, &new_owner)?;
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::OwnerAfterGenerationFsync,
+        &request.operation_id,
+        [generation_path(allocation_root, new_owner.owner_epoch)],
+        Some(&allocation_root.join("upper")),
+        true,
+    )?;
     let committed = append_record(
         allocation_root,
         request.operation_id.clone(),
@@ -312,7 +358,14 @@ fn adopt_workspace_owner(
         JournalPhase::OwnerCommitted,
         JournalTerminalOutcome::PayloadOwned,
     )?;
-    install_generation(allocation_root, &committed.new_owner)?;
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::OwnerAfterJournalCommit,
+        &request.operation_id,
+        [journal_path(allocation_root)],
+        Some(&allocation_root.join("upper")),
+        true,
+    )?;
 
     if owner_dir(allocation_root)
         .join(BEFORE_SELECTOR_FAULT)
@@ -322,7 +375,13 @@ fn adopt_workspace_owner(
             "injected failure before owner selector replacement".to_owned(),
         ));
     }
-    replace_json(&selector_path(allocation_root), &selector_for(&committed))?;
+    replace_selector_named(
+        allocation_root,
+        &selector_for(&committed),
+        &request.operation_id,
+        &allocation_root.join("upper"),
+        faults,
+    )?;
     if owner_dir(allocation_root)
         .join(AFTER_SELECTOR_FAULT)
         .exists()
@@ -333,8 +392,56 @@ fn adopt_workspace_owner(
     }
 
     let receipt = receipt_from_commit(&committed, request, false)?;
-    persist_receipt(allocation_root, &receipt)?;
+    persist_receipt_named(
+        allocation_root,
+        &receipt,
+        &allocation_root.join("upper"),
+        faults,
+    )?;
     Ok(receipt)
+}
+
+fn adoption_generation(
+    allocation_root: &Path,
+    request: &OwnerTransitionRequest,
+    prior_owner: &OwnerGeneration,
+) -> PocResult<OwnerGeneration> {
+    let owner_epoch = prior_owner.owner_epoch.checked_add(1).ok_or_else(|| {
+        PocError::RecoveryRequired("owner epoch exhausted during adoption".to_owned())
+    })?;
+    let path = generation_path(allocation_root, owner_epoch);
+    let existing = match read_json::<OwnerGeneration>(&path) {
+        Ok(existing) => Some(existing),
+        Err(PocError::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error),
+    };
+    let generation = existing.unwrap_or(OwnerGeneration {
+        schema_version: SCHEMA_VERSION,
+        allocation_id: request.allocation_id.clone(),
+        owner_epoch,
+        previous_owner_epoch: Some(prior_owner.owner_epoch),
+        subject: OwnerSubject::PayloadOwned {
+            publication_id: request.publication_id.clone(),
+        },
+        operation_id: request.operation_id.clone(),
+        written_unix_ms: crate::unix_time_ms()?,
+    });
+    if generation.schema_version != SCHEMA_VERSION
+        || generation.allocation_id != request.allocation_id
+        || generation.owner_epoch != owner_epoch
+        || generation.previous_owner_epoch != Some(prior_owner.owner_epoch)
+        || generation.operation_id != request.operation_id
+        || !matches!(
+            &generation.subject,
+            OwnerSubject::PayloadOwned { publication_id }
+                if publication_id == &request.publication_id
+        )
+    {
+        return Err(PocError::OwnerConflict(
+            "durable owner generation differs from adoption retry".to_owned(),
+        ));
+    }
+    Ok(generation)
 }
 
 fn validate_transition_inputs(
@@ -474,6 +581,79 @@ fn persist_receipt(allocation_root: &Path, receipt: &AdoptionReceipt) -> PocResu
     write_immutable_json(
         &receipt_path(allocation_root, &receipt.operation_id),
         &stored,
+    )
+}
+
+fn persist_receipt_named(
+    allocation_root: &Path,
+    receipt: &AdoptionReceipt,
+    stationary_payload_path: &Path,
+    faults: &mut NamedFaultInjector,
+) -> PocResult<()> {
+    let path = receipt_path(allocation_root, &receipt.operation_id);
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::OwnerBeforeReceipt,
+        &receipt.operation_id,
+        [
+            journal_path(allocation_root),
+            selector_path(allocation_root),
+        ],
+        Some(stationary_payload_path),
+        true,
+    )?;
+    persist_receipt(allocation_root, receipt)?;
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::OwnerAfterReceiptDirFsync,
+        &receipt.operation_id,
+        [path],
+        Some(stationary_payload_path),
+        true,
+    )
+}
+
+fn replace_selector_named(
+    allocation_root: &Path,
+    selector: &OwnerSelector,
+    operation_id: &OperationId,
+    stationary_payload_path: &Path,
+    faults: &mut NamedFaultInjector,
+) -> PocResult<()> {
+    let path = selector_path(allocation_root);
+    let temporary =
+        owner_dir(allocation_root).join(format!(".CURRENT.{}.tmp", operation_id.as_str()));
+    let mut bytes = serde_json::to_vec(selector)?;
+    bytes.push(b'\n');
+    let mut file = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&temporary)
+        .map_err(|error| PocError::io("create owner selector temporary", &temporary, error))?;
+    file.write_all(&bytes)
+        .map_err(|error| PocError::io("write owner selector temporary", &temporary, error))?;
+    file.sync_all()
+        .map_err(|error| PocError::io("fsync owner selector temporary", &temporary, error))?;
+    drop(file);
+    std::fs::rename(&temporary, &path)
+        .map_err(|error| PocError::io("replace owner selector", &path, error))?;
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::OwnerAfterSelectorRename,
+        operation_id,
+        [path.clone()],
+        Some(stationary_payload_path),
+        true,
+    )?;
+    fsync_dir(&owner_dir(allocation_root))?;
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::OwnerAfterSelectorDirFsync,
+        operation_id,
+        [path],
+        Some(stationary_payload_path),
+        true,
     )
 }
 

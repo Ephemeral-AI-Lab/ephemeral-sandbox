@@ -21,6 +21,9 @@ use crate::{
 
 const RECOVERY_FORMAT: &str = "mpla-poc-recovery-v1";
 const CRASH_SWEEP_FORMAT: &str = "mpla-poc-crash-sweep-v1";
+const REAL_OPERATION_WITNESS_FORMAT: &str = "mpla-poc-real-operation-witness-v1";
+const PHYSICAL_POINT_ENV: &str = "MPLA_POC_PHYSICAL_FAULT_POINT";
+const PHYSICAL_ARMED_PATH_ENV: &str = "MPLA_POC_PHYSICAL_FAULT_ARMED_PATH";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -105,6 +108,156 @@ pub enum CrashProtocolPhase {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
+pub enum DurableOperationKind {
+    CommandFence,
+    SealingRecord,
+    HolderQuiescence,
+    StrictUnmount,
+    AllocationFlush,
+    StableInventory,
+    OwnerIntent,
+    OwnerCompare,
+    OwnerGeneration,
+    OwnerJournal,
+    OwnerSelector,
+    OwnerReceipt,
+    CanonicalObjectInstall,
+    CanonicalRootManifest,
+    LocatorGeneration,
+    LocatorSelector,
+    PairedRefCommit,
+    PublishResponse,
+    ActivateResponse,
+    RollbackResponse,
+    RefSelection,
+    LocatorPin,
+    FreshWorkspaceOwner,
+    SessionMount,
+    ReadinessProbe,
+    ActivationBinding,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct FaultOperationBinding {
+    pub fault_point: NamedFaultPoint,
+    pub protocol_phase: CrashProtocolPhase,
+    pub operation: DurableOperationKind,
+    pub durable_boundary: &'static str,
+}
+
+macro_rules! operation_bindings {
+    ($(($point:ident, $phase:ident, $operation:ident, $boundary:literal)),+ $(,)?) => {
+        pub const HV07_OPERATION_BINDINGS: &[FaultOperationBinding] = &[
+            $(FaultOperationBinding {
+                fault_point: NamedFaultPoint::$point,
+                protocol_phase: CrashProtocolPhase::$phase,
+                operation: DurableOperationKind::$operation,
+                durable_boundary: $boundary,
+            }),+
+        ];
+    };
+}
+
+operation_bindings! {
+    (FenceBeforeClose, CommandFencing, CommandFence, "before_close"),
+    (FenceAfterClose, CommandFencing, CommandFence, "closing_record_parent_fsynced"),
+    (FenceAfterDrain, CommandFencing, CommandFence, "in_flight_commands_drained"),
+    (SealingBeforeWrite, DurableSealing, SealingRecord, "before_sealing_record_write"),
+    (SealingAfterFileFsync, DurableSealing, SealingRecord, "sealing_temporary_file_fsynced"),
+    (SealingAfterDirFsync, DurableSealing, SealingRecord, "sealing_record_parent_fsynced"),
+    (QuiesceBeforeStop, HolderQuiescence, HolderQuiescence, "before_stop_kill_reap"),
+    (QuiesceAfterReap, HolderQuiescence, HolderQuiescence, "process_tree_reaped"),
+    (QuiesceAfterFdAudit, HolderQuiescence, HolderQuiescence, "writable_fd_audit_clear"),
+    (UnmountBeforeStrict, StrictUnmount, StrictUnmount, "before_strict_unmount"),
+    (UnmountAfterStrict, StrictUnmount, StrictUnmount, "strict_unmount_complete"),
+    (FlushBeforeSyncfs, AllocationFlush, AllocationFlush, "before_allocation_syncfs"),
+    (FlushAfterSyncfs, AllocationFlush, AllocationFlush, "allocation_syncfs_complete"),
+    (InventoryAfterFirst, StableInventory, StableInventory, "first_inventory_complete"),
+    (InventoryAfterStableSecond, StableInventory, StableInventory, "stable_second_inventory_complete"),
+    (OwnerBeforeIntent, OwnershipTransition, OwnerIntent, "before_owner_intent_append"),
+    (OwnerAfterIntentFsync, OwnershipTransition, OwnerIntent, "owner_intent_journal_fsynced"),
+    (OwnerBeforeCompare, OwnershipTransition, OwnerCompare, "before_owner_compare"),
+    (OwnerAfterGenerationFsync, OwnershipTransition, OwnerGeneration, "owner_generation_fsynced"),
+    (OwnerAfterJournalCommit, OwnershipTransition, OwnerJournal, "owner_commit_journal_fsynced"),
+    (OwnerAfterSelectorRename, OwnershipTransition, OwnerSelector, "owner_selector_replaced"),
+    (OwnerAfterSelectorDirFsync, OwnershipTransition, OwnerSelector, "owner_selector_parent_fsynced"),
+    (OwnerBeforeReceipt, OwnershipTransition, OwnerReceipt, "before_owner_receipt_install"),
+    (OwnerAfterReceiptDirFsync, OwnershipTransition, OwnerReceipt, "owner_receipt_parent_fsynced"),
+    (CanonicalBeforeInstall, CanonicalDurability, CanonicalObjectInstall, "before_canonical_object_install"),
+    (CanonicalAfterObjectFsync, CanonicalDurability, CanonicalObjectInstall, "canonical_objects_fsynced"),
+    (CanonicalAfterObjectDirFsync, CanonicalDurability, CanonicalObjectInstall, "canonical_object_directory_fsynced"),
+    (CanonicalAfterRootManifestFsync, CanonicalDurability, CanonicalRootManifest, "root_manifest_parent_fsynced"),
+    (LocatorAfterForward, LocatorSelection, LocatorGeneration, "locator_forward_durable"),
+    (LocatorAfterReverse, LocatorSelection, LocatorGeneration, "locator_reverse_durable"),
+    (LocatorAfterManifestFsync, LocatorSelection, LocatorGeneration, "locator_manifest_parent_fsynced"),
+    (LocatorAfterSelectorRename, LocatorSelection, LocatorSelector, "locator_selector_replaced"),
+    (LocatorAfterSelectorDirFsync, LocatorSelection, LocatorSelector, "locator_selector_parent_fsynced"),
+    (RefBeforeTemp, RefReplacement, PairedRefCommit, "before_ref_temporary"),
+    (RefAfterTempFsync, RefReplacement, PairedRefCommit, "ref_temporary_fsynced"),
+    (RefAfterReplace, RefReplacement, PairedRefCommit, "paired_ref_replaced"),
+    (RefAfterParentFsync, RefReplacement, PairedRefCommit, "paired_ref_parent_fsynced"),
+    (ResponseLossPublish, ResponseDelivery, PublishResponse, "publish_terminal_durable_before_response"),
+    (ResponseLossActivate, ResponseDelivery, ActivateResponse, "activation_terminal_durable_before_response"),
+    (ResponseLossRollback, ResponseDelivery, RollbackResponse, "rollback_terminal_durable_before_response"),
+    (ActivateAfterRefSelect, SuccessorActivation, RefSelection, "paired_ref_selected"),
+    (ActivateAfterLocatorPin, SuccessorActivation, LocatorPin, "locator_generation_pinned"),
+    (ActivateAfterFreshOwner, SuccessorActivation, FreshWorkspaceOwner, "fresh_workspace_owner_durable"),
+    (ActivateAfterMount, SuccessorActivation, SessionMount, "successor_mount_complete"),
+    (ActivateAfterReady, SuccessorActivation, ReadinessProbe, "external_readiness_succeeded"),
+    (ActivateAfterBindingFsync, SuccessorActivation, ActivationBinding, "activation_binding_parent_fsynced"),
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RealOperationWitness {
+    pub schema_version: u32,
+    pub format: String,
+    pub fault_point: NamedFaultPoint,
+    pub protocol_phase: CrashProtocolPhase,
+    pub operation: DurableOperationKind,
+    pub durable_boundary: String,
+    pub operation_id: OperationId,
+    pub durable_state_paths: Vec<PathBuf>,
+    pub operation_state_parent_synced: bool,
+    pub stationary_payload_path_before: Option<PathBuf>,
+    pub stationary_payload_path_after: Option<PathBuf>,
+    pub payload_bytes_moved: u64,
+    pub payload_bytes_copied: u64,
+    pub recorded_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PhysicalKillWitness {
+    pub schema_version: u32,
+    pub fault_point: NamedFaultPoint,
+    pub operation_id: OperationId,
+    pub process_id: u32,
+    pub signal: i32,
+    pub durable_marker_observed: bool,
+    pub marker_parent_synced: bool,
+    pub terminated_by_expected_signal: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RecoveryReplayWitness {
+    pub schema_version: u32,
+    pub fault_point: NamedFaultPoint,
+    pub operation_id: OperationId,
+    pub retry_operation_id: OperationId,
+    pub recovery_invoked: bool,
+    pub recovery_completed: bool,
+    pub terminal_invariant_verified: bool,
+    pub selected_visibility: SelectedVisibility,
+    pub exact_owner_verified: bool,
+    pub exact_locator_verified: bool,
+    pub exact_ref_verified: bool,
+    pub stationary_payload_verified: bool,
+    pub failed_attempt_bundle_durable: bool,
+    pub cancelled_attempt_bundle_durable: bool,
+    pub idempotent_retry_verified: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SelectedVisibility {
     Old,
     CompleteNew,
@@ -143,6 +296,9 @@ pub struct CrashRecoveryObservation {
     pub retry_operation_id: OperationId,
     pub before: DurableCrashWitness,
     pub after: DurableCrashWitness,
+    pub real_operation_witness: Option<RealOperationWitness>,
+    pub physical_kill_witness: Option<PhysicalKillWitness>,
+    pub recovery_replay_witness: Option<RecoveryReplayWitness>,
     pub selected_visibility: SelectedVisibility,
     pub idempotent_retry_same_result: bool,
     pub post_sealing_session_resumed: bool,
@@ -152,6 +308,82 @@ pub struct CrashRecoveryObservation {
     pub temporary_debt_bytes: u64,
     pub retirement_debt_bytes: u64,
     pub unclassified_debt_bytes: u64,
+}
+
+#[must_use]
+pub fn hv07_operation_bindings() -> &'static [FaultOperationBinding] {
+    HV07_OPERATION_BINDINGS
+}
+
+pub fn reach_real_operation(
+    faults: &mut NamedFaultInjector,
+    point: NamedFaultPoint,
+    operation_id: &OperationId,
+    durable_state_paths: impl IntoIterator<Item = PathBuf>,
+    stationary_payload_path: Option<&Path>,
+    post_sealing: bool,
+) -> PocResult<()> {
+    let binding = operation_binding(point)?;
+    let durable_state_paths = durable_state_paths.into_iter().collect::<Vec<_>>();
+    if std::env::var_os(PHYSICAL_POINT_ENV).as_deref() == Some(std::ffi::OsStr::new(point.as_str()))
+    {
+        if durable_state_paths.is_empty() || durable_state_paths.iter().any(|path| !path.exists()) {
+            return Err(PocError::Integrity(format!(
+                "real operation {} reached {} without its durable state",
+                binding.durable_boundary,
+                point.as_str()
+            )));
+        }
+        if stationary_payload_path.is_some_and(|path| !path.exists()) {
+            return Err(PocError::Integrity(format!(
+                "real operation {} lost its stationary payload before {}",
+                binding.durable_boundary,
+                point.as_str()
+            )));
+        }
+        let marker_path = std::env::var_os(PHYSICAL_ARMED_PATH_ENV)
+            .map(PathBuf::from)
+            .ok_or_else(|| {
+                PocError::InvalidConfig(
+                    "physical real-operation witness has no armed marker path".to_owned(),
+                )
+            })?;
+        let witness_path = marker_path.with_file_name("real-operation.json");
+        let stationary = stationary_payload_path.map(Path::to_path_buf);
+        replace_json(
+            &witness_path,
+            &RealOperationWitness {
+                schema_version: SCHEMA_VERSION,
+                format: REAL_OPERATION_WITNESS_FORMAT.to_owned(),
+                fault_point: point,
+                protocol_phase: binding.protocol_phase,
+                operation: binding.operation,
+                durable_boundary: binding.durable_boundary.to_owned(),
+                operation_id: operation_id.clone(),
+                durable_state_paths,
+                operation_state_parent_synced: true,
+                stationary_payload_path_before: stationary.clone(),
+                stationary_payload_path_after: stationary,
+                payload_bytes_moved: 0,
+                payload_bytes_copied: 0,
+                recorded_unix_ms: unix_time_ms()?,
+            },
+        )?;
+    }
+    faults.reach(point, 1, post_sealing)
+}
+
+fn operation_binding(point: NamedFaultPoint) -> PocResult<FaultOperationBinding> {
+    HV07_OPERATION_BINDINGS
+        .iter()
+        .copied()
+        .find(|binding| binding.fault_point == point)
+        .ok_or_else(|| {
+            PocError::Integrity(format!(
+                "faultpoint {} has no real-operation binding",
+                point.as_str()
+            ))
+        })
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -416,6 +648,19 @@ impl CrashSweepLedger {
             PocError::io("create crash faultpoint directory", &fault_dir, source)
         })?;
         fsync_dir(&self.root.join("attempts"))?;
+        let path = fault_dir.join(format!("{:08}.json", observation.attempt));
+        if path.exists() {
+            let existing: CrashAttemptRecord = read_json(&path)?;
+            validate_crash_record(&existing)?;
+            if existing.observation == observation {
+                return Ok(existing);
+            }
+            return Err(PocError::Integrity(format!(
+                "crash attempt {} for {} was reused with different evidence",
+                observation.attempt,
+                observation.fault_point.as_str()
+            )));
+        }
         let mut record = CrashAttemptRecord {
             schema_version: SCHEMA_VERSION,
             format: CRASH_SWEEP_FORMAT.to_owned(),
@@ -426,7 +671,6 @@ impl CrashSweepLedger {
             record_sha256: String::new(),
         };
         record.record_sha256 = crash_record_digest(&record)?;
-        let path = fault_dir.join(format!("{:08}.json", record.observation.attempt));
         write_immutable_json(&path, &record)?;
         Ok(record)
     }
@@ -579,6 +823,75 @@ fn crash_observation_failures(observation: &CrashRecoveryObservation) -> Vec<Str
             }
         }
         None => failures.push("faultpoint is absent from the frozen registry".to_owned()),
+    }
+    match observation.real_operation_witness.as_ref() {
+        Some(witness) => match operation_binding(observation.fault_point) {
+            Ok(binding) => {
+                if witness.schema_version != SCHEMA_VERSION
+                    || witness.format != REAL_OPERATION_WITNESS_FORMAT
+                    || witness.fault_point != observation.fault_point
+                    || witness.protocol_phase != binding.protocol_phase
+                    || witness.operation != binding.operation
+                    || witness.durable_boundary != binding.durable_boundary
+                    || witness.operation_id != observation.operation_id
+                    || witness.durable_state_paths.is_empty()
+                    || !witness.operation_state_parent_synced
+                {
+                    failures.push(
+                        "real-operation witness does not match the exact durable boundary"
+                            .to_owned(),
+                    );
+                }
+                if witness.stationary_payload_path_before != witness.stationary_payload_path_after
+                    || witness.payload_bytes_moved != 0
+                    || witness.payload_bytes_copied != 0
+                {
+                    failures.push(
+                        "real operation moved or copied the stationary publication payload"
+                            .to_owned(),
+                    );
+                }
+            }
+            Err(_) => failures.push("faultpoint has no real-operation binding".to_owned()),
+        },
+        None => failures.push("crash attempt lacks a real-operation witness".to_owned()),
+    }
+    if observation.execution_mode.is_physical() {
+        match observation.physical_kill_witness.as_ref() {
+            Some(witness)
+                if witness.schema_version == SCHEMA_VERSION
+                    && witness.fault_point == observation.fault_point
+                    && witness.operation_id == observation.operation_id
+                    && witness.process_id != 0
+                    && witness.signal == libc::SIGKILL
+                    && witness.durable_marker_observed
+                    && witness.marker_parent_synced
+                    && witness.terminated_by_expected_signal => {}
+            Some(_) => {
+                failures.push("physical kill witness is incomplete or mismatched".to_owned())
+            }
+            None => failures.push("physical crash attempt lacks a kill witness".to_owned()),
+        }
+    }
+    match observation.recovery_replay_witness.as_ref() {
+        Some(witness)
+            if witness.schema_version == SCHEMA_VERSION
+                && witness.fault_point == observation.fault_point
+                && witness.operation_id == observation.operation_id
+                && witness.retry_operation_id == observation.retry_operation_id
+                && witness.recovery_invoked
+                && witness.recovery_completed
+                && witness.terminal_invariant_verified
+                && witness.selected_visibility == observation.selected_visibility
+                && witness.exact_owner_verified
+                && witness.exact_locator_verified
+                && witness.exact_ref_verified
+                && witness.stationary_payload_verified
+                && witness.failed_attempt_bundle_durable
+                && witness.cancelled_attempt_bundle_durable
+                && witness.idempotent_retry_verified => {}
+        Some(_) => failures.push("recovery replay witness is incomplete or mismatched".to_owned()),
+        None => failures.push("crash attempt lacks a recovery replay witness".to_owned()),
     }
     if !observation.before.state_parent_synced || !observation.after.state_parent_synced {
         failures.push("durable before/after witness lacks parent fsync".to_owned());

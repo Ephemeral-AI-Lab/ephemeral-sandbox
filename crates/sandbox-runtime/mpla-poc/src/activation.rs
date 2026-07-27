@@ -8,10 +8,11 @@ use rustix::fs::{AtFlags, Timespec, Timestamps, CWD};
 use serde::{Deserialize, Serialize};
 
 use crate::projection::{select_exact, ExactProjectionReceipt, ProjectionRecipe};
+use crate::recovery::reach_real_operation;
 use crate::{
     allocation, durable, lease, ActivationOperationId, AllocationHandle, AllocationId,
-    CommandReceipt, MplaSession, OperationId, PairedRefValue, PocError, PocResult, SessionId,
-    SCHEMA_VERSION,
+    CommandReceipt, MplaSession, NamedFaultInjector, NamedFaultPoint, OperationId, PairedRefValue,
+    PocError, PocResult, SessionId, SCHEMA_VERSION,
 };
 
 #[derive(Clone, Debug)]
@@ -62,6 +63,16 @@ pub struct ActivationPhaseSpan {
     pub elapsed_ns: u64,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct LocatorPinRecord {
+    schema_version: u32,
+    activation_operation_id: ActivationOperationId,
+    selected_ref_operation_id: OperationId,
+    locator_generation: crate::LocatorGeneration,
+    selected_payload_allocation_ids: Vec<AllocationId>,
+    durable_unix_ms: u64,
+}
+
 #[derive(Debug)]
 pub struct ActivatedSession {
     pub session: MplaSession,
@@ -72,7 +83,32 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
     let started = Instant::now();
     let selection_started = Instant::now();
     validate_request(&request)?;
+    let operation_id = OperationId::from_string(request.activation_operation_id.as_str());
+    let activation_directory = request
+        .control_root
+        .join("activations")
+        .join(request.activation_operation_id.as_str());
+    let locator_pin_path = activation_directory.join("LOCATOR_PIN.json");
+    let mut named_faults = NamedFaultInjector::default().with_physical_context(
+        operation_id.as_str(),
+        [
+            locator_pin_path.clone(),
+            activation_directory.join("SESSION_BOUND.json"),
+            activation_directory.join("OUTCOME.json"),
+        ],
+    );
     let projection = select_exact(&request.recipe)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::ActivateAfterRefSelect,
+        &operation_id,
+        request
+            .payload_allocations
+            .iter()
+            .map(|allocation| allocation.upper_dir.clone()),
+        None,
+        true,
+    )?;
     let payload_by_id: BTreeMap<_, _> = request
         .payload_allocations
         .iter()
@@ -94,6 +130,25 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
             })
         })
         .collect::<PocResult<Vec<_>>>()?;
+    durable::replace_json(
+        &locator_pin_path,
+        &LocatorPinRecord {
+            schema_version: SCHEMA_VERSION,
+            activation_operation_id: request.activation_operation_id.clone(),
+            selected_ref_operation_id: request.selected_ref.operation_id.clone(),
+            locator_generation: request.selected_ref.locator_generation,
+            selected_payload_allocation_ids: projection.lower_allocation_ids_newest_first.clone(),
+            durable_unix_ms: crate::unix_time_ms()?,
+        },
+    )?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::ActivateAfterLocatorPin,
+        &operation_id,
+        [locator_pin_path.clone()],
+        None,
+        true,
+    )?;
     let selection_elapsed_ns = elapsed_ns(selection_started);
 
     let allocation_started = Instant::now();
@@ -124,6 +179,14 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
     let session_id = SessionId::new();
     let mutable_lease =
         lease::issue_workspace_lease(&fresh, session_id.clone(), &request.allocation_operation_id)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::ActivateAfterFreshOwner,
+        &operation_id,
+        [fresh.owner_dir.join("CURRENT")],
+        None,
+        true,
+    )?;
     let lease_elapsed_ns = elapsed_ns(lease_started);
     let session_started = Instant::now();
     let mut session = MplaSession::open(
@@ -132,6 +195,14 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
         mutable_lease.clone(),
         lower_dirs,
         request.cgroup_procs_path,
+    )?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::ActivateAfterMount,
+        &operation_id,
+        [session.session_dir().join("SESSION.json")],
+        None,
+        true,
     )?;
     let session_elapsed_ns = elapsed_ns(session_started);
     let readiness_started = Instant::now();
@@ -146,29 +217,41 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
             "external activation readiness probe failed".to_owned(),
         ));
     }
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::ActivateAfterReady,
+        &operation_id,
+        [session.session_dir().join("SESSION.json")],
+        None,
+        true,
+    )?;
     let readiness_elapsed_ns = elapsed_ns(readiness_started);
 
     let binding_started = Instant::now();
-    let activation_directory = request
-        .control_root
-        .join("activations")
-        .join(request.activation_operation_id.as_str());
     let session_binding_path = activation_directory.join("SESSION_BOUND.json");
     let binding = ActivationBinding {
         schema_version: SCHEMA_VERSION,
         activation_operation_id: request.activation_operation_id.clone(),
         session_id: session_id.clone(),
         fresh_allocation_id: session.allocation().descriptor.allocation_id.clone(),
-        selected_ref: request.selected_ref,
+        selected_ref: request.selected_ref.clone(),
         projection: projection.clone(),
         bound_unix_ms: crate::unix_time_ms()?,
     };
     durable::replace_json(&session_binding_path, &binding)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::ActivateAfterBindingFsync,
+        &operation_id,
+        [session_binding_path.clone()],
+        None,
+        true,
+    )?;
     let binding_elapsed_ns = elapsed_ns(binding_started);
     let elapsed_ns = elapsed_ns(started);
     let receipt = ActivationReceipt {
         schema_version: SCHEMA_VERSION,
-        activation_operation_id: request.activation_operation_id,
+        activation_operation_id: request.activation_operation_id.clone(),
         session_id,
         fresh_allocation_id: session.allocation().descriptor.allocation_id.clone(),
         selected_payload_allocation_ids: projection.lower_allocation_ids_newest_first.clone(),
@@ -185,9 +268,19 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
             phase("activation-total", elapsed_ns),
         ],
         elapsed_ns,
-        session_binding_path,
+        session_binding_path: session_binding_path.clone(),
         session_binding_parent_synced: true,
     };
+    let outcome_path = activation_directory.join("OUTCOME.json");
+    durable::replace_json(&outcome_path, &receipt)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::ResponseLossActivate,
+        &operation_id,
+        [outcome_path, session_binding_path],
+        None,
+        true,
+    )?;
     Ok(ActivatedSession { session, receipt })
 }
 

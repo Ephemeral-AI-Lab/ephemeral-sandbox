@@ -7,12 +7,19 @@ use sha2::{Digest, Sha256};
 
 use crate::durable::{fsync_dir, read_json, write_immutable_json, FileLock};
 use crate::locator::LocatorStore;
+use crate::recovery::reach_real_operation;
 use crate::{
     CanonicalDurabilityReceipt, LocatorDurabilityReceipt, LocatorRefCandidate, NamedFaultInjector,
     NamedFaultPoint, PairedRefValue, PocError, PocResult, RefSequence, SCHEMA_VERSION,
 };
 
 const REF_FORMAT: &str = "mpla-poc-paired-ref-v1";
+
+#[derive(Clone, Copy)]
+enum TerminalResponse {
+    Publish,
+    Rollback,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RefCommitOutcome {
@@ -122,6 +129,48 @@ impl PairedRefStore {
         locator_store: &LocatorStore,
         faults: &mut NamedFaultInjector,
     ) -> PocResult<RefCommitOutcome> {
+        self.commit_with_response(
+            branch,
+            candidate,
+            canonical,
+            locator,
+            locator_store,
+            faults,
+            TerminalResponse::Publish,
+        )
+    }
+
+    pub fn commit_rollback(
+        &self,
+        branch: &str,
+        candidate: &LocatorRefCandidate,
+        canonical: &CanonicalDurabilityReceipt,
+        locator: &LocatorDurabilityReceipt,
+        locator_store: &LocatorStore,
+        faults: &mut NamedFaultInjector,
+    ) -> PocResult<RefCommitOutcome> {
+        self.commit_with_response(
+            branch,
+            candidate,
+            canonical,
+            locator,
+            locator_store,
+            faults,
+            TerminalResponse::Rollback,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn commit_with_response(
+        &self,
+        branch: &str,
+        candidate: &LocatorRefCandidate,
+        canonical: &CanonicalDurabilityReceipt,
+        locator: &LocatorDurabilityReceipt,
+        locator_store: &LocatorStore,
+        faults: &mut NamedFaultInjector,
+        terminal_response: TerminalResponse,
+    ) -> PocResult<RefCommitOutcome> {
         validate_candidate(candidate)?;
         validate_canonical(canonical)?;
         locator_store.validate_generation_receipt(locator)?;
@@ -211,8 +260,15 @@ impl PairedRefStore {
             checksum_sha256: String::new(),
         };
         value.checksum_sha256 = paired_ref_checksum(&value)?;
-        faults.reach(NamedFaultPoint::RefBeforeTemp, 1, true)?;
-        replace_head(&branch_dir, &value, candidate.operation_id.as_str(), faults)?;
+        reach_real_operation(
+            faults,
+            NamedFaultPoint::RefBeforeTemp,
+            &candidate.operation_id,
+            [prerequisite_path.clone()],
+            None,
+            true,
+        )?;
+        replace_head(&branch_dir, &value, &candidate.operation_id, faults)?;
 
         let outcome = RefOutcomeRecord {
             schema_version: SCHEMA_VERSION,
@@ -222,7 +278,18 @@ impl PairedRefStore {
         };
         let outcome_path = outcome_path(&branch_dir, candidate.operation_id.as_str());
         write_immutable_json(&outcome_path, &outcome)?;
-        faults.reach(NamedFaultPoint::ResponseLossPublish, 1, true)?;
+        let response_point = match terminal_response {
+            TerminalResponse::Publish => NamedFaultPoint::ResponseLossPublish,
+            TerminalResponse::Rollback => NamedFaultPoint::ResponseLossRollback,
+        };
+        reach_real_operation(
+            faults,
+            response_point,
+            &candidate.operation_id,
+            [outcome_path.clone(), branch_dir.join("HEAD")],
+            None,
+            true,
+        )?;
         Ok(RefCommitOutcome::Committed(RefCommitReceipt {
             value,
             idempotent_replay: false,
@@ -304,10 +371,10 @@ impl PairedRefStore {
 fn replace_head(
     branch_dir: &Path,
     value: &PairedRefValue,
-    operation_id: &str,
+    operation_id: &crate::OperationId,
     faults: &mut NamedFaultInjector,
 ) -> PocResult<()> {
-    validate_path_component(operation_id, "operation ID")?;
+    validate_path_component(operation_id.as_str(), "operation ID")?;
     let temporary = branch_dir.join(format!(".HEAD.{operation_id}.tmp"));
     let bytes = encoded_json(value)?;
     let mut file = OpenOptions::new()
@@ -320,13 +387,34 @@ fn replace_head(
         .map_err(|source| PocError::io("write paired ref temporary", &temporary, source))?;
     file.sync_all()
         .map_err(|source| PocError::io("fsync paired ref temporary", &temporary, source))?;
-    faults.reach(NamedFaultPoint::RefAfterTempFsync, 1, true)?;
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::RefAfterTempFsync,
+        operation_id,
+        [temporary.clone()],
+        None,
+        true,
+    )?;
     drop(file);
     std::fs::rename(&temporary, branch_dir.join("HEAD"))
         .map_err(|source| PocError::io("replace paired ref", branch_dir.join("HEAD"), source))?;
-    faults.reach(NamedFaultPoint::RefAfterReplace, 1, true)?;
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::RefAfterReplace,
+        operation_id,
+        [branch_dir.join("HEAD")],
+        None,
+        true,
+    )?;
     fsync_dir(branch_dir)?;
-    faults.reach(NamedFaultPoint::RefAfterParentFsync, 1, true)
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::RefAfterParentFsync,
+        operation_id,
+        [branch_dir.join("HEAD")],
+        None,
+        true,
+    )
 }
 
 fn read_head(branch_dir: &Path) -> PocResult<Option<PairedRefValue>> {

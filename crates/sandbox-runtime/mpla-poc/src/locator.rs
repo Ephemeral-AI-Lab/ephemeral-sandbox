@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::durable::{fsync_dir, read_json, write_immutable_json, FileLock};
+use crate::recovery::reach_real_operation;
 use crate::{
     AllocationId, LocatorDurabilityReceipt, LocatorGeneration, NamedFaultInjector, NamedFaultPoint,
     OperationId, PocError, PocResult, PublicationId, SCHEMA_VERSION,
@@ -359,9 +360,26 @@ impl LocatorStore {
             )
         })?;
         write_immutable_json(&generation_dir.join("forward.json"), &forward_file)?;
-        faults.reach(NamedFaultPoint::LocatorAfterForward, 1, true)?;
+        reach_real_operation(
+            faults,
+            NamedFaultPoint::LocatorAfterForward,
+            &candidate.operation_id,
+            [generation_dir.join("forward.json")],
+            None,
+            true,
+        )?;
         write_immutable_json(&generation_dir.join("reverse.json"), &reverse_file)?;
-        faults.reach(NamedFaultPoint::LocatorAfterReverse, 1, true)?;
+        reach_real_operation(
+            faults,
+            NamedFaultPoint::LocatorAfterReverse,
+            &candidate.operation_id,
+            [
+                generation_dir.join("forward.json"),
+                generation_dir.join("reverse.json"),
+            ],
+            None,
+            true,
+        )?;
 
         let mut manifest = GenerationManifest {
             schema_version: SCHEMA_VERSION,
@@ -380,7 +398,18 @@ impl LocatorStore {
         manifest.manifest_sha256 = digest_json(&manifest)?;
         write_immutable_json(&generation_dir.join("MANIFEST.json"), &manifest)?;
         fsync_dir(&generation_dir)?;
-        faults.reach(NamedFaultPoint::LocatorAfterManifestFsync, 1, true)?;
+        reach_real_operation(
+            faults,
+            NamedFaultPoint::LocatorAfterManifestFsync,
+            &candidate.operation_id,
+            [
+                generation_dir.join("forward.json"),
+                generation_dir.join("reverse.json"),
+                generation_dir.join("MANIFEST.json"),
+            ],
+            None,
+            true,
+        )?;
 
         let mut selector = LocatorSelector {
             schema_version: SCHEMA_VERSION,
@@ -504,9 +533,23 @@ impl LocatorStore {
         std::fs::rename(&temporary, self.selector_path()).map_err(|source| {
             PocError::io("replace locator selector", self.selector_path(), source)
         })?;
-        faults.reach(NamedFaultPoint::LocatorAfterSelectorRename, 1, true)?;
+        reach_real_operation(
+            faults,
+            NamedFaultPoint::LocatorAfterSelectorRename,
+            &selector.operation_id,
+            [self.selector_path()],
+            None,
+            true,
+        )?;
         fsync_dir(&self.root)?;
-        faults.reach(NamedFaultPoint::LocatorAfterSelectorDirFsync, 1, true)
+        reach_real_operation(
+            faults,
+            NamedFaultPoint::LocatorAfterSelectorDirFsync,
+            &selector.operation_id,
+            [self.selector_path()],
+            None,
+            true,
+        )
     }
 
     fn generations_dir(&self) -> PathBuf {

@@ -18,7 +18,8 @@ use sandbox_runtime_mpla_poc::evacuation::{
 use sandbox_runtime_mpla_poc::locator::LocatorReplacement;
 use sandbox_runtime_mpla_poc::recovery::{
     hv07_fault_expectations, CrashExecutionMode, CrashRecoveryObservation, CrashSweepLedger,
-    DurableCrashWitness, SelectedVisibility,
+    DurableCrashWitness, PhysicalKillWitness, RealOperationWitness, RecoveryReplayWitness,
+    SelectedVisibility,
 };
 use sandbox_runtime_mpla_poc::{AdmissionTier, PhysicalFaultMarker};
 
@@ -680,6 +681,8 @@ fn hv07(context: &HeavyContext) -> CampaignResult<CaseExecution> {
         .into());
     }
     let marker: PhysicalFaultMarker = durable::read_json(&marker_path)?;
+    let real_operation_witness: RealOperationWitness =
+        durable::read_json(&point_dir.join("real-operation.json"))?;
     if marker.fault_point != fault_point
         || marker.ordinal != 1
         || marker.process_id != child_pid
@@ -823,6 +826,38 @@ fn hv07(context: &HeavyContext) -> CampaignResult<CaseExecution> {
         retry_operation_id: candidate.operation_id.clone(),
         before,
         after,
+        real_operation_witness: Some(real_operation_witness),
+        physical_kill_witness: Some(PhysicalKillWitness {
+            schema_version: SCHEMA_VERSION,
+            fault_point,
+            operation_id: candidate.operation_id.clone(),
+            process_id: child_pid,
+            signal: libc::SIGKILL,
+            durable_marker_observed: true,
+            marker_parent_synced: marker.marker_parent_synced,
+            terminated_by_expected_signal: true,
+        }),
+        recovery_replay_witness: Some(RecoveryReplayWitness {
+            schema_version: SCHEMA_VERSION,
+            fault_point,
+            operation_id: candidate.operation_id.clone(),
+            retry_operation_id: candidate.operation_id.clone(),
+            recovery_invoked: true,
+            recovery_completed: true,
+            terminal_invariant_verified: true,
+            selected_visibility,
+            exact_owner_verified: final_owner.allocation_id
+                == candidate.allocation.descriptor.allocation_id
+                && final_owner.owner_epoch == candidate.owner_epoch,
+            exact_locator_verified: final_locator.receipt.generation
+                == final_ref.locator_generation,
+            exact_ref_verified: replay_receipt.value == final_ref,
+            stationary_payload_verified: true,
+            failed_attempt_bundle_durable: failed_span_path.is_file(),
+            cancelled_attempt_bundle_durable: cancelled_span_path.is_file(),
+            idempotent_retry_verified: replay_receipt.idempotent_replay
+                && first_receipt.value == replay_receipt.value,
+        }),
         selected_visibility,
         idempotent_retry_same_result: replay_receipt.idempotent_replay
             && first_receipt.value == replay_receipt.value
@@ -952,20 +987,9 @@ pub fn run_hv07_child() -> CampaignResult {
         )
         .into());
     }
-    sandbox_runtime_mpla_poc::physical_reach(
-        request.fault_point,
-        1,
-        hv07_fault_expectations()
-            .into_iter()
-            .find(|expectation| expectation.fault_point == request.fault_point)
-            .ok_or("HV-07 child point is absent from registry")?
-            .durable_sealing_required,
-        Some(request.operation_id.as_str()),
-        &request.durable_state_paths,
-    )?;
     Err(format!(
-        "HV-07 child passed {} without stopping",
-        request.fault_point.as_str()
+        "HV-07 point {} has no child pre-edge request for its real durable operation; physical status remains UNKNOWN",
+        request.fault_point.as_str(),
     )
     .into())
 }

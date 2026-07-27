@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read, Write};
 #[cfg(target_os = "linux")]
 use std::os::fd::AsRawFd;
 use std::path::{Component, Path, PathBuf};
@@ -13,9 +13,10 @@ use crate::fault::{FaultInjector, FaultPoint};
 use crate::inventory::{capture_inventory, capture_physical_witness, AllocationInventory};
 use crate::overlay_adapter::{PermanentOverlayMount, UnmountedOverlay};
 use crate::process_tree::{ManagedProcessTree, ProcessAudit};
+use crate::recovery::reach_real_operation;
 use crate::{
-    durable, unix_time_ms, AllocationHandle, MutableLease, OperationId, PocError, PocResult,
-    SessionId, StableAllocationReceipt, SCHEMA_VERSION,
+    durable, unix_time_ms, AllocationHandle, MutableLease, NamedFaultInjector, NamedFaultPoint,
+    OperationId, PocError, PocResult, SessionId, StableAllocationReceipt, SCHEMA_VERSION,
 };
 
 const AUDIT_RETRY_BUDGET: Duration = Duration::from_secs(1);
@@ -136,6 +137,8 @@ pub fn persist_sealing(
     session_dir: &Path,
     operation_id: &OperationId,
     lease: &MutableLease,
+    stationary_payload_path: &Path,
+    faults: &mut NamedFaultInjector,
 ) -> PocResult<SealingRecord> {
     let record = SealingRecord {
         schema_version: SCHEMA_VERSION,
@@ -146,7 +149,48 @@ pub fn persist_sealing(
         owner_epoch: lease.owner_epoch,
         durable_unix_ms: unix_time_ms()?,
     };
-    durable::replace_json(&sealing_record_path(session_dir), &record)?;
+    let final_path = sealing_record_path(session_dir);
+    let temporary_path = session_dir.join(format!(".SEALING.{}.tmp", operation_id.as_str()));
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::SealingBeforeWrite,
+        operation_id,
+        [session_dir.join("SESSION.json")],
+        Some(stationary_payload_path),
+        false,
+    )?;
+    let mut bytes = serde_json::to_vec(&record)?;
+    bytes.push(b'\n');
+    let mut file = File::options()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&temporary_path)
+        .map_err(|error| PocError::io("create Sealing temporary", &temporary_path, error))?;
+    file.write_all(&bytes)
+        .map_err(|error| PocError::io("write Sealing temporary", &temporary_path, error))?;
+    file.sync_all()
+        .map_err(|error| PocError::io("fsync Sealing temporary", &temporary_path, error))?;
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::SealingAfterFileFsync,
+        operation_id,
+        [temporary_path.clone()],
+        Some(stationary_payload_path),
+        false,
+    )?;
+    drop(file);
+    std::fs::rename(&temporary_path, &final_path)
+        .map_err(|error| PocError::io("replace Sealing record", &final_path, error))?;
+    durable::fsync_dir(session_dir)?;
+    reach_real_operation(
+        faults,
+        NamedFaultPoint::SealingAfterDirFsync,
+        operation_id,
+        [final_path],
+        Some(stationary_payload_path),
+        true,
+    )?;
     Ok(record)
 }
 
@@ -164,19 +208,90 @@ pub fn quiesce_and_stabilize(
     let sealing: SealingRecord = durable::read_json(&sealing_record_path(session_dir))?;
     validate_sealing_scope(&sealing, operation_id, lease)?;
 
+    let state_paths = [
+        sealing_record_path(session_dir),
+        session_dir.join("STABLE.json"),
+        session_dir.join("QUIESCENCE.json"),
+    ];
+    let mut named_faults = NamedFaultInjector::default()
+        .with_physical_context(operation_id.as_str(), state_paths.clone());
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::QuiesceBeforeStop,
+        operation_id,
+        [state_paths[0].clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     let killed_or_signaled_pids = process_tree.stop_kill_reap()?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::QuiesceAfterReap,
+        operation_id,
+        [state_paths[0].clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     faults.hit(FaultPoint::AfterProcessDrain, true)?;
     let pre_unmount_audit = wait_for_clear_audit(process_tree, false)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::QuiesceAfterFdAudit,
+        operation_id,
+        [state_paths[0].clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
 
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::UnmountBeforeStrict,
+        operation_id,
+        [state_paths[0].clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     let unmounted = overlay.strict_unmount()?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::UnmountAfterStrict,
+        operation_id,
+        [unmounted.workspace_root.clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     faults.hit(FaultPoint::AfterStrictUnmount, true)?;
     let post_unmount_audit = wait_for_clear_audit(process_tree, true)?;
 
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::FlushBeforeSyncfs,
+        operation_id,
+        [allocation.upper_dir.clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     syncfs_path(&allocation.upper_dir)?;
     sync_directory(&allocation.owner_dir)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::FlushAfterSyncfs,
+        operation_id,
+        [allocation.upper_dir.clone(), allocation.owner_dir.clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     faults.hit(FaultPoint::AfterSyncfs, true)?;
 
     let first_inventory = capture_inventory(allocation)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::InventoryAfterFirst,
+        operation_id,
+        [allocation.allocation_root.join("ALLOCATION.json")],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     faults.hit(FaultPoint::AfterFirstInventory, true)?;
     thread::yield_now();
     let second_inventory = capture_inventory(allocation)?;
@@ -186,6 +301,14 @@ pub fn quiesce_and_stabilize(
             allocation.descriptor.allocation_id
         )));
     }
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::InventoryAfterStableSecond,
+        operation_id,
+        [allocation.allocation_root.join("ALLOCATION.json")],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     let stable = StableAllocationReceipt {
         schema_version: SCHEMA_VERSION,
         operation_id: operation_id.clone(),
@@ -234,19 +357,90 @@ pub fn quiesce_and_stabilize_receipt_hit(
     let sealing: SealingRecord = durable::read_json(&sealing_record_path(session_dir))?;
     validate_sealing_scope(&sealing, operation_id, lease)?;
 
+    let state_paths = [
+        sealing_record_path(session_dir),
+        session_dir.join("STABLE.json"),
+        session_dir.join("QUIESCENCE.json"),
+    ];
+    let mut named_faults = NamedFaultInjector::default()
+        .with_physical_context(operation_id.as_str(), state_paths.clone());
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::QuiesceBeforeStop,
+        operation_id,
+        [state_paths[0].clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     let killed_or_signaled_pids = process_tree.stop_kill_reap()?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::QuiesceAfterReap,
+        operation_id,
+        [state_paths[0].clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     faults.hit(FaultPoint::AfterProcessDrain, true)?;
     let pre_unmount_audit = wait_for_clear_audit(process_tree, false)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::QuiesceAfterFdAudit,
+        operation_id,
+        [state_paths[0].clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
 
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::UnmountBeforeStrict,
+        operation_id,
+        [state_paths[0].clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     let unmounted = overlay.strict_unmount()?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::UnmountAfterStrict,
+        operation_id,
+        [unmounted.workspace_root.clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     faults.hit(FaultPoint::AfterStrictUnmount, true)?;
     let post_unmount_audit = wait_for_clear_audit(process_tree, true)?;
 
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::FlushBeforeSyncfs,
+        operation_id,
+        [allocation.upper_dir.clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     syncfs_path(&allocation.upper_dir)?;
     sync_directory(&allocation.owner_dir)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::FlushAfterSyncfs,
+        operation_id,
+        [allocation.upper_dir.clone(), allocation.owner_dir.clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     faults.hit(FaultPoint::AfterSyncfs, true)?;
 
     let before = capture_physical_witness(allocation, &input.affected_paths)?;
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::InventoryAfterFirst,
+        operation_id,
+        [input.affected_stream.clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     faults.hit(FaultPoint::AfterFirstInventory, true)?;
     thread::yield_now();
     let after = capture_physical_witness(allocation, &input.affected_paths)?;
@@ -256,6 +450,14 @@ pub fn quiesce_and_stabilize_receipt_hit(
             allocation.descriptor.allocation_id
         )));
     }
+    reach_real_operation(
+        &mut named_faults,
+        NamedFaultPoint::InventoryAfterStableSecond,
+        operation_id,
+        [input.affected_stream.clone()],
+        Some(&allocation.upper_dir),
+        true,
+    )?;
     let witness_sha256 = digest_json(&before)?;
     let stable = StableAllocationReceipt {
         schema_version: SCHEMA_VERSION,
