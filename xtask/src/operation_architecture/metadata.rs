@@ -87,6 +87,7 @@ const PACKAGE_POLICIES: &[PackagePolicy] = &[
             "sandbox-operation-catalog",
             "sandbox-runtime-workspace",
             "sandbox-runtime-layerstack",
+            "sandbox-runtime-mpla-poc",
             "sandbox-runtime-namespace-execution",
             "sandbox-runtime-namespace-process",
             "sandbox-observability-telemetry",
@@ -194,6 +195,12 @@ const PACKAGE_POLICIES: &[PackagePolicy] = &[
         name: "sandbox-runtime-layerstack",
         layer: Layer::Primitive,
         allowed: &["sandbox-runtime-layerstack-core"],
+    },
+    PackagePolicy {
+        manifest: "crates/sandbox-runtime/mpla-poc/Cargo.toml",
+        name: "sandbox-runtime-mpla-poc",
+        layer: Layer::Primitive,
+        allowed: &["sandbox-runtime-layerstack", "sandbox-runtime-overlay"],
     },
     PackagePolicy {
         manifest: "crates/sandbox-runtime/overlay/Cargo.toml",
@@ -653,6 +660,11 @@ fn validate_library_and_binaries(package: &PackageFact, violations: &mut Vec<Str
         "sandbox-mcp" => &[("sandbox-mcp", &[])],
         "sandbox-gateway" => &[("sandbox-gateway", &[])],
         "sandbox-daemon" => &[("sandbox-daemon", &[])],
+        "sandbox-runtime-mpla-poc" => &[
+            ("mpla-poc", &[]),
+            ("mpla-poc-oracle", &[]),
+            ("mpla-storage-admin-v1", &[]),
+        ],
         "xtask" => &[("xtask", &[])],
         _ => &[],
     };
