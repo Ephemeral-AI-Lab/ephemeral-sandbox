@@ -11,7 +11,7 @@ path = "src/bin/mpla-poc.rs"
 
 [[bin]]
 name = "mpla-poc-oracle"
-path = "src/bin/mpla-poc-oracle.rs"
+path = "src/bin/mpla-poc-oracle/main.rs"
 
 [dependencies]
 clap.workspace = true

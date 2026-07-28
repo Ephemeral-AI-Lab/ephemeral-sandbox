@@ -1,6 +1,4 @@
-#[path = "../oracle_record.rs"]
 mod oracle_record;
-#[path = "../oracle_scan.rs"]
 mod oracle_scan;
 
 use std::path::PathBuf;
